@@ -1,0 +1,39 @@
+# MySQL connection information
+mysql:
+  host: "localhost"
+  port: 3306
+  user: "username"
+  password: "MySQLpassword"
+  db: "dbnameTipBot"
+discord:
+  token: "TiPBot_Token"
+  ownnerID: "386761001808166912"
+coin:
+  DonateAddress: "WrkzRNDQDwFCBynKPc459v3LDa1gEGzG3j962tMUBko1fw9xgdaS9mNiGMgA9s1q7hS1Z8SGRVWzcGc8Sh8xsvfZ6u2wJEtoZB"
+  prefix: 999730
+  prefixChar: "Wrkz"
+  decimal: 100
+  AddrLen: 98
+  IntAddrLen: 186
+  name: "WRKZ"
+  DiffTarget: 60
+  MinToOptimize: 1000
+  IntervalOptimize: 1800
+# wallet-service connection information
+wallet:
+  host: "127.0.0.1"
+  port: "1111"
+  mixin: 3
+# daemon rpc connection information
+daemon:
+  host: "127.0.0.1"
+  port: 17856
+# Wrkz is 2-digit, 100
+tx_fee: 5
+min_tx_amount: 100
+max_tx_amount: 1000000000
+# How many seconds between balance refresh with wallet-api
+wallet_balance_update_interval: 240
+## maintenance
+maintenance: 0
+maintenance_msg: "Bot under maintance."

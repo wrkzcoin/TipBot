@@ -2707,7 +2707,8 @@ async def stats(ctx, coin: str = None):
 async def height(ctx, coin: str = None):
     COIN_NAME = None
     if coin is None:
-        if isinstance(ctx.message.channel, discord.DMChannel):	
+        if isinstance(ctx.message.channel, discord.DMChannel):
+            await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send('Please add ticker: '+ ', '.join(ENABLE_COIN).lower() + ' with this command if in DM.')
             return
         else:
@@ -2731,7 +2732,7 @@ async def height(ctx, coin: str = None):
 
     if COIN_NAME not in ENABLE_COIN:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send('Please put available ticker: '+ ', '.join(ENABLE_COIN).lower())
+        await ctx.send(f'{ctx.author.mention} Please put available ticker: '+ ', '.join(ENABLE_COIN).lower())
         return
     elif COIN_NAME in MAINTENANCE_COIN:
         await ctx.message.add_reaction(EMOJI_ERROR)

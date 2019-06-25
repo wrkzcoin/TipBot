@@ -153,6 +153,7 @@ bot_help_address_qr = "Show an input address in QR code image."
 bot_help_payment_qr = f"Make QR code image for {COIN_REPR} payment."
 bot_help_tag = "Display a description or a link about what it is. (-add|-del) requires permission manage_channels"
 bot_help_stats = f"Show summary {COIN_REPR}: height, difficulty, etc."
+bot_help_height = f"Show {COIN_REPR}'s current height"
 bot_help_notifytip = "Toggle notify tip notification from bot ON|OFF"
 bot_help_settings = "settings view and set for prefix, default coin. Requires permission manage_channels"
 bot_help_invite = "Invite link of bot to your server."
@@ -2702,6 +2703,56 @@ async def stats(ctx, coin: str = None):
         return
 
 
+@bot.command(pass_context=True, help=bot_help_height, hidden = True)
+async def height(ctx, coin: str = None):
+    COIN_NAME = None
+    if coin is None:
+        if isinstance(ctx.message.channel, discord.DMChannel):	
+            await ctx.send('Please add ticker: '+ ', '.join(ENABLE_COIN).lower() + ' with this command if in DM.')
+            return
+        else:
+            serverinfo = store.sql_info_by_server(str(ctx.guild.id))
+            try:
+                COIN_NAME = args[0]
+                if COIN_NAME.upper() not in ENABLE_COIN:
+                    if COIN_NAME.upper() in ENABLE_COIN_DOGE:
+                        COIN_NAME = COIN_NAME.upper()
+                    elif 'default_coin' in serverinfo:
+                        COIN_NAME = serverinfo['default_coin'].upper()
+                else:
+                    COIN_NAME = COIN_NAME.upper()
+            except:
+                if 'default_coin' in serverinfo:
+                    COIN_NAME = serverinfo['default_coin'].upper()
+            coin = COIN_NAME
+            pass
+    else:
+        COIN_NAME = coin.upper()
+
+    if COIN_NAME not in ENABLE_COIN:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send('Please put available ticker: '+ ', '.join(ENABLE_COIN).lower())
+        return
+    elif COIN_NAME in MAINTENANCE_COIN:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} is under maintenance.')
+        return
+
+    gettopblock = None
+    try:
+        gettopblock = await daemonrpc_client.gettopblock(COIN_NAME)
+    except Exception as e:
+        print(e)
+
+    if gettopblock:
+        height = "{:,}".format(gettopblock['block_header']['height'])
+        await ctx.send(f'**[ {COIN_NAME} HEIGHT]**: {height}\n')
+        return
+    else:
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME}\'s status unavailable.')
+        return
+
+
 @bot.command(pass_context=True, name='setting', aliases=['settings', 'set'], help=bot_help_settings)
 @commands.has_permissions(manage_channels=True)
 async def setting(ctx, *args):
@@ -3328,6 +3379,11 @@ async def makeqr_error(ctx, error):
 
 @tag.error
 async def tag_error(ctx, error):
+    pass
+
+
+@height.error
+async def height_error(ctx, error):
     pass
 
 

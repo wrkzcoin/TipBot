@@ -17,4 +17,6 @@ TODO
   * LICENSE: <https://github.com/bigreddmachine/MoneroPy/blob/master/LICENSE>
 * <https://github.com/monero-project/mininero/blob/master/ed25519.py>
   * LICENSE: <https://github.com/monero-project/mininero/blob/master/LICENSE>
+* Font used for voucher (still in progress):
+  * <https://www.dafont.com/digital-7.font>
 * Coin creators, testers in discord servers.

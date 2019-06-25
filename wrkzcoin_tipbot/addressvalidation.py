@@ -3,12 +3,22 @@ import secrets, sha3
 import sys, re
 from binascii import hexlify, unhexlify
 from config import config
+import wallet
+
+import ed25519
 
 # byte-oriented StringIO was moved to io.BytesIO in py3k
 try:
     from io import BytesIO
 except ImportError:
     from StringIO import StringIO as BytesIO
+
+
+b = ed25519.b
+q = ed25519.q
+l = ed25519.l
+
+ENABLE_COIN = config.Enable_Coin.split(",")
 
 # CN:
 def cn_fast_hash(s):
@@ -21,17 +31,17 @@ def keccak_256(s):
     return k.hexdigest()
 
 def sc_reduce(key):
-    return _intToHexStr(_hexStrToInt(key) % l)
+    return intToHexStr(hexStrToInt(key) % l)
 
 def sc_reduce32(key):
-    return _intToHexStr(_hexStrToInt(key) % q)
+    return intToHexStr(hexStrToInt(key) % q)
 
 def public_from_int(i):
     pubkey = ed25519.encodepoint(ed25519.scalarmultbase(i))
     return hexlify(pubkey)
 
 def public_from_secret(sk):
-    return public_from_int(_hexStrToInt(sk)).decode('utf-8')
+    return public_from_int(hexStrToInt(sk)).decode('utf-8')
 
 ### base58
 # MoneroPy - A python toolbox for Monero
@@ -233,13 +243,49 @@ def varint_encode(number):
             break
     return buf
 
-## Validate address:
-def validate_address(wallet_address):
-    prefix=config.coin.prefix
-    prefix_hex=varint_encode(prefix).hex()
-    if (len(wallet_address) != int(config.coin.AddrLen)):
+
+def hexStrToInt(h):
+    '''Converts a hexidecimal string to an integer.'''
+    return int.from_bytes(unhexlify(h), "little")
+
+
+def intToHexStr(i):
+    '''Converts an integer to a hexidecimal string.'''
+    return hexlify(i.to_bytes(32, "little")).decode("latin-1")
+
+
+def validate_address_cn(wallet_address: str, coin: str):
+    if coin.upper() in ENABLE_COIN:
+        return validate_address(wallet_address, coin.upper())
+    else:
         return None
-    if not re.match(r'Wrkz[a-zA-Z0-9]{94,}', wallet_address.strip()):
+
+
+def validate_integrated_cn(wallet_address: str, coin: str):
+    if coin.upper() in ENABLE_COIN:
+        return validate_integrated(wallet_address, coin.upper())
+    else:
+        return None
+
+
+def make_integrated_cn(wallet_address, coin, integrated_id=None):
+    if coin.upper() in ENABLE_COIN:
+        return make_integrated(wallet_address, coin.upper(), integrated_id)
+    else:
+        return None
+
+
+# Validate address:
+def validate_address(wallet_address, coin: str):
+    prefix=wallet.get_prefix(coin.upper())
+    prefix_hex=varint_encode(prefix).hex()
+    main_address_len=wallet.get_addrlen(coin.upper())
+    prefix_char=wallet.get_prefix_char(coin.upper())
+    remain_length=main_address_len-len(prefix_char)
+    my_regex = r""+prefix_char+r"[a-zA-Z0-9]"+r"{"+str(remain_length)+",}"
+    if (len(wallet_address) != int(main_address_len)):
+        return None
+    if not re.match(my_regex, wallet_address.strip()):
         return None
     try:
         address_hex = decode(wallet_address)
@@ -260,13 +306,17 @@ def validate_address(wallet_address):
         return None
         pass
 
-## Validate address:
-def validate_integrated(wallet_address):
-    prefix=config.coin.prefix
+# Validate address:
+def validate_integrated(wallet_address, coin: str):
+    prefix=wallet.get_prefix(coin.upper())
     prefix_hex=varint_encode(prefix).hex()
-    if (len(wallet_address) != int(config.coin.IntAddrLen)):
+    int_address_len=wallet.get_intaddrlen(coin.upper())
+    prefix_char=wallet.get_prefix_char(coin.upper())
+    remain_length=int_address_len-len(prefix_char)
+    my_regex = r""+prefix_char+r"[a-zA-Z0-9]"+r"{"+str(remain_length)+",}"
+    if (len(wallet_address) != int(int_address_len)):
         return None
-    if not re.match(r'Wrkz[a-zA-Z0-9]{182,}', wallet_address.strip()):
+    if not re.match(my_regex, wallet_address.strip()):
         return None
     try:
         address_hex = decode(wallet_address)
@@ -290,15 +340,19 @@ def validate_integrated(wallet_address):
         return None
     return result
 
-## make_integrated address:
-def make_integrated(wallet_address, integrated_id=None):
-    prefix=config.coin.prefix
+# make_integrated address:
+def make_integrated(wallet_address, coin: str, integrated_id=None):
+    prefix=wallet.get_prefix(coin.upper())
     prefix_hex=varint_encode(prefix).hex()
-    if (integrated_id is None):
+    main_address_len=wallet.get_addrlen(coin.upper())
+    prefix_char=wallet.get_prefix_char(coin.upper())
+    remain_length=main_address_len-len(prefix_char)
+    my_regex = r""+prefix_char+r"[a-zA-Z0-9]"+r"{"+str(remain_length)+",}"
+    if integrated_id is None:
         integrated_id=paymentid()
-    if (len(wallet_address) != int(config.coin.AddrLen)):
+    if len(wallet_address) != int(main_address_len):
         return None
-    if not re.match(r'Wrkz[a-zA-Z0-9]{94,}', wallet_address.strip()):
+    if not re.match(my_regex, wallet_address.strip()):
         return None
     if not re.match(r'[a-zA-Z0-9]{64,}', integrated_id.strip()):
         return None
@@ -325,9 +379,11 @@ def make_integrated(wallet_address, integrated_id=None):
         return None
         pass
 
+
 ## make random paymentid:
 def paymentid(length=None):
-    length=32
+    if length is None:
+        length=32
     return secrets.token_hex(length) 
 
 def hextostr(hex):
@@ -338,4 +394,3 @@ def hextostr(hex):
         res = res + chr(i)
     return res
 ##########
-

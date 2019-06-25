@@ -111,6 +111,7 @@ ENABLE_COIN = config.Enable_Coin.split(",")
 ENABLE_COIN_DOGE = ["DOGE"]
 MAINTENANCE_COIN = [""]
 COIN_REPR = "COIN"
+DEFAULT_TICKER = "WRKZ"
 ENABLE_COIN_VOUCHER = config.Enable_Coin_Voucher.split(",")
 
 # Some notice about coin that going to swap or take out.
@@ -384,7 +385,7 @@ async def info(ctx, coin: str = None):
                 servername = ctx.message.guild.name
                 server_id = str(ctx.guild.id)
                 server_prefix = config.discord.prefixCmd
-                server_coin = config.coin.name
+                server_coin = DEFAULT_TICKER
             else:
                 servername = serverinfo['servername']
                 server_id = str(ctx.guild.id)
@@ -477,7 +478,7 @@ async def balance(ctx, coin: str = None):
             servername = ctx.message.guild.name
             server_id = str(ctx.guild.id)
             server_prefix = config.discord.prefixCmd
-            server_coin = config.coin.name
+            server_coin = DEFAULT_TICKER
         else:
             servername = serverinfo['servername']
             server_id = str(ctx.guild.id)
@@ -2046,7 +2047,7 @@ async def send(ctx, amount: str, CoinAddress: str):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You can not send to your own deposit address.')
         return
 
-    if real_amount + config.tx_fee >= user_from['actual_balance']:
+    if real_amount + get_tx_fee(COIN_NAME) >= user_from['actual_balance']:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
                        f'{num_format_coin(real_amount, COIN_NAME)} '
@@ -2721,7 +2722,7 @@ async def setting(ctx, *args):
         servername = ctx.message.guild.name
         server_id = str(ctx.guild.id)
         server_prefix = config.discord.prefixCmd
-        server_coin = config.coin.name
+        server_coin = DEFAULT_TICKER
     else:
         servername = serverinfo['servername']
         server_id = str(ctx.guild.id)
@@ -3179,7 +3180,7 @@ def get_info_pref_coin(ctx):
             servername = ctx.message.guild.name
             server_id = str(ctx.guild.id)
             server_prefix = config.discord.prefixCmd
-            server_coin = config.coin.name
+            server_coin = DEFAULT_TICKER
         else:
             servername = serverinfo['servername']
             server_id = str(ctx.guild.id)

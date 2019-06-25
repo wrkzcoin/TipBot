@@ -25,7 +25,7 @@ def call_method(method_name: str, payload: Dict = None) -> Dict:
         'method': f'{method_name}'
     }
     resp = requests.post(
-        f'http://{config.wallet.host}:{config.wallet.port}/json_rpc',
+        f'http://{config.daemonWRKZ.wallethost}:{config.daemonWRKZ.walletport}/json_rpc',
         json=full_payload)
     resp.raise_for_status()
     json_resp = resp.json()

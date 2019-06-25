@@ -1,0 +1,424 @@
+# MySQL connection information
+mysql:
+  host: "localhost"
+  port: 3306
+  user: "userdb"
+  password: "passwordhere"
+  db: "userdb"
+discord:
+  prefixCmd: "."
+  token: "--your-bot-token--"
+# WRKZ
+daemonWRKZ:
+  host: "127.0.0.1"
+  port: 17856
+  # WRKZ is 2-digit, 100
+  wallethost: "127.0.0.1"
+  walletport: "1101"
+  mixin: 3
+  tx_fee: 10
+  min_tx_amount: 100
+  max_tx_amount: 1000000000
+  # other settings
+  DonateAddress: "WrkzRNDQDwFCBynKPc459v3LDa1gEGzG3j962tMUBko1fw9xgdaS9mNiGMgA9s1q7hS1Z8SGRVWzcGc8Sh8xsvfZ6u2wJEtoZB"
+  prefix: 999730
+  prefixChar: "Wrkz"
+  decimal: 100
+  AddrLen: 98
+  IntAddrLen: 186
+  name: "WRKZ"
+  DiffTarget: 60
+  MinToOptimize: 1000
+  IntervalOptimize: 600
+# TRTL
+daemonTRTL:
+  host: "127.0.0.1"
+  port: 11898
+  # TRTL is 2-digit, 100
+  wallethost: "127.0.0.1"
+  walletport: "1102"
+  mixin: 3
+  tx_fee: 10
+  min_tx_amount: 10
+  max_tx_amount: 1000000000
+  # other settings
+  DonateAddress: "TRTLv2k5RgwQkcXsZpue9ELGq49PEQbgZ7sAncv82GqTc3rehKqRLM7jomrji4zek76hWiYkKKizQFfny1TvvcvyBxqnvcsTfKi"
+  prefix: 3914525
+  prefixChar: "TRTL"
+  decimal: 100
+  AddrLen: 99
+  IntAddrLen: 187
+  name: "TRTL"
+  DiffTarget: 30
+  MinToOptimize: 1000
+  IntervalOptimize: 600
+# DEGO
+daemonDEGO:
+  host: "127.0.0.1"
+  port: 6969
+  # DEGO is 2-digit, 100
+  wallethost: "127.0.0.1"
+  walletport: "1103"
+  mixin: 0
+  tx_fee: 10
+  min_tx_amount: 100
+  max_tx_amount: 1000000000000
+  # other settings
+  DonateAddress: "dg4nUdJyHV1ZCrYV7kHvTE9HkKT9ynKCW1Antm1ku8ihhsN1PkiH2fFfwsGt2y7UsN3rALr4gg8oz87vpxjaVF8g1uUWKH7pE"
+  prefix: 8411
+  prefixChar: "dg"
+  decimal: 100
+  AddrLen: 97
+  IntAddrLen: 185
+  name: "DEGO"
+  DiffTarget: 20
+  MinToOptimize: 1000
+  IntervalOptimize: 600
+# LCX
+daemonLCX:
+  host: "127.0.0.1"
+  port: 10002
+  # LCX is 8-digit, 100000000
+  wallethost: "127.0.0.1"
+  walletport: "1104"
+  mixin: 3
+  tx_fee: 100
+  min_tx_amount: 1000000
+  max_tx_amount: 50000000000
+  # other settings
+  DonateAddress: "Xwo7uFphFu8ZNMQbMiNBk44inamgYTHBWCUMMEX3Pio7VnZhBycbbTh8huduWoHebmVKTFtbjdL6XFpKW7ePBvud2NdnUgktP"
+  prefix: 185
+  prefixChar: "Xw"
+  decimal: 100000000
+  AddrLen: 97
+  IntAddrLen: 185
+  name: "LCX"
+  DiffTarget: 120
+  MinToOptimize: 100
+  IntervalOptimize: 600
+# CAT
+daemonCX:
+  host: "127.0.0.1"
+  port: 17291
+  # CAT is 7-digit, 10000000
+  wallethost: "127.0.0.1"
+  walletport: "1105"
+  mixin: 3
+  tx_fee: 10000
+  min_tx_amount: 100000
+  max_tx_amount: 50000000000
+  # other settings
+  DonateAddress: "cat1LSDxqYDQ5e1uzDWB2tK7MdzVZibmz3S1Zk8XEkodAinFX3PaUyL9FS5KzLtJyzDBUpMUtqhMVQwqd4jQ3eov8cLaQupx7h"
+  prefix: 1515348
+  prefixChar: "cat1"
+  decimal: 10000000
+  AddrLen: 98
+  IntAddrLen: 186
+  name: "CX"
+  DiffTarget: 60
+  MinToOptimize: 100
+  IntervalOptimize: 600
+# OSL
+daemonOSL:
+  host: "127.0.0.1"
+  port: 11246
+  # OSL is 2-digit, 100
+  wallethost: "127.0.0.1"
+  walletport: "1106"
+  mixin: 3
+  tx_fee: 10
+  min_tx_amount: 100
+  max_tx_amount: 100000000
+  # other settings
+  DonateAddress: "hannwSd92qJ2U7cJzEq1DjHZJDc6F2QU5AUJUmhAy3MSWkBNPZSgC2yJevTUSHaSbS2ygiPFV9ocxB1FKk1F2kaDhWG3sNBAobw"
+  prefix: 2560114
+  prefixChar: "hannw"
+  decimal: 100
+  AddrLen: 99
+  IntAddrLen: 187
+  name: "OSL"
+  DiffTarget: 60
+  MinToOptimize: 100
+  IntervalOptimize: 600
+# BTCM
+daemonBTCM:
+  host: "127.0.0.1"
+  port: 11358
+  # BTCM is 4-digit, 10000
+  wallethost: "127.0.0.1"
+  walletport: "1107"
+  mixin: 0
+  tx_fee: 1000
+  min_tx_amount: 1000
+  max_tx_amount: 1000000000000
+  # other settings
+  DonateAddress: "btcmzTHkHtyhMoh8rjKgfvD13yFhs4eMmVBbuRcBMBZLdK67HCFbc4LegfEggApq8R2JJo8198vc4SwRjytTEbFZVvz6AyEUkuP"
+  prefix: 3771344
+  prefixChar: "btcm"
+  decimal: 10000
+  AddrLen: 99
+  IntAddrLen: 187
+  name: "BTCM"
+  DiffTarget: 50
+  MinToOptimize: 100
+  IntervalOptimize: 600
+# MTIP
+daemonMTIP:
+  host: "127.0.0.1"
+  port: 13002
+  # MTIP is 2-digit, 100
+  wallethost: "127.0.0.1"
+  walletport: "1108"
+  mixin: 7
+  tx_fee: 10
+  min_tx_amount: 100
+  max_tx_amount: 100000000
+  # other settings
+  DonateAddress: "dicKTiPZWWJayG6pRmLJBMiBSuvy53bsWfAx4iZbjRZFHWRTcyArAsJNxNiQAurATiU9FZz9a7DhWSyTQCgoWZncSFJ51gx4oEe8aZ"
+  prefix: 341640118875
+  prefixChar: "dicKTiPZ"
+  decimal: 100
+  AddrLen: 102
+  IntAddrLen: 190
+  name: "MTIP"
+  DiffTarget: 45
+  MinToOptimize: 100
+  IntervalOptimize: 600
+# XCY
+daemonXCY:
+  host: "127.0.0.1"
+  port: 11975
+  # XCY is 6-digit, 1000000
+  wallethost: "127.0.0.1"
+  walletport: "1109"
+  mixin: 3
+  tx_fee: 1000
+  min_tx_amount: 10000
+  max_tx_amount: 10000000000
+  # other settings
+  DonateAddress: "XCY1Qxk6pu2XSeYGNiz7ahH6gsk1puFkpayzib6cnKNdiegJ7XN3Atrb19knAtrEw1T1YFsECpSk13c1MZs5eugZ6TaoigbLHW"
+  prefix: 411188
+  prefixChar: "XCY1"
+  decimal: 1000000
+  AddrLen: 98
+  IntAddrLen: 186
+  name: "XCY"
+  DiffTarget: 60
+  MinToOptimize: 100
+  IntervalOptimize: 600
+# PLE
+daemonPLE:
+  host: "127.0.0.1"
+  port: 44016
+  # PLE is 8-digit, 100000000
+  wallethost: "127.0.0.1"
+  walletport: "1110"
+  mixin: 1
+  tx_fee: 0
+  min_tx_amount: 100000
+  max_tx_amount: 10000000000000
+  # other settings
+  DonateAddress: "PLeab79Y3pYicPBuWrqugNG64KLsdwfgfJrrpsvemtuk3wuwFkmVYWo9obMyrdoJQvVBLXkAyyNYBAoJsfTSLMge7HirqLvHnR"
+  prefix: 18181
+  prefixChar: "PLe"
+  decimal: 100000000
+  AddrLen: 98
+  IntAddrLen: 186
+  name: "PLE"
+  DiffTarget: 120
+  MinToOptimize: 1
+  IntervalOptimize: 600
+# ANX
+daemonANX:
+  host: "127.0.0.1"
+  port: 19000
+  # ANX is 6-digit, 1000000
+  wallethost: "127.0.0.1"
+  walletport: "1111"
+  mixin: 1
+  tx_fee: 100
+  min_tx_amount: 10000
+  max_tx_amount: 1000000000
+  # other settings
+  DonateAddress: "aNX1BzCqWRqJ1ghzAfry6SeTXkLhZ6RoHhkN7KfDJbHo8ppNJAF2TjJ2CU7dJy1ufDRpqizD6RdvmQYkgQh9vUT7APmDaLjG4E"
+  prefix: 410055
+  prefixChar: "aNX1"
+  decimal: 1000000
+  AddrLen: 98
+  IntAddrLen: 186
+  name: "ANX"
+  DiffTarget: 120
+  MinToOptimize: 1
+  IntervalOptimize: 600
+# ELPH
+daemonELPH:
+  host: "127.0.0.1"
+  port: 45501
+  # ELPH is 5-digit, 100000
+  wallethost: "127.0.0.1"
+  walletport: "1112"
+  mixin: 2
+  tx_fee: 10
+  min_tx_amount: 1000
+  max_tx_amount: 1000000000
+  # other settings
+  DonateAddress: "PhyrexWVx9MWKTkXbt19wZM5ePQhfhEngUcAfHoZa3nYR4v5tkit8xAZFKSHVJ6r19CYr5PX9qRGYgzAkPDbz1mCi4zVPQSiUYA34"
+  prefix: 536567815
+  prefixChar: "Phyrex"
+  decimal: 100000
+  AddrLen: 101
+  IntAddrLen: 189
+  name: "ELPH"
+  DiffTarget: 120
+  MinToOptimize: 1
+  IntervalOptimize: 600
+# NBX
+daemonNBX:
+  host: "127.0.0.1"
+  port: 17122
+  # NBX is 2-digit, 100
+  wallethost: "127.0.0.1"
+  walletport: "1113"
+  mixin: 5
+  tx_fee: 10
+  min_tx_amount: 10
+  max_tx_amount: 1000000
+  # other settings
+  DonateAddress: "Nib1rtzdmtvNTX1h4mhnDTMY7Vzmxt6KWXhKVrxe3fescuCRvRrj915Bhr7Er2bDse8Fioeqb4rp1A6xrVwpRjSs9inVnsp6Ee"
+  prefix: 1682177
+  prefixChar: "Nib1"
+  decimal: 100
+  AddrLen: 98
+  IntAddrLen: 186
+  name: "NBX"
+  DiffTarget: 150
+  MinToOptimize: 1
+  IntervalOptimize: 600
+# ARMS
+daemonARMS:
+  host: "127.0.0.1"
+  port: 17910
+  # ARMS is 8-digit, 100000000
+  wallethost: "127.0.0.1"
+  walletport: "1114"
+  mixin: 1
+  tx_fee: 50000
+  min_tx_amount: 50000
+  max_tx_amount: 500000000000
+  # other settings
+  DonateAddress: "guns5ZBcUEAUAu4uW8KaNj8VuMhkqwqyMcL7KuNtTpcpEDKhEDX5SRBAZDuFjjLoss9E4UHi58RS26mdpWADi77c6eBeo8PQ4R"
+  prefix: 2084334
+  prefixChar: "guns"
+  decimal: 100000000
+  AddrLen: 98
+  IntAddrLen: 186
+  name: "ARMS"
+  DiffTarget: 90
+  MinToOptimize: 1
+  IntervalOptimize: 600
+# IRD
+daemonIRD:
+  host: "127.0.0.1"
+  port: 13007
+  # IRD is 8-digit, 100000000
+  wallethost: "127.0.0.1"
+  walletport: "1115"
+  mixin: 2
+  tx_fee: 5000
+  min_tx_amount: 5000
+  max_tx_amount: 5000000000000
+  # other settings
+  DonateAddress: "guns5ZBcUEAUAu4uW8KaNj8VuMhkqwqyMcL7KuNtTpcpEDKhEDX5SRBAZDuFjjLoss9E4UHi58RS26mdpWADi77c6eBeo8PQ4R"
+  prefix: 5882
+  prefixChar: "ir"
+  decimal: 100000000
+  AddrLen: 97
+  IntAddrLen: 185
+  name: "IRD"
+  DiffTarget: 175
+  MinToOptimize: 1
+  IntervalOptimize: 600
+# HITC
+daemonHITC:
+  host: "127.0.0.1"
+  port: 11211
+  # HITC is 4-digit, 10000
+  wallethost: "127.0.0.1"
+  walletport: "1116"
+  mixin: 3
+  tx_fee: 1000
+  min_tx_amount: 10000
+  max_tx_amount: 10000000
+  # other settings
+  DonateAddress: "hi2xyfJMmgHfCzvckqVCppRNVXAwbjFivYrNkfHr35MYYkBtCe2YMyrUcu4hGr2h6SZkzzpiDXnosQJz91EJkLG42mhzrxXBG"
+  prefix: 12275
+  prefixChar: "hi"
+  decimal: 10000
+  AddrLen: 97
+  IntAddrLen: 185
+  name: "HITC"
+  DiffTarget: 60
+  MinToOptimize: 1
+  IntervalOptimize: 600
+# NACA
+daemonNACA:
+  host: "127.0.0.1"
+  port: 24888
+  # NACA is 8-digit, 100000000
+  wallethost: "127.0.0.1"
+  walletport: "1117"
+  mixin: 3
+  tx_fee: 10
+  min_tx_amount: 10000
+  max_tx_amount: 100000000000
+  # other settings
+  DonateAddress: "NaCadWbwJZcCPQ9LaALkZYSsCod7Zv7fq5TBoGd5G7AjcAp5thChznWTGjnn3jZjpE3uXHSgzajLjM5nvVfSYFKU1H7sgirrvt"
+  prefix: 375936
+  prefixChar: "NaCa"
+  decimal: 100000000
+  AddrLen: 98
+  IntAddrLen: 186
+  name: "NACA"
+  DiffTarget: 60
+  MinToOptimize: 1
+  IntervalOptimize: 600
+# DOGECOIN. DOGE is real amount
+daemonDOGE:
+  host: "127.0.0.1"
+  rpcport: 22533
+  username: "dogecoinusername"
+  password: "dogecoinpassword"
+  DonateAccount: "DonateWrkz"
+  DonateAddress: "D6QP5XhXvqosso2dk8yRrFrwvH9UUEGP9z"
+  AddrLen: 34
+  min_mv_amount: 0.0001
+  max_mv_amount: 5000
+  tx_fee: 1
+  min_tx_amount: 10
+  max_tx_amount: 5000
+  name: "DOGE"
+# How many seconds between balance refresh with wallet-api
+wallet_balance_update_interval: 60
+# Flood tip limit per 10 seconds
+floodTip: 6
+floodTipDuration: 10
+# Enable Coin
+Enable_Coin: "TRTL,DEGO,WRKZ,LCX,CX,OSL,BTCM,MTIP,XCY,PLE,ELPH,ANX,NBX,ARMS,IRD,HITC,NACA"
+# maintenance
+maintenance: 0
+maintenance_msg: "Bot under maintance."
+tipallMax: 150
+# Enable Coin Voucher
+Enable_Coin_Voucher: "WRKZ,TRTL"
+# Enable Message Loggin for debug or checking.
+Enable_Message_Logging: 0
+# coin that use wallet-service
+wallet_service_coin: [""]
+# Other settings:
+qrsettings:
+  path: "/home/user/tipbot/wrkzcoin-tipbot/data/qrcodes/"
+  path_voucher_defaultimg: "/home/user/tipbot/wrkzcoin-tipbot/images/voucher_frame1.png"
+  path_voucher_create: "/home/user/tipbot/wrkzcoin-tipbot/voucher_images/"
+  coin_logo_path: "/home/user/tipbot/wrkzcoin-tipbot/coin_logo/"
+font:
+  digital7: "/home/user/tipbot/wrkzcoin-tipbot/fonts/digital-7 (mono).ttf"

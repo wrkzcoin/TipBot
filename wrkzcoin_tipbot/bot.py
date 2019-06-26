@@ -365,16 +365,17 @@ async def on_message(message):
     await bot.invoke(ctx)
 
 
-@bot.command(pass_context=True, name='info', aliases=['wallet', 'tipjar'], help=bot_help_info)
+@bot.command(pass_context=True, name='info', aliases=['wallet'], help=bot_help_info)
 async def info(ctx, coin: str = None):
     global LIST_IGNORECHAN
     wallet = None
     if coin is None:
+        cmdName = ctx.message.content.split(" ")[0]
         if isinstance(ctx.channel, discord.DMChannel):
             prefixChar = '.'
             tickers = '|'.join(ENABLE_COIN).lower()
             await ctx.send(
-                f'**Please add ticker in info**. Example: `{prefixChar}info {tickers}`')
+                f'Please add ticker after **{cmdName[1:].lower()}**. Example: `{prefixChar}{cmdName[1:].lower()} {tickers}`')
             return
         else:
             serverinfo = store.sql_info_by_server(str(ctx.guild.id))
@@ -410,7 +411,7 @@ async def info(ctx, coin: str = None):
                 '```')
             tickers = '|'.join(ENABLE_COIN).lower()
             await ctx.send(
-                f'Please add ticker in info. Example: `{server_prefix}info {tickers}`, if you want to get your address info.\n\n'
+                f'Please add ticker after **{cmdName[1:].lower()}**. Example: `{server_prefix}{cmdName[1:].lower()} {server_coin}`, if you want to get your address(es).\n\n'
                 f'Type: `{server_prefix}setting` if you want to change `prefix` or `default_coin` or `ignorechan` or `del_ignorechan`. (Required permission)')
             return
     elif coin.upper() in ENABLE_COIN:

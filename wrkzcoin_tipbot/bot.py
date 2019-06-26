@@ -1087,7 +1087,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
     else:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await botLogChan.send(f'A user failed to execute `.withdraw {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`')
-        await ctx.send(f'{ctx.author.mention} You may need to `.optimize` or try again.')
+        await ctx.send(f'{ctx.author.mention} You may need to `optimize` or try again.')
         return
 
 
@@ -1263,7 +1263,7 @@ async def donate(ctx, amount: str, coin: str = None):
         return
     else:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send('{ctx.author.mention} Thank you but you may need to `.optimize` or try again later.')
+        await ctx.send(f'{ctx.author.mention} Thank you but you may need to `optimize` or try again later.')
         return
 
 
@@ -2114,7 +2114,7 @@ async def send(ctx, amount: str, CoinAddress: str):
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await botLogChan.send(f'A user failed to execute `.send {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}` with paymentid.')
-            await ctx.send('{ctx.author.mention} You may need to `.optimize` or retry.')
+            await ctx.send('{ctx.author.mention} You may need to `optimize` or retry.')
             return
     else:
         tip = None
@@ -2403,12 +2403,12 @@ async def optimize(ctx, coin: str, member: discord.Member = None):
         pass
     # End Check if maintenance
 
-    # Check if user has a proper wallet with balance bigger than 100,000,000 real balance
+    # Check if user has a proper wallet with balance bigger than setting balance
     user_from = store.sql_get_userwallet(ctx.message.author.id, COIN_NAME)
     if 'lastOptimize' in user_from:
         if int(time.time()) - int(user_from['lastOptimize']) < int(get_interval_opt(COIN_NAME)):
             await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} **{COIN_NAME}** Please wait. You just did `.optimize` within last 10mn.')
+            await ctx.send(f'{EMOJI_RED_NO} **{COIN_NAME}** {ctx.author.mention} Please wait. You just did `optimize` within last 10mn.')
             return
         pass
     if int(user_from['actual_balance']) / get_decimal(COIN_NAME) < int(get_min_opt(COIN_NAME)):
@@ -2419,10 +2419,10 @@ async def optimize(ctx, coin: str, member: discord.Member = None):
         # check if optimize has done for last 30mn
         # and if last 30mn more than 5 has been done in total
         countOptimize = store.sql_optimize_check(COIN_NAME)
-        if (countOptimize >= 5):
+        if countOptimize >= 5:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(
-                f'{EMOJI_RED_NO} {COIN_NAME} Please wait. There are a few `.optimize` within last 10mn from other people.')
+                f'{EMOJI_RED_NO} {COIN_NAME} {ctx.author.mention} Please wait. There are a few `optimize` within last 10mn from other people.')
             return
         else:
             # let's optimize and set status
@@ -3674,7 +3674,7 @@ async def _tip(ctx, amount, coin: str = None):
         return
     else:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You may need to `.optimize` or try again.')
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You may need to `optimize` or try again.')
         return
 
 
@@ -3912,7 +3912,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
         return
     else:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send('You may need to `.optimize` or try again later.')
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You may need to `optimize` or try again later.')
         return
 
 

@@ -2859,7 +2859,7 @@ async def setting(ctx, *args):
         await ctx.send('In valid command input and parameter.')
         return
 
-@bot.command(pass_context=True, name='addressqr', aliases=['qr', 'showqr'], help=bot_help_address_qr)
+@bot.command(pass_context=True, name='addressqr', aliases=['qr', 'showqr'], help=bot_help_address_qr, hidden = True)
 async def addressqr(ctx, *args):
     # Check if address is valid first
     if len(args) == 0:
@@ -2958,7 +2958,7 @@ async def addressqr(ctx, *args):
         return
 
 
-@bot.command(pass_context=True, name='makeqr', aliases=['make-qr', 'paymentqr', 'payqr'], help=bot_help_payment_qr)
+@bot.command(pass_context=True, name='makeqr', aliases=['make-qr', 'paymentqr', 'payqr'], help=bot_help_payment_qr, hidden = True)
 async def makeqr(ctx, *args):
     if len(args) < 2:
         await ctx.send('**[ MAKE QR EXAMPLES ]**\n'

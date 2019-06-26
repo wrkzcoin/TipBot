@@ -371,11 +371,14 @@ async def info(ctx, coin: str = None):
     wallet = None
     if coin is None:
         cmdName = ctx.message.content.split(" ")[0]
+        cmdName = cmdName[1:]
+        if cmdName.lower not in ['wallet', 'info']:
+            cmdName = ctx.message.content.split(" ")[1]
         if isinstance(ctx.channel, discord.DMChannel):
             prefixChar = '.'
             tickers = '|'.join(ENABLE_COIN).lower()
             await ctx.send(
-                f'Please add ticker after **{cmdName[1:].lower()}**. Example: `{prefixChar}{cmdName[1:].lower()} {tickers}`')
+                f'Please add ticker after **{cmdName.lower()}**. Example: `{prefixChar}{cmdName.lower()} {tickers}`')
             return
         else:
             serverinfo = store.sql_info_by_server(str(ctx.guild.id))
@@ -411,7 +414,7 @@ async def info(ctx, coin: str = None):
                 '```')
             tickers = '|'.join(ENABLE_COIN).lower()
             await ctx.send(
-                f'Please add ticker after **{cmdName[1:].lower()}**. Example: `{server_prefix}{cmdName[1:].lower()} {server_coin}`, if you want to get your address(es).\n\n'
+                f'Please add ticker after **{cmdName.lower()}**. Example: `{server_prefix}{cmdName.lower()} {server_coin}`, if you want to get your address(es).\n\n'
                 f'Type: `{server_prefix}setting` if you want to change `prefix` or `default_coin` or `ignorechan` or `del_ignorechan`. (Required permission)')
             return
     elif coin.upper() in ENABLE_COIN:

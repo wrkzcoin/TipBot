@@ -105,7 +105,7 @@ EMOJI_DOGE = "\U0001F436"
 EMOJI_RED_NO = "\u26D4"
 EMOJI_SPEAK = "\U0001F4AC"
 EMOJI_ARROW_RIGHTHOOK = "\u21AA"
-
+EMOJI_FORWARD = "\u23E9"
 
 ENABLE_COIN = config.Enable_Coin.split(",")
 ENABLE_COIN_DOGE = ["DOGE"]
@@ -144,6 +144,7 @@ bot_help_balance = f"Check your {COIN_REPR} balance."
 bot_help_botbalance = f"Check (only) bot {COIN_REPR} balance."
 bot_help_donate = f"Donate {COIN_REPR} to a Bot Owner."
 bot_help_tip = f"Give {COIN_REPR} to a user from your balance."
+bot_help_forwardtip = f"Forward all your received tip of {COIN_REPR} to registered wallet."
 bot_help_tipall = f"Spread a tip amount of {COIN_REPR} to all online members."
 bot_help_send = f"Send {COIN_REPR} to a {COIN_REPR} address from your balance (supported integrated address)."
 bot_help_optimize = f"Optimize your tip balance of {COIN_REPR} for large tip, send, tipall, withdraw"
@@ -816,6 +817,46 @@ async def botbalance(ctx, member: discord.Member = None, *args):
         return
 
 
+@bot.command(pass_context=True, name='forwardtip', aliases=['redirecttip'],
+             help=bot_help_forwardtip)
+async def forwardtip(ctx, coin: str, option: str):
+    # Check to test
+    # if ctx.message.author.id not in MAINTENANCE_OWNER:
+        # await ctx.message.add_reaction(EMOJI_WARNING)
+        # await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Still under testing. Try again in the future.')
+        # return
+    # End Check
+    COIN_NAME = coin.upper()
+    if COIN_NAME not in ENABLE_COIN:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{ctx.author.mention} Please use available ticker: '+ ', '.join(ENABLE_COIN).lower())
+        return
+    if option.upper() not in ["ON", "OFF"]:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{ctx.author.mention} Parameter must be: **ON** or **OFF**')
+        return
+
+    userwallet = store.sql_get_userwallet(ctx.message.author.id, COIN_NAME)
+    if userwallet is None:
+        userregister = store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+        userwallet = store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+    #print(userwallet)
+    # Do not allow to ON if 'user_wallet_address' is None
+    if ('user_wallet_address' not in userwallet) and option.upper() == "ON":
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{ctx.author.mention} You have\'t registered an address for **{COIN_NAME}**')
+        return
+    if userwallet['forwardtip'].upper() == option.upper():
+        await ctx.message.add_reaction(EMOJI_WARNING)
+        await ctx.send(f'{ctx.author.mention} You have this forwardtip already: **{option.upper()}**')
+        return
+    else:
+        setforward = store.sql_set_forwardtip(str(ctx.message.author.id), COIN_NAME, option.upper())
+        await ctx.message.add_reaction(EMOJI_OK)
+        await ctx.send(f'{ctx.author.mention} You set forwardtip of {COIN_NAME} to: **{option.upper()}**')
+        return
+
+
 @bot.command(pass_context=True, name='register', aliases=['registerwallet', 'reg', 'updatewallet'],
              help=bot_help_register)
 async def register(ctx, wallet_address: str):
@@ -1415,9 +1456,16 @@ async def tip(ctx, amount: str, *args):
     # End Check if maintenance
 
     notifyList = store.sql_get_tipnotify()
+    has_forwardtip = None
+    address_to = None
     if COIN_NAME in ENABLE_COIN:
         user_from = store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-        user_to = store.sql_register_user(str(member.id), COIN_NAME)
+        user_to = store.sql_get_userwallet(str(member.id), COIN_NAME)
+        if user_to is None:
+            userregister = store.sql_register_user(str(member.id), COIN_NAME)
+            user_to = store.sql_get_userwallet(str(member.id), COIN_NAME)
+        if user_to['forwardtip'] == "ON":
+            has_forwardtip = True
         COIN_DEC = get_decimal(COIN_NAME)
         real_amount = int(amount * COIN_DEC)
         netFee = get_tx_fee(COIN_NAME)
@@ -1458,7 +1506,10 @@ async def tip(ctx, amount: str, *args):
         tip = store.sql_mv_doge_single(str(ctx.message.author.id), str(member.id), real_amount, COIN_NAME, "TIP")
         if tip:
             servername = serverinfo['servername']
-            await ctx.message.add_reaction(EMOJI_TIP)
+            if has_forwardtip:
+                await ctx.message.add_reaction(EMOJI_FORWARD)
+            else:
+                await ctx.message.add_reaction(EMOJI_TIP)
             # tipper shall always get DM. Ignore notifyList
             try:
                 await ctx.message.author.send(
@@ -1534,7 +1585,10 @@ async def tip(ctx, amount: str, *args):
         print(e)
     if tip:
         servername = serverinfo['servername']
-        await ctx.message.add_reaction(EMOJI_TIP)
+        if has_forwardtip:
+            await ctx.message.add_reaction(EMOJI_FORWARD)
+        else:
+            await ctx.message.add_reaction(EMOJI_TIP)
         # tipper shall always get DM. Ignore notifyList
         try:
             await ctx.message.author.send(
@@ -1739,13 +1793,24 @@ async def tipall(ctx, amount: str, *args):
         return
     # End of checking receivers numbers.
     memids = []  # list of member ID
+    has_forwardtip = None
     for member in listMembers:
         # print(member.name) # you'll just print out Member objects your way.
         if ctx.message.author.id != member.id:
-            user_to = store.sql_register_user(str(member.id), COIN_NAME)
+            user_to = store.sql_get_userwallet(str(member.id), COIN_NAME)
+            if user_to is None:
+                userregister = store.sql_register_user(str(member.id), COIN_NAME)
+                user_to = store.sql_get_userwallet(str(member.id), COIN_NAME)
             if str(member.status) != 'offline':
                 if member.bot == False:
-                    memids.append(user_to['balance_wallet_address'])
+                    address_to = None
+                    if user_to['forwardtip'] == "ON":
+                        has_forwardtip = True
+                        address_to = user_to['user_wallet_address']
+                    else:
+                        address_to = user_to['balance_wallet_address']
+                    if address_to:
+                        memids.append(address_to)
 
     user_from = store.sql_get_userwallet(ctx.message.author.id, COIN_NAME)
 
@@ -1816,6 +1881,8 @@ async def tipall(ctx, amount: str, *args):
     if tip:
         servername = serverinfo['servername']
         await ctx.message.add_reaction(EMOJI_TIP)
+        if has_forwardtip:
+            await ctx.message.add_reaction(EMOJI_FORWARD)
         store.sql_update_some_balances(addresses, COIN_NAME)
         TotalSpend = num_format_coin(real_amount, COIN_NAME)
         ActualSpend = int(amountDiv * len(destinations) + netFee)
@@ -3325,6 +3392,11 @@ async def botbalance_error(ctx, error):
     pass
 
 
+@forwardtip.error
+async def forwardtip_error(ctx, error):
+    pass
+
+
 @withdraw.error
 async def withdraw_error(ctx, error):
     if isinstance(error, commands.MissingRequiredArgument):
@@ -3582,11 +3654,22 @@ async def _tip(ctx, amount, coin: str = None):
     listMembers = ctx.message.mentions
 
     memids = []  # list of member ID
+    has_forwardtip = True
     for member in listMembers:
         # print(member.name) # you'll just print out Member objects your way.
-        if (ctx.message.author.id != member.id):
-            user_to = store.sql_register_user(str(member.id), COIN_NAME)
-            memids.append(user_to['balance_wallet_address'])
+        if ctx.message.author.id != member.id:
+            user_to = store.sql_get_userwallet(str(member.id), COIN_NAME)
+            if user_to is None:
+                userregister = store.sql_register_user(str(member.id), COIN_NAME)
+                user_to = store.sql_get_userwallet(str(member.id), COIN_NAME)
+            address_to = None
+            if user_to['forwardtip'] == "ON":
+                address_to = user_to['user_wallet_address']
+                has_forwardtip = True
+            else:
+                address_to = user_to['balance_wallet_address']
+            if address_to:
+                memids.append(address_to)
 
     addresses = []
     for desti in memids:
@@ -3649,6 +3732,8 @@ async def _tip(ctx, amount, coin: str = None):
         servername = serverinfo['servername']
         store.sql_update_some_balances(addresses, COIN_NAME)
         await ctx.message.add_reaction(EMOJI_TIP)
+        if has_forwardtip:
+            await ctx.message.add_reaction(EMOJI_FORWARD)
         # tipper shall always get DM. Ignore notifyList
         try:
             await ctx.message.author.send(f'{EMOJI_ARROW_RIGHTHOOK} Total tip of {num_format_coin(ActualSpend, COIN_NAME)} '
@@ -3816,10 +3901,21 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
 
     destinations = []
     memids = []  # list of member ID
+    has_forwardtip = None
     for member_id in list_talker:
         if member_id != ctx.message.author.id:
-            user_to = store.sql_register_user(str(member_id), COIN_NAME)
-            memids.append(user_to['balance_wallet_address'])
+            user_to = store.sql_get_userwallet(str(member_id), COIN_NAME)
+            if user_to is None:
+                userregister = store.sql_register_user(str(member_id), COIN_NAME)
+                user_to = store.sql_get_userwallet(str(member_id), COIN_NAME)
+            address_to = None
+            if user_to['forwardtip'] == "ON":
+                has_forwardtip = True
+                address_to = user_to['user_wallet_address']
+            else:
+                address_to = user_to['balance_wallet_address']
+            if address_to:
+                memids.append(address_to)
 
     addresses = []
     for desti in memids:
@@ -3883,6 +3979,8 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
         store.sql_update_some_balances(addresses, COIN_NAME)
         await ctx.message.add_reaction(EMOJI_TIP)
         await ctx.message.add_reaction(EMOJI_SPEAK)
+        if has_forwardtip:
+            await ctx.message.add_reaction(EMOJI_FORWARD)
         # tipper shall always get DM. Ignore notifyList
         try:
             await ctx.message.author.send(f'{EMOJI_ARROW_RIGHTHOOK} Total tip of {num_format_coin(ActualSpend, COIN_NAME)} '

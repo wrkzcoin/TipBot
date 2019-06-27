@@ -233,7 +233,7 @@ def sql_get_userwallet(userID, coin: str = None):
         with conn.cursor() as cur:
             if coin.upper() in ENABLE_COIN:
                 sql = """ SELECT user_id, balance_wallet_address, user_wallet_address, balance_wallet_address_ts, 
-                          balance_wallet_address_ch, lastOptimize 
+                          balance_wallet_address_ch, lastOptimize, forwardtip 
                           FROM """+coin.lower()+"""_user WHERE `user_id`=%s LIMIT 1 """
             elif coin.upper() in ENABLE_COIN_DOGE:
                 sql = """ SELECT user_id, balance_wallet_address, user_wallet_address, balance_wallet_address_ts, 
@@ -273,6 +273,8 @@ def sql_get_userwallet(userID, coin: str = None):
                 if coin.upper() in ENABLE_COIN:
                     if result[5]:
                         userwallet['lastOptimize'] = result[5]
+                    if result[6]:
+                        userwallet['forwardtip'] = result[6]
                 with conn.cursor() as cur:
                     result2 = None
                     if coin.upper() in ENABLE_COIN:
@@ -352,16 +354,21 @@ async def sql_send_tip(user_from: str, user_to: str, amount: int, coin: str = No
         coin = coin.upper()
     user_from_wallet = None
     user_to_wallet = None
+    address_to = None
     #print('sql_send_tip')
     if coin.upper() in ENABLE_COIN:
         user_from_wallet = sql_get_userwallet(user_from, coin.upper())
         user_to_wallet = sql_get_userwallet(user_to, coin.upper())
-    if all(v is not None for v in [user_from_wallet['balance_wallet_address'], user_to_wallet['balance_wallet_address']]):
+        if (user_to_wallet['forwardtip'] == "ON") and ('user_wallet_address' in user_to_wallet):
+            address_to = user_to_wallet['user_wallet_address']
+        else:
+            address_to = user_to_wallet['balance_wallet_address']
+    if all(v is not None for v in [user_from_wallet['balance_wallet_address'], address_to]):
         tx_hash = None
         #print('tx_hash = None')
         if coin.upper() in ENABLE_COIN:
             tx_hash = await wallet.send_transaction(user_from_wallet['balance_wallet_address'],
-                                                    user_to_wallet['balance_wallet_address'], amount, coin.upper())
+                                                    address_to, amount, coin.upper())
         if tx_hash:
             updateTime = int(time.time())
             try:
@@ -1225,6 +1232,23 @@ def sql_doge_balance(userID: str, coin: str):
     finally:
         conn.close()
     return False
+
+
+def sql_set_forwardtip(userID: str, coin: str, option: str):
+    global conn
+    if option.upper() not in ["ON", "OFF"]:
+        return None
+    if coin.upper() in ENABLE_COIN:
+        try:
+            openConnection()
+            with conn.cursor() as cur: 
+                sql = """ UPDATE """+coin.lower()+"""_user SET forwardtip='"""+option.upper()+"""' WHERE user_id=%s """
+                cur.execute(sql, (str(userID),))
+                conn.commit()
+        except Exception as e:
+            print(e)
+        finally:
+            conn.close()
 
 
 def sql_get_nodeinfo():

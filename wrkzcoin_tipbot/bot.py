@@ -3659,7 +3659,7 @@ async def _tip(ctx, amount, coin: str = None):
     listMembers = ctx.message.mentions
 
     memids = []  # list of member ID
-    has_forwardtip = True
+    has_forwardtip = None
     for member in listMembers:
         # print(member.name) # you'll just print out Member objects your way.
         if ctx.message.author.id != member.id:

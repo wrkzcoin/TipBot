@@ -501,7 +501,7 @@ async def balance(ctx, coin: str = None):
             if coinItem not in MAINTENANCE_COIN:
                 COIN_DEC = get_decimal(coinItem.upper())
                 try:
-                    user = store.sql_register_user(ctx.message.author.id, coinItem.upper())
+                    userregister = store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
                 except:
                     pass
                 wallet = store.sql_get_userwallet(ctx.message.author.id, coinItem.upper())
@@ -512,7 +512,12 @@ async def balance(ctx, coin: str = None):
                     balance_actual = num_format_coin(wallet['actual_balance'], coinItem.upper())
                     balance_locked = num_format_coin(wallet['locked_balance'], coinItem.upper())
                     balance_total = num_format_coin((wallet['actual_balance'] + wallet['locked_balance']), coinItem.upper())
-                    table_data.append([coinItem.upper(), balance_actual, balance_locked])
+                    coinName = coinItem.upper()
+                    if 'user_wallet_address' not in wallet:
+                        coinName += '*'
+                    if wallet['forwardtip'] == "ON":
+                        coinName += ' >>'
+                    table_data.append([coinName, balance_actual, balance_locked])
                     pass
             else:
                 table_data.append([coinItem.upper(), "***", "***"])

@@ -215,7 +215,6 @@ def sql_update_user(userID, user_wallet_address, coin: str = None):
                 result2 = {}
                 result2['balance_wallet_address'] = result[2]
                 result2['user_wallet_address'] = user_wallet_address
-                #print('.register...'+result2['balance_wallet_address'])
                 return result2  # return userwallet
     except Exception as e:
         print(e)
@@ -305,7 +304,7 @@ def sql_get_userwallet(userID, coin: str = None):
                     userwallet['actual_balance'] = balance_actual
                     userwallet['locked_balance'] = balance_locked
                     userwallet['lastUpdate'] = int(time.time())
-                print(userwallet)
+                #print(userwallet)
                 return userwallet
     except Exception as e:
         print(e)
@@ -365,7 +364,6 @@ async def sql_send_tip(user_from: str, user_to: str, amount: int, coin: str = No
             address_to = user_to_wallet['balance_wallet_address']
     if all(v is not None for v in [user_from_wallet['balance_wallet_address'], address_to]):
         tx_hash = None
-        #print('tx_hash = None')
         if coin.upper() in ENABLE_COIN:
             tx_hash = await wallet.send_transaction(user_from_wallet['balance_wallet_address'],
                                                     address_to, amount, coin.upper())
@@ -754,8 +752,6 @@ async def sql_send_to_voucher(user_id: str, user_name: str, message_creating: st
         user_from_wallet = sql_get_userwallet(user_id, coin.upper())
     if 'balance_wallet_address' in user_from_wallet:
         tx_hash = None
-        #print('wallet.get_voucher_address(coin.upper()):')
-        #print(wallet.get_voucher_address(coin.upper()))
         if coin.upper() in ENABLE_COIN:
             tx_hash = await wallet.send_transaction(user_from_wallet['balance_wallet_address'], wallet.get_voucher_address(coin.upper()), 
                                                     amount + reserved_fee, coin.upper())

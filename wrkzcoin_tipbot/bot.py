@@ -1416,7 +1416,7 @@ async def tip(ctx, amount: str, *args):
                             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is no active talker in such period.')
                             return
                         else:
-                            print(message_talker)
+                            #print(message_talker)
                             await _tip_talker(ctx, amount, message_talker, COIN_NAME)
                             return
             else:
@@ -2607,7 +2607,6 @@ async def voucher(ctx, command: str, amount: str, coin: str = None):
         msg = str(num_format_coin(real_amount, coin.upper())) + coin.upper()
         W, H = (1123,644)
         draw =  ImageDraw.Draw(img_frame)
-        print(config.font.digital7)
         myFont = ImageFont.truetype(config.font.digital7, 44)
         # w, h = draw.textsize(msg, font=myFont)
         w, h = myFont.getsize(msg)
@@ -3730,12 +3729,15 @@ async def _tip(ctx, amount, coin: str = None):
 
     tip = None
     try:
-        tip = await store.sql_send_tipall(ctx.message.author.id, destinations, real_amount, COIN_NAME)
+        tip = await store.sql_send_tipall(str(ctx.message.author.id), destinations, real_amount, COIN_NAME)
     except Exception as e:
         print(e)
     if tip:
         servername = serverinfo['servername']
-        store.sql_update_some_balances(addresses, COIN_NAME)
+        try:
+            store.sql_update_some_balances(addresses, COIN_NAME)
+        except Exception as e:
+            print(e)
         await ctx.message.add_reaction(EMOJI_TIP)
         if has_forwardtip:
             await ctx.message.add_reaction(EMOJI_FORWARD)

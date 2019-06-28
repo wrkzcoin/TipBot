@@ -500,14 +500,13 @@ async def balance(ctx, coin: str = None):
         for coinItem in ENABLE_COIN:
             if coinItem not in MAINTENANCE_COIN:
                 COIN_DEC = get_decimal(coinItem.upper())
-                try:
-                    userregister = store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
-                except:
-                    pass
-                wallet = store.sql_get_userwallet(ctx.message.author.id, coinItem.upper())
+                wallet = store.sql_get_userwallet(str(ctx.message.author.id), coinItem.upper())
                 if wallet is None:
-                    await ctx.send(f'{ctx.author.mention} Internal Error for `{prefixChar}balance`')
-                    pass
+                    userregister = store.sql_register_user(str(ctx.message.author.id), coinItem.upper())
+                    wallet = store.sql_get_userwallet(str(ctx.message.author.id), coinItem.upper())
+                if wallet is None:
+                    await ctx.send(f'{ctx.author.mention} Internal Error for `{prefixChar}balance` during {coinItem.upper()}')
+                    return
                 else:
                     balance_actual = num_format_coin(wallet['actual_balance'], coinItem.upper())
                     balance_locked = num_format_coin(wallet['locked_balance'], coinItem.upper())
@@ -996,6 +995,11 @@ async def withdraw(ctx, amount: str, coin: str = None):
     else:
         pass
     # End Check if maintenance
+    if isinstance(ctx.channel, discord.DMChannel):
+        server_prefix = '.'
+    else:
+        serverinfo = get_info_pref_coin(ctx)
+        server_prefix = serverinfo['server_prefix']
 
     try:
         amount = float(amount)
@@ -1010,7 +1014,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
     if coin.upper() in MAINTENANCE_COIN:
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {coin.upper()} in maintenance.')
         return
-
+    user = None
     if coin.upper() in ENABLE_COIN:
         COIN_NAME = coin.upper()
         COIN_DEC = get_decimal(coin.upper())
@@ -1073,10 +1077,10 @@ async def withdraw(ctx, amount: str, coin: str = None):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} INVALID TICKER!')
         return
 
-    if not user['user_wallet_address']:
+    if 'user_wallet_address' not in user:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You do not have a withdrawal address, please use '
-                       f'`.register wallet_address` to register.')
+                       f'`{server_prefix}register wallet_address` to register.')
         return
 
     if real_amount + netFee >= user['actual_balance']:

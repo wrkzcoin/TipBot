@@ -610,6 +610,37 @@ async def sql_donate(user_from: str, address_to: str, amount: int, coin: str = N
         return None
 
 
+def sql_get_donate_list():
+    global conn
+    donate_list = {}
+    try:
+        openConnection()
+        sql = None
+        with conn.cursor() as cur:
+            for coin in ENABLE_COIN:
+                sql = """ SELECT SUM(amount) FROM """+coin.lower()+"""_donate"""
+                cur.execute(sql,)
+                result = cur.fetchone()
+                if result is None:
+                    donate_list[coin] = 0
+                else:
+                    donate_list[coin] = result[0]
+            # DOGE
+            coin = "DOGE"
+            sql = """ SELECT SUM(amount) FROM """+coin.lower()+"""_mv_tx WHERE `type`='DONATE' AND `to_userid`='DogeDonateWrkz' """
+            cur.execute(sql,)
+            result = cur.fetchone()
+            if result is None:
+                donate_list[coin] = 0
+            else:
+                donate_list[coin] = result[0]
+        return donate_list
+    except Exception as e:
+        print(e)
+    finally:
+        conn.close()
+
+
 def sql_optimize_check(coin: str = None):
     global conn
     if coin is None:

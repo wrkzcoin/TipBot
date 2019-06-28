@@ -1148,6 +1148,21 @@ async def withdraw(ctx, amount: str, coin: str = None):
 @bot.command(pass_context=True, help=bot_help_donate)
 async def donate(ctx, amount: str, coin: str = None):
     botLogChan = bot.get_channel(id=LOG_CHAN)
+    donate_msg = ''
+    if amount.upper() == "LIST":
+        # if .donate list
+        donate_list = store.sql_get_donate_list()
+        #print(donate_list)
+        item_list = []
+        for key, value in donate_list.items():
+            if value:
+                coin_value = num_format_coin(value, key.upper())+key.upper()
+                item_list.append(coin_value)
+        if len(item_list) > 0:
+            msg_coins = ', '.join(item_list)
+            await ctx.send(f'Thank you for checking. So far, we got donations:\n```{msg_coins}```')
+        return
+
     amount = amount.replace(",", "")
 
     # Check flood of tip
@@ -3380,7 +3395,7 @@ async def setting_error(ctx, error):
 @register.error
 async def register_error(ctx, error):
     if isinstance(error, commands.MissingRequiredArgument):
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Missing your wallet address.\n'
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Missing your wallet address. '
                        'You need to have a supported coin **address** after `register` command')
     return
 
@@ -3408,7 +3423,7 @@ async def forwardtip_error(ctx, error):
 @withdraw.error
 async def withdraw_error(ctx, error):
     if isinstance(error, commands.MissingRequiredArgument):
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Missing amount and/or ticker.\n'
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Missing amount and/or ticker. '
                        'You need to tell me **AMOUNT** and/or **TICKER**.')
     return
 
@@ -3416,15 +3431,25 @@ async def withdraw_error(ctx, error):
 @tip.error
 async def tip_error(ctx, error):
     if isinstance(error, commands.MissingRequiredArgument):
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Missing arguments.\n'
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Missing arguments. '
                        'You need to tell me **amount** and who you want to tip to.')
+    return
+
+
+@donate.error
+async def donate_error(ctx, error):
+    if isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Missing arguments. '
+                       'You need to tell me **amount** and ticker.\n'
+                       f'Example: <@{bot.user.id}> `donate 1,000 [ticker]`\n'
+                       f'Get donation list we received: <@{bot.user.id}> `donate list`')
     return
 
 
 @tipall.error
 async def tipall_error(ctx, error):
     if isinstance(error, commands.MissingRequiredArgument):
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Missing argument.\n'
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Missing argument. '
                        'You need to tell me **amount**')
     return
 
@@ -3432,7 +3457,7 @@ async def tipall_error(ctx, error):
 @send.error
 async def send_error(ctx, error):
     if isinstance(error, commands.MissingRequiredArgument):
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Missing arguments.\n'
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Missing arguments. '
                        'SEND **amount** **address**')
     return
 
@@ -3480,8 +3505,9 @@ async def on_command_error(ctx, error):
     elif isinstance(error, commands.DisabledCommand):
         await ctx.send('Sorry. This command is disabled and cannot be used.')
     elif isinstance(error, commands.MissingRequiredArgument):
-        command = _.message.content.split()[0].strip('.')
-        await ctx.send('Missing an argument: try `.help` or `.help ' + command + '`')
+        #command = ctx.message.content.split()[0].strip('.')
+        #await ctx.send('Missing an argument: try `.help` or `.help ' + command + '`')
+        pass
     elif isinstance(error, commands.CommandNotFound):
         pass
 

@@ -9,10 +9,6 @@ from config import config
 import sys
 
 # Encrypt
-import base64
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.fernet import Fernet
 
 # MySQL
@@ -1325,17 +1321,7 @@ def sql_get_poolinfo():
 
 # Steal from https://nitratine.net/blog/post/encryption-and-decryption-in-python/
 def encrypt_string(to_encrypt: str):
-    password_provided = config.encrypt.password # This is input in the form of a string
-    password = password_provided.encode() # Convert to type bytes
-    salt = (config.encrypt.salt).encode() # CHANGE THIS - recommend using a key from os.urandom(16), must be of type bytes
-    kdf = PBKDF2HMAC(
-        algorithm=hashes.SHA256(),
-        length=32,
-        salt=salt,
-        iterations=10000,
-        backend=default_backend()
-    )
-    key = base64.urlsafe_b64encode(kdf.derive(password)) # Can only use kdf once
+    key = (config.encrypt.key).encode()
 
     # Encrypt
     message = to_encrypt.encode()
@@ -1345,17 +1331,7 @@ def encrypt_string(to_encrypt: str):
 
 
 def decrypt_string(decrypted: str):
-    password_provided = config.encrypt.password # This is input in the form of a string
-    password = password_provided.encode() # Convert to type bytes
-    salt = (config.encrypt.salt).encode() # CHANGE THIS - recommend using a key from os.urandom(16), must be of type bytes
-    kdf = PBKDF2HMAC(
-        algorithm=hashes.SHA256(),
-        length=32,
-        salt=salt,
-        iterations=10000,
-        backend=default_backend()
-    )
-    key = base64.urlsafe_b64encode(kdf.derive(password)) # Can only use kdf once
+    key = (config.encrypt.key).encode()
 
     # Decrypt
     f = Fernet(key)

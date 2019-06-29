@@ -422,3 +422,7 @@ qrsettings:
   coin_logo_path: "/home/user/tipbot/wrkzcoin-tipbot/coin_logo/"
 font:
   digital7: "/home/user/tipbot/wrkzcoin-tipbot/fonts/digital-7 (mono).ttf"
+# Encrypting keys, salt recommend using a key from os.urandom(16)
+encrypt:
+  password: "YourEncryptedpassword"
+  salt: "salt_key_here"

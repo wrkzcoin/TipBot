@@ -8,6 +8,13 @@ import daemonrpc_client, wallet
 from config import config
 import sys
 
+# Encrypt
+import base64
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.fernet import Fernet
+
 # MySQL
 import pymysql
 conn = None
@@ -158,13 +165,13 @@ def sql_register_user(userID, coin: str = None):
                                   `balance_wallet_address_ts`, `balance_wallet_address_ch`, `privateSpendKey`) 
                                   VALUES (%s, %s, %s, %s, %s) """
                         cur.execute(sql, (str(userID), balance_address['address'], int(time.time()), chainHeight,
-                                          balance_address['privateSpendKey'], ))
+                                          encrypt_string(balance_address['privateSpendKey']), ))
                     elif coin.upper() in ENABLE_COIN_DOGE:
                         sql = """ INSERT INTO """+coin.lower()+"""_user (`user_id`, `balance_wallet_address`, 
                                   `balance_wallet_address_ts`, `balance_wallet_address_ch`, `privateKey`) 
                                   VALUES (%s, %s, %s, %s, %s) """
                         cur.execute(sql, (str(userID), balance_address['address'], int(time.time()),
-                                          chainHeight, balance_address['privateKey'], ))
+                                          chainHeight, encrypt_string(balance_address['privateKey']), ))
                     conn.commit()
                     result2 = {}
                     result2['balance_wallet_address'] = balance_address
@@ -250,7 +257,7 @@ def sql_get_userwallet(userID, coin: str = None):
                     sql = """ INSERT INTO """+coin.lower()+"""_user (`user_id`, `balance_wallet_address`, 
                               `balance_wallet_address_ts`, `balance_wallet_address_ch`, `privateKey`) 
                               VALUES (%s, %s, %s, %s, %s) """
-                    cur.execute(sql, (str(userID), depositAddress, int(time.time()), chainHeight, privateKey, ))
+                    cur.execute(sql, (str(userID), depositAddress, int(time.time()), chainHeight, encrypt_string(privateKey), ))
                     conn.commit()               
                 else:
                     return None
@@ -1314,3 +1321,43 @@ def sql_get_poolinfo():
         print(e)
     finally:
         conn.close()
+
+
+# Steal from https://nitratine.net/blog/post/encryption-and-decryption-in-python/
+def encrypt_string(to_encrypt: str):
+    password_provided = config.encrypt.password # This is input in the form of a string
+    password = password_provided.encode() # Convert to type bytes
+    salt = (config.encrypt.salt).encode() # CHANGE THIS - recommend using a key from os.urandom(16), must be of type bytes
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=10000,
+        backend=default_backend()
+    )
+    key = base64.urlsafe_b64encode(kdf.derive(password)) # Can only use kdf once
+
+    # Encrypt
+    message = to_encrypt.encode()
+    f = Fernet(key)
+    encrypted = f.encrypt(message)
+    return encrypted.decode()
+
+
+def decrypt_string(decrypted: str):
+    password_provided = config.encrypt.password # This is input in the form of a string
+    password = password_provided.encode() # Convert to type bytes
+    salt = (config.encrypt.salt).encode() # CHANGE THIS - recommend using a key from os.urandom(16), must be of type bytes
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=10000,
+        backend=default_backend()
+    )
+    key = base64.urlsafe_b64encode(kdf.derive(password)) # Can only use kdf once
+
+    # Decrypt
+    f = Fernet(key)
+    decrypted = f.decrypt(decrypted.encode())
+    return decrypted.decode()

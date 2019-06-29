@@ -59,12 +59,13 @@ async def call_aiohttp_wallet(method_name: str, coin: str, payload: Dict = None)
     }
     url = get_wallet_rpc_url(coin.upper())
     async with aiohttp.ClientSession() as session:
-        async with session.post(url, json=full_payload, timeout=5) as response:
-            res_data = await response.read()
-            res_data = res_data.decode('utf-8')
-            await session.close()
-            decoded_data = json.loads(res_data)
-            return decoded_data['result']
+        async with session.post(url, json=full_payload, timeout=8) as response:
+            if response.status == 200:
+                res_data = await response.read()
+                res_data = res_data.decode('utf-8')
+                await session.close()
+                decoded_data = json.loads(res_data)
+                return decoded_data['result']
 
 
 def call_methodDOGE(method_name: str, payload: str = None) -> Dict:

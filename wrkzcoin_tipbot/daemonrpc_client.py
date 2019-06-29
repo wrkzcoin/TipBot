@@ -36,10 +36,11 @@ async def gettopblock(coin: str):
         'params': {'height': result['count'] - 1}
     }
     async with aiohttp.ClientSession() as session:
-        async with session.post(get_daemon_rpc_url(coin.upper())+'/json_rpc', json=full_payload, timeout=3) as response:
-            res_data = await response.json()
-            await session.close()
-            return res_data['result']
+        async with session.post(get_daemon_rpc_url(coin.upper())+'/json_rpc', json=full_payload, timeout=8) as response:
+            if response.status == 200:
+                res_data = await response.json()
+                await session.close()
+                return res_data['result']
 
 
 async def call_daemon(method_name: str, coin: str, payload: Dict = None) -> Dict:
@@ -50,10 +51,11 @@ async def call_daemon(method_name: str, coin: str, payload: Dict = None) -> Dict
         'method': f'{method_name}'
     }
     async with aiohttp.ClientSession() as session:
-        async with session.post(get_daemon_rpc_url(coin.upper())+'/json_rpc', json=full_payload, timeout=3) as response:
-            res_data = await response.json()
-            await session.close()
-            return res_data['result']
+        async with session.post(get_daemon_rpc_url(coin.upper())+'/json_rpc', json=full_payload, timeout=8) as response:
+            if response.status == 200:
+                res_data = await response.json()
+                await session.close()
+                return res_data['result']
 
 
 def get_daemon_rpc_url(coin: str = None):

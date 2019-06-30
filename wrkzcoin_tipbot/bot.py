@@ -1818,6 +1818,7 @@ async def tipall(ctx, amount: str, *args):
     # End of checking receivers numbers.
     memids = []  # list of member ID
     has_forwardtip = None
+    list_receivers = []
     for member in listMembers:
         # print(member.name) # you'll just print out Member objects your way.
         if ctx.message.author.id != member.id:
@@ -1834,6 +1835,7 @@ async def tipall(ctx, amount: str, *args):
                     else:
                         address_to = user_to['balance_wallet_address']
                     if address_to:
+                        list_receivers.append(str(member.id))
                         memids.append(address_to)
 
     user_from = store.sql_get_userwallet(ctx.message.author.id, COIN_NAME)
@@ -1899,7 +1901,7 @@ async def tipall(ctx, amount: str, *args):
     # print(destinations)
     tip = None
     try:
-        tip = await store.sql_send_tipall(ctx.message.author.id, destinations, real_amount, COIN_NAME)
+        tip = await store.sql_send_tipall(str(ctx.message.author.id), destinations, real_amount, amountDiv, list_receivers, 'TIPALL', COIN_NAME)
     except Exception as e:
         print(e)
     if tip:
@@ -3689,6 +3691,7 @@ async def _tip(ctx, amount, coin: str = None):
 
     memids = []  # list of member ID
     has_forwardtip = None
+    list_receivers = []
     for member in listMembers:
         # print(member.name) # you'll just print out Member objects your way.
         if ctx.message.author.id != member.id:
@@ -3703,6 +3706,7 @@ async def _tip(ctx, amount, coin: str = None):
             else:
                 address_to = user_to['balance_wallet_address']
             if address_to:
+                list_receivers.append(str(member.id))
                 memids.append(address_to)
 
     addresses = []
@@ -3759,7 +3763,7 @@ async def _tip(ctx, amount, coin: str = None):
 
     tip = None
     try:
-        tip = await store.sql_send_tipall(str(ctx.message.author.id), destinations, real_amount, COIN_NAME)
+        tip = await store.sql_send_tipall(str(ctx.message.author.id), destinations, real_amount, real_amount, list_receivers, 'TIPS', COIN_NAME)
     except Exception as e:
         print(e)
     if tip:
@@ -3939,6 +3943,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
     destinations = []
     memids = []  # list of member ID
     has_forwardtip = None
+    list_receivers = []
     for member_id in list_talker:
         if member_id != ctx.message.author.id:
             user_to = store.sql_get_userwallet(str(member_id), COIN_NAME)
@@ -3952,6 +3957,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
             else:
                 address_to = user_to['balance_wallet_address']
             if address_to:
+                list_receivers.append(str(member_id))
                 memids.append(address_to)
 
     addresses = []
@@ -4008,7 +4014,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
 
     tip = None
     try:
-        tip = await store.sql_send_tipall(ctx.message.author.id, destinations, real_amount, COIN_NAME)
+        tip = await store.sql_send_tipall(str(ctx.message.author.id), destinations, real_amount, real_amount, list_receivers, 'TIPS', COIN_NAME)
     except Exception as e:
         print(e)
     if tip:

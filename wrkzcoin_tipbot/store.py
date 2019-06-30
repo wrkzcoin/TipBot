@@ -411,8 +411,10 @@ async def sql_send_tip(user_from: str, user_to: str, amount: int, coin: str = No
         return None
 
 
-async def sql_send_tipall(user_from: str, user_tos, amount: int, coin: str = None):
+async def sql_send_tipall(user_from: str, user_tos, amount: int, amount_div: int, user_ids, tiptype: str, coin: str = None):
     global conn
+    if tiptype.upper() not in ["TIPS", "TIPALL"]:
+        return None
     if coin is None:
         coin = "WRKZ"
     else:
@@ -424,15 +426,27 @@ async def sql_send_tipall(user_from: str, user_tos, amount: int, coin: str = Non
         tx_hash = None
         if coin.upper() in ENABLE_COIN:
             tx_hash = await wallet.send_transactionall(user_from_wallet['balance_wallet_address'], user_tos, coin.upper())
+            print('tx_hash: ')
+            print(tx_hash)
         if tx_hash:
             try:
                 openConnection()
                 with conn.cursor() as cur:
                     timestamp = int(time.time())
                     if coin.upper() in ENABLE_COIN:
-                        sql = """ INSERT INTO """+coin.lower()+"""_tipall (`from_user`, `amount_total`, `date`, `tx_hash`) 
-                                  VALUES (%s, %s, %s, %s) """
-                        cur.execute(sql, (user_from, amount, timestamp, tx_hash,))
+                        sql = """ INSERT INTO """+coin.lower()+"""_tipall (`from_user`, `amount_total`, `date`, `tx_hash`, `numb_receivers`) 
+                                  VALUES (%s, %s, %s, %s, %s) """
+                        cur.execute(sql, (user_from, amount, timestamp, tx_hash, len(user_tos),))
+                        conn.commit()
+
+                        values_str = []
+                        for item in user_ids:
+                            values_str.append(f"('{user_from}', '{item}', {amount_div}, {timestamp}, '{tx_hash}', '{tiptype.upper()}')\n")
+                        values_sql = "VALUES " + ",".join(values_str)
+                        print(values_sql)
+                        sql = """ INSERT INTO """+coin.lower()+"""_tip (`from_user`, `to_user`, `amount`, `date`, `tx_hash`, `tip_tips_tipall`) 
+                                  """+values_sql+""" """
+                        cur.execute(sql,)
                         conn.commit()
             except Exception as e:
                 print(e)

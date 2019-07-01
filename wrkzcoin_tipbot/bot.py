@@ -371,9 +371,13 @@ async def info(ctx, coin: str = None):
     global LIST_IGNORECHAN
     wallet = None
     if coin is None:
-        cmdName = ctx.message.content.split(" ")[0]
+        if len(ctx.message.mentions) == 0:
+            cmdName = ctx.message.content
+        else:
+            cmdName = ctx.message.content.split(" ")[0]
         cmdName = cmdName[1:]
-        if cmdName.lower not in ['wallet', 'info']:
+
+        if cmdName.lower() not in ['wallet', 'info']:
             cmdName = ctx.message.content.split(" ")[1]
         if isinstance(ctx.channel, discord.DMChannel):
             prefixChar = '.'

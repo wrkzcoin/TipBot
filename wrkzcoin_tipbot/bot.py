@@ -1012,11 +1012,13 @@ async def withdraw(ctx, amount: str, coin: str = None):
         amount = float(amount)
     except ValueError:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid amount.')
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid given amount.')
         return
 
     if coin is None:
-        coin = "WRKZ"
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Please have **ticker** (coin name) after amount.')
+        return
 
     if coin.upper() in MAINTENANCE_COIN:
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {coin.upper()} in maintenance.')
@@ -3015,8 +3017,8 @@ async def setting(ctx, *args):
                     return
                 else:
                     tiponly_value = ','.join(contained)
-                    await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} changed tiponly in {ctx.guild.name} / {ctx.guild.id} to `tiponly_value`')
-                    await ctx.send(f'{ctx.author.mention} TIPONLY set to: {tiponly_value}. Only {tiponly_value} is allowed here.')
+                    await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} changed tiponly in {ctx.guild.name} / {ctx.guild.id} to `{tiponly_value}`')
+                    await ctx.send(f'{ctx.author.mention} TIPONLY set to: {tiponly_value}.')
                     changeinfo = store.sql_changeinfo_by_server(str(ctx.guild.id), 'tiponly', tiponly_value.upper())
                     return
         await ctx.send(f'{ctx.author.mention} In valid command input and parameter.')

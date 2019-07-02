@@ -931,7 +931,7 @@ def sql_info_by_server(server_id: str):
     try:
         openConnection()
         with conn.cursor() as cur: 
-            sql = """ SELECT serverid, servername, prefix, default_coin, numb_user, numb_bot 
+            sql = """ SELECT serverid, servername, prefix, default_coin, numb_user, numb_bot, tiponly 
                       FROM discord_server WHERE serverid = %s """
             cur.execute(sql, (server_id,))
             result = cur.fetchone()
@@ -945,6 +945,7 @@ def sql_info_by_server(server_id: str):
                 serverinfo["default_coin"] = result[3]
                 serverinfo["numb_user"] = result[4]
                 serverinfo["numb_bot"] = result[5]
+                serverinfo["tiponly"] = result[6]
                 return serverinfo
     except Exception as e:
         print(e)
@@ -1126,19 +1127,20 @@ def sql_toggle_tipnotify(user_id: str, onoff: str):
             conn.close()
 
 
+# not use anywhere
 def sql_updateinfo_by_server(server_id: str, what: str, value: str):
     global conn
     try:
         openConnection()
         with conn.cursor() as cur: 
-            sql = """ SELECT serverid, servername, prefix, default_coin, numb_user, numb_bot 
+            sql = """ SELECT serverid, servername, prefix, default_coin, numb_user, numb_bot, tiponly 
                       FROM discord_server WHERE serverid = %s """
             cur.execute(sql, (server_id,))
             result = cur.fetchone()
             if result is None:
                 return None
             else:
-                if what in ["servername", "prefix", "default_coin"]:
+                if what in ["servername", "prefix", "default_coin", "tiponly"]:
                     sql = """ UPDATE discord_server SET """+what+"""=%s WHERE serverid=%s """
                     cur.execute(sql, (what, value, server_id,))
                     conn.commit()

@@ -396,11 +396,13 @@ async def info(ctx, coin: str = None):
                 server_id = str(ctx.guild.id)
                 server_prefix = config.discord.prefixCmd
                 server_coin = DEFAULT_TICKER
+                server_tiponly = "ALLCOIN"
             else:
                 servername = serverinfo['servername']
                 server_id = str(ctx.guild.id)
                 server_prefix = serverinfo['prefix']
                 server_coin = serverinfo['default_coin'].upper()
+                server_tiponly = serverinfo['tiponly'].upper()
 
             chanel_ignore_list = ''
             if LIST_IGNORECHAN:
@@ -415,12 +417,13 @@ async def info(ctx, coin: str = None):
                 f'Server Name:    {ctx.message.guild.name}\n'
                 f'Default ticker: {server_coin}\n'
                 f'Default prefix: {server_prefix}\n'
+                f'TipOnly Coins:  {server_tiponly}\n'
                 f'Ignored Tip in: {chanel_ignore_list}\n'
                 '```')
             tickers = '|'.join(ENABLE_COIN).lower()
             await ctx.send(
                 f'Please add ticker after **{cmdName.lower()}**. Example: `{server_prefix}{cmdName.lower()} {server_coin}`, if you want to get your address(es).\n\n'
-                f'Type: `{server_prefix}setting` if you want to change `prefix` or `default_coin` or `ignorechan` or `del_ignorechan`. (Required permission)')
+                f'Type: `{server_prefix}setting` if you want to change `prefix` or `default_coin` or `ignorechan` or `del_ignorechan` or `tiponly`. (Required permission)')
             return
     elif coin.upper() in ENABLE_COIN:
         user = store.sql_register_user(ctx.message.author.id, coin.upper())
@@ -1398,6 +1401,16 @@ async def tip(ctx, amount: str, *args):
             COIN_NAME = serverinfo['default_coin'].upper()
     print("COIN_NAME: " + COIN_NAME)
 
+    # Check allowed coins
+    tiponly_coins = serverinfo['tiponly'].split(",")
+    if COIN_NAME == serverinfo['default_coin'].upper() or serverinfo['tiponly'].upper() == "ALLCOIN":
+        pass
+    elif COIN_NAME.upper() not in tiponly_coins:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME.upper()} not in allowed coins set by server manager.')
+        return
+    # End of checking allowed coins
+    
     if COIN_NAME.upper() in MAINTENANCE_COIN:
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME.upper()} in maintenance.')
         return
@@ -1681,6 +1694,16 @@ async def tipall(ctx, amount: str, *args):
         else:
             COIN_NAME = args[0].upper()
     print('TIPALL COIN_NAME:' + COIN_NAME)
+
+    # Check allowed coins
+    tiponly_coins = serverinfo['tiponly'].split(",")
+    if COIN_NAME == serverinfo['default_coin'].upper() or serverinfo['tiponly'].upper() == "ALLCOIN":
+        pass
+    elif COIN_NAME.upper() not in tiponly_coins:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME.upper()} not in allowed coins set by server manager.')
+        return
+    # End of checking allowed coins
 
     if COIN_NAME.upper() in MAINTENANCE_COIN:
         await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME.upper()} in maintenance.')
@@ -2885,12 +2908,16 @@ async def setting(ctx, *args):
         await ctx.send('**Available param:** to change prefix, default coin, others in your server:\n```'
                        f'{server_prefix}setting prefix .|?|*|!\n\n'
                        f'{server_prefix}setting default_coin {tickers}\n\n'
+                       f'{server_prefix}setting tiponly coin1 coin2 .. \n\n'
                        f'{server_prefix}setting ignorechan (no param, ignore tipping function in said channel)\n\n'
                        f'{server_prefix}setting del_ignorechan (no param, delete ignored tipping function in said channel)\n\n'
                        '```\n\n')
         return
     elif len(args) == 1:
-        if args[0].upper() == "IGNORE_CHAN" or args[0].upper() == "IGNORECHAN":
+        if args[0].upper() == "TIPONLY":
+            await ctx.send(f'{ctx.author.mention} Please tell what coins to be allowed here. Separated by space.')
+            return
+        elif args[0].upper() == "IGNORE_CHAN" or args[0].upper() == "IGNORECHAN":
             if LIST_IGNORECHAN is None:
                 #print('ok added..')
                 store.sql_addignorechan_by_server(str(ctx.guild.id), str(ctx.channel.id), str(ctx.message.author.id), ctx.message.author.name)
@@ -2926,17 +2953,30 @@ async def setting(ctx, *args):
                 await ctx.send(f'Channel #{ctx.channel.name} is not in ignore tip action list.')
                 return
     elif len(args) == 2:
-        if args[0].upper() == "PREFIX":
+        if args[0].upper() == "TIPONLY":
+            if (args[1].upper() not in (ENABLE_COIN+ENABLE_COIN_DOGE)) and (args[1].upper() != "ALLCOIN"):
+                await ctx.send(f'{ctx.author.mention} {args[1].upper()} is not in any known coin we set.')
+                return
+            else:
+                changeinfo = store.sql_changeinfo_by_server(str(ctx.guild.id), 'tiponly', args[1].upper())
+                if args[1].upper() == "ALLCOIN":
+                    await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} changed tiponly in {ctx.guild.name} / {ctx.guild.id} to `{args[1].upper()}`')
+                    await ctx.send(f'{ctx.author.mention} {args[1].upper()} is allowed here.')
+                else:
+                    await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} changed tiponly in {ctx.guild.name} / {ctx.guild.id} to `{args[1].upper()}`')
+                    await ctx.send(f'{ctx.author.mention} {args[1].upper()} will be the only tip here.')
+                return
+        elif args[0].upper() == "PREFIX":
             if args[1] not in [".", "?", "*", "!"]:
                 await ctx.send('Invalid prefix')
                 return
             else:
                 if server_prefix == args[1]:
-                    await ctx.send('That\'s the default prefix. Nothing changed.')
+                    await ctx.send(f'{ctx.author.mention} That\'s the default prefix. Nothing changed.')
                     return
                 else:
                     changeinfo = store.sql_changeinfo_by_server(str(ctx.guild.id), 'prefix', args[1].lower())
-                    await ctx.send(f'Prefix changed from `{server_prefix}` to `{args[1].lower()}`.')
+                    await ctx.send(f'{ctx.author.mention} Prefix changed from `{server_prefix}` to `{args[1].lower()}`.')
                     await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} changed prefix in {ctx.guild.name} / {ctx.guild.id} to `{args[1].lower()}`')
                     return
         elif args[0].upper() == "DEFAULT_COIN" or args[0].upper() == "DEFAULTCOIN" or args[0].upper() == "COIN":
@@ -2945,7 +2985,7 @@ async def setting(ctx, *args):
                 return
             else:
                 if server_coin.upper() == args[1].upper():
-                    await ctx.send('That\'s the default coin. Nothing changed.')
+                    await ctx.send(f'{ctx.author.mention} That\'s the default coin. Nothing changed.')
                     return
                 else:
                     changeinfo = store.sql_changeinfo_by_server(str(ctx.guild.id), 'default_coin', args[1].upper())
@@ -2953,10 +2993,33 @@ async def setting(ctx, *args):
                     await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} changed default coin in {ctx.guild.name} / {ctx.guild.id} to {args[1].upper()}.')
                     return
         else:
-            await ctx.send('Invalid command input and parameter.')
+            await ctx.send(f'{ctx.author.mention} Invalid command input and parameter.')
             return
     else:
-        await ctx.send('In valid command input and parameter.')
+        if args[0].upper() == "TIPONLY":
+            # if nothing given after TIPONLY
+            if len(args) == 1:
+                await ctx.send(f'{ctx.author.mention} Please tell what coins to be allowed here. Separated by space.')
+                return
+            if args[1].upper() == "ALLCOIN":
+                changeinfo = store.sql_changeinfo_by_server(str(ctx.guild.id), 'tiponly', args[1].upper())
+                await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} changed tiponly in {ctx.guild.name} / {ctx.guild.id} to `ALLCOIN`')
+                await ctx.send(f'{ctx.author.mention} all coins will be allowed in here.')
+                return
+            else:
+                coins = list(args)
+                del coins[0]  # del TIPONLY
+                contained = [x.upper() for x in coins if x.upper() in (ENABLE_COIN+ENABLE_COIN_DOGE)]
+                if len(contained) == 0:
+                    await ctx.send(f'{ctx.author.mention} No known coin. TIPONLY is remained unchanged.')
+                    return
+                else:
+                    tiponly_value = ','.join(contained)
+                    await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} changed tiponly in {ctx.guild.name} / {ctx.guild.id} to `tiponly_value`')
+                    await ctx.send(f'{ctx.author.mention} TIPONLY set to: {tiponly_value}. Only {tiponly_value} is allowed here.')
+                    changeinfo = store.sql_changeinfo_by_server(str(ctx.guild.id), 'tiponly', tiponly_value.upper())
+                    return
+        await ctx.send(f'{ctx.author.mention} In valid command input and parameter.')
         return
 
 @bot.command(pass_context=True, name='addressqr', aliases=['qr', 'showqr'], help=bot_help_address_qr, hidden = True)

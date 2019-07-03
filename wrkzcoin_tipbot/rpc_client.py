@@ -1,7 +1,6 @@
 from typing import Dict
 from uuid import uuid4
 
-import requests
 import aiohttp
 import asyncio
 import json
@@ -15,39 +14,6 @@ sys.path.append("..")
 class RPCException(Exception):
     def __init__(self, message):
         super(RPCException, self).__init__(message)
-
-
-def call_method(method_name: str, payload: Dict = None) -> Dict:
-    full_payload = {
-        'params': payload or {},
-        'jsonrpc': '2.0',
-        'id': str(uuid4()),
-        'method': f'{method_name}'
-    }
-    resp = requests.post(
-        f'http://{config.daemonWRKZ.wallethost}:{config.daemonWRKZ.walletport}/json_rpc',
-        json=full_payload)
-    resp.raise_for_status()
-    json_resp = resp.json()
-    if 'error' in json_resp:
-        raise RPCException(json_resp['error'])
-    return resp.json().get('result', {})
-
-
-def call_what(method_name: str, coin: str, payload: Dict = None) -> Dict:
-    full_payload = {
-        'params': payload or {},
-        'jsonrpc': '2.0',
-        'id': str(uuid4()),
-        'method': f'{method_name}'
-    }
-    url = get_wallet_rpc_url(coin.upper())
-    resp = requests.post(url, json=full_payload, timeout=3.0)
-    resp.raise_for_status()
-    json_resp = resp.json()
-    if 'error' in json_resp:
-        raise RPCException(json_resp['error'])
-    return resp.json().get('result', {})
 
 
 async def call_aiohttp_wallet(method_name: str, coin: str, payload: Dict = None) -> Dict:
@@ -68,7 +34,7 @@ async def call_aiohttp_wallet(method_name: str, coin: str, payload: Dict = None)
                 return decoded_data['result']
 
 
-def call_methodDOGE(method_name: str, payload: str = None) -> Dict:
+async def call_methodDOGE(method_name: str, payload: str = None) -> Dict:
     headers = {
         'content-type': 'text/plain;',
     }
@@ -76,19 +42,18 @@ def call_methodDOGE(method_name: str, payload: str = None) -> Dict:
         data = '{"jsonrpc": "1.0", "id":"'+str(uuid4())+'", "method": "'+method_name+'", "params": [] }'
     else:
         data = '{"jsonrpc": "1.0", "id":"'+str(uuid4())+'", "method": "'+method_name+'", "params": ['+payload+'] }'
-    #print(data)
-    resp = requests.post(
-        f'http://{config.daemonDOGE.username}:{config.daemonDOGE.password}@{config.daemonDOGE.host}:{config.daemonDOGE.rpcport}/',
-        headers=headers, data=data)
-    resp.raise_for_status()
-    json_resp = resp.json()
-    if 'error' in json_resp:
-        if json_resp['error'] is not None:
-            raise RPCException(json_resp['error'])
-    return resp.json().get('result', {})
+    url = f'http://{config.daemonDOGE.username}:{config.daemonDOGE.password}@{config.daemonDOGE.host}:{config.daemonDOGE.rpcport}/'
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, data=data, timeout=8) as response:
+            if response.status == 200:
+                res_data = await response.read()
+                res_data = res_data.decode('utf-8')
+                await session.close()
+                decoded_data = json.loads(res_data)
+                return decoded_data['result']
 
 
-def call_methodLTC(method_name: str, payload: str = None) -> Dict:
+async def call_methodLTC(method_name: str, payload: str = None) -> Dict:
     headers = {
         'content-type': 'text/plain;',
     }
@@ -96,16 +61,15 @@ def call_methodLTC(method_name: str, payload: str = None) -> Dict:
         data = '{"jsonrpc": "1.0", "id":"'+str(uuid4())+'", "method": "'+method_name+'", "params": [] }'
     else:
         data = '{"jsonrpc": "1.0", "id":"'+str(uuid4())+'", "method": "'+method_name+'", "params": ['+payload+'] }'
-    print(data)
-    resp = requests.post(
-        f'http://{config.daemonLTC.username}:{config.daemonLTC.password}@{config.daemonLTC.host}:{config.daemonLTC.rpcport}/',
-        headers=headers, data=data)
-    resp.raise_for_status()
-    json_resp = resp.json()
-    if 'error' in json_resp:
-        if json_resp['error'] is not None:
-            raise RPCException(json_resp['error'])
-    return resp.json().get('result', {})
+    url = f'http://{config.daemonLTC.username}:{config.daemonLTC.password}@{config.daemonLTC.host}:{config.daemonLTC.rpcport}/'
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, data=data, timeout=8) as response:
+            if response.status == 200:
+                res_data = await response.read()
+                res_data = res_data.decode('utf-8')
+                await session.close()
+                decoded_data = json.loads(res_data)
+                return decoded_data['result']
 
 
 def get_wallet_rpc_url(coin: str = None):

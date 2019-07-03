@@ -2,7 +2,7 @@ from typing import Dict
 from uuid import uuid4
 
 import rpc_client
-import requests, json
+import json
 import aiohttp
 import asyncio
 
@@ -14,17 +14,18 @@ class RPCException(Exception):
     def __init__(self, message):
         super(RPCException, self).__init__(message)
 
-def getWalletStatus(coin: str):
+
+async def getWalletStatus(coin: str):
     coin = coin.upper()
     info = {}
-    return rpc_client.call_what('getStatus', coin.upper())
+    return await rpc_client.call_aiohttp_wallet('getStatus', coin.upper())
 
 
-def getDaemonRPCStatus(coin: str):
+async def getDaemonRPCStatus(coin: str):
     if (coin.upper() == "DOGE"):
-        result = rpc_client.call_methodDOGE('getinfo')
+        result = await rpc_client.call_methodDOGE('getinfo')
     elif (coin.upper() == "LTC"):
-        result = rpc_client.call_methodLTC('getinfo')
+        result = await rpc_client.call_methodLTC('getinfo')
     return result
 
 

@@ -2,7 +2,7 @@ from typing import List, Dict
 import json
 from uuid import uuid4
 import rpc_client
-import requests
+import aiohttp
 import asyncio
 from config import config
 
@@ -10,24 +10,13 @@ import sys
 sys.path.append("..")
 
 
-def register() -> str:
-    result = rpc_client.call_method('createAddress')
-    reg_address = {}
-    reg_address['address'] = result['address']
-    reg_address['privateSpendKey'] = getSpendKey(result['address'])
-    # Avoid any crash and nothing to restore or import
-    print('Wallet register: '+reg_address['address']+'=>privateSpendKey: '+reg_address['privateSpendKey'])
-    # End print log ID,spendkey to log file
-    return reg_address
-
-
-def registerOTHER(coin: str) -> str:
+async def registerOTHER(coin: str) -> str:
     coin = coin.upper()
-    result = rpc_client.call_what('createAddress', coin)
+    result = await rpc_client.call_aiohttp_wallet('createAddress', coin)
 
     reg_address = {}
     reg_address['address'] = result['address']
-    reg_address['privateSpendKey'] = getSpendKey(result['address'], coin)
+    reg_address['privateSpendKey'] = await getSpendKey(result['address'], coin)
 
     # Avoid any crash and nothing to restore or import
     print('Wallet register: '+reg_address['address']+'=>privateSpendKey: '+reg_address['privateSpendKey'])
@@ -35,12 +24,12 @@ def registerOTHER(coin: str) -> str:
     return reg_address
 
 
-def getSpendKey(from_address: str, coin: str) -> str:
+async def getSpendKey(from_address: str, coin: str) -> str:
     coin = coin.upper()
     payload = {
         'address': from_address
     }
-    result = rpc_client.call_what('getSpendKeys', coin, payload=payload)
+    result = await rpc_client.call_aiohttp_wallet('getSpendKeys', coin, payload=payload)
     return result['spendSecretKey']
 
 
@@ -118,45 +107,45 @@ async def send_transactionall(from_address: str, to_address, coin: str) -> str:
     return result
 
 
-def get_all_balances_all(coin: str) -> Dict[str, Dict]:
+async def get_all_balances_all(coin: str) -> Dict[str, Dict]:
     coin = coin.upper()
-    walletCall = rpc_client.call_what('getAddresses', coin)
+    walletCall = await rpc_client.call_aiohttp_wallet('getAddresses', coin)
     wallets = [] ## new array
     for address in walletCall['addresses']:
-        wallet = rpc_client.call_what('getBalance', coin, {'address': address})
+        wallet = await rpc_client.call_aiohttp_wallet('getBalance', coin, {'address': address})
         wallets.append({'address':address,'unlocked':wallet['availableBalance'],'locked':wallet['lockedAmount']})
     return wallets
 
 
-def get_some_balances(wallet_addresses: List[str], coin: str) -> Dict[str, Dict]:
+async def get_some_balances(wallet_addresses: List[str], coin: str) -> Dict[str, Dict]:
     coin = coin.upper()
     wallets = []  # new array
     for address in wallet_addresses:
-        wallet = rpc_client.call_what('getBalance', coin, {'address': address})
+        wallet = await rpc_client.call_aiohttp_wallet('getBalance', coin, {'address': address})
         wallets.append({'address':address,'unlocked':wallet['availableBalance'],'locked':wallet['lockedAmount']})
     return wallets
 
 
-def get_sum_balances(coin: str) -> Dict[str, Dict]:
+async def get_sum_balances(coin: str) -> Dict[str, Dict]:
     coin = coin.upper()
     wallet = None
-    wallet = rpc_client.call_what('getBalance', coin)
+    wallet = await rpc_client.call_aiohttp_wallet('getBalance', coin)
     if wallet:
         wallet = {'unlocked':wallet['availableBalance'],'locked':wallet['lockedAmount']}
         return wallet
     return None
 
 
-def get_balance_address(address: str, coin: str) -> Dict[str, Dict]:
+async def get_balance_address(address: str, coin: str) -> Dict[str, Dict]:
     coin = coin.upper()
-    result = rpc_client.call_what('getBalance', coin, {'address': address})
+    result = await rpc_client.call_aiohttp_wallet('getBalance', coin, {'address': address})
     wallet = None
     if result:
         wallet = {'address':address,'unlocked':result['availableBalance'],'locked':result['lockedAmount']}
     return wallet
 
 
-def wallet_optimize_single(subaddress: str, threshold: int, coin: str=None) -> int:
+async def wallet_optimize_single(subaddress: str, threshold: int, coin: str=None) -> int:
     if coin is None:
         coin = "WRKZ"
     else:
@@ -180,24 +169,27 @@ def wallet_optimize_single(subaddress: str, threshold: int, coin: str=None) -> i
     i = 0
     while True:
         #print('get_wallet_api_url(coin): '+ get_wallet_api_url(coin))
-        resp = requests.post(get_wallet_api_url(coin) + '/json_rpc', json=full_payload)
-        try:
-            resp.raise_for_status()
-            json_resp = resp.json()
-            #print(json_resp)
-            if 'error' in json_resp:
-                break
-                return i
-            json_resp = resp.json().get('result', {})
-            if 'transactionHash' in json_resp:
-                i=i+1
-        except requests.exceptions.HTTPError as e:
-            #print("Fusion Error: " + str(e))
-            break
+        url = get_wallet_api_url(coin) + '/json_rpc'
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=full_payload, timeout=8) as response:
+                if response.status == 200:
+                    res_data = await response.read()
+                    res_data = res_data.decode('utf-8')
+                    await session.close()
+                    decoded_data = json.loads(res_data)
+                    if 'result' in decoded_data:
+                        if 'transactionHash' in decoded_data['result']:
+                            i=i+1
+                        else:
+                            break
+                    else:
+                        break
+                else:
+                    break
     return i
 
 
-def wallet_estimate_fusion(subaddress: str, threshold: int, coin: str=None) -> int:
+async def wallet_estimate_fusion(subaddress: str, threshold: int, coin: str=None) -> int:
     if coin is None:
         coin = "WRKZ"
     else:
@@ -209,7 +201,7 @@ def wallet_estimate_fusion(subaddress: str, threshold: int, coin: str=None) -> i
             subaddress
         ]
     }
-    result = rpc_client.call_what('estimateFusion', coin, payload=payload)
+    result = await rpc_client.call_aiohttp_wallet('estimateFusion', coin, payload=payload)
     return result
 
 
@@ -990,49 +982,50 @@ def num_format_coin(amount, coin: str = None):
     return amount_str
 
 
-def DOGE_register(account: str) -> str:
+async def DOGE_register(account: str) -> str:
     payload = f'"{account}"'
-    address_call = rpc_client.call_methodDOGE('getnewaddress', payload=payload)
+    address_call = await rpc_client.call_methodDOGE('getnewaddress', payload=payload)
     reg_address = {}
     reg_address['address'] = address_call
     payload = f'"{address_call}"'
-    key_call = rpc_client.call_methodDOGE('dumpprivkey', payload=payload)
+    key_call = await rpc_client.call_methodDOGE('dumpprivkey', payload=payload)
     reg_address['privateKey'] = key_call
     return reg_address
 
 
-def DOGE_validaddress(address: str) -> str:
+async def DOGE_validaddress(address: str) -> str:
     payload = f'"{address}"'
-    valid_call = rpc_client.call_methodDOGE('validateaddress', payload=payload)
+    valid_call = await rpc_client.call_methodDOGE('validateaddress', payload=payload)
     return valid_call
 
 
-def DOGE_getbalance_acc(account: str, confirmation: int=None) -> str:
+async def DOGE_getbalance_acc(account: str, confirmation: int=None) -> str:
     if confirmation is None:
         conf = 1
     else:
         conf = confirmation
     payload = f'"{account}", {conf}'
-    valid_call = rpc_client.call_methodDOGE('getbalance', payload=payload)
+    valid_call = await rpc_client.call_methodDOGE('getbalance', payload=payload)
     return valid_call
 
 
-def DOGE_getaccountaddress(account: str) -> str:
+async def DOGE_getaccountaddress(account: str) -> str:
     payload = f'"{account}"'
-    valid_call = rpc_client.call_methodDOGE('getaccountaddress', payload=payload)
+    valid_call = await rpc_client.call_methodDOGE('getaccountaddress', payload=payload)
     return valid_call
 
 
-def DOGE_sendtoaddress(to_address: str, amount: float, comment: str, comment_to: str=None) -> str:
+async def DOGE_sendtoaddress(to_address: str, amount: float, comment: str, comment_to: str=None) -> str:
     if comment_to is None:
         comment_to = "wrkz"
     payload = f'"{to_address}", {amount}, "{comment}", "{comment_to}", true'
-    valid_call = rpc_client.call_methodDOGE('sendtoaddress', payload=payload)
+    valid_call = await rpc_client.call_methodDOGE('sendtoaddress', payload=payload)
     return valid_call
 
-def DOGE_listreceivedbyaddress():
+
+async def DOGE_listreceivedbyaddress():
     payload = '0, true'
-    valid_call = rpc_client.call_methodDOGE('listreceivedbyaddress', payload=payload)
+    valid_call = await rpc_client.call_methodDOGE('listreceivedbyaddress', payload=payload)
     account_list = []
     if len(valid_call) >=1:
         for item in valid_call:
@@ -1040,9 +1033,9 @@ def DOGE_listreceivedbyaddress():
     return account_list
 
 
-def DOGE_dumpprivkey(address: str) -> str:
+async def DOGE_dumpprivkey(address: str) -> str:
     payload = f'"{address}"'
-    key_call = rpc_client.call_methodDOGE('dumpprivkey', payload=payload)
+    key_call = await rpc_client.call_methodDOGE('dumpprivkey', payload=payload)
     return key_call
 
 

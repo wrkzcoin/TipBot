@@ -137,7 +137,7 @@ async def sql_register_user(userID, coin: str = None):
                 if coin.upper() in ENABLE_COIN:
                     balance_address = await wallet.registerOTHER(coin.upper())
                 elif coin.upper() in ENABLE_COIN_DOGE:
-                    balance_address = await wallet.DOGE_register(str(userID))
+                    balance_address = await wallet.DOGE_register(str(userID), coin.upper())
                 if balance_address is None:
                     print('Internal error during call register wallet-api')
                     return
@@ -205,8 +205,8 @@ async def sql_update_user(userID, user_wallet_address, coin: str = None):
                 balance_address = None
                 if coin.upper() in ENABLE_COIN:
                     balance_address = await wallet.registerOTHER(coin.upper())
-                elif coin.upper() == "DOGE":
-                    balance_address = await wallet.DOGE_getaccountaddress(str(userID))
+                elif coin.upper() == "DOGE" or coin.upper() == "LTC":
+                    balance_address = await wallet.DOGE_getaccountaddress(str(userID), coin.upper())
                 if balance_address is None:
                     print('Internal error during call register wallet-api')
                     return
@@ -246,10 +246,10 @@ async def sql_get_userwallet(userID, coin: str = None):
             if result is None:
                 if coin.upper() in ENABLE_COIN_DOGE:
                     # Sometimes balance account exists
-                    depositAddress = await wallet.DOGE_getaccountaddress(str(userID))
+                    depositAddress = await wallet.DOGE_getaccountaddress(str(userID), coin.upper())
                     walletStatus = await daemonrpc_client.getDaemonRPCStatus(coin.upper())
                     chainHeight = int(walletStatus['blocks'])
-                    privateKey = await wallet.DOGE_dumpprivkey(depositAddress)
+                    privateKey = await wallet.DOGE_dumpprivkey(depositAddress, coin.upper())
                     sql = """ INSERT INTO """+coin.lower()+"""_user (`user_id`, `balance_wallet_address`, 
                               `balance_wallet_address_ts`, `balance_wallet_address_ch`, `privateKey`) 
                               VALUES (%s, %s, %s, %s, %s) """
@@ -263,7 +263,7 @@ async def sql_get_userwallet(userID, coin: str = None):
                     userwallet['balance_wallet_address'] = result[1] 
 
                 if coin.upper() in ENABLE_COIN_DOGE:
-                    depositAddress = await wallet.DOGE_getaccountaddress(str(userID))
+                    depositAddress = await wallet.DOGE_getaccountaddress(str(userID), coin.upper())
                     userwallet['balance_wallet_address'] = depositAddress
               
                 if result[2] is not None:
@@ -296,8 +296,8 @@ async def sql_get_userwallet(userID, coin: str = None):
                         userwallet['lastUpdate'] = int(time.time())
                 if coin.upper() in ENABLE_COIN_DOGE:
                     # Call to API instead
-                    actual = float(await wallet.DOGE_getbalance_acc(str(userID), 6))
-                    locked = float(await wallet.DOGE_getbalance_acc(str(userID), 1))
+                    actual = float(await wallet.DOGE_getbalance_acc(str(userID), coin.upper(), 6))
+                    locked = float(await wallet.DOGE_getbalance_acc(str(userID), coin.upper(), 1))
                     if actual == locked:
                         balance_actual = '{:,.8f}'.format(actual)
                         balance_locked = '{:,.8f}'.format(0)
@@ -1205,7 +1205,7 @@ async def sql_external_doge_single(user_from: str, amount: float, fee: float, to
         return False
     try:
         openConnection()
-        txHash = await wallet.DOGE_sendtoaddress(to_address, amount, user_from)
+        txHash = await wallet.DOGE_sendtoaddress(to_address, amount, user_from, coin.upper())
         #print(txHash)
         with conn.cursor() as cur: 
             sql = """ INSERT INTO """+coin.lower()+"""_external_tx (`user_id`, `amount`, `fee`, `to_address`, 

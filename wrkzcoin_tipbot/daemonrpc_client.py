@@ -22,10 +22,8 @@ async def getWalletStatus(coin: str):
 
 
 async def getDaemonRPCStatus(coin: str):
-    if (coin.upper() == "DOGE"):
-        result = await rpc_client.call_methodDOGE('getinfo')
-    elif (coin.upper() == "LTC"):
-        result = await rpc_client.call_methodLTC('getinfo')
+    if (coin.upper() == "DOGE") or (coin.upper() == "LTC"):
+        result = await rpc_client.call_doge_ltc('getinfo', coin.upper())
     return result
 
 

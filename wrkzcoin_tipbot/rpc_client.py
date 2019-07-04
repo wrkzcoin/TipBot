@@ -57,25 +57,6 @@ async def call_doge_ltc(method_name: str, coin: str, payload: str = None) -> Dic
                 return decoded_data['result']
 
 
-async def call_methodLTC(method_name: str, payload: str = None) -> Dict:
-    headers = {
-        'content-type': 'text/plain;',
-    }
-    if payload is None:
-        data = '{"jsonrpc": "1.0", "id":"'+str(uuid4())+'", "method": "'+method_name+'", "params": [] }'
-    else:
-        data = '{"jsonrpc": "1.0", "id":"'+str(uuid4())+'", "method": "'+method_name+'", "params": ['+payload+'] }'
-    url = f'http://{config.daemonLTC.username}:{config.daemonLTC.password}@{config.daemonLTC.host}:{config.daemonLTC.rpcport}/'
-    async with aiohttp.ClientSession() as session:
-        async with session.post(url, data=data, timeout=8) as response:
-            if response.status == 200:
-                res_data = await response.read()
-                res_data = res_data.decode('utf-8')
-                await session.close()
-                decoded_data = json.loads(res_data)
-                return decoded_data['result']
-
-
 def get_wallet_rpc_url(coin: str = None):
     if coin is None:
         coin = "WRKZ"

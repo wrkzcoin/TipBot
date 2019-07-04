@@ -431,7 +431,7 @@ async def info(ctx, coin: str = None):
     elif coin.upper() in ENABLE_COIN_DOGE:
         # user = await store.sql_register_user(ctx.message.author.id, "DOGE")
         wallet = await store.sql_get_userwallet(ctx.message.author.id, coin.upper())
-        depositAddress = await DOGE_getaccountaddress(ctx.message.author.id, coin.upper())
+        depositAddress = await DOGE_LTC_getaccountaddress(ctx.message.author.id, coin.upper())
         wallet['balance_wallet_address'] = depositAddress
     else:
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**')
@@ -530,9 +530,9 @@ async def balance(ctx, coin: str = None):
         # Add DOGE
         COIN_NAME = "DOGE"
         if COIN_NAME not in MAINTENANCE_COIN:
-            depositAddress = await DOGE_getaccountaddress(ctx.message.author.id, COIN_NAME)
-            actual = float(await DOGE_getbalance_acc(ctx.message.author.id, COIN_NAME, 6))
-            locked = float(await DOGE_getbalance_acc(ctx.message.author.id, COIN_NAME, 1))
+            depositAddress = await DOGE_LTC_getaccountaddress(ctx.message.author.id, COIN_NAME)
+            actual = float(await DOGE_LTC_getbalance_acc(ctx.message.author.id, COIN_NAME, 6))
+            locked = float(await DOGE_LTC_getbalance_acc(ctx.message.author.id, COIN_NAME, 1))
             userdata_balance = store.sql_doge_balance(ctx.message.author.id, COIN_NAME)
 
             if actual == locked:
@@ -575,9 +575,9 @@ async def balance(ctx, coin: str = None):
         pass
     elif coin.upper() == "DOGE":
         COIN_NAME = "DOGE"
-        depositAddress = await DOGE_getaccountaddress(ctx.message.author.id, COIN_NAME)
-        actual = float(await DOGE_getbalance_acc(ctx.message.author.id, COIN_NAME, 6))
-        locked = float(await DOGE_getbalance_acc(ctx.message.author.id, COIN_NAME, 1))
+        depositAddress = await DOGE_LTC_getaccountaddress(ctx.message.author.id, COIN_NAME)
+        actual = float(await DOGE_LTC_getbalance_acc(ctx.message.author.id, COIN_NAME, 6))
+        locked = float(await DOGE_LTC_getbalance_acc(ctx.message.author.id, COIN_NAME, 1))
         userdata_balance = store.sql_doge_balance(ctx.message.author.id, COIN_NAME)
         if actual == locked:				
             balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']) , COIN_NAME)
@@ -737,9 +737,9 @@ async def botbalance(ctx, member: discord.Member = None, *args):
         # user = await store.sql_register_user(bot.user.id, COIN_NAME)
         # Bypass other if they re in ENABLE_COIN_DOGE
         if COIN_NAME in ENABLE_COIN_DOGE:
-            depositAddress = await DOGE_getaccountaddress(bot.user.id, COIN_NAME)
-            actual = float(await DOGE_getbalance_acc(bot.user.id, COIN_NAME, 6))
-            locked = float(await DOGE_getbalance_acc(bot.user.id, COIN_NAME, 1))
+            depositAddress = await DOGE_LTC_getaccountaddress(bot.user.id, COIN_NAME)
+            actual = float(await DOGE_LTC_getbalance_acc(bot.user.id, COIN_NAME, 6))
+            locked = float(await DOGE_LTC_getbalance_acc(bot.user.id, COIN_NAME, 1))
             userdata_balance = store.sql_doge_balance(bot.user.id, COIN_NAME)
             if actual == locked:
                 balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
@@ -785,11 +785,11 @@ async def botbalance(ctx, member: discord.Member = None, *args):
         # Bypass other if they re in ENABLE_COIN_DOGE
         if COIN_NAME in ENABLE_COIN_DOGE:
             try:
-                depositAddress = await DOGE_getaccountaddress(str(member.id), COIN_NAME)
+                depositAddress = await DOGE_LTC_getaccountaddress(str(member.id), COIN_NAME)
             except Exception as e:
                 print(e)
-            actual = float(await DOGE_getbalance_acc(bot.user.id, COIN_NAME, 6))
-            locked = float(await DOGE_getbalance_acc(bot.user.id, COIN_NAME, 1))
+            actual = float(await DOGE_LTC_getbalance_acc(bot.user.id, COIN_NAME, 6))
+            locked = float(await DOGE_LTC_getbalance_acc(bot.user.id, COIN_NAME, 1))
             userdata_balance = store.sql_doge_balance(member.id, COIN_NAME)
             if actual == locked:
                 balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
@@ -913,10 +913,10 @@ async def register(ctx, wallet_address: str):
 
     valid_address = None
     if COIN_NAME in ENABLE_COIN_DOGE:
-        depositAddress = await DOGE_getaccountaddress(ctx.message.author.id, COIN_NAME)
+        depositAddress = await DOGE_LTC_getaccountaddress(ctx.message.author.id, COIN_NAME)
         user['balance_wallet_address'] = depositAddress
         if COIN_NAME == "DOGE":
-            valid_address = await DOGE_validaddress(str(wallet_address), COIN_NAME)
+            valid_address = await DOGE_LTC_validaddress(str(wallet_address), COIN_NAME)
             if ('isvalid' in valid_address):
                 if str(valid_address['isvalid']) == "True":
                     valid_address = wallet_address
@@ -1040,8 +1040,8 @@ async def withdraw(ctx, amount: str, coin: str = None):
         MaxTX = config.daemonDOGE.max_tx_amount
         netFee = config.daemonDOGE.tx_fee
         user_from = {}
-        user_from['address'] = await DOGE_getaccountaddress(ctx.message.author.id, COIN_NAME)
-        user_from['actual_balance'] = float(await DOGE_getbalance_acc(ctx.message.author.id, COIN_NAME, 6))
+        user_from['address'] = await DOGE_LTC_getaccountaddress(ctx.message.author.id, COIN_NAME)
+        user_from['actual_balance'] = float(await DOGE_LTC_getbalance_acc(ctx.message.author.id, COIN_NAME, 6))
         real_amount = float(amount)
         userdata_balance = store.sql_doge_balance(ctx.message.author.id, COIN_NAME)
         if real_amount + netFee > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
@@ -1239,8 +1239,8 @@ async def donate(ctx, amount: str, coin: str = None):
         MinTx = config.daemonDOGE.min_mv_amount
         MaxTX = config.daemonDOGE.max_mv_amount
         user_from = {}
-        user_from['address'] = await DOGE_getaccountaddress(ctx.message.author.id, COIN_NAME)
-        user_from['actual_balance'] = float(await DOGE_getbalance_acc(ctx.message.author.id, COIN_NAME, 6))
+        user_from['address'] = await DOGE_LTC_getaccountaddress(ctx.message.author.id, COIN_NAME)
+        user_from['actual_balance'] = float(await DOGE_LTC_getbalance_acc(ctx.message.author.id, COIN_NAME, 6))
         real_amount = float(amount)
         userdata_balance = store.sql_doge_balance(ctx.message.author.id, COIN_NAME)
         if real_amount > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
@@ -1521,10 +1521,10 @@ async def tip(ctx, amount: str, *args):
         MinTx = config.daemonDOGE.min_mv_amount
         MaxTX = config.daemonDOGE.max_mv_amount
         user_from = {}
-        user_from['address'] = await DOGE_getaccountaddress(str(ctx.message.author.id), COIN_NAME)
-        user_from['actual_balance'] = float(await DOGE_getbalance_acc(str(ctx.message.author.id), COIN_NAME, 6))
+        user_from['address'] = await DOGE_LTC_getaccountaddress(str(ctx.message.author.id), COIN_NAME)
+        user_from['actual_balance'] = float(await DOGE_LTC_getbalance_acc(str(ctx.message.author.id), COIN_NAME, 6))
         user_to = {}
-        user_to['address'] = await DOGE_getaccountaddress(str(member.id), COIN_NAME)
+        user_to['address'] = await DOGE_LTC_getaccountaddress(str(member.id), COIN_NAME)
         real_amount = float(amount)
         userdata_balance = store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
         if real_amount > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
@@ -1750,8 +1750,8 @@ async def tipall(ctx, amount: str, *args):
         MinTx = config.daemonDOGE.min_mv_amount
         MaxTX = config.daemonDOGE.max_mv_amount
         user_from = {}
-        user_from['address'] = await DOGE_getaccountaddress(ctx.message.author.id, COIN_NAME.upper())
-        user_from['actual_balance'] = float(await DOGE_getbalance_acc(ctx.message.author.id, COIN_NAME, 6))
+        user_from['address'] = await DOGE_LTC_getaccountaddress(ctx.message.author.id, COIN_NAME.upper())
+        user_from['actual_balance'] = float(await DOGE_LTC_getbalance_acc(ctx.message.author.id, COIN_NAME, 6))
         real_amount = float(amount)
         userdata_balance = store.sql_doge_balance(ctx.message.author.id, COIN_NAME)
         if real_amount > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
@@ -2031,7 +2031,7 @@ async def send(ctx, amount: str, CoinAddress: str):
             MinTx = config.daemonDOGE.min_tx_amount
             MaxTX = config.daemonDOGE.max_tx_amount
             netFee = config.daemonDOGE.tx_fee
-            valid_address = await DOGE_validaddress(str(CoinAddress), COIN_NAME)
+            valid_address = await DOGE_LTC_validaddress(str(CoinAddress), COIN_NAME)
             if 'isvalid' in valid_address:
                 if str(valid_address['isvalid']) == "True":
                     pass
@@ -2042,8 +2042,8 @@ async def send(ctx, amount: str, CoinAddress: str):
                     return
 
             user_from = {}
-            user_from['address'] = await DOGE_getaccountaddress(ctx.message.author.id, COIN_NAME)
-            user_from['actual_balance'] = float(await DOGE_getbalance_acc(ctx.message.author.id, COIN_NAME, 6))
+            user_from['address'] = await DOGE_LTC_getaccountaddress(ctx.message.author.id, COIN_NAME)
+            user_from['actual_balance'] = float(await DOGE_LTC_getbalance_acc(ctx.message.author.id, COIN_NAME, 6))
             real_amount = float(amount)
             userdata_balance = store.sql_doge_balance(ctx.message.author.id, COIN_NAME)
             if real_amount + netFee > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
@@ -2322,7 +2322,7 @@ async def address(ctx, *args):
     if len(args) == 1:
         CoinAddress = args[0]
         if COIN_NAME == "DOGE":
-            valid_address = await DOGE_validaddress(str(CoinAddress), COIN_NAME)
+            valid_address = await DOGE_LTC_validaddress(str(CoinAddress), COIN_NAME)
             if 'isvalid' in valid_address:
                 if str(valid_address['isvalid']) == "True":
                     await ctx.message.add_reaction(EMOJI_CHECK)
@@ -2340,7 +2340,7 @@ async def address(ctx, *args):
                                 'Checked: Invalid.')
                 return
         elif COIN_NAME == "LTC":
-            valid_address = await DOGE_validaddress(str(CoinAddress), COIN_NAME)
+            valid_address = await DOGE_LTC_validaddress(str(CoinAddress), COIN_NAME)
             if 'isvalid' in valid_address:
                 if str(valid_address['isvalid']) == "True":
                     await ctx.message.add_reaction(EMOJI_CHECK)
@@ -3647,8 +3647,8 @@ async def _tip(ctx, amount, coin: str = None):
         MinTx = config.daemonDOGE.min_mv_amount
         MaxTX = config.daemonDOGE.max_mv_amount
         user_from = {}
-        user_from['address'] = await DOGE_getaccountaddress(ctx.message.author.id, COIN_NAME.upper())
-        user_from['actual_balance'] = float(await DOGE_getbalance_acc(ctx.message.author.id, COIN_NAME, 6))
+        user_from['address'] = await DOGE_LTC_getaccountaddress(ctx.message.author.id, COIN_NAME.upper())
+        user_from['actual_balance'] = float(await DOGE_LTC_getbalance_acc(ctx.message.author.id, COIN_NAME, 6))
         real_amount = float(amount)
         userdata_balance = store.sql_doge_balance(ctx.message.author.id, COIN_NAME)
         if real_amount > user_from['actual_balance'] + userdata_balance['Adjust']:
@@ -3898,8 +3898,8 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
         MinTx = config.daemonDOGE.min_mv_amount
         MaxTX = config.daemonDOGE.max_mv_amount
         user_from = {}
-        user_from['address'] = await DOGE_getaccountaddress(ctx.message.author.id, COIN_NAME.upper())
-        user_from['actual_balance'] = float(await DOGE_getbalance_acc(ctx.message.author.id, COIN_NAME, 6))
+        user_from['address'] = await DOGE_LTC_getaccountaddress(ctx.message.author.id, COIN_NAME.upper())
+        user_from['actual_balance'] = float(await DOGE_LTC_getbalance_acc(ctx.message.author.id, COIN_NAME, 6))
         real_amount = float(amount)
         userdata_balance = store.sql_doge_balance(ctx.message.author.id, COIN_NAME)
         if real_amount > user_from['actual_balance'] + userdata_balance['Adjust']:

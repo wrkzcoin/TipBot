@@ -984,7 +984,7 @@ def num_format_coin(amount, coin: str = None):
     return amount_str
 
 
-async def DOGE_register(account: str, coin: str) -> str:
+async def DOGE_LTC_register(account: str, coin: str) -> str:
     payload = f'"{account}"'
     address_call = await rpc_client.call_doge_ltc('getnewaddress', coin.upper(), payload=payload)
     reg_address = {}
@@ -995,13 +995,13 @@ async def DOGE_register(account: str, coin: str) -> str:
     return reg_address
 
 
-async def DOGE_validaddress(address: str, coin: str) -> str:
+async def DOGE_LTC_validaddress(address: str, coin: str) -> str:
     payload = f'"{address}"'
     valid_call = await rpc_client.call_doge_ltc('validateaddress', coin.upper(), payload=payload)
     return valid_call
 
 
-async def DOGE_getbalance_acc(account: str, coin: str, confirmation: int=None) -> str:
+async def DOGE_LTC_getbalance_acc(account: str, coin: str, confirmation: int=None) -> str:
     if confirmation is None:
         conf = 1
     else:
@@ -1011,13 +1011,13 @@ async def DOGE_getbalance_acc(account: str, coin: str, confirmation: int=None) -
     return valid_call
 
 
-async def DOGE_getaccountaddress(account: str, coin: str) -> str:
+async def DOGE_LTC_getaccountaddress(account: str, coin: str) -> str:
     payload = f'"{account}"'
     valid_call = await rpc_client.call_doge_ltc('getaccountaddress', coin.upper(), payload=payload)
     return valid_call
 
 
-async def DOGE_sendtoaddress(to_address: str, amount: float, comment: str, coin: str, comment_to: str=None) -> str:
+async def DOGE_LTC_sendtoaddress(to_address: str, amount: float, comment: str, coin: str, comment_to: str=None) -> str:
     if comment_to is None:
         comment_to = "wrkz"
     payload = f'"{to_address}", {amount}, "{comment}", "{comment_to}", true'
@@ -1025,7 +1025,7 @@ async def DOGE_sendtoaddress(to_address: str, amount: float, comment: str, coin:
     return valid_call
 
 
-async def DOGE_listreceivedbyaddress(coin: str):
+async def DOGE_LTC_listreceivedbyaddress(coin: str):
     payload = '0, true'
     valid_call = await rpc_client.call_doge_ltc('listreceivedbyaddress', coin.upper(), payload=payload)
     account_list = []
@@ -1035,7 +1035,7 @@ async def DOGE_listreceivedbyaddress(coin: str):
     return account_list
 
 
-async def DOGE_dumpprivkey(address: str, coin: str) -> str:
+async def DOGE_LTC_dumpprivkey(address: str, coin: str) -> str:
     payload = f'"{address}"'
     key_call = await rpc_client.call_doge_ltc('dumpprivkey', coin.upper(), payload=payload)
     return key_call

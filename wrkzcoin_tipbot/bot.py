@@ -85,6 +85,7 @@ EMOJI_RED_NO = "\u26D4"
 EMOJI_SPEAK = "\U0001F4AC"
 EMOJI_ARROW_RIGHTHOOK = "\u21AA"
 EMOJI_FORWARD = "\u23E9"
+EMOJI_REFRESH = "\U0001F504"
 
 ENABLE_COIN = config.Enable_Coin.split(",")
 ENABLE_COIN_DOGE = ["DOGE"]
@@ -273,6 +274,8 @@ async def on_ready():
     print("Users: {}".format(sum([x.member_count for x in bot.guilds])))
     game = discord.Game(name="Tip Forever!")
     await bot.change_presence(status=discord.Status.online, activity=game)
+    botLogChan = bot.get_channel(id=LOG_CHAN)
+    await botLogChan.send(f'{EMOJI_REFRESH} I am back :)')
 
 
 @bot.event
@@ -389,6 +392,15 @@ async def save(ctx, coin: str):
     else:
         await ctx.send(f'{EMOJI_RED_NO} {coin.upper()} not exists with this command.')
         return
+
+
+@commands.is_owner()
+@admin.command(pass_context=True, name='shutdown', aliases=['restart'])
+async def shutdown(ctx):
+    botLogChan = bot.get_channel(id=LOG_CHAN)
+    await ctx.send(f'{EMOJI_REFRESH} {ctx.author.mention} .. restarting .. back soon.')
+    await botLogChan.send(f'{EMOJI_REFRESH} {ctx.message.author.name} / {ctx.message.author.id} called `restart`. I will be back soon hopefully.')
+    await bot.logout()
 
 
 @bot.command(pass_context=True, name='info', aliases=['wallet'], help=bot_help_info)

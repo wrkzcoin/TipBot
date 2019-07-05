@@ -361,6 +361,33 @@ async def about(ctx):
         print(e)
 
 
+@bot.group()
+@commands.is_owner()
+async def admin(ctx):
+    if ctx.invoked_subcommand is None:
+        await ctx.send('Invalid `admin` command passed...')
+    return
+
+
+@commands.is_owner()
+@admin.command()
+async def save(ctx, coin: str):
+    botLogChan = bot.get_channel(id=LOG_CHAN)
+    COIN_NAME = coin.upper()
+    if COIN_NAME in MAINTENANCE_COIN:
+        await ctx.send(f'{EMOJI_RED_NO} {coin.upper()} in maintenance.')
+        return
+    
+    if COIN_NAME in ENABLE_COIN:
+        duration = await rpc_cn_wallet_save(COIN_NAME)
+        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} called `save` for {COIN_NAME}')
+        if duration:
+            await ctx.send(f'{get_emoji(COIN_NAME)} {coin.upper()} `save` took {round(duration,3)}s.')
+        else:
+            await ctx.send(f'{get_emoji(COIN_NAME)} {coin.upper()} `save` calling error.')
+        return
+
+
 @bot.command(pass_context=True, name='info', aliases=['wallet'], help=bot_help_info)
 async def info(ctx, coin: str = None):
     global LIST_IGNORECHAN
@@ -3448,6 +3475,12 @@ async def check_guild_permissions(ctx, perms, *, check=all):
 
     resolved = ctx.author.guild_permissions
     return check(getattr(resolved, name, None) == value for name, value in perms.items())
+
+
+@admin.error
+async def admin_error(ctx, error):
+    if isinstance(error, commands.MissingPermissions):
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Looks like you don\'t have the permission.')
 
 
 @setting.error

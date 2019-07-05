@@ -4,6 +4,7 @@ from uuid import uuid4
 import rpc_client
 import aiohttp
 import asyncio
+import time
 from config import config
 
 import sys
@@ -187,6 +188,14 @@ async def wallet_optimize_single(subaddress: str, threshold: int, coin: str=None
                 else:
                     break
     return i
+
+
+async def rpc_cn_wallet_save(coin: str):
+    coin = coin.upper()
+    start = time.time()
+    result = await rpc_client.call_aiohttp_wallet('save', coin)
+    end = time.time()
+    return float(end - start)
 
 
 async def wallet_estimate_fusion(subaddress: str, threshold: int, coin: str=None) -> int:

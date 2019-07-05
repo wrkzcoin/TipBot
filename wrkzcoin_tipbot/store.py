@@ -443,7 +443,6 @@ async def sql_send_tipall(user_from: str, user_tos, amount: int, amount_div: int
                         for item in user_ids:
                             values_str.append(f"('{user_from}', '{item}', {amount_div}, {timestamp}, '{tx_hash}', '{tiptype.upper()}')\n")
                         values_sql = "VALUES " + ",".join(values_str)
-                        print(values_sql)
                         sql = """ INSERT INTO """+coin.lower()+"""_tip (`from_user`, `to_user`, `amount`, `date`, `tx_hash`, `tip_tips_tipall`) 
                                   """+values_sql+""" """
                         cur.execute(sql,)

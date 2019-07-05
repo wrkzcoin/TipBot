@@ -28,34 +28,13 @@ from PIL import Image, ImageDraw, ImageFont
 from terminaltables import AsciiTable
 
 import sys
-
-# Setting up asyncio to use uvloop if possible, a faster implementation on the event loop
 import asyncio
-
-# Importing and creating a logger
-
-import logging
-
-logger = logging.getLogger('discord')
-logger.setLevel(logging.DEBUG)
-handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
-handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
-logger.addHandler(handler)
-
-try:
-    # noinspection PyUnresolvedReferences
-    import uvloop
-except ImportError:
-    logger.warning("Using the not-so-fast default asyncio event loop. Consider installing uvloop.")
-    pass
-else:
-    logger.info("Using the fast uvloop asyncio event loop")
-    asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
 
 sys.path.append("..")
 
 MAINTENANCE_OWNER = [386761001808166912]  # list owner
+OWNER_ID_TIPBOT = 386761001808166912
 # bingo and duckhunt
 BOT_IGNORECHAN = [558173489194991626, 524572420468899860]  # list ignore chan
 LOG_CHAN = 572686071771430922
@@ -137,6 +116,7 @@ NOTICE_DOGE = "Please acknowledge that DOGE address is for **one-time** use only
 NOTIFICATION_OFF_CMD = 'Type: `.notifytip off` to turn off this DM notification.'
 
 bot_description = f"Tip {COIN_REPR} to other users on your server."
+bot_help_about = "About TipBot"
 bot_help_register = "Register or change your deposit address."
 bot_help_info = "Get your account's info."
 bot_help_withdraw = f"Withdraw {COIN_REPR} from your balance."
@@ -275,9 +255,7 @@ async def get_prefix(bot, message):
     return when_mentioned_or(*extras)(bot, message)
 
 
-logger.debug("Creating a bot instance of commands.AutoShardedBot")
-bot = AutoShardedBot(command_prefix = get_prefix, case_insensitive=True, pm_help = True)
-
+bot = AutoShardedBot(command_prefix = get_prefix, case_insensitive=True, owner_id = OWNER_ID_TIPBOT, pm_help = True)
 
 @bot.event
 async def on_ready():
@@ -364,6 +342,23 @@ async def on_message(message):
     # await bot.process_commands(message)
     ctx = await bot.get_context(message)
     await bot.invoke(ctx)
+
+
+@bot.command(pass_context=True, name='about', help=bot_help_about, hidden = True)
+async def about(ctx):
+    botdetails = discord.Embed(title='About Me', description='', colour=7047495)
+    botdetails.add_field(name='Creator\'s Discord Name:', value='CapEtn#4425', inline=True)
+    botdetails.add_field(name='My Github:', value='https://github.com/wrkzcoin/TipBot', inline=True)
+    botdetails.add_field(name='Invite Me:', value=f'{BOT_INVITELINK}', inline=True)
+    botdetails.add_field(name='Servers I am in:', value=len(bot.guilds), inline=True)
+    botdetails.add_field(name='Support Me:', value=f'<@{bot.user.id}> donate AMOUNT ticker', inline=True)
+    botdetails.set_footer(text='Made in Python3.6+ with discord.py library!', icon_url='http://findicons.com/files/icons/2804/plex/512/python.png')
+    botdetails.set_author(name=bot.user.name, icon_url=bot.user.avatar_url)
+    try:
+        await ctx.send(embed=botdetails)
+    except Exception as e:
+        await ctx.message.author.send(embed=botdetails)
+        print(e)
 
 
 @bot.command(pass_context=True, name='info', aliases=['wallet'], help=bot_help_info)

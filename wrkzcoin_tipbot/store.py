@@ -425,9 +425,12 @@ async def sql_send_tipall(user_from: str, user_tos, amount: int, amount_div: int
     if 'balance_wallet_address' in user_from_wallet:
         tx_hash = None
         if coin.upper() in ENABLE_COIN:
-            tx_hash = await wallet.send_transactionall(user_from_wallet['balance_wallet_address'], user_tos, coin.upper())
-            print('tx_hash: ')
-            print(tx_hash)
+            try:
+                tx_hash = await wallet.send_transactionall(user_from_wallet['balance_wallet_address'], user_tos, coin.upper())
+                print('tx_hash: ')
+                print(tx_hash)
+            except Exception as e:
+                print(e)
         if tx_hash:
             try:
                 openConnection()

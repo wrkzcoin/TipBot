@@ -86,6 +86,7 @@ EMOJI_SPEAK = "\U0001F4AC"
 EMOJI_ARROW_RIGHTHOOK = "\u21AA"
 EMOJI_FORWARD = "\u23E9"
 EMOJI_REFRESH = "\U0001F504"
+EMOJI_ZIPPED_MOUTH = "\U0001F910"
 
 ENABLE_COIN = config.Enable_Coin.split(",")
 ENABLE_COIN_DOGE = ["DOGE"]
@@ -364,7 +365,20 @@ async def about(ctx):
         print(e)
 
 
-@bot.group()
+@bot.group(hidden = True)
+async def account(ctx):
+    if ctx.invoked_subcommand is None:
+        await ctx.send('Invalid `account` command passed...')
+    return
+
+
+@account.command(hidden = True)
+async def twofa(ctx):
+    await ctx.send('On progress.')
+    return
+
+
+@bot.group(hidden = True)
 @commands.is_owner()
 async def admin(ctx):
     if ctx.invoked_subcommand is None:
@@ -373,7 +387,7 @@ async def admin(ctx):
 
 
 @commands.is_owner()
-@admin.command()
+@admin.command(hidden = True)
 async def save(ctx, coin: str):
     botLogChan = bot.get_channel(id=LOG_CHAN)
     COIN_NAME = coin.upper()
@@ -3975,7 +3989,6 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
         if tips:
             servername = serverinfo['servername']
             await ctx.message.add_reaction(EMOJI_TIP)
-            await ctx.message.add_reaction(EMOJI_SPEAK)
             # tipper shall always get DM. Ignore notifyList
             try:
                 await ctx.message.author.send(
@@ -4002,7 +4015,11 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
                             except discord.Forbidden:
                                 print('Adding: ' + str(member.id) + ' not to receive DM tip')
                                 store.sql_toggle_tipnotify(str(member.id), "OFF")
-            await ctx.send(f'{mention_list_name}\n\nYou got tip :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
+            try:
+                await ctx.send(f'{mention_list_name}\n\nYou got tip :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
+                await ctx.message.add_reaction(EMOJI_SPEAK)
+            except discord.errors.Forbidden:
+                await ctx.message.add_reaction(EMOJI_SPEAK)
             return
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -4114,7 +4131,6 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
         servername = serverinfo['servername']
         await store.sql_update_some_balances(addresses, COIN_NAME)
         await ctx.message.add_reaction(EMOJI_TIP)
-        await ctx.message.add_reaction(EMOJI_SPEAK)
         if has_forwardtip:
             await ctx.message.add_reaction(EMOJI_FORWARD)
         # tipper shall always get DM. Ignore notifyList
@@ -4136,7 +4152,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
                     mention_list_name = mention_list_name + '`'+member.name + '` '
                     if str(member_id) not in notifyList:
                         try:
-                            await member.send(f'{EMOJI_MONEYFACE} You got a tip of {tipAmount} '
+                            await member.send(f'{EMOJI_MONEYFACE} You got a tip of {num_format_coin(real_amount, COIN_NAME)} '
                                             f'{COIN_NAME} from `{ctx.message.author.name}` in server `{servername}` for active talking.\n'
                                             f'Transaction hash: `{tip}`\n'
                                             f'{NOTIFICATION_OFF_CMD}')
@@ -4144,7 +4160,11 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
                             print('Adding: ' + str(member.id) + ' not to receive DM tip')
                             store.sql_toggle_tipnotify(str(member.id), "OFF")
                         pass
-        await ctx.send(f'{mention_list_name}\n\nYou got tip :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
+        try:
+            await ctx.send(f'{mention_list_name}\n\nYou got tip :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
+            await ctx.message.add_reaction(EMOJI_SPEAK)
+        except discord.errors.Forbidden:
+            await ctx.message.add_reaction(EMOJI_SPEAK)
         return
     else:
         await ctx.message.add_reaction(EMOJI_ERROR)

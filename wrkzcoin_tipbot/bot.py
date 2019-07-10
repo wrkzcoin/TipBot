@@ -1202,6 +1202,8 @@ async def withdraw(ctx, amount: str, coin: str = None):
         await ctx.message.add_reaction(EMOJI_ERROR)
         await botLogChan.send(f'A user failed to execute `.withdraw {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`')
         await ctx.send(f'{ctx.author.mention} You may need to `optimize` or try again.')
+        # add to failed tx table
+        store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "WITHDRAW")
         return
 
 
@@ -1393,6 +1395,8 @@ async def donate(ctx, amount: str, coin: str = None):
     else:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{ctx.author.mention} Thank you but you may need to `optimize` or try again later.')
+        # add to failed tx table
+        store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "DONATE")
         return
 
 

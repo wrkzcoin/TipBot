@@ -1709,6 +1709,8 @@ async def tip(ctx, amount: str, *args):
     else:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{ctx.author.mention} Can not deliver TX for {COIN_NAME} right now. Try again soon.')
+        # add to failed tx table
+        store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "TIP")
         return
 
 
@@ -2025,6 +2027,8 @@ async def tipall(ctx, amount: str, *args):
     else:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{ctx.author.mention} Can not deliver TX for {COIN_NAME} right now. Try again soon.')
+        # add to failed tx table
+        store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "TIPALL")
         return
 
 
@@ -2303,6 +2307,8 @@ async def send(ctx, amount: str, CoinAddress: str):
             await ctx.message.add_reaction(EMOJI_ERROR)
             await botLogChan.send(f'A user failed to execute `.send {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`.')
             await ctx.send(f'{ctx.author.mention} Can not deliver TX for {COIN_NAME} right now. Try again soon.')
+            # add to failed tx table
+            store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "SEND")
             return
 
 
@@ -3917,6 +3923,8 @@ async def _tip(ctx, amount, coin: str = None):
     else:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You may need to `optimize` or try again.')
+        # add to failed tx table
+        store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "TIPS")
         return
 
 
@@ -4171,6 +4179,8 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
     else:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You may need to `optimize` or try again later.')
+        # add to failed tx table
+        store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "TIPS")
         return
 
 

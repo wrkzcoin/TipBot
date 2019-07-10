@@ -1079,6 +1079,23 @@ def sql_listignorechan():
     return None
 
 
+def sql_add_failed_tx(coin: str, user_id: str, user_author: str, amount: int, tx_type: str):
+    global conn
+    if tx_type.upper() not in ['TIP','TIPS','TIPALL','DONATE','WITHDRAW','SEND']:
+        return None
+    try:
+        openConnection()
+        with conn.cursor() as cur:
+            sql = """ INSERT IGNORE INTO `discord_txfail` (`coin_name`, `user_id`, `tx_author`, `amount`, `tx_type`, `fail_time`)
+                      VALUES (%s, %s, %s, %s, %s, %s) """
+            cur.execute(sql, (coin.upper(), user_id, user_author, amount, tx_type.upper(), int(time.time())))
+            conn.commit()
+    except Exception as e:
+        print(e)
+    finally:
+        conn.close()
+
+
 def sql_get_tipnotify():
     global conn
     try:

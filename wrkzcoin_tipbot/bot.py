@@ -409,12 +409,69 @@ async def save(ctx, coin: str):
 
 
 @commands.is_owner()
-@admin.command(pass_context=True, name='shutdown', aliases=['restart'])
+@admin.command(pass_context=True, name='shutdown', aliases=['restart'], hidden = True)
 async def shutdown(ctx):
     botLogChan = bot.get_channel(id=LOG_CHAN)
     await ctx.send(f'{EMOJI_REFRESH} {ctx.author.mention} .. restarting .. back soon.')
     await botLogChan.send(f'{EMOJI_REFRESH} {ctx.message.author.name} / {ctx.message.author.id} called `restart`. I will be back soon hopefully.')
     await bot.logout()
+
+
+@commands.is_owner()
+@admin.command(hidden = True)
+async def baluser(ctx, user_id: str):
+    # for verification | future restoration of lost account
+    table_data = [
+        ['TICKER', 'Available', 'Locked']
+    ]
+    for coinItem in ENABLE_COIN:
+        if coinItem not in MAINTENANCE_COIN:
+            COIN_DEC = get_decimal(coinItem.upper())
+            wallet = await store.sql_get_userwallet(str(user_id), coinItem.upper())
+            if wallet is None:
+                table_data.append([coinItem.upper(), "N/A", "N/A"])
+            else:
+                balance_actual = num_format_coin(wallet['actual_balance'], coinItem.upper())
+                balance_locked = num_format_coin(wallet['locked_balance'], coinItem.upper())
+                balance_total = num_format_coin((wallet['actual_balance'] + wallet['locked_balance']), coinItem.upper())
+                coinName = coinItem.upper()
+                if 'user_wallet_address' not in wallet:
+                    coinName += '*'
+                if wallet['forwardtip'] == "ON":
+                    coinName += ' >>'
+                table_data.append([coinName, balance_actual, balance_locked])
+                pass
+        else:
+            table_data.append([coinItem.upper(), "***", "***"])
+    # Add DOGE
+    COIN_NAME = "DOGE"
+    if COIN_NAME not in MAINTENANCE_COIN:
+        depositAddress = await DOGE_LTC_getaccountaddress(str(user_id), COIN_NAME)
+        actual = float(await DOGE_LTC_getbalance_acc(str(user_id), COIN_NAME, 6))
+        locked = float(await DOGE_LTC_getbalance_acc(str(user_id), COIN_NAME, 1))
+        userdata_balance = store.sql_doge_balance(str(user_id), COIN_NAME)
+
+        if actual == locked:
+            balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
+            balance_locked = num_format_coin(0, COIN_NAME)
+        else:
+            balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
+            if locked - actual + float(userdata_balance['Adjust']) < 0:
+                balance_locked =  num_format_coin(0, COIN_NAME)
+            else:
+                balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
+        table_data.append([COIN_NAME, balance_actual, balance_locked])
+    else:
+        table_data.append([COIN_NAME, "***", "***"])
+    # End of Add DOGE
+
+    table = AsciiTable(table_data)
+    table.padding_left = 0
+    table.padding_right = 0
+    await ctx.message.add_reaction(EMOJI_OK)
+    await ctx.message.author.send(f'**[ BALANCE LIST OF {user_id} ]**\n'
+                                  f'```{table.table}```\n')
+    return
 
 
 @bot.command(pass_context=True, name='info', aliases=['wallet'], help=bot_help_info)
@@ -1012,7 +1069,7 @@ async def register(ctx, wallet_address: str):
         await store.sql_update_user(user_id, wallet_address, COIN_NAME)
         if prev_address:
             await ctx.message.add_reaction(EMOJI_OK)
-            await ctx.send(f'Your {COIN_NAME} {ctx.author.mention} withdraw address has been changed from:\n'
+            await ctx.send(f'Your {COIN_NAME} {ctx.author.mention} withdraw address has changed from:\n'
                            f'`{prev_address}`\n to\n '
                            f'`{wallet_address}`')
             return
@@ -1020,7 +1077,7 @@ async def register(ctx, wallet_address: str):
     else:
         user = await store.sql_update_user(user_id, wallet_address, COIN_NAME)
         await ctx.message.add_reaction(EMOJI_OK)
-        await ctx.send(f'{ctx.author.mention} You have been registered {COIN_NAME} withdraw address.\n'
+        await ctx.send(f'{ctx.author.mention} You have registered {COIN_NAME} withdraw address.\n'
                        f'You can use `{server_prefix}withdraw AMOUNT {COIN_NAME}` anytime.')
         return
 

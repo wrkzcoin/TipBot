@@ -3156,60 +3156,32 @@ async def paymentid(ctx):
 
 @bot.command(pass_context=True, aliases=['stat'], help=bot_help_stats)
 async def stats(ctx, coin: str = None):
-    if coin is None or coin.upper() == 'BOT':
+    if ((coin is None) and isinstance(ctx.message.channel, discord.DMChannel)) or coin.upper() == "BOT":
         await bot.wait_until_ready()
+        get_all_m = bot.get_all_members()
         #membercount = '[Members] ' + '{:,.0f}'.format(sum([x.member_count for x in bot.guilds]))
         guildnumber = '[Guilds]        ' + '{:,.0f}'.format(len(bot.guilds))
         shardcount = '[Shards]        ' + '{:,.0f}'.format(bot.shard_count)
-        totalonline = '[Total Online]  ' + '{:,.0f}'.format(sum(1 for m in bot.get_all_members() if str(m.status) != 'offline'))
-        uniqmembers = '[Unique user]   ' + '{:,.0f}'.format(len(set(bot.get_all_members())))
-        uniqonlines = '[Unique Online] ' + '{:,.0f}'.format(sum(1 for m in set(bot.get_all_members()) if str(m.status) != 'offline'))
+        totalonline = '[Total Online]  ' + '{:,.0f}'.format(sum(1 for m in get_all_m if str(m.status) != 'offline'))
+        uniqmembers = '[Unique user]   ' + '{:,.0f}'.format(len(bot.users))
+        channelnumb = '[Channels]      ' + '{:,.0f}'.format(sum(1 for g in bot.guilds for _ in g.channels))
         botid = '[Bot ID]        ' + str(bot.user.id)
         botstats = '**[ TIPBOT ]**\n'
         botstats = botstats + '```'
-        botstats = botstats + botid + '\n' + guildnumber + '\n' + shardcount + '\n' + totalonline + '\n' + uniqmembers + '\n' + uniqonlines
-        botstats = botstats + '```'	
-        if isinstance(ctx.message.channel, discord.DMChannel):	
-            try:
-                await ctx.send(f'{botstats}')
-                await ctx.send('Please add ticker: '+ ', '.join(ENABLE_COIN).lower() + ' to get stats about coin instead.')
-            except Exception as e:
-                print(e)
-            return
-        else:
-            if coin and coin.upper() == 'BOT':
-                try:
-                    await ctx.send(f'{botstats}')
-                    await ctx.send('Please add ticker: '+ ', '.join(ENABLE_COIN).lower() + ' to get stats about coin instead.')
-                except Exception as e:
-                    print(e)
-                return
-            serverinfo = store.sql_info_by_server(str(ctx.guild.id))
-            try:
-                COIN_NAME = args[0]
-                if COIN_NAME.upper() not in ENABLE_COIN:
-                    if COIN_NAME.upper() in ENABLE_COIN_DOGE:
-                        COIN_NAME = COIN_NAME.upper()
-                    elif 'default_coin' in serverinfo:
-                        COIN_NAME = serverinfo['default_coin'].upper()
-                else:
-                    COIN_NAME = COIN_NAME.upper()
-            except:
-                if 'default_coin' in serverinfo:
-                    COIN_NAME = serverinfo['default_coin'].upper()
-            print("COIN_NAME: " + COIN_NAME)
-            coin = COIN_NAME
-            pass
+        botstats = botstats + botid + '\n' + guildnumber + '\n' + shardcount + '\n' + totalonline + '\n' + uniqmembers + '\n' + channelnumb
+        botstats = botstats + '```'
+        await ctx.send(f'{botstats}')
+        await ctx.send('Please add ticker: '+ ', '.join(ENABLE_COIN).lower() + ' to get stats about coin instead.')
+        return
+    elif (coin is None) and isinstance(ctx.message.channel, discord.DMChannel) == False:
+        serverinfo = get_info_pref_coin(ctx)
+        coin = serverinfo['default_coin']
+        pass
 
     if coin.upper() not in ENABLE_COIN:
-        if coin == "*":
-            await ctx.message.add_reaction(EMOJI_OK)
-            await ctx.send('Not available yet. TODO.')
-            return
-        else:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send('Please put available ticker: '+ ', '.join(ENABLE_COIN).lower())
-            return
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send('Please put available ticker: '+ ', '.join(ENABLE_COIN).lower())
+        return
     else:
         coin = coin.upper()
 
@@ -3867,7 +3839,7 @@ def get_info_pref_coin(ctx):
             server_id = str(ctx.guild.id)
             server_prefix = serverinfo['prefix']
             server_coin = serverinfo['default_coin'].upper()
-        return {'server_prefix': server_prefix, 'server_coin': server_coin, 'server_id': server_id, 'servername': ctx.guild.name}
+        return {'server_prefix': server_prefix, 'default_coin': server_coin, 'server_id': server_id, 'servername': ctx.guild.name}
 
 
 def get_cn_coin_from_address(CoinAddress: str):

@@ -144,6 +144,14 @@ bot_help_settings = "settings view and set for prefix, default coin. Requires pe
 bot_help_invite = "Invite link of bot to your server."
 bot_help_voucher = "(Testing) make a voucher image and your friend can claim via QR code."
 
+# admin commands
+bot_help_admin = "Various admin commands."
+bot_help_admin_save = "Save wallet file..."
+bot_help_admin_shutdown = "Restart bot."
+bot_help_admin_baluser = "Check a specific user's balance for verification purpose."
+bot_help_admin_lockuser = "Lock a user from any tx (tip, withdraw, info, etc) by user id"
+bot_help_admin_unlockuser = "Unlock a user by user id."
+
 
 def get_emoji(coin: str):
     if coin is None:
@@ -380,7 +388,7 @@ async def twofa(ctx):
     return
 
 
-@bot.group(hidden = True)
+@bot.group(hidden = True, help=bot_help_admin)
 @commands.is_owner()
 async def admin(ctx):
     if ctx.invoked_subcommand is None:
@@ -389,7 +397,7 @@ async def admin(ctx):
 
 
 @commands.is_owner()
-@admin.command(hidden = True)
+@admin.command(help=bot_help_admin_save)
 async def save(ctx, coin: str):
     botLogChan = bot.get_channel(id=LOG_CHAN)
     COIN_NAME = coin.upper()
@@ -411,7 +419,7 @@ async def save(ctx, coin: str):
 
 
 @commands.is_owner()
-@admin.command(pass_context=True, name='shutdown', aliases=['restart'], hidden = True)
+@admin.command(pass_context=True, name='shutdown', aliases=['restart'], help=bot_help_admin_shutdown)
 async def shutdown(ctx):
     botLogChan = bot.get_channel(id=LOG_CHAN)
     await ctx.send(f'{EMOJI_REFRESH} {ctx.author.mention} .. restarting .. back soon.')
@@ -420,7 +428,7 @@ async def shutdown(ctx):
 
 
 @commands.is_owner()
-@admin.command(hidden = True)
+@admin.command(help=bot_help_admin_baluser)
 async def baluser(ctx, user_id: str):
     create_acc = None
     # for verification | future restoration of lost account
@@ -479,7 +487,7 @@ async def baluser(ctx, user_id: str):
 
 
 @commands.is_owner()
-@admin.command(hidden = True)
+@admin.command(help=bot_help_admin_lockuser)
 async def lockuser(ctx, user_id: str, *, reason: str):
     get_discord_userinfo = store.sql_discord_userinfo_get(user_id)
     if get_discord_userinfo is None:
@@ -498,7 +506,7 @@ async def lockuser(ctx, user_id: str, *, reason: str):
 
 
 @commands.is_owner()
-@admin.command(hidden = True)
+@admin.command(help=bot_help_admin_unlockuser)
 async def unlockuser(ctx, user_id: str):
     get_discord_userinfo = store.sql_discord_userinfo_get(user_id)
     if get_discord_userinfo:

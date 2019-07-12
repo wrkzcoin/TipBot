@@ -1092,6 +1092,74 @@ def sql_userinfo_locked(user_id: str, locked: str, locked_reason: str, locked_by
         conn_cursors.close()
 
 
+def sql_userinfo_2fa_insert(user_id: str, twofa_secret: str):
+    global conn_cursors
+    try:
+        openConnection_cursors()
+        with conn_cursors.cursor() as cur:
+            # select first
+            sql = """ SELECT `user_id` FROM discord_userinfo 
+                      WHERE `user_id` = %s """
+            cur.execute(sql, (user_id,))
+            result = cur.fetchone()
+            if result is None:
+                sql = """ INSERT INTO `discord_userinfo` (`user_id`, `twofa_secret`, `twofa_activate_ts`)
+                      VALUES (%s, %s, %s) """
+                cur.execute(sql, (user_id, twofa_secret, int(time.time())))
+                conn_cursors.commit()
+                return True
+    except Exception as e:
+        print(e)
+    finally:
+        conn_cursors.close()
+
+
+def sql_userinfo_2fa_update(user_id: str, twofa_secret: str):
+    global conn_cursors
+    try:
+        openConnection_cursors()
+        with conn_cursors.cursor() as cur:
+            # select first
+            sql = """ SELECT `user_id` FROM discord_userinfo 
+                      WHERE `user_id` = %s """
+            cur.execute(sql, (user_id,))
+            result = cur.fetchone()
+            if result:
+                sql = """ UPDATE `discord_userinfo` SET `twofa_secret` = %s, `twofa_activate_ts` = %s 
+                      WHERE `user_id`=%s """
+                cur.execute(sql, (twofa_secret, int(time.time()), user_id))
+                conn_cursors.commit()
+                return True
+    except Exception as e:
+        print(e)
+    finally:
+        conn_cursors.close()
+
+
+def sql_userinfo_2fa_verify(user_id: str, verify: str):
+    if verify.upper() not in ["YES", "NO"]:
+        return
+    global conn_cursors
+    try:
+        openConnection_cursors()
+        with conn_cursors.cursor() as cur:
+            # select first
+            sql = """ SELECT `user_id` FROM discord_userinfo 
+                      WHERE `user_id` = %s """
+            cur.execute(sql, (user_id,))
+            result = cur.fetchone()
+            if result:
+                sql = """ UPDATE `discord_userinfo` SET `twofa_verified` = %s, `twofa_verified_ts` = %s 
+                      WHERE `user_id`=%s """
+                cur.execute(sql, (verify.upper(), int(time.time()), user_id))
+                conn_cursors.commit()
+                return True
+    except Exception as e:
+        print(e)
+    finally:
+        conn_cursors.close()
+
+
 def sql_change_userinfo_single(user_id: str, what: str, value: str):
     global conn_cursors
     try:

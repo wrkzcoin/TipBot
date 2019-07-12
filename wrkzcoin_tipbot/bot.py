@@ -7,7 +7,7 @@ from discord.ext.commands import Bot, AutoShardedBot, when_mentioned_or, CheckFa
 from discord.utils import get
 
 import time, timeago, json
-
+import pyotp
 
 import store, daemonrpc_client, addressvalidation
 from config import config
@@ -384,6 +384,201 @@ async def account(ctx):
 
 @account.command(hidden = True)
 async def twofa(ctx):
+    # return message 2FA already ON if 2FA already validated
+    # show QR for 2FA if not yet ON
+    userinfo = store.sql_discord_userinfo_get(str(ctx.message.author.id))
+    if userinfo is None:
+        # Create userinfo
+        random_secret32 = pyotp.random_base32()
+        create_userinfo = store.sql_userinfo_2fa_insert(str(ctx.message.author.id), random_secret32)
+        totp = pyotp.TOTP(random_secret32, interval=30)
+        google_str = pyotp.TOTP(random_secret32, interval=30).provisioning_uri(f"{ctx.message.author.id}@tipbot.wrkz.work", issuer_name="Discord TipBot")
+        if create_userinfo:
+            # do some QR code
+            qr = qrcode.QRCode(
+                version=1,
+                error_correction=qrcode.constants.ERROR_CORRECT_L,
+                box_size=10,
+                border=2,
+            )
+            qr.add_data(google_str)
+            qr.make(fit=True)
+            img = qr.make_image(fill_color="black", back_color="white")
+            img = img.resize((256, 256))
+            img.save(config.qrsettings.path + random_secret32 + ".png")
+            await ctx.message.author.send("**Please use Authenticator to scan**", 
+                                        file=discord.File(config.qrsettings.path + random_secret32 + ".png"))
+            await ctx.message.author.send('**[NEX STEP]**\n\n'
+                                          f'Please verify by: <@{bot.user.id}> account verify 2FACODES\n'
+                                          'From your Authenticator Program')
+            return
+        else:
+            await ctx.send(f'{ctx.author.mention} Internal error during create 2FA.')
+            return
+    else:
+        # Check if 2FA secret has or not
+        # If has secret but not verified yet, show QR
+        # If has both secret and verify, tell you already verify
+        secret_code = None
+        verified = None
+        try:
+            verified = userinfo['twofa_verified']
+        except Exception as e:
+            print(e)
+        if verified and verified.upper() == "YES":
+            await ctx.send(f'{ctx.author.mention} You already verified 2FA.')
+            return
+
+        try:
+            secret_code = userinfo['twofa_secret']
+        except Exception as e:
+            print(e)
+        if secret_code and len(secret_code) > 0:
+            if os.path.exists(config.qrsettings.path + secret_code + ".png"):
+                pass
+            else:
+                google_str = pyotp.TOTP(secret_code, interval=30).provisioning_uri(f"{ctx.message.author.id}@tipbot.wrkz.work", issuer_name="Discord TipBot")
+                qr = qrcode.QRCode(
+                    version=1,
+                    error_correction=qrcode.constants.ERROR_CORRECT_L,
+                    box_size=10,
+                    border=2,
+                )
+                qr.add_data(google_str)
+                qr.make(fit=True)
+                img = qr.make_image(fill_color="black", back_color="white")
+                img = img.resize((256, 256))
+                img.save(config.qrsettings.path + secret_code + ".png")
+            await ctx.message.author.send("**Please use Authenticator to scan**", 
+                                          file=discord.File(config.qrsettings.path + secret_code + ".png"))
+            await ctx.message.author.send('**[NEX STEP]**\n\n'
+                                          f'Please verify by: <@{bot.user.id}> account verify 2FACODES\n'
+                                          'From your Authenticator Program')
+        else:
+            # Create userinfo
+            random_secret32 = pyotp.random_base32()
+            update_userinfo = store.sql_userinfo_2fa_update(str(ctx.message.author.id), random_secret32)
+            totp = pyotp.TOTP(random_secret32, interval=30)
+            google_str = pyotp.TOTP(random_secret32, interval=30).provisioning_uri(f"{ctx.message.author.id}@tipbot.wrkz.work", issuer_name="Discord TipBot")
+            if update_userinfo:
+                # do some QR code
+                qr = qrcode.QRCode(
+                    version=1,
+                    error_correction=qrcode.constants.ERROR_CORRECT_L,
+                    box_size=10,
+                    border=2,
+                )
+                qr.add_data(google_str)
+                qr.make(fit=True)
+                img = qr.make_image(fill_color="black", back_color="white")
+                img = img.resize((256, 256))
+                img.save(config.qrsettings.path + random_secret32 + ".png")
+                await ctx.message.author.send("**Please use Authenticator to scan**", 
+                                              file=discord.File(config.qrsettings.path + random_secret32 + ".png"))
+                await ctx.message.author.send('**[NEX STEP]**\n\n'
+                                              f'Please verify by: <@{bot.user.id}> account verify 2FACODES\n'
+                                              'From your Authenticator Program')
+                return
+            else:
+                await ctx.send(f'{ctx.author.mention} Internal error during create 2FA.')
+                return
+    return
+
+
+@account.command(hidden = True)
+async def verify(ctx, codes: str):
+    if len(codes) != 6:
+        await ctx.send(f'{ctx.author.mention} Incorrect code length.')
+        return
+
+    userinfo = store.sql_discord_userinfo_get(str(ctx.message.author.id))
+    if userinfo is None:
+        await ctx.send(f'{ctx.author.mention} You have not created 2FA code to scan yet.\n'
+                       'Please execute **account twofa** to generate 2FA scan code.')
+        return
+    else:
+        secret_code = None
+        verified = None
+        try:
+            verified = userinfo['twofa_verified']
+        except Exception as e:
+            print(e)
+        if verified and verified.upper() == "YES":
+            await ctx.send(f'{ctx.author.mention} You already verified 2FA. You do not need this.')
+            return
+        
+        try:
+            secret_code = userinfo['twofa_secret']
+        except Exception as e:
+            print(e)
+
+        if secret_code and len(secret_code) > 0:
+            totp = pyotp.TOTP(secret_code, interval=30)
+            if codes in [totp.now(), totp.at(for_time=int(time.time()-15)), totp.at(for_time=int(time.time()+15))]:
+                update_userinfo = store.sql_userinfo_2fa_verify(str(ctx.message.author.id), 'YES')
+                if update_userinfo:
+                    await ctx.send(f'{ctx.author.mention} Thanks for verification with 2FA.')
+                    return
+                else:
+                    await ctx.send(f'{ctx.author.mention} Error verification 2FA.')
+                    return
+            else:
+                await ctx.send(f'{ctx.author.mention} Incorrect 2FA code. Please re-check.\n')
+                return
+        else:
+            await ctx.send(f'{ctx.author.mention} You have not created 2FA code to scan yet.\n'
+                           'Please execute **account twofa** to generate 2FA scan code.')
+            return
+
+
+@account.command(hidden = True)
+async def unverify(ctx, codes: str):
+    if len(codes) != 6:
+        await ctx.send(f'{ctx.author.mention} Incorrect code length.')
+        return
+
+    userinfo = store.sql_discord_userinfo_get(str(ctx.message.author.id))
+    if userinfo is None:
+        await ctx.send(f'{ctx.author.mention} You have not created 2FA code to scan yet.\n'
+                       'Nothing to **unverify**.')
+        return
+    else:
+        secret_code = None
+        verified = None
+        try:
+            verified = userinfo['twofa_verified']
+        except Exception as e:
+            print(e)
+        if verified and verified.upper() == "NO":
+            await ctx.send(f'{ctx.author.mention} You have not verified yet. **Unverify** stopped.')
+            return
+        
+        try:
+            secret_code = userinfo['twofa_secret']
+        except Exception as e:
+            print(e)
+
+        if secret_code and len(secret_code) > 0:
+            totp = pyotp.TOTP(secret_code, interval=30)
+            if codes in [totp.now(), totp.at(for_time=int(time.time()-15)), totp.at(for_time=int(time.time()+15))]:
+                update_userinfo = store.sql_userinfo_2fa_verify(str(ctx.message.author.id), 'NO')
+                if update_userinfo:
+                    await ctx.send(f'{ctx.author.mention} You clear verification 2FA. You can verify it back anytime.')
+                    return
+                else:
+                    await ctx.send(f'{ctx.author.mention} Error unverify 2FA.')
+                    return
+            else:
+                await ctx.send(f'{ctx.author.mention} Incorrect 2FA code. Please re-check.\n')
+                return
+        else:
+            await ctx.send(f'{ctx.author.mention} You have not created 2FA code to scan yet.\n'
+                           'Nothing to **unverify**.')
+            return
+
+
+@account.command(hidden = True)
+async def set(ctx, param: str, value: str):
     await ctx.send('On progress.')
     return
 
@@ -429,7 +624,7 @@ async def shutdown(ctx):
 
 @commands.is_owner()
 @admin.command(help=bot_help_admin_baluser)
-async def baluser(ctx, user_id: str):
+async def baluser(ctx, user_id: str, create_wallet: str = None):
     create_acc = None
     # for verification | future restoration of lost account
     table_data = [
@@ -440,7 +635,14 @@ async def baluser(ctx, user_id: str):
             COIN_DEC = get_decimal(coinItem.upper())
             wallet = await store.sql_get_userwallet(str(user_id), coinItem.upper())
             if wallet is None:
-                table_data.append([coinItem.upper(), "N/A", "N/A"])
+                if create_wallet.upper() == "ON":
+                    create_acc = True
+                    userregister = await store.sql_register_user(str(user_id), coinItem.upper())
+                    wallet = await store.sql_get_userwallet(str(user_id), coinItem.upper())
+                if wallet:
+                    table_data.append([coinItem.upper(), num_format_coin(0, coinItem.upper()), num_format_coin(0, coinItem.upper())])
+                else:
+                    table_data.append([coinItem.upper(), "N/A", "N/A"])
             else:
                 create_acc = True
                 balance_actual = num_format_coin(wallet['actual_balance'], coinItem.upper())

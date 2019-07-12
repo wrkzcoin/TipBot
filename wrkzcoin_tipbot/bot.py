@@ -117,7 +117,7 @@ NOTICE_NACA = None
 
 NOTICE_DOGE = "Please acknowledge that DOGE address is for **one-time** use only for depositing."
 NOTIFICATION_OFF_CMD = 'Type: `.notifytip off` to turn off this DM notification.'
-MSG_LOCKED_ACCOUNT = "Your account is locked. Please contact CapEtn#4425 in WrkzCon discord. Check `.about` for more info."
+MSG_LOCKED_ACCOUNT = "Your account is locked. Please contact CapEtn#4425 in WrkzCoin discord. Check `.about` for more info."
 
 bot_description = f"Tip {COIN_REPR} to other users on your server."
 bot_help_about = "About TipBot"

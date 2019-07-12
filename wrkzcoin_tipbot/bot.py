@@ -87,6 +87,7 @@ EMOJI_ARROW_RIGHTHOOK = "\u21AA"
 EMOJI_FORWARD = "\u23E9"
 EMOJI_REFRESH = "\U0001F504"
 EMOJI_ZIPPED_MOUTH = "\U0001F910"
+EMOJI_LOCKED = "\U0001F512"
 
 ENABLE_COIN = config.Enable_Coin.split(",")
 ENABLE_COIN_DOGE = ["DOGE"]
@@ -116,6 +117,7 @@ NOTICE_NACA = None
 
 NOTICE_DOGE = "Please acknowledge that DOGE address is for **one-time** use only for depositing."
 NOTIFICATION_OFF_CMD = 'Type: `.notifytip off` to turn off this DM notification.'
+MSG_LOCKED_ACCOUNT = "Your account is locked. Please contact CapEtn#4425 in WrkzCon discord. Check `.about` for more info."
 
 bot_description = f"Tip {COIN_REPR} to other users on your server."
 bot_help_about = "About TipBot"
@@ -420,6 +422,7 @@ async def shutdown(ctx):
 @commands.is_owner()
 @admin.command(hidden = True)
 async def baluser(ctx, user_id: str):
+    create_acc = None
     # for verification | future restoration of lost account
     table_data = [
         ['TICKER', 'Available', 'Locked']
@@ -431,6 +434,7 @@ async def baluser(ctx, user_id: str):
             if wallet is None:
                 table_data.append([coinItem.upper(), "N/A", "N/A"])
             else:
+                create_acc = True
                 balance_actual = num_format_coin(wallet['actual_balance'], coinItem.upper())
                 balance_locked = num_format_coin(wallet['locked_balance'], coinItem.upper())
                 balance_total = num_format_coin((wallet['actual_balance'] + wallet['locked_balance']), coinItem.upper())
@@ -445,7 +449,7 @@ async def baluser(ctx, user_id: str):
             table_data.append([coinItem.upper(), "***", "***"])
     # Add DOGE
     COIN_NAME = "DOGE"
-    if COIN_NAME not in MAINTENANCE_COIN:
+    if COIN_NAME not in MAINTENANCE_COIN and create_acc:
         depositAddress = await DOGE_LTC_getaccountaddress(str(user_id), COIN_NAME)
         actual = float(await DOGE_LTC_getbalance_acc(str(user_id), COIN_NAME, 6))
         locked = float(await DOGE_LTC_getbalance_acc(str(user_id), COIN_NAME, 1))
@@ -474,8 +478,51 @@ async def baluser(ctx, user_id: str):
     return
 
 
+@commands.is_owner()
+@admin.command(hidden = True)
+async def lockuser(ctx, user_id: str, *, reason: str):
+    get_discord_userinfo = store.sql_discord_userinfo_get(user_id)
+    if get_discord_userinfo is None:
+        store.sql_userinfo_locked(user_id, 'YES', reason, str(ctx.message.author.id))
+        await ctx.message.add_reaction(EMOJI_OK)
+        await ctx.message.author.send(f'{user_id} is locked.')
+        return
+    else:
+        if get_discord_userinfo['locked'].upper() == "YES":
+            await ctx.message.author.send(f'{user_id} was already locked.')
+        else:
+            store.sql_userinfo_locked(user_id, 'YES', reason, str(ctx.message.author.id))
+            await ctx.message.add_reaction(EMOJI_OK)
+            await ctx.message.author.send(f'Turn {user_id} to locked.')
+        return
+
+
+@commands.is_owner()
+@admin.command(hidden = True)
+async def unlockuser(ctx, user_id: str):
+    get_discord_userinfo = store.sql_discord_userinfo_get(user_id)
+    if get_discord_userinfo:
+        if get_discord_userinfo['locked'].upper() == "NO":
+            await ctx.message.author.send(f'**{user_id}** was already unlocked. Nothing to do.')
+        else:
+            store.sql_change_userinfo_single(user_id, 'locked', 'NO')
+            await ctx.message.author.send(f'Unlocked {user_id} done.')
+        return      
+    else:
+        await ctx.message.author.send(f'{user_id} not stored in **discord userinfo** yet. Nothing to unlocked.')
+        return
+
+
 @bot.command(pass_context=True, name='info', aliases=['wallet'], help=bot_help_info)
 async def info(ctx, coin: str = None):
+    # check if account locked
+    account_lock = await alert_if_userlock(ctx, 'info')
+    if account_lock == True:
+        await ctx.message.add_reaction(EMOJI_LOCKED) 
+        await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
+        return
+    # end of check if account locked
+
     global LIST_IGNORECHAN
     wallet = None
     if coin is None:
@@ -585,6 +632,14 @@ async def info(ctx, coin: str = None):
 
 @bot.command(pass_context=True, name='balance', aliases=['bal'], help=bot_help_balance)
 async def balance(ctx, coin: str = None):
+    # check if account locked
+    account_lock = await alert_if_userlock(ctx, 'balance')
+    if account_lock == True:
+        await ctx.message.add_reaction(EMOJI_LOCKED) 
+        await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
+        return
+    # end of check if account locked
+
     PUBMSG = ctx.message.content.strip().split(" ")[-1].upper()
     prefixChar = '.'
     if isinstance(ctx.channel, discord.DMChannel):
@@ -939,6 +994,14 @@ async def botbalance(ctx, member: discord.Member = None, *args):
 @bot.command(pass_context=True, name='forwardtip', aliases=['redirecttip'],
              help=bot_help_forwardtip)
 async def forwardtip(ctx, coin: str, option: str):
+    # check if account locked
+    account_lock = await alert_if_userlock(ctx, 'forwardtip')
+    if account_lock == True:
+        await ctx.message.add_reaction(EMOJI_LOCKED) 
+        await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
+        return
+    # end of check if account locked
+
     # Check to test
     # if ctx.message.author.id not in MAINTENANCE_OWNER:
         # await ctx.message.add_reaction(EMOJI_WARNING)
@@ -979,6 +1042,14 @@ async def forwardtip(ctx, coin: str, option: str):
 @bot.command(pass_context=True, name='register', aliases=['registerwallet', 'reg', 'updatewallet'],
              help=bot_help_register)
 async def register(ctx, wallet_address: str):
+    # check if account locked
+    account_lock = await alert_if_userlock(ctx, 'register')
+    if account_lock == True:
+        await ctx.message.add_reaction(EMOJI_LOCKED) 
+        await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
+        return
+    # end of check if account locked
+
     # Check if maintenance
     if IS_MAINTENANCE == 1:
         if int(ctx.message.author.id) in MAINTENANCE_OWNER:
@@ -1084,6 +1155,14 @@ async def register(ctx, wallet_address: str):
 
 @bot.command(pass_context=True, help=bot_help_withdraw)
 async def withdraw(ctx, amount: str, coin: str = None):
+    # check if account locked
+    account_lock = await alert_if_userlock(ctx, 'withdraw')
+    if account_lock == True:
+        await ctx.message.add_reaction(EMOJI_LOCKED) 
+        await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
+        return
+    # end of check if account locked
+
     botLogChan = bot.get_channel(id=LOG_CHAN)
     amount = amount.replace(",", "")
 
@@ -1266,6 +1345,14 @@ async def withdraw(ctx, amount: str, coin: str = None):
 
 @bot.command(pass_context=True, help=bot_help_donate)
 async def donate(ctx, amount: str, coin: str = None):
+    # check if account locked
+    account_lock = await alert_if_userlock(ctx, 'donate')
+    if account_lock == True:
+        await ctx.message.add_reaction(EMOJI_LOCKED) 
+        await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
+        return
+    # end of check if account locked
+
     botLogChan = bot.get_channel(id=LOG_CHAN)
     donate_msg = ''
     if amount.upper() == "LIST":
@@ -1459,6 +1546,14 @@ async def donate(ctx, amount: str, coin: str = None):
 
 @bot.command(pass_context=True, help=bot_help_notifytip)
 async def notifytip(ctx, onoff: str):
+    # check if account locked
+    account_lock = await alert_if_userlock(ctx, 'forwardtip')
+    if account_lock == True:
+        await ctx.message.add_reaction(EMOJI_LOCKED) 
+        await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
+        return
+    # end of check if account locked
+
     if onoff.upper() not in ["ON", "OFF"]:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send('You need to use only `ON` or `OFF`.')
@@ -1486,6 +1581,14 @@ async def notifytip(ctx, onoff: str):
 
 @bot.command(pass_context=True, help=bot_help_tip)
 async def tip(ctx, amount: str, *args):
+    # check if account locked
+    account_lock = await alert_if_userlock(ctx, 'tip')
+    if account_lock == True:
+        await ctx.message.add_reaction(EMOJI_LOCKED) 
+        await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
+        return
+    # end of check if account locked
+
     botLogChan = bot.get_channel(id=LOG_CHAN)
     amount = amount.replace(",", "")
 
@@ -1777,6 +1880,14 @@ async def tip(ctx, amount: str, *args):
 
 @bot.command(pass_context=True, help=bot_help_tipall)
 async def tipall(ctx, amount: str, *args):
+    # check if account locked
+    account_lock = await alert_if_userlock(ctx, 'tipall')
+    if account_lock == True:
+        await ctx.message.add_reaction(EMOJI_LOCKED) 
+        await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
+        return
+    # end of check if account locked
+
     botLogChan = bot.get_channel(id=LOG_CHAN)
     amount = amount.replace(",", "")
 
@@ -2095,6 +2206,14 @@ async def tipall(ctx, amount: str, *args):
 
 @bot.command(pass_context=True, help=bot_help_send)
 async def send(ctx, amount: str, CoinAddress: str):
+    # check if account locked
+    account_lock = await alert_if_userlock(ctx, 'send')
+    if account_lock == True:
+        await ctx.message.add_reaction(EMOJI_LOCKED) 
+        await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
+        return
+    # end of check if account locked
+
     botLogChan = bot.get_channel(id=LOG_CHAN)
     amount = amount.replace(",", "")
 
@@ -2565,6 +2684,14 @@ async def address(ctx, *args):
 
 @bot.command(pass_context=True, name='optimize', aliases=['opt'], help=bot_help_optimize)
 async def optimize(ctx, coin: str, member: discord.Member = None):
+    # check if account locked
+    account_lock = await alert_if_userlock(ctx, 'optimize')
+    if account_lock == True:
+        await ctx.message.add_reaction(EMOJI_LOCKED) 
+        await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
+        return
+    # end of check if account locked
+
     botLogChan = bot.get_channel(id=LOG_CHAN)
     if coin.upper() not in ENABLE_COIN:
         await ctx.message.add_reaction(EMOJI_WARNING)
@@ -3491,6 +3618,16 @@ def hhashes(num) -> str:
             return "%3.1f%s" % (num, x)
         num /= 1000.0
     return "%3.1f%s" % (num, 'TH/s')
+
+
+async def alert_if_userlock(ctx, cmd: str):
+    botLogChan = bot.get_channel(id=LOG_CHAN)
+    get_discord_userinfo = store.sql_discord_userinfo_get(str(ctx.message.author.id))
+    if get_discord_userinfo['locked'].upper() == "YES":
+        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} locked but is commanding `{cmd}`')
+        return True
+    else:
+        return None
 
 
 def get_info_pref_coin(ctx):

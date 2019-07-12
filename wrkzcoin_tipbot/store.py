@@ -13,7 +13,10 @@ from cryptography.fernet import Fernet
 
 # MySQL
 import pymysql
+import pymysql.cursors
+
 conn = None
+conn_cursors = None
 sys.path.append("..")
 
 ENABLE_COIN = config.Enable_Coin.split(",")
@@ -29,6 +32,22 @@ def openConnection():
         elif not conn.open:
             conn = pymysql.connect(config.mysql.host, user=config.mysql.user, passwd=config.mysql.password,
                                    db=config.mysql.db, connect_timeout=5)
+    except:
+        print("ERROR: Unexpected error: Could not connect to MySql instance.")
+        sys.exit()
+
+# openConnection_cursors 
+def openConnection_cursors():
+    global conn_cursors
+    try:
+        if conn_cursors is None:
+            conn_cursors = pymysql.connect(config.mysql.host, user=config.mysql.user, passwd=config.mysql.password,
+                                   db=config.mysql.db, charset='utf8mb4', 
+                                   cursorclass=pymysql.cursors.DictCursor, connect_timeout=5)
+        elif not conn_cursors.open:
+            conn_cursors = pymysql.connect(config.mysql.host, user=config.mysql.user, passwd=config.mysql.password,
+                                   db=config.mysql.db, charset='utf8mb4', 
+                                   cursorclass=pymysql.cursors.DictCursor, connect_timeout=5)
     except:
         print("ERROR: Unexpected error: Could not connect to MySql instance.")
         sys.exit()
@@ -1024,6 +1043,78 @@ def sql_changeinfo_by_server(server_id: str, what: str, value: str):
             print(e)
         finally:
             conn.close()
+
+
+def sql_discord_userinfo_get(user_id: str):
+    global conn_cursors
+    try:
+        openConnection_cursors()
+        with conn_cursors.cursor() as cur:
+            # select first
+            sql = """ SELECT * FROM discord_userinfo 
+                      WHERE `user_id` = %s """
+            cur.execute(sql, (user_id,))
+            result = cur.fetchone()
+            return result
+    except Exception as e:
+        print(e)
+    finally:
+        conn_cursors.close()
+    return None
+
+
+def sql_userinfo_locked(user_id: str, locked: str, locked_reason: str, locked_by: str):
+    global conn_cursors
+    if locked.upper() not in ["YES", "NO"]:
+        return
+    try:
+        openConnection_cursors()
+        with conn_cursors.cursor() as cur:
+            # select first
+            sql = """ SELECT `user_id` FROM discord_userinfo 
+                      WHERE `user_id` = %s """
+            cur.execute(sql, (user_id,))
+            result = cur.fetchone()
+            if result is None:
+                sql = """ INSERT INTO `discord_userinfo` (`user_id`, `locked`, `locked_reason`, `locked_by`, `locked_date`)
+                      VALUES (%s, %s, %s, %s, %s) """
+                cur.execute(sql, (user_id, locked.upper(), locked_reason, locked_by, int(time.time())))
+                conn_cursors.commit()
+            else:
+                sql = """ UPDATE `discord_userinfo` SET `locked`= %s, `locked_reason` = %s, `locked_by` = %s, `locked_date` = %s
+                      WHERE `user_id` = %s """
+                cur.execute(sql, (locked.upper(), locked_reason, locked_by, int(time.time()), user_id))
+                conn_cursors.commit()
+            return True
+    except Exception as e:
+        print(e)
+    finally:
+        conn_cursors.close()
+
+
+def sql_change_userinfo_single(user_id: str, what: str, value: str):
+    global conn_cursors
+    try:
+        openConnection_cursors()
+        with conn_cursors.cursor() as cur:
+            # select first
+            sql = """ SELECT `user_id` FROM discord_userinfo 
+                      WHERE `user_id` = %s """
+            cur.execute(sql, (user_id,))
+            result = cur.fetchone()
+            if result:
+                sql = """ UPDATE discord_userinfo SET `""" + what.lower() + """` = %s WHERE `user_id` = %s """
+                cur.execute(sql, (value, user_id))
+                conn_cursors.commit()
+            else:
+                sql = """ INSERT INTO `discord_userinfo` (`user_id`, `""" + what.lower() + """`)
+                      VALUES (%s, %s) """
+                cur.execute(sql, (user_id, value))
+                conn_cursors.commit()
+    except Exception as e:
+        print(e)
+    finally:
+        conn_cursors.close()
 
 
 def sql_addignorechan_by_server(server_id: str, ignorechan: str, by_userid: str, by_name: str):

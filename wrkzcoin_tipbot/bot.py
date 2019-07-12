@@ -525,7 +525,7 @@ async def unlockuser(ctx, user_id: str):
 async def info(ctx, coin: str = None):
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'info')
-    if account_lock == True:
+    if account_lock:
         await ctx.message.add_reaction(EMOJI_LOCKED) 
         await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
         return
@@ -642,7 +642,7 @@ async def info(ctx, coin: str = None):
 async def balance(ctx, coin: str = None):
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'balance')
-    if account_lock == True:
+    if account_lock:
         await ctx.message.add_reaction(EMOJI_LOCKED) 
         await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
         return
@@ -1004,7 +1004,7 @@ async def botbalance(ctx, member: discord.Member = None, *args):
 async def forwardtip(ctx, coin: str, option: str):
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'forwardtip')
-    if account_lock == True:
+    if account_lock:
         await ctx.message.add_reaction(EMOJI_LOCKED) 
         await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
         return
@@ -1052,7 +1052,7 @@ async def forwardtip(ctx, coin: str, option: str):
 async def register(ctx, wallet_address: str):
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'register')
-    if account_lock == True:
+    if account_lock:
         await ctx.message.add_reaction(EMOJI_LOCKED) 
         await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
         return
@@ -1165,7 +1165,7 @@ async def register(ctx, wallet_address: str):
 async def withdraw(ctx, amount: str, coin: str = None):
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'withdraw')
-    if account_lock == True:
+    if account_lock:
         await ctx.message.add_reaction(EMOJI_LOCKED) 
         await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
         return
@@ -1355,7 +1355,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
 async def donate(ctx, amount: str, coin: str = None):
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'donate')
-    if account_lock == True:
+    if account_lock:
         await ctx.message.add_reaction(EMOJI_LOCKED) 
         await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
         return
@@ -1556,7 +1556,7 @@ async def donate(ctx, amount: str, coin: str = None):
 async def notifytip(ctx, onoff: str):
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'forwardtip')
-    if account_lock == True:
+    if account_lock:
         await ctx.message.add_reaction(EMOJI_LOCKED) 
         await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
         return
@@ -1591,7 +1591,7 @@ async def notifytip(ctx, onoff: str):
 async def tip(ctx, amount: str, *args):
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'tip')
-    if account_lock == True:
+    if account_lock:
         await ctx.message.add_reaction(EMOJI_LOCKED) 
         await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
         return
@@ -1890,7 +1890,7 @@ async def tip(ctx, amount: str, *args):
 async def tipall(ctx, amount: str, *args):
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'tipall')
-    if account_lock == True:
+    if account_lock:
         await ctx.message.add_reaction(EMOJI_LOCKED) 
         await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
         return
@@ -2216,7 +2216,7 @@ async def tipall(ctx, amount: str, *args):
 async def send(ctx, amount: str, CoinAddress: str):
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'send')
-    if account_lock == True:
+    if account_lock:
         await ctx.message.add_reaction(EMOJI_LOCKED) 
         await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
         return
@@ -2694,7 +2694,7 @@ async def address(ctx, *args):
 async def optimize(ctx, coin: str, member: discord.Member = None):
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'optimize')
-    if account_lock == True:
+    if account_lock:
         await ctx.message.add_reaction(EMOJI_LOCKED) 
         await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
         return
@@ -3630,12 +3630,19 @@ def hhashes(num) -> str:
 
 async def alert_if_userlock(ctx, cmd: str):
     botLogChan = bot.get_channel(id=LOG_CHAN)
-    get_discord_userinfo = store.sql_discord_userinfo_get(str(ctx.message.author.id))
-    if get_discord_userinfo['locked'].upper() == "YES":
-        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} locked but is commanding `{cmd}`')
-        return True
-    else:
+    get_discord_userinfo = None
+    try:
+        get_discord_userinfo = store.sql_discord_userinfo_get(str(ctx.message.author.id))
+    except Exception as e:
+        print(e)
+    if get_discord_userinfo is None:
         return None
+    else:
+        if get_discord_userinfo['locked'].upper() == "YES":
+            await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} locked but is commanding `{cmd}`')
+            return True
+        else:
+            return None
 
 
 def get_info_pref_coin(ctx):

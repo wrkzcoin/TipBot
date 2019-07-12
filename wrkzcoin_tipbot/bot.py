@@ -152,6 +152,12 @@ bot_help_admin_baluser = "Check a specific user's balance for verification purpo
 bot_help_admin_lockuser = "Lock a user from any tx (tip, withdraw, info, etc) by user id"
 bot_help_admin_unlockuser = "Unlock a user by user id."
 
+# account commands
+bot_help_account = "Various user account commands. (Still testing)"
+bot_help_account_twofa = "Generate a 2FA and scanned with Authenticator Program."
+bot_help_account_verify = "Verify 2FA code from QR code and your Authenticator Program."
+bot_help_account_unverify = "Unverify your account and disable 2FA code."
+
 
 def get_emoji(coin: str):
     if coin is None:
@@ -375,15 +381,23 @@ async def about(ctx):
         print(e)
 
 
-@bot.group(hidden = True)
+@bot.group(hidden = True, help=bot_help_account)
 async def account(ctx):
     if ctx.invoked_subcommand is None:
         await ctx.send('Invalid `account` command passed...')
     return
 
 
-@account.command(hidden = True)
+@account.command(help=bot_help_account_twofa)
 async def twofa(ctx):
+    # check if account locked
+    account_lock = await alert_if_userlock(ctx, 'account twofa')
+    if account_lock:
+        await ctx.message.add_reaction(EMOJI_LOCKED) 
+        await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
+        return
+    # end of check if account locked
+
     # return message 2FA already ON if 2FA already validated
     # show QR for 2FA if not yet ON
     userinfo = store.sql_discord_userinfo_get(str(ctx.message.author.id))
@@ -485,8 +499,16 @@ async def twofa(ctx):
     return
 
 
-@account.command(hidden = True)
+@account.command(help=bot_help_account_verify)
 async def verify(ctx, codes: str):
+    # check if account locked
+    account_lock = await alert_if_userlock(ctx, 'account verify')
+    if account_lock:
+        await ctx.message.add_reaction(EMOJI_LOCKED) 
+        await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
+        return
+    # end of check if account locked
+
     if len(codes) != 6:
         await ctx.send(f'{ctx.author.mention} Incorrect code length.')
         return
@@ -531,8 +553,16 @@ async def verify(ctx, codes: str):
             return
 
 
-@account.command(hidden = True)
+@account.command(help=bot_help_account_unverify)
 async def unverify(ctx, codes: str):
+    # check if account locked
+    account_lock = await alert_if_userlock(ctx, 'account verify')
+    if account_lock:
+        await ctx.message.add_reaction(EMOJI_LOCKED) 
+        await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
+        return
+    # end of check if account locked
+
     if len(codes) != 6:
         await ctx.send(f'{ctx.author.mention} Incorrect code length.')
         return
@@ -3910,6 +3940,22 @@ async def register_error(ctx, error):
     if isinstance(error, commands.MissingRequiredArgument):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Missing your wallet address. '
                        'You need to have a supported coin **address** after `register` command')
+    return
+
+
+@account.error
+@verify.error
+async def account_verify_error(ctx, error):
+    if isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Missing 2FA codes.')
+    return
+
+
+@account.error
+@unverify.error
+async def account_unverify_error(ctx, error):
+    if isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Missing 2FA codes.')
     return
 
 

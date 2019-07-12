@@ -1,0 +1,566 @@
+DROP TABLE IF EXISTS `bot_tipnotify_user`;
+CREATE TABLE `bot_tipnotify_user` (
+  `user_id` varchar(32) NOT NULL,
+  `date` int(11) NOT NULL,
+  UNIQUE KEY `user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `btcm_donate`;
+CREATE TABLE `btcm_donate` (
+  `from_user` varchar(32) NOT NULL,
+  `to_address` varchar(128) NOT NULL,
+  `amount` bigint(20) NOT NULL,
+  `date` int(11) NOT NULL,
+  `tx_hash` varchar(64) NOT NULL,
+  KEY `from_user` (`from_user`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `btcm_send`;
+CREATE TABLE `btcm_send` (
+  `from_user` varchar(32) NOT NULL,
+  `to_address` varchar(256) NOT NULL,
+  `amount` bigint(20) NOT NULL,
+  `date` int(11) NOT NULL,
+  `tx_hash` varchar(64) NOT NULL,
+  `paymentid` varchar(64) DEFAULT NULL,
+  KEY `from_user` (`from_user`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `btcm_tip`;
+CREATE TABLE `btcm_tip` (
+  `from_user` varchar(32) NOT NULL,
+  `to_user` varchar(32) NOT NULL,
+  `amount` bigint(20) NOT NULL,
+  `date` int(11) NOT NULL,
+  `tx_hash` varchar(64) NOT NULL,
+  `tip_tips_tipall` enum('TIP','TIPS','TIPALL') NOT NULL DEFAULT 'TIP',
+  KEY `from_user` (`from_user`),
+  KEY `to_user` (`to_user`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `btcm_tipall`;
+CREATE TABLE `btcm_tipall` (
+  `from_user` varchar(32) NOT NULL,
+  `amount_total` bigint(20) NOT NULL,
+  `date` int(11) NOT NULL,
+  `tx_hash` varchar(64) NOT NULL,
+  `numb_receivers` smallint(6) DEFAULT NULL,
+  KEY `from_user` (`from_user`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `btcm_user`;
+CREATE TABLE `btcm_user` (
+  `user_id` varchar(32) NOT NULL,
+  `balance_wallet_address` varchar(128) NOT NULL,
+  `user_wallet_address` varchar(128) DEFAULT NULL,
+  `balance_wallet_address_ts` int(11) DEFAULT NULL,
+  `balance_wallet_address_ch` int(11) DEFAULT NULL,
+  `lastOptimize` int(11) DEFAULT NULL,
+  `privateSpendKey` varchar(512) CHARACTER SET utf8 NOT NULL,
+  `forwardtip` enum('ON','OFF') NOT NULL DEFAULT 'OFF',
+  UNIQUE KEY `user_id` (`user_id`),
+  KEY `balance_wallet_address` (`balance_wallet_address`),
+  KEY `user_wallet_address` (`user_wallet_address`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `btcm_walletapi`;
+CREATE TABLE `btcm_walletapi` (
+  `balance_wallet_address` varchar(128) NOT NULL,
+  `actual_balance` bigint(20) NOT NULL DEFAULT '0',
+  `locked_balance` bigint(20) NOT NULL DEFAULT '0',
+  `lastUpdate` int(11) DEFAULT NULL,
+  UNIQUE KEY `balance_wallet_address` (`balance_wallet_address`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `btcm_withdraw`;
+CREATE TABLE `btcm_withdraw` (
+  `user_id` varchar(32) NOT NULL,
+  `amount` bigint(20) NOT NULL,
+  `to_address` varchar(128) DEFAULT NULL,
+  `date` int(11) NOT NULL,
+  `tx_hash` varchar(64) NOT NULL,
+  KEY `user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `dego_donate`;
+CREATE TABLE `dego_donate` (
+  `from_user` varchar(32) NOT NULL,
+  `to_address` varchar(128) NOT NULL,
+  `amount` bigint(20) NOT NULL,
+  `date` int(11) NOT NULL,
+  `tx_hash` varchar(64) NOT NULL,
+  KEY `from_user` (`from_user`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `dego_send`;
+CREATE TABLE `dego_send` (
+  `from_user` varchar(32) NOT NULL,
+  `to_address` varchar(256) NOT NULL,
+  `amount` bigint(20) NOT NULL,
+  `date` int(11) NOT NULL,
+  `tx_hash` varchar(64) NOT NULL,
+  `paymentid` varchar(64) DEFAULT NULL,
+  KEY `from_user` (`from_user`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `dego_tip`;
+CREATE TABLE `dego_tip` (
+  `from_user` varchar(32) NOT NULL,
+  `to_user` varchar(32) NOT NULL,
+  `amount` bigint(20) NOT NULL,
+  `date` int(11) NOT NULL,
+  `tx_hash` varchar(64) NOT NULL,
+  `tip_tips_tipall` enum('TIP','TIPS','TIPALL') NOT NULL DEFAULT 'TIP',
+  KEY `from_user` (`from_user`),
+  KEY `to_user` (`to_user`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `dego_tipall`;
+CREATE TABLE `dego_tipall` (
+  `from_user` varchar(32) NOT NULL,
+  `amount_total` bigint(20) NOT NULL,
+  `date` int(11) NOT NULL,
+  `tx_hash` varchar(64) NOT NULL,
+  `numb_receivers` smallint(6) DEFAULT NULL,
+  KEY `from_user` (`from_user`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `dego_user`;
+CREATE TABLE `dego_user` (
+  `user_id` varchar(32) NOT NULL,
+  `balance_wallet_address` varchar(128) NOT NULL,
+  `user_wallet_address` varchar(128) DEFAULT NULL,
+  `balance_wallet_address_ts` int(11) DEFAULT NULL,
+  `balance_wallet_address_ch` int(11) DEFAULT NULL,
+  `lastOptimize` int(11) DEFAULT NULL,
+  `privateSpendKey` varchar(512) CHARACTER SET utf8 NOT NULL,
+  `forwardtip` enum('ON','OFF') NOT NULL DEFAULT 'OFF',
+  UNIQUE KEY `user_id` (`user_id`),
+  KEY `balance_wallet_address` (`balance_wallet_address`),
+  KEY `user_wallet_address` (`user_wallet_address`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `dego_walletapi`;
+CREATE TABLE `dego_walletapi` (
+  `balance_wallet_address` varchar(128) NOT NULL,
+  `actual_balance` bigint(20) NOT NULL DEFAULT '0',
+  `locked_balance` bigint(20) NOT NULL DEFAULT '0',
+  `lastUpdate` int(11) DEFAULT NULL,
+  UNIQUE KEY `balance_wallet_address` (`balance_wallet_address`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `dego_withdraw`;
+CREATE TABLE `dego_withdraw` (
+  `user_id` varchar(32) NOT NULL,
+  `amount` bigint(20) NOT NULL,
+  `to_address` varchar(128) DEFAULT NULL,
+  `date` int(11) NOT NULL,
+  `tx_hash` varchar(64) NOT NULL,
+  KEY `user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `discord_disablecoin`;
+CREATE TABLE `discord_disablecoin` (
+  `serverid` varchar(32) NOT NULL,
+  `coin_name` varchar(32) NOT NULL,
+  `set_by_userid` varchar(32) NOT NULL,
+  `set_when` int(11) NOT NULL,
+  KEY `serverid` (`serverid`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+SET NAMES utf8mb4;
+
+DROP TABLE IF EXISTS `discord_ignorechan`;
+CREATE TABLE `discord_ignorechan` (
+  `serverid` varchar(32) NOT NULL,
+  `ignorechan` varchar(32) NOT NULL,
+  `set_by_userid` varchar(32) NOT NULL,
+  `by_author` varchar(32) CHARACTER SET utf8mb4 NOT NULL,
+  `set_when` int(11) NOT NULL,
+  UNIQUE KEY `ignorechan` (`ignorechan`),
+  KEY `serverid` (`serverid`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `discord_ignorecmd`;
+CREATE TABLE `discord_ignorecmd` (
+  `serverid` varchar(32) NOT NULL,
+  `ignorecmd` varchar(32) NOT NULL,
+  `set_by_userid` varchar(32) NOT NULL,
+  `by_author` varchar(32) CHARACTER SET utf8mb4 NOT NULL,
+  `set_when` int(11) NOT NULL,
+  KEY `serverid` (`serverid`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `discord_messages`;
+CREATE TABLE `discord_messages` (
+  `serverid` varchar(32) CHARACTER SET ascii NOT NULL,
+  `server_name` varchar(64) NOT NULL,
+  `channel_id` varchar(32) CHARACTER SET ascii NOT NULL,
+  `channel_name` varchar(64) NOT NULL,
+  `user_id` varchar(32) CHARACTER SET ascii NOT NULL,
+  `message_author` varchar(32) NOT NULL,
+  `message_id` varchar(32) CHARACTER SET ascii NOT NULL,
+  `message_content` varchar(2048) NOT NULL,
+  `message_time` int(11) NOT NULL,
+  UNIQUE KEY `message_id` (`message_id`),
+  KEY `message_time` (`message_time`),
+  KEY `serverid` (`serverid`),
+  KEY `channel_id` (`channel_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4;
+
+
+DROP TABLE IF EXISTS `discord_server`;
+CREATE TABLE `discord_server` (
+  `serverid` varchar(32) NOT NULL,
+  `servername` varchar(32) NOT NULL DEFAULT 'NONE',
+  `prefix` varchar(6) NOT NULL,
+  `default_coin` varchar(16) NOT NULL,
+  `numb_user` int(11) NOT NULL DEFAULT '0',
+  `numb_bot` int(11) NOT NULL DEFAULT '0',
+  `tiponly` varchar(1024) NOT NULL DEFAULT 'ALLCOIN',
+  UNIQUE KEY `serverid` (`serverid`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `discord_txfail`;
+CREATE TABLE `discord_txfail` (
+  `coin_name` varchar(32) NOT NULL,
+  `user_id` varchar(32) NOT NULL,
+  `tx_author` varchar(32) CHARACTER SET utf8mb4 NOT NULL,
+  `amount` bigint(20) NOT NULL,
+  `tx_type` enum('TIP','TIPS','TIPALL','DONATE','WITHDRAW','SEND') NOT NULL,
+  `fail_time` int(11) NOT NULL,
+  KEY `coin_name` (`coin_name`),
+  KEY `user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `discord_userinfo`;
+CREATE TABLE `discord_userinfo` (
+  `user_id` varchar(32) NOT NULL,
+  `locked` enum('YES','NO') NOT NULL DEFAULT 'NO',
+  `locked_reason` varchar(2048) CHARACTER SET utf8mb4 DEFAULT NULL,
+  `locked_by` varchar(32) DEFAULT NULL,
+  `locked_date` int(11) DEFAULT NULL,
+  `twofa_secret` varchar(32) DEFAULT NULL,
+  `twofa_activate_ts` int(11) DEFAULT NULL,
+  `twofa_verified` enum('YES','NO') NOT NULL DEFAULT 'NO',
+  `twofa_verified_ts` int(11) DEFAULT NULL,
+  `twofa_onoff` enum('ON','OFF') NOT NULL DEFAULT 'OFF',
+  `twofa_active` enum('YES','NO') NOT NULL DEFAULT 'NO',
+  UNIQUE KEY `user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `doge_addresses`;
+CREATE TABLE `doge_addresses` (
+  `user_id` varchar(32) NOT NULL,
+  `address` varchar(64) NOT NULL,
+  `privateKey` varchar(512) CHARACTER SET utf8 DEFAULT NULL,
+  UNIQUE KEY `address` (`address`),
+  KEY `user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `doge_external_tx`;
+CREATE TABLE `doge_external_tx` (
+  `user_id` varchar(32) NOT NULL,
+  `amount` double NOT NULL,
+  `fee` double NOT NULL,
+  `to_address` varchar(64) DEFAULT NULL,
+  `type` enum('SEND','WITHDRAW') DEFAULT 'WITHDRAW',
+  `date` int(11) NOT NULL,
+  `tx_hash` varchar(64) NOT NULL,
+  KEY `user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `doge_mv_tx`;
+CREATE TABLE `doge_mv_tx` (
+  `from_userid` varchar(32) NOT NULL,
+  `to_userid` varchar(32) NOT NULL,
+  `amount` double NOT NULL,
+  `type` enum('TIP','TIPS','TIPALL','DONATE') DEFAULT 'TIP',
+  `date` int(11) NOT NULL,
+  KEY `from_userid` (`from_userid`),
+  KEY `to_userid` (`to_userid`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `doge_user`;
+CREATE TABLE `doge_user` (
+  `user_id` varchar(32) NOT NULL,
+  `balance_wallet_address` varchar(64) NOT NULL,
+  `user_wallet_address` varchar(64) DEFAULT NULL,
+  `balance_wallet_address_ts` int(11) DEFAULT NULL,
+  `balance_wallet_address_ch` int(11) DEFAULT NULL,
+  `privateKey` varchar(512) CHARACTER SET utf8 DEFAULT NULL,
+  `lastUpdate` int(11) DEFAULT NULL,
+  UNIQUE KEY `user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `trtl_donate`;
+CREATE TABLE `trtl_donate` (
+  `from_user` varchar(32) NOT NULL,
+  `to_address` varchar(128) NOT NULL,
+  `amount` bigint(20) NOT NULL,
+  `date` int(11) NOT NULL,
+  `tx_hash` varchar(64) NOT NULL,
+  KEY `from_user` (`from_user`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `trtl_send`;
+CREATE TABLE `trtl_send` (
+  `from_user` varchar(32) NOT NULL,
+  `to_address` varchar(256) NOT NULL,
+  `amount` bigint(20) NOT NULL,
+  `date` int(11) NOT NULL,
+  `tx_hash` varchar(64) NOT NULL,
+  `paymentid` varchar(64) DEFAULT NULL,
+  KEY `from_user` (`from_user`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `trtl_tip`;
+CREATE TABLE `trtl_tip` (
+  `from_user` varchar(32) NOT NULL,
+  `to_user` varchar(32) NOT NULL,
+  `amount` bigint(20) NOT NULL,
+  `date` int(11) NOT NULL,
+  `tx_hash` varchar(64) NOT NULL,
+  `tip_tips_tipall` enum('TIP','TIPS','TIPALL') NOT NULL DEFAULT 'TIP',
+  KEY `from_user` (`from_user`),
+  KEY `to_user` (`to_user`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `trtl_tipall`;
+CREATE TABLE `trtl_tipall` (
+  `from_user` varchar(32) NOT NULL,
+  `amount_total` bigint(20) NOT NULL,
+  `date` int(11) NOT NULL,
+  `tx_hash` varchar(64) NOT NULL,
+  `numb_receivers` smallint(6) DEFAULT NULL,
+  KEY `from_user` (`from_user`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `trtl_user`;
+CREATE TABLE `trtl_user` (
+  `user_id` varchar(32) NOT NULL,
+  `balance_wallet_address` varchar(128) NOT NULL,
+  `user_wallet_address` varchar(128) DEFAULT NULL,
+  `balance_wallet_address_ts` int(11) DEFAULT NULL,
+  `balance_wallet_address_ch` int(11) DEFAULT NULL,
+  `lastOptimize` int(11) DEFAULT NULL,
+  `privateSpendKey` varchar(512) CHARACTER SET utf8 NOT NULL,
+  `forwardtip` enum('ON','OFF') NOT NULL DEFAULT 'OFF',
+  UNIQUE KEY `user_id` (`user_id`),
+  KEY `balance_wallet_address` (`balance_wallet_address`),
+  KEY `user_wallet_address` (`user_wallet_address`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `trtl_walletapi`;
+CREATE TABLE `trtl_walletapi` (
+  `balance_wallet_address` varchar(128) NOT NULL,
+  `actual_balance` bigint(20) NOT NULL DEFAULT '0',
+  `locked_balance` bigint(20) NOT NULL DEFAULT '0',
+  `lastUpdate` int(11) DEFAULT NULL,
+  UNIQUE KEY `balance_wallet_address` (`balance_wallet_address`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `trtl_withdraw`;
+CREATE TABLE `trtl_withdraw` (
+  `user_id` varchar(32) NOT NULL,
+  `amount` bigint(20) NOT NULL,
+  `to_address` varchar(128) DEFAULT NULL,
+  `date` int(11) NOT NULL,
+  `tx_hash` varchar(64) NOT NULL,
+  KEY `user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `wrkz_donate`;
+CREATE TABLE `wrkz_donate` (
+  `from_user` varchar(32) NOT NULL,
+  `to_address` varchar(128) NOT NULL,
+  `amount` bigint(20) NOT NULL,
+  `date` int(11) NOT NULL,
+  `tx_hash` varchar(64) NOT NULL,
+  KEY `from_user` (`from_user`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `wrkz_nodes`;
+CREATE TABLE `wrkz_nodes` (
+  `url` varchar(64) NOT NULL,
+  `fee` int(11) NOT NULL,
+  `lastUpdate` int(11) NOT NULL DEFAULT '0',
+  `alt_blocks_count` int(11) NOT NULL DEFAULT '0',
+  `difficulty` bigint(20) NOT NULL DEFAULT '0',
+  `incoming_connections_count` int(11) NOT NULL,
+  `last_known_block_index` bigint(20) NOT NULL,
+  `network_height` bigint(20) NOT NULL,
+  `outgoing_connections_count` int(11) NOT NULL,
+  `start_time` int(11) NOT NULL,
+  `tx_count` int(11) NOT NULL DEFAULT '0',
+  `tx_pool_size` int(11) NOT NULL DEFAULT '0',
+  `version` varchar(16) NOT NULL,
+  `white_peerlist_size` int(11) NOT NULL,
+  `synced` enum('TRUE','FALSE') NOT NULL DEFAULT 'FALSE',
+  `height` bigint(20) NOT NULL,
+  UNIQUE KEY `url` (`url`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `wrkz_pools`;
+CREATE TABLE `wrkz_pools` (
+  `name` varchar(64) CHARACTER SET utf8 NOT NULL,
+  `url_api` varchar(128) CHARACTER SET utf8 NOT NULL,
+  `fee` float NOT NULL,
+  `minPaymentThreshold` int(11) NOT NULL,
+  `pool_stats_lastBlockFound` int(11) NOT NULL,
+  `pool_stats_totalBlocks` bigint(20) NOT NULL,
+  `pool_totalMinersPaid` int(11) NOT NULL,
+  `pool_totalPayments` int(11) NOT NULL,
+  `pool_payment_last` int(11) NOT NULL,
+  `pool_miners` int(11) NOT NULL DEFAULT '0',
+  `pool_hashrate` bigint(20) NOT NULL,
+  `net_difficulty` bigint(20) NOT NULL,
+  `net_height` bigint(20) NOT NULL,
+  `net_timestamp` int(11) NOT NULL,
+  `net_reward` int(11) NOT NULL,
+  `net_hash` varchar(64) NOT NULL,
+  `lastUpdate` int(11) NOT NULL,
+  `pool_blocks_last` bigint(20) NOT NULL DEFAULT '0',
+  UNIQUE KEY `name` (`name`),
+  KEY `url_api` (`url_api`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `wrkz_reminder`;
+CREATE TABLE `wrkz_reminder` (
+  `remind_id` int(11) NOT NULL,
+  `user_id` varchar(32) NOT NULL,
+  `channel_id` varchar(32) NOT NULL,
+  `message` varchar(1024) CHARACTER SET utf8mb4 DEFAULT NULL,
+  `time_add` int(11) NOT NULL,
+  `when` varchar(32) NOT NULL,
+  `when_ints` int(11) NOT NULL,
+  `reminded` enum('REMINDED','REMINDING') NOT NULL DEFAULT 'REMINDING',
+  `time_reminded` int(11) DEFAULT NULL,
+  `original_msg` varchar(2048) CHARACTER SET utf8mb4 DEFAULT NULL,
+  KEY `user_id` (`user_id`),
+  KEY `when_ints` (`when_ints`),
+  KEY `reminded` (`reminded`),
+  KEY `remind_id` (`remind_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `wrkz_send`;
+CREATE TABLE `wrkz_send` (
+  `from_user` varchar(32) NOT NULL,
+  `to_address` varchar(256) NOT NULL,
+  `amount` bigint(20) NOT NULL,
+  `date` int(11) NOT NULL,
+  `tx_hash` varchar(64) NOT NULL,
+  `paymentid` varchar(64) DEFAULT NULL,
+  KEY `from_user` (`from_user`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `wrkz_tag`;
+CREATE TABLE `wrkz_tag` (
+  `tag_id` varchar(32) CHARACTER SET utf8mb4 NOT NULL,
+  `tag_desc` varchar(2048) CHARACTER SET utf8mb4 NOT NULL,
+  `date_added` int(11) NOT NULL,
+  `tag_serverid` varchar(32) NOT NULL,
+  `added_byname` varchar(32) CHARACTER SET utf8mb4 NOT NULL,
+  `added_byuid` varchar(32) NOT NULL,
+  `num_trigger` int(11) NOT NULL DEFAULT '0',
+  KEY `tag_id` (`tag_id`),
+  KEY `tag_serverid` (`tag_serverid`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `wrkz_tip`;
+CREATE TABLE `wrkz_tip` (
+  `from_user` varchar(32) NOT NULL,
+  `to_user` varchar(32) NOT NULL,
+  `amount` bigint(20) NOT NULL,
+  `date` int(11) NOT NULL,
+  `tx_hash` varchar(64) NOT NULL,
+  `tip_tips_tipall` enum('TIP','TIPS','TIPALL') NOT NULL DEFAULT 'TIP',
+  KEY `from_user` (`from_user`),
+  KEY `to_user` (`to_user`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `wrkz_tipall`;
+CREATE TABLE `wrkz_tipall` (
+  `from_user` varchar(32) NOT NULL,
+  `amount_total` bigint(20) NOT NULL,
+  `date` int(11) NOT NULL,
+  `tx_hash` varchar(64) NOT NULL,
+  `numb_receivers` smallint(6) DEFAULT NULL,
+  KEY `from_user` (`from_user`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `wrkz_user`;
+CREATE TABLE `wrkz_user` (
+  `user_id` varchar(32) NOT NULL,
+  `balance_wallet_address` varchar(128) NOT NULL,
+  `user_wallet_address` varchar(128) DEFAULT NULL,
+  `balance_wallet_address_ts` int(11) DEFAULT NULL,
+  `balance_wallet_address_ch` int(11) DEFAULT NULL,
+  `lastOptimize` int(11) DEFAULT NULL,
+  `privateSpendKey` varchar(512) CHARACTER SET utf8 NOT NULL,
+  `forwardtip` enum('ON','OFF') NOT NULL DEFAULT 'OFF',
+  UNIQUE KEY `user_id` (`user_id`),
+  KEY `balance_wallet_address` (`balance_wallet_address`),
+  KEY `user_wallet_address` (`user_wallet_address`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `wrkz_walletapi`;
+CREATE TABLE `wrkz_walletapi` (
+  `balance_wallet_address` varchar(128) NOT NULL,
+  `actual_balance` bigint(20) NOT NULL DEFAULT '0',
+  `locked_balance` bigint(20) NOT NULL DEFAULT '0',
+  `lastUpdate` int(11) DEFAULT NULL,
+  UNIQUE KEY `balance_wallet_address` (`balance_wallet_address`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `wrkz_withdraw`;
+CREATE TABLE `wrkz_withdraw` (
+  `user_id` varchar(32) NOT NULL,
+  `amount` bigint(20) NOT NULL,
+  `to_address` varchar(128) DEFAULT NULL,
+  `date` int(11) NOT NULL,
+  `tx_hash` varchar(64) NOT NULL,
+  KEY `user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;

@@ -1151,7 +1151,12 @@ def sql_userinfo_2fa_verify(user_id: str, verify: str):
             if result:
                 sql = """ UPDATE `discord_userinfo` SET `twofa_verified` = %s, `twofa_verified_ts` = %s 
                       WHERE `user_id`=%s """
-                cur.execute(sql, (verify.upper(), int(time.time()), user_id))
+                if verify.upper() == "NO":
+                    # if unverify, need to clear secret code as well, and disactivate other related 2FA.
+                    sql = """ UPDATE `discord_userinfo` SET `twofa_verified` = %s, `twofa_verified_ts` = %s, `twofa_secret` = %s, `twofa_activate_ts` = %s, 
+                          `twofa_onoff` = %s, `twofa_active` = %s
+                          WHERE `user_id`=%s """
+                cur.execute(sql, (verify.upper(), int(time.time()), '', int(time.time()), 'OFF', 'NO', user_id))
                 conn_cursors.commit()
                 return True
     except Exception as e:

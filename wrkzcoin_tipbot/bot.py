@@ -563,7 +563,7 @@ async def unverify(ctx, codes: str):
             if codes in [totp.now(), totp.at(for_time=int(time.time()-15)), totp.at(for_time=int(time.time()+15))]:
                 update_userinfo = store.sql_userinfo_2fa_verify(str(ctx.message.author.id), 'NO')
                 if update_userinfo:
-                    await ctx.send(f'{ctx.author.mention} You clear verification 2FA. You can verify it back anytime.')
+                    await ctx.send(f'{ctx.author.mention} You clear verification 2FA. You will need to add to your authentication program again later.')
                     return
                 else:
                     await ctx.send(f'{ctx.author.mention} Error unverify 2FA.')

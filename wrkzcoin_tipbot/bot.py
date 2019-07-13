@@ -422,9 +422,9 @@ async def twofa(ctx):
             img.save(config.qrsettings.path + random_secret32 + ".png")
             await ctx.message.author.send("**Please use Authenticator to scan**", 
                                         file=discord.File(config.qrsettings.path + random_secret32 + ".png"))
-            await ctx.message.author.send('**[NEX STEP]**\n\n'
-                                          f'Please verify by: <@{bot.user.id}> account verify 2FACODES\n'
-                                          'From your Authenticator Program')
+            await ctx.message.author.send('**[NEX STEP]**\n'
+                                          'From your Authenticator Program, please get code and verify by: ```.account verify XXXXXX```'
+                                          f'Or use **code** below to add manually:```{random_secret32}```')
             return
         else:
             await ctx.send(f'{ctx.author.mention} Internal error during create 2FA.')
@@ -465,9 +465,9 @@ async def twofa(ctx):
                 img.save(config.qrsettings.path + secret_code + ".png")
             await ctx.message.author.send("**Please use Authenticator to scan**", 
                                           file=discord.File(config.qrsettings.path + secret_code + ".png"))
-            await ctx.message.author.send('**[NEX STEP]**\n\n'
-                                          f'Please verify by: <@{bot.user.id}> account verify 2FACODES\n'
-                                          'From your Authenticator Program')
+            await ctx.message.author.send('**[NEX STEP]**\n'
+                                          'From your Authenticator Program, please get code and verify by: ```.account verify XXXXXX```'
+                                          f'Or use **code** below to add manually:```{secret_code}```')
         else:
             # Create userinfo
             random_secret32 = pyotp.random_base32()
@@ -489,9 +489,9 @@ async def twofa(ctx):
                 img.save(config.qrsettings.path + random_secret32 + ".png")
                 await ctx.message.author.send("**Please use Authenticator to scan**", 
                                               file=discord.File(config.qrsettings.path + random_secret32 + ".png"))
-                await ctx.message.author.send('**[NEX STEP]**\n\n'
-                                              f'Please verify by: <@{bot.user.id}> account verify 2FACODES\n'
-                                              'From your Authenticator Program')
+                await ctx.message.author.send('**[NEX STEP]**\n'
+                                              'From your Authenticator Program, please get code and verify by: ```.account verify XXXXXX```'
+                                              f'Or use **code** below to add manually:```{random_secret32}```')
                 return
             else:
                 await ctx.send(f'{ctx.author.mention} Internal error during create 2FA.')

@@ -444,7 +444,7 @@ async def twofa(ctx):
             return
 
         try:
-            secret_code = userinfo['twofa_secret']
+            secret_code = store.decrypt_string(userinfo['twofa_secret'])
         except Exception as e:
             print(e)
         if secret_code and len(secret_code) > 0:
@@ -530,7 +530,7 @@ async def verify(ctx, codes: str):
             return
         
         try:
-            secret_code = userinfo['twofa_secret']
+            secret_code = store.decrypt_string(userinfo['twofa_secret'])
         except Exception as e:
             print(e)
 
@@ -584,7 +584,7 @@ async def unverify(ctx, codes: str):
             return
         
         try:
-            secret_code = userinfo['twofa_secret']
+            secret_code = store.decrypt_string(userinfo['twofa_secret'])
         except Exception as e:
             print(e)
 

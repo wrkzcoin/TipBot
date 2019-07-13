@@ -1105,7 +1105,7 @@ def sql_userinfo_2fa_insert(user_id: str, twofa_secret: str):
             if result is None:
                 sql = """ INSERT INTO `discord_userinfo` (`user_id`, `twofa_secret`, `twofa_activate_ts`)
                       VALUES (%s, %s, %s) """
-                cur.execute(sql, (user_id, twofa_secret, int(time.time())))
+                cur.execute(sql, (user_id, encrypt_string(twofa_secret), int(time.time())))
                 conn_cursors.commit()
                 return True
     except Exception as e:
@@ -1127,7 +1127,7 @@ def sql_userinfo_2fa_update(user_id: str, twofa_secret: str):
             if result:
                 sql = """ UPDATE `discord_userinfo` SET `twofa_secret` = %s, `twofa_activate_ts` = %s 
                       WHERE `user_id`=%s """
-                cur.execute(sql, (twofa_secret, int(time.time()), user_id))
+                cur.execute(sql, (encrypt_string(twofa_secret), int(time.time()), user_id))
                 conn_cursors.commit()
                 return True
     except Exception as e:
@@ -1156,8 +1156,11 @@ def sql_userinfo_2fa_verify(user_id: str, verify: str):
                     sql = """ UPDATE `discord_userinfo` SET `twofa_verified` = %s, `twofa_verified_ts` = %s, `twofa_secret` = %s, `twofa_activate_ts` = %s, 
                           `twofa_onoff` = %s, `twofa_active` = %s
                           WHERE `user_id`=%s """
-                cur.execute(sql, (verify.upper(), int(time.time()), '', int(time.time()), 'OFF', 'NO', user_id))
-                conn_cursors.commit()
+                    cur.execute(sql, (verify.upper(), int(time.time()), '', int(time.time()), 'OFF', 'NO', user_id))
+                    conn_cursors.commit()
+                else:
+                    cur.execute(sql, (verify.upper(), int(time.time()), user_id))
+                    conn_cursors.commit()
                 return True
     except Exception as e:
         print(e)

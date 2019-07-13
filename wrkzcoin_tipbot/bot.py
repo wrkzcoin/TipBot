@@ -1007,7 +1007,7 @@ async def balance(ctx, coin: str = None):
         return
 
     if walletStatus is None:
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Wallet service hasn\'t started.')
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {coin.upper()} Wallet service hasn\'t started.')
         return
     else:
         localDaemonBlockCount = int(walletStatus['blockCount'])
@@ -1018,7 +1018,7 @@ async def balance(ctx, coin: str = None):
             t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
             t_networkBlockCount = '{:,}'.format(networkBlockCount)
             await ctx.message.add_reaction(EMOJI_WARNING)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Wallet service hasn\'t sync fully with network or being re-sync. More info:\n```'
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t sync fully with network or being re-sync. More info:\n```'
                            f'networkBlockCount:     {t_networkBlockCount}\n'
                            f'localDaemonBlockCount: {t_localDaemonBlockCount}\n'
                            f'Progress %:            {t_percent}\n```'
@@ -1096,7 +1096,7 @@ async def botbalance(ctx, member: discord.Member = None, *args):
         walletStatus = await daemonrpc_client.getDaemonRPCStatus(COIN_NAME)
 
     if walletStatus is None:
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention}  Wallet service hasn\'t started.')
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t started.')
         return
     else:
         if COIN_NAME in ENABLE_COIN_DOGE:
@@ -1111,7 +1111,7 @@ async def botbalance(ctx, member: discord.Member = None, *args):
             t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
             t_networkBlockCount = '{:,}'.format(networkBlockCount)
             await ctx.message.add_reaction(EMOJI_WARNING)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Wallet service hasn\'t sync fully with network or being re-sync. More info:\n```'
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t sync fully with network or being re-sync. More info:\n```'
                            f'networkBlockCount:     {t_networkBlockCount}\n'
                            f'localDaemonBlockCount: {t_localDaemonBlockCount}\n'
                            f'Progress %:            {t_percent}\n```'
@@ -1543,7 +1543,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
     walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
 
     if walletStatus is None:
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Wallet service hasn\'t started.')
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t started.')
         return
     else:
         localDaemonBlockCount = int(walletStatus['blockCount'])
@@ -1554,7 +1554,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
             t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
             t_networkBlockCount = '{:,}'.format(networkBlockCount)
             await ctx.message.add_reaction(EMOJI_WARNING)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Wallet service hasn\'t sync fully with network or being re-sync. More info:\n```'
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t sync fully with network or being re-sync. More info:\n```'
                            f'networkBlockCount:     {t_networkBlockCount}\n'
                            f'localDaemonBlockCount: {t_localDaemonBlockCount}\n'
                            f'Progress %:            {t_percent}\n```'
@@ -1744,7 +1744,7 @@ async def donate(ctx, amount: str, coin: str = None):
     # Get wallet status
     walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
     if walletStatus is None:
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Wallet service hasn\'t started.')
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t started.')
         return
     else:
         localDaemonBlockCount = int(walletStatus['blockCount'])
@@ -1755,7 +1755,7 @@ async def donate(ctx, amount: str, coin: str = None):
             t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
             t_networkBlockCount = '{:,}'.format(networkBlockCount)
             await ctx.message.add_reaction(EMOJI_WARNING)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Wallet service hasn\'t sync fully with network or being re-sync. More info:\n```'
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t sync fully with network or being re-sync. More info:\n```'
                            f'networkBlockCount:     {t_networkBlockCount}\n'
                            f'localDaemonBlockCount: {t_localDaemonBlockCount}\n'
                            f'Progress %:            {t_percent}\n```'
@@ -1854,7 +1854,7 @@ async def tip(ctx, amount: str, *args):
         else:
             COIN_NAME = COIN_NAME.upper()
     except:
-        if ('default_coin' in serverinfo):
+        if 'default_coin' in serverinfo:
             COIN_NAME = serverinfo['default_coin'].upper()
     print("COIN_NAME: " + COIN_NAME)
 
@@ -2056,7 +2056,7 @@ async def tip(ctx, amount: str, *args):
     # Get wallet status
     walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
     if walletStatus is None:
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Wallet service hasn\'t started.')
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t started.')
         return
     else:
         localDaemonBlockCount = int(walletStatus['blockCount'])
@@ -2067,7 +2067,7 @@ async def tip(ctx, amount: str, *args):
             t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
             t_networkBlockCount = '{:,}'.format(networkBlockCount)
             await ctx.message.add_reaction(EMOJI_WARNING)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Wallet service hasn\'t sync fully with network or being re-sync. More info:\n```'
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t sync fully with network or being re-sync. More info:\n```'
                            f'networkBlockCount:     {t_networkBlockCount}\n'
                            f'localDaemonBlockCount: {t_localDaemonBlockCount}\n'
                            f'Progress %:            {t_percent}\n```'
@@ -2365,7 +2365,7 @@ async def tipall(ctx, amount: str, *args):
     # Get wallet status
     walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
     if walletStatus is None:
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Wallet service hasn\'t started.')
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t started.')
         return
     else:
         localDaemonBlockCount = int(walletStatus['blockCount'])
@@ -2376,7 +2376,7 @@ async def tipall(ctx, amount: str, *args):
             t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
             t_networkBlockCount = '{:,}'.format(networkBlockCount)
             await ctx.message.add_reaction(EMOJI_WARNING)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Wallet service hasn\'t sync fully with network or being re-sync. More info:\n```'
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t sync fully with network or being re-sync. More info:\n```'
                            f'networkBlockCount:     {t_networkBlockCount}\n'
                            f'localDaemonBlockCount: {t_localDaemonBlockCount}\n'
                            f'Progress %:            {t_percent}\n```'
@@ -2666,7 +2666,7 @@ async def send(ctx, amount: str, CoinAddress: str):
     # Get wallet status
     walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
     if walletStatus is None:
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Wallet service hasn\'t started.')
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t started.')
         return
     else:
         localDaemonBlockCount = int(walletStatus['blockCount'])
@@ -2677,7 +2677,7 @@ async def send(ctx, amount: str, CoinAddress: str):
             t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
             t_networkBlockCount = '{:,}'.format(networkBlockCount)
             await ctx.message.add_reaction(EMOJI_WARNING)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Wallet service hasn\'t sync fully with network or being re-sync. More info:\n```'
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t sync fully with network or being re-sync. More info:\n```'
                            f'networkBlockCount:     {t_networkBlockCount}\n'
                            f'localDaemonBlockCount: {t_localDaemonBlockCount}\n'
                            f'Progress %:            {t_percent}\n```'
@@ -2973,7 +2973,7 @@ async def optimize(ctx, coin: str, member: discord.Member = None):
     # Get wallet status
     walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
     if walletStatus is None:
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Wallet service hasn\'t started.')
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t started.')
         return
     else:
         localDaemonBlockCount = int(walletStatus['blockCount'])
@@ -2984,7 +2984,7 @@ async def optimize(ctx, coin: str, member: discord.Member = None):
             t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
             t_networkBlockCount = '{:,}'.format(networkBlockCount)
             await ctx.message.add_reaction(EMOJI_WARNING)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Wallet service hasn\'t sync fully with network or being re-sync. More info:\n```'
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t sync fully with network or being re-sync. More info:\n```'
                            f'networkBlockCount:     {t_networkBlockCount}\n'
                            f'localDaemonBlockCount: {t_localDaemonBlockCount}\n'
                            f'Progress %:            {t_percent}\n```'
@@ -4292,7 +4292,7 @@ async def _tip(ctx, amount, coin: str = None):
     # Get wallet status
     walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
     if walletStatus is None:
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Wallet service hasn\'t started.')
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t started.')
         return
     else:
         localDaemonBlockCount = int(walletStatus['blockCount'])
@@ -4303,7 +4303,7 @@ async def _tip(ctx, amount, coin: str = None):
             t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
             t_networkBlockCount = '{:,}'.format(networkBlockCount)
             await ctx.message.add_reaction(EMOJI_WARNING)
-            await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} Wallet service hasn\'t sync fully with network or being '
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t sync fully with network or being '
                            're-sync. More info:\n```'
                            f'networkBlockCount:     {t_networkBlockCount}\n'
                            f'localDaemonBlockCount: {t_localDaemonBlockCount}\n'
@@ -4543,7 +4543,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
     # Get wallet status
     walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
     if walletStatus is None:
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Wallet service hasn\'t started.')
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t started.')
         return
     else:
         localDaemonBlockCount = int(walletStatus['blockCount'])
@@ -4554,7 +4554,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
             t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
             t_networkBlockCount = '{:,}'.format(networkBlockCount)
             await ctx.message.add_reaction(EMOJI_WARNING)
-            await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} Wallet service hasn\'t sync fully with network or being '
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t sync fully with network or being '
                            're-sync. More info:\n```'
                            f'networkBlockCount:     {t_networkBlockCount}\n'
                            f'localDaemonBlockCount: {t_localDaemonBlockCount}\n'

@@ -667,8 +667,10 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
             if wallet is None:
                 if create_wallet.upper() == "ON":
                     create_acc = True
-                    userregister = await store.sql_register_user(str(user_id), coinItem.upper())
                     wallet = await store.sql_get_userwallet(str(user_id), coinItem.upper())
+                    if wallet is None:
+                        userregister = await store.sql_register_user(str(user_id), coinItem.upper())
+                        wallet = await store.sql_get_userwallet(str(user_id), coinItem.upper())
                 if wallet:
                     table_data.append([coinItem.upper(), num_format_coin(0, coinItem.upper()), num_format_coin(0, coinItem.upper())])
                 else:
@@ -821,10 +823,11 @@ async def info(ctx, coin: str = None):
                 f'Type: `{server_prefix}setting` if you want to change `prefix` or `default_coin` or `ignorechan` or `del_ignorechan` or `tiponly`. (Required permission)')
             return
     elif coin.upper() in ENABLE_COIN:
-        user = await store.sql_register_user(ctx.message.author.id, coin.upper())
-        wallet = await store.sql_get_userwallet(ctx.message.author.id, coin.upper())
+        wallet = await store.sql_get_userwallet(str(ctx.message.author.id), coin.upper())
+        if wallet is None:
+            userregister = await store.sql_register_user(str(ctx.message.author.id), coin.upper())
+            wallet = await store.sql_get_userwallet(str(ctx.message.author.id), coin.upper())
     elif coin.upper() in ENABLE_COIN_DOGE:
-        # user = await store.sql_register_user(ctx.message.author.id, "DOGE")
         wallet = await store.sql_get_userwallet(ctx.message.author.id, coin.upper())
         depositAddress = await DOGE_LTC_getaccountaddress(ctx.message.author.id, coin.upper())
         wallet['balance_wallet_address'] = depositAddress
@@ -1039,13 +1042,13 @@ async def balance(ctx, coin: str = None):
     else:
         pass
     # End Check if maintenance
-    try:
-        user = await store.sql_register_user(ctx.message.author.id, COIN_NAME)
-    except:
-        pass
-    wallet = await store.sql_get_userwallet(ctx.message.author.id, COIN_NAME)
+
+    wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
     if wallet is None:
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Internal Error for `.balance`')
+        userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+        wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+    if wallet is None:
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Internal Error for `.balance`')
         return
     if 'lastUpdate' in wallet:
         await ctx.message.add_reaction(EMOJI_OK)
@@ -1137,7 +1140,6 @@ async def botbalance(ctx, member: discord.Member = None, *args):
         COIN_DEC = get_decimal(COIN_NAME)
 
     if member is None:
-        # user = await store.sql_register_user(bot.user.id, COIN_NAME)
         # Bypass other if they re in ENABLE_COIN_DOGE
         if COIN_NAME in ENABLE_COIN_DOGE:
             depositAddress = await DOGE_LTC_getaccountaddress(bot.user.id, COIN_NAME)
@@ -1184,7 +1186,6 @@ async def botbalance(ctx, member: discord.Member = None, *args):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Only for bot!!')
         return
     else:
-        user = await store.sql_register_user(bot.user.id, COIN_NAME)
         # Bypass other if they re in ENABLE_COIN_DOGE
         if COIN_NAME in ENABLE_COIN_DOGE:
             try:

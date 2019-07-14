@@ -1,3 +1,18 @@
+DROP TABLE IF EXISTS `bot_secrettip`;
+CREATE TABLE `bot_secrettip` (
+  `from_user` varchar(32) NOT NULL,
+  `to_user` varchar(32) NOT NULL,
+  `coin_name` varchar(16) NOT NULL,
+  `amount` bigint(20) NOT NULL,
+  `decimal_coin` int(11) NOT NULL,
+  `date` int(11) NOT NULL,
+  `tx_hash` varchar(64) DEFAULT NULL,
+  KEY `from_user` (`from_user`),
+  KEY `to_user` (`to_user`),
+  KEY `coin_name` (`coin_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
 DROP TABLE IF EXISTS `bot_tipnotify_user`;
 CREATE TABLE `bot_tipnotify_user` (
   `user_id` varchar(32) NOT NULL,
@@ -267,6 +282,38 @@ CREATE TABLE `discord_userinfo` (
   `twofa_onoff` enum('ON','OFF') NOT NULL DEFAULT 'OFF',
   `twofa_active` enum('YES','NO') NOT NULL DEFAULT 'NO',
   UNIQUE KEY `user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `discord_walletservice`;
+CREATE TABLE `discord_walletservice` (
+  `coin_name` varchar(32) NOT NULL,
+  `coin_family` varchar(32) NOT NULL,
+  `host` varchar(128) NOT NULL,
+  `port` varchar(6) NOT NULL,
+  `wallethost` varchar(128) NOT NULL,
+  `walletport` varchar(6) NOT NULL,
+  `mixin` smallint(6) NOT NULL,
+  `tx_fee` bigint(20) NOT NULL,
+  `min_tx_amount` bigint(20) NOT NULL,
+  `max_tx_amount` bigint(20) NOT NULL,
+  `DonateAddress` varchar(256) NOT NULL,
+  `prefix` int(11) NOT NULL,
+  `prefixChar` varchar(16) NOT NULL,
+  `decimal` bigint(20) NOT NULL,
+  `AddrLen` smallint(6) NOT NULL,
+  `IntAddrLen` smallint(6) NOT NULL,
+  `DiffTarget` smallint(6) NOT NULL,
+  `MinToOptimize` bigint(20) NOT NULL,
+  `IntervalOptimize` bigint(20) NOT NULL,
+  `withdraw_enable` enum('ENABLE','DISABLE') NOT NULL DEFAULT 'ENABLE',
+  `deposit_enable` enum('ENABLE','DISABLE') NOT NULL DEFAULT 'ENABLE',
+  `send_enable` enum('ENABLE','DISABLE') NOT NULL DEFAULT 'ENABLE',
+  `tip_enable` enum('ENABLE','DISABLE') NOT NULL DEFAULT 'ENABLE',
+  `tipall_enable` enum('ENABLE','DISABLE') NOT NULL DEFAULT 'ENABLE',
+  `donate_enable` enum('ENABLE','DISABLE') NOT NULL DEFAULT 'ENABLE',
+  `maintenance` enum('YES','NO') NOT NULL DEFAULT 'NO',
+  UNIQUE KEY `coin_name` (`coin_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=ascii;
 
 

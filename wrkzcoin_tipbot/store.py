@@ -430,6 +430,64 @@ async def sql_send_tip(user_from: str, user_to: str, amount: int, coin: str = No
         return None
 
 
+async def sql_send_secrettip(user_from: str, user_to: str, amount: int, coin: str, coin_dec: int):
+    global conn
+    coin = coin.upper()
+    user_from_wallet = None
+    user_to_wallet = None
+    address_to = None
+    #print('sql_send_secrettip')
+    if coin in ENABLE_COIN:
+        user_from_wallet = await sql_get_userwallet(user_from, coin)
+        user_to_wallet = await sql_get_userwallet(user_to, coin)
+        if (user_to_wallet['forwardtip'] == "ON") and ('user_wallet_address' in user_to_wallet):
+            address_to = user_to_wallet['user_wallet_address']
+        else:
+            address_to = user_to_wallet['balance_wallet_address']
+    if all(v is not None for v in [user_from_wallet['balance_wallet_address'], address_to]):
+        tx_hash = None
+        if coin.upper() in ENABLE_COIN:
+            tx_hash = await wallet.send_transaction(user_from_wallet['balance_wallet_address'],
+                                                    address_to, amount, coin.upper())
+        if tx_hash:
+            updateTime = int(time.time())
+            try:
+                openConnection()
+                with conn.cursor() as cur:
+                    timestamp = int(time.time())
+                    sql = None
+                    updateBalance = None
+                    if coin.upper() in ENABLE_COIN:
+                        sql = """ INSERT INTO bot_secrettip (`from_user`, `to_user`, `coin_name`, `amount`, `decimal_coin`, `date`, `tx_hash`) 
+                                  VALUES (%s, %s, %s, %s, %s, %s, %s) """
+                        cur.execute(sql, (user_from, user_to, coin, amount, coin_dec, timestamp, tx_hash,))
+                        conn.commit()
+                        updateBalance = await wallet.get_balance_address(user_from_wallet['balance_wallet_address'],
+                                                                         coin)
+                    if updateBalance:
+                        if coin in ENABLE_COIN:
+                            sql = """ UPDATE """+coin.lower()+"""_walletapi SET `actual_balance`=%s, `locked_balance`=%s, 
+                                      `lastUpdate`=%s WHERE `balance_wallet_address`=%s """
+                            cur.execute(sql, (updateBalance['unlocked'], updateBalance['locked'],
+                                              updateTime, user_from_wallet['balance_wallet_address'],))
+                            conn.commit()
+                            updateBalance = await wallet.get_balance_address(user_to_wallet['balance_wallet_address'],
+                                                                             coin)
+
+                            sql = """ UPDATE """+coin.lower()+"""_walletapi SET `actual_balance`=%s, 
+                                      `locked_balance`=%s, `lastUpdate`=%s WHERE `balance_wallet_address`=%s """
+                            cur.execute(sql, (updateBalance['unlocked'], updateBalance['locked'],
+                                        updateTime, user_to_wallet['balance_wallet_address'],))
+                            conn.commit()
+            except Exception as e:
+                print(e)
+            finally:
+                conn.close()
+        return tx_hash
+    else:
+        return None
+
+
 async def sql_send_tipall(user_from: str, user_tos, amount: int, amount_div: int, user_ids, tiptype: str, coin: str = None):
     global conn
     if tiptype.upper() not in ["TIPS", "TIPALL"]:

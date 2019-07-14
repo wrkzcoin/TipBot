@@ -157,7 +157,7 @@ bot_help_account = "Various user account commands. (Still testing)"
 bot_help_account_twofa = "Generate a 2FA and scanned with Authenticator Program."
 bot_help_account_verify = "Verify 2FA code from QR code and your Authenticator Program."
 bot_help_account_unverify = "Unverify your account and disable 2FA code."
-
+bot_help_account_secrettip = "Tip someone anonymously by their ID."
 
 def get_emoji(coin: str):
     if coin is None:
@@ -605,6 +605,170 @@ async def unverify(ctx, codes: str):
             await ctx.send(f'{ctx.author.mention} You have not created 2FA code to scan yet.\n'
                            'Nothing to **unverify**.')
             return
+
+
+@account.command(help=bot_help_account_secrettip)
+async def secrettip(ctx, amount: str, coin: str, user_id: str):
+    # check if account locked
+    account_lock = await alert_if_userlock(ctx, 'tip')
+    if account_lock:
+        await ctx.message.add_reaction(EMOJI_LOCKED) 
+        await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
+        return
+    # end of check if account locked
+
+    if isinstance(ctx.channel, discord.DMChannel) == False:
+        await message.add_reaction(EMOJI_ZIPPED_MOUTH)
+        await ctx.message.author.send(f'{EMOJI_RED_NO} This command can not be in public.')
+        return
+
+    amount = amount.replace(",", "")
+    try:
+        amount = float(amount)
+    except ValueError:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid amount.')
+        return
+
+    COIN_NAME = coin.upper()
+
+    if COIN_NAME in MAINTENANCE_COIN:
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
+        return
+
+    # No DOGE yet.
+    if COIN_NAME not in ENABLE_COIN:
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} not available or supported.')
+        return
+
+    # Check if maintenance
+    if IS_MAINTENANCE == 1:
+        if int(ctx.message.author.id) in MAINTENANCE_OWNER:
+            pass
+        else:
+            await ctx.message.add_reaction(EMOJI_WARNING)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {config.maintenance_msg}')
+            return
+    else:
+        pass
+    # End Check if maintenance
+
+    # Check if bot can find that user_id
+    member = bot.get_user(id=int(user_id))
+    if member:
+        pass
+    else:
+        await ctx.message.add_reaction(EMOJI_WARNING)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} I could not find a member with id `{user_id}`')
+        return
+
+    notifyList = store.sql_get_tipnotify()
+    has_forwardtip = None
+    address_to = None
+    # Just copy / paste lines
+    if COIN_NAME in ENABLE_COIN:
+        user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        user_to = await store.sql_get_userwallet(user_id, COIN_NAME)
+        if user_to is None:
+            userregister = await store.sql_register_user(user_id, COIN_NAME)
+            user_to = await store.sql_get_userwallet(user_id, COIN_NAME)
+        if user_to['forwardtip'] == "ON":
+            has_forwardtip = True
+        COIN_DEC = get_decimal(COIN_NAME)
+        real_amount = int(amount * COIN_DEC)
+        netFee = get_tx_fee(COIN_NAME)
+        MinTx = get_min_tx_amount(COIN_NAME)
+        MaxTX = get_max_tx_amount(COIN_NAME)
+        EMOJI_TIP = get_emoji(COIN_NAME)
+        
+    if real_amount + netFee >= user_from['actual_balance']:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send secret tip of '
+                        f'{num_format_coin(real_amount, COIN_NAME)} '
+                        f'{COIN_NAME} to {user_id}.')
+        return
+
+    if real_amount > MaxTX:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
+                       f'{num_format_coin(MaxTX, COIN_NAME)} '
+                       f'{COIN_NAME}.')
+        return
+    elif real_amount < MinTx:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
+                       f'{num_format_coin(MinTx, COIN_NAME)} '
+                       f'{COIN_NAME}.')
+        return
+
+    # Get wallet status
+    walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
+    if walletStatus is None:
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t started.')
+        return
+    else:
+        localDaemonBlockCount = int(walletStatus['blockCount'])
+        networkBlockCount = int(walletStatus['knownBlockCount'])
+        if networkBlockCount - localDaemonBlockCount >= 20:
+            # if height is different by 20
+            t_percent = '{:,.2f}'.format(truncate(localDaemonBlockCount / networkBlockCount * 100, 2))
+            t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
+            t_networkBlockCount = '{:,}'.format(networkBlockCount)
+            await ctx.message.add_reaction(EMOJI_WARNING)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t sync fully with network or being re-sync. More info:\n```'
+                           f'networkBlockCount:     {t_networkBlockCount}\n'
+                           f'localDaemonBlockCount: {t_localDaemonBlockCount}\n'
+                           f'Progress %:            {t_percent}\n```'
+                           )
+            return
+        else:
+            pass
+    # End of wallet status
+    tip = None
+    try:
+        tip = await store.sql_send_secrettip(str(ctx.message.author.id), user_id, real_amount, COIN_NAME, COIN_DEC)
+    except Exception as e:
+        print(e)
+    if tip:
+        if has_forwardtip:
+            await ctx.message.add_reaction(EMOJI_FORWARD)
+        else:
+            await ctx.message.add_reaction(EMOJI_TIP)
+        # tipper shall always get DM. Ignore notifyList
+        try:
+            await ctx.message.author.send(
+                f'{EMOJI_ARROW_RIGHTHOOK} Secret tip of {num_format_coin(real_amount, COIN_NAME)} '
+                f'{COIN_NAME} '
+                f'was sent to `{user_id} / {member.name}`\n'
+                f'Transaction hash: `{tip}`')
+        except discord.Forbidden:
+            # add user to notifyList
+            print('Adding: ' + str(ctx.message.author.id) + ' not to receive DM tip')
+            store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
+        if str(user_id) not in notifyList:
+            # member already declare above
+            try:
+                await member.send(
+                    f'{EMOJI_MONEYFACE} You got a secret tip of {num_format_coin(real_amount, COIN_NAME)} '
+                    f'{COIN_NAME}\n'
+                    f'Transaction hash: `{tip}`\n'
+                    f'{NOTIFICATION_OFF_CMD}')
+            except discord.Forbidden:
+                # add user to notifyList
+                print('Adding: ' + str(member.id) + ' not to receive DM tip')
+                store.sql_toggle_tipnotify(str(member.id), "OFF")
+        else:
+            try:
+                await ctx.message.author.send(f'{user_id} received but {user_id} has notification **OFF**.')
+            except discord.Forbidden:
+                pass
+        return
+    else:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{ctx.author.mention} Can not deliver TX for {COIN_NAME} right now. Try again soon.')
+        # add to failed tx table
+        store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "TIP")
+        return
 
 
 @account.command(hidden = True)
@@ -3958,6 +4122,14 @@ async def account_verify_error(ctx, error):
 async def account_unverify_error(ctx, error):
     if isinstance(error, commands.MissingRequiredArgument):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Missing 2FA codes.')
+    return
+
+
+@account.error
+@secrettip.error
+async def account_secrettip_error(ctx, error):
+    if isinstance(error, commands.MissingRequiredArgument):
+        await ctx.message.author.send(f'{EMOJI_RED_NO} {ctx.author.mention} Missing argument(s). Type .help acc secrettip')
     return
 
 

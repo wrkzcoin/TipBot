@@ -381,14 +381,14 @@ async def about(ctx):
         print(e)
 
 
-@bot.group(hidden = True, help=bot_help_account)
+@bot.group(hidden = True, aliases=['acc'], help=bot_help_account)
 async def account(ctx):
     if ctx.invoked_subcommand is None:
         await ctx.send('Invalid `account` command passed...')
     return
 
 
-@account.command(help=bot_help_account_twofa)
+@account.command(aliases=['2fa'], help=bot_help_account_twofa)
 async def twofa(ctx):
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'account twofa')
@@ -647,6 +647,7 @@ async def save(ctx, coin: str):
 @admin.command(pass_context=True, name='shutdown', aliases=['restart'], help=bot_help_admin_shutdown)
 async def shutdown(ctx):
     botLogChan = bot.get_channel(id=LOG_CHAN)
+    IS_MAINTENANCE = 1
     await ctx.send(f'{EMOJI_REFRESH} {ctx.author.mention} .. restarting .. back soon.')
     await botLogChan.send(f'{EMOJI_REFRESH} {ctx.message.author.name} / {ctx.message.author.id} called `restart`. I will be back soon hopefully.')
     await bot.logout()
@@ -665,7 +666,7 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
             COIN_DEC = get_decimal(coinItem.upper())
             wallet = await store.sql_get_userwallet(str(user_id), coinItem.upper())
             if wallet is None:
-                if create_wallet.upper() == "ON":
+                if create_wallet and create_wallet.upper() == "ON":
                     create_acc = True
                     wallet = await store.sql_get_userwallet(str(user_id), coinItem.upper())
                     if wallet is None:

@@ -161,41 +161,45 @@ bot_help_account_unverify = "Unverify your account and disable 2FA code."
 bot_help_account_secrettip = "Tip someone anonymously by their ID."
 
 def get_emoji(coin: str):
+    COIN_NAME = None
     if coin is None:
-        coin = "WRKZ"
-    if coin.upper() == "TRTL":
+        COIN_NAME = "WRKZ"
+    else:
+        COIN_NAME = coin.upper()
+
+    if COIN_NAME == "TRTL":
         emoji = EMOJI_TRTL
-    elif coin.upper() == "DEGO":
+    elif COIN_NAME == "DEGO":
         emoji = EMOJI_DEGO
-    elif coin.upper() == "LCX":
+    elif COIN_NAME == "LCX":
         emoji = EMOJI_LCX
-    elif coin.upper() == "CX":
+    elif COIN_NAME == "CX":
         emoji = EMOJI_CX
-    elif coin.upper() == "WRKZ":
+    elif COIN_NAME == "WRKZ":
         emoji = EMOJI_WRKZ
-    elif coin.upper() == "OSL":
+    elif COIN_NAME == "OSL":
         emoji = EMOJI_OSL
-    elif coin.upper() == "BTCM":
+    elif COIN_NAME == "BTCM":
         emoji = EMOJI_BTCM
-    elif coin.upper() == "MTIP":
+    elif COIN_NAME == "MTIP":
         emoji = EMOJI_MTIP
-    elif coin.upper() == "XCY":
+    elif COIN_NAME == "XCY":
         emoji = EMOJI_XCY
-    elif coin.upper() == "PLE":
+    elif COIN_NAME == "PLE":
         emoji = EMOJI_PLE
-    elif coin.upper() == "ELPH":
+    elif COIN_NAME == "ELPH":
         emoji = EMOJI_ELPH
-    elif coin.upper() == "ANX":
+    elif COIN_NAME == "ANX":
         emoji = EMOJI_ANX
-    elif coin.upper() == "NBX":
+    elif COIN_NAME == "NBX":
         emoji = EMOJI_NBX
-    elif coin.upper() == "ARMS":
+    elif COIN_NAME == "ARMS":
         emoji = EMOJI_ARMS
-    elif coin.upper() == "IRD":
+    elif COIN_NAME == "IRD":
         emoji = EMOJI_IRD
-    elif coin.upper() == "HITC":
+    elif COIN_NAME == "HITC":
         emoji = EMOJI_HITC
-    elif coin.upper() == "NACA":
+    elif COIN_NAME == "NACA":
         emoji = EMOJI_NACA
     else:
         emoji = EMOJI_WRKZ
@@ -203,45 +207,47 @@ def get_emoji(coin: str):
 
 
 def get_notice_txt(coin: str):
+    COIN_NAME = None
     if coin is None:
-        coin = "WRKZ"
+        COIN_NAME = "WRKZ"
     else:
-        coin = coin.upper()
-    if coin.upper() == "TRTL":
+        COIN_NAME = coin.upper()
+
+    if COIN_NAME == "TRTL":
         notice_txt = NOTICE_TRTL
-    elif coin.upper() == "DEGO":
+    elif COIN_NAME == "DEGO":
         notice_txt = NOTICE_DEGO
-    elif coin.upper() == "LCX":
+    elif COIN_NAME == "LCX":
         notice_txt = NOTICE_LCX
-    elif coin.upper() == "CX":
+    elif COIN_NAME == "CX":
         notice_txt = NOTICE_CX
-    elif coin.upper() == "WRKZ":
+    elif COIN_NAME == "WRKZ":
         notice_txt = NOTICE_WRKZ
-    elif coin.upper() == "OSL":
+    elif COIN_NAME == "OSL":
         notice_txt = NOTICE_OSL
-    elif coin.upper() == "BTCM":
+    elif COIN_NAME == "BTCM":
         notice_txt = NOTICE_BTCM
-    elif coin.upper() == "MTIP":
+    elif COIN_NAME == "MTIP":
         notice_txt = NOTICE_MTIP
-    elif coin.upper() == "XCY":
+    elif COIN_NAME == "XCY":
         notice_txt = NOTICE_XCY
-    elif coin.upper() == "PLE":
+    elif COIN_NAME == "PLE":
         notice_txt = NOTICE_PLE
-    elif coin.upper() == "ELPH":
+    elif COIN_NAME == "ELPH":
         notice_txt = NOTICE_ELPH
-    elif coin.upper() == "ANX":
+    elif COIN_NAME == "ANX":
         notice_txt = NOTICE_ANX
-    elif coin.upper() == "NBX":
+    elif COIN_NAME == "NBX":
         notice_txt = NOTICE_NBX
-    elif coin.upper() == "ARMS":
+    elif COIN_NAME == "ARMS":
         notice_txt = NOTICE_ARMS
-    elif coin.upper() == "IRD":
+    elif COIN_NAME == "IRD":
         notice_txt = NOTICE_IRD
-    elif coin.upper() == "HITC":
+    elif COIN_NAME == "HITC":
         notice_txt = NOTICE_HITC
-    elif coin.upper() == "NACA":
+    elif COIN_NAME == "NACA":
         notice_txt = NOTICE_NACA
-    elif coin.upper() == "DOGE":
+    elif COIN_NAME == "DOGE":
         notice_txt = NOTICE_DOGE
     else:
         notice_txt = NOTICE_WRKZ
@@ -828,19 +834,19 @@ async def save(ctx, coin: str):
     botLogChan = bot.get_channel(id=LOG_CHAN)
     COIN_NAME = coin.upper()
     if COIN_NAME in MAINTENANCE_COIN:
-        await ctx.send(f'{EMOJI_RED_NO} {coin.upper()} in maintenance.')
+        await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} in maintenance.')
         return
     
     if COIN_NAME in ENABLE_COIN:
         duration = await rpc_cn_wallet_save(COIN_NAME)
         await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} called `save` for {COIN_NAME}')
         if duration:
-            await ctx.send(f'{get_emoji(COIN_NAME)} {coin.upper()} `save` took {round(duration,3)}s.')
+            await ctx.send(f'{get_emoji(COIN_NAME)} {COIN_NAME} `save` took {round(duration,3)}s.')
         else:
-            await ctx.send(f'{get_emoji(COIN_NAME)} {coin.upper()} `save` calling error.')
+            await ctx.send(f'{get_emoji(COIN_NAME)} {COIN_NAME} `save` calling error.')
         return
     else:
-        await ctx.send(f'{EMOJI_RED_NO} {coin.upper()} not exists with this command.')
+        await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} not exists with this command.')
         return
 
 
@@ -969,6 +975,7 @@ async def info(ctx, coin: str = None):
 
     global LIST_IGNORECHAN
     wallet = None
+    COIN_NAME = None
     if coin is None:
         if len(ctx.message.mentions) == 0:
             cmdName = ctx.message.content
@@ -1024,14 +1031,18 @@ async def info(ctx, coin: str = None):
                 f'Please add ticker after **{cmdName.lower()}**. Example: `{server_prefix}{cmdName.lower()} {server_coin}`, if you want to get your address(es).\n\n'
                 f'Type: `{server_prefix}setting` if you want to change `prefix` or `default_coin` or `ignorechan` or `del_ignorechan` or `tiponly`. (Required permission)')
             return
-    elif coin.upper() in ENABLE_COIN:
-        wallet = await store.sql_get_userwallet(str(ctx.message.author.id), coin.upper())
+    else:
+        COIN_NAME = coin.upper()
+        pass
+
+    if COIN_NAME in ENABLE_COIN:
+        wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if wallet is None:
-            userregister = await store.sql_register_user(str(ctx.message.author.id), coin.upper())
-            wallet = await store.sql_get_userwallet(str(ctx.message.author.id), coin.upper())
-    elif coin.upper() in ENABLE_COIN_DOGE:
-        wallet = await store.sql_get_userwallet(ctx.message.author.id, coin.upper())
-        depositAddress = await DOGE_LTC_getaccountaddress(ctx.message.author.id, coin.upper())
+            userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+    elif COIN_NAME in ENABLE_COIN_DOGE:
+        wallet = await store.sql_get_userwallet(ctx.message.author.id, COIN_NAME)
+        depositAddress = await DOGE_LTC_getaccountaddress(ctx.message.author.id, COIN_NAME)
         wallet['balance_wallet_address'] = depositAddress
     else:
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**')
@@ -1063,7 +1074,7 @@ async def info(ctx, coin: str = None):
                                     f'{EMOJI_MONEYBAG} Deposit Address: `' + wallet['balance_wallet_address'] + '`\n'
                                     f'{EMOJI_SCALE} Registered Wallet: `'
                                     ''+ wallet['user_wallet_address'] + '`\n'
-                                    f'{get_notice_txt(coin.upper())}')
+                                    f'{get_notice_txt(COIN_NAME)}')
     else:
         await ctx.message.add_reaction(EMOJI_WARNING)
         await ctx.message.author.send("**QR for your Deposit**", 
@@ -1071,7 +1082,7 @@ async def info(ctx, coin: str = None):
         await ctx.message.author.send(f'**[ACCOUNT INFO]**\n\n'
                                f'{EMOJI_MONEYBAG} Deposit Address: `' + wallet['balance_wallet_address'] + '`\n'
                                f'{EMOJI_SCALE} Registered Wallet: `NONE, Please register.`\n'
-                               f'{get_notice_txt(coin.upper())}')
+                               f'{get_notice_txt(COIN_NAME)}')
     return
 
 
@@ -1108,6 +1119,7 @@ async def balance(ctx, coin: str = None):
         prefixChar = server_prefix
     # Get wallet status
     walletStatus = None
+    COIN_NAME = None
     if (coin is None) or (PUBMSG == "PUB"):
         table_data = [
             ['TICKER', 'Available', 'Locked']
@@ -1173,16 +1185,17 @@ async def balance(ctx, coin: str = None):
                             f'Related command: `{prefixChar}balance TICKER` or `{prefixChar}info TICKER`\n'
                             f'{get_notice_txt(COIN_NAME)}')
         return
-    elif coin.upper() in MAINTENANCE_COIN:
-        await ctx.send(f'{EMOJI_RED_NO} {coin.upper()} in maintenance.')
-        return
-    elif coin.upper() in ENABLE_COIN:
-        walletStatus = await daemonrpc_client.getWalletStatus(coin.upper())
+    else:
         COIN_NAME = coin.upper()
+
+    if COIN_NAME in MAINTENANCE_COIN:
+        await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} in maintenance.')
+        return
+    elif COIN_NAME in ENABLE_COIN:
+        walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
         COIN_DEC = get_decimal(COIN_NAME)
         pass
-    elif coin.upper() == "DOGE":
-        COIN_NAME = "DOGE"
+    elif COIN_NAME == "DOGE":
         depositAddress = await DOGE_LTC_getaccountaddress(ctx.message.author.id, COIN_NAME)
         actual = float(await DOGE_LTC_getbalance_acc(ctx.message.author.id, COIN_NAME, 6))
         locked = float(await DOGE_LTC_getbalance_acc(ctx.message.author.id, COIN_NAME, 1))
@@ -1207,12 +1220,12 @@ async def balance(ctx, coin: str = None):
                                f'{get_notice_txt(COIN_NAME)}')
         return
 
-    if coin.upper() not in ENABLE_COIN:
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is no such ticker {coin.upper()}.')
+    elif COIN_NAME not in ENABLE_COIN:
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is no such ticker {COIN_NAME}.')
         return
 
     if walletStatus is None:
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {coin.upper()} Wallet service hasn\'t started.')
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t started.')
         return
     else:
         localDaemonBlockCount = int(walletStatus['blockCount'])
@@ -2047,15 +2060,14 @@ async def tip(ctx, amount: str, *args):
         return
 
     serverinfo = store.sql_info_by_server(str(ctx.guild.id))
+    COIN_NAME = None
     try:
-        COIN_NAME = args[0]
-        if COIN_NAME.upper() not in ENABLE_COIN:
-            if (COIN_NAME.upper() in ENABLE_COIN_DOGE):
-                COIN_NAME = COIN_NAME.upper()
-            elif ('default_coin' in serverinfo):
+        COIN_NAME = args[0].upper()
+        if COIN_NAME not in ENABLE_COIN:
+            if COIN_NAME in ENABLE_COIN_DOGE:
+                pass
+            elif 'default_coin' in serverinfo:
                 COIN_NAME = serverinfo['default_coin'].upper()
-        else:
-            COIN_NAME = COIN_NAME.upper()
     except:
         if 'default_coin' in serverinfo:
             COIN_NAME = serverinfo['default_coin'].upper()
@@ -2071,8 +2083,8 @@ async def tip(ctx, amount: str, *args):
         return
     # End of checking allowed coins
     
-    if COIN_NAME.upper() in MAINTENANCE_COIN:
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME.upper()} in maintenance.')
+    if COIN_NAME in MAINTENANCE_COIN:
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
         return
 
     if len(ctx.message.mentions) == 0:
@@ -3389,6 +3401,7 @@ async def paymentid(ctx):
 
 @bot.command(pass_context=True, aliases=['stat'], help=bot_help_stats)
 async def stats(ctx, coin: str = None):
+    COIN_NAME = None
     if ((coin is None) and isinstance(ctx.message.channel, discord.DMChannel)) or coin.upper() == "BOT":
         await bot.wait_until_ready()
         get_all_m = bot.get_all_members()
@@ -3409,33 +3422,35 @@ async def stats(ctx, coin: str = None):
     elif (coin is None) and isinstance(ctx.message.channel, discord.DMChannel) == False:
         serverinfo = get_info_pref_coin(ctx)
         coin = serverinfo['default_coin']
+        COIN_NAME = coin.upper()
         pass
+    else:
+        COIN_NAME = coin.upper()
 
-    if coin.upper() not in ENABLE_COIN:
+    if COIN_NAME not in ENABLE_COIN:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send('Please put available ticker: '+ ', '.join(ENABLE_COIN).lower())
         return
-    else:
-        coin = coin.upper()
 
-    if coin.upper() in MAINTENANCE_COIN:
-        await ctx.send(f'{EMOJI_RED_NO} {coin.upper()} in maintenance.')
+    if COIN_NAME in MAINTENANCE_COIN:
+        await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} in maintenance.')
         return
 
     gettopblock = None
     try:
-        gettopblock = await daemonrpc_client.gettopblock(coin)
+        gettopblock = await daemonrpc_client.gettopblock(COIN_NAME)
     except Exception as e:
         print(e)
     walletStatus = None
     try:
-        walletStatus = await daemonrpc_client.getWalletStatus(coin)
+        walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
     except Exception as e:
         print(e)
+    
+
     if gettopblock:
-        COIN_NAME = coin.upper()
-        COIN_DEC = get_decimal(coin.upper())
-        COIN_DIFF = get_diff_target(coin.upper())
+        COIN_DEC = get_decimal(COIN_NAME)
+        COIN_DIFF = get_diff_target(COIN_NAME)
         blockfound = datetime.utcfromtimestamp(int(gettopblock['block_header']['timestamp'])).strftime("%Y-%m-%d %H:%M:%S")
         ago = str(timeago.format(blockfound, datetime.utcnow()))
         difficulty = "{:,}".format(gettopblock['block_header']['difficulty'])
@@ -3468,7 +3483,7 @@ async def stats(ctx, coin: str = None):
                            f'```[NETWORK HEIGHT] {height}\n'
                            f'[TIME]           {ago}\n'
                            f'[DIFFICULTY]     {difficulty}\n'
-                           f'[BLOCK REWARD]   {reward}{coin.upper()}\n'
+                           f'[BLOCK REWARD]   {reward}{COIN_NAME}\n'
                            f'[NETWORK HASH]   {hashrate}\n'
                            f'[WALLET SYNC %]: {t_percent}\n'
                            f'{balance_str}'
@@ -3476,7 +3491,7 @@ async def stats(ctx, coin: str = None):
                            )
             return
     else:
-        await ctx.send('`Unavailable.`')
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME}\'s status unavailable.')
         return
 
 

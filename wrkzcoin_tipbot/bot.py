@@ -35,10 +35,11 @@ sys.path.append("..")
 
 MAINTENANCE_OWNER = [386761001808166912]  # list owner
 OWNER_ID_TIPBOT = 386761001808166912
+
 # bingo and duckhunt
 BOT_IGNORECHAN = [558173489194991626, 524572420468899860]  # list ignore chan
 LOG_CHAN = 572686071771430922
-BOT_INVITELINK = 'https://discordapp.com/oauth2/authorize?client_id=474841349968101386&scope=bot&permissions=3072'
+BOT_INVITELINK = None
 WALLET_SERVICE = None
 LIST_IGNORECHAN = None
 
@@ -277,7 +278,7 @@ bot = AutoShardedBot(command_prefix = get_prefix, case_insensitive=True, owner_i
 
 @bot.event
 async def on_ready():
-    global LIST_IGNORECHAN
+    global LIST_IGNORECHAN, BOT_INVITELINK
     print('Ready!')
     print("Hello, I am TipBot Bot!")
     # get WALLET_SERVICE
@@ -289,6 +290,8 @@ async def on_ready():
     print('------')
     print("Guilds: {}".format(len(bot.guilds)))
     print("Users: {}".format(sum([x.member_count for x in bot.guilds])))
+    BOT_INVITELINK = "https://discordapp.com/oauth2/authorize?client_id="+str(bot.user.id)+"&scope=bot&permissions=3072"
+    print("Bot invitation link: " + BOT_INVITELINK)
     game = discord.Game(name="Tip Forever!")
     await bot.change_presence(status=discord.Status.online, activity=game)
     botLogChan = bot.get_channel(id=LOG_CHAN)
@@ -3989,6 +3992,7 @@ async def tag(ctx, *args):
 async def invite(ctx):
     await ctx.send('**[INVITE LINK]**\n\n'
                 f'{BOT_INVITELINK}')
+
 
 def hhashes(num) -> str:
     for x in ['H/s', 'KH/s', 'MH/s', 'GH/s']:

@@ -1124,21 +1124,21 @@ async def balance(ctx, coin: str = None):
         table_data = [
             ['TICKER', 'Available', 'Locked']
         ]
-        for coinItem in ENABLE_COIN:
-            if coinItem not in MAINTENANCE_COIN:
-                COIN_DEC = get_decimal(coinItem.upper())
-                wallet = await store.sql_get_userwallet(str(ctx.message.author.id), coinItem.upper())
+        for COIN_NAME in [coinItem.upper() for coinItem in ENABLE_COIN]:
+            if COIN_NAME not in MAINTENANCE_COIN:
+                COIN_DEC = get_decimal(COIN_NAME)
+                wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
                 if wallet is None:
-                    userregister = await store.sql_register_user(str(ctx.message.author.id), coinItem.upper())
-                    wallet = await store.sql_get_userwallet(str(ctx.message.author.id), coinItem.upper())
+                    userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+                    wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
                 if wallet is None:
-                    await ctx.send(f'{ctx.author.mention} Internal Error for `{prefixChar}balance` during {coinItem.upper()}')
+                    await ctx.send(f'{ctx.author.mention} Internal Error for `{prefixChar}balance` during {COIN_NAME}')
                     return
                 else:
-                    balance_actual = num_format_coin(wallet['actual_balance'], coinItem.upper())
-                    balance_locked = num_format_coin(wallet['locked_balance'], coinItem.upper())
-                    balance_total = num_format_coin((wallet['actual_balance'] + wallet['locked_balance']), coinItem.upper())
-                    coinName = coinItem.upper()
+                    balance_actual = num_format_coin(wallet['actual_balance'], COIN_NAME)
+                    balance_locked = num_format_coin(wallet['locked_balance'], COIN_NAME)
+                    balance_total = num_format_coin((wallet['actual_balance'] + wallet['locked_balance']), COIN_NAME)
+                    coinName = COIN_NAME
                     if 'user_wallet_address' not in wallet:
                         coinName += '*'
                     if wallet['forwardtip'] == "ON":
@@ -1146,7 +1146,7 @@ async def balance(ctx, coin: str = None):
                     table_data.append([coinName, balance_actual, balance_locked])
                     pass
             else:
-                table_data.append([coinItem.upper(), "***", "***"])
+                table_data.append([COIN_NAME, "***", "***"])
         # Add DOGE
         COIN_NAME = "DOGE"
         if COIN_NAME not in MAINTENANCE_COIN:

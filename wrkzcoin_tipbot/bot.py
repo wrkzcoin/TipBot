@@ -639,8 +639,8 @@ async def secrettip(ctx, amount: str, coin: str, user_id: str):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
         return
 
-    # No DOGE yet.
-    if COIN_NAME not in ENABLE_COIN:
+    # OK DOGE in.
+    if COIN_NAME not in (ENABLE_COIN+ENABLE_COIN_DOGE):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} not available or supported.')
         return
 
@@ -683,55 +683,87 @@ async def secrettip(ctx, amount: str, coin: str, user_id: str):
         MinTx = get_min_tx_amount(COIN_NAME)
         MaxTX = get_max_tx_amount(COIN_NAME)
         EMOJI_TIP = get_emoji(COIN_NAME)
-        
-    if real_amount + netFee >= user_from['actual_balance']:
-        await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send secret tip of '
-                        f'{num_format_coin(real_amount, COIN_NAME)} '
-                        f'{COIN_NAME} to {user_id}.')
-        return
+        if real_amount + netFee >= user_from['actual_balance']:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send secret tip of '
+                            f'{num_format_coin(real_amount, COIN_NAME)} '
+                            f'{COIN_NAME} to {user_id}.')
+            return
 
-    if real_amount > MaxTX:
-        await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
-                       f'{num_format_coin(MaxTX, COIN_NAME)} '
-                       f'{COIN_NAME}.')
-        return
-    elif real_amount < MinTx:
-        await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
-                       f'{num_format_coin(MinTx, COIN_NAME)} '
-                       f'{COIN_NAME}.')
-        return
+        if real_amount > MaxTX:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
+                           f'{num_format_coin(MaxTX, COIN_NAME)} '
+                           f'{COIN_NAME}.')
+            return
+        elif real_amount < MinTx:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
+                           f'{num_format_coin(MinTx, COIN_NAME)} '
+                           f'{COIN_NAME}.')
+            return
 
-    # Get wallet status
-    walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
-    if walletStatus is None:
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t started.')
-        return
-    else:
-        localDaemonBlockCount = int(walletStatus['blockCount'])
-        networkBlockCount = int(walletStatus['knownBlockCount'])
-        if networkBlockCount - localDaemonBlockCount >= 20:
-            # if height is different by 20
-            t_percent = '{:,.2f}'.format(truncate(localDaemonBlockCount / networkBlockCount * 100, 2))
-            t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
-            t_networkBlockCount = '{:,}'.format(networkBlockCount)
-            await ctx.message.add_reaction(EMOJI_WARNING)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t sync fully with network or being re-sync. More info:\n```'
-                           f'networkBlockCount:     {t_networkBlockCount}\n'
-                           f'localDaemonBlockCount: {t_localDaemonBlockCount}\n'
-                           f'Progress %:            {t_percent}\n```'
-                           )
+        # Get wallet status
+        walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
+        if walletStatus is None:
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t started.')
             return
         else:
-            pass
-    # End of wallet status
+            localDaemonBlockCount = int(walletStatus['blockCount'])
+            networkBlockCount = int(walletStatus['knownBlockCount'])
+            if networkBlockCount - localDaemonBlockCount >= 20:
+                # if height is different by 20
+                t_percent = '{:,.2f}'.format(truncate(localDaemonBlockCount / networkBlockCount * 100, 2))
+                t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
+                t_networkBlockCount = '{:,}'.format(networkBlockCount)
+                await ctx.message.add_reaction(EMOJI_WARNING)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t sync fully with network or being re-sync. More info:\n```'
+                               f'networkBlockCount:     {t_networkBlockCount}\n'
+                               f'localDaemonBlockCount: {t_localDaemonBlockCount}\n'
+                               f'Progress %:            {t_percent}\n```'
+                               )
+                return
+            else:
+                pass
+        # End of wallet status
+    elif COIN_NAME in ENABLE_COIN_DOGE:
+        EMOJI_TIP = EMOJI_DOGE
+        MinTx = config.daemonDOGE.min_mv_amount
+        MaxTX = config.daemonDOGE.max_mv_amount
+        user_from = {}
+        user_from['address'] = await DOGE_LTC_getaccountaddress(str(ctx.message.author.id), COIN_NAME)
+        user_from['actual_balance'] = float(await DOGE_LTC_getbalance_acc(str(ctx.message.author.id), COIN_NAME, 6))
+        user_to = {}
+        user_to['address'] = await DOGE_LTC_getaccountaddress(user_id, COIN_NAME)
+        real_amount = float(amount)
+        userdata_balance = store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
+        if real_amount > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send a secret tip of '
+                            f'{num_format_coin(real_amount, COIN_NAME)} '
+                            f'{COIN_NAME} to `{user_id}`.')
+            return
+        if real_amount < MinTx:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} Transactions cannot be smaller than '
+                           f'{num_format_coin(MinTx, COIN_NAME)} '
+                           f'{COIN_NAME}.')
+            return
+        if real_amount > MaxTX:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} Transactions cannot be bigger than '
+                           f'{num_format_coin(MaxTX, COIN_NAME)} '
+                           f'{COIN_NAME}.')
+            return
     tip = None
-    try:
-        tip = await store.sql_send_secrettip(str(ctx.message.author.id), user_id, real_amount, COIN_NAME, COIN_DEC)
-    except Exception as e:
-        print(e)
+    if COIN_NAME == "DOGE":
+        tip = store.sql_mv_doge_single(str(ctx.message.author.id), user_id, real_amount, COIN_NAME, "SECRETTIP")
+        tip = "N/A for "+COIN_NAME
+    else:
+        try:
+            tip = await store.sql_send_secrettip(str(ctx.message.author.id), user_id, real_amount, COIN_NAME, COIN_DEC)
+        except Exception as e:
+            print(e)
     if tip:
         if has_forwardtip:
             await ctx.message.add_reaction(EMOJI_FORWARD)
@@ -762,7 +794,9 @@ async def secrettip(ctx, amount: str, coin: str, user_id: str):
                 store.sql_toggle_tipnotify(str(member.id), "OFF")
         else:
             try:
-                await ctx.message.author.send(f'{user_id} received but {user_id} has notification **OFF**.')
+                await ctx.message.author.send(f'`{member.name} / {user_id}` received '
+                                              f'{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}'
+                                              ' but has notification **OFF** or **DM disable**.')
             except discord.Forbidden:
                 pass
         return
@@ -770,7 +804,7 @@ async def secrettip(ctx, amount: str, coin: str, user_id: str):
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{ctx.author.mention} Can not deliver TX for {COIN_NAME} right now. Try again soon.')
         # add to failed tx table
-        store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "TIP")
+        store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "SECRETTIP")
         return
 
 

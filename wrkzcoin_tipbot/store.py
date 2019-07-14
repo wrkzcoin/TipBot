@@ -1397,7 +1397,7 @@ def sql_mv_doge_single(user_from: str, to_user: str, amount: float, coin: str, t
     global conn
     if coin.upper() not in ENABLE_COIN_DOGE:
         return False
-    if tiptype.upper() not in ["TIP", "DONATE"]:
+    if tiptype.upper() not in ["TIP", "DONATE", "SECRETTIP"]:
         return False
     try:
         openConnection()

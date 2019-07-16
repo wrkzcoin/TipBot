@@ -3402,7 +3402,24 @@ async def paymentid(ctx):
 @bot.command(pass_context=True, aliases=['stat'], help=bot_help_stats)
 async def stats(ctx, coin: str = None):
     COIN_NAME = None
-    if ((coin is None) and isinstance(ctx.message.channel, discord.DMChannel)) or coin.upper() == "BOT":
+    if (coin is None) and isinstance(ctx.message.channel, discord.DMChannel) == False:
+            serverinfo = get_info_pref_coin(ctx)
+            COIN_NAME = serverinfo['default_coin'].upper()
+    elif (coin is None) and isinstance(ctx.message.channel, discord.DMChannel):
+        COIN_NAME = "BOT"
+    elif coin:
+        COIN_NAME = coin.upper()
+
+    if (COIN_NAME not in ENABLE_COIN) and COIN_NAME != "BOT":
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{ctx.author.mention} Please put available ticker: '+ ', '.join(ENABLE_COIN).lower())
+        return
+
+    if COIN_NAME in MAINTENANCE_COIN:
+        await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} in maintenance.')
+        return
+
+    if COIN_NAME == "BOT":
         await bot.wait_until_ready()
         get_all_m = bot.get_all_members()
         #membercount = '[Members] ' + '{:,.0f}'.format(sum([x.member_count for x in bot.guilds]))
@@ -3418,22 +3435,6 @@ async def stats(ctx, coin: str = None):
         botstats = botstats + '```'
         await ctx.send(f'{botstats}')
         await ctx.send('Please add ticker: '+ ', '.join(ENABLE_COIN).lower() + ' to get stats about coin instead.')
-        return
-    elif (coin is None) and isinstance(ctx.message.channel, discord.DMChannel) == False:
-        serverinfo = get_info_pref_coin(ctx)
-        coin = serverinfo['default_coin']
-        COIN_NAME = coin.upper()
-        pass
-    else:
-        COIN_NAME = coin.upper()
-
-    if COIN_NAME not in ENABLE_COIN:
-        await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send('Please put available ticker: '+ ', '.join(ENABLE_COIN).lower())
-        return
-
-    if COIN_NAME in MAINTENANCE_COIN:
-        await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} in maintenance.')
         return
 
     gettopblock = None

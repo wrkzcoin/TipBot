@@ -1114,7 +1114,7 @@ async def balance(ctx, coin: str = None):
         table.padding_left = 0
         table.padding_right = 0
         await ctx.message.add_reaction(EMOJI_OK_HAND)
-        if PUBMSG.upper() == "PUB":
+        if PUBMSG.upper() == "PUB" or PUBMSG.upper() == "PUBLIC":
             msg = await ctx.send('**[ BALANCE LIST ]**\n'
                             f'```{table.table}```\n'
                             f'Related command: `{prefixChar}balance TICKER` or `{prefixChar}info TICKER`\n')
@@ -1557,20 +1557,20 @@ async def withdraw(ctx, amount: str, coin: str = None):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Please have **ticker** (coin name) after amount.')
         return
 
-    if coin.upper() in MAINTENANCE_COIN:
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {coin.upper()} in maintenance.')
+    COIN_NAME = coin.upper()
+    if COIN_NAME in MAINTENANCE_COIN:
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
         return
     user = None
-    if coin.upper() in ENABLE_COIN:
-        COIN_NAME = coin.upper()
-        COIN_DEC = get_decimal(coin.upper())
+    if COIN_NAME in ENABLE_COIN:
+        COIN_DEC = get_decimal(COIN_NAME)
         real_amount = int(amount * COIN_DEC)
         user = await store.sql_get_userwallet(ctx.message.author.id, COIN_NAME)
         netFee = get_tx_fee(COIN_NAME)
         MinTx = get_min_tx_amount(COIN_NAME)
         MaxTX = get_max_tx_amount(COIN_NAME)
         EMOJI_TIP = get_emoji(COIN_NAME)
-    elif coin.upper() == "DOGE" or coin.upper() == "DOGECOIN":
+    elif COIN_NAME == "DOGE" or COIN_NAME == "DOGECOIN":
         COIN_NAME = "DOGE"
         EMOJI_TIP = get_emoji(COIN_NAME)
         MinTx = config.daemonDOGE.min_tx_amount
@@ -1752,6 +1752,7 @@ async def donate(ctx, amount: str, coin: str = None):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid amount.')
         return
 
+    COIN_NAME = None
     if coin is None:
         # If private
         if isinstance(ctx.channel, discord.DMChannel):
@@ -1766,21 +1767,22 @@ async def donate(ctx, amount: str, coin: str = None):
                 coin = "WRKZ"
         else:
             coin = "WRKZ"
-    if coin.upper() in MAINTENANCE_COIN:
-        await ctx.send(f'{EMOJI_RED_NO} {coin.upper()} in maintenance.')
+    COIN_NAME = coin.upper()
+
+    if COIN_NAME in MAINTENANCE_COIN:
+        await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} in maintenance.')
         return
 
-    if coin.upper() in ENABLE_COIN:
-        CoinAddress = get_donate_address(coin.upper())
-        COIN_NAME = coin.upper()
-        COIN_DEC = get_decimal(coin.upper())
+    if COIN_NAME in ENABLE_COIN:
+        CoinAddress = get_donate_address(COIN_NAME)
+        COIN_DEC = get_decimal(COIN_NAME)
         real_amount = int(amount * COIN_DEC)
         user_from = await store.sql_get_userwallet(ctx.message.author.id, COIN_NAME)
         netFee = get_tx_fee(COIN_NAME)
         MinTx = get_min_tx_amount(COIN_NAME)
         MaxTX = get_max_tx_amount(COIN_NAME)
         EMOJI_TIP = get_emoji(COIN_NAME)
-    elif coin.upper() == "DOGE" or coin.upper() == "DOGECOIN":
+    elif COIN_NAME == "DOGE" or COIN_NAME == "DOGECOIN":
         COIN_NAME = "DOGE"
         EMOJI_TIP = get_emoji(COIN_NAME)
         MinTx = config.daemonDOGE.min_mv_amount
@@ -3042,12 +3044,12 @@ async def optimize(ctx, coin: str, member: discord.Member = None):
     # end of check if account locked
 
     botLogChan = bot.get_channel(id=LOG_CHAN)
-    if coin.upper() not in ENABLE_COIN:
+    COIN_NAME = coin.upper()
+    if COIN_NAME not in ENABLE_COIN:
         await ctx.message.add_reaction(EMOJI_WARNING)
         await ctx.send(f'{EMOJI_RED_NO} You need to specify a correct TICKER.')
         return
 
-    COIN_NAME = coin.upper()
     if member is None:
         # Check if in logchan
         if ctx.message.channel.id == LOG_CHAN and (ctx.message.author.id in MAINTENANCE_OWNER):
@@ -3197,12 +3199,14 @@ async def voucher(ctx, command: str, amount: str, coin: str = None):
                 coin = "WRKZ"
         else:
             coin = "WRKZ"
-    if coin.upper() in MAINTENANCE_COIN:
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {coin.upper()} in maintenance.')
+    
+    COIN_NAME = coin.upper() or "WRKZ"
+    if COIN_NAME in MAINTENANCE_COIN:
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
         return
-    print('VOUCHER: '+coin)
+    print('VOUCHER: '+COIN_NAME)
 
-    COIN_DEC = get_decimal(coin.upper())
+    COIN_DEC = get_decimal(COIN_NAME)
     real_amount = int(amount * COIN_DEC)
     secret_string = str(uuid.uuid4())
     unique_filename = str(uuid.uuid4())
@@ -3225,7 +3229,7 @@ async def voucher(ctx, command: str, amount: str, coin: str = None):
 
     #Logo
     try:
-        logo = Image.open(get_coinlogo_path(coin.upper()))
+        logo = Image.open(get_coinlogo_path(COIN_NAME))
         box = (115,115,165,165)
         qr_img.crop(box)
         region = logo
@@ -3240,7 +3244,7 @@ async def voucher(ctx, command: str, amount: str, coin: str = None):
 
     # amount font
     try:
-        msg = str(num_format_coin(real_amount, coin.upper())) + coin.upper()
+        msg = str(num_format_coin(real_amount, COIN_NAME)) + COIN_NAME
         W, H = (1123,644)
         draw =  ImageDraw.Draw(img_frame)
         myFont = ImageFont.truetype(config.font.digital7, 44)
@@ -3260,21 +3264,21 @@ async def voucher(ctx, command: str, amount: str, coin: str = None):
 
     voucher_make = None
     voucher_make = await store.sql_send_to_voucher(str(ctx.message.author.id), str(ctx.message.author.name), 
-                                                   ctx.message.content, real_amount, get_reserved_fee(coin.upper()), 
-                                                   secret_string, unique_filename + ".png", coin.upper())
+                                                   ctx.message.content, real_amount, get_reserved_fee(COIN_NAME), 
+                                                   secret_string, unique_filename + ".png", COIN_NAME)
     if voucher_make:
         await ctx.message.add_reaction(EMOJI_OK_HAND)
         if isinstance(ctx.channel, discord.DMChannel):
             await ctx.message.author.send(f"New Voucher Link (TEST):\n```{qrstring}\n"
-                                f"Amount: {num_format_coin(real_amount, coin.upper())} {coin.upper()}\n"
-                                f"Reserved Fee: {num_format_coin(get_reserved_fee(coin.upper()), coin.upper())} {coin.upper()}\n"
+                                f"Amount: {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}\n"
+                                f"Reserved Fee: {num_format_coin(get_reserved_fee(COIN_NAME), COIN_NAME)} {COIN_NAME}\n"
                                 f"Tx Deposit: {voucher_make}```",
                                 file=discord.File(config.qrsettings.path_voucher_create + unique_filename + ".png"))
         #os.remove(config.qrsettings.path_voucher_create + unique_filename + ".png")
         else:
             await ctx.message.channel.send(f"New Voucher Link (TEST):\n```{qrstring}\n"
-                                f"Amount: {num_format_coin(real_amount, coin.upper())} {coin.upper()}\n"
-                                f"Reserved Fee: {num_format_coin(get_reserved_fee(coin.upper()), coin.upper())} {coin.upper()}\n"
+                                f"Amount: {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}\n"
+                                f"Reserved Fee: {num_format_coin(get_reserved_fee(COIN_NAME), COIN_NAME)} {COIN_NAME}\n"
                                 f"Tx Deposit: {voucher_make}```",
                                 file=discord.File(config.qrsettings.path_voucher_create + unique_filename + ".png"))
         #os.remove(config.qrsettings.path_voucher_create + unique_filename + ".png")

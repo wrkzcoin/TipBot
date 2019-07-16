@@ -58,44 +58,7 @@ async def call_doge_ltc(method_name: str, coin: str, payload: str = None) -> Dic
 
 
 def get_wallet_rpc_url(coin: str = None):
-    if coin is None:
-        coin = "WRKZ"
-    if coin.upper() == "TRTL":
-        url = "http://"+config.daemonTRTL.wallethost+":"+str(config.daemonTRTL.walletport)
-    elif coin.upper() == "DEGO":
-        url = "http://"+config.daemonDEGO.wallethost+":"+str(config.daemonDEGO.walletport)
-    elif coin.upper() == "LCX":
-        url = "http://"+config.daemonLCX.wallethost+":"+str(config.daemonLCX.walletport)
-    elif coin.upper() == "CX":
-        url = "http://"+config.daemonCX.wallethost+":"+str(config.daemonCX.walletport)
-    elif coin.upper() == "WRKZ":
-        url = "http://"+config.daemonWRKZ.wallethost+":"+str(config.daemonWRKZ.walletport)
-    elif coin.upper() == "OSL":
-        url = "http://"+config.daemonOSL.wallethost+":"+str(config.daemonOSL.walletport)
-    elif coin.upper() == "BTCM":
-        url = "http://"+config.daemonBTCM.wallethost+":"+str(config.daemonBTCM.walletport)
-    elif coin.upper() == "TLRM":
-        url = "http://"+config.daemonTLRM.wallethost+":"+str(config.daemonTLRM.walletport)
-    elif coin.upper() == "MTIP":
-        url = "http://"+config.daemonMTIP.wallethost+":"+str(config.daemonMTIP.walletport)
-    elif coin.upper() == "XCY":
-        url = "http://"+config.daemonXCY.wallethost+":"+str(config.daemonXCY.walletport)
-    elif coin.upper() == "PLE":
-        url = "http://"+config.daemonPLE.wallethost+":"+str(config.daemonPLE.walletport)
-    elif coin.upper() == "ELPH":
-        url = "http://"+config.daemonELPH.wallethost+":"+str(config.daemonELPH.walletport)
-    elif coin.upper() == "ANX":
-        url = "http://"+config.daemonANX.wallethost+":"+str(config.daemonANX.walletport)
-    elif coin.upper() == "NBX":
-        url = "http://"+config.daemonNBX.wallethost+":"+str(config.daemonNBX.walletport)
-    elif coin.upper() == "ARMS":
-        url = "http://"+config.daemonARMS.wallethost+":"+str(config.daemonARMS.walletport)
-    elif coin.upper() == "IRD":
-        url = "http://"+config.daemonIRD.wallethost+":"+str(config.daemonIRD.walletport)
-    elif coin.upper() == "HITC":
-        url = "http://"+config.daemonHITC.wallethost+":"+str(config.daemonHITC.walletport)
-    elif coin.upper() == "NACA":
-        url = "http://"+config.daemonNACA.wallethost+":"+str(config.daemonNACA.walletport)
-    else:
-        url = "http://"+config.daemonWRKZ.wallethost+":"+str(config.daemonWRKZ.walletport)
-    return url + '/json_rpc'
+    return "http://"+getattr(config,"daemon"+coin,config.daemonWRKZ).wallethost + ":" + \
+        str(getattr(config,"daemon"+coin,config.daemonWRKZ).walletport) \
+        + '/json_rpc'
+

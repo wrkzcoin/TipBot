@@ -30,6 +30,7 @@ daemonWRKZ:
   DiffTarget: 60
   MinToOptimize: 1000
   IntervalOptimize: 600
+  coin_family: "TRTL"
 # TRTL
 daemonTRTL:
   host: "127.0.0.1"
@@ -52,6 +53,7 @@ daemonTRTL:
   DiffTarget: 30
   MinToOptimize: 1000
   IntervalOptimize: 600
+  coin_family: "TRTL"
 # DEGO
 daemonDEGO:
   host: "127.0.0.1"
@@ -74,6 +76,7 @@ daemonDEGO:
   DiffTarget: 20
   MinToOptimize: 1000
   IntervalOptimize: 600
+  coin_family: "TRTL"
 # LCX
 daemonLCX:
   host: "127.0.0.1"
@@ -96,6 +99,7 @@ daemonLCX:
   DiffTarget: 120
   MinToOptimize: 100
   IntervalOptimize: 600
+  coin_family: "TRTL"
 # CAT
 daemonCX:
   host: "127.0.0.1"
@@ -118,6 +122,7 @@ daemonCX:
   DiffTarget: 60
   MinToOptimize: 100
   IntervalOptimize: 600
+  coin_family: "TRTL"
 # OSL
 daemonOSL:
   host: "127.0.0.1"
@@ -140,6 +145,7 @@ daemonOSL:
   DiffTarget: 60
   MinToOptimize: 100
   IntervalOptimize: 600
+  coin_family: "TRTL"
 # BTCM
 daemonBTCM:
   host: "127.0.0.1"
@@ -162,6 +168,7 @@ daemonBTCM:
   DiffTarget: 50
   MinToOptimize: 100
   IntervalOptimize: 600
+  coin_family: "TRTL"
 # MTIP
 daemonMTIP:
   host: "127.0.0.1"
@@ -184,6 +191,7 @@ daemonMTIP:
   DiffTarget: 45
   MinToOptimize: 100
   IntervalOptimize: 600
+  coin_family: "TRTL"
 # XCY
 daemonXCY:
   host: "127.0.0.1"
@@ -206,6 +214,7 @@ daemonXCY:
   DiffTarget: 60
   MinToOptimize: 100
   IntervalOptimize: 600
+  coin_family: "TRTL"
 # PLE
 daemonPLE:
   host: "127.0.0.1"
@@ -228,6 +237,7 @@ daemonPLE:
   DiffTarget: 120
   MinToOptimize: 1
   IntervalOptimize: 600
+  coin_family: "TRTL"
 # ANX
 daemonANX:
   host: "127.0.0.1"
@@ -250,6 +260,7 @@ daemonANX:
   DiffTarget: 120
   MinToOptimize: 1
   IntervalOptimize: 600
+  coin_family: "CCX"
 # ELPH
 daemonELPH:
   host: "127.0.0.1"
@@ -272,6 +283,7 @@ daemonELPH:
   DiffTarget: 120
   MinToOptimize: 1
   IntervalOptimize: 600
+  coin_family: "TRTL"
 # NBX
 daemonNBX:
   host: "127.0.0.1"
@@ -294,6 +306,7 @@ daemonNBX:
   DiffTarget: 150
   MinToOptimize: 1
   IntervalOptimize: 600
+  coin_family: "TRTL"
 # ARMS
 daemonARMS:
   host: "127.0.0.1"
@@ -316,6 +329,7 @@ daemonARMS:
   DiffTarget: 90
   MinToOptimize: 1
   IntervalOptimize: 600
+  coin_family: "TRTL"
 # IRD
 daemonIRD:
   host: "127.0.0.1"
@@ -338,6 +352,7 @@ daemonIRD:
   DiffTarget: 175
   MinToOptimize: 1
   IntervalOptimize: 600
+  coin_family: "TRTL"
 # HITC
 daemonHITC:
   host: "127.0.0.1"
@@ -360,6 +375,7 @@ daemonHITC:
   DiffTarget: 60
   MinToOptimize: 1
   IntervalOptimize: 600
+  coin_family: "TRTL"
 # NACA
 daemonNACA:
   host: "127.0.0.1"
@@ -382,6 +398,7 @@ daemonNACA:
   DiffTarget: 60
   MinToOptimize: 1
   IntervalOptimize: 600
+  coin_family: "TRTL"
 # DOGECOIN. DOGE is real amount
 daemonDOGE:
   host: "127.0.0.1"
@@ -397,6 +414,7 @@ daemonDOGE:
   min_tx_amount: 10
   max_tx_amount: 5000
   name: "DOGE"
+  coin_family: "DOGE"
 # How many seconds between balance refresh with wallet-api
 wallet_balance_update_interval: 60
 # Flood tip limit per 10 seconds

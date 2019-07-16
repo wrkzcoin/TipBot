@@ -658,7 +658,7 @@ async def secrettip(ctx, amount: str, coin: str, user_id: str):
                 pass
         # End of wallet status
     elif COIN_NAME in ENABLE_COIN_DOGE:
-        EMOJI_TIP = EMOJI_DOGE
+        EMOJI_TIP = get_emoji(COIN_NAME)
         MinTx = config.daemonDOGE.min_mv_amount
         MaxTX = config.daemonDOGE.max_mv_amount
         user_from = {}
@@ -1603,7 +1603,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
         EMOJI_TIP = get_emoji(COIN_NAME)
     elif coin.upper() == "DOGE" or coin.upper() == "DOGECOIN":
         COIN_NAME = "DOGE"
-        EMOJI_TIP = EMOJI_DOGE
+        EMOJI_TIP = get_emoji(COIN_NAME)
         MinTx = config.daemonDOGE.min_tx_amount
         MaxTX = config.daemonDOGE.max_tx_amount
         netFee = config.daemonDOGE.tx_fee
@@ -1813,7 +1813,7 @@ async def donate(ctx, amount: str, coin: str = None):
         EMOJI_TIP = get_emoji(COIN_NAME)
     elif coin.upper() == "DOGE" or coin.upper() == "DOGECOIN":
         COIN_NAME = "DOGE"
-        EMOJI_TIP = EMOJI_DOGE
+        EMOJI_TIP = get_emoji(COIN_NAME)
         MinTx = config.daemonDOGE.min_mv_amount
         MaxTX = config.daemonDOGE.max_mv_amount
         user_from = {}
@@ -2114,7 +2114,7 @@ async def tip(ctx, amount: str, *args):
         EMOJI_TIP = get_emoji(COIN_NAME)
     elif COIN_NAME.upper() == "DOGE" or COIN_NAME.upper() == "DOGECOIN":
         COIN_NAME = "DOGE"
-        EMOJI_TIP = EMOJI_DOGE
+        EMOJI_TIP = get_emoji(COIN_NAME)
         MinTx = config.daemonDOGE.min_mv_amount
         MaxTX = config.daemonDOGE.max_mv_amount
         user_from = {}
@@ -2349,7 +2349,7 @@ async def tipall(ctx, amount: str, *args):
         EMOJI_TIP = get_emoji(COIN_NAME)
     elif COIN_NAME.upper() == "DOGE" or COIN_NAME.upper() == "DOGECOIN":
         COIN_NAME = "DOGE"
-        EMOJI_TIP = EMOJI_DOGE
+        EMOJI_TIP = get_emoji(COIN_NAME)
         MinTx = config.daemonDOGE.min_mv_amount
         MaxTX = config.daemonDOGE.max_mv_amount
         user_from = {}
@@ -2636,7 +2636,7 @@ async def send(ctx, amount: str, CoinAddress: str):
         if (len(CoinAddress) == 34) and CoinAddress.startswith("D"):
             COIN_NAME = "DOGE"
             addressLength = config.daemonDOGE.AddrLen
-            EMOJI_TIP = EMOJI_DOGE
+            EMOJI_TIP = get_emoji(COIN_NAME)
             MinTx = config.daemonDOGE.min_tx_amount
             MaxTX = config.daemonDOGE.max_tx_amount
             netFee = config.daemonDOGE.tx_fee
@@ -4286,7 +4286,7 @@ async def _tip(ctx, amount, coin: str = None):
         EMOJI_TIP = get_emoji(COIN_NAME)
     elif COIN_NAME.upper() == "DOGE" or COIN_NAME.upper() == "DOGECOIN":
         COIN_NAME = "DOGE"
-        EMOJI_TIP = EMOJI_DOGE
+        EMOJI_TIP = get_emoji(COIN_NAME)
         MinTx = config.daemonDOGE.min_mv_amount
         MaxTX = config.daemonDOGE.max_mv_amount
         user_from = {}
@@ -4535,7 +4535,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
         EMOJI_TIP = get_emoji(COIN_NAME)
     elif COIN_NAME.upper() == "DOGE" or COIN_NAME.upper() == "DOGECOIN":
         COIN_NAME = "DOGE"
-        EMOJI_TIP = EMOJI_DOGE
+        EMOJI_TIP = get_emoji(COIN_NAME)
         MinTx = config.daemonDOGE.min_mv_amount
         MaxTX = config.daemonDOGE.max_mv_amount
         user_from = {}

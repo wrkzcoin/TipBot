@@ -62,25 +62,25 @@ EMOJI_MONEYBAG = "\U0001F4B0"
 EMOJI_SCALE = "\u2696"
 
 EMOJI_TIP = EMOJI_MONEYFACE
-EMOJI_WRKZ = "\U0001F477"
-EMOJI_TRTL = "\U0001F422"
-EMOJI_DEGO = "\U0001F49B"
-EMOJI_LCX = "\U0001F517"
-EMOJI_CX = "\U0001F64F"
-EMOJI_OSL = "\U0001F381"
-EMOJI_BTCM = "\U0001F4A9"
-EMOJI_MTIP = "\U0001F595"
-EMOJI_XCY = "\U0001F3B2"
-EMOJI_PLE = "\U0001F388"
-EMOJI_ELPH = "\U0001F310"
-EMOJI_ANX = "\U0001F3E6"
-EMOJI_NBX = "\U0001F5A4"
-EMOJI_ARMS = "\U0001F52B"
-EMOJI_IRD = "\U0001F538"
-EMOJI_HITC = "\U0001F691"
-EMOJI_NACA = "\U0001F355"
-
-EMOJI_DOGE = "\U0001F436"
+EMOJI_COIN = {
+    "WRKZ" : "\U0001F477",
+    "TRTL" : "\U0001F422",
+    "DEGO" : "\U0001F49B",
+    "LCX" : "\U0001F517",
+    "CX" : "\U0001F64F",
+    "OSL" : "\U0001F381",
+    "BTCM" : "\U0001F4A9",
+    "MTIP" : "\U0001F595",
+    "XCY" : "\U0001F3B2",
+    "PLE" : "\U0001F388",
+    "ELPH" : "\U0001F310",
+    "ANX" : "\U0001F3E6",
+    "NBX" : "\U0001F5A4",
+    "ARMS" : "\U0001F52B",
+    "IRD" : "\U0001F538",
+    "HITC" : "\U0001F691",
+    "NACA" : "\U0001F355",
+    "DOGE" : "\U0001F436"}
 
 EMOJI_RED_NO = "\u26D4"
 EMOJI_SPEAK = "\U0001F4AC"
@@ -98,25 +98,26 @@ DEFAULT_TICKER = "WRKZ"
 ENABLE_COIN_VOUCHER = config.Enable_Coin_Voucher.split(",")
 
 # Some notice about coin that going to swap or take out.
-NOTICE_TRTL = None
-NOTICE_DEGO = None
-NOTICE_WRKZ = None
-NOTICE_LCX = None
-NOTICE_CX = None
-NOTICE_OSL = None
-NOTICE_BTCM = None
-NOTICE_MTIP = None
-NOTICE_XCY = None
-NOTICE_PLE = None
-NOTICE_ELPH = None
-NOTICE_ANX = None
-NOTICE_NBX = None
-NOTICE_ARMS = None
-NOTICE_IRD = None
-NOTICE_HITC = None
-NOTICE_NACA = None
+NOTICE_COIN = {
+    "WRKZ" : None,
+    "TRTL" : None,
+    "DEGO" : None,
+    "LCX" : None,
+    "CX" : None,
+    "OSL" : None,
+    "BTCM" : None,
+    "MTIP" : None,
+    "XCY" : None,
+    "PLE" : None,
+    "ELPH" : None,
+    "ANX" : None,
+    "NBX" : None,
+    "ARMS" : None,
+    "IRD" : None,
+    "HITC" : None,
+    "NACA" : None,
+    "DOGE" : "Please acknowledge that DOGE address is for **one-time** use only for depositing."}
 
-NOTICE_DOGE = "Please acknowledge that DOGE address is for **one-time** use only for depositing."
 NOTIFICATION_OFF_CMD = 'Type: `.notifytip off` to turn off this DM notification.'
 MSG_LOCKED_ACCOUNT = "Your account is locked. Please contact CapEtn#4425 in WrkzCoin discord. Check `.about` for more info."
 
@@ -160,100 +161,24 @@ bot_help_account_verify = "Verify 2FA code from QR code and your Authenticator P
 bot_help_account_unverify = "Unverify your account and disable 2FA code."
 bot_help_account_secrettip = "Tip someone anonymously by their ID."
 
-def get_emoji(coin: str):
-    COIN_NAME = None
-    if coin is None:
-        COIN_NAME = "WRKZ"
-    else:
-        COIN_NAME = coin.upper()
 
-    if COIN_NAME == "TRTL":
-        emoji = EMOJI_TRTL
-    elif COIN_NAME == "DEGO":
-        emoji = EMOJI_DEGO
-    elif COIN_NAME == "LCX":
-        emoji = EMOJI_LCX
-    elif COIN_NAME == "CX":
-        emoji = EMOJI_CX
-    elif COIN_NAME == "WRKZ":
-        emoji = EMOJI_WRKZ
-    elif COIN_NAME == "OSL":
-        emoji = EMOJI_OSL
-    elif COIN_NAME == "BTCM":
-        emoji = EMOJI_BTCM
-    elif COIN_NAME == "MTIP":
-        emoji = EMOJI_MTIP
-    elif COIN_NAME == "XCY":
-        emoji = EMOJI_XCY
-    elif COIN_NAME == "PLE":
-        emoji = EMOJI_PLE
-    elif COIN_NAME == "ELPH":
-        emoji = EMOJI_ELPH
-    elif COIN_NAME == "ANX":
-        emoji = EMOJI_ANX
-    elif COIN_NAME == "NBX":
-        emoji = EMOJI_NBX
-    elif COIN_NAME == "ARMS":
-        emoji = EMOJI_ARMS
-    elif COIN_NAME == "IRD":
-        emoji = EMOJI_IRD
-    elif COIN_NAME == "HITC":
-        emoji = EMOJI_HITC
-    elif COIN_NAME == "NACA":
-        emoji = EMOJI_NACA
+def get_emoji(coin: str):
+    COIN_NAME = coin.upper()
+    if COIN_NAME in EMOJI_COIN:
+        return EMOJI_COIN[COIN_NAME]
     else:
-        emoji = EMOJI_WRKZ
-    return emoji
+        return EMOJI_ERROR
 
 
 def get_notice_txt(coin: str):
-    COIN_NAME = None
-    if coin is None:
-        COIN_NAME = "WRKZ"
+    COIN_NAME = coin.upper()
+    if COIN_NAME in NOTICE_COIN:
+        if NOTICE_COIN[COIN_NAME] is None:
+            return "*Any support, please approach CapEtn#4425.*"
+        else:
+            return NOTICE_COIN[COIN_NAME]
     else:
-        COIN_NAME = coin.upper()
-
-    if COIN_NAME == "TRTL":
-        notice_txt = NOTICE_TRTL
-    elif COIN_NAME == "DEGO":
-        notice_txt = NOTICE_DEGO
-    elif COIN_NAME == "LCX":
-        notice_txt = NOTICE_LCX
-    elif COIN_NAME == "CX":
-        notice_txt = NOTICE_CX
-    elif COIN_NAME == "WRKZ":
-        notice_txt = NOTICE_WRKZ
-    elif COIN_NAME == "OSL":
-        notice_txt = NOTICE_OSL
-    elif COIN_NAME == "BTCM":
-        notice_txt = NOTICE_BTCM
-    elif COIN_NAME == "MTIP":
-        notice_txt = NOTICE_MTIP
-    elif COIN_NAME == "XCY":
-        notice_txt = NOTICE_XCY
-    elif COIN_NAME == "PLE":
-        notice_txt = NOTICE_PLE
-    elif COIN_NAME == "ELPH":
-        notice_txt = NOTICE_ELPH
-    elif COIN_NAME == "ANX":
-        notice_txt = NOTICE_ANX
-    elif COIN_NAME == "NBX":
-        notice_txt = NOTICE_NBX
-    elif COIN_NAME == "ARMS":
-        notice_txt = NOTICE_ARMS
-    elif COIN_NAME == "IRD":
-        notice_txt = NOTICE_IRD
-    elif COIN_NAME == "HITC":
-        notice_txt = NOTICE_HITC
-    elif COIN_NAME == "NACA":
-        notice_txt = NOTICE_NACA
-    elif COIN_NAME == "DOGE":
-        notice_txt = NOTICE_DOGE
-    else:
-        notice_txt = NOTICE_WRKZ
-    if notice_txt is None:
-        notice_txt = "*Any support, please approach CapEtn#4425.*"
-    return notice_txt
+        return "*Any support, please approach CapEtn#4425.*"
 
 
 # Steal from https://github.com/cree-py/RemixBot/blob/master/bot.py#L49

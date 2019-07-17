@@ -17,6 +17,8 @@ class RPCException(Exception):
 
 
 async def call_aiohttp_wallet(method_name: str, coin: str, payload: Dict = None) -> Dict:
+    coin_family = getattr(getattr(config,"daemon"+coin),"coin_family","TRTL")
+    print('coin_family: '+coin_family)
     full_payload = {
         'params': payload or {},
         'jsonrpc': '2.0',
@@ -24,14 +26,28 @@ async def call_aiohttp_wallet(method_name: str, coin: str, payload: Dict = None)
         'method': f'{method_name}'
     }
     url = get_wallet_rpc_url(coin.upper())
-    async with aiohttp.ClientSession() as session:
-        async with session.post(url, json=full_payload, timeout=8) as response:
-            if response.status == 200:
-                res_data = await response.read()
-                res_data = res_data.decode('utf-8')
-                await session.close()
-                decoded_data = json.loads(res_data)
-                return decoded_data['result']
+    if coin_family == "XMR":
+        #username = getattr(getattr(config,"daemon"+coin),"wuser")
+        #password = getattr(getattr(config,"daemon"+coin),"wpassword")
+        async with aiohttp.ClientSession(headers={'Content-Type': 'application/json'}) as session:
+            async with session.post(url, ssl=False, json=full_payload, timeout=8) as response:
+                print(response)
+                if response.status == 200:
+                    res_data = await response.read()
+                    print(res_data)
+                    res_data = res_data.decode('utf-8')
+                    await session.close()
+                    decoded_data = json.loads(res_data)
+                    return decoded_data['result']
+    elif coin_family == "TRTL":
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=full_payload, timeout=8) as response:
+                if response.status == 200:
+                    res_data = await response.read()
+                    res_data = res_data.decode('utf-8')
+                    await session.close()
+                    decoded_data = json.loads(res_data)
+                    return decoded_data['result']
 
 
 async def call_doge_ltc(method_name: str, coin: str, payload: str = None) -> Dict:
@@ -58,7 +74,17 @@ async def call_doge_ltc(method_name: str, coin: str, payload: str = None) -> Dic
 
 
 def get_wallet_rpc_url(coin: str = None):
-    return "http://"+getattr(config,"daemon"+coin,config.daemonWRKZ).wallethost + ":" + \
-        str(getattr(config,"daemon"+coin,config.daemonWRKZ).walletport) \
-        + '/json_rpc'
+    coin_family = getattr(getattr(config,"daemon"+coin),"coin_family","TRTL")
+    if coin_family == "TRTL":
+        return "http://"+getattr(config,"daemon"+coin,config.daemonWRKZ).wallethost + ":" + \
+            str(getattr(config,"daemon"+coin,config.daemonWRKZ).walletport) \
+            + '/json_rpc'
+    elif coin_family == "XMR":
+        return "http://"+getattr(config,"daemon"+coin,config.daemonWRKZ).wallethost + ":" + \
+            str(getattr(config,"daemon"+coin,config.daemonWRKZ).walletport) \
+            + '/json_rpc'
+        # return "http://"+getattr(config,"daemon"+coin).wuser + ":"+getattr(config,"daemon"+coin).wpassword + \
+            # "@" + getattr(config,"daemon"+coin,"localhost").wallethost + ":" + \
+            # str(getattr(config,"daemon"+coin).walletport) \
+            # + "/json_rpc"
 

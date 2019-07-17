@@ -35,7 +35,7 @@ sys.path.append("..")
 
 MAINTENANCE_OWNER = [386761001808166912]  # list owner
 OWNER_ID_TIPBOT = 386761001808166912
-
+TESTER = [ 288403695878537218 ]
 # bingo and duckhunt
 BOT_IGNORECHAN = [558173489194991626, 524572420468899860]  # list ignore chan
 LOG_CHAN = 572686071771430922
@@ -829,7 +829,7 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
                 balance_locked = num_format_coin(wallet['locked_balance'], coinItem.upper())
                 balance_total = num_format_coin((wallet['actual_balance'] + wallet['locked_balance']), coinItem.upper())
                 coinName = coinItem.upper()
-                if 'user_wallet_address' not in wallet:
+                if  wallet['user_wallet_address'] is None:
                     coinName += '*'
                 if wallet['forwardtip'] == "ON":
                     coinName += ' >>'
@@ -975,7 +975,18 @@ async def info(ctx, coin: str = None):
         COIN_NAME = coin.upper()
         pass
 
-    if COIN_NAME in ENABLE_COIN:
+    try:
+        coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    except Exception as e:
+        print(e)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**')
+        return
+    if coin_family == "TRTL" or coin_family == "CCX":
+        wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        if wallet is None:
+            userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+    elif coin_family == "XMR" and (ctx.message.author.id in (MAINTENANCE_OWNER+TESTER)):
         wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if wallet is None:
             userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
@@ -1006,7 +1017,7 @@ async def info(ctx, coin: str = None):
         img = img.resize((256, 256))
         img.save(config.qrsettings.path + wallet['balance_wallet_address'] + ".png")
 
-    if 'user_wallet_address' in wallet:
+    if wallet['user_wallet_address']:
         await ctx.message.add_reaction(EMOJI_OK_HAND)
         await ctx.message.author.send("**QR for your Deposit**", 
                                     file=discord.File(config.qrsettings.path + wallet['balance_wallet_address'] + ".png"))
@@ -1079,7 +1090,7 @@ async def balance(ctx, coin: str = None):
                     balance_locked = num_format_coin(wallet['locked_balance'], COIN_NAME)
                     balance_total = num_format_coin((wallet['actual_balance'] + wallet['locked_balance']), COIN_NAME)
                     coinName = COIN_NAME
-                    if 'user_wallet_address' not in wallet:
+                    if wallet['user_wallet_address'] is None:
                         coinName += '*'
                     if wallet['forwardtip'] == "ON":
                         coinName += ' >>'
@@ -1375,7 +1386,7 @@ async def forwardtip(ctx, coin: str, option: str):
         userwallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
     #print(userwallet)
     # Do not allow to ON if 'user_wallet_address' is None
-    if ('user_wallet_address' not in userwallet) and option.upper() == "ON":
+    if (userwallet['user_wallet_address'] is None) and option.upper() == "ON":
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{ctx.author.mention} You have\'t registered an address for **{COIN_NAME}**')
         return
@@ -1486,7 +1497,7 @@ async def register(ctx, wallet_address: str):
 
     serverinfo = get_info_pref_coin(ctx)
     server_prefix = serverinfo['server_prefix']
-    if 'user_wallet_address' in existing_user:
+    if existing_user['user_wallet_address']:
         prev_address = existing_user['user_wallet_address']
         await store.sql_update_user(user_id, wallet_address, COIN_NAME)
         if prev_address:
@@ -1602,7 +1613,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
             return
         wallet = await store.sql_get_userwallet(ctx.message.author.id, "DOGE")
         withdrawTx = None
-        if 'user_wallet_address' in wallet:
+        if wallet['user_wallet_address']:
             withdrawTx = await store.sql_external_doge_single(ctx.message.author.id, real_amount,
                                                               config.daemonDOGE.tx_fee, wallet['user_wallet_address'],
                                                               COIN_NAME, "WITHDRAW")
@@ -1624,7 +1635,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} INVALID TICKER!')
         return
 
-    if 'user_wallet_address' not in user:
+    if user['user_wallet_address'] is None:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You do not have a withdrawal address, please use '
                        f'`{server_prefix}register wallet_address` to register.')

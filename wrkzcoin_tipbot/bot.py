@@ -61,6 +61,7 @@ EMOJI_HOURGLASS_NOT_DONE = "\u23F3"
 EMOJI_CHECK = "\u2705"
 EMOJI_MONEYBAG = "\U0001F4B0"
 EMOJI_SCALE = "\u2696"
+EMOJI_INFORMATION = "\u2139"
 
 EMOJI_TIP = EMOJI_MONEYFACE
 EMOJI_COIN = {
@@ -103,7 +104,7 @@ NOTICE_COIN = {
     "WRKZ" : None,
     "TRTL" : None,
     "DEGO" : None,
-    "LCX" : None,
+    "LCX" : EMOJI_INFORMATION + " LCX Project / service shutdown announced on July 10th, 2019.",
     "CX" : None,
     "OSL" : None,
     "BTCM" : None,

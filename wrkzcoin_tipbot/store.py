@@ -111,10 +111,15 @@ async def sql_update_balances(coin: str = None):
 
 async def sql_update_some_balances(wallet_addresses: List[str], coin: str = None):
     global conn
-    updateTime = int(time.time())
+    COIN_NAME = None
     if coin is None:
         coin = "WRKZ"
-    if coin.upper() in ENABLE_COIN:
+    else:
+        COIN_NAME = coin.upper()
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+
+    updateTime = int(time.time())
+    if coin_family == "TRTL" or coin_family == "CCX":
         print('SQL: Updating some wallet balances '+coin.upper())
         balances = await wallet.get_some_balances(wallet_addresses, coin.upper())   
         try:
@@ -131,6 +136,8 @@ async def sql_update_some_balances(wallet_addresses: List[str], coin: str = None
             print(e)
         finally:
             conn.close()
+    else:
+        return
 
 
 async def sql_register_user(userID, coin: str = None):
@@ -216,40 +223,44 @@ async def sql_register_user(userID, coin: str = None):
 
 
 async def sql_update_user(userID, user_wallet_address, coin: str = None):
+    COIN_NAME = None
     if coin is None:
-        coin = "WRKZ"
-    global conn
+        COIN_NAME = "WRKZ"
+    else:
+        COIN_NAME = coin.upper()
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    global conn_cursors
     try:
-        openConnection()
-        with conn.cursor() as cur:
+        openConnection_cursors()
+        with conn_cursors.cursor() as cur:
             sql = None
-            if (coin.upper() in ENABLE_COIN) or (coin.upper() in ENABLE_COIN_DOGE):
+            if (coin_family == "TRTL" or coin_family == "CCX" or coin_family == "XMR") or (COIN_NAME in ENABLE_COIN_DOGE):
                 sql = """ SELECT user_id, user_wallet_address, balance_wallet_address FROM """+coin.lower()+"""_user 
                           WHERE `user_id`=%s LIMIT 1 """
             cur.execute(sql, userID)
             result = cur.fetchone()
             if result is None:
                 balance_address = None
-                if coin.upper() in ENABLE_COIN:
-                    balance_address = await wallet.registerOTHER(coin.upper())
+                if coin_family == "TRTL" or coin_family == "CCX" or coin_family == "XMR":
+                    balance_address = await wallet.registerOTHER(COIN_NAME)
                 elif coin.upper() == "DOGE" or coin.upper() == "LTC":
                     balance_address = await wallet.DOGE_LTC_getaccountaddress(str(userID), coin.upper())
                 if balance_address is None:
                     print('Internal error during call register wallet-api')
                     return
+                return None
             else:
-                if (coin.upper() in ENABLE_COIN) or (coin.upper() in ENABLE_COIN_DOGE):
+                if (coin_family == "TRTL" or coin_family == "CCX" or coin_family == "XMR") or (COIN_NAME in ENABLE_COIN_DOGE):
                     sql = """ UPDATE """+coin.lower()+"""_user SET user_wallet_address=%s WHERE user_id=%s """               
                     cur.execute(sql, (user_wallet_address, str(userID),))
-                    conn.commit()
-                result2 = {}
-                result2['balance_wallet_address'] = result[2]
+                    conn_cursors.commit()
+                result2 = result
                 result2['user_wallet_address'] = user_wallet_address
                 return result2  # return userwallet
     except Exception as e:
         print(e)
     finally:
-        conn.close()
+        conn_cursors.close()
 
 
 async def sql_get_userwallet(userID, coin: str = None):
@@ -298,7 +309,12 @@ async def sql_get_userwallet(userID, coin: str = None):
                 if COIN_NAME in ENABLE_COIN_DOGE:
                     depositAddress = await wallet.DOGE_LTC_getaccountaddress(str(userID), coin.upper())
                     userwallet['balance_wallet_address'] = depositAddress
-              
+                if coin_family == "XMR":
+                    balance = await wallet.get_balance_address(userwallet['balance_wallet_address'], COIN_NAME, userwallet['account_index'])
+                    userwallet['actual_balance'] = balance['unlocked']
+                    userwallet['locked_balance'] = balance['locked'],
+                    userwallet['lastUpdate'] = int(time.time())
+                    return userwallet
                 with conn_cursors.cursor() as cur:
                     result2 = None
                     if coin_family == "TRTL" or coin_family == "CCX":
@@ -372,26 +388,34 @@ def sql_get_countLastTip(userID, lastDuration: int, coin: str = None):
 
 async def sql_send_tip(user_from: str, user_to: str, amount: int, coin: str = None):
     global conn
+    COIN_NAME = None
     if coin is None:
-        coin = "WRKZ"
+        COIN_NAME = "WRKZ"
     else:
-        coin = coin.upper()
+        COIN_NAME = coin.upper()
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     user_from_wallet = None
     user_to_wallet = None
     address_to = None
     #print('sql_send_tip')
-    if coin.upper() in ENABLE_COIN:
-        user_from_wallet = await sql_get_userwallet(user_from, coin.upper())
-        user_to_wallet = await sql_get_userwallet(user_to, coin.upper())
+    if coin_family == "TRTL" or coin_family == "CCX" or coin_family == "XMR":
+        user_from_wallet = await sql_get_userwallet(user_from, COIN_NAME)
+        user_to_wallet = await sql_get_userwallet(user_to, COIN_NAME)
         if user_to_wallet['forwardtip'] == "ON" and user_to_wallet['user_wallet_address']:
             address_to = user_to_wallet['user_wallet_address']
         else:
             address_to = user_to_wallet['balance_wallet_address']
     if all(v is not None for v in [user_from_wallet['balance_wallet_address'], address_to]):
         tx_hash = None
-        if coin.upper() in ENABLE_COIN:
+        if coin_family == "TRTL" or coin_family == "CCX":
             tx_hash = await wallet.send_transaction(user_from_wallet['balance_wallet_address'],
-                                                    address_to, amount, coin.upper())
+                                                    address_to, amount, COIN_NAME)
+        elif coin_family == "XMR":
+            if user_from_wallet['account_index']:
+                tx_hash = await wallet.send_transaction(user_from_wallet['balance_wallet_address'],
+                                                        address_to, amount, COIN_NAME, user_from_wallet['account_index'])
+            else:
+                return None
         if tx_hash:
             updateTime = int(time.time())
             try:
@@ -399,17 +423,23 @@ async def sql_send_tip(user_from: str, user_to: str, amount: int, coin: str = No
                 with conn.cursor() as cur:
                     timestamp = int(time.time())
                     sql = None
-                    if coin.upper() in ENABLE_COIN:
+                    if coin_family == "TRTL" or coin_family == "CCX":
                         sql = """ INSERT INTO """+coin.lower()+"""_tip (`from_user`, `to_user`, `amount`, `date`, `tx_hash`) 
                                   VALUES (%s, %s, %s, %s, %s) """
                         cur.execute(sql, (user_from, user_to, amount, timestamp, tx_hash,))
                         conn.commit()
+                    elif coin_family == "XMR":
+                        sql = """ INSERT INTO """+coin.lower()+"""_tip (`from_user`, `to_user`, `amount`, `date`, `tx_hash`, `tx_key`, `fee`) 
+                                  VALUES (%s, %s, %s, %s, %s, %s, %s) """
+                        cur.execute(sql, (user_from, user_to, amount, timestamp, tx_hash['tx_hash'], tx_hash['tx_key'], tx_hash['fee'],))
+                        conn.commit()
+                        return tx_hash
                     updateBalance = None
-                    if coin.upper() in ENABLE_COIN:
+                    if coin_family == "TRTL" or coin_family == "CCX":
                         updateBalance = await wallet.get_balance_address(user_from_wallet['balance_wallet_address'],
                                                                          coin.upper())
                     if updateBalance:
-                        if coin.upper() in ENABLE_COIN:
+                        if coin_family == "TRTL" or coin_family == "CCX":
                             sql = """ UPDATE """+coin.lower()+"""_walletapi SET `actual_balance`=%s, `locked_balance`=%s, 
                                       `lastUpdate`=%s WHERE `balance_wallet_address`=%s """
                             cur.execute(sql, (updateBalance['unlocked'], updateBalance['locked'],
@@ -418,7 +448,7 @@ async def sql_send_tip(user_from: str, user_to: str, amount: int, coin: str = No
                             updateBalance = await wallet.get_balance_address(user_to_wallet['balance_wallet_address'],
                                                                              coin.upper())
                     if updateBalance:
-                        if coin.upper() in ENABLE_COIN:
+                        if coin_family == "TRTL" or coin_family == "CCX":
                             sql = """ UPDATE """+coin.lower()+"""_walletapi SET `actual_balance`=%s, 
                                       `locked_balance`=%s, `lastUpdate`=%s WHERE `balance_wallet_address`=%s """
                             cur.execute(sql, (updateBalance['unlocked'], updateBalance['locked'],
@@ -493,30 +523,32 @@ async def sql_send_secrettip(user_from: str, user_to: str, amount: int, coin: st
 
 async def sql_send_tipall(user_from: str, user_tos, amount: int, amount_div: int, user_ids, tiptype: str, coin: str = None):
     global conn
+    COIN_NAME = None
+    if coin is None:
+        COIN_NAME = "WRKZ"
+    else:
+        COIN_NAME = coin.upper()
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+
     if tiptype.upper() not in ["TIPS", "TIPALL"]:
         return None
-    if coin is None:
-        coin = "WRKZ"
-    else:
-        coin = coin.upper()
+
     user_from_wallet = None
-    if coin.upper() in ENABLE_COIN:
-        user_from_wallet = await sql_get_userwallet(user_from, coin.upper())
-    if 'balance_wallet_address' in user_from_wallet:
+    if coin_family == "TRTL" or coin_family == "CCX" or coin_family == "XMR":
+        user_from_wallet = await sql_get_userwallet(user_from, COIN_NAME)
+    if user_from_wallet['balance_wallet_address']:
         tx_hash = None
-        if coin.upper() in ENABLE_COIN:
-            try:
-                tx_hash = await wallet.send_transactionall(user_from_wallet['balance_wallet_address'], user_tos, coin.upper())
-                print('tx_hash: ')
-                print(tx_hash)
-            except Exception as e:
-                print(e)
+        if coin_family == "TRTL" or coin_family == "CCX":
+            tx_hash = await wallet.send_transactionall(user_from_wallet['balance_wallet_address'], user_tos, COIN_NAME)
+        elif coin_family == "XMR":
+            if user_from_wallet['account_index']:
+                tx_hash = await wallet.send_transactionall(user_from_wallet['balance_wallet_address'], user_tos, COIN_NAME, user_from_wallet['account_index'])
         if tx_hash:
             try:
                 openConnection()
                 with conn.cursor() as cur:
                     timestamp = int(time.time())
-                    if coin.upper() in ENABLE_COIN:
+                    if coin_family == "TRTL" or coin_family == "CCX":
                         sql = """ INSERT INTO """+coin.lower()+"""_tipall (`from_user`, `amount_total`, `date`, `tx_hash`, `numb_receivers`) 
                                   VALUES (%s, %s, %s, %s, %s) """
                         cur.execute(sql, (user_from, amount, timestamp, tx_hash, len(user_tos),))
@@ -530,6 +562,22 @@ async def sql_send_tipall(user_from: str, user_tos, amount: int, amount_div: int
                                   """+values_sql+""" """
                         cur.execute(sql,)
                         conn.commit()
+                    elif coin_family == "XMR":
+                        sql = """ INSERT INTO """+coin.lower()+"""_tipall (`from_user`, `amount_total`, `date`, `tx_hash`, `tx_key`, `fee`, `numb_receivers`) 
+                                  VALUES (%s, %s, %s, %s, %s, %s, %s) """
+                        cur.execute(sql, (user_from, amount, timestamp, tx_hash['tx_hash'], tx_hash['tx_key'], tx_hash['fee'], len(user_tos),))
+                        conn.commit()
+                        tip_tx_hash = tx_hash['tx_hash']
+                        tip_tx_key = tx_hash['tx_key']
+                        tip_tx_fee = tx_hash['fee']
+                        values_str = []
+                        for item in user_ids:
+                            values_str.append(f"('{user_from}', '{item}', {amount_div}, {timestamp}, '{tip_tx_hash}', '{tip_tx_key}', {tip_tx_fee}, '{tiptype.upper()}')\n")
+                        values_sql = "VALUES " + ",".join(values_str)
+                        sql = """ INSERT INTO """+coin.lower()+"""_tip (`from_user`, `to_user`, `amount`, `date`, `tx_hash`, `tx_key`, `fee`, `tip_tips_tipall`) 
+                                  """+values_sql+""" """
+                        cur.execute(sql,)
+                        conn.commit()
             except Exception as e:
                 print(e)
             finally:
@@ -539,36 +587,46 @@ async def sql_send_tipall(user_from: str, user_tos, amount: int, amount_div: int
         return None
 
 
-async def sql_send_tip_Ex(user_from: str, address_to: str, amount: int, coin: str = None):
+async def sql_send_tip_Ex(user_from: str, address_to: str, amount: int, coin: str):
     global conn
+    COIN_NAME = None
     if coin is None:
-        coin = "WRKZ"
+        COIN_NAME = "WRKZ"
     else:
-        coin = coin.upper()
+        COIN_NAME = coin.upper()
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     user_from_wallet = None
-    if coin.upper() in ENABLE_COIN:
-        user_from_wallet = await sql_get_userwallet(user_from, coin.upper())
-    if 'balance_wallet_address' in user_from_wallet:
+    if coin_family == "TRTL" or coin_family == "CCX" or coin_family == "XMR":
+        user_from_wallet = await sql_get_userwallet(user_from, COIN_NAME)
+    if user_from_wallet['balance_wallet_address']:
         tx_hash = None
-        if coin.upper() in ENABLE_COIN:
+        if coin_family == "TRTL" or coin_family == "CCX":
             tx_hash = await wallet.send_transaction(user_from_wallet['balance_wallet_address'], address_to, 
-                                                    amount, coin.upper())
-        if tx_hash is not None:
+                                                    amount, COIN_NAME)
+        elif coin_family == "XMR":
+            tx_hash = await wallet.send_transaction(user_from_wallet['balance_wallet_address'], address_to, 
+                                                    amount, COIN_NAME, user_from_wallet['account_index'])
+        if tx_hash:
             updateTime = int(time.time())
             try:
                 openConnection()
                 with conn.cursor() as cur:
                     timestamp = int(time.time())
                     updateBalance = None
-                    if coin.upper() in ENABLE_COIN:
+                    if coin_family == "TRTL" or coin_family == "CCX":
                         sql = """ INSERT INTO """+coin.lower()+"""_send (`from_user`, `to_address`, `amount`, `date`, 
                                   `tx_hash`) VALUES (%s, %s, %s, %s, %s) """
                         cur.execute(sql, (user_from, address_to, amount, timestamp, tx_hash,))
                         conn.commit()
                         updateBalance = await wallet.get_balance_address(user_from_wallet['balance_wallet_address'], 
-                                                                      coin.upper())
+                                                                         coin.upper())
+                    if coin_family == "XMR":
+                        sql = """ INSERT INTO """+coin.lower()+"""_send (`from_user`, `to_address`, `amount`, `fee`, `date`, 
+                                  `tx_hash`, `tx_key`) VALUES (%s, %s, %s, %s, %s, %s, %s) """
+                        cur.execute(sql, (user_from, address_to, amount, tx_hash['fee'], timestamp, tx_hash['tx_hash'], tx_hash['tx_key'], ))
+                        conn.commit()
                     if updateBalance:
-                        if coin.upper() in ENABLE_COIN:
+                        if coin_family == "TRTL" or coin_family == "CCX":
                             sql = """ UPDATE """+coin.lower()+"""_walletapi SET `actual_balance`=%s, 
                                       `locked_balance`=%s, `lastUpdate`=%s WHERE `balance_wallet_address`=%s """
                             cur.execute(sql, (updateBalance['unlocked'], updateBalance['locked'],
@@ -628,16 +686,24 @@ async def sql_send_tip_Ex_id(user_from: str, address_to: str, amount: int, payme
 
 async def sql_withdraw(user_from: str, amount: int, coin: str=None):
     global conn
+    COIN_NAME = None
     if coin is None:
-        coin = "WRKZ"
+        COIN_NAME = "WRKZ"
+    else:
+        COIN_NAME = coin.upper()
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+
     tx_hash = None
     user_from_wallet = None
-    if coin.upper() in ENABLE_COIN:
-        user_from_wallet = await sql_get_userwallet(user_from, coin.upper())
+    if coin_family == "TRTL" or coin_family == "CCX" or coin_family == "XMR":
+        user_from_wallet = await sql_get_userwallet(user_from, COIN_NAME)
     if all(v is not None for v in [user_from_wallet['balance_wallet_address'], user_from_wallet['user_wallet_address']]):
-        if coin.upper() in ENABLE_COIN:
+        if coin_family == "TRTL" or coin_family == "CCX":
             tx_hash = await wallet.send_transaction(user_from_wallet['balance_wallet_address'],
-                                                    user_from_wallet['user_wallet_address'], amount, coin.upper())
+                                                    user_from_wallet['user_wallet_address'], amount, COIN_NAME)
+        elif coin_family == "XMR":
+            tx_hash = await wallet.send_transaction(user_from_wallet['balance_wallet_address'],
+                                                    user_from_wallet['user_wallet_address'], amount, COIN_NAME, user_from_wallet['account_index'])
         if tx_hash:
             updateTime = int(time.time())
             try:
@@ -645,14 +711,19 @@ async def sql_withdraw(user_from: str, amount: int, coin: str=None):
                 with conn.cursor() as cur:
                     timestamp = int(time.time())
                     updateBalance = None
-                    if coin.upper() in ENABLE_COIN:
+                    if coin_family == "TRTL" or coin_family == "CCX":
                         sql = """ INSERT INTO """+coin.lower()+"""_withdraw (`user_id`, `to_address`, `amount`, 
                                   `date`, `tx_hash`) VALUES (%s, %s, %s, %s, %s) """
                         cur.execute(sql, (user_from, user_from_wallet['user_wallet_address'], amount, timestamp, tx_hash,))
                         conn.commit()
-                        updateBalance = await wallet.get_balance_address(user_from_wallet['balance_wallet_address'], coin.upper())
+                        updateBalance = await wallet.get_balance_address(user_from_wallet['balance_wallet_address'], COIN_NAME)
+                    if coin_family == "XMR":
+                        sql = """ INSERT INTO """+coin.lower()+"""_withdraw (`user_id`, `to_address`, `amount`, 
+                                  `fee`, `date`, `tx_hash`, `tx_key`) VALUES (%s, %s, %s, %s, %s, %s, %s) """
+                        cur.execute(sql, (user_from, user_from_wallet['user_wallet_address'], amount, tx_hash['fee'], timestamp, tx_hash['tx_hash'], tx_hash['tx_key'],))
+                        conn.commit()
                     if updateBalance:
-                        if coin.upper() in ENABLE_COIN:
+                        if coin_family == "TRTL" or coin_family == "CCX":
                             sql = """ UPDATE """+coin.lower()+"""_walletapi SET `actual_balance`=%s, 
                                       `locked_balance`=%s, `lastUpdate`=%s WHERE `balance_wallet_address`=%s """
                             cur.execute(sql, (updateBalance['unlocked'], updateBalance['locked'], 
@@ -667,34 +738,44 @@ async def sql_withdraw(user_from: str, amount: int, coin: str=None):
         return None
 
 
-async def sql_donate(user_from: str, address_to: str, amount: int, coin: str = None) -> str:
+async def sql_donate(user_from: str, address_to: str, amount: int, coin: str) -> str:
     global conn
+    COIN_NAME = None
     if coin is None:
-        coin = "WRKZ"
+        COIN_NAME = "WRKZ"
     else:
-        coin = coin.upper()
+        COIN_NAME = coin.upper()
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+
     user_from_wallet = None
-    if coin.upper() in ENABLE_COIN:
-        user_from_wallet = await sql_get_userwallet(user_from, coin.upper())
+    if coin_family == "TRTL" or coin_family == "CCX" or coin_family == "XMR":
+        user_from_wallet = await sql_get_userwallet(user_from, COIN_NAME)
     if all(v is not None for v in [user_from_wallet['balance_wallet_address'], address_to]):
         tx_hash = None
-        if coin.upper() in ENABLE_COIN:
-            tx_hash = await wallet.send_transaction_donate(user_from_wallet['balance_wallet_address'], address_to, amount, coin.upper())
-        if tx_hash is not None:
+        if coin_family == "TRTL" or coin_family == "CCX":
+            tx_hash = await wallet.send_transaction(user_from_wallet['balance_wallet_address'], address_to, amount, COIN_NAME)
+        elif coin_family == "XMR":
+            tx_hash = await wallet.send_transaction(user_from_wallet['balance_wallet_address'], address_to, amount, COIN_NAME, user_from_wallet['account_index'])
+        if tx_hash:
             updateTime = int(time.time())
             try:
                 openConnection()
                 with conn.cursor() as cur:
                     timestamp = int(time.time())
                     updateBalance = None
-                    if coin.upper() in ENABLE_COIN:
+                    if coin_family == "TRTL" or coin_family == "CCX":
                         sql = """ INSERT INTO """+coin.lower()+"""_donate (`from_user`, `to_address`, `amount`, 
                                   `date`, `tx_hash`) VALUES (%s, %s, %s, %s, %s) """
                         cur.execute(sql, (user_from, address_to, amount, timestamp, tx_hash,))
                         conn.commit()
                         updateBalance = await wallet.get_balance_address(user_from_wallet['balance_wallet_address'], coin.upper())
+                    elif coin_family == "XMR":
+                        sql = """ INSERT INTO """+coin.lower()+"""_donate (`from_user`, `to_address`, `amount`, 
+                                  `fee`, `date`, `tx_hash`, `tx_key`) VALUES (%s, %s, %s, %s, %s, %s, %s) """
+                        cur.execute(sql, (user_from, address_to, amount, tx_hash['fee'], timestamp, tx_hash['tx_hash'], tx_hash['tx_key'],))
+                        conn.commit()
                     if updateBalance:
-                        if coin.upper() in ENABLE_COIN:
+                        if coin_family == "TRTL" or coin_family == "CCX":
                             sql = """ UPDATE """+coin.lower()+"""_walletapi SET `actual_balance`=%s, 
                                       `locked_balance`=%s, `lastUpdate`=%s WHERE `balance_wallet_address`=%s """
                             cur.execute(sql, (updateBalance['unlocked'], updateBalance['locked'], 

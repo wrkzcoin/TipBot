@@ -82,7 +82,9 @@ EMOJI_COIN = {
     "IRD" : "\U0001F538",
     "HITC" : "\U0001F691",
     "NACA" : "\U0001F355",
-    "DOGE" : "\U0001F436"}
+    "DOGE" : "\U0001F436",
+    "XTOR" : "\U0001F315"
+    }
 
 EMOJI_RED_NO = "\u26D4"
 EMOJI_SPEAK = "\U0001F4AC"
@@ -118,6 +120,7 @@ NOTICE_COIN = {
     "IRD" : None,
     "HITC" : None,
     "NACA" : None,
+    "XTOR" : None,
     "DOGE" : "Please acknowledge that DOGE address is for **one-time** use only for depositing."}
 
 NOTIFICATION_OFF_CMD = 'Type: `.notifytip off` to turn off this DM notification.'
@@ -986,7 +989,7 @@ async def info(ctx, coin: str = None):
         if wallet is None:
             userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
             wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-    elif coin_family == "XMR" and (ctx.message.author.id in (MAINTENANCE_OWNER+TESTER)):
+    elif coin_family == "XMR":
         wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if wallet is None:
             userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
@@ -1119,7 +1122,21 @@ async def balance(ctx, coin: str = None):
         else:
             table_data.append([COIN_NAME, "***", "***"])
         # End of Add DOGE
-
+        # Add XTOR
+        COIN_NAME = "XTOR"
+        if COIN_NAME not in MAINTENANCE_COIN:
+            wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+            if wallet is None:
+                userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+                wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+            if wallet:
+                balance = await get_balance_address(wallet['balance_wallet_address'], COIN_NAME, wallet['account_index'])
+                balance_actual = num_format_coin(balance['unlocked'], COIN_NAME)
+                balance_locked = num_format_coin(balance['locked'], COIN_NAME)
+            table_data.append([COIN_NAME, balance_actual, balance_locked])
+        else:
+            table_data.append([COIN_NAME, "***", "***"])
+        # End of Add XTOR
         table = AsciiTable(table_data)
         # table.inner_column_border = False
         # table.outer_border = False
@@ -1140,14 +1157,43 @@ async def balance(ctx, coin: str = None):
     else:
         COIN_NAME = coin.upper()
 
+    coin_family = "TRTL"
+    try:
+        coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    except Exception as e:
+        print(e)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**')
+        return
+
     if COIN_NAME in MAINTENANCE_COIN:
         msg = await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} in maintenance.')
         await msg.add_reaction(EMOJI_OK_BOX)
         return
-    elif COIN_NAME in ENABLE_COIN:
+    if coin_family == "TRTL" or coin_family == "CCX":
         walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
         COIN_DEC = get_decimal(COIN_NAME)
         pass
+    elif coin_family == "XMR":
+        wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        if wallet is None:
+            userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        if wallet:
+            balance = await get_balance_address(wallet['balance_wallet_address'], COIN_NAME, wallet['account_index'])
+            balance_actual = num_format_coin(balance['unlocked'], COIN_NAME)
+            balance_locked = num_format_coin(balance['locked'], COIN_NAME)
+
+            msg = await ctx.message.author.send(f'**[YOUR {COIN_NAME} BALANCE]**\n\n'
+                f'{EMOJI_MONEYBAG} Available: {balance_actual} '
+                f'{COIN_NAME}\n'
+                f'{EMOJI_MONEYBAG} Pending: {balance_locked} '
+                f'{COIN_NAME}\n'
+                f'{get_notice_txt(COIN_NAME)}')
+            await msg.add_reaction(EMOJI_OK_BOX)
+            return
+        else:
+            await message.add_reaction(EMOJI_ERROR)
+            return
     elif COIN_NAME == "DOGE":
         depositAddress = await DOGE_LTC_getaccountaddress(ctx.message.author.id, COIN_NAME)
         actual = float(await DOGE_LTC_getbalance_acc(ctx.message.author.id, COIN_NAME, 6))
@@ -1437,10 +1483,14 @@ async def register(ctx, wallet_address: str):
         if (len(wallet_address) == 34) and wallet_address.startswith("D"):
             COIN_NAME = "DOGE"
             pass
+        elif len(wallet_address) == 98 and COIN_NAME == "XTOR":
+            pass
         else:
             await ctx.message.add_reaction(EMOJI_WARNING)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Unknown Ticker.')
             return
+
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
 
     if COIN_NAME in MAINTENANCE_COIN:
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
@@ -1466,8 +1516,24 @@ async def register(ctx, wallet_address: str):
                 pass
             pass
     else:
-        if COIN_NAME in ENABLE_COIN:
+        if coin_family == "TRTL" or coin_family == "CCX":
             valid_address = addressvalidation.validate_address_cn(wallet_address, COIN_NAME)
+        elif coin_family == "XMR":
+            valid_address = await validate_address_xmr(str(wallet_address), COIN_NAME)
+            if valid_address is None:
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
+                               f'`{wallet_address}`')
+            if valid_address['valid'] == True and valid_address['integrated'] == False and valid_address['subaddress'] == False:
+                # re-value valid_address
+                valid_address = str(wallet_address)
+            else:
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Please use {COIN_NAME} main address')
+                return
+        else:
+            await ctx.message.add_reaction(EMOJI_WARNING)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Unknown Ticker.')
+            return
     # correct print(valid_address)
     if valid_address is None:
         await ctx.message.add_reaction(EMOJI_ERROR)
@@ -1499,14 +1565,17 @@ async def register(ctx, wallet_address: str):
     server_prefix = serverinfo['server_prefix']
     if existing_user['user_wallet_address']:
         prev_address = existing_user['user_wallet_address']
-        await store.sql_update_user(user_id, wallet_address, COIN_NAME)
-        if prev_address:
+        if prev_address != valid_address:
+            await store.sql_update_user(user_id, wallet_address, COIN_NAME)
             await ctx.message.add_reaction(EMOJI_OK_HAND)
             await ctx.send(f'Your {COIN_NAME} {ctx.author.mention} withdraw address has changed from:\n'
                            f'`{prev_address}`\n to\n '
                            f'`{wallet_address}`')
             return
-        pass
+        else:
+            await ctx.message.add_reaction(EMOJI_WARNING)
+            await ctx.send(f'{ctx.author.mention} Your {COIN_NAME} previous and new address is the same.')
+            return
     else:
         user = await store.sql_update_user(user_id, wallet_address, COIN_NAME)
         await ctx.message.add_reaction(EMOJI_OK_HAND)
@@ -1570,11 +1639,13 @@ async def withdraw(ctx, amount: str, coin: str = None):
         return
 
     COIN_NAME = coin.upper()
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+
     if COIN_NAME in MAINTENANCE_COIN:
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
         return
     user = None
-    if COIN_NAME in ENABLE_COIN:
+    if coin_family == "TRTL" or coin_family == "CCX":
         COIN_DEC = get_decimal(COIN_NAME)
         real_amount = int(amount * COIN_DEC)
         user = await store.sql_get_userwallet(ctx.message.author.id, COIN_NAME)
@@ -1582,7 +1653,15 @@ async def withdraw(ctx, amount: str, coin: str = None):
         MinTx = get_min_tx_amount(COIN_NAME)
         MaxTX = get_max_tx_amount(COIN_NAME)
         EMOJI_TIP = get_emoji(COIN_NAME)
-    elif COIN_NAME == "DOGE" or COIN_NAME == "DOGECOIN":
+    elif coin_family == "XMR":
+        COIN_DEC = get_decimal(COIN_NAME)
+        real_amount = int(amount * COIN_DEC)
+        user = await store.sql_get_userwallet(ctx.message.author.id, COIN_NAME)
+        netFee = get_tx_fee(COIN_NAME)
+        MinTx = get_min_tx_amount(COIN_NAME)
+        MaxTX = get_max_tx_amount(COIN_NAME)
+        EMOJI_TIP = get_emoji(COIN_NAME)
+    elif COIN_NAME == "DOGE":
         COIN_NAME = "DOGE"
         EMOJI_TIP = get_emoji(COIN_NAME)
         MinTx = config.daemonDOGE.min_tx_amount
@@ -1661,32 +1740,50 @@ async def withdraw(ctx, amount: str, coin: str = None):
                        f'{COIN_NAME}')
         return
 
-    # Get wallet status
-    walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
 
-    if walletStatus is None:
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t started.')
-        return
-    else:
-        localDaemonBlockCount = int(walletStatus['blockCount'])
-        networkBlockCount = int(walletStatus['knownBlockCount'])
-        if networkBlockCount - localDaemonBlockCount >= 20:
-            # if height is different by 20
-            t_percent = '{:,.2f}'.format(truncate(localDaemonBlockCount / networkBlockCount * 100, 2))
-            t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
-            t_networkBlockCount = '{:,}'.format(networkBlockCount)
-            await ctx.message.add_reaction(EMOJI_WARNING)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t sync fully with network or being re-sync. More info:\n```'
-                           f'networkBlockCount:     {t_networkBlockCount}\n'
-                           f'localDaemonBlockCount: {t_localDaemonBlockCount}\n'
-                           f'Progress %:            {t_percent}\n```'
-                           )
+    # Get wallet status
+    if coin_family == "TRTL" or coin_family == "CCX":
+        walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
+
+        if walletStatus is None:
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t started.')
             return
         else:
-            pass
-    # End of wallet status
+            localDaemonBlockCount = int(walletStatus['blockCount'])
+            networkBlockCount = int(walletStatus['knownBlockCount'])
+            if networkBlockCount - localDaemonBlockCount >= 20:
+                # if height is different by 20
+                t_percent = '{:,.2f}'.format(truncate(localDaemonBlockCount / networkBlockCount * 100, 2))
+                t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
+                t_networkBlockCount = '{:,}'.format(networkBlockCount)
+                await ctx.message.add_reaction(EMOJI_WARNING)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t sync fully with network or being re-sync. More info:\n```'
+                               f'networkBlockCount:     {t_networkBlockCount}\n'
+                               f'localDaemonBlockCount: {t_localDaemonBlockCount}\n'
+                               f'Progress %:            {t_percent}\n```'
+                               )
+                return
+            else:
+                pass
+        # End of wallet status
+    elif coin_family == "XMR":
+        pass
 
-    withdrawal = await store.sql_withdraw(ctx.message.author.id, real_amount, COIN_NAME)
+    withdraw = None
+    try:
+        withdrawal = await store.sql_withdraw(ctx.message.author.id, real_amount, COIN_NAME)
+        if coin_family == "XMR":
+            tip_tx_hash = withdrawal['tx_hash']
+            tip_tx_key = withdrawal['tx_key']
+            tip_tx_fee = num_format_coin(withdrawal['fee'], COIN_NAME)
+            tip_tx_tipper = "Transaction hash: `{}`".format(tip_tx_hash) + "\n" + \
+                            "Transaction key: `{}`".format(tip_tx_key) + "\n" + \
+                            "Transaction fee: `{}{}`".format(tip_tx_fee, COIN_NAME)
+        elif coin_family == "TRTL" or coin_family == "CCX":
+            tip_tx_hash = withdrawal
+            tip_tx_tipper = "Transaction hash: `{}`".format(withdrawal)
+    except Exception as e:
+        print(e)
 
     if withdrawal:
         await ctx.message.add_reaction(EMOJI_TIP)
@@ -1694,7 +1791,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
         await ctx.message.author.send(
             f'{EMOJI_ARROW_RIGHTHOOK} You have withdrawn {num_format_coin(real_amount, COIN_NAME)} '
             f'{COIN_NAME}.\n'
-            f'Transaction hash: `{withdrawal}`')
+            f'{tip_tx_tipper}')
         return
     else:
         await ctx.message.add_reaction(EMOJI_ERROR)
@@ -1780,22 +1877,30 @@ async def donate(ctx, amount: str, coin: str = None):
         else:
             coin = "WRKZ"
     COIN_NAME = coin.upper()
-
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     if COIN_NAME in MAINTENANCE_COIN:
         await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} in maintenance.')
         return
 
-    if COIN_NAME in ENABLE_COIN:
+    if coin_family == "TRTL" or coin_family == "CCX":
         CoinAddress = get_donate_address(COIN_NAME)
         COIN_DEC = get_decimal(COIN_NAME)
         real_amount = int(amount * COIN_DEC)
-        user_from = await store.sql_get_userwallet(ctx.message.author.id, COIN_NAME)
+        user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         netFee = get_tx_fee(COIN_NAME)
         MinTx = get_min_tx_amount(COIN_NAME)
         MaxTX = get_max_tx_amount(COIN_NAME)
         EMOJI_TIP = get_emoji(COIN_NAME)
-    elif COIN_NAME == "DOGE" or COIN_NAME == "DOGECOIN":
-        COIN_NAME = "DOGE"
+    elif coin_family == "XMR":
+        CoinAddress = get_donate_address(COIN_NAME)
+        COIN_DEC = get_decimal(COIN_NAME)
+        real_amount = int(amount * COIN_DEC)
+        user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        netFee = get_tx_fee(COIN_NAME)
+        MinTx = get_min_tx_amount(COIN_NAME)
+        MaxTX = get_max_tx_amount(COIN_NAME)
+        EMOJI_TIP = get_emoji(COIN_NAME)
+    elif COIN_NAME == "DOGE":
         EMOJI_TIP = get_emoji(COIN_NAME)
         MinTx = config.daemonDOGE.min_mv_amount
         MaxTX = config.daemonDOGE.max_mv_amount
@@ -1866,30 +1971,47 @@ async def donate(ctx, amount: str, coin: str = None):
         return
 
     # Get wallet status
-    walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
-    if walletStatus is None:
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t started.')
-        return
-    else:
-        localDaemonBlockCount = int(walletStatus['blockCount'])
-        networkBlockCount = int(walletStatus['knownBlockCount'])
-        if networkBlockCount - localDaemonBlockCount >= 20:
-            # if height is different by 20
-            t_percent = '{:,.2f}'.format(truncate(localDaemonBlockCount / networkBlockCount * 100, 2))
-            t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
-            t_networkBlockCount = '{:,}'.format(networkBlockCount)
-            await ctx.message.add_reaction(EMOJI_WARNING)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t sync fully with network or being re-sync. More info:\n```'
-                           f'networkBlockCount:     {t_networkBlockCount}\n'
-                           f'localDaemonBlockCount: {t_localDaemonBlockCount}\n'
-                           f'Progress %:            {t_percent}\n```'
-                           )
+    if coin_family == "TRTL" or coin_family == "CCX":
+        walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
+        if walletStatus is None:
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t started.')
             return
         else:
-            pass
-    # End of wallet status
+            localDaemonBlockCount = int(walletStatus['blockCount'])
+            networkBlockCount = int(walletStatus['knownBlockCount'])
+            if networkBlockCount - localDaemonBlockCount >= 20:
+                # if height is different by 20
+                t_percent = '{:,.2f}'.format(truncate(localDaemonBlockCount / networkBlockCount * 100, 2))
+                t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
+                t_networkBlockCount = '{:,}'.format(networkBlockCount)
+                await ctx.message.add_reaction(EMOJI_WARNING)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t sync fully with network or being re-sync. More info:\n```'
+                               f'networkBlockCount:     {t_networkBlockCount}\n'
+                               f'localDaemonBlockCount: {t_localDaemonBlockCount}\n'
+                               f'Progress %:            {t_percent}\n```'
+                               )
+                return
+            else:
+                pass
+        # End of wallet status
+    elif coin_family == "XMR":
+        pass
 
-    tip = await store.sql_donate(ctx.message.author.id, CoinAddress, real_amount, COIN_NAME)
+    tip = None
+    try:
+        tip = await store.sql_donate(str(ctx.message.author.id), CoinAddress, real_amount, COIN_NAME)
+        if coin_family == "XMR":
+            tip_tx_hash = tip['tx_hash']
+            tip_tx_key = tip['tx_key']
+            tip_tx_fee = num_format_coin(tip['fee'], COIN_NAME)
+            tip_tx_tipper = "Transaction hash: `{}`".format(tip_tx_hash) + "\n" + \
+                            "Transaction key: `{}`".format(tip_tx_key) + "\n" + \
+                            "Transaction fee: `{}{}`".format(tip_tx_fee, COIN_NAME)
+        elif coin_family == "TRTL" or coin_family == "CCX":
+            tip_tx_hash = tip
+            tip_tx_tipper = "Transaction hash: `{}`".format(tip)
+    except Exception as e:
+        print(e)
 
     if tip:
         await ctx.message.add_reaction(EMOJI_TIP)
@@ -1898,7 +2020,7 @@ async def donate(ctx, amount: str, coin: str = None):
                                f'{EMOJI_MONEYFACE} TipBot got donation: {num_format_coin(real_amount, COIN_NAME)} '
                                f'{COIN_NAME} '
                                f'\n'
-                               f'Thank you. Transaction hash: `{tip}`')
+                               f'Thank you.\n {tip_tx_tipper}')
         return
     else:
         await ctx.message.add_reaction(EMOJI_ERROR)
@@ -1971,7 +2093,9 @@ async def tip(ctx, amount: str, *args):
     COIN_NAME = None
     try:
         COIN_NAME = args[0].upper()
-        if COIN_NAME not in ENABLE_COIN:
+        if COIN_NAME == "XTOR":
+            pass
+        elif COIN_NAME not in ENABLE_COIN:
             if COIN_NAME in ENABLE_COIN_DOGE:
                 pass
             elif 'default_coin' in serverinfo:
@@ -1981,11 +2105,12 @@ async def tip(ctx, amount: str, *args):
             COIN_NAME = serverinfo['default_coin'].upper()
     print("COIN_NAME: " + COIN_NAME)
 
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     # Check allowed coins
     tiponly_coins = serverinfo['tiponly'].split(",")
     if COIN_NAME == serverinfo['default_coin'].upper() or serverinfo['tiponly'].upper() == "ALLCOIN":
         pass
-    elif COIN_NAME.upper() not in tiponly_coins:
+    elif COIN_NAME not in tiponly_coins:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME.upper()} not in allowed coins set by server manager.')
         return
@@ -2081,7 +2206,22 @@ async def tip(ctx, amount: str, *args):
     notifyList = store.sql_get_tipnotify()
     has_forwardtip = None
     address_to = None
-    if COIN_NAME in ENABLE_COIN:
+
+    if coin_family == "TRTL" or coin_family == "CCX":
+        user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
+        if user_to is None:
+            userregister = await store.sql_register_user(str(member.id), COIN_NAME)
+            user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
+        if user_to['forwardtip'] == "ON":
+            has_forwardtip = True
+        COIN_DEC = get_decimal(COIN_NAME)
+        real_amount = int(amount * COIN_DEC)
+        netFee = get_tx_fee(COIN_NAME)
+        MinTx = get_min_tx_amount(COIN_NAME)
+        MaxTX = get_max_tx_amount(COIN_NAME)
+        EMOJI_TIP = get_emoji(COIN_NAME)
+    elif coin_family == "XMR":
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
         if user_to is None:
@@ -2177,31 +2317,45 @@ async def tip(ctx, amount: str, *args):
         return
 
     # Get wallet status
-    walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
-    if walletStatus is None:
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t started.')
-        return
-    else:
-        localDaemonBlockCount = int(walletStatus['blockCount'])
-        networkBlockCount = int(walletStatus['knownBlockCount'])
-        if networkBlockCount - localDaemonBlockCount >= 20:
-            # if height is different by 20
-            t_percent = '{:,.2f}'.format(truncate(localDaemonBlockCount / networkBlockCount * 100, 2))
-            t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
-            t_networkBlockCount = '{:,}'.format(networkBlockCount)
-            await ctx.message.add_reaction(EMOJI_WARNING)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t sync fully with network or being re-sync. More info:\n```'
-                           f'networkBlockCount:     {t_networkBlockCount}\n'
-                           f'localDaemonBlockCount: {t_localDaemonBlockCount}\n'
-                           f'Progress %:            {t_percent}\n```'
-                           )
+    if coin_family == "TRTL" or coin_family == "CCX":
+        walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
+        if walletStatus is None:
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t started.')
             return
         else:
-            pass
-    # End of wallet status
+            localDaemonBlockCount = int(walletStatus['blockCount'])
+            networkBlockCount = int(walletStatus['knownBlockCount'])
+            if networkBlockCount - localDaemonBlockCount >= 20:
+                # if height is different by 20
+                t_percent = '{:,.2f}'.format(truncate(localDaemonBlockCount / networkBlockCount * 100, 2))
+                t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
+                t_networkBlockCount = '{:,}'.format(networkBlockCount)
+                await ctx.message.add_reaction(EMOJI_WARNING)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t sync fully with network or being re-sync. More info:\n```'
+                               f'networkBlockCount:     {t_networkBlockCount}\n'
+                               f'localDaemonBlockCount: {t_localDaemonBlockCount}\n'
+                               f'Progress %:            {t_percent}\n```'
+                               )
+                return
+            else:
+                pass
+        # End of wallet status
+    elif coin_family == "XMR":
+        # TODO: Check wallet / daemon status
+        pass
     tip = None
     try:
         tip = await store.sql_send_tip(str(ctx.message.author.id), str(member.id), real_amount, COIN_NAME)
+        if coin_family == "XMR":
+            tip_tx_hash = tip['tx_hash']
+            tip_tx_key = tip['tx_key']
+            tip_tx_fee = num_format_coin(tip['fee'], COIN_NAME)
+            tip_tx_tipper = "Transaction hash: `{}`".format(tip_tx_hash) + "\n" + \
+                            "Transaction key: `{}`".format(tip_tx_key) + "\n" + \
+                            "Transaction fee: `{}{}`".format(tip_tx_fee, COIN_NAME)
+        elif coin_family == "TRTL" or coin_family == "CCX":
+            tip_tx_hash = tip
+            tip_tx_tipper = "Transaction hash: `{}`".format(tip)
     except Exception as e:
         print(e)
     if tip:
@@ -2216,7 +2370,7 @@ async def tip(ctx, amount: str, *args):
                 f'{EMOJI_ARROW_RIGHTHOOK} Tip of {num_format_coin(real_amount, COIN_NAME)} '
                 f'{COIN_NAME} '
                 f'was sent to `{member.name}` in server `{servername}`\n'
-                f'Transaction hash: `{tip}`')
+                f'{tip_tx_tipper}')
         except discord.Forbidden:
             # add user to notifyList
             print('Adding: ' + str(ctx.message.author.id) + ' not to receive DM tip')
@@ -2226,7 +2380,7 @@ async def tip(ctx, amount: str, *args):
                 await member.send(
                     f'{EMOJI_MONEYFACE} You got a tip of {num_format_coin(real_amount, COIN_NAME)} '
                     f'{COIN_NAME} from `{ctx.message.author.name}` in server `{servername}`\n'
-                    f'Transaction hash: `{tip}`\n'
+                    f'Transaction hash: `{tip_tx_hash}`\n'
                     f'{NOTIFICATION_OFF_CMD}')
             except discord.Forbidden:
                 # add user to notifyList
@@ -2266,13 +2420,16 @@ async def tipall(ctx, amount: str, *args):
         return
 
     serverinfo = store.sql_info_by_server(str(ctx.guild.id))
+    COIN_NAME = None
     if len(args) == 0:
         if 'default_coin' in serverinfo:
             COIN_NAME = serverinfo['default_coin'].upper()
         else:
             COIN_NAME = "WRKZ"
     else:
-        if args[0].upper() not in ENABLE_COIN:
+        COIN_NAME = args[0].upper()
+        coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+        if coin_family not in ["TRTL", "XMR"]:
             if (args[0].upper() in ENABLE_COIN_DOGE):
                 COIN_NAME = args[0].upper()
             else:
@@ -2282,18 +2439,23 @@ async def tipall(ctx, amount: str, *args):
         else:
             COIN_NAME = args[0].upper()
     print('TIPALL COIN_NAME:' + COIN_NAME)
-
+    COIN_NAME = COIN_NAME.upper()
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    if coin_family not in ["TRTL", "CCX"]:
+        await message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} is restricted with this command.')
+        return
     # Check allowed coins
     tiponly_coins = serverinfo['tiponly'].split(",")
     if COIN_NAME == serverinfo['default_coin'].upper() or serverinfo['tiponly'].upper() == "ALLCOIN":
         pass
-    elif COIN_NAME.upper() not in tiponly_coins:
+    elif COIN_NAME not in tiponly_coins:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME.upper()} not in allowed coins set by server manager.')
         return
     # End of checking allowed coins
 
-    if COIN_NAME.upper() in MAINTENANCE_COIN:
+    if COIN_NAME in MAINTENANCE_COIN:
         await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME.upper()} in maintenance.')
         return
 
@@ -2323,14 +2485,21 @@ async def tipall(ctx, amount: str, *args):
 
     notifyList = store.sql_get_tipnotify()
 
-    if COIN_NAME in ENABLE_COIN:
+    if coin_family == "TRTL" or coin_family == "CCX":
         COIN_DEC = get_decimal(COIN_NAME)
         real_amount = int(amount * COIN_DEC)
         netFee = get_tx_fee(COIN_NAME)
         MinTx = get_min_tx_amount(COIN_NAME)
         MaxTX = get_max_tx_amount(COIN_NAME)
         EMOJI_TIP = get_emoji(COIN_NAME)
-    elif COIN_NAME.upper() == "DOGE" or COIN_NAME.upper() == "DOGECOIN":
+    if coin_family == "XMR":
+        COIN_DEC = get_decimal(COIN_NAME)
+        real_amount = int(amount * COIN_DEC)
+        netFee = get_tx_fee(COIN_NAME)
+        MinTx = get_min_tx_amount(COIN_NAME)
+        MaxTX = get_max_tx_amount(COIN_NAME)
+        EMOJI_TIP = get_emoji(COIN_NAME)
+    elif COIN_NAME.upper() == "DOGE":
         COIN_NAME = "DOGE"
         EMOJI_TIP = get_emoji(COIN_NAME)
         MinTx = config.daemonDOGE.min_mv_amount
@@ -2449,7 +2618,7 @@ async def tipall(ctx, amount: str, *args):
                         list_receivers.append(str(member.id))
                         memids.append(address_to)
 
-    user_from = await store.sql_get_userwallet(ctx.message.author.id, COIN_NAME)
+    user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
 
     if real_amount + netFee >= user_from['actual_balance']:
         await ctx.message.add_reaction(EMOJI_ERROR)
@@ -2485,34 +2654,47 @@ async def tipall(ctx, amount: str, *args):
         destinations.append({"address": desti, "amount": amountDiv})
         addresses.append(desti)
 
+    if coin_family == "TRTL" or coin_family == "CCX":
     # Get wallet status
-    walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
-    if walletStatus is None:
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t started.')
-        return
-    else:
-        localDaemonBlockCount = int(walletStatus['blockCount'])
-        networkBlockCount = int(walletStatus['knownBlockCount'])
-        if networkBlockCount - localDaemonBlockCount >= 20:
-            # if height is different by 20
-            t_percent = '{:,.2f}'.format(truncate(localDaemonBlockCount / networkBlockCount * 100, 2))
-            t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
-            t_networkBlockCount = '{:,}'.format(networkBlockCount)
-            await ctx.message.add_reaction(EMOJI_WARNING)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t sync fully with network or being re-sync. More info:\n```'
-                           f'networkBlockCount:     {t_networkBlockCount}\n'
-                           f'localDaemonBlockCount: {t_localDaemonBlockCount}\n'
-                           f'Progress %:            {t_percent}\n```'
-                           )
+        walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
+        if walletStatus is None:
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t started.')
             return
         else:
-            pass
-    # End of wallet status
-
+            localDaemonBlockCount = int(walletStatus['blockCount'])
+            networkBlockCount = int(walletStatus['knownBlockCount'])
+            if networkBlockCount - localDaemonBlockCount >= 20:
+                # if height is different by 20
+                t_percent = '{:,.2f}'.format(truncate(localDaemonBlockCount / networkBlockCount * 100, 2))
+                t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
+                t_networkBlockCount = '{:,}'.format(networkBlockCount)
+                await ctx.message.add_reaction(EMOJI_WARNING)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t sync fully with network or being re-sync. More info:\n```'
+                               f'networkBlockCount:     {t_networkBlockCount}\n'
+                               f'localDaemonBlockCount: {t_localDaemonBlockCount}\n'
+                               f'Progress %:            {t_percent}\n```'
+                               )
+                return
+            else:
+                pass
+        # End of wallet status
+    elif coin_family == "XMR":
+        pass
     # print(destinations)
     tip = None
     try:
         tip = await store.sql_send_tipall(str(ctx.message.author.id), destinations, real_amount, amountDiv, list_receivers, 'TIPALL', COIN_NAME)
+        if coin_family == "XMR":
+            ActualSpend = real_amount * len(memids) + tip['fee']
+            tip_tx_hash = tip['tx_hash']
+            tip_tx_fee = num_format_coin(tip['fee'], COIN_NAME)
+            tip_tx_tipper = "Transaction hash: `{}`".format(tip_tx_hash) + "\n" + \
+                            "Transaction fee: `{}{}`".format(tip_tx_fee, COIN_NAME)
+        elif coin_family == "TRTL" or coin_family == "CCX":
+            await store.sql_update_some_balances(addresses, COIN_NAME)
+            ActualSpend = int(amountDiv * len(destinations) + netFee)
+            tip_tx_hash = tip
+            tip_tx_tipper = "Transaction hash: `{}`".format(tip)
     except Exception as e:
         print(e)
     if tip:
@@ -2520,9 +2702,7 @@ async def tipall(ctx, amount: str, *args):
         await ctx.message.add_reaction(EMOJI_TIP)
         if has_forwardtip:
             await ctx.message.add_reaction(EMOJI_FORWARD)
-        await store.sql_update_some_balances(addresses, COIN_NAME)
         TotalSpend = num_format_coin(real_amount, COIN_NAME)
-        ActualSpend = int(amountDiv * len(destinations) + netFee)
         ActualSpend_str =  num_format_coin(ActualSpend, COIN_NAME)
         amountDiv_str = num_format_coin(amountDiv, COIN_NAME)
         # tipper shall always get DM. Ignore notifyList
@@ -2531,7 +2711,7 @@ async def tipall(ctx, amount: str, *args):
                 f'{EMOJI_ARROW_RIGHTHOOK} Tip of {TotalSpend} '
                 f'{COIN_NAME} '
                 f'was sent spread to ({len(destinations)}) members in server `{servername}`.\n'
-                f'Transaction hash: `{tip}`.\n'
+                f'{tip_tx_tipper}\n'
                 f'Each member got: `{amountDiv_str}{COIN_NAME}`\n'
                 f'Actual spending: `{ActualSpend_str}{COIN_NAME}`')
         except discord.Forbidden:
@@ -2550,7 +2730,7 @@ async def tipall(ctx, amount: str, *args):
                                 await user.send(
                                     f'{EMOJI_MONEYFACE} You got a tip of {amountDiv_str} '
                                     f'{COIN_NAME} from `{ctx.message.author.name}` `.tipall` in server `{servername}`\n'
-                                    f'Transaction hash: `{tip}`\n'
+                                    f'{tip_tx_tipper}\n'
                                     f'{NOTIFICATION_OFF_CMD}')
                                 numMsg = numMsg + 1
                             except discord.Forbidden:
@@ -2613,6 +2793,8 @@ async def send(ctx, amount: str, CoinAddress: str):
 
     # Check which coinname is it.
     COIN_NAME = get_cn_coin_from_address(CoinAddress)
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+
     if COIN_NAME:
         pass
     else:
@@ -2691,31 +2873,54 @@ async def send(ctx, amount: str, CoinAddress: str):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME.upper()} in maintenance.')
         return
 
+    print('{} - {} - {}'.format(COIN_NAME, addressLength, IntaddressLength))
     if len(CoinAddress) == int(addressLength):
-        valid_address = addressvalidation.validate_address_cn(CoinAddress, COIN_NAME)
-        # print(valid_address)
-        if valid_address is None:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
-                           f'`{CoinAddress}`')
-            return
-        if valid_address != CoinAddress:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
-                           f'`{CoinAddress}`')
-            return
+        if coin_family == "TRTL" or coin_family == "CCX":
+            valid_address = addressvalidation.validate_address_cn(CoinAddress, COIN_NAME)
+            # print(valid_address)
+            if valid_address is None:
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
+                               f'`{CoinAddress}`')
+                return
+            if valid_address != CoinAddress:
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
+                               f'`{CoinAddress}`')
+                return
+        elif COIN_NAME == "XTOR":
+            valid_address = await validate_address_xmr(str(CoinAddress), COIN_NAME)
+            if valid_address['valid'] == True:
+                valid_address = CoinAddress
+                pass
+            else:
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
+                               f'`{CoinAddress}`')
+                return
     elif len(CoinAddress) == int(IntaddressLength):
-        valid_address = addressvalidation.validate_integrated_cn(CoinAddress, COIN_NAME)
-        # print(valid_address)
-        if (valid_address == 'invalid'):
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid integrated address:\n'
-                           f'`{CoinAddress}`')
-            return
-        if (len(valid_address) == 2):
-            iCoinAddress = CoinAddress
-            CoinAddress = valid_address['address']
-            paymentid = valid_address['integrated_id']
+        if coin_family == "TRTL" or coin_family == "CCX":
+            valid_address = addressvalidation.validate_integrated_cn(CoinAddress, COIN_NAME)
+            # print(valid_address)
+            if (valid_address == 'invalid'):
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid integrated address:\n'
+                               f'`{CoinAddress}`')
+                return
+            if (len(valid_address) == 2):
+                iCoinAddress = CoinAddress
+                CoinAddress = valid_address['address']
+                paymentid = valid_address['integrated_id']
+        elif COIN_NAME == "XTOR":
+            valid_address = await validate_address_xmr(str(CoinAddress), COIN_NAME)
+            if valid_address['valid'] == True:
+                valid_address = CoinAddress
+                pass
+            else:
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
+                               f'`{CoinAddress}`')
+                return
     elif len(CoinAddress) == int(addressLength) + 64 + 1:
         valid_address = {}
         check_address = CoinAddress.split(".")
@@ -2787,29 +2992,31 @@ async def send(ctx, amount: str, CoinAddress: str):
         return
 
     # Get wallet status
-    walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
-    if walletStatus is None:
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t started.')
-        return
-    else:
-        localDaemonBlockCount = int(walletStatus['blockCount'])
-        networkBlockCount = int(walletStatus['knownBlockCount'])
-        if networkBlockCount - localDaemonBlockCount >= 20:
-            # if height is different by 20
-            t_percent = '{:,.2f}'.format(truncate(localDaemonBlockCount / networkBlockCount * 100, 2))
-            t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
-            t_networkBlockCount = '{:,}'.format(networkBlockCount)
-            await ctx.message.add_reaction(EMOJI_WARNING)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t sync fully with network or being re-sync. More info:\n```'
-                           f'networkBlockCount:     {t_networkBlockCount}\n'
-                           f'localDaemonBlockCount: {t_localDaemonBlockCount}\n'
-                           f'Progress %:            {t_percent}\n```'
-                           )
+    if coin_family == "TRTL" or coin_family == "CCX":
+        walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
+        if walletStatus is None:
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t started.')
             return
         else:
-            pass
-    # End of wallet status
-
+            localDaemonBlockCount = int(walletStatus['blockCount'])
+            networkBlockCount = int(walletStatus['knownBlockCount'])
+            if networkBlockCount - localDaemonBlockCount >= 20:
+                # if height is different by 20
+                t_percent = '{:,.2f}'.format(truncate(localDaemonBlockCount / networkBlockCount * 100, 2))
+                t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
+                t_networkBlockCount = '{:,}'.format(networkBlockCount)
+                await ctx.message.add_reaction(EMOJI_WARNING)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t sync fully with network or being re-sync. More info:\n```'
+                               f'networkBlockCount:     {t_networkBlockCount}\n'
+                               f'localDaemonBlockCount: {t_localDaemonBlockCount}\n'
+                               f'Progress %:            {t_percent}\n```'
+                               )
+                return
+            else:
+                pass
+        # End of wallet status
+    elif coin_family == "XMR":
+        pass
     if len(valid_address) == 2:
         tip = None
         try:
@@ -2836,6 +3043,16 @@ async def send(ctx, amount: str, CoinAddress: str):
         tip = None
         try:
             tip = await store.sql_send_tip_Ex(ctx.message.author.id, CoinAddress, real_amount, COIN_NAME)
+            if coin_family == "XMR":
+                tip_tx_hash = tip['tx_hash']
+                tip_tx_key = tip['tx_key']
+                tip_tx_fee = num_format_coin(tip['fee'], COIN_NAME)
+                tip_tx_tipper = "Transaction hash: `{}`".format(tip_tx_hash) + "\n" + \
+                                "Transaction key: `{}`".format(tip_tx_key) + "\n" + \
+                                "Transaction fee: `{}{}`".format(tip_tx_fee, COIN_NAME)
+            elif coin_family == "TRTL" or coin_family == "CCX":
+                tip_tx_hash = tip
+                tip_tx_tipper = "Transaction hash: `{}`".format(tip)
         except Exception as e:
             print(e)
         if tip:
@@ -2844,7 +3061,7 @@ async def send(ctx, amount: str, CoinAddress: str):
             await ctx.message.author.send(f'{EMOJI_ARROW_RIGHTHOOK} You have sent {num_format_coin(real_amount, COIN_NAME)} '
                                           f'{COIN_NAME} '
                                           f'to `{CoinAddress}`\n'
-                                          f'Transaction hash: `{tip}`')
+                                          f'{tip_tx_tipper}')
             return
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -2904,6 +3121,8 @@ async def address(ctx, *args):
                 COIN_NAME = "LTC"
                 addressLength = config.daemonLTC.AddrLen
             pass
+        elif (len(CoinAddress) == 98 or len(CoinAddress) == 109) and COIN_NAME == "XTOR":
+            pass
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
@@ -2951,7 +3170,16 @@ async def address(ctx, *args):
                 await ctx.send(f'{EMOJI_RED_NO} Address: `{CoinAddress}`\n'
                                 'Checked: Invalid.')
                 return
-
+        elif COIN_NAME == "XTOR":
+            valid_address = await validate_address_xmr(str(CoinAddress), COIN_NAME)
+            if valid_address['valid'] == True:
+                address_result = 'Valid: `{}`\n'.format(str(valid_address['valid'])) + \
+                               'Integrated: `{}`\n'.format(str(valid_address['integrated'])) + \
+                               'Subaddress: `{}`\n'.format(str(valid_address['subaddress']))
+                await ctx.message.add_reaction(EMOJI_CHECK)
+                await ctx.send(f'{EMOJI_CHECK} Address: `{CoinAddress}`\n{address_result}')
+                return
+                    
         if len(CoinAddress) == int(addressLength):
             valid_address = addressvalidation.validate_address_cn(CoinAddress, COIN_NAME)
             if valid_address is None:
@@ -3057,9 +3285,10 @@ async def optimize(ctx, coin: str, member: discord.Member = None):
 
     botLogChan = bot.get_channel(id=LOG_CHAN)
     COIN_NAME = coin.upper()
-    if COIN_NAME not in ENABLE_COIN:
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    if coin_family != "TRTL":
         await ctx.message.add_reaction(EMOJI_WARNING)
-        await ctx.send(f'{EMOJI_RED_NO} You need to specify a correct TICKER.')
+        await ctx.send(f'{EMOJI_RED_NO} You need to specify a correct TICKER. Or {COIN_NAME} not optimizable.')
         return
 
     if member is None:
@@ -4045,6 +4274,8 @@ def get_cn_coin_from_address(CoinAddress: str):
         COIN_NAME = "NACA"
     elif CoinAddress.startswith("TRTL"):
         COIN_NAME = "TRTL"
+    elif CoinAddress.startswith("bit"):
+        COIN_NAME = "XTOR"
     return COIN_NAME
 
 
@@ -4261,7 +4492,7 @@ async def update_balance_wallets():
 
 
 # Multiple tip
-async def _tip(ctx, amount, coin: str = None):
+async def _tip(ctx, amount, coin: str):
     serverinfo = store.sql_info_by_server(str(ctx.guild.id))
     COIN_NAME = coin.upper()
     try:
@@ -4272,15 +4503,20 @@ async def _tip(ctx, amount, coin: str = None):
         return
 
     notifyList = store.sql_get_tipnotify()
-
-    if COIN_NAME in ENABLE_COIN:
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    if coin_family == "TRTL" or coin_family == "CCX":
         COIN_DEC = get_decimal(COIN_NAME)
         netFee = get_tx_fee(COIN_NAME)
         MinTx = get_min_tx_amount(COIN_NAME)
         MaxTX = get_max_tx_amount(COIN_NAME)
         EMOJI_TIP = get_emoji(COIN_NAME)
-    elif COIN_NAME.upper() == "DOGE" or COIN_NAME.upper() == "DOGECOIN":
-        COIN_NAME = "DOGE"
+    elif coin_family == "XMR":
+        COIN_DEC = get_decimal(COIN_NAME)
+        netFee = get_tx_fee(COIN_NAME)
+        MinTx = get_min_tx_amount(COIN_NAME)
+        MaxTX = get_max_tx_amount(COIN_NAME)
+        EMOJI_TIP = get_emoji(COIN_NAME)
+    elif COIN_NAME == "DOGE":
         EMOJI_TIP = get_emoji(COIN_NAME)
         MinTx = config.daemonDOGE.min_mv_amount
         MaxTX = config.daemonDOGE.max_mv_amount
@@ -4372,7 +4608,7 @@ async def _tip(ctx, amount, coin: str = None):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Amount must be a number.')
         return
 
-    user_from = await store.sql_get_userwallet(ctx.message.author.id, COIN_NAME)
+    user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
 
     if real_amount > MaxTX:
         await ctx.message.add_reaction(EMOJI_ERROR)
@@ -4415,6 +4651,8 @@ async def _tip(ctx, amount, coin: str = None):
         destinations.append({"address": desti, "amount": real_amount})
         addresses.append(desti)
 
+    #print('destinations: ')
+    #print(destinations)
     ActualSpend = real_amount * len(memids) + netFee
     if ActualSpend + netFee >= user_from['actual_balance']:
         await ctx.message.add_reaction(EMOJI_ERROR)
@@ -4438,33 +4676,45 @@ async def _tip(ctx, amount, coin: str = None):
         return
 
     # Get wallet status
-    walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
-    if walletStatus is None:
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t started.')
-        return
-    else:
-        localDaemonBlockCount = int(walletStatus['blockCount'])
-        networkBlockCount = int(walletStatus['knownBlockCount'])
-        if networkBlockCount - localDaemonBlockCount >= 20:
-            # if height is different by 20
-            t_percent = '{:,.2f}'.format(truncate(localDaemonBlockCount / networkBlockCount * 100, 2))
-            t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
-            t_networkBlockCount = '{:,}'.format(networkBlockCount)
-            await ctx.message.add_reaction(EMOJI_WARNING)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t sync fully with network or being '
-                           're-sync. More info:\n```'
-                           f'networkBlockCount:     {t_networkBlockCount}\n'
-                           f'localDaemonBlockCount: {t_localDaemonBlockCount}\n'
-                           f'Progress %:            {t_percent}\n```'
-                           )
+    if coin_family == "TRTL" or coin_family == "CCX":
+        walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
+        if walletStatus is None:
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t started.')
             return
         else:
-            pass
-    # End of wallet status
-
+            localDaemonBlockCount = int(walletStatus['blockCount'])
+            networkBlockCount = int(walletStatus['knownBlockCount'])
+            if networkBlockCount - localDaemonBlockCount >= 20:
+                # if height is different by 20
+                t_percent = '{:,.2f}'.format(truncate(localDaemonBlockCount / networkBlockCount * 100, 2))
+                t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
+                t_networkBlockCount = '{:,}'.format(networkBlockCount)
+                await ctx.message.add_reaction(EMOJI_WARNING)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t sync fully with network or being '
+                               're-sync. More info:\n```'
+                               f'networkBlockCount:     {t_networkBlockCount}\n'
+                               f'localDaemonBlockCount: {t_localDaemonBlockCount}\n'
+                               f'Progress %:            {t_percent}\n```'
+                               )
+                return
+            else:
+                pass
+        # End of wallet status
+    elif coin_family == "XMR":
+        # TODO: Check wallet / daemon status
+        pass
     tip = None
     try:
         tip = await store.sql_send_tipall(str(ctx.message.author.id), destinations, real_amount, real_amount, list_receivers, 'TIPS', COIN_NAME)
+        if coin_family == "XMR":
+            ActualSpend = real_amount * len(memids) + tip['fee']
+            tip_tx_hash = tip['tx_hash']
+            tip_tx_fee = num_format_coin(tip['fee'], COIN_NAME)
+            tip_tx_tipper = "Transaction hash: `{}`".format(tip_tx_hash) + "\n" + \
+                            "Transaction fee: `{}{}`".format(tip_tx_fee, COIN_NAME)
+        elif coin_family == "TRTL" or coin_family == "CCX":
+            tip_tx_hash = tip
+            tip_tx_tipper = "Transaction hash: `{}`".format(tip)
     except Exception as e:
         print(e)
     if tip:
@@ -4481,7 +4731,7 @@ async def _tip(ctx, amount, coin: str = None):
             await ctx.message.author.send(f'{EMOJI_ARROW_RIGHTHOOK} Total tip of {num_format_coin(ActualSpend, COIN_NAME)} '
                                     f'{COIN_NAME} '
                                     f'was sent to ({len(destinations)}) members in server `{servername}`.\n'
-                                    f'Transaction hash: `{tip}`\n'
+                                    f'{tip_tx_tipper}\n'
                                     f'Each: `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`'
                                     f'Total spending: `{num_format_coin(ActualSpend, COIN_NAME)} {COIN_NAME}`')
         except discord.Forbidden:
@@ -4494,7 +4744,7 @@ async def _tip(ctx, amount, coin: str = None):
                         try:
                             await member.send(f'{EMOJI_MONEYFACE} You got a tip of  {num_format_coin(real_amount, COIN_NAME)} '
                                             f'{COIN_NAME} from `{ctx.message.author.name}` in server `{servername}`\n'
-                                            f'Transaction hash: `{tip}`\n'
+                                            f'{tip_tx_tipper}\n'
                                             f'{NOTIFICATION_OFF_CMD}')
                         except discord.Forbidden:
                             print('Adding: ' + str(member.id) + ' not to receive DM tip')
@@ -4513,6 +4763,7 @@ async def _tip(ctx, amount, coin: str = None):
 async def _tip_talker(ctx, amount, list_talker, coin: str = None):
     serverinfo = store.sql_info_by_server(str(ctx.guild.id))
     COIN_NAME = coin.upper()
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     try:
         amount = float(amount)
     except ValueError:
@@ -4521,21 +4772,24 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
         return
 
     notifyList = store.sql_get_tipnotify()
-
-    if COIN_NAME in ENABLE_COIN:
+    if coin_family not in ["TRTL", "CCX"]:
+        await message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} is restricted with this command.')
+        return
+    if coin_family == "TRTL" or coin_family == "CCX":
         COIN_DEC = get_decimal(COIN_NAME)
         netFee = get_tx_fee(COIN_NAME)
         MinTx = get_min_tx_amount(COIN_NAME)
         MaxTX = get_max_tx_amount(COIN_NAME)
         EMOJI_TIP = get_emoji(COIN_NAME)
-    elif COIN_NAME.upper() == "DOGE" or COIN_NAME.upper() == "DOGECOIN":
+    elif COIN_NAME == "DOGE":
         COIN_NAME = "DOGE"
         EMOJI_TIP = get_emoji(COIN_NAME)
         MinTx = config.daemonDOGE.min_mv_amount
         MaxTX = config.daemonDOGE.max_mv_amount
         user_from = {}
-        user_from['address'] = await DOGE_LTC_getaccountaddress(ctx.message.author.id, COIN_NAME.upper())
-        user_from['actual_balance'] = float(await DOGE_LTC_getbalance_acc(ctx.message.author.id, COIN_NAME, 6))
+        user_from['address'] = await DOGE_LTC_getaccountaddress(str(ctx.message.author.id), COIN_NAME)
+        user_from['actual_balance'] = float(await DOGE_LTC_getbalance_acc(str(ctx.message.author.id), COIN_NAME, 6))
         real_amount = float(amount)
         userdata_balance = store.sql_doge_balance(ctx.message.author.id, COIN_NAME)
         if real_amount > user_from['actual_balance'] + userdata_balance['Adjust']:

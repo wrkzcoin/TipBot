@@ -340,6 +340,7 @@ def validate_integrated(wallet_address, coin: str):
         return None
     return result
 
+
 # make_integrated address:
 def make_integrated(wallet_address, coin: str, integrated_id=None):
     prefix=wallet.get_prefix(coin.upper())

@@ -27,25 +27,26 @@ async def call_aiohttp_wallet(method_name: str, coin: str, payload: Dict = None)
     }
     url = get_wallet_rpc_url(coin.upper())
     if coin_family == "XMR":
-        #username = getattr(getattr(config,"daemon"+coin),"wuser")
-        #password = getattr(getattr(config,"daemon"+coin),"wpassword")
         async with aiohttp.ClientSession(headers={'Content-Type': 'application/json'}) as session:
             async with session.post(url, ssl=False, json=full_payload, timeout=8) as response:
-                print(response)
                 if response.status == 200:
                     res_data = await response.read()
-                    print(res_data)
                     res_data = res_data.decode('utf-8')
-                    await session.close()
+                    if method_name != "create_account":
+                        await session.close()
                     decoded_data = json.loads(res_data)
-                    return decoded_data['result']
+                    if 'result' in decoded_data:
+                        return decoded_data['result']
+                    else:
+                        return None
     elif coin_family == "TRTL":
         async with aiohttp.ClientSession() as session:
             async with session.post(url, json=full_payload, timeout=8) as response:
                 if response.status == 200:
                     res_data = await response.read()
                     res_data = res_data.decode('utf-8')
-                    await session.close()
+                    if method_name != "createAddress":
+                        await session.close()
                     decoded_data = json.loads(res_data)
                     return decoded_data['result']
 

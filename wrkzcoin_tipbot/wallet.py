@@ -47,41 +47,39 @@ async def getSpendKey(from_address: str, coin: str) -> str:
     return result['spendSecretKey']
 
 
-async def send_transaction_donate(from_address: str, to_address: str, amount: int, coin: str) -> str:
-    coin = coin.upper()
-    payload = {
-        'addresses': [from_address],
-        'transfers': [{
-            "amount": amount,
-            "address": to_address
-        }],
-        'fee': get_tx_fee(coin),
-        'anonymity': get_mixin(coin)
-    }
+async def send_transaction(from_address: str, to_address: str, amount: int, coin: str, acc_index: int = None) -> str:
+    COIN_NAME = coin.upper()
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     result = None
-    result = await rpc_client.call_aiohttp_wallet('sendTransaction', coin, payload=payload)
-    if result:
-        if 'transactionHash' in result:
-            return result['transactionHash']
-    return result
-
-
-async def send_transaction(from_address: str, to_address: str, amount: int, coin: str) -> str:
-    coin = coin.upper()
-    payload = {
-        'addresses': [from_address],
-        'transfers': [{
-            "amount": amount,
-            "address": to_address
-        }],
-        'fee': get_tx_fee(coin),
-        'anonymity': get_mixin(coin)
-    }
-    result = None
-    result = await rpc_client.call_aiohttp_wallet('sendTransaction', coin, payload=payload)
-    if result:
-        if 'transactionHash' in result:
-            return result['transactionHash']
+    if coin_family == "TRTL" or coin_family == "CCX":
+        payload = {
+            'addresses': [from_address],
+            'transfers': [{
+                "amount": amount,
+                "address": to_address
+            }],
+            'fee': get_tx_fee(COIN_NAME),
+            'anonymity': get_mixin(COIN_NAME)
+        }
+        result = await rpc_client.call_aiohttp_wallet('sendTransaction', COIN_NAME, payload=payload)
+        if result:
+            if 'transactionHash' in result:
+                return result['transactionHash']
+    elif coin_family == "XMR":
+        payload = {
+            "destinations": [{'amount': amount, 'address': to_address}],
+            "account_index": acc_index,
+            "subaddr_indices": [],
+            "priority": 1,
+            "unlock_time": 0,
+            "get_tx_key": True,
+            "get_tx_hex": False,
+            "get_tx_metadata": False
+        }
+        result = await rpc_client.call_aiohttp_wallet('transfer', COIN_NAME, payload=payload)
+        if result:
+            if ('tx_hash' in result) and ('tx_key' in result):
+                return result
     return result
 
 
@@ -105,19 +103,36 @@ async def send_transaction_id(from_address: str, to_address: str, amount: int, p
     return result
 
 
-async def send_transactionall(from_address: str, to_address, coin: str) -> str:
-    coin = coin.upper()
-    payload = {
-        'addresses': [from_address],
-        'transfers': to_address,
-        'fee': get_tx_fee(coin),
-        'anonymity': get_mixin(coin),
-    }
+async def send_transactionall(from_address: str, to_address, coin: str, acc_index: int = None) -> str:
+    COIN_NAME = coin.upper()
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     result = None
-    result = await rpc_client.call_aiohttp_wallet('sendTransaction', coin, payload=payload)
-    if result:
-        if 'transactionHash' in result:
-            return result['transactionHash']
+    if coin_family == "TRTL" or coin_family == "CCX":
+        payload = {
+            'addresses': [from_address],
+            'transfers': to_address,
+            'fee': get_tx_fee(coin),
+            'anonymity': get_mixin(coin),
+        }
+        result = await rpc_client.call_aiohttp_wallet('sendTransaction', coin, payload=payload)
+        if result:
+            if 'transactionHash' in result:
+                return result['transactionHash']
+    elif coin_family == "XMR":
+        payload = {
+            "destinations": to_address,
+            "account_index": acc_index,
+            "subaddr_indices": [],
+            "priority": 1,
+            "unlock_time": 0,
+            "get_tx_key": True,
+            "get_tx_hex": False,
+            "get_tx_metadata": False
+        }
+        result = await rpc_client.call_aiohttp_wallet('transfer', COIN_NAME, payload=payload)
+        if result:
+            if ('tx_hash' in result) and ('tx_key' in result):
+                return result
     return result
 
 
@@ -150,13 +165,23 @@ async def get_sum_balances(coin: str) -> Dict[str, Dict]:
     return None
 
 
-async def get_balance_address(address: str, coin: str) -> Dict[str, Dict]:
+async def get_balance_address(address: str, coin: str, acc_index: int = None) -> Dict[str, Dict]:
     coin = coin.upper()
-    result = await rpc_client.call_aiohttp_wallet('getBalance', coin, {'address': address})
-    wallet = None
-    if result:
-        wallet = {'address':address,'unlocked':result['availableBalance'],'locked':result['lockedAmount']}
-    return wallet
+    coin_family = getattr(getattr(config,"daemon"+coin),"coin_family","TRTL")
+    if coin_family == "XMR":
+        if acc_index is None:
+            acc_index = 0
+        result = await rpc_client.call_aiohttp_wallet('getbalance', coin, {'account_index': acc_index, 'address_indices': [acc_index]})
+        wallet = None
+        if result:
+            wallet = {'address':address,'locked':(result['balance'] - result['unlocked_balance']),'unlocked':result['unlocked_balance']}
+        return wallet
+    elif coin_family == "TRTL":
+        result = await rpc_client.call_aiohttp_wallet('getBalance', coin, {'address': address})
+        wallet = None
+        if result:
+            wallet = {'address':address,'unlocked':result['availableBalance'],'locked':result['lockedAmount']}
+        return wallet
 
 
 async def wallet_optimize_single(subaddress: str, threshold: int, coin: str=None) -> int:
@@ -233,44 +258,16 @@ def get_wallet_api_url(coin: str = None):
         COIN_NAME = "WRKZ"
     else:
         COIN_NAME = coin.upper()
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    if coin_family == "TRTL":
+        return "http://"+getattr(config,"daemon"+COIN_NAME,config.daemonWRKZ).wallethost + ":" + \
+            str(getattr(config,"daemon"+COIN_NAME,config.daemonWRKZ).walletport) \
+            + '/json_rpc'
+    elif coin_family == "XMR":
+        return "http://"+getattr(config,"daemon"+COIN_NAME,config.daemonWRKZ).wallethost + ":" + \
+            str(getattr(config,"daemon"+COIN_NAME,config.daemonWRKZ).walletport) \
+            + '/json_rpc'
 
-    if COIN_NAME == "TRTL":
-        url = "http://"+config.daemonTRTL.wallethost+":"+config.daemonTRTL.walletport
-    elif COIN_NAME == "DEGO":
-        url = "http://"+config.daemonDEGO.wallethost+":"+config.daemonDEGO.walletport
-    elif COIN_NAME == "LCX":
-        url = "http://"+config.daemonLCX.wallethost+":"+config.daemonLCX.walletport
-    elif COIN_NAME == "CX":
-        url = "http://"+config.daemonCX.wallethost+":"+config.daemonCX.walletport
-    elif COIN_NAME == "WRKZ":
-        url = "http://"+config.daemonWRKZ.wallethost+":"+config.daemonWRKZ.walletport
-    elif COIN_NAME == "OSL":
-        url = "http://"+config.daemonOSL.wallethost+":"+config.daemonOSL.walletport
-    elif COIN_NAME == "BTCM":
-        url = "http://"+config.daemonBTCM.wallethost+":"+config.daemonBTCM.walletport
-    elif COIN_NAME == "MTIP":
-        url = "http://"+config.daemonMTIP.wallethost+":"+config.daemonMTIP.walletport
-    elif COIN_NAME == "XCY":
-        url = "http://"+config.daemonXCY.wallethost+":"+config.daemonXCY.walletport
-    elif COIN_NAME == "PLE":
-        url = "http://"+config.daemonPLE.wallethost+":"+config.daemonPLE.walletport
-    elif COIN_NAME == "ELPH":
-        url = "http://"+config.daemonELPH.wallethost+":"+config.daemonELPH.walletport
-    elif COIN_NAME == "ANX":
-        url = "http://"+config.daemonANX.wallethost+":"+config.daemonANX.walletport
-    elif COIN_NAME == "NBX":
-        url = "http://"+config.daemonNBX.wallethost+":"+config.daemonNBX.walletport
-    elif COIN_NAME == "ARMS":
-        url = "http://"+config.daemonARMS.wallethost+":"+config.daemonARMS.walletport
-    elif COIN_NAME == "IRD":
-        url = "http://"+config.daemonIRD.wallethost+":"+config.daemonIRD.walletport
-    elif COIN_NAME == "HITC":
-        url = "http://"+config.daemonHITC.wallethost+":"+config.daemonHITC.walletport
-    elif COIN_NAME == "NACA":
-        url = "http://"+config.daemonNACA.wallethost+":"+config.daemonNACA.walletport
-    else:
-        url = "http://"+config.daemonWRKZ.wallethost+":"+config.daemonWRKZ.walletport
-    return url
 
 def get_mixin(coin: str = None):
     return getattr(config,"daemon"+coin,config.daemonWRKZ).mixin
@@ -344,18 +341,20 @@ def get_coinlogo_path(coin: str = None):
 
 
 def num_format_coin(amount, coin: str = None):
+    COIN_NAME = None
     if coin is None:
-        coin = "WRKZ"
+        COIN_NAME = "WRKZ"
     else:
-        coin = coin.upper()
-    if coin == "DOGE":
+        COIN_NAME = coin.upper()
+    
+    if COIN_NAME == "DOGE":
         coin_decimal = 1
-    elif coin == "LTC":
+    elif COIN_NAME == "LTC":
         coin_decimal = 1
     else:
-        coin_decimal = get_decimal(coin)
+        coin_decimal = get_decimal(COIN_NAME)
     amount_str = 'Invalid.'
-    if coin == 	"DOGE":
+    if COIN_NAME == 	"DOGE":
         return '{:,.6f}'.format(amount)
     if coin_decimal > 1000000:
         amount_str = '{:,.8f}'.format(amount / coin_decimal)
@@ -366,6 +365,21 @@ def num_format_coin(amount, coin: str = None):
     else:
         amount_str = '{:,.2f}'.format(amount / coin_decimal)
     return amount_str
+
+
+async def validate_address_xmr(address: str, coin: str):
+    coin_family = getattr(getattr(config,"daemon"+coin),"coin_family","XMR")
+    if coin_family == "XMR":
+        payload = {
+            "address" : address,
+            "any_net_type": True,
+            "allow_openalias": True
+        }
+        address_xmr = await rpc_client.call_aiohttp_wallet('validate_address', coin, payload=payload)
+        if address_xmr:
+            return address_xmr
+        else:
+            return None
 
 
 async def DOGE_LTC_register(account: str, coin: str) -> str:

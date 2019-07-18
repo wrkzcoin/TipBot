@@ -611,3 +611,83 @@ CREATE TABLE `wrkz_withdraw` (
   `tx_hash` varchar(64) NOT NULL,
   KEY `user_id` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `xtor_donate`;
+CREATE TABLE `xtor_donate` (
+  `from_user` varchar(32) NOT NULL,
+  `to_address` varchar(128) NOT NULL,
+  `amount` bigint(20) NOT NULL,
+  `fee` int(11) NOT NULL,
+  `date` int(11) NOT NULL,
+  `tx_hash` varchar(64) NOT NULL,
+  `tx_key` varchar(1024) NOT NULL,
+  KEY `from_user` (`from_user`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `xtor_send`;
+CREATE TABLE `xtor_send` (
+  `from_user` varchar(32) NOT NULL,
+  `to_address` varchar(256) NOT NULL,
+  `amount` bigint(20) NOT NULL,
+  `fee` int(11) NOT NULL,
+  `date` int(11) NOT NULL,
+  `tx_hash` varchar(64) NOT NULL,
+  `tx_key` varchar(10240) NOT NULL,
+  KEY `from_user` (`from_user`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `xtor_tip`;
+CREATE TABLE `xtor_tip` (
+  `from_user` varchar(32) NOT NULL,
+  `to_user` varchar(32) NOT NULL,
+  `amount` bigint(20) NOT NULL,
+  `date` int(11) NOT NULL,
+  `tx_hash` varchar(64) NOT NULL,
+  `tx_key` varchar(10240) NOT NULL,
+  `fee` int(11) NOT NULL DEFAULT '0',
+  `tip_tips_tipall` enum('TIP','TIPS','TIPALL') NOT NULL DEFAULT 'TIP',
+  KEY `from_user` (`from_user`),
+  KEY `to_user` (`to_user`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `xtor_tipall`;
+CREATE TABLE `xtor_tipall` (
+  `from_user` varchar(32) NOT NULL,
+  `amount_total` bigint(20) NOT NULL,
+  `date` int(11) NOT NULL,
+  `tx_hash` varchar(64) NOT NULL,
+  `tx_key` varchar(10240) NOT NULL,
+  `fee` int(11) NOT NULL,
+  `numb_receivers` smallint(6) NOT NULL,
+  KEY `from_user` (`from_user`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `xtor_user`;
+CREATE TABLE `xtor_user` (
+  `user_id` varchar(32) NOT NULL,
+  `account_index` int(11) NOT NULL,
+  `label` varchar(64) CHARACTER SET utf8 NOT NULL DEFAULT '',
+  `balance_wallet_address` varchar(128) NOT NULL,
+  `user_wallet_address` varchar(128) NOT NULL DEFAULT '',
+  `balance_wallet_address_ts` int(11) DEFAULT NULL,
+  `forwardtip` enum('ON','OFF') NOT NULL DEFAULT 'OFF',
+  `user_server` enum('DISCORD','TELEGRAM') NOT NULL DEFAULT 'DISCORD'
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+
+DROP TABLE IF EXISTS `xtor_withdraw`;
+CREATE TABLE `xtor_withdraw` (
+  `user_id` varchar(32) NOT NULL,
+  `amount` bigint(20) NOT NULL,
+  `fee` int(11) NOT NULL,
+  `to_address` varchar(128) NOT NULL,
+  `date` int(11) NOT NULL,
+  `tx_hash` varchar(64) NOT NULL,
+  `tx_key` varchar(1024) NOT NULL,
+  KEY `user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;

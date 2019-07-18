@@ -39,7 +39,7 @@ async def call_aiohttp_wallet(method_name: str, coin: str, payload: Dict = None)
                         return decoded_data['result']
                     else:
                         return None
-    elif coin_family == "TRTL":
+    elif coin_family == "TRTL" or coin_family == "CCX":
         async with aiohttp.ClientSession() as session:
             async with session.post(url, json=full_payload, timeout=8) as response:
                 if response.status == 200:

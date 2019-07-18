@@ -88,11 +88,15 @@ def sql_get_walletinfo():
 async def sql_update_balances(coin: str = None):
     global conn
     updateTime = int(time.time())
+    COIN_NAME = None
     if coin is None:
-        coin = "WRKZ"
-    if coin.upper() in ENABLE_COIN:
-        print('SQL: Updating all wallet balances '+coin.upper())
-        balances = await wallet.get_all_balances_all(coin.upper())
+        COIN_NAME = "WRKZ"
+    else:
+        COIN_NAME = coin.upper()
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    if coin_family == "TRTL" or coin_family == "CCX":
+        print('SQL: Updating all wallet balances '+COIN_NAME)
+        balances = await wallet.get_all_balances_all(COIN_NAME)
         try:
             openConnection()
             with conn.cursor() as cur:
@@ -113,15 +117,15 @@ async def sql_update_some_balances(wallet_addresses: List[str], coin: str = None
     global conn
     COIN_NAME = None
     if coin is None:
-        coin = "WRKZ"
+        COIN_NAME = "WRKZ"
     else:
         COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
 
     updateTime = int(time.time())
     if coin_family == "TRTL" or coin_family == "CCX":
-        print('SQL: Updating some wallet balances '+coin.upper())
-        balances = await wallet.get_some_balances(wallet_addresses, coin.upper())   
+        print('SQL: Updating some wallet balances '+COIN_NAME)
+        balances = await wallet.get_some_balances(wallet_addresses, COIN_NAME)   
         try:
             openConnection()
             with conn.cursor() as cur:

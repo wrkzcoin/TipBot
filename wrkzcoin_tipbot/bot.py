@@ -1042,6 +1042,7 @@ async def info(ctx, coin: str = None):
 
 @bot.command(pass_context=True, name='balance', aliases=['bal'], help=bot_help_balance)
 async def balance(ctx, coin: str = None):
+    botLogChan = bot.get_channel(id=LOG_CHAN)
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'balance')
     if account_lock:
@@ -1086,7 +1087,8 @@ async def balance(ctx, coin: str = None):
                     userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
                     wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
                 if wallet is None:
-                    await ctx.send(f'{ctx.author.mention} Internal Error for `{prefixChar}balance` during {COIN_NAME}')
+                    table_data.append([COIN_NAME, "N/A", "N/A"])
+                    await botLogChan.send(f'A user call `{prefixChar}balance` failed with {COIN_NAME}')
                     return
                 else:
                     balance_actual = num_format_coin(wallet['actual_balance'], COIN_NAME)

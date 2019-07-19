@@ -1109,8 +1109,7 @@ async def balance(ctx, coin: str = None):
             depositAddress = await DOGE_LTC_getaccountaddress(ctx.message.author.id, COIN_NAME)
             actual = float(await DOGE_LTC_getbalance_acc(ctx.message.author.id, COIN_NAME, 6))
             locked = float(await DOGE_LTC_getbalance_acc(ctx.message.author.id, COIN_NAME, 1))
-            userdata_balance = store.sql_doge_balance(ctx.message.author.id, COIN_NAME)
-
+            userdata_balance = store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
             if actual == locked:
                 balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
                 balance_locked = num_format_coin(0, COIN_NAME)
@@ -1197,10 +1196,10 @@ async def balance(ctx, coin: str = None):
             await message.add_reaction(EMOJI_ERROR)
             return
     elif COIN_NAME == "DOGE":
-        depositAddress = await DOGE_LTC_getaccountaddress(ctx.message.author.id, COIN_NAME)
-        actual = float(await DOGE_LTC_getbalance_acc(ctx.message.author.id, COIN_NAME, 6))
-        locked = float(await DOGE_LTC_getbalance_acc(ctx.message.author.id, COIN_NAME, 1))
-        userdata_balance = store.sql_doge_balance(ctx.message.author.id, COIN_NAME)
+        depositAddress = await DOGE_LTC_getaccountaddress(str(ctx.message.author.id), COIN_NAME)
+        actual = float(await DOGE_LTC_getbalance_acc(str(ctx.message.author.id), COIN_NAME, 6))
+        locked = float(await DOGE_LTC_getbalance_acc(str(ctx.message.author.id), COIN_NAME, 1))
+        userdata_balance = store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
         if actual == locked:				
             balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']) , COIN_NAME)
             balance_locked = num_format_coin(0 , COIN_NAME)

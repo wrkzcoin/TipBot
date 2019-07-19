@@ -12,13 +12,14 @@ sys.path.append("..")
 
 
 async def registerOTHER(coin: str) -> str:
-    coin_family = getattr(getattr(config,"daemon"+coin),"coin_family","TRTL")
+    COIN_NAME = coin.upper()
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     reg_address = {}
     if coin_family == "XMR":
         payload = {
             'label' : 'tipbot'
         }
-        result = await rpc_client.call_aiohttp_wallet('create_account', coin, payload=payload)
+        result = await rpc_client.call_aiohttp_wallet('create_account', COIN_NAME, payload=payload)
         print(result)
         if result is None:
             print("Error when creating address ");
@@ -28,10 +29,10 @@ async def registerOTHER(coin: str) -> str:
             reg_address = result
             return reg_address
     else:
-        result = await rpc_client.call_aiohttp_wallet('createAddress', coin)
+        result = await rpc_client.call_aiohttp_wallet('createAddress', COIN_NAME)
         reg_address['address'] = result['address']
-        reg_address['privateSpendKey'] = await getSpendKey(result['address'], coin)
-
+        reg_address['privateSpendKey'] = await getSpendKey(result['address'], COIN_NAME)
+        
         # Avoid any crash and nothing to restore or import
         print('Wallet register: '+reg_address['address']+'=>privateSpendKey: '+reg_address['privateSpendKey'])
         # End print log ID,spendkey to log file

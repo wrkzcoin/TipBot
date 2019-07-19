@@ -76,7 +76,7 @@ async def call_doge_ltc(method_name: str, coin: str, payload: str = None) -> Dic
 
 def get_wallet_rpc_url(coin: str = None):
     coin_family = getattr(getattr(config,"daemon"+coin),"coin_family","TRTL")
-    if coin_family == "TRTL":
+    if coin_family == "TRTL" or coin_family == "CCX" :
         return "http://"+getattr(config,"daemon"+coin,config.daemonWRKZ).wallethost + ":" + \
             str(getattr(config,"daemon"+coin,config.daemonWRKZ).walletport) \
             + '/json_rpc'
@@ -84,8 +84,3 @@ def get_wallet_rpc_url(coin: str = None):
         return "http://"+getattr(config,"daemon"+coin,config.daemonWRKZ).wallethost + ":" + \
             str(getattr(config,"daemon"+coin,config.daemonWRKZ).walletport) \
             + '/json_rpc'
-        # return "http://"+getattr(config,"daemon"+coin).wuser + ":"+getattr(config,"daemon"+coin).wpassword + \
-            # "@" + getattr(config,"daemon"+coin,"localhost").wallethost + ":" + \
-            # str(getattr(config,"daemon"+coin).walletport) \
-            # + "/json_rpc"
-

@@ -2231,7 +2231,7 @@ async def tip(ctx, amount: str, *args):
         pass
     elif COIN_NAME not in tiponly_coins:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME.upper()} not in allowed coins set by server manager.')
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} not in allowed coins set by server manager.')
         return
     # End of checking allowed coins
     
@@ -2394,7 +2394,7 @@ async def tip(ctx, amount: str, *args):
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
         return
-    elif COIN_NAME.upper() == "DOGE":
+    elif COIN_NAME == "DOGE":
         EMOJI_TIP = get_emoji(COIN_NAME)
         MinTx = config.daemonDOGE.min_mv_amount
         MaxTX = config.daemonDOGE.max_mv_amount
@@ -2610,7 +2610,6 @@ async def tipall(ctx, amount: str, *args):
         else:
             COIN_NAME = args[0].upper()
     print('TIPALL COIN_NAME:' + COIN_NAME)
-    COIN_NAME = COIN_NAME.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
 
     # Check allowed coins
@@ -2619,12 +2618,12 @@ async def tipall(ctx, amount: str, *args):
         pass
     elif COIN_NAME not in tiponly_coins:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME.upper()} not in allowed coins set by server manager.')
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} not in allowed coins set by server manager.')
         return
     # End of checking allowed coins
 
     if COIN_NAME in MAINTENANCE_COIN:
-        await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME.upper()} in maintenance.')
+        await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} in maintenance.')
         return
 
     # Check flood of tip
@@ -2748,13 +2747,12 @@ async def tipall(ctx, amount: str, *args):
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
         return
-    elif COIN_NAME.upper() == "DOGE":
-        COIN_NAME = "DOGE"
+    elif COIN_NAME == "DOGE":
         EMOJI_TIP = get_emoji(COIN_NAME)
         MinTx = config.daemonDOGE.min_mv_amount
         MaxTX = config.daemonDOGE.max_mv_amount
         user_from = {}
-        user_from['address'] = await DOGE_LTC_getaccountaddress(ctx.message.author.id, COIN_NAME.upper())
+        user_from['address'] = await DOGE_LTC_getaccountaddress(str(ctx.message.author.id), COIN_NAME)
         user_from['actual_balance'] = float(await DOGE_LTC_getbalance_acc(ctx.message.author.id, COIN_NAME, 6))
         real_amount = float(amount)
         userdata_balance = store.sql_doge_balance(ctx.message.author.id, COIN_NAME)
@@ -3054,8 +3052,8 @@ async def send(ctx, amount: str, CoinAddress: str):
         IntaddressLength = get_intaddrlen(COIN_NAME)
         EMOJI_TIP = get_emoji(COIN_NAME)
 
-        if COIN_NAME.upper() in MAINTENANCE_COIN:
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME.upper()} in maintenance.')
+        if COIN_NAME in MAINTENANCE_COIN:
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
             return
 
         print('{} - {} - {}'.format(COIN_NAME, addressLength, IntaddressLength))
@@ -3135,8 +3133,6 @@ async def send(ctx, amount: str, CoinAddress: str):
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
                            f'`{CoinAddress}`')
             return
-
-        real_amount = int(amount * COIN_DEC)
 
         user_from = await store.sql_get_userwallet(ctx.message.author.id, COIN_NAME)
         if user_from['balance_wallet_address'] == CoinAddress:
@@ -3361,19 +3357,19 @@ async def address(ctx, *args):
         else:
             serverinfo = store.sql_info_by_server(str(ctx.guild.id))
             try:
-                COIN_NAME = args[0]
-                if COIN_NAME.upper() not in ENABLE_COIN:
-                    if COIN_NAME.upper() in ENABLE_COIN_DOGE:
-                        COIN_NAME = COIN_NAME.upper()
+                COIN_NAME = args[0].upper()
+                if COIN_NAME not in ENABLE_COIN:
+                    if COIN_NAME in ENABLE_COIN_DOGE:
+                        pass
                     elif 'default_coin' in serverinfo:
                         COIN_NAME = serverinfo['default_coin'].upper()
                 else:
-                    COIN_NAME = COIN_NAME.upper()
+                    pass
             except:
                 if 'default_coin' in serverinfo:
                     COIN_NAME = serverinfo['default_coin'].upper()
             print("COIN_NAME: " + COIN_NAME)
-        donateAddress = get_donate_address(COIN_NAME.upper()) or 'WrkzRNDQDwFCBynKPc459v3LDa1gEGzG3j962tMUBko1fw9xgdaS9mNiGMgA9s1q7hS1Z8SGRVWzcGc8Sh8xsvfZ6u2wJEtoZB'
+        donateAddress = get_donate_address(COIN_NAME) or 'WrkzRNDQDwFCBynKPc459v3LDa1gEGzG3j962tMUBko1fw9xgdaS9mNiGMgA9s1q7hS1Z8SGRVWzcGc8Sh8xsvfZ6u2wJEtoZB'
         await ctx.send('**[ ADDRESS CHECKING EXAMPLES ]**\n\n'
                        f'`.address {donateAddress}`\n'
                        'That will check if the address is valid. Integrated address is also supported. '
@@ -3391,6 +3387,7 @@ async def address(ctx, *args):
         return
     # Check which coinname is it.
     COIN_NAME = get_cn_coin_from_address(CoinAddress)
+
     if COIN_NAME:
         pass
     else:
@@ -3412,7 +3409,6 @@ async def address(ctx, *args):
     IntaddressLength = get_intaddrlen(COIN_NAME)
 
     if len(args) == 1:
-        CoinAddress = args[0]
         if COIN_NAME == "DOGE":
             valid_address = await DOGE_LTC_validaddress(str(CoinAddress), COIN_NAME)
             if 'isvalid' in valid_address:
@@ -3449,7 +3445,7 @@ async def address(ctx, *args):
                 await ctx.send(f'{EMOJI_RED_NO} Address: `{CoinAddress}`\n'
                                 'Checked: Invalid.')
                 return
-        elif COIN_NAME == "XTOR" or "LOKI":
+        elif COIN_NAME == "XTOR" or COIN_NAME == "LOKI":
             valid_address = await validate_address_xmr(str(CoinAddress), COIN_NAME)
             if valid_address['valid'] == True:
                 address_result = 'Valid: `{}`\n'.format(str(valid_address['valid'])) + \
@@ -3458,8 +3454,10 @@ async def address(ctx, *args):
                 await ctx.message.add_reaction(EMOJI_CHECK)
                 await ctx.send(f'{EMOJI_CHECK} Address: `{CoinAddress}`\n{address_result}')
                 return
+        print('here....')
         if len(CoinAddress) == int(addressLength):
             valid_address = addressvalidation.validate_address_cn(CoinAddress, COIN_NAME)
+            print(valid_address)
             if valid_address is None:
                 await ctx.message.add_reaction(EMOJI_ERROR)
                 await ctx.send(f'{EMOJI_RED_NO} Address: `{CoinAddress}`\n'
@@ -3935,18 +3933,17 @@ async def height(ctx, coin: str = None):
         else:
             serverinfo = store.sql_info_by_server(str(ctx.guild.id))
             try:
-                COIN_NAME = args[0]
-                if COIN_NAME.upper() not in ENABLE_COIN:
-                    if COIN_NAME.upper() in ENABLE_COIN_DOGE:
-                        COIN_NAME = COIN_NAME.upper()
+                COIN_NAME = args[0].upper()
+                if COIN_NAME not in ENABLE_COIN:
+                    if COIN_NAME in ENABLE_COIN_DOGE:
+                        pass
                     elif 'default_coin' in serverinfo:
                         COIN_NAME = serverinfo['default_coin'].upper()
                 else:
-                    COIN_NAME = COIN_NAME.upper()
+                    pass
             except:
                 if 'default_coin' in serverinfo:
                     COIN_NAME = serverinfo['default_coin'].upper()
-            coin = COIN_NAME
             pass
     else:
         COIN_NAME = coin.upper()
@@ -4131,24 +4128,25 @@ async def setting(ctx, *args):
 async def addressqr(ctx, *args):
     # Check if address is valid first
     if len(args) == 0:
+        COIN_NAME = 'WRKZ'
         if isinstance(ctx.message.channel, discord.DMChannel):
             COIN_NAME = 'WRKZ'
         else:
             serverinfo = store.sql_info_by_server(str(ctx.guild.id))
             try:
-                COIN_NAME = args[0]
-                if COIN_NAME.upper() not in ENABLE_COIN:
-                    if COIN_NAME.upper() in ENABLE_COIN_DOGE:
-                        COIN_NAME = COIN_NAME.upper()
+                COIN_NAME = args[0].upper()
+                if COIN_NAME not in ENABLE_COIN:
+                    if COIN_NAME in ENABLE_COIN_DOGE:
+                        pass
                     elif 'default_coin' in serverinfo:
                         COIN_NAME = serverinfo['default_coin'].upper()
                 else:
-                    COIN_NAME = COIN_NAME.upper()
+                    pass
             except:
                 if 'default_coin' in serverinfo:
                     COIN_NAME = serverinfo['default_coin'].upper()
             print("COIN_NAME: " + COIN_NAME)
-        donateAddress = get_donate_address(COIN_NAME.upper()) or 'WrkzRNDQDwFCBynKPc459v3LDa1gEGzG3j962tMUBko1fw9xgdaS9mNiGMgA9s1q7hS1Z8SGRVWzcGc8Sh8xsvfZ6u2wJEtoZB'
+        donateAddress = get_donate_address(COIN_NAME) or 'WrkzRNDQDwFCBynKPc459v3LDa1gEGzG3j962tMUBko1fw9xgdaS9mNiGMgA9s1q7hS1Z8SGRVWzcGc8Sh8xsvfZ6u2wJEtoZB'
         await ctx.send('**[ QR ADDRESS EXAMPLES ]**\n\n'
                        f'```.qr {donateAddress}\n'
                        'This will generate a QR address.'
@@ -4888,7 +4886,7 @@ async def _tip(ctx, amount, coin: str):
         MinTx = config.daemonDOGE.min_mv_amount
         MaxTX = config.daemonDOGE.max_mv_amount
         user_from = {}
-        user_from['address'] = await DOGE_LTC_getaccountaddress(str(ctx.message.author.id), COIN_NAME.upper())
+        user_from['address'] = await DOGE_LTC_getaccountaddress(str(ctx.message.author.id), COIN_NAME)
         user_from['actual_balance'] = float(await DOGE_LTC_getbalance_acc(ctx.message.author.id, COIN_NAME, 6))
         real_amount = float(amount)
         userdata_balance = store.sql_doge_balance(ctx.message.author.id, COIN_NAME)

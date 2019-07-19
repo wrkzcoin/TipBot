@@ -114,10 +114,10 @@ async def sql_update_balances(coin: str = None):
                         elif ('payment_id' in tx) and (tx['payment_id'] not in list_balance_user):
                             list_balance_user[tx['payment_id']] = tx['amount']
                         try:
-                            sql = """ INSERT IGNORE INTO """+coin.lower()+"""_get_transfers (`in_out`, `txid`, 
+                            sql = """ INSERT IGNORE INTO """+coin.lower()+"""_get_transfers (`coin_name`, `in_out`, `txid`, 
                             `payment_id`, `height`, `timestamp`, `amount`, `fee`, `decimal`, `address`, time_insert) 
                             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                            cur.execute(sql, (tx['type'].upper(), tx['txid'], tx['payment_id'], tx['height'], tx['timestamp'],
+                            cur.execute(sql, (COIN_NAME, tx['type'].upper(), tx['txid'], tx['payment_id'], tx['height'], tx['timestamp'],
                                               tx['amount'], tx['fee'], wallet.get_decimal(COIN_NAME), tx['address'], int(time.time())))
                             conn_cursors.commit()
                         except Exception as e:

@@ -315,7 +315,7 @@ def get_tx_fee(coin: str = None):
 def get_coin_fullname(coin: str = None):
     qr_address_pref = {"TRTL":"turtlecoin","DEGO":"derogold","LCX":"lightchain","CX":"catalyst","WRKZ":"wrkzcoin","OSL":"oscillate",\
     "BTCM":"bitcoinmono","MTIP":"monkeytips","XCY":"cypruscoin","PLE":"plenteum","ELPH":"elphyrecoin","ANX":"aluisyocoin","NBX":"nibbleclassic",\
-    "ARMS":"2acoin","HITC":"hitc","NACA":"nashcash","XTOR":"bittoro","BLOG":"blogcoin","LOK":"loki","XTRI":"triton"}
+    "ARMS":"2acoin","HITC":"hitc","NACA":"nashcash","XTOR":"bittoro","LOKI":"loki","BLOG":"blogcoin","LOK":"loki","XTRI":"triton"}
     return getattr(qr_address_pref,coin,"wrkzcoin")
 
 

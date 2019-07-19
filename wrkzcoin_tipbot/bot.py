@@ -83,7 +83,8 @@ EMOJI_COIN = {
     "HITC" : "\U0001F691",
     "NACA" : "\U0001F355",
     "DOGE" : "\U0001F436",
-    "XTOR" : "\U0001F315"
+    "XTOR" : "\U0001F315",
+    "LOKI" : "\u2600"
     }
 
 EMOJI_RED_NO = "\u26D4"
@@ -121,6 +122,7 @@ NOTICE_COIN = {
     "HITC" : None,
     "NACA" : None,
     "XTOR" : None,
+    "LOKI" : None,
     "DOGE" : "Please acknowledge that DOGE address is for **one-time** use only for depositing."}
 
 NOTIFICATION_OFF_CMD = 'Type: `.notifytip off` to turn off this DM notification.'
@@ -1151,6 +1153,28 @@ async def balance(ctx, coin: str = None):
         else:
             table_data.append([COIN_NAME, "***", "***"])
         # End of Add XTOR
+        COIN_NAME = "LOKI"
+        if COIN_NAME not in MAINTENANCE_COIN:
+            wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+            if wallet is None:
+                userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+                wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+            if wallet:
+                actual = wallet['actual_balance']
+                locked = wallet['locked_balance']
+                userdata_balance = store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
+                balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
+                if actual == locked:
+                    balance_locked = num_format_coin(0, COIN_NAME)
+                else:
+                    if locked - actual + float(userdata_balance['Adjust']) < 0:
+                        balance_locked =  num_format_coin(0, COIN_NAME)
+                    else:
+                        balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
+                table_data.append([COIN_NAME, balance_actual, balance_locked])
+        else:
+            table_data.append([COIN_NAME, "***", "***"])
+        # End of Add XTOR
         table = AsciiTable(table_data)
         # table.inner_column_border = False
         # table.outer_border = False
@@ -1507,6 +1531,8 @@ async def register(ctx, wallet_address: str):
             COIN_NAME = "DOGE"
             pass
         elif len(wallet_address) == 98 and COIN_NAME == "XTOR":
+            pass
+        elif len(wallet_address) == 95 and COIN_NAME == "LOKI":
             pass
         else:
             await ctx.message.add_reaction(EMOJI_WARNING)
@@ -3075,8 +3101,12 @@ async def send(ctx, amount: str, CoinAddress: str):
                 await botLogChan.send(f'A user failed to execute `.send {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`.')
                 return
             return
-        elif (len(CoinAddress) == 98 or len(CoinAddress) == 109) and CoinAddress.startswith("bit"):
-            COIN_NAME = "XTOR"
+        elif ((len(CoinAddress) == 98 or len(CoinAddress) == 109) and CoinAddress.startswith("bit") or \
+            (len(CoinAddress) == 95 or len(CoinAddress) == 106) and CoinAddress.startswith("L")):
+            if CoinAddress.startswith("L"):
+                COIN_NAME = "LOKI"
+            elif CoinAddress.startswith("bit"):
+                COIN_NAME = "XTOR"
             COIN_DEC = get_decimal(COIN_NAME)
             netFee = get_tx_fee(COIN_NAME)
             MinTx = get_min_tx_amount(COIN_NAME)
@@ -3164,7 +3194,7 @@ async def send(ctx, amount: str, CoinAddress: str):
                 await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
                                f'`{CoinAddress}`')
                 return
-        elif COIN_NAME == "XTOR":
+        elif COIN_NAME == "XTOR" or COIN_NAME == "LOKI":
             valid_address = await validate_address_xmr(str(CoinAddress), COIN_NAME)
             if valid_address['valid'] == True:
                 valid_address = CoinAddress
@@ -3187,7 +3217,7 @@ async def send(ctx, amount: str, CoinAddress: str):
                 iCoinAddress = CoinAddress
                 CoinAddress = valid_address['address']
                 paymentid = valid_address['integrated_id']
-        elif COIN_NAME == "XTOR":
+        elif COIN_NAME == "XTOR" or COIN_NAME == "LOKI":
             valid_address = await validate_address_xmr(str(CoinAddress), COIN_NAME)
             if valid_address['valid'] == True:
                 valid_address = CoinAddress
@@ -3399,6 +3429,8 @@ async def address(ctx, *args):
             pass
         elif (len(CoinAddress) == 98 or len(CoinAddress) == 109) and COIN_NAME == "XTOR":
             pass
+        elif (len(CoinAddress) == 95 or len(CoinAddress) == 106) and COIN_NAME == "LOKI":
+            pass
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
@@ -3455,7 +3487,15 @@ async def address(ctx, *args):
                 await ctx.message.add_reaction(EMOJI_CHECK)
                 await ctx.send(f'{EMOJI_CHECK} Address: `{CoinAddress}`\n{address_result}')
                 return
-                    
+        elif COIN_NAME == "LOKI":
+            valid_address = await validate_address_xmr(str(CoinAddress), COIN_NAME)
+            if valid_address['valid'] == True:
+                address_result = 'Valid: `{}`\n'.format(str(valid_address['valid'])) + \
+                               'Integrated: `{}`\n'.format(str(valid_address['integrated'])) + \
+                               'Subaddress: `{}`\n'.format(str(valid_address['subaddress']))
+                await ctx.message.add_reaction(EMOJI_CHECK)
+                await ctx.send(f'{EMOJI_CHECK} Address: `{CoinAddress}`\n{address_result}')
+                return
         if len(CoinAddress) == int(addressLength):
             valid_address = addressvalidation.validate_address_cn(CoinAddress, COIN_NAME)
             if valid_address is None:
@@ -3825,7 +3865,7 @@ async def stats(ctx, coin: str = None):
     elif coin:
         COIN_NAME = coin.upper()
 
-    if (COIN_NAME not in (ENABLE_COIN+["XTOR"])) and COIN_NAME != "BOT":
+    if (COIN_NAME not in (ENABLE_COIN+["XTOR", "LOKI"])) and COIN_NAME != "BOT":
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{ctx.author.mention} Please put available ticker: '+ ', '.join(ENABLE_COIN).lower())
         return
@@ -3950,7 +3990,7 @@ async def height(ctx, coin: str = None):
         COIN_NAME = coin.upper()
 
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-    if COIN_NAME not in (ENABLE_COIN+["XTOR"]):
+    if COIN_NAME not in (ENABLE_COIN+["XTOR", "LOKI"]):
         await ctx.message.add_reaction(EMOJI_ERROR)
         msg = await ctx.send(f'{ctx.author.mention} Please put available ticker: '+ ', '.join(ENABLE_COIN).lower())
         return
@@ -4563,6 +4603,8 @@ def get_cn_coin_from_address(CoinAddress: str):
         COIN_NAME = "TRTL"
     elif CoinAddress.startswith("bit"):
         COIN_NAME = "XTOR"
+    elif CoinAddress.startswith("L") and (len(CoinAddress) == 95 or len(CoinAddress) == 106):
+        COIN_NAME = "LOKI"
     return COIN_NAME
 
 

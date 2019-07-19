@@ -4773,8 +4773,8 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
         return
 
     notifyList = store.sql_get_tipnotify()
-    if coin_family not in ["TRTL", "CCX"]:
-        await message.add_reaction(EMOJI_ERROR)
+    if coin_family not in ["TRTL", "CCX", "DOGE"]:
+        await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} is restricted with this command.')
         return
     if coin_family == "TRTL" or coin_family == "CCX":
@@ -4784,7 +4784,6 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
         MaxTX = get_max_tx_amount(COIN_NAME)
         EMOJI_TIP = get_emoji(COIN_NAME)
     elif COIN_NAME == "DOGE":
-        COIN_NAME = "DOGE"
         EMOJI_TIP = get_emoji(COIN_NAME)
         MinTx = config.daemonDOGE.min_mv_amount
         MaxTX = config.daemonDOGE.max_mv_amount
@@ -4792,7 +4791,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
         user_from['address'] = await DOGE_LTC_getaccountaddress(str(ctx.message.author.id), COIN_NAME)
         user_from['actual_balance'] = float(await DOGE_LTC_getbalance_acc(str(ctx.message.author.id), COIN_NAME, 6))
         real_amount = float(amount)
-        userdata_balance = store.sql_doge_balance(ctx.message.author.id, COIN_NAME)
+        userdata_balance = store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
         if real_amount > user_from['actual_balance'] + userdata_balance['Adjust']:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '

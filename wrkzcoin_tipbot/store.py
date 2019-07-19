@@ -436,7 +436,7 @@ async def sql_send_tip(user_from: str, user_to: str, amount: int, coin: str = No
                                       `locked_balance`=%s, `lastUpdate`=%s WHERE `balance_wallet_address`=%s """
                             cur.execute(sql, (updateBalance['unlocked'], updateBalance['locked'],
                                         updateTime, user_to_wallet['balance_wallet_address'],))
-                            conn.commit()
+                            conn_cursors.commit()
             except Exception as e:
                 print(e)
         return tx_hash
@@ -877,7 +877,7 @@ def sql_optimize_update(userID: str, coin: str = None):
 
 
 async def sql_optimize_admin_do(coin: str, opt_num: int = None):
-    global conn
+    global conn_cursors
     if opt_num is None:
         opt_num = 5
     if coin is None:
@@ -1507,7 +1507,7 @@ def sql_set_forwardtip(userID: str, coin: str, option: str):
             with conn_cursors.cursor() as cur: 
                 sql = """ UPDATE """+coin.lower()+"""_user SET forwardtip='"""+option.upper()+"""' WHERE user_id=%s """
                 cur.execute(sql, (str(userID),))
-                conn.commit()
+                conn_cursors.commit()
         except Exception as e:
             print(e)
 

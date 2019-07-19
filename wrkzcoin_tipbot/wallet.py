@@ -5,6 +5,8 @@ import rpc_client
 import aiohttp
 import asyncio
 import time
+import addressvalidation
+
 from config import config
 
 import sys
@@ -368,6 +370,7 @@ def num_format_coin(amount, coin: str = None):
     return amount_str
 
 
+# XMR
 async def validate_address_xmr(address: str, coin: str):
     coin_family = getattr(getattr(config,"daemon"+coin),"coin_family","XMR")
     if coin_family == "XMR":
@@ -381,6 +384,57 @@ async def validate_address_xmr(address: str, coin: str):
             return address_xmr
         else:
             return None
+
+
+async def make_integrated_address_xmr(address: str, coin: str, paymentid: str = None):
+    COIN_NAME = coin.upper()
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","XMR")
+    if paymentid:
+        try:
+            value = int(paymentid, 16)
+        except ValueError:
+            return False
+    else:
+        paymentid = addressvalidation.paymentid(8)
+    if coin_family == "XMR":
+        payload = {
+            "standard_address" : address,
+            "payment_id": {} or paymentid
+        }
+        address_ia = await rpc_client.call_aiohttp_wallet('make_integrated_address', COIN_NAME, payload=payload)
+        if address_ia:
+            return address_ia
+        else:
+            return None
+
+
+async def get_transfers_xmr(coin: str, height_start: int = None, height_end: int = None):
+    COIN_NAME = coin.upper()
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","XMR")
+    if coin_family == "XMR":
+        payload = None
+        if height_start and height_end:
+            payload = {
+                "in" : True,
+                "out": True,
+                "pending": False,
+                "failed": False,
+                "pool": False,
+                "filter_by_height": True,
+                "min_height": height_start,
+                "max_height": height_end
+            }
+        else:
+            payload = {
+                "in" : True,
+                "out": True,
+                "pending": False,
+                "failed": False,
+                "pool": False,
+                "filter_by_height": False
+            }
+        result = await rpc_client.call_aiohttp_wallet('get_transfers', COIN_NAME, payload=payload)
+        return result
 
 
 async def DOGE_LTC_register(account: str, coin: str) -> str:

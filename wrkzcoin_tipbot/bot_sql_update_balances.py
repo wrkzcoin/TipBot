@@ -5,6 +5,7 @@ import store
 import time
 import asyncio
 
+
 ENABLE_COIN = config.Enable_Coin.split(",")
 INTERVAL_EACH = 10
 
@@ -13,6 +14,17 @@ INTERVAL_EACH = 10
 async def update_balance():
     print('sleep in second: '+str(INTERVAL_EACH))
     # do not update yet
+    # XTOR:
+    COIN_NAME = "XTOR"
+    asyncio.sleep(INTERVAL_EACH)
+    print('Update balance: '+ COIN_NAME)
+    start = time.time()
+    try:
+        await store.sql_update_balances(COIN_NAME)
+    except Exception as e:
+        print(e)
+    end = time.time()
+    print('Done update balance: '+ COIN_NAME+ ' duration (s): '+str(end - start))
     for coinItem in ENABLE_COIN:
         asyncio.sleep(INTERVAL_EACH)
         print('Update balance: '+ coinItem.upper().strip())

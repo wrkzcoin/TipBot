@@ -399,6 +399,31 @@ daemonNACA:
   MinToOptimize: 1
   IntervalOptimize: 600
   coin_family: "TRTL"
+# XTOR
+daemonXTOR:
+  host: "192.168.100.103"
+  port: 1111
+  duser: "..."
+  dpassword: "..."
+  # XTOR is 9-digit, 1000000000
+  wallethost: "127.0.0.1"
+  walletport: "1118"
+  mixin: 9
+  tx_fee: 1000000000 # per KB
+  min_tx_amount: 10000000
+  max_tx_amount: 1000000000000
+  # other settings
+  MainAddress: "bittH8UT2UWhfCeWJaS14Y1z6ufr5ewQf4dS8uGnGqWcU44DoUSVidnd6dNU9ZKd55aC9XXv4ZPsD1AYX1Ca1ree7djyMnvDof"
+  DonateAccount: "Xyz"
+  DonateAddress: "bittH8UT2UWhfCeWJaS14Y1z6ufr5ewQf4dS8uGnGqWcU44DoUSVidnd6dNU9ZKd55aC9XXv4ZPsD1AYX1Ca1ree7djyMnvDof"
+  prefix: 375936
+  prefixChar: "bit"
+  decimal: 1000000000
+  AddrLen: 98
+  IntAddrLen: 109
+  name: "XTOR"
+  DiffTarget: 60
+  coin_family: "XMR"
 # DOGECOIN. DOGE is real amount
 daemonDOGE:
   host: "127.0.0.1"

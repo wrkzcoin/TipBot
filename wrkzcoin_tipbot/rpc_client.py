@@ -18,7 +18,6 @@ class RPCException(Exception):
 
 async def call_aiohttp_wallet(method_name: str, coin: str, payload: Dict = None) -> Dict:
     coin_family = getattr(getattr(config,"daemon"+coin),"coin_family","TRTL")
-    print('coin_family: '+coin_family)
     full_payload = {
         'params': payload or {},
         'jsonrpc': '2.0',

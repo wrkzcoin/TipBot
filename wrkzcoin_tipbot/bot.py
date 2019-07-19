@@ -3825,7 +3825,7 @@ async def stats(ctx, coin: str = None):
     elif coin:
         COIN_NAME = coin.upper()
 
-    if (COIN_NAME not in ENABLE_COIN) and COIN_NAME != "BOT":
+    if (COIN_NAME not in (ENABLE_COIN+["XTOR"])) and COIN_NAME != "BOT":
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{ctx.author.mention} Please put available ticker: '+ ', '.join(ENABLE_COIN).lower())
         return
@@ -3863,7 +3863,8 @@ async def stats(ctx, coin: str = None):
     except Exception as e:
         print(e)
     
-
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    
     if gettopblock:
         COIN_DEC = get_decimal(COIN_NAME)
         COIN_DIFF = get_diff_target(COIN_NAME)
@@ -3873,7 +3874,14 @@ async def stats(ctx, coin: str = None):
         hashrate = str(hhashes(int(gettopblock['block_header']['difficulty']) / int(COIN_DIFF)))
         height = "{:,}".format(gettopblock['block_header']['height'])
         reward = "{:,}".format(int(gettopblock['block_header']['reward'])/int(COIN_DEC))
-        if walletStatus is None:
+
+        blockfound = datetime.utcfromtimestamp(int(gettopblock['block_header']['timestamp'])).strftime("%Y-%m-%d %H:%M:%S")
+        ago = str(timeago.format(blockfound, datetime.utcnow()))
+        difficulty = "{:,}".format(gettopblock['block_header']['difficulty'])
+        hashrate = str(hhashes(int(gettopblock['block_header']['difficulty']) / int(COIN_DIFF)))
+        height = "{:,}".format(gettopblock['block_header']['height'])
+        reward = "{:,}".format(int(gettopblock['block_header']['reward'])/int(COIN_DEC))
+        if (walletStatus is None) or coin_family == "XMR":
             msg = await ctx.send(f'**[ {COIN_NAME} ]**\n'
                            f'```[NETWORK HEIGHT] {height}\n'
                            f'[TIME]           {ago}\n'
@@ -3941,7 +3949,8 @@ async def height(ctx, coin: str = None):
     else:
         COIN_NAME = coin.upper()
 
-    if COIN_NAME not in ENABLE_COIN:
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    if COIN_NAME not in (ENABLE_COIN+["XTOR"]):
         await ctx.message.add_reaction(EMOJI_ERROR)
         msg = await ctx.send(f'{ctx.author.mention} Please put available ticker: '+ ', '.join(ENABLE_COIN).lower())
         return
@@ -3958,7 +3967,9 @@ async def height(ctx, coin: str = None):
         print(e)
 
     if gettopblock:
-        height = "{:,}".format(gettopblock['block_header']['height'])
+        height = ""
+        if coin_family == "TRTL" or coin_family == "CCX" or coin_family == "XMR":
+            height = "{:,}".format(gettopblock['block_header']['height'])
         msg = await ctx.send(f'**[ {COIN_NAME} HEIGHT]**: {height}\n')
         await msg.add_reaction(EMOJI_OK_BOX)
         return

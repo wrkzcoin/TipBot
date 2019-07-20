@@ -258,8 +258,22 @@ async def on_reaction_add(reaction, user):
     # If other people beside bot react.
     else:
         # If re-action is OK box and message author is bot itself
-        if reaction.emoji == EMOJI_OK_BOX and reaction.message.author.id == bot.user.id:
+        if reaction.emoji == EMOJI_OK_BOX and reaction.message.author.id == bot.user.id \
+            and (not reaction.message.content.startswith("**ADDRESS REQ")):
             await reaction.message.delete()
+        elif reaction.emoji == EMOJI_OK_BOX and reaction.message.author.id == bot.user.id \
+            and reaction.message.content.startswith("**ADDRESS REQ") and \
+            (user in reaction.message.mentions):
+            # OK he confirm
+            COIN_NAME = reaction.message.content.split()[2].upper()
+            if COIN_NAME in (ENABLE_COIN+["XTOR", "LOKI"]):
+                user_addr = await store.sql_get_userwallet(str(user.id), COIN_NAME)
+                if user_addr is None:
+                    userregister = await store.sql_register_user(str(user.id), COIN_NAME)
+                    user_addr = await store.sql_get_userwallet(str(user.id), COIN_NAME)
+                address = user_addr['balance_wallet_address'] or "NONE"
+                msg = await reaction.message.channel.send(f'{user.mention}\'s {COIN_NAME} deposit address:\n```{address}```')
+                await msg.add_reaction(EMOJI_OK_BOX)
         return
 
 
@@ -863,7 +877,51 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
     else:
         table_data.append([COIN_NAME, "***", "***"])
     # End of Add DOGE
-
+    # Add XTOR
+    COIN_NAME = "XTOR"
+    if COIN_NAME not in MAINTENANCE_COIN:
+        wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
+        if wallet is None:
+            userregister = await store.sql_register_user(str(user_id), COIN_NAME)
+            wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
+        if wallet:
+            actual = wallet['actual_balance']
+            locked = wallet['locked_balance']
+            userdata_balance = store.sql_xmr_balance(str(user_id), COIN_NAME)
+            balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
+            if actual == locked:
+                balance_locked = num_format_coin(0, COIN_NAME)
+            else:
+                if locked - actual + float(userdata_balance['Adjust']) < 0:
+                    balance_locked =  num_format_coin(0, COIN_NAME)
+                else:
+                    balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
+            table_data.append([COIN_NAME, balance_actual, balance_locked])
+        else:
+            table_data.append([COIN_NAME, "***", "***"])
+    # End of Add XTOR
+    COIN_NAME = "LOKI"
+    if COIN_NAME not in MAINTENANCE_COIN:
+        wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
+        if wallet is None:
+            userregister = await store.sql_register_user(str(user_id), COIN_NAME)
+            wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
+        if wallet:
+            actual = wallet['actual_balance']
+            locked = wallet['locked_balance']
+            userdata_balance = store.sql_xmr_balance(str(user_id), COIN_NAME)
+            balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
+            if actual == locked:
+                balance_locked = num_format_coin(0, COIN_NAME)
+            else:
+                if locked - actual + float(userdata_balance['Adjust']) < 0:
+                    balance_locked =  num_format_coin(0, COIN_NAME)
+                else:
+                    balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
+            table_data.append([COIN_NAME, balance_actual, balance_locked])
+    else:
+        table_data.append([COIN_NAME, "***", "***"])
+    # End of Add LOKI
     table = AsciiTable(table_data)
     table.padding_left = 0
     table.padding_right = 0
@@ -2212,7 +2270,7 @@ async def tip(ctx, amount: str, *args):
     COIN_NAME = None
     try:
         COIN_NAME = args[0].upper()
-        if COIN_NAME == "XTOR":
+        if COIN_NAME == "XTOR" or COIN_NAME == "LOKI":
             pass
         elif COIN_NAME not in ENABLE_COIN:
             if COIN_NAME in ENABLE_COIN_DOGE:
@@ -3375,8 +3433,30 @@ async def address(ctx, *args):
                        'That will check if the address is valid. Integrated address is also supported. '
                        'If integrated address is input, bot will tell you the result of :address + paymentid\n\n'
                        '`.address <coin_address> <paymentid>`\n'
-                       'This will generate an integrate address.\n\n')
+                       'This will generate an integrate address.\n\n'
+                       f'If you would like to get your address, please use **info {COIN_NAME}** or **info TICKER** instead.')
         return
+
+    # Check if a user request address coin of another user
+    # .addr COIN @mention
+    if len(args) == 2:
+        COIN_NAME = None
+        member = None
+        try:
+            COIN_NAME = args[0].upper()
+            member = ctx.message.mentions[0]
+            if COIN_NAME not in (ENABLE_COIN+["XTOR", "LOKI"]):
+                COIN_NAME = None
+        except Exception as e:
+            pass
+        if COIN_NAME and member:
+            # OK there is COIN_NAME and member
+            if member.id == ctx.message.author.id:
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                return
+            msg = await ctx.send(f'**ADDRESS REQ {COIN_NAME} **: {member.mention}, {str(ctx.author)} would like to get your address in public.')
+            await msg.add_reaction(EMOJI_OK_BOX)
+            return
 
     CoinAddress = args[0]
     COIN_NAME = None

@@ -2401,7 +2401,7 @@ async def tip(ctx, amount: str, *args):
     elif coin_family == "XMR":
         COIN_DEC = get_decimal(COIN_NAME)
         real_amount = int(amount * COIN_DEC)
-        netFee = get_tx_fee(COIN_NAME)
+        netFee = 0 # get_tx_fee(COIN_NAME)
         MinTx = get_min_tx_amount(COIN_NAME)
         MaxTX = get_max_tx_amount(COIN_NAME)
         EMOJI_TIP = get_emoji(COIN_NAME)
@@ -2720,7 +2720,7 @@ async def tipall(ctx, amount: str, *args):
     if coin_family == "XMR":
         COIN_DEC = get_decimal(COIN_NAME)
         real_amount = int(amount * COIN_DEC)
-        netFee = get_tx_fee(COIN_NAME)
+        netFee = 0 # get_tx_fee(COIN_NAME)
         MinTx = get_min_tx_amount(COIN_NAME)
         MaxTX = get_max_tx_amount(COIN_NAME)
         EMOJI_TIP = get_emoji(COIN_NAME)
@@ -2813,7 +2813,7 @@ async def tipall(ctx, amount: str, *args):
         user_from['address'] = await DOGE_LTC_getaccountaddress(str(ctx.message.author.id), COIN_NAME)
         user_from['actual_balance'] = float(await DOGE_LTC_getbalance_acc(ctx.message.author.id, COIN_NAME, 6))
         real_amount = float(amount)
-        userdata_balance = store.sql_doge_balance(ctx.message.author.id, COIN_NAME)
+        userdata_balance = store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
         if real_amount > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
@@ -4881,7 +4881,7 @@ async def _tip(ctx, amount, coin: str):
         EMOJI_TIP = get_emoji(COIN_NAME)
     elif coin_family == "XMR":
         COIN_DEC = get_decimal(COIN_NAME)
-        netFee = get_tx_fee(COIN_NAME)
+        netFee = 0 # get_tx_fee(COIN_NAME)
         MinTx = get_min_tx_amount(COIN_NAME)
         MaxTX = get_max_tx_amount(COIN_NAME)
         EMOJI_TIP = get_emoji(COIN_NAME)
@@ -5265,7 +5265,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
         EMOJI_TIP = get_emoji(COIN_NAME)
     elif coin_family == "XMR":
         COIN_DEC = get_decimal(COIN_NAME)
-        netFee = get_tx_fee(COIN_NAME)
+        netFee = 0 # get_tx_fee(COIN_NAME)
         MinTx = get_min_tx_amount(COIN_NAME)
         MaxTX = get_max_tx_amount(COIN_NAME)
         EMOJI_TIP = get_emoji(COIN_NAME)

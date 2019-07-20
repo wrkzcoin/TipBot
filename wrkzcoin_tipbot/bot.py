@@ -3878,8 +3878,12 @@ async def voucher(ctx, command: str, amount: str, coin: str = None):
 
 
 @bot.command(pass_context=True, name='paymentid', aliases=['payid'], help=bot_help_paymentid)
-async def paymentid(ctx):
-    paymentid = addressvalidation.paymentid()
+async def paymentid(ctx, coin: str = None):
+    paymentid = None
+    if coin and (coin.upper() in ["XMR", "LOKI", "XTOR"]):
+        paymentid = addressvalidation.paymentid(8)
+    else:
+        paymentid = addressvalidation.paymentid()
     await ctx.message.add_reaction(EMOJI_OK_HAND)
     await ctx.send('**[ RANDOM PAYMENT ID ]**\n'
                    f'`{paymentid}`\n')

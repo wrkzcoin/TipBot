@@ -266,14 +266,24 @@ async def on_reaction_add(reaction, user):
             (user in reaction.message.mentions):
             # OK he confirm
             COIN_NAME = reaction.message.content.split()[2].upper()
+            name_to_give = reaction.message.content.split()[5]
+            to_send = reaction.message.guild.get_member_named(name_to_give)
             if COIN_NAME in (ENABLE_COIN+["XTOR", "LOKI"]):
                 user_addr = await store.sql_get_userwallet(str(user.id), COIN_NAME)
                 if user_addr is None:
                     userregister = await store.sql_register_user(str(user.id), COIN_NAME)
                     user_addr = await store.sql_get_userwallet(str(user.id), COIN_NAME)
                 address = user_addr['balance_wallet_address'] or "NONE"
-                msg = await reaction.message.channel.send(f'{user.mention}\'s {COIN_NAME} deposit address:\n```{address}```')
-                await msg.add_reaction(EMOJI_OK_BOX)
+                # this one to public channel
+                # msg = await reaction.message.channel.send(f'{user.mention}\'s {COIN_NAME} deposit address:\n```{address}```')
+                try:
+                    msg = await to_send.send(f'{str(user)}\'s {COIN_NAME} deposit address:\n```{address}```')
+                    # delete message afterward to avoid loop.
+                    await reaction.message.delete()
+                except discord.Forbidden:
+                    await reaction.message.channel.send(f'{name_to_give.mention} I failed DM you.')
+                return
+                # await msg.add_reaction(EMOJI_OK_BOX)
         return
 
 
@@ -3454,7 +3464,7 @@ async def address(ctx, *args):
             if member.id == ctx.message.author.id:
                 await ctx.message.add_reaction(EMOJI_ERROR)
                 return
-            msg = await ctx.send(f'**ADDRESS REQ {COIN_NAME} **: {member.mention}, {str(ctx.author)} would like to get your address in public.')
+            msg = await ctx.send(f'**ADDRESS REQ {COIN_NAME} **: {member.mention}, {str(ctx.author)} would like to get your address.')
             await msg.add_reaction(EMOJI_OK_BOX)
             return
 

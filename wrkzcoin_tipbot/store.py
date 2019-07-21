@@ -809,19 +809,46 @@ def sql_get_donate_list():
                 sql = """ SELECT SUM(amount) AS donate FROM """+coin.lower()+"""_donate"""
                 cur.execute(sql,)
                 result = cur.fetchone()
-                if result is None:
-                    donate_list[coin] = 0
+                if result['donate'] is None:
+                   donate_list.update({coin: 0})
                 else:
-                    donate_list[coin] = result['donate']
+                   donate_list.update({coin: float(result['donate'])})
             # DOGE
             coin = "DOGE"
-            sql = """ SELECT SUM(amount) FROM """+coin.lower()+"""_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`='DogeDonateWrkz' """
-            cur.execute(sql,)
+            sql = """ SELECT SUM(amount) AS donate FROM """+coin.lower()+"""_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
+            cur.execute(sql, (wallet.get_donate_address(coin)))
             result = cur.fetchone()
-            if result is None:
-                donate_list[coin] = 0
+            if result['donate'] is None:
+                donate_list.update({coin: 0})
             else:
-                donate_list[coin] = result['donate']
+                donate_list.update({coin: float(result['donate'])})
+            # XTOR
+            coin = "XTOR"
+            sql = """ SELECT SUM(amount) AS donate FROM """+coin.lower()+"""_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
+            cur.execute(sql, (wallet.get_donate_address(coin)))
+            result = cur.fetchone()
+            if result['donate'] is None:
+                donate_list.update({coin: 0})
+            else:
+                donate_list.update({coin: float(result['donate'])})
+            # LOKI
+            coin = "LOKI"
+            sql = """ SELECT SUM(amount) AS donate FROM """+coin.lower()+"""_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
+            cur.execute(sql, (wallet.get_donate_address(coin)))
+            result = cur.fetchone()
+            if result['donate'] is None:
+                donate_list.update({coin: 0})
+            else:
+                donate_list.update({coin: float(result['donate'])})
+            # XMR
+            coin = "XMR"
+            sql = """ SELECT SUM(amount) AS donate FROM """+coin.lower()+"""_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
+            cur.execute(sql, (wallet.get_donate_address(coin)))
+            result = cur.fetchone()
+            if result['donate'] is None:
+                donate_list.update({coin: 0})
+            else:
+                donate_list.update({coin: float(result['donate'])})
         return donate_list
     except Exception as e:
         print(e)

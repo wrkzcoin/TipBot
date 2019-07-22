@@ -232,9 +232,13 @@ async def wallet_optimize_single(subaddress: str, threshold: int, coin: str=None
 
 
 async def rpc_cn_wallet_save(coin: str):
-    coin = coin.upper()
+    COIN_NAME = coin.upper()
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     start = time.time()
-    result = await rpc_client.call_aiohttp_wallet('save', coin)
+    if coin_family == "TRTL" or coin_family == "CCX":
+        result = await rpc_client.call_aiohttp_wallet('save', coin)
+    elif coin_family == "XMR":
+        result = await rpc_client.call_aiohttp_wallet('store', coin)
     end = time.time()
     return float(end - start)
 

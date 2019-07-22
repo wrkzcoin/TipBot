@@ -810,7 +810,7 @@ async def save(ctx, coin: str):
         await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} in maintenance.')
         return
     
-    if COIN_NAME in ENABLE_COIN:
+    if COIN_NAME in (ENABLE_COIN+ENABLE_XMR):
         duration = await rpc_cn_wallet_save(COIN_NAME)
         await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} called `save` for {COIN_NAME}')
         if duration:
@@ -1408,7 +1408,7 @@ async def balance(ctx, coin: str = None):
                     balance_locked = num_format_coin(0, COIN_NAME)
                 else:
                     balance_locked = num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
-
+            await ctx.message.add_reaction(EMOJI_OK_HAND)
             msg = await ctx.message.author.send(f'**[YOUR {COIN_NAME} BALANCE]**\n\n'
                 f'{EMOJI_MONEYBAG} Available: {balance_actual} '
                 f'{COIN_NAME}\n'

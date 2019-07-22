@@ -1763,7 +1763,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
     if repeatTx >= config.floodTip:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Cool down your tip or TX. or increase your amount next time.')
-        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} reached max. TX threshold. Currently halted: `.withdraw`')
+        await botLogChan.send('A user reached max. TX threshold. Currently halted: `.withdraw`')
         return
     # End of Check flood of tip
 
@@ -2031,7 +2031,7 @@ async def donate(ctx, amount: str, coin: str = None):
     if repeatTx >= config.floodTip:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Cool down your tip or TX. or increase your amount next time.')
-        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} reached max. TX threshold. Currently halted: `.donate`')
+        await botLogChan.send('A user reached max. TX threshold. Currently halted: `.donate`')
         return
     # End of Check flood of tip
 
@@ -2412,7 +2412,7 @@ async def tip(ctx, amount: str, *args):
     if repeatTx >= config.floodTip:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Cool down your tip or TX. or increase your amount next time.')
-        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} reached max. TX threshold. Currently halted: `.tip`')
+        await botLogChan.send('A user reached max. TX threshold. Currently halted: `.tip`')
         return
     # End of Check flood of tip
 
@@ -2738,7 +2738,7 @@ async def tipall(ctx, amount: str, *args):
     if repeatTx >= config.floodTip:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Cool down your tip or TX. or increase your amount next time.')
-        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} reached max. TX threshold. Currently halted: `.tipall`')
+        await botLogChan.send('A user reached max. TX threshold. Currently halted: `.tipall`')
         return
     # End of Check flood of tip
 
@@ -3110,7 +3110,7 @@ async def send(ctx, amount: str, CoinAddress: str):
     if repeatTx >= config.floodTip:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO}{ctx.author.mention} Cool down your tip or TX. or increase your amount next time.')
-        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} reached max. TX threshold. Currently halted: `.send`')
+        await botLogChan.send('A user reached max. TX threshold. Currently halted: `.send`')
         return
     # End of Check flood of tip
 

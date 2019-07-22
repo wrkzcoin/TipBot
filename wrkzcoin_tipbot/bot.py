@@ -886,6 +886,9 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
                 balance_locked =  num_format_coin(0, COIN_NAME)
             else:
                 balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
+        wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        if wallet['user_wallet_address'] is None:
+            COIN_NAME += '*'
         table_data.append([COIN_NAME, balance_actual, balance_locked])
     else:
         table_data.append([COIN_NAME, "***", "***"])
@@ -909,6 +912,8 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
                     balance_locked =  num_format_coin(0, COIN_NAME)
                 else:
                     balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
+            if wallet['user_wallet_address'] is None:
+                COIN_NAME += '*'
             table_data.append([COIN_NAME, balance_actual, balance_locked])
         else:
             table_data.append([COIN_NAME, "***", "***"])
@@ -931,6 +936,8 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
                     balance_locked =  num_format_coin(0, COIN_NAME)
                 else:
                     balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
+            if wallet['user_wallet_address'] is None:
+                COIN_NAME += '*'
             table_data.append([COIN_NAME, balance_actual, balance_locked])
     else:
         table_data.append([COIN_NAME, "***", "***"])
@@ -954,6 +961,8 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
                 else:
                     balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
             table_data.append([COIN_NAME, balance_actual, balance_locked])
+            if wallet['user_wallet_address'] is None:
+                COIN_NAME += '*'
     else:
         table_data.append([COIN_NAME, "***", "***"])
     # End of Add XMR
@@ -1228,9 +1237,9 @@ async def balance(ctx, coin: str = None):
         # Add DOGE
         COIN_NAME = "DOGE"
         if COIN_NAME not in MAINTENANCE_COIN:
-            depositAddress = await DOGE_LTC_getaccountaddress(ctx.message.author.id, COIN_NAME)
-            actual = float(await DOGE_LTC_getbalance_acc(ctx.message.author.id, COIN_NAME, 6))
-            locked = float(await DOGE_LTC_getbalance_acc(ctx.message.author.id, COIN_NAME, 1))
+            depositAddress = await DOGE_LTC_getaccountaddress(str(ctx.message.author.id), COIN_NAME)
+            actual = float(await DOGE_LTC_getbalance_acc(str(ctx.message.author.id), COIN_NAME, 6))
+            locked = float(await DOGE_LTC_getbalance_acc(str(ctx.message.author.id), COIN_NAME, 1))
             userdata_balance = store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
             if actual == locked:
                 balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
@@ -1241,6 +1250,9 @@ async def balance(ctx, coin: str = None):
                     balance_locked =  num_format_coin(0, COIN_NAME)
                 else:
                     balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
+            wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+            if wallet['user_wallet_address'] is None:
+                COIN_NAME += '*'
             table_data.append([COIN_NAME, balance_actual, balance_locked])
         else:
             table_data.append([COIN_NAME, "***", "***"])
@@ -1264,6 +1276,8 @@ async def balance(ctx, coin: str = None):
                         balance_locked =  num_format_coin(0, COIN_NAME)
                     else:
                         balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
+                if wallet['user_wallet_address'] is None:
+                    COIN_NAME += '*'
                 table_data.append([COIN_NAME, balance_actual, balance_locked])
         else:
             table_data.append([COIN_NAME, "***", "***"])
@@ -1286,6 +1300,8 @@ async def balance(ctx, coin: str = None):
                         balance_locked =  num_format_coin(0, COIN_NAME)
                     else:
                         balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
+                if wallet['user_wallet_address'] is None:
+                    COIN_NAME += '*'
                 table_data.append([COIN_NAME, balance_actual, balance_locked])
         else:
             table_data.append([COIN_NAME, "***", "***"])
@@ -1308,6 +1324,8 @@ async def balance(ctx, coin: str = None):
                         balance_locked =  num_format_coin(0, COIN_NAME)
                     else:
                         balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
+                if wallet['user_wallet_address'] is None:
+                    COIN_NAME += '*'
                 table_data.append([COIN_NAME, balance_actual, balance_locked])
         else:
             table_data.append([COIN_NAME, "***", "***"])

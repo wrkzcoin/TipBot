@@ -286,7 +286,8 @@ async def on_reaction_add(reaction, user):
                     # delete message afterward to avoid loop.
                     await reaction.message.delete()
                 except discord.Forbidden:
-                    await reaction.message.channel.send(f'{name_to_give.mention} I failed DM you.')
+                    # If DM is failed, popup to channel.
+                    await reaction.message.channel.send(f'{to_send.mention} I failed DM you for the address.')
                 return
                 # await msg.add_reaction(EMOJI_OK_BOX)
         return

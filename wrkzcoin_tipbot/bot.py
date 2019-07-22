@@ -27,7 +27,7 @@ from PIL import Image, ImageDraw, ImageFont
 # ascii table
 from terminaltables import AsciiTable
 
-import sys
+import sys, traceback
 import asyncio
 
 
@@ -125,8 +125,8 @@ NOTICE_COIN = {
     "NACA" : None,
     "XTOR" : None,
     "LOKI" : None,
-    "XTRI" : "XTRI still testing.",
-    "XMR" : "XMR still testing.",
+    "XTRI" : None,
+    "XMR" : None,
     "DOGE" : "Please acknowledge that DOGE address is for **one-time** use only for depositing."
     }
 
@@ -323,7 +323,7 @@ async def on_message(message):
         else:
             pass
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
         pass
 
     if message.content.upper().startswith('.HELP') or message.content.upper().startswith('.STAT'):
@@ -362,7 +362,7 @@ async def about(ctx):
         await ctx.send(embed=botdetails)
     except Exception as e:
         await ctx.message.author.send(embed=botdetails)
-        print(e)
+        traceback.print_exc(file=sys.stdout)
 
 
 @bot.group(hidden = True, aliases=['acc'], help=bot_help_account)
@@ -422,7 +422,7 @@ async def twofa(ctx):
         try:
             verified = userinfo['twofa_verified']
         except Exception as e:
-            print(e)
+            traceback.print_exc(file=sys.stdout)
         if verified and verified.upper() == "YES":
             await ctx.send(f'{ctx.author.mention} You already verified 2FA.')
             return
@@ -430,7 +430,7 @@ async def twofa(ctx):
         try:
             secret_code = store.decrypt_string(userinfo['twofa_secret'])
         except Exception as e:
-            print(e)
+            traceback.print_exc(file=sys.stdout)
         if secret_code and len(secret_code) > 0:
             if os.path.exists(config.qrsettings.path + secret_code + ".png"):
                 pass
@@ -508,7 +508,7 @@ async def verify(ctx, codes: str):
         try:
             verified = userinfo['twofa_verified']
         except Exception as e:
-            print(e)
+            traceback.print_exc(file=sys.stdout)
         if verified and verified.upper() == "YES":
             await ctx.send(f'{ctx.author.mention} You already verified 2FA. You do not need this.')
             return
@@ -516,7 +516,7 @@ async def verify(ctx, codes: str):
         try:
             secret_code = store.decrypt_string(userinfo['twofa_secret'])
         except Exception as e:
-            print(e)
+            traceback.print_exc(file=sys.stdout)
 
         if secret_code and len(secret_code) > 0:
             totp = pyotp.TOTP(secret_code, interval=30)
@@ -562,7 +562,7 @@ async def unverify(ctx, codes: str):
         try:
             verified = userinfo['twofa_verified']
         except Exception as e:
-            print(e)
+            traceback.print_exc(file=sys.stdout)
         if verified and verified.upper() == "NO":
             await ctx.send(f'{ctx.author.mention} You have not verified yet. **Unverify** stopped.')
             return
@@ -570,7 +570,7 @@ async def unverify(ctx, codes: str):
         try:
             secret_code = store.decrypt_string(userinfo['twofa_secret'])
         except Exception as e:
-            print(e)
+            traceback.print_exc(file=sys.stdout)
 
         if secret_code and len(secret_code) > 0:
             totp = pyotp.TOTP(secret_code, interval=30)
@@ -742,7 +742,7 @@ async def secrettip(ctx, amount: str, coin: str, user_id: str):
         try:
             tip = await store.sql_send_secrettip(str(ctx.message.author.id), user_id, real_amount, COIN_NAME, COIN_DEC)
         except Exception as e:
-            print(e)
+            traceback.print_exc(file=sys.stdout)
     if tip:
         if has_forwardtip:
             await ctx.message.add_reaction(EMOJI_FORWARD)
@@ -1108,7 +1108,7 @@ async def info(ctx, coin: str = None):
     try:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**')
         return
     
@@ -1378,7 +1378,7 @@ async def balance(ctx, coin: str = None):
     try:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**')
         return
 
@@ -1582,7 +1582,7 @@ async def botbalance(ctx, member: discord.Member, coin: str):
         try:
             depositAddress = await DOGE_LTC_getaccountaddress(str(member.id), COIN_NAME)
         except Exception as e:
-            print(e)
+            traceback.print_exc(file=sys.stdout)
         actual = float(await DOGE_LTC_getbalance_acc(bot.user.id, COIN_NAME, 6))
         locked = float(await DOGE_LTC_getbalance_acc(bot.user.id, COIN_NAME, 1))
         userdata_balance = store.sql_doge_balance(member.id, COIN_NAME)
@@ -2043,7 +2043,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
             tip_tx_hash = withdrawal
             tip_tx_tipper = "Transaction hash: `{}`".format(withdrawal)
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
 
     if withdrawal:
         await ctx.message.add_reaction(get_emoji(COIN_NAME))
@@ -2303,7 +2303,7 @@ async def donate(ctx, amount: str, coin: str = None):
             tip_tx_hash = tip
             tip_tx_tipper = "Transaction hash: `{}`".format(tip)
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
 
     if tip:
         await ctx.message.add_reaction(get_emoji(COIN_NAME))
@@ -2430,7 +2430,7 @@ async def tip(ctx, amount: str, *args):
                     mult = {'d': 24*60*60, 'h': 60*60, 'mn': 60}
                     time_second = sum(int(num) * mult.get(val, 1) for num, val in re.findall('(\d+)(\w+)', time_string))
                 except Exception as e:
-                    print(e)
+                    traceback.print_exc(file=sys.stdout)
                     await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid time given. Please use this example: `.tip 1,000 last 5h 12mn`')
                     return
                 try:
@@ -2699,7 +2699,7 @@ async def tip(ctx, amount: str, *args):
             tip_tx_hash = tip
             tip_tx_tipper = "Transaction hash: `{}`".format(tip)
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
     if tip:
         servername = serverinfo['servername']
         if has_forwardtip:
@@ -3112,7 +3112,7 @@ async def tipall(ctx, amount: str, *args):
             tip_tx_hash = tip
             tip_tx_tipper = "Transaction hash: `{}`".format(tip)
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
     if tip:
         servername = serverinfo['servername']
         await ctx.message.add_reaction(get_emoji(COIN_NAME))
@@ -3365,7 +3365,7 @@ async def send(ctx, amount: str, CoinAddress: str):
             try:
                 tip = await store.sql_send_tip_Ex_id(str(ctx.message.author.id), CoinAddress, real_amount, paymentid, COIN_NAME)
             except Exception as e:
-                print(e)
+                traceback.print_exc(file=sys.stdout)
             if tip:
                 await ctx.message.add_reaction(get_emoji(COIN_NAME))
                 await botLogChan.send(f'A user successfully executed `.send {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}` with paymentid.')
@@ -3389,7 +3389,7 @@ async def send(ctx, amount: str, CoinAddress: str):
                 tip_tx_hash = tip
                 tip_tx_tipper = "Transaction hash: `{}`".format(tip)
             except Exception as e:
-                print(e)
+                traceback.print_exc(file=sys.stdout)
             if tip:
                 await ctx.message.add_reaction(get_emoji(COIN_NAME))
                 await botLogChan.send(f'A user successfully executed `.send {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`.')
@@ -3949,7 +3949,7 @@ async def voucher(ctx, command: str, amount: str, coin: str = None):
         qr_img.paste(region,box)
         # qr_img.save(config.qrsettings.path_voucher_create + unique_filename + "_2.png")
     except Exception as e: 
-        print(e)
+        traceback.print_exc(file=sys.stdout)
     # Image Frame on which we want to paste 
     img_frame = Image.open(config.qrsettings.path_voucher_defaultimg)  
     img_frame.paste(qr_img, (150, 150)) 
@@ -3970,7 +3970,7 @@ async def voucher(ctx, command: str, amount: str, coin: str = None):
         w, h = myFont.getsize(msg_claim)
         draw.text((280-w/2,275+125+h+60), msg_claim, fill="black",font=myFont)
     except Exception as e: 
-        print(e)
+        traceback.print_exc(file=sys.stdout)
     # Saved in the same relative location 
     img_frame.save(config.qrsettings.path_voucher_create + unique_filename + ".png") 
 
@@ -4055,12 +4055,12 @@ async def stats(ctx, coin: str = None):
     try:
         gettopblock = await daemonrpc_client.gettopblock(COIN_NAME)
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
     walletStatus = None
     try:
         walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
     
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     
@@ -4162,7 +4162,7 @@ async def height(ctx, coin: str = None):
     try:
         gettopblock = await daemonrpc_client.gettopblock(COIN_NAME)
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
 
     if gettopblock:
         height = ""
@@ -4691,7 +4691,7 @@ async def alert_if_userlock(ctx, cmd: str):
     try:
         get_discord_userinfo = store.sql_discord_userinfo_get(str(ctx.message.author.id))
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
     if get_discord_userinfo is None:
         return None
     else:
@@ -5049,7 +5049,7 @@ async def _tip(ctx, amount, coin: str):
         try:
             tips = store.sql_mv_xmr_multiple(ctx.message.author.id, memids, real_amount, COIN_NAME, "TIPS")
         except Exception as e:
-            print(e)
+            traceback.print_exc(file=sys.stdout)
         if tips:
             servername = serverinfo['servername']
             tipAmount = num_format_coin(TotalAmount, COIN_NAME)
@@ -5130,7 +5130,7 @@ async def _tip(ctx, amount, coin: str):
         try:
             tips = store.sql_mv_doge_multiple(ctx.message.author.id, memids, real_amount, COIN_NAME, "TIPS")
         except Exception as e:
-            print(e)
+            traceback.print_exc(file=sys.stdout)
         if tips:
             servername = serverinfo['servername']
             tipAmount = num_format_coin(TotalAmount, COIN_NAME)
@@ -5318,13 +5318,13 @@ async def _tip(ctx, amount, coin: str):
             tip_tx_hash = tip
             tip_tx_tipper = "Transaction hash: `{}`".format(tip)
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
     if tip:
         servername = serverinfo['servername']
         try:
             await store.sql_update_some_balances(addresses, COIN_NAME)
         except Exception as e:
-            print(e)
+            traceback.print_exc(file=sys.stdout)
         await ctx.message.add_reaction(get_emoji(COIN_NAME))
         if has_forwardtip:
             await ctx.message.add_reaction(EMOJI_FORWARD)
@@ -5429,7 +5429,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
         try:
             tips = store.sql_mv_xmr_multiple(str(ctx.message.author.id), memids, real_amount, COIN_NAME, "TIPS")
         except Exception as e:
-            print(e)
+            traceback.print_exc(file=sys.stdout)
         if tips:
             servername = serverinfo['servername']
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
@@ -5515,7 +5515,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
         try:
             tips = store.sql_mv_doge_multiple(str(ctx.message.author.id), memids, real_amount, COIN_NAME, "TIPS")
         except Exception as e:
-            print(e)
+            traceback.print_exc(file=sys.stdout)
         if tips:
             servername = serverinfo['servername']
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
@@ -5667,7 +5667,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
     try:
         tip = await store.sql_send_tipall(str(ctx.message.author.id), destinations, real_amount, real_amount, list_receivers, 'TIPS', COIN_NAME)
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
     if tip:
         servername = serverinfo['servername']
         await store.sql_update_some_balances(addresses, COIN_NAME)

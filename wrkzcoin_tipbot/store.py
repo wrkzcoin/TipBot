@@ -6,7 +6,7 @@ import asyncio
 
 import daemonrpc_client, wallet
 from config import config
-import sys
+import sys, traceback
 
 # Encrypt
 from cryptography.fernet import Fernet
@@ -73,7 +73,7 @@ def sql_get_walletinfo():
                         'tipall_enable': row[23], 'donate_enable': row[24], 'maintenance': row[25]}
                 return wallet_service
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
 
 
 async def sql_update_balances(coin: str = None):
@@ -99,7 +99,7 @@ async def sql_update_balances(coin: str = None):
                                       details['unlocked'], details['locked'], updateTime,))
                     conn_cursors.commit()
         except Exception as e:
-            print(e)
+            traceback.print_exc(file=sys.stdout)
     if coin_family == "XMR":
         print('SQL: Updating get_transfers '+COIN_NAME)
         get_transfers = await wallet.get_transfers_xmr(COIN_NAME)
@@ -121,7 +121,7 @@ async def sql_update_balances(coin: str = None):
                                               tx['amount'], tx['fee'], wallet.get_decimal(COIN_NAME), tx['address'], int(time.time())))
                             conn_cursors.commit()
                         except Exception as e:
-                            print(e)
+                            traceback.print_exc(file=sys.stdout)
                     print(list_balance_user)
                     if len(list_balance_user) > 0:
                         list_update = []
@@ -133,7 +133,7 @@ async def sql_update_balances(coin: str = None):
                                         WHERE paymentid = %s """, list_update)
                         conn_cursors.commit()
             except Exception as e:
-                print(e)
+                traceback.print_exc(file=sys.stdout)
 
 
 async def sql_update_some_balances(wallet_addresses: List[str], coin: str = None):
@@ -160,7 +160,7 @@ async def sql_update_some_balances(wallet_addresses: List[str], coin: str = None
                                       details['unlocked'], details['locked'], updateTime,))
                     conn_cursors.commit()
         except Exception as e:
-            print(e)
+            traceback.print_exc(file=sys.stdout)
     else:
         return
 
@@ -243,7 +243,7 @@ async def sql_register_user(userID, coin: str = None):
             else:
                 return result
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
 
 
 async def sql_update_user(userID, user_wallet_address, coin: str = None):
@@ -286,7 +286,7 @@ async def sql_update_user(userID, user_wallet_address, coin: str = None):
                 result2['user_wallet_address'] = user_wallet_address
                 return result2  # return userwallet
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
 
 
 async def sql_get_userwallet(userID, coin: str = None):
@@ -374,7 +374,7 @@ async def sql_get_userwallet(userID, coin: str = None):
                 #print(userwallet)
                 return userwallet
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
 
 
 def sql_get_countLastTip(userID, lastDuration: int, coin: str = None):
@@ -405,7 +405,7 @@ def sql_get_countLastTip(userID, lastDuration: int, coin: str = None):
             else:
                 return len(result)
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
 
 
 async def sql_send_tip(user_from: str, user_to: str, amount: int, coin: str = None):
@@ -477,7 +477,7 @@ async def sql_send_tip(user_from: str, user_to: str, amount: int, coin: str = No
                                         updateTime, user_to_wallet['balance_wallet_address'],))
                             conn_cursors.commit()
             except Exception as e:
-                print(e)
+                traceback.print_exc(file=sys.stdout)
         return tx_hash
     else:
         return None
@@ -533,7 +533,7 @@ async def sql_send_secrettip(user_from: str, user_to: str, amount: int, coin: st
                                         updateTime, user_to_wallet['balance_wallet_address'],))
                             conn_cursors.commit()
             except Exception as e:
-                print(e)
+                traceback.print_exc(file=sys.stdout)
         return tx_hash
     else:
         return None
@@ -597,7 +597,7 @@ async def sql_send_tipall(user_from: str, user_tos, amount: int, amount_div: int
                         cur.execute(sql,)
                         conn_cursors.commit()
             except Exception as e:
-                print(e)
+                traceback.print_exc(file=sys.stdout)
         return tx_hash
     else:
         return None
@@ -649,7 +649,7 @@ async def sql_send_tip_Ex(user_from: str, address_to: str, amount: int, coin: st
                                         updateTime, user_from_wallet['balance_wallet_address'],))
                             conn_cursors.commit()
             except Exception as e:
-                print(e)
+                traceback.print_exc(file=sys.stdout)
         return tx_hash
     else:
         return None
@@ -690,7 +690,7 @@ async def sql_send_tip_Ex_id(user_from: str, address_to: str, amount: int, payme
                                         updateTime, user_from_wallet['balance_wallet_address'],))
                             conn_cursors.commit()
             except Exception as e:
-                print(e)
+                traceback.print_exc(file=sys.stdout)
         return tx_hash
     else:
         return None
@@ -742,7 +742,7 @@ async def sql_withdraw(user_from: str, amount: int, coin: str=None):
                                         updateTime, user_from_wallet['balance_wallet_address'],))
                             conn_cursors.commit()
             except Exception as e:
-                print(e)
+                traceback.print_exc(file=sys.stdout)
         return tx_hash
     else:
         return None
@@ -792,7 +792,7 @@ async def sql_donate(user_from: str, address_to: str, amount: int, coin: str) ->
                                         updateTime, user_from_wallet['balance_wallet_address'],))
                             conn_cursors.commit()
             except Exception as e:
-                print(e)
+                traceback.print_exc(file=sys.stdout)
         return tx_hash
     else:
         return None
@@ -860,7 +860,7 @@ def sql_get_donate_list():
                 donate_list.update({coin: float(result['donate'])})
         return donate_list
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
 
 
 def sql_optimize_check(coin: str = None):
@@ -877,7 +877,7 @@ def sql_optimize_check(coin: str = None):
                 result = cur.fetchone()
                 return result['Opt']
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
 
 
 async def sql_optimize_do(userID: str, coin: str = None):
@@ -931,7 +931,7 @@ async def sql_optimize_do(userID: str, coin: str = None):
                                     updateTime, user_from_wallet['balance_wallet_address'],))
                         conn_cursors.commit()
             except Exception as e:
-                print(e)
+                traceback.print_exc(file=sys.stdout)
         return OptimizeCount
 
 
@@ -948,7 +948,7 @@ def sql_optimize_update(userID: str, coin: str = None):
                 cur.execute(sql, (timeNow, str(userID),))
                 conn_cursors.commit()
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
 
 
 async def sql_optimize_admin_do(coin: str, opt_num: int = None):
@@ -976,7 +976,7 @@ async def sql_optimize_admin_do(coin: str, opt_num: int = None):
                         try:
                             OptimizeCount = await wallet.wallet_optimize_single(address['address'], int(round(address['unlocked']/2)), coin.upper())
                         except Exception as e:
-                            print(e)
+                            traceback.print_exc(file=sys.stdout)
                         if OptimizeCount > 0:
                             AccumOpt = AccumOpt + 1
                         if AccumOpt >= opt_num:
@@ -1021,7 +1021,7 @@ async def sql_send_to_voucher(user_id: str, user_name: str, message_creating: st
                                         int(time.time()), user_from_wallet['balance_wallet_address'],))
                             conn_cursors.commit()
             except Exception as e:
-                print(e)
+                traceback.print_exc(file=sys.stdout)
         return tx_hash
     else:
         return None
@@ -1054,7 +1054,7 @@ def sql_tag_by_server(server_id: str, tag_id: str = None):
                     conn_cursors.commit()
                     return tag
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
 
 
 def sql_tag_by_server_add(server_id: str, tag_id: str, tag_desc: str, added_byname: str, added_byuid: str):
@@ -1083,7 +1083,7 @@ def sql_tag_by_server_add(server_id: str, tag_id: str, tag_desc: str, added_byna
             else:
                 return None
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
 
 
 def sql_tag_by_server_del(server_id: str, tag_id: str):
@@ -1104,7 +1104,7 @@ def sql_tag_by_server_del(server_id: str, tag_id: str):
                 conn_cursors.commit()
                 return tag_id.upper()
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
 
 
 def sql_info_by_server(server_id: str):
@@ -1121,7 +1121,7 @@ def sql_info_by_server(server_id: str):
             else:
                 return result
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
 
 
 def sql_addinfo_by_server(server_id: str, servername: str, prefix: str, default_coin: str):
@@ -1135,7 +1135,7 @@ def sql_addinfo_by_server(server_id: str, servername: str, prefix: str, default_
             cur.execute(sql, (server_id, servername[:28], prefix, default_coin, servername[:28], prefix, default_coin,))
             conn_cursors.commit()
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
 
 
 def sql_add_messages(list_messages):
@@ -1152,7 +1152,7 @@ def sql_add_messages(list_messages):
             conn_cursors.commit()
             return cur.rowcount
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
 
 
 def sql_get_messages(server_id: str, channel_id: str, time_int: int):
@@ -1172,7 +1172,7 @@ def sql_get_messages(server_id: str, channel_id: str, time_int: int):
                         list_talker.append(int(item['user_id']))
             return list_talker
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
     return None
 
 
@@ -1187,7 +1187,7 @@ def sql_changeinfo_by_server(server_id: str, what: str, value: str):
                 cur.execute(sql, (value, server_id,))
                 conn_cursors.commit()
         except Exception as e:
-            print(e)
+            traceback.print_exc(file=sys.stdout)
 
 
 def sql_discord_userinfo_get(user_id: str):
@@ -1202,7 +1202,7 @@ def sql_discord_userinfo_get(user_id: str):
             result = cur.fetchone()
             return result
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
     return None
 
 
@@ -1230,7 +1230,7 @@ def sql_userinfo_locked(user_id: str, locked: str, locked_reason: str, locked_by
                 conn_cursors.commit()
             return True
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
 
 
 def sql_userinfo_2fa_insert(user_id: str, twofa_secret: str):
@@ -1250,7 +1250,7 @@ def sql_userinfo_2fa_insert(user_id: str, twofa_secret: str):
                 conn_cursors.commit()
                 return True
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
 
 
 def sql_userinfo_2fa_update(user_id: str, twofa_secret: str):
@@ -1270,7 +1270,7 @@ def sql_userinfo_2fa_update(user_id: str, twofa_secret: str):
                 conn_cursors.commit()
                 return True
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
 
 
 def sql_userinfo_2fa_verify(user_id: str, verify: str):
@@ -1300,7 +1300,7 @@ def sql_userinfo_2fa_verify(user_id: str, verify: str):
                     conn_cursors.commit()
                 return True
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
 
 
 def sql_change_userinfo_single(user_id: str, what: str, value: str):
@@ -1323,7 +1323,7 @@ def sql_change_userinfo_single(user_id: str, what: str, value: str):
                 cur.execute(sql, (user_id, value))
                 conn_cursors.commit()
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
 
 
 def sql_addignorechan_by_server(server_id: str, ignorechan: str, by_userid: str, by_name: str):
@@ -1336,7 +1336,7 @@ def sql_addignorechan_by_server(server_id: str, ignorechan: str, by_userid: str,
             cur.execute(sql, (server_id, ignorechan, by_userid, by_name, int(time.time())))
             conn_cursors.commit()
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
 
 
 def sql_delignorechan_by_server(server_id: str, ignorechan: str):
@@ -1348,7 +1348,7 @@ def sql_delignorechan_by_server(server_id: str, ignorechan: str):
             cur.execute(sql, (server_id, ignorechan,))
             conn_cursors.commit()
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
 
 
 def sql_listignorechan():
@@ -1369,7 +1369,7 @@ def sql_listignorechan():
                         ignore_chan[str(row['serverid'])].append(str(row['ignorechan']))
                 return ignore_chan
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
     return None
 
 
@@ -1385,7 +1385,7 @@ def sql_add_failed_tx(coin: str, user_id: str, user_author: str, amount: int, tx
             cur.execute(sql, (coin.upper(), user_id, user_author, amount, tx_type.upper(), int(time.time())))
             conn_cursors.commit()
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
 
 
 def sql_get_tipnotify():
@@ -1401,7 +1401,7 @@ def sql_get_tipnotify():
                 ignorelist.append(row['user_id'])
             return ignorelist
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
 
 
 def sql_toggle_tipnotify(user_id: str, onoff: str):
@@ -1417,7 +1417,7 @@ def sql_toggle_tipnotify(user_id: str, onoff: str):
                 cur.execute(sql, (user_id, int(time.time())))
                 conn_cursors.commit()
         except Exception as e:
-            print(e)
+            traceback.print_exc(file=sys.stdout)
     elif onoff == "ON":
         try:
             openConnection_cursors()
@@ -1426,7 +1426,7 @@ def sql_toggle_tipnotify(user_id: str, onoff: str):
                 cur.execute(sql, str(user_id))
                 conn_cursors.commit()
         except Exception as e:
-            print(e)
+            traceback.print_exc(file=sys.stdout)
 
 
 # not use anywhere
@@ -1449,7 +1449,7 @@ def sql_updateinfo_by_server(server_id: str, what: str, value: str):
                 else:
                     return None
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
 
 # DOGE
 def sql_mv_doge_single(user_from: str, to_user: str, amount: float, coin: str, tiptype: str):
@@ -1467,7 +1467,7 @@ def sql_mv_doge_single(user_from: str, to_user: str, amount: float, coin: str, t
             conn_cursors.commit()
         return True
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
     return False
 
 
@@ -1492,7 +1492,7 @@ def sql_mv_doge_multiple(user_from: str, user_tos, amount_each: float, coin: str
             conn_cursors.commit()
         return True
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
     return False
 
 
@@ -1513,7 +1513,7 @@ async def sql_external_doge_single(user_from: str, amount: float, fee: float, to
             conn_cursors.commit()
         return txHash
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
     return False
 
 
@@ -1569,7 +1569,7 @@ def sql_doge_balance(userID: str, coin: str):
             #print(balance['Adjust'])
             return balance
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
 
 
 # XMR Based
@@ -1590,7 +1590,7 @@ def sql_mv_xmr_single(user_from: str, to_user: str, amount: float, coin: str, ti
             conn_cursors.commit()
         return True
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
     return False
 
 
@@ -1617,7 +1617,7 @@ def sql_mv_xmr_multiple(user_from: str, user_tos, amount_each: float, coin: str,
             conn_cursors.commit()
         return True
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
     return False
 
 
@@ -1645,7 +1645,7 @@ async def sql_external_xmr_single(user_from: str, amount: float, to_address: str
                     conn_cursors.commit()
         return tx_hash
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
     return False
 
 
@@ -1700,7 +1700,7 @@ def sql_xmr_balance(userID: str, coin: str):
             balance['Adjust'] = float(balance['Income']) - float(balance['Expense']) - float(balance['TxExpense']) - float(balance['FeeExpense'])
             return balance
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
 
 
 def sql_set_forwardtip(userID: str, coin: str, option: str):
@@ -1715,7 +1715,7 @@ def sql_set_forwardtip(userID: str, coin: str, option: str):
                 cur.execute(sql, (str(userID),))
                 conn_cursors.commit()
         except Exception as e:
-            print(e)
+            traceback.print_exc(file=sys.stdout)
 
 
 def sql_get_nodeinfo():
@@ -1731,7 +1731,7 @@ def sql_get_nodeinfo():
             result = cur.fetchall()
             return result
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
 
 
 def sql_get_poolinfo():
@@ -1749,7 +1749,7 @@ def sql_get_poolinfo():
             result = cur.fetchall()
             return result
     except Exception as e:
-        print(e)
+        traceback.print_exc(file=sys.stdout)
 
 
 # Steal from https://nitratine.net/blog/post/encryption-and-decryption-in-python/

@@ -2880,7 +2880,10 @@ async def tipall(ctx, amount: str, *args):
         # Check number of receivers.
         if len(listMembers) > config.tipallMax:
             await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} The number of receivers are too many. This command isn\'t available here.')
+            try:
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} The number of receivers are too many. This command isn\'t available here.')
+            except discord.Forbidden:
+                await ctx.message.author.send(f'{EMOJI_RED_NO} The number of receivers are too many in `{ctx.guild.name}`. This command isn\'t available here.')
             return
         # End of checking receivers numbers.
 
@@ -2941,9 +2944,13 @@ async def tipall(ctx, amount: str, *args):
     # Check number of receivers.
     if len(listMembers) > config.tipallMax:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} The number of receivers are too many. This command isn\'t available here.')
+        try:
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} The number of receivers are too many. This command isn\'t available here.')
+        except discord.Forbidden:
+            await ctx.message.author.send(f'{EMOJI_RED_NO} The number of receivers are too many in `{ctx.guild.name}`. This command isn\'t available here.')
         return
     # End of checking receivers numbers.
+
     memids = []  # list of member ID
     has_forwardtip = None
     list_receivers = []
@@ -5521,6 +5528,17 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
             if address_to:
                 list_receivers.append(str(member_id))
                 memids.append(address_to)
+
+
+    # Check number of receivers.
+    if len(memids) > config.tipallMax:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        try:
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} The number of receivers are too many.')
+        except discord.Forbidden:
+            await ctx.message.author.send(f'{EMOJI_RED_NO} The number of receivers are too many in `{ctx.guild.name}`.')
+        return
+    # End of checking receivers numbers.
 
     addresses = []
     for desti in memids:

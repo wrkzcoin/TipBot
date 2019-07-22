@@ -1747,12 +1747,13 @@ async def register(ctx, wallet_address: str):
             if valid_address is None:
                 await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
                                f'`{wallet_address}`')
-            if valid_address['valid'] == True and valid_address['integrated'] == False and valid_address['subaddress'] == False:
+            if valid_address['valid'] == True and valid_address['integrated'] == False \
+                and valid_address['subaddress'] == False and valid_address['nettype'] == 'mainnet':
                 # re-value valid_address
                 valid_address = str(wallet_address)
             else:
                 await ctx.message.add_reaction(EMOJI_ERROR)
-                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Please use {COIN_NAME} main address')
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Please use {COIN_NAME} main address.')
                 return
         else:
             await ctx.message.add_reaction(EMOJI_WARNING)
@@ -3307,7 +3308,7 @@ async def send(ctx, amount: str, CoinAddress: str):
                            f'`{CoinAddress}`')
             return
 
-        user_from = await store.sql_get_userwallet(ctx.message.author.id, COIN_NAME)
+        user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if user_from['balance_wallet_address'] == CoinAddress:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You can not send to your own deposit address.')
@@ -3414,7 +3415,7 @@ async def send(ctx, amount: str, CoinAddress: str):
         IntaddressLength = get_intaddrlen(COIN_NAME)
 
         valid_address = await validate_address_xmr(str(CoinAddress), COIN_NAME)
-        if valid_address['valid'] == False:
+        if valid_address['valid'] == False or valid_address['nettype'] != 'mainnet':
                 await ctx.message.add_reaction(EMOJI_ERROR)
                 await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Address: `{CoinAddress}` '
                                'is invalid.')
@@ -3639,11 +3640,11 @@ async def address(ctx, *args):
                                 'Checked: Invalid.')
                 return
         elif COIN_NAME in ENABLE_XMR:
-            print('OK, .address: '+COIN_NAME)
             valid_address = await validate_address_xmr(str(CoinAddress), COIN_NAME)
             if valid_address['valid'] == True:
                 address_result = 'Valid: `{}`\n'.format(str(valid_address['valid'])) + \
                                'Integrated: `{}`\n'.format(str(valid_address['integrated'])) + \
+                               'Net Type: `{}`\n'.format(str(valid_address['nettype'])) + \
                                'Subaddress: `{}`\n'.format(str(valid_address['subaddress']))
                 await ctx.message.add_reaction(EMOJI_CHECK)
                 await ctx.send(f'{EMOJI_CHECK} Address: `{CoinAddress}`\n{address_result}')
@@ -4762,11 +4763,11 @@ def get_cn_coin_from_address(CoinAddress: str):
         COIN_NAME = "TRTL"
     elif CoinAddress.startswith("bit") and (len(CoinAddress) == 98 or len(CoinAddress) == 109):
         COIN_NAME = "XTOR"
-    elif CoinAddress.startswith("4") and (len(CoinAddress) == 95 or len(CoinAddress) == 106):
+    elif (CoinAddress.startswith("4") or CoinAddress.startswith("8")) and (len(CoinAddress) == 95 or len(CoinAddress) == 106):
         COIN_NAME = "XMR"
     elif CoinAddress.startswith("L") and (len(CoinAddress) == 95 or len(CoinAddress) == 106):
         COIN_NAME = "LOKI"
-    elif CoinAddress.startswith("T") and (len(CoinAddress) == 97 or len(CoinAddress) == 109):
+    elif CoinAddress.startswith("T") and (len(CoinAddress) == 97 or len(CoinAddress) == 98 or len(CoinAddress) == 109):
         COIN_NAME = "XTRI"
     return COIN_NAME
 

@@ -85,6 +85,7 @@ EMOJI_COIN = {
     "XTOR" : "\U0001F315",
     "LOKI" : "\u2600",
     "XMR" : "\u2694",
+    "XTRI" : "\U0001F30C"
     }
 
 EMOJI_RED_NO = "\u26D4"
@@ -97,7 +98,7 @@ EMOJI_LOCKED = "\U0001F512"
 
 ENABLE_COIN = config.Enable_Coin.split(",")
 ENABLE_COIN_DOGE = ["DOGE"]
-ENABLE_XMR = ["XTOR", "LOKI", "XMR"]
+ENABLE_XMR = ["XTOR", "LOKI", "XMR", "XTRI"]
 MAINTENANCE_COIN = [""]
 COIN_REPR = "COIN"
 DEFAULT_TICKER = "WRKZ"
@@ -124,6 +125,7 @@ NOTICE_COIN = {
     "NACA" : None,
     "XTOR" : None,
     "LOKI" : None,
+    "XTRI" : "XTRI still testing.",
     "XMR" : "XMR still testing.",
     "DOGE" : "Please acknowledge that DOGE address is for **one-time** use only for depositing."
     }
@@ -955,6 +957,28 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
     else:
         table_data.append([COIN_NAME, "***", "***"])
     # End of Add XMR
+    COIN_NAME = "XTRI"
+    if COIN_NAME not in MAINTENANCE_COIN:
+        wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
+        if wallet is None:
+            userregister = await store.sql_register_user(str(user_id), COIN_NAME)
+            wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
+        if wallet:
+            actual = wallet['actual_balance']
+            locked = wallet['locked_balance']
+            userdata_balance = store.sql_xmr_balance(str(user_id), COIN_NAME)
+            balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
+            if actual == locked:
+                balance_locked = num_format_coin(0, COIN_NAME)
+            else:
+                if locked - actual + float(userdata_balance['Adjust']) < 0:
+                    balance_locked =  num_format_coin(0, COIN_NAME)
+                else:
+                    balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
+            table_data.append([COIN_NAME, balance_actual, balance_locked])
+    else:
+        table_data.append([COIN_NAME, "***", "***"])
+    # End of Add XTRI
     table = AsciiTable(table_data)
     table.padding_left = 0
     table.padding_right = 0
@@ -1288,6 +1312,29 @@ async def balance(ctx, coin: str = None):
         else:
             table_data.append([COIN_NAME, "***", "***"])
         # End of Add XMR
+        COIN_NAME = "XTRI"
+        if COIN_NAME not in MAINTENANCE_COIN:
+            wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+            if wallet is None:
+                userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+                wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+            if wallet:
+                actual = wallet['actual_balance']
+                locked = wallet['locked_balance']
+                userdata_balance = store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
+                balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
+                if actual == locked:
+                    balance_locked = num_format_coin(0, COIN_NAME)
+                else:
+                    if locked - actual + float(userdata_balance['Adjust']) < 0:
+                        balance_locked =  num_format_coin(0, COIN_NAME)
+                    else:
+                        balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
+                table_data.append([COIN_NAME, balance_actual, balance_locked])
+        else:
+            table_data.append([COIN_NAME, "***", "***"])
+        # End of Add XTRI
+
         table = AsciiTable(table_data)
         # table.inner_column_border = False
         # table.outer_border = False
@@ -2111,7 +2158,7 @@ async def donate(ctx, amount: str, coin: str = None):
             return
 
         donateTx = store.sql_mv_xmr_single(str(ctx.message.author.id), 
-                                           get_donate_address(COIN_NAME), 
+                                           get_donate_account_name(COIN_NAME), 
                                            real_amount, COIN_NAME, "DONATE")
         if donateTx:
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
@@ -2153,7 +2200,7 @@ async def donate(ctx, amount: str, coin: str = None):
                            f'{COIN_NAME}.')
             return
 
-        donateTx = store.sql_mv_doge_single(str(ctx.message.author.id), get_donate_address(COIN_NAME), real_amount,
+        donateTx = store.sql_mv_doge_single(str(ctx.message.author.id), get_donate_account_name(COIN_NAME), real_amount,
                                             COIN_NAME, "DONATE")
         if donateTx:
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
@@ -3474,6 +3521,7 @@ async def address(ctx, *args):
                 if 'default_coin' in serverinfo:
                     COIN_NAME = serverinfo['default_coin'].upper()
             print("COIN_NAME: " + COIN_NAME)
+        # TODO: change this.
         donateAddress = get_donate_address(COIN_NAME) or 'WrkzRNDQDwFCBynKPc459v3LDa1gEGzG3j962tMUBko1fw9xgdaS9mNiGMgA9s1q7hS1Z8SGRVWzcGc8Sh8xsvfZ6u2wJEtoZB'
         await ctx.send('**[ ADDRESS CHECKING EXAMPLES ]**\n\n'
                        f'`.address {donateAddress}`\n'
@@ -3514,7 +3562,6 @@ async def address(ctx, *args):
         return
     # Check which coinname is it.
     COIN_NAME = get_cn_coin_from_address(CoinAddress)
-
     if COIN_NAME:
         pass
     else:
@@ -3573,6 +3620,7 @@ async def address(ctx, *args):
                                 'Checked: Invalid.')
                 return
         elif COIN_NAME in ENABLE_XMR:
+            print('OK, .address: '+COIN_NAME)
             valid_address = await validate_address_xmr(str(CoinAddress), COIN_NAME)
             if valid_address['valid'] == True:
                 address_result = 'Valid: `{}`\n'.format(str(valid_address['valid'])) + \
@@ -3581,7 +3629,7 @@ async def address(ctx, *args):
                 await ctx.message.add_reaction(EMOJI_CHECK)
                 await ctx.send(f'{EMOJI_CHECK} Address: `{CoinAddress}`\n{address_result}')
                 return
-        print('here....')
+
         if len(CoinAddress) == int(addressLength):
             valid_address = addressvalidation.validate_address_cn(CoinAddress, COIN_NAME)
             print(valid_address)
@@ -4277,6 +4325,7 @@ async def addressqr(ctx, *args):
                 if 'default_coin' in serverinfo:
                     COIN_NAME = serverinfo['default_coin'].upper()
             print("COIN_NAME: " + COIN_NAME)
+        # TODO: change this.
         donateAddress = get_donate_address(COIN_NAME) or 'WrkzRNDQDwFCBynKPc459v3LDa1gEGzG3j962tMUBko1fw9xgdaS9mNiGMgA9s1q7hS1Z8SGRVWzcGc8Sh8xsvfZ6u2wJEtoZB'
         await ctx.send('**[ QR ADDRESS EXAMPLES ]**\n\n'
                        f'```.qr {donateAddress}\n'
@@ -4698,6 +4747,8 @@ def get_cn_coin_from_address(CoinAddress: str):
         COIN_NAME = "XMR"
     elif CoinAddress.startswith("L") and (len(CoinAddress) == 95 or len(CoinAddress) == 106):
         COIN_NAME = "LOKI"
+    elif CoinAddress.startswith("T") and (len(CoinAddress) == 97 or len(CoinAddress) == 109):
+        COIN_NAME = "XTRI"
     return COIN_NAME
 
 

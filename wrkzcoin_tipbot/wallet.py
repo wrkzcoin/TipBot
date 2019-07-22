@@ -299,6 +299,9 @@ def get_prefix_char(coin: str = None):
 def get_donate_address(coin: str = None):
     return getattr(config,"daemon"+coin,config.daemonWRKZ).DonateAddress
 
+def get_donate_account_name(coin: str):
+    return getattr(config,"daemon"+coin).DonateAccount
+
 
 def get_voucher_address(coin: str = None):
     return getattr(config,"daemon"+coin,config.daemonWRKZ).voucher_address

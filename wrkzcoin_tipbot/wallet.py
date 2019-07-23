@@ -315,8 +315,34 @@ def get_diff_target(coin: str = None):
     return getattr(config,"daemon"+coin,config.daemonWRKZ).DiffTarget
 
 
-def get_tx_fee(coin: str = None):
-    return getattr(config,"daemon"+coin,config.daemonWRKZ).tx_fee
+def get_tx_fee(coin: str):
+    COIN_NAME = coin.upper()
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    if coin_family == "TRTL" or coin_family == "CCX" or coin_family == "DOGE" or coin_family == "LTC" :
+        return getattr(config,"daemon"+coin,config.daemonWRKZ).tx_fee        
+    elif coin_family == "XMR":
+        return getattr(config,"daemon"+coin,config.daemonXMR).tx_fee
+
+
+async def get_tx_fee_xmr(coin: str, amount: int = None, to_address: str = None):
+    COIN_NAME = coin.upper()
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","XMR")      
+    if coin_family == "XMR":
+        payload = {
+            "destinations": [{'amount': amount, 'address': to_address}],
+            "account_index": 0,
+            "subaddr_indices": [],
+            "get_tx_key": True,
+            "do_not_relay": True,
+            "get_tx_hex": True,
+            "get_tx_metadata": False
+        }
+        result = await rpc_client.call_aiohttp_wallet('transfer', COIN_NAME, payload=payload)
+        if result:
+            if ('tx_hash' in result) and ('tx_key' in result) and ('fee' in result):
+                print('Checking fee: ')
+                print(result)
+                return result['fee']
 
 
 def get_coin_fullname(coin: str = None):
@@ -366,7 +392,9 @@ def num_format_coin(amount, coin: str = None):
     amount_str = 'Invalid.'
     if COIN_NAME == 	"DOGE":
         return '{:,.6f}'.format(amount)
-    if coin_decimal > 1000000:
+    if coin_decimal > 100000000:
+        amount_str = '{:,.10f}'.format(amount / coin_decimal)
+    elif coin_decimal > 1000000:
         amount_str = '{:,.8f}'.format(amount / coin_decimal)
     elif coin_decimal > 10000:
         amount_str = '{:,.6f}'.format(amount / coin_decimal)

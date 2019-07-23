@@ -1349,6 +1349,8 @@ async def balance(ctx, coin: str = None):
                         balance_locked =  num_format_coin(0, COIN_NAME)
                     else:
                         balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
+                if wallet['user_wallet_address'] is None:
+                    COIN_NAME += '*'
                 table_data.append([COIN_NAME, balance_actual, balance_locked])
         else:
             table_data.append([COIN_NAME, "***", "***"])
@@ -1963,6 +1965,12 @@ async def withdraw(ctx, amount: str, coin: str = None):
         if user_from['user_wallet_address'] is None:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{ctx.author.mention} You don\'t have {COIN_NAME} withdraw address.\n')
+            return
+
+        # If balance 0, no need to check anything
+        if float(user_from['actual_balance']) + float(userdata_balance['Adjust']) <= 0:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Please check your **{COIN_NAME}** balance.')
             return
 
         NetFee = await get_tx_fee_xmr(coin = COIN_NAME, amount = real_amount, to_address = user_from['user_wallet_address'])
@@ -3371,6 +3379,13 @@ async def send(ctx, amount: str, CoinAddress: str):
                                'is invalid.')
                 return
         # OK valid address
+        user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        userdata_balance = store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
+        # If balance 0, no need to check anything
+        if float(user_from['actual_balance']) + float(userdata_balance['Adjust']) <= 0:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Please check your **{COIN_NAME}** balance.')
+            return
         NetFee = await get_tx_fee_xmr(coin = COIN_NAME, amount = real_amount, to_address = CoinAddress)
         if NetFee is None:
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -3378,8 +3393,6 @@ async def send(ctx, amount: str, CoinAddress: str):
                            f'{num_format_coin(real_amount, COIN_NAME)} '
                            f'{COIN_NAME}.')
             return
-        user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-        userdata_balance = store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
         if real_amount + NetFee > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send out '

@@ -64,7 +64,7 @@ async def send_transaction(from_address: str, to_address: str, amount: int, coin
             'fee': get_tx_fee(COIN_NAME),
             'anonymity': get_mixin(COIN_NAME)
         }
-        result = await rpc_client.call_aiohttp_wallet('sendTransaction', COIN_NAME, payload=payload)
+        result = await rpc_client.call_aiohttp_wallet('sendTransaction', COIN_NAME, time_out=8, payload=payload)
         if result:
             if 'transactionHash' in result:
                 return result['transactionHash']
@@ -79,7 +79,7 @@ async def send_transaction(from_address: str, to_address: str, amount: int, coin
             "get_tx_hex": False,
             "get_tx_metadata": False
         }
-        result = await rpc_client.call_aiohttp_wallet('transfer', COIN_NAME, payload=payload)
+        result = await rpc_client.call_aiohttp_wallet('transfer', COIN_NAME, time_out=8, payload=payload)
         if result:
             if ('tx_hash' in result) and ('tx_key' in result):
                 return result
@@ -99,7 +99,7 @@ async def send_transaction_id(from_address: str, to_address: str, amount: int, p
         'paymentId': paymentid
     }
     result = None
-    result = await rpc_client.call_aiohttp_wallet('sendTransaction', coin, payload=payload)
+    result = await rpc_client.call_aiohttp_wallet('sendTransaction', coin, time_out=8, payload=payload)
     if result:
         if 'transactionHash' in result:
             return result['transactionHash']
@@ -117,7 +117,7 @@ async def send_transactionall(from_address: str, to_address, coin: str, acc_inde
             'fee': get_tx_fee(coin),
             'anonymity': get_mixin(coin),
         }
-        result = await rpc_client.call_aiohttp_wallet('sendTransaction', coin, payload=payload)
+        result = await rpc_client.call_aiohttp_wallet('sendTransaction', coin, time_out=8, payload=payload)
         if result:
             if 'transactionHash' in result:
                 return result['transactionHash']
@@ -132,7 +132,7 @@ async def send_transactionall(from_address: str, to_address, coin: str, acc_inde
             "get_tx_hex": False,
             "get_tx_metadata": False
         }
-        result = await rpc_client.call_aiohttp_wallet('transfer', COIN_NAME, payload=payload)
+        result = await rpc_client.call_aiohttp_wallet('transfer', COIN_NAME, time_out=8, payload=payload)
         if result:
             if ('tx_hash' in result) and ('tx_key' in result):
                 return result
@@ -144,7 +144,7 @@ async def get_all_balances_all(coin: str) -> Dict[str, Dict]:
     walletCall = await rpc_client.call_aiohttp_wallet('getAddresses', coin)
     wallets = [] ## new array
     for address in walletCall['addresses']:
-        wallet = await rpc_client.call_aiohttp_wallet('getBalance', coin, {'address': address})
+        wallet = await rpc_client.call_aiohttp_wallet('getBalance', coin, payload={'address': address})
         wallets.append({'address':address,'unlocked':wallet['availableBalance'],'locked':wallet['lockedAmount']})
     return wallets
 
@@ -153,7 +153,7 @@ async def get_some_balances(wallet_addresses: List[str], coin: str) -> Dict[str,
     coin = coin.upper()
     wallets = []  # new array
     for address in wallet_addresses:
-        wallet = await rpc_client.call_aiohttp_wallet('getBalance', coin, {'address': address})
+        wallet = await rpc_client.call_aiohttp_wallet('getBalance', coin, payload={'address': address})
         wallets.append({'address':address,'unlocked':wallet['availableBalance'],'locked':wallet['lockedAmount']})
     return wallets
 
@@ -174,13 +174,13 @@ async def get_balance_address(address: str, coin: str, acc_index: int = None) ->
     if coin_family == "XMR":
         if acc_index is None:
             acc_index = 0
-        result = await rpc_client.call_aiohttp_wallet('getbalance', coin, {'account_index': acc_index, 'address_indices': [acc_index]})
+        result = await rpc_client.call_aiohttp_wallet('getbalance', coin, payload={'account_index': acc_index, 'address_indices': [acc_index]})
         wallet = None
         if result:
             wallet = {'address':address,'locked':(result['balance'] - result['unlocked_balance']),'unlocked':result['unlocked_balance']}
         return wallet
     elif coin_family == "TRTL":
-        result = await rpc_client.call_aiohttp_wallet('getBalance', coin, {'address': address})
+        result = await rpc_client.call_aiohttp_wallet('getBalance', coin, payload={'address': address})
         wallet = None
         if result:
             wallet = {'address':address,'unlocked':result['availableBalance'],'locked':result['lockedAmount']}
@@ -337,7 +337,7 @@ async def get_tx_fee_xmr(coin: str, amount: int = None, to_address: str = None):
             "get_tx_hex": True,
             "get_tx_metadata": False
         }
-        result = await rpc_client.call_aiohttp_wallet('transfer', COIN_NAME, payload=payload)
+        result = await rpc_client.call_aiohttp_wallet('transfer', COIN_NAME, time_out=8, payload=payload)
         if result:
             if ('tx_hash' in result) and ('tx_key' in result) and ('fee' in result):
                 print('Checking fee: ')

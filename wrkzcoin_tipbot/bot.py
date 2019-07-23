@@ -4928,6 +4928,21 @@ async def on_command_error(ctx, error):
         pass
 
 
+# Update number of user, bot, channel
+async def update_user_guild():
+    await bot.wait_until_ready()
+    await asyncio.sleep(10)
+    for g in bot.guilds:
+        num_channel = sum(1 for _ in g.channels)
+        num_user = sum(1 for _ in g.members)
+        num_bot = sum(1 for member in g.members if member.bot == True)
+        #print('guildID: {}, num_channel: {}, num_user: {}, num_bot: {}'.format(g.id, num_channel, num_user, num_bot))
+        store.sql_changeinfo_by_server(str(g.id), 'numb_user', num_user)
+        store.sql_changeinfo_by_server(str(g.id), 'numb_bot', num_bot)
+        store.sql_changeinfo_by_server(str(g.id), 'numb_channel', num_channel)
+    await asyncio.sleep(30)
+
+
 async def update_balance_wallets():
     while not bot.is_closed:
         # do not update yet
@@ -5637,6 +5652,7 @@ def truncate(number, digits) -> float:
 @click.command()
 def main():
     #bot.loop.create_task(update_balance_wallets())
+    bot.loop.create_task(update_user_guild())
     bot.run(config.discord.token, reconnect=True)
 
 

@@ -1708,13 +1708,9 @@ async def register(ctx, wallet_address: str):
     if COIN_NAME:
         pass
     else:
-        if (len(wallet_address) == 34) and wallet_address.startswith("D"):
-            COIN_NAME = "DOGE"
-            pass
-        else:
-            await ctx.message.add_reaction(EMOJI_WARNING)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Unknown Ticker.')
-            return
+        await ctx.message.add_reaction(EMOJI_WARNING)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Unknown Ticker.')
+        return
 
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
 
@@ -3438,8 +3434,7 @@ async def send(ctx, amount: str, CoinAddress: str):
             return
         return
     else:
-        if (len(CoinAddress) == 34) and CoinAddress.startswith("D"):
-            COIN_NAME = "DOGE"
+        if COIN_NAME == "DOGE":
             addressLength = get_addrlen(coin = COIN_NAME)
             MinTx = get_min_tx_amount(coin = COIN_NAME)
             MaxTX = get_max_tx_amount(coin = COIN_NAME)
@@ -3561,25 +3556,18 @@ async def address(ctx, *args):
         return
     # Check which coinname is it.
     COIN_NAME = get_cn_coin_from_address(CoinAddress)
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     if COIN_NAME:
         pass
     else:
-        if len(CoinAddress) == 34:
-            if CoinAddress.startswith("D"):
-                COIN_NAME = "DOGE"
-                addressLength = get_addrlen(coin = COIN_NAME)
-            if CoinAddress[0] in ["3", "M", "L"]:
-                COIN_NAME = "LTC"
-                addressLength = get_addrlen(coin = COIN_NAME)
-            pass
-        else:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
-                           f'`{CoinAddress}`')
-            return
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
+                       f'`{CoinAddress}`')
+        return
 
     addressLength = get_addrlen(COIN_NAME)
-    IntaddressLength = get_intaddrlen(COIN_NAME)
+    if coin_family == "TRTL" or coin_family == "CCX" or coin_family == "XMR":
+        IntaddressLength = get_intaddrlen(COIN_NAME)
 
     if len(args) == 1:
         if COIN_NAME == "DOGE":
@@ -4345,9 +4333,11 @@ async def addressqr(ctx, *args):
     CoinAddress = args[0]
     # Check which coinname is it.
     COIN_NAME = get_cn_coin_from_address(CoinAddress)
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     if COIN_NAME:
         addressLength = get_addrlen(COIN_NAME)
-        IntaddressLength = get_intaddrlen(COIN_NAME)
+        if coin_family == "TRTL" or coin_family == "CCX" or coin_family == "XMR":
+            IntaddressLength = get_intaddrlen(COIN_NAME)
     else:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
@@ -4429,9 +4419,11 @@ async def makeqr(ctx, *args):
     # Check which coinname is it.
     CoinAddress = args[0]
     COIN_NAME = get_cn_coin_from_address(CoinAddress)
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     if COIN_NAME:
         addressLength = get_addrlen(COIN_NAME)
-        IntaddressLength = get_intaddrlen(COIN_NAME)
+        if coin_family == "TRTL" or coin_family == "CCX" or coin_family == "XMR":
+            IntaddressLength = get_intaddrlen(COIN_NAME)
         COIN_DEC = get_decimal(COIN_NAME)
         qrstring = get_coin_fullname(COIN_NAME) + '://'
     else:
@@ -4758,6 +4750,10 @@ def get_cn_coin_from_address(CoinAddress: str):
         COIN_NAME = "LOKI"
     elif CoinAddress.startswith("T") and (len(CoinAddress) == 97 or len(CoinAddress) == 98 or len(CoinAddress) == 109):
         COIN_NAME = "XTRI"
+    elif CoinAddress.startswith("D") and len(CoinAddress) == 34:
+        COIN_NAME = "DOGE"
+    # elif (CoinAddress[0] in ["3", "M", "L"]) and (len(CoinAddress) == 34:
+        # COIN_NAME = "LTC"
     return COIN_NAME
 
 

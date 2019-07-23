@@ -4022,8 +4022,13 @@ async def stats(ctx, coin: str = None):
         return
 
     gettopblock = None
+    timeout = 30
     try:
-        gettopblock = await daemonrpc_client.gettopblock(COIN_NAME)
+        gettopblock = await daemonrpc_client.gettopblock(COIN_NAME, time_out=timeout)
+    except asyncio.TimeoutError:
+        msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} connection to daemon timeout after {str(timeout)} seconds.')
+        await msg.add_reaction(EMOJI_OK_BOX)
+        return
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     walletStatus = None
@@ -4129,8 +4134,13 @@ async def height(ctx, coin: str = None):
         return
 
     gettopblock = None
+    timeout = 30
     try:
-        gettopblock = await daemonrpc_client.gettopblock(COIN_NAME)
+        gettopblock = await daemonrpc_client.gettopblock(COIN_NAME, time_out=timeout)
+    except asyncio.TimeoutError:
+        msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} connection to daemon timeout after {str(timeout)} seconds.')
+        await msg.add_reaction(EMOJI_OK_BOX)
+        return
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
 

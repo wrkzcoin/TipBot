@@ -740,7 +740,7 @@ async def secrettip(ctx, amount: str, coin: str, user_id: str):
         tip = "N/A for "+COIN_NAME
     else:
         try:
-            tip = await store.sql_send_secrettip(str(ctx.message.author.id), user_id, real_amount, COIN_NAME, COIN_DEC)
+            tip = await store.sql_send_secrettip(str(ctx.message.author.id), user_id, real_amount, COIN_NAME)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
     if tip:

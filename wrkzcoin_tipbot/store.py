@@ -175,13 +175,15 @@ async def sql_update_some_balances(wallet_addresses: List[str], coin: str = None
                 sql = """ SELECT * FROM cn_walletapi WHERE `coin_name` = %s """
                 cur.execute(sql, (COIN_NAME,))
                 result = cur.fetchall()
+                d = [i['balance_wallet_address'] for i in result]
                 for details in balances:
-                    if details['address'] in result:
+                    if details['address'] in d:
                         # update only
                         sql = """ UPDATE cn_walletapi SET `actual_balance` = %s, `locked_balance` = %s, `lastUpdate` = %s, `decimal`=%s 
                                   WHERE `coin_name` = %s AND `balance_wallet_address` = %s LIMIT 1 """
                         cur.execute(sql, (details['unlocked'], details['locked'], updateTime, wallet.get_decimal(COIN_NAME), 
                                           COIN_NAME, details['address'],))
+                        conn_cursors.commit()
                     else:
                         # insert 
                         sql = """ INSERT INTO cn_walletapi (`coin_name`, `balance_wallet_address`, `actual_balance`, 

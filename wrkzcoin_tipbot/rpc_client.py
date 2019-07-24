@@ -25,12 +25,12 @@ async def call_aiohttp_wallet(method_name: str, coin: str, time_out: int = None,
         'method': f'{method_name}'
     }
     url = get_wallet_rpc_url(coin.upper())
-    time_out = time_out or 8
-    timeout = aiohttp.ClientTimeout(total=time_out)
+    timeout = time_out or 8
     try:
         if coin_family == "XMR":
             async with aiohttp.ClientSession(headers={'Content-Type': 'application/json'}) as session:
                 async with session.post(url, ssl=False, json=full_payload, timeout=timeout) as response:
+                    # sometimes => "message": "Not enough unlocked money" for checking fee
                     if response.status == 200:
                         res_data = await response.read()
                         res_data = res_data.decode('utf-8')

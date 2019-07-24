@@ -48,6 +48,10 @@ MESSAGE_HISTORY_TIME = 60 # duration max to put to DB
 MESSAGE_HISTORY_LIST = []
 MESSAGE_HISTORY_LAST = 0
 
+# param introduce by @bobbieltd
+WITHDRAW_IN_PROCESS = []
+
+
 IS_MAINTENANCE = config.maintenance
 
 # Get them from https://emojipedia.org
@@ -165,6 +169,7 @@ bot_help_admin_shutdown = "Restart bot."
 bot_help_admin_baluser = "Check a specific user's balance for verification purpose."
 bot_help_admin_lockuser = "Lock a user from any tx (tip, withdraw, info, etc) by user id"
 bot_help_admin_unlockuser = "Unlock a user by user id."
+bot_help_admin_cleartx = "Clear pending TX in case of urgent need."
 
 # account commands
 bot_help_account = "Various user account commands. (Still testing)"
@@ -1033,6 +1038,20 @@ async def unlockuser(ctx, user_id: str):
         return
 
 
+@commands.is_owner()
+@admin.command(help=bot_help_admin_cleartx)
+async def cleartx(ctx):
+    global WITHDRAW_IN_PROCESS
+    if len(WITHDRAW_IN_PROCESS) == 0:
+        await ctx.message.author.send(f'{ctx.author.mention} Nothing in tx pending to clear.')
+    else:
+        list_pending = '{' + ', '.join(WITHDRAW_IN_PROCESS) + '}'
+        await ctx.message.add_reaction(EMOJI_WARNING)
+        await ctx.message.author.send(f'{ctx.author.mention} Clearing {len(WITHDRAW_IN_PROCESS)} {list_pending} in pending...')
+        WITHDRAW_IN_PROCESS = [] 
+    return
+
+
 @bot.command(pass_context=True, name='info', aliases=['wallet'], help=bot_help_info)
 async def info(ctx, coin: str = None):
     # check if account locked
@@ -1809,6 +1828,7 @@ async def register(ctx, wallet_address: str):
 
 @bot.command(pass_context=True, help=bot_help_withdraw)
 async def withdraw(ctx, amount: str, coin: str = None):
+    global WITHDRAW_IN_PROCESS
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'withdraw')
     if account_lock:
@@ -1974,7 +1994,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Can not get fee from network for: '
                            f'{num_format_coin(real_amount, COIN_NAME)} '
-                           f'{COIN_NAME}.')
+                           f'{COIN_NAME}. Please try again later in a few minutes.')
             return
         if real_amount + NetFee > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -1997,9 +2017,20 @@ async def withdraw(ctx, amount: str, coin: str = None):
 
         withdrawTx = None
         if user_from['user_wallet_address']:
-            withdrawTx = await store.sql_external_xmr_single(str(ctx.message.author.id), real_amount,
-                                                             user_from['user_wallet_address'],
-                                                             COIN_NAME, "WITHDRAW")
+            if ctx.message.author.id not in WITHDRAW_IN_PROCESS:
+                WITHDRAW_IN_PROCESS.append(ctx.message.author.id)
+                try:
+                    withdrawTx = await store.sql_external_xmr_single(str(ctx.message.author.id), real_amount,
+                                                                     user_from['user_wallet_address'],
+                                                                     COIN_NAME, "WITHDRAW")
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                WITHDRAW_IN_PROCESS.remove(ctx.message.author.id)
+            else:
+                # reject and tell to wait
+                msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You have another tx in process. Please wait it to finish. ')
+                await msg.add_reaction(EMOJI_OK_BOX)
+                return
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{ctx.author.mention} You don\'t have {COIN_NAME} withdraw address.\n')
@@ -2688,10 +2719,11 @@ async def tip(ctx, amount: str, *args):
             servername = serverinfo['servername']
             # tipper shall always get DM. Ignore notifyList
             try:
-                await ctx.message.author.send(
-                    f'{EMOJI_ARROW_RIGHTHOOK} Tip of {num_format_coin(real_amount, COIN_NAME)} '
-                    f'{COIN_NAME} '
-                    f'was sent to `{member.name}` in server `{servername}`\n')
+                if ctx.message.author.bot == False:
+                    await ctx.message.author.send(
+                        f'{EMOJI_ARROW_RIGHTHOOK} Tip of {num_format_coin(real_amount, COIN_NAME)} '
+                        f'{COIN_NAME} '
+                        f'was sent to `{member.name}` in server `{servername}`\n')
             except discord.Forbidden:
                 print('Adding: ' + str(ctx.message.author.id) + ' not to receive DM tip')
                 store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
@@ -3130,6 +3162,7 @@ async def tipall(ctx, amount: str, *args):
 
 @bot.command(pass_context=True, help=bot_help_send)
 async def send(ctx, amount: str, CoinAddress: str):
+    global WITHDRAW_IN_PROCESS
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'send')
     if account_lock:
@@ -3396,7 +3429,7 @@ async def send(ctx, amount: str, CoinAddress: str):
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Can not get fee from network for: '
                            f'{num_format_coin(real_amount, COIN_NAME)} '
-                           f'{COIN_NAME}.')
+                           f'{COIN_NAME}. Please try again later in a few minutes.')
             return
         if real_amount + NetFee > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -3417,8 +3450,21 @@ async def send(ctx, amount: str, CoinAddress: str):
                            f'{COIN_NAME}.')
             return
 
-        SendTx = await store.sql_external_xmr_single(str(ctx.message.author.id), real_amount,
-                                                     CoinAddress, COIN_NAME, "SEND")
+        SendTx = None
+        if ctx.message.author.id not in WITHDRAW_IN_PROCESS:
+            WITHDRAW_IN_PROCESS.append(ctx.message.author.id)
+            try:
+                SendTx = await store.sql_external_xmr_single(str(ctx.message.author.id), real_amount,
+                                                             CoinAddress, COIN_NAME, "SEND")
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            WITHDRAW_IN_PROCESS.remove(ctx.message.author.id)
+        else:
+            # reject and tell to wait
+            msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You have another tx in process. Please wait it to finish. ')
+            await msg.add_reaction(EMOJI_OK_BOX)
+            return
+            
         if SendTx:
             SendTx_hash = SendTx['tx_hash']
             await ctx.message.add_reaction(get_emoji(COIN_NAME))

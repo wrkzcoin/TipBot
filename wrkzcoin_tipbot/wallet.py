@@ -340,8 +340,6 @@ async def get_tx_fee_xmr(coin: str, amount: int = None, to_address: str = None):
         result = await rpc_client.call_aiohttp_wallet('transfer', COIN_NAME, time_out=8, payload=payload)
         if result:
             if ('tx_hash' in result) and ('tx_key' in result) and ('fee' in result):
-                print('Checking fee: ')
-                print(result)
                 return result['fee']
 
 

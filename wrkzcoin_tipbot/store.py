@@ -91,26 +91,23 @@ async def sql_update_balances(coin: str = None):
         try:
             openConnection_cursors()
             with conn_cursors.cursor() as cur:
-                # Select from wallet_api
-                sql = """ SELECT * FROM cn_walletapi WHERE `coin_name` = %s """
-                cur.execute(sql, (COIN_NAME,))
-                result = cur.fetchall()
-                d = [i['balance_wallet_address'] for i in result]
                 for details in balances:
-                    if details['address'] in d:
-                        # update only
-                        # print('Update address{}'.format(details['address']))
-                        sql = """ UPDATE cn_walletapi SET `actual_balance` = %s, `locked_balance` = %s, `lastUpdate` = %s, `decimal`=%s 
-                                  WHERE `coin_name` = %s AND `balance_wallet_address` = %s LIMIT 1 """
-                        cur.execute(sql, (details['unlocked'], details['locked'], updateTime, wallet.get_decimal(COIN_NAME), 
-                                          COIN_NAME, details['address'],))
-                        conn_cursors.commit()
-                    else:
-                        # insert 
-                        sql = """ INSERT INTO cn_walletapi (`coin_name`, `balance_wallet_address`, `actual_balance`, 
-                                  `locked_balance`, `lastUpdate`, `decimal`) VALUES (%s, %s, %s, %s, %s, %s) """
-                        cur.execute(sql, (COIN_NAME, details['address'], details['unlocked'], details['locked'], updateTime, wallet.get_decimal(COIN_NAME),))
-                        conn_cursors.commit()
+                    values_str = []
+                    address = details['address']
+                    actual_balance = details['unlocked']
+                    locked_balance = details['locked']
+                    decimal = wallet.get_decimal(COIN_NAME)
+                    values_str.append(f"('{COIN_NAME}', '{address}', {actual_balance}, {locked_balance}, {decimal}, {updateTime})\n")
+                    values_sql = "VALUES " + ",".join(values_str)
+                    sql = """ INSERT INTO cn_walletapi (`coin_name`, `balance_wallet_address`, `actual_balance`, 
+                              `locked_balance`, `decimal`, `lastUpdate`) """+values_sql+""" 
+                              ON DUPLICATE KEY UPDATE 
+                              `actual_balance` = VALUES(actual_balance),
+                              `locked_balance` = VALUES(locked_balance),
+                              `lastUpdate` = VALUES(lastUpdate)
+                              """
+                    cur.execute(sql,)
+                    conn_cursors.commit()
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
     if coin_family == "XMR":
@@ -171,25 +168,23 @@ async def sql_update_some_balances(wallet_addresses: List[str], coin: str = None
         try:
             openConnection_cursors()
             with conn_cursors.cursor() as cur:
-                # Select from wallet_api
-                sql = """ SELECT * FROM cn_walletapi WHERE `coin_name` = %s """
-                cur.execute(sql, (COIN_NAME,))
-                result = cur.fetchall()
-                d = [i['balance_wallet_address'] for i in result]
                 for details in balances:
-                    if details['address'] in d:
-                        # update only
-                        sql = """ UPDATE cn_walletapi SET `actual_balance` = %s, `locked_balance` = %s, `lastUpdate` = %s, `decimal`=%s 
-                                  WHERE `coin_name` = %s AND `balance_wallet_address` = %s LIMIT 1 """
-                        cur.execute(sql, (details['unlocked'], details['locked'], updateTime, wallet.get_decimal(COIN_NAME), 
-                                          COIN_NAME, details['address'],))
-                        conn_cursors.commit()
-                    else:
-                        # insert 
-                        sql = """ INSERT INTO cn_walletapi (`coin_name`, `balance_wallet_address`, `actual_balance`, 
-                                  `locked_balance`, `decimal`, `lastUpdate`) VALUES (%s, %s, %s, %s, %s, %s) """
-                        cur.execute(sql, (COIN_NAME, details['address'], details['unlocked'], details['locked'], wallet.get_decimal(COIN_NAME), updateTime,))
-                        conn_cursors.commit()
+                    values_str = []
+                    address = details['address']
+                    actual_balance = details['unlocked']
+                    locked_balance = details['locked']
+                    decimal = wallet.get_decimal(COIN_NAME)
+                    values_str.append(f"('{COIN_NAME}', '{address}', {actual_balance}, {locked_balance}, {decimal}, {updateTime})\n")
+                    values_sql = "VALUES " + ",".join(values_str)
+                    sql = """ INSERT INTO cn_walletapi (`coin_name`, `balance_wallet_address`, `actual_balance`, 
+                              `locked_balance`, `decimal`, `lastUpdate`) """+values_sql+""" 
+                              ON DUPLICATE KEY UPDATE 
+                              `actual_balance` = VALUES(actual_balance),
+                              `locked_balance` = VALUES(locked_balance),
+                              `lastUpdate` = VALUES(lastUpdate)
+                              """
+                    cur.execute(sql,)
+                    conn_cursors.commit()
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
     else:

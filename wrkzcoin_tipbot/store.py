@@ -1041,23 +1041,19 @@ def sql_tag_by_server(server_id: str, tag_id: str = None):
         openConnection_cursors()
         with conn_cursors.cursor() as cur:
             if tag_id is None: 
-                sql = """ SELECT tag_id, tag_desc, date_added, tag_serverid, added_byname, 
-                          added_byuid, num_trigger FROM wrkz_tag WHERE tag_serverid = %s """
+                sql = """ SELECT * FROM discord_tag WHERE tag_serverid = %s """
                 cur.execute(sql, (server_id,))
                 result = cur.fetchall()
-                tag_list = []
-                for row in result:
-                    tag_list.append({'tag_id':row[0], 'tag_desc':row[1], 'date_added':row[2], 'tag_serverid':row[3],
-                                     'added_byname':row[4], 'added_byuid':row[5], 'num_trigger':row[6]})
+                tag_list = result
                 return tag_list
             else:
                 sql = """ SELECT `tag_id`, `tag_desc`, `date_added`, `tag_serverid`, `added_byname`, 
-                          `added_byuid`, `num_trigger` FROM wrkz_tag WHERE tag_serverid = %s AND tag_id=%s """
+                          `added_byuid`, `num_trigger` FROM discord_tag WHERE tag_serverid = %s AND tag_id=%s """
                 cur.execute(sql, (server_id, tag_id,))
                 result = cur.fetchone()
                 if result:
                     tag = result
-                    sql = """ UPDATE wrkz_tag SET num_trigger=num_trigger+1 WHERE tag_serverid = %s AND tag_id=%s """
+                    sql = """ UPDATE discord_tag SET num_trigger=num_trigger+1 WHERE tag_serverid = %s AND tag_id=%s """
                     cur.execute(sql, (server_id, tag_id,))
                     conn_cursors.commit()
                     return tag
@@ -1070,7 +1066,7 @@ def sql_tag_by_server_add(server_id: str, tag_id: str, tag_desc: str, added_byna
     try:
         openConnection_cursors()
         with conn_cursors.cursor() as cur:
-            sql = """ SELECT COUNT(tag_serverid) FROM wrkz_tag AS counting WHERE tag_serverid=%s """
+            sql = """ SELECT COUNT(tag_serverid) FROM discord_tag AS counting WHERE tag_serverid=%s """
             cur.execute(sql, (server_id,))
             counting = cur.fetchone()
             if counting:
@@ -1078,11 +1074,11 @@ def sql_tag_by_server_add(server_id: str, tag_id: str, tag_desc: str, added_byna
                     return None
             sql = """ SELECT `tag_id`, `tag_desc`, `date_added`, `tag_serverid`, `added_byname`, `added_byuid`, 
                       `num_trigger` 
-                      FROM wrkz_tag WHERE tag_serverid = %s AND tag_id=%s """
+                      FROM discord_tag WHERE tag_serverid = %s AND tag_id=%s """
             cur.execute(sql, (server_id, tag_id.upper(),))
             result = cur.fetchone()
             if result is None:
-                sql = """ INSERT INTO wrkz_tag (`tag_id`, `tag_desc`, `date_added`, `tag_serverid`, 
+                sql = """ INSERT INTO discord_tag (`tag_id`, `tag_desc`, `date_added`, `tag_serverid`, 
                           `added_byname`, `added_byuid`) 
                           VALUES (%s, %s, %s, %s, %s, %s) """
                 cur.execute(sql, (tag_id.upper(), tag_desc, int(time.time()), server_id, added_byname, added_byuid,))
@@ -1101,13 +1097,13 @@ def sql_tag_by_server_del(server_id: str, tag_id: str):
         with conn_cursors.cursor() as cur:
             sql = """ SELECT `tag_id`, `tag_desc`, `date_added`, `tag_serverid`, `added_byname`, 
                       `added_byuid`, `num_trigger` 
-                      FROM wrkz_tag WHERE tag_serverid = %s AND tag_id=%s """
+                      FROM discord_tag WHERE tag_serverid = %s AND tag_id=%s """
             cur.execute(sql, (server_id, tag_id.upper(),))
             result = cur.fetchone()
             if result is None:
                 return None
             else:
-                sql = """ DELETE FROM wrkz_tag WHERE `tag_id`=%s AND `tag_serverid`=%s """
+                sql = """ DELETE FROM discord_tag WHERE `tag_id`=%s AND `tag_serverid`=%s """
                 cur.execute(sql, (tag_id.upper(), server_id,))
                 conn_cursors.commit()
                 return tag_id.upper()
@@ -1725,40 +1721,6 @@ def sql_set_forwardtip(userID: str, coin: str, option: str):
                 conn_cursors.commit()
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-
-
-def sql_get_nodeinfo():
-    global conn_cursors
-    try:
-        openConnection_cursors()
-        with conn_cursors.cursor() as cur:
-            sql = """ SELECT `url`, `fee`, `lastUpdate`, `alt_blocks_count`, `difficulty`, `incoming_connections_count`,
-                  `last_known_block_index`, `network_height`, `outgoing_connections_count`, `start_time`, `tx_count`, 
-                  `tx_pool_size`,
-                  `version`, `white_peerlist_size`, `synced`, `height` FROM wrkz_nodes """
-            cur.execute(sql,)
-            result = cur.fetchall()
-            return result
-    except Exception as e:
-        traceback.print_exc(file=sys.stdout)
-
-
-def sql_get_poolinfo():
-    global conn_cursors
-    try:
-        openConnection_cursors()
-        with conn_cursors.cursor() as cur:
-            sql = """ SELECT `name`, `url_api`, `fee`, `minPaymentThreshold`, `pool_stats_lastBlockFound`, 
-                  `pool_stats_totalBlocks`,
-                  `pool_totalMinersPaid`, `pool_totalPayments`, `pool_payment_last`, `pool_miners`, `pool_hashrate`, 
-                  `net_difficulty`,
-                  `net_height`, `net_timestamp`, `net_reward`, `net_hash`, `lastUpdate`, `pool_blocks_last` 
-                  FROM wrkz_pools """
-            cur.execute(sql,)
-            result = cur.fetchall()
-            return result
-    except Exception as e:
-        traceback.print_exc(file=sys.stdout)
 
 
 # Steal from https://nitratine.net/blog/post/encryption-and-decryption-in-python/

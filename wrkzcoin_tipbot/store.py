@@ -637,9 +637,9 @@ async def sql_send_tip_Ex(user_from: str, address_to: str, amount: int, coin: st
                     timestamp = int(time.time())
                     updateBalance = None
                     if coin_family == "TRTL" or coin_family == "CCX":
-                        sql = """ INSERT INTO cn_send (`coin_name`, `from_user`, `to_address`, `amount`, `date`, 
-                                  `tx_hash`) VALUES (%s, %s, %s, %s, %s, %s) """
-                        cur.execute(sql, (COIN_NAME, user_from, address_to, amount, timestamp, tx_hash,))
+                        sql = """ INSERT INTO cn_send (`coin_name`, `from_user`, `to_address`, `amount`, `decimal`, `date`, 
+                                  `tx_hash`) VALUES (%s, %s, %s, %s, %s, %s, %s) """
+                        cur.execute(sql, (COIN_NAME, user_from, address_to, amount, wallet.get_decimal(COIN_NAME), timestamp, tx_hash,))
                         conn_cursors.commit()
                         updateBalance = await wallet.get_balance_address(user_from_wallet['balance_wallet_address'], 
                                                                          coin.upper())

@@ -302,7 +302,7 @@ async def on_reaction_add(reaction, user):
                 # await msg.add_reaction(EMOJI_OK_BOX)
         # EMOJI_100
         elif reaction.emoji == EMOJI_100 \
-            and user.bot == False and reaction.message.author != user:
+            and user.bot == False and reaction.message.author != user and reaction.message.author.bot == False:
             # check if react_tip_100 is ON in the server
             serverinfo = store.sql_info_by_server(str(reaction.message.guild.id))
             if serverinfo['react_tip'] == "ON":

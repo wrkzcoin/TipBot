@@ -51,6 +51,8 @@ MESSAGE_HISTORY_LAST = 0
 # param introduce by @bobbieltd
 WITHDRAW_IN_PROCESS = []
 
+# tip-react temp storage
+REACT_TIP_STORE = []
 
 IS_MAINTENANCE = config.maintenance
 
@@ -66,6 +68,8 @@ EMOJI_CHECK = "\u2705"
 EMOJI_MONEYBAG = "\U0001F4B0"
 EMOJI_SCALE = "\u2696"
 EMOJI_INFORMATION = "\u2139"
+EMOJI_100 = "\U0001F4AF"
+
 
 EMOJI_COIN = {
     "WRKZ" : "\U0001F477",
@@ -262,6 +266,7 @@ async def on_guild_join(guild):
 
 @bot.event
 async def on_reaction_add(reaction, user):
+    global REACT_TIP_STORE
     # If bot re-act, ignore.
     if user.id == bot.user.id:
         return
@@ -295,6 +300,88 @@ async def on_reaction_add(reaction, user):
                     await reaction.message.channel.send(f'{to_send.mention} I failed DM you for the address.')
                 return
                 # await msg.add_reaction(EMOJI_OK_BOX)
+        # EMOJI_100
+        elif reaction.emoji == EMOJI_100 \
+            and user.bot == False and reaction.message.author != user:
+            # check if react_tip_100 is ON in the server
+            serverinfo = store.sql_info_by_server(str(reaction.message.guild.id))
+            if serverinfo['react_tip'] == "ON":
+                if (str(reaction.message.id) + '.' + str(user.id)) not in REACT_TIP_STORE:
+                    # OK add new message to array                  
+                    pass
+                else:
+                    # he already re-acted and tipped once
+                    return
+                # get the amount of 100 from defined
+                COIN_NAME = serverinfo['default_coin']
+                COIN_DEC = get_decimal(COIN_NAME)
+                real_amount = int(serverinfo['react_tip_100']) * COIN_DEC
+                MinTx = get_min_tx_amount(COIN_NAME)
+                MaxTX = get_max_tx_amount(COIN_NAME)
+                NetFee = get_tx_fee(coin = COIN_NAME)
+                user_from = await store.sql_get_userwallet(str(user.id), COIN_NAME)
+                has_forwardtip = None
+                if user_from is None:
+                    return
+                user_to = await store.sql_get_userwallet(str(reaction.message.author.id), COIN_NAME)
+                if user_to is None:
+                    userregister = await store.sql_register_user(str(reaction.message.author.id), COIN_NAME)
+                    user_to = await store.sql_get_userwallet(str(reaction.message.author.id), COIN_NAME)
+                if user_to['forwardtip'] == "ON":
+                    has_forwardtip = True
+                # process other check balance
+                if (real_amount + NetFee >= user_from['actual_balance']) or \
+                    (real_amount > MaxTX) or (real_amount < MinTx):
+                    return
+                else:
+                    tip = None
+                    try:
+                        tip = await store.sql_send_tip(str(user.id), str(reaction.message.author.id), real_amount, COIN_NAME)
+                        tip_tx_tipper = "Transaction hash: `{}`".format(tip)
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                    if tip:
+                        notifyList = store.sql_get_tipnotify()
+                        REACT_TIP_STORE.append((str(reaction.message.id) + '.' + str(user.id)))
+                        servername = serverinfo['servername']
+                        if has_forwardtip:
+                            if EMOJI_FORWARD not in reaction.message.reactions:
+                                await reaction.message.add_reaction(EMOJI_FORWARD)
+                        else:
+                            if get_emoji(COIN_NAME) not in reaction.message.reactions:
+                                await reaction.message.add_reaction(get_emoji(COIN_NAME))
+                        # tipper shall always get DM. Ignore notifyList
+                        try:
+                            await user.send(
+                                f'{EMOJI_ARROW_RIGHTHOOK} Tip of {num_format_coin(real_amount, COIN_NAME)} '
+                                f'{COIN_NAME} '
+                                f'was sent to `{reaction.message.author.name}` in server `{servername}` by your re-acting {EMOJI_100}\n'
+                                f'{tip_tx_tipper}')
+                        except discord.Forbidden:
+                            # add user to notifyList
+                            print('Adding: ' + str(ctx.message.author.id) + ' not to receive DM tip')
+                            store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
+                        if str(reaction.message.author.id) not in notifyList:
+                            try:
+                                await reaction.message.author.send(
+                                    f'{EMOJI_MONEYFACE} You got a tip of {num_format_coin(real_amount, COIN_NAME)} '
+                                    f'{COIN_NAME} from `{user.name}` in server `{servername}` from their re-acting {EMOJI_100}\n'
+                                    f'{tip_tx_tipper}\n'
+                                    f'{NOTIFICATION_OFF_CMD}')
+                            except discord.Forbidden:
+                                # add user to notifyList
+                                print('Adding: ' + str(member.id) + ' not to receive DM tip')
+                                store.sql_toggle_tipnotify(str(member.id), "OFF")
+                        return
+                    else:
+                        await reaction.message.author.send(f'{reaction.message.author.mention} Can not deliver TX for {COIN_NAME} right now. Try again soon.')
+                        # add to failed tx table
+                        store.sql_add_failed_tx(COIN_NAME, str(reaction.message.author.id), reaction.message.author.name, real_amount, "TIP")
+                        return
+                       
+
+            else:
+                return
         return
 
 
@@ -1098,7 +1185,13 @@ async def info(ctx, coin: str = None):
                 server_prefix = serverinfo['prefix']
                 server_coin = serverinfo['default_coin'].upper()
                 server_tiponly = serverinfo['tiponly'].upper()
-
+                if serverinfo['react_tip'].upper() == "ON":
+                    COIN_NAME = serverinfo['default_coin'].upper()
+                    # COIN_DEC = get_decimal(COIN_NAME)
+                    # real_amount = int(amount * COIN_DEC)
+                    react_tip_value = str(serverinfo['react_tip_100']) + COIN_NAME
+                else:
+                    react_tip_value = "N/A"
             chanel_ignore_list = ''
             if LIST_IGNORECHAN:
                 if str(ctx.guild.id) in LIST_IGNORECHAN:
@@ -1116,6 +1209,7 @@ async def info(ctx, coin: str = None):
                 f'Default ticker: {server_coin}\n'
                 f'Default prefix: {server_prefix}\n'
                 f'TipOnly Coins:  {server_tiponly}\n'
+                f'Re-act Tip:     {react_tip_value}\n'
                 f'Ignored Tip in: {chanel_ignore_list}\n'
                 f'```\n{extra_text}')
             await msg.add_reaction(EMOJI_OK_BOX)
@@ -4221,12 +4315,13 @@ async def setting(ctx, *args):
         server_id = str(ctx.guild.id)
         server_prefix = config.discord.prefixCmd
         server_coin = DEFAULT_TICKER
+        server_reacttip = "OFF"
     else:
         servername = serverinfo['servername']
         server_id = str(ctx.guild.id)
         server_prefix = serverinfo['prefix']
         server_coin = serverinfo['default_coin'].upper()
-
+        server_reacttip = serverinfo['react_tip'].upper()
     if len(args) == 0:
         msg = await ctx.send('**Available param:** to change prefix, default coin, others in your server:\n```'
                        f'{server_prefix}setting prefix .|?|*|!\n\n'
@@ -4316,6 +4411,29 @@ async def setting(ctx, *args):
                     await ctx.send(f'Default Coin changed from `{server_coin}` to `{args[1].upper()}`.')
                     await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} changed default coin in {ctx.guild.name} / {ctx.guild.id} to {args[1].upper()}.')
                     return
+        elif args[0].upper() == "REACTTIP":
+            if args[1].upper() not in ["ON", "OFF"]:
+                await ctx.send('Invalid Option. **ON OFF** Only.')
+                return
+            else:
+                if server_reacttip == args[1].upper():
+                    await ctx.send(f'{ctx.author.mention} That\'s the default option already. Nothing changed.')
+                    return
+                else:
+                    changeinfo = store.sql_changeinfo_by_server(str(ctx.guild.id), 'react_tip', args[1].upper())
+                    await ctx.send(f'React Tip changed from `{server_reacttip}` to `{args[1].upper()}`.')
+                    return
+        elif args[0].upper() == "REACTAMOUNT" or args[0].upper() == "REACTTIP-AMOUNT":
+            amount = args[1].replace(",", "")
+            try:
+                amount = float(amount)
+            except ValueError:
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid amount.')
+                return
+            changeinfo = store.sql_changeinfo_by_server(str(ctx.guild.id), 'react_tip_100', amount)
+            await ctx.send(f'React tip amount updated to to `{amount}{server_coin}`.')
+            return
         else:
             await ctx.send(f'{ctx.author.mention} Invalid command input and parameter.')
             return

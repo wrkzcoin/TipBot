@@ -1116,14 +1116,10 @@ def sql_info_by_server(server_id: str):
     try:
         openConnection_cursors()
         with conn_cursors.cursor() as cur: 
-            sql = """ SELECT serverid, servername, prefix, default_coin, numb_user, numb_bot, tiponly 
-                      FROM discord_server WHERE serverid = %s """
+            sql = """ SELECT * FROM discord_server WHERE serverid = %s LIMIT 1 """
             cur.execute(sql, (server_id,))
             result = cur.fetchone()
-            if result is None:
-                return None
-            else:
-                return result
+            return result
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
 
@@ -1182,7 +1178,7 @@ def sql_get_messages(server_id: str, channel_id: str, time_int: int):
 
 def sql_changeinfo_by_server(server_id: str, what: str, value: str):
     global conn_cursors
-    if what.lower() in ["servername", "prefix", "default_coin", "tiponly", "numb_user", "numb_bot", "numb_channel"]:
+    if what.lower() in ["servername", "prefix", "default_coin", "tiponly", "numb_user", "numb_bot", "numb_channel", "react_tip", "react_tip_100"]:
         try:
             #print(f"ok try to change {what} to {value}")
             openConnection_cursors()

@@ -32,7 +32,7 @@ async def gettopblock(coin: str, time_out: int = None):
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     result = None
     timeout = time_out or 8
-    if coin_family == "TRTL" or coin_family == "TRTL" or coin_family == "XMR":
+    if coin_family == "TRTL" or coin_family == "CCX" or coin_family == "XMR":
         result = await call_daemon('getblockcount', COIN_NAME, time_out = timeout)
         full_payload = {
             'jsonrpc': '2.0',

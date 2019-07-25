@@ -87,27 +87,33 @@ async def sql_update_balances(coin: str = None):
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     if coin_family == "TRTL" or coin_family == "CCX":
         print('SQL: Updating all wallet balances '+COIN_NAME)
+        start = time.time()
         balances = await wallet.get_all_balances_all(COIN_NAME)
+        end = time.time()
+        print('Time spending collecting all wallet: '+str(end - start))
         try:
             openConnection_cursors()
             with conn_cursors.cursor() as cur:
+                values_str = []
                 for details in balances:
-                    values_str = []
                     address = details['address']
                     actual_balance = details['unlocked']
                     locked_balance = details['locked']
                     decimal = wallet.get_decimal(COIN_NAME)
                     values_str.append(f"('{COIN_NAME}', '{address}', {actual_balance}, {locked_balance}, {decimal}, {updateTime})\n")
-                    values_sql = "VALUES " + ",".join(values_str)
-                    sql = """ INSERT INTO cn_walletapi (`coin_name`, `balance_wallet_address`, `actual_balance`, 
-                              `locked_balance`, `decimal`, `lastUpdate`) """+values_sql+""" 
-                              ON DUPLICATE KEY UPDATE 
-                              `actual_balance` = VALUES(actual_balance),
-                              `locked_balance` = VALUES(locked_balance),
-                              `lastUpdate` = VALUES(lastUpdate)
-                              """
-                    cur.execute(sql,)
-                    conn_cursors.commit()
+                values_sql = "VALUES " + ",".join(values_str)
+                sql = """ INSERT INTO cn_walletapi (`coin_name`, `balance_wallet_address`, `actual_balance`, 
+                          `locked_balance`, `decimal`, `lastUpdate`) """+values_sql+""" 
+                          ON DUPLICATE KEY UPDATE 
+                          `actual_balance` = VALUES(`actual_balance`),
+                          `locked_balance` = VALUES(`locked_balance`),
+                          `decimal` = VALUES(`decimal`),
+                          `lastUpdate` = VALUES(`lastUpdate`)
+                          """
+                cur.execute(sql,)
+                conn_cursors.commit()
+                end_sql = time.time()
+                print('Time updated to SQL: '+str(end_sql - end))
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
     if coin_family == "XMR":
@@ -168,36 +174,36 @@ async def sql_update_some_balances(wallet_addresses: List[str], coin: str = None
         try:
             openConnection_cursors()
             with conn_cursors.cursor() as cur:
+                values_str = []
                 for details in balances:
-                    values_str = []
                     address = details['address']
                     actual_balance = details['unlocked']
                     locked_balance = details['locked']
                     decimal = wallet.get_decimal(COIN_NAME)
                     values_str.append(f"('{COIN_NAME}', '{address}', {actual_balance}, {locked_balance}, {decimal}, {updateTime})\n")
-                    values_sql = "VALUES " + ",".join(values_str)
-                    sql = """ INSERT INTO cn_walletapi (`coin_name`, `balance_wallet_address`, `actual_balance`, 
-                              `locked_balance`, `decimal`, `lastUpdate`) """+values_sql+""" 
-                              ON DUPLICATE KEY UPDATE 
-                              `actual_balance` = VALUES(actual_balance),
-                              `locked_balance` = VALUES(locked_balance),
-                              `lastUpdate` = VALUES(lastUpdate)
-                              """
-                    cur.execute(sql,)
-                    conn_cursors.commit()
+                values_sql = "VALUES " + ",".join(values_str)
+                sql = """ INSERT INTO cn_walletapi (`coin_name`, `balance_wallet_address`, `actual_balance`, 
+                          `locked_balance`, `decimal`, `lastUpdate`) """+values_sql+""" 
+                          ON DUPLICATE KEY UPDATE 
+                          `actual_balance` = VALUES(`actual_balance`),
+                          `locked_balance` = VALUES(`locked_balance`),
+                          `decimal` = VALUES(`decimal`),
+                          `lastUpdate` = VALUES(`lastUpdate`)
+                          """
+                cur.execute(sql,)
+                conn_cursors.commit()
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
     else:
         return
 
 
-async def sql_register_user(userID, coin: str = None):
+async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD'):
+    user_server = user_server.upper()
+    if user_server not in ['DISCORD', 'TELEGRAM']:
+        return
     global conn_cursors
-    COIN_NAME = None
-    if coin is None:
-        COIN_NAME = "WRKZ"
-    else:
-        COIN_NAME = coin.upper()
+    COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     try:
         openConnection_cursors()

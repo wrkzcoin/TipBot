@@ -408,10 +408,8 @@ async def sql_get_userwallet(userID, coin: str = None):
         traceback.print_exc(file=sys.stdout)
 
 
-def sql_get_countLastTip(userID, lastDuration: int, coin: str = None):
+def sql_get_countLastTip(userID, lastDuration: int):
     global conn_cursors
-    if coin is None:
-        coin = "WRKZ"
     lapDuration = int(time.time()) - lastDuration
     try:
         openConnection_cursors()

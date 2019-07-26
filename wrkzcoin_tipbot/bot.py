@@ -1935,11 +1935,8 @@ async def withdraw(ctx, amount: str, coin: str = None):
     amount = amount.replace(",", "")
 
     # Check flood of tip
-    repeatTx = 0
-    for itemCoin in ENABLE_COIN:
-        floodTip = store.sql_get_countLastTip(str(ctx.message.author.id), config.floodTipDuration, itemCoin.upper())
-        repeatTx = repeatTx + floodTip
-    if repeatTx >= config.floodTip:
+    floodTip = store.sql_get_countLastTip(str(ctx.message.author.id), config.floodTipDuration)
+    if floodTip >= config.floodTip:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Cool down your tip or TX. or increase your amount next time.')
         await botLogChan.send('A user reached max. TX threshold. Currently halted: `.withdraw`')
@@ -2225,11 +2222,8 @@ async def donate(ctx, amount: str, coin: str = None):
     amount = amount.replace(",", "")
 
     # Check flood of tip
-    repeatTx = 0
-    for itemCoin in ENABLE_COIN:
-        floodTip = store.sql_get_countLastTip(str(ctx.message.author.id), config.floodTipDuration, itemCoin.upper())
-        repeatTx = repeatTx + floodTip
-    if repeatTx >= config.floodTip:
+    floodTip = store.sql_get_countLastTip(str(ctx.message.author.id), config.floodTipDuration)
+    if floodTip >= config.floodTip:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Cool down your tip or TX. or increase your amount next time.')
         await botLogChan.send('A user reached max. TX threshold. Currently halted: `.donate`')
@@ -2602,11 +2596,8 @@ async def tip(ctx, amount: str, *args):
         return
 
     # Check flood of tip
-    repeatTx = 0
-    for itemCoin in ENABLE_COIN:
-        floodTip = store.sql_get_countLastTip(str(ctx.message.author.id), config.floodTipDuration, itemCoin.upper())
-        repeatTx = repeatTx + floodTip
-    if repeatTx >= config.floodTip:
+    floodTip = store.sql_get_countLastTip(str(ctx.message.author.id), config.floodTipDuration)
+    if floodTip >= config.floodTip:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Cool down your tip or TX. or increase your amount next time.')
         await botLogChan.send('A user reached max. TX threshold. Currently halted: `.tip`')
@@ -2897,11 +2888,8 @@ async def tipall(ctx, amount: str, *args):
         return
 
     # Check flood of tip
-    repeatTx = 0
-    for itemCoin in ENABLE_COIN:
-        floodTip = store.sql_get_countLastTip(str(ctx.message.author.id), config.floodTipDuration, itemCoin.upper())
-        repeatTx = repeatTx + floodTip
-    if repeatTx >= config.floodTip:
+    floodTip = store.sql_get_countLastTip(str(ctx.message.author.id), config.floodTipDuration)
+    if floodTip >= config.floodTip:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Cool down your tip or TX. or increase your amount next time.')
         await botLogChan.send('A user reached max. TX threshold. Currently halted: `.tipall`')
@@ -3269,11 +3257,8 @@ async def send(ctx, amount: str, CoinAddress: str):
     amount = amount.replace(",", "")
 
     # Check flood of tip
-    repeatTx = 0
-    for itemCoin in ENABLE_COIN:
-        floodTip = store.sql_get_countLastTip(str(ctx.message.author.id), config.floodTipDuration, itemCoin.upper())
-        repeatTx = repeatTx + floodTip
-    if repeatTx >= config.floodTip:
+    floodTip = store.sql_get_countLastTip(str(ctx.message.author.id), config.floodTipDuration)
+    if floodTip >= config.floodTip:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO}{ctx.author.mention} Cool down your tip or TX. or increase your amount next time.')
         await botLogChan.send('A user reached max. TX threshold. Currently halted: `.send`')

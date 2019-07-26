@@ -866,10 +866,10 @@ def sql_optimize_check(coin: str = None):
         with conn_cursors.cursor() as cur:
             timeNow = int(time.time()) - 600
             if COIN_NAME in ENABLE_COIN:
-                sql = """ SELECT COUNT(*) FROM cn_user AS Opt WHERE lastOptimize>%s AND `coin_name` = %s """
-                cur.execute(sql, timeNow, COIN_NAME,)
+                sql = """ SELECT COUNT(*) FROM cn_user WHERE lastOptimize>%s AND `coin_name` = %s """
+                cur.execute(sql, (timeNow, COIN_NAME,))
                 result = cur.fetchone()
-                return result['Opt']
+                return result['COUNT(*)'] or 0
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
 
@@ -899,32 +899,25 @@ async def sql_optimize_do(userID: str, coin: str = None):
     print('store.sql_optimize_do: ' + COIN_NAME)
     if user_from_wallet:
         OptimizeCount = 0
-        if COIN_NAME in ENABLE_COIN:
+        coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+        if coin_family == "TRTL":
             OptimizeCount = await wallet.wallet_optimize_single(user_from_wallet['balance_wallet_address'], 
-                                                          int(user_from_wallet['actual_balance']), COIN_NAME)
-        # in case failed for some reason, reduce threshold
-        if estimate['fusionReadyCount'] >= 2 and OptimizeCount == 0:
-            OptimizeCount = await wallet.wallet_optimize_single(user_from_wallet['balance_wallet_address'], 
-                                                          int(round(user_from_wallet['actual_balance']/2)), COIN_NAME)        
+                                                                int(user_from_wallet['actual_balance']), COIN_NAME)
+        else:
+            return      
         if OptimizeCount > 0:
             updateTime = int(time.time())
-            if COIN_NAME in ENABLE_COIN:
-                sql_optimize_update(str(userID), COIN_NAME)
+            sql_optimize_update(str(userID), COIN_NAME)
             try:
                 openConnection_cursors()
+                updateBalance = await wallet.get_balance_address(user_from_wallet['balance_wallet_address'], COIN_NAME)
                 with conn_cursors.cursor() as cur:
-                    updateBalance = None
-                    if COIN_NAME in ENABLE_COIN:
-                        updateBalance = await wallet.get_balance_address(user_from_wallet['balance_wallet_address'], COIN_NAME)
-                    if updateBalance:
-                        sql = None
-                        if COIN_NAME in ENABLE_COIN:
-                            sql = """ UPDATE cn_walletapi SET `actual_balance`=%s, 
-                                     `locked_balance`=%s, `lastUpdate`=%s, `decimal` = %s 
-                                     WHERE `balance_wallet_address`=%s AND `coin_name`=%s LIMIT 1 """
-                        cur.execute(sql, (updateBalance['unlocked'], updateBalance['locked'], 
-                                    updateTime, wallet.get_decimal(COIN_NAME), user_from_wallet['balance_wallet_address'], COIN_NAME,))
-                        conn_cursors.commit()
+                    sql = """ UPDATE cn_walletapi SET `actual_balance`=%s, 
+                             `locked_balance`=%s, `lastUpdate`=%s, `decimal` = %s 
+                             WHERE `balance_wallet_address`=%s AND `coin_name`=%s LIMIT 1 """
+                    cur.execute(sql, (updateBalance['unlocked'], updateBalance['locked'], 
+                                updateTime, wallet.get_decimal(COIN_NAME), user_from_wallet['balance_wallet_address'], COIN_NAME,))
+                    conn_cursors.commit()
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
         return OptimizeCount

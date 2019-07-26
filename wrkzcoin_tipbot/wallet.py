@@ -210,8 +210,7 @@ async def wallet_optimize_single(subaddress: str, threshold: int, coin: str=None
 
     i = 0
     while True:
-        #print('get_wallet_api_url(coin): '+ get_wallet_api_url(coin))
-        url = get_wallet_api_url(coin) + '/json_rpc'
+        url = get_wallet_api_url(coin)
         async with aiohttp.ClientSession() as session:
             async with session.post(url, json=full_payload, timeout=8) as response:
                 if response.status == 200:

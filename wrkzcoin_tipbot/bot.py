@@ -362,8 +362,8 @@ async def on_reaction_add(reaction, user):
                                 f'{tip_tx_tipper}')
                         except (discord.Forbidden, discord.errors.Forbidden) as e:
                             # add user to notifyList
-                            print('Adding: ' + str(reaction.message.author.id) + ' not to receive DM tip')
-                            store.sql_toggle_tipnotify(str(reaction.message.author.id), "OFF")
+                            print('Adding: ' + str(user.id) + ' not to receive DM tip')
+                            store.sql_toggle_tipnotify(str(user.id), "OFF")
                         if str(reaction.message.author.id) not in notifyList:
                             try:
                                 await reaction.message.author.send(
@@ -373,8 +373,8 @@ async def on_reaction_add(reaction, user):
                                     f'{NOTIFICATION_OFF_CMD}')
                             except (discord.Forbidden, discord.errors.Forbidden) as e:
                                 # add user to notifyList
-                                print('Adding: ' + str(member.id) + ' not to receive DM tip')
-                                store.sql_toggle_tipnotify(str(member.id), "OFF")
+                                print('Adding: ' + str(reaction.message.author.id) + ' not to receive DM tip')
+                                store.sql_toggle_tipnotify(str(reaction.message.author.id), "OFF")
                         return
                     else:
                         await reaction.message.author.send(f'{reaction.message.author.mention} Can not deliver TX for {COIN_NAME} right now. Try again soon.')

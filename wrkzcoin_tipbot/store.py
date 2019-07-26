@@ -1404,10 +1404,14 @@ def sql_toggle_tipnotify(user_id: str, onoff: str):
         try:
             openConnection_cursors()
             with conn_cursors.cursor() as cur:
-                sql = """ INSERT IGNORE INTO `bot_tipnotify_user` (`user_id`, `date`)
-                          VALUES (%s, %s) """
-                cur.execute(sql, (user_id, int(time.time())))
-                conn_cursors.commit()
+                sql = """ SELECT * FROM `bot_tipnotify_user` WHERE `user_id` = %s LIMIT 1 """
+                cur.execute(sql, (user_id))
+                result = cur.fetchone()
+                if result is None:
+                    sql = """ INSERT INTO `bot_tipnotify_user` (`user_id`, `date`)
+                              VALUES (%s, %s) """    
+                    cur.execute(sql, (user_id, int(time.time())))
+                    conn_cursors.commit()
         except pymysql.err.Warning as e:
             traceback.print_exc(file=sys.stdout)
         except Exception as e:

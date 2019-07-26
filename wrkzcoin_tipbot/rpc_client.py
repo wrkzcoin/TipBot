@@ -26,6 +26,8 @@ async def call_aiohttp_wallet(method_name: str, coin: str, time_out: int = None,
     }
     url = get_wallet_rpc_url(coin.upper())
     timeout = time_out or 8
+    if method_name == "save" or method_name == "store":
+        timeout = 300
     try:
         if coin_family == "XMR":
             async with aiohttp.ClientSession(headers={'Content-Type': 'application/json'}) as session:
@@ -34,8 +36,7 @@ async def call_aiohttp_wallet(method_name: str, coin: str, time_out: int = None,
                     if response.status == 200:
                         res_data = await response.read()
                         res_data = res_data.decode('utf-8')
-                        if method_name != "create_account":
-                            await session.close()
+                        await session.close()
                         decoded_data = json.loads(res_data)
                         if 'result' in decoded_data:
                             return decoded_data['result']
@@ -47,8 +48,7 @@ async def call_aiohttp_wallet(method_name: str, coin: str, time_out: int = None,
                     if response.status == 200:
                         res_data = await response.read()
                         res_data = res_data.decode('utf-8')
-                        if method_name != "createAddress":
-                            await session.close()
+                        await session.close()
                         decoded_data = json.loads(res_data)
                         return decoded_data['result']
     except asyncio.TimeoutError:

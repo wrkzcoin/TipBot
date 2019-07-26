@@ -54,6 +54,9 @@ WITHDRAW_IN_PROCESS = []
 # tip-react temp storage
 REACT_TIP_STORE = []
 
+# save all temporary
+SAVING_ALL = None
+
 IS_MAINTENANCE = config.maintenance
 
 # Get them from https://emojipedia.org
@@ -359,8 +362,8 @@ async def on_reaction_add(reaction, user):
                                 f'{tip_tx_tipper}')
                         except (discord.Forbidden, discord.errors.Forbidden) as e:
                             # add user to notifyList
-                            print('Adding: ' + str(ctx.message.author.id) + ' not to receive DM tip')
-                            store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
+                            print('Adding: ' + str(reaction.message.author.id) + ' not to receive DM tip')
+                            store.sql_toggle_tipnotify(str(reaction.message.author.id), "OFF")
                         if str(reaction.message.author.id) not in notifyList:
                             try:
                                 await reaction.message.author.send(
@@ -896,6 +899,7 @@ async def admin(ctx):
 @commands.is_owner()
 @admin.command(help=bot_help_admin_save)
 async def save(ctx, coin: str):
+    global SAVING_ALL
     botLogChan = bot.get_channel(id=LOG_CHAN)
     COIN_NAME = coin.upper()
     if COIN_NAME in MAINTENANCE_COIN:
@@ -906,9 +910,36 @@ async def save(ctx, coin: str):
         duration = await rpc_cn_wallet_save(COIN_NAME)
         await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} called `save` for {COIN_NAME}')
         if duration:
-            await ctx.send(f'{get_emoji(COIN_NAME)} {COIN_NAME} `save` took {round(duration,3)}s.')
+            await ctx.message.author.send(f'{get_emoji(COIN_NAME)} {COIN_NAME} `save` took {round(duration,3)}s.')
         else:
-            await ctx.send(f'{get_emoji(COIN_NAME)} {COIN_NAME} `save` calling error.')
+            await ctx.message.author.send(f'{get_emoji(COIN_NAME)} {COIN_NAME} `save` calling error.')
+        return
+    elif COIN_NAME == "ALL" or COIN_NAME == "ALLCOIN":
+        if SAVING_ALL:
+            await ctx.send(f'{ctx.author.mention} {EMOJI_RED_NO} another of this process is running. Wait to complete.')
+            return
+        start = time.time()
+        duration_msg = "```"
+        await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} called `save all`')
+        SAVING_ALL = True
+        for coinItem in (ENABLE_COIN+ENABLE_XMR):
+            if coinItem in MAINTENANCE_COIN:
+                duration_msg += "{} Maintenance.\n".format(coinItem)
+            else:
+                if coinItem in ["CCX", "ANX"]:
+                    duration_msg += "{} Skipped.\n".format(coinItem)
+                else:
+                    try:
+                        one_save = await rpc_cn_wallet_save(coinItem)
+                        duration_msg += "{} saved took {}s.\n".format(coinItem, round(one_save,3))
+                    except Exception as e:
+                        duration_msg += "{} internal error. {}\n".format(coinItem, str(e))
+        SAVING_ALL = None
+        end = time.time()
+        duration_msg += "Total took: {}s".format(round(end - start, 3))
+        duration_msg += "```"
+        await ctx.message.author.send(f'{ctx.author.mention} `save all`:\n{duration_msg}')
         return
     else:
         await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} not exists with this command.')

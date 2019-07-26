@@ -438,7 +438,7 @@ def sql_get_countLastTip(userID, lastDuration: int, coin: str = None):
         traceback.print_exc(file=sys.stdout)
 
 
-async def sql_send_tip(user_from: str, user_to: str, amount: int, coin: str = None):
+async def sql_send_tip(user_from: str, user_to: str, amount: int, tiptype: str, coin: str = None):
     global conn_cursors
     COIN_NAME = None
     if coin is None:
@@ -462,12 +462,6 @@ async def sql_send_tip(user_from: str, user_to: str, amount: int, coin: str = No
         if coin_family == "TRTL" or coin_family == "CCX":
             tx_hash = await wallet.send_transaction(user_from_wallet['balance_wallet_address'],
                                                     address_to, amount, COIN_NAME)
-        elif coin_family == "XMR":
-            if user_from_wallet['account_index']:
-                tx_hash = await wallet.send_transaction(user_from_wallet['balance_wallet_address'],
-                                                        address_to, amount, COIN_NAME, user_from_wallet['account_index'])
-            else:
-                return None
         if tx_hash:
             updateTime = int(time.time())
             try:
@@ -476,9 +470,9 @@ async def sql_send_tip(user_from: str, user_to: str, amount: int, coin: str = No
                     timestamp = int(time.time())
                     sql = None
                     if coin_family == "TRTL" or coin_family == "CCX":
-                        sql = """ INSERT INTO cn_tip (`coin_name`, `from_user`, `to_user`, `amount`, `decimal`, `date`, `tx_hash`) 
-                                  VALUES (%s, %s, %s, %s, %s, %s, %s) """
-                        cur.execute(sql, (COIN_NAME, user_from, user_to, amount, wallet.get_decimal(COIN_NAME), timestamp, tx_hash,))
+                        sql = """ INSERT INTO cn_tip (`coin_name`, `from_user`, `to_user`, `amount`, `decimal`, `date`, `tx_hash`, `tip_tips_tipall`) 
+                                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                        cur.execute(sql, (COIN_NAME, user_from, user_to, amount, wallet.get_decimal(COIN_NAME), timestamp, tx_hash, tiptype.upper(),))
                         conn_cursors.commit()
                     updateBalance = None
                     if coin_family == "TRTL" or coin_family == "CCX":
@@ -1183,7 +1177,7 @@ def sql_changeinfo_by_server(server_id: str, what: str, value: str):
             #print(f"ok try to change {what} to {value}")
             openConnection_cursors()
             with conn_cursors.cursor() as cur:
-                sql = """ UPDATE discord_server SET `""" + what.lower() + """` = %s WHERE `serverid` = %s """
+                sql = """ UPDATE discord_server SET `""" + what.lower() + """` = '%s' WHERE `serverid` = %s """
                 cur.execute(sql, (value, server_id,))
                 conn_cursors.commit()
         except Exception as e:
@@ -1375,7 +1369,7 @@ def sql_listignorechan():
 
 def sql_add_failed_tx(coin: str, user_id: str, user_author: str, amount: int, tx_type: str):
     global conn_cursors
-    if tx_type.upper() not in ['TIP','TIPS','TIPALL','DONATE','WITHDRAW','SEND']:
+    if tx_type.upper() not in ['TIP','TIPS','TIPALL','DONATE','WITHDRAW','SEND', 'REACTTIP']:
         return None
     try:
         openConnection_cursors()

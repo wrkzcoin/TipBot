@@ -336,7 +336,7 @@ async def on_reaction_add(reaction, user):
                 else:
                     tip = None
                     try:
-                        tip = await store.sql_send_tip(str(user.id), str(reaction.message.author.id), real_amount, COIN_NAME)
+                        tip = await store.sql_send_tip(str(user.id), str(reaction.message.author.id), real_amount, 'REACTTIP', COIN_NAME)
                         tip_tx_tipper = "Transaction hash: `{}`".format(tip)
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
@@ -376,7 +376,7 @@ async def on_reaction_add(reaction, user):
                     else:
                         await reaction.message.author.send(f'{reaction.message.author.mention} Can not deliver TX for {COIN_NAME} right now. Try again soon.')
                         # add to failed tx table
-                        store.sql_add_failed_tx(COIN_NAME, str(reaction.message.author.id), reaction.message.author.name, real_amount, "TIP")
+                        store.sql_add_failed_tx(COIN_NAME, str(reaction.message.author.id), reaction.message.author.name, real_amount, "REACTTIP")
                         return
                        
 
@@ -2686,7 +2686,7 @@ async def tip(ctx, amount: str, *args):
 
         tip = None
         try:
-            tip = await store.sql_send_tip(str(ctx.message.author.id), str(member.id), real_amount, COIN_NAME)
+            tip = await store.sql_send_tip(str(ctx.message.author.id), str(member.id), real_amount, 'TIP', COIN_NAME)
             tip_tx_tipper = "Transaction hash: `{}`".format(tip)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
@@ -4386,7 +4386,7 @@ async def setting(ctx, *args):
                     await ctx.send(f'{ctx.author.mention} {args[1].upper()} will be the only tip here.')
                 return
         elif args[0].upper() == "PREFIX":
-            if args[1] not in [".", "?", "*", "!"]:
+            if args[1] not in [".", "?", "*", "!", "$", "~"]:
                 await ctx.send('Invalid prefix')
                 return
             else:

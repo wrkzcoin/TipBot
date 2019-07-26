@@ -295,7 +295,7 @@ async def on_reaction_add(reaction, user):
                     msg = await to_send.send(f'{str(user)}\'s {COIN_NAME} deposit address:\n```{address}```')
                     # delete message afterward to avoid loop.
                     await reaction.message.delete()
-                except discord.Forbidden:
+                except (discord.Forbidden, discord.errors.Forbidden) as e:
                     # If DM is failed, popup to channel.
                     await reaction.message.channel.send(f'{to_send.mention} I failed DM you for the address.')
                 return
@@ -357,7 +357,7 @@ async def on_reaction_add(reaction, user):
                                 f'{COIN_NAME} '
                                 f'was sent to `{reaction.message.author.name}` in server `{servername}` by your re-acting {EMOJI_100}\n'
                                 f'{tip_tx_tipper}')
-                        except discord.Forbidden:
+                        except (discord.Forbidden, discord.errors.Forbidden) as e:
                             # add user to notifyList
                             print('Adding: ' + str(ctx.message.author.id) + ' not to receive DM tip')
                             store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
@@ -368,7 +368,7 @@ async def on_reaction_add(reaction, user):
                                     f'{COIN_NAME} from `{user.name}` in server `{servername}` from their re-acting {EMOJI_100}\n'
                                     f'{tip_tx_tipper}\n'
                                     f'{NOTIFICATION_OFF_CMD}')
-                            except discord.Forbidden:
+                            except (discord.Forbidden, discord.errors.Forbidden) as e:
                                 # add user to notifyList
                                 print('Adding: ' + str(member.id) + ' not to receive DM tip')
                                 store.sql_toggle_tipnotify(str(member.id), "OFF")
@@ -847,7 +847,7 @@ async def secrettip(ctx, amount: str, coin: str, user_id: str):
                 f'{COIN_NAME} '
                 f'was sent to `{user_id} / {member.name}`\n'
                 f'Transaction hash: `{tip}`')
-        except discord.Forbidden:
+        except (discord.Forbidden, discord.errors.Forbidden) as e:
             # add user to notifyList
             print('Adding: ' + str(ctx.message.author.id) + ' not to receive DM tip')
             store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
@@ -859,7 +859,7 @@ async def secrettip(ctx, amount: str, coin: str, user_id: str):
                     f'{COIN_NAME}\n'
                     f'Transaction hash: `{tip}`\n'
                     f'{NOTIFICATION_OFF_CMD}')
-            except discord.Forbidden:
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
                 # add user to notifyList
                 print('Adding: ' + str(member.id) + ' not to receive DM tip')
                 store.sql_toggle_tipnotify(str(member.id), "OFF")
@@ -868,7 +868,7 @@ async def secrettip(ctx, amount: str, coin: str, user_id: str):
                 await ctx.message.author.send(f'`{member.name} / {user_id}` received '
                                               f'{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}'
                                               ' but has notification **OFF** or **DM disable**.')
-            except discord.Forbidden:
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
                 pass
         return
     else:
@@ -2703,7 +2703,7 @@ async def tip(ctx, amount: str, *args):
                     f'{COIN_NAME} '
                     f'was sent to `{member.name}` in server `{servername}`\n'
                     f'{tip_tx_tipper}')
-            except discord.Forbidden:
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
                 # add user to notifyList
                 print('Adding: ' + str(ctx.message.author.id) + ' not to receive DM tip')
                 store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
@@ -2714,7 +2714,7 @@ async def tip(ctx, amount: str, *args):
                         f'{COIN_NAME} from `{ctx.message.author.name}` in server `{servername}`\n'
                         f'{tip_tx_tipper}\n'
                         f'{NOTIFICATION_OFF_CMD}')
-                except discord.Forbidden:
+                except (discord.Forbidden, discord.errors.Forbidden) as e:
                     # add user to notifyList
                     print('Adding: ' + str(member.id) + ' not to receive DM tip')
                     store.sql_toggle_tipnotify(str(member.id), "OFF")
@@ -2762,7 +2762,7 @@ async def tip(ctx, amount: str, *args):
                     f'{EMOJI_ARROW_RIGHTHOOK} Tip of {num_format_coin(real_amount, COIN_NAME)} '
                     f'{COIN_NAME} '
                     f'was sent to `{member.name}` in server `{servername}`\n')
-            except discord.Forbidden:
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
                 print('Adding: ' + str(ctx.message.author.id) + ' not to receive DM tip')
                 store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
             if str(member.id) not in notifyList:
@@ -2771,7 +2771,7 @@ async def tip(ctx, amount: str, *args):
                         f'{EMOJI_MONEYFACE} You got a tip of {num_format_coin(real_amount, COIN_NAME)} '
                         f'{COIN_NAME} from `{ctx.message.author.name}` in server `{servername}`\n'
                         f'{NOTIFICATION_OFF_CMD}')
-                except discord.Forbidden:
+                except (discord.Forbidden, discord.errors.Forbidden) as e:
                     print('Adding: ' + str(ctx.message.author.id) + ' not to receive DM tip')
                     store.sql_toggle_tipnotify(str(member.id), "OFF")
             return
@@ -2818,7 +2818,7 @@ async def tip(ctx, amount: str, *args):
                         f'{EMOJI_ARROW_RIGHTHOOK} Tip of {num_format_coin(real_amount, COIN_NAME)} '
                         f'{COIN_NAME} '
                         f'was sent to `{member.name}` in server `{servername}`\n')
-            except discord.Forbidden:
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
                 print('Adding: ' + str(ctx.message.author.id) + ' not to receive DM tip')
                 store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
             if str(member.id) not in notifyList:
@@ -2827,7 +2827,7 @@ async def tip(ctx, amount: str, *args):
                         f'{EMOJI_MONEYFACE} You got a tip of {num_format_coin(real_amount, COIN_NAME)} '
                         f'{COIN_NAME} from `{ctx.message.author.name}` in server `{servername}`\n'
                         f'{NOTIFICATION_OFF_CMD}')
-                except discord.Forbidden:
+                except (discord.Forbidden, discord.errors.Forbidden) as e:
                     print('Adding: ' + str(ctx.message.author.id) + ' not to receive DM tip')
                     store.sql_toggle_tipnotify(str(member.id), "OFF")
             return
@@ -2934,7 +2934,7 @@ async def tipall(ctx, amount: str, *args):
             await ctx.message.add_reaction(EMOJI_ERROR)
             try:
                 await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} The number of receivers are too many. This command isn\'t available here.')
-            except discord.Forbidden:
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
                 await ctx.message.author.send(f'{EMOJI_RED_NO} The number of receivers are too many in `{ctx.guild.name}`. This command isn\'t available here.')
             return
         # End of checking receivers numbers.
@@ -3044,7 +3044,7 @@ async def tipall(ctx, amount: str, *args):
                     f'{tip_tx_tipper}\n'
                     f'Each member got: `{amountDiv_str}{COIN_NAME}`\n'
                     f'Actual spending: `{ActualSpend_str}{COIN_NAME}`')
-            except discord.Forbidden:
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
                 # add user to notifyList
                 print('Adding: ' + str(ctx.message.author.id) + ' not to receive DM tip')
                 store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
@@ -3063,7 +3063,7 @@ async def tipall(ctx, amount: str, *args):
                                         f'{tip_tx_tipper}\n'
                                         f'{NOTIFICATION_OFF_CMD}')
                                     numMsg = numMsg + 1
-                                except discord.Forbidden:
+                                except (discord.Forbidden, discord.errors.Forbidden) as e:
                                     # add user to notifyList
                                     print('Adding: ' + str(member.id) + ' not to receive DM tip')
                                     store.sql_toggle_tipnotify(str(member.id), "OFF")
@@ -3140,7 +3140,7 @@ async def tipall(ctx, amount: str, *args):
                     f'was sent spread to ({len(memids)}) members in server `{servername}`.\n'
                     f'Each member got: `{amountDiv_str}{COIN_NAME}`\n'
                     f'Actual spending: `{ActualSpend_str}{COIN_NAME}`')
-            except discord.Forbidden:
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
                 # add user to notifyList
                 print('Adding: ' + str(ctx.message.author.id) + ' not to receive DM tip')
                 store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
@@ -3154,7 +3154,7 @@ async def tipall(ctx, amount: str, *args):
                                         f'{EMOJI_MONEYFACE} You got a tip of {amountDiv_str} '
                                         f'{COIN_NAME} from `{ctx.message.author.name}` `.tipall` in server `{servername}`\n'
                                         f'{NOTIFICATION_OFF_CMD}')
-                                except discord.Forbidden:
+                                except (discord.Forbidden, discord.errors.Forbidden) as e:
                                     # add user to notifyList
                                     print('Adding: ' + str(member.id) + ' not to receive DM tip')
                                     store.sql_toggle_tipnotify(str(member.id), "OFF")
@@ -3195,7 +3195,7 @@ async def tipall(ctx, amount: str, *args):
             await ctx.message.add_reaction(EMOJI_ERROR)
             try:
                 await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} The number of receivers are too many. This command isn\'t available here.')
-            except discord.Forbidden:
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
                 await ctx.message.author.send(f'{EMOJI_RED_NO} The number of receivers are too many in `{ctx.guild.name}`. This command isn\'t available here.')
             return
         # End of checking receivers numbers.
@@ -3230,7 +3230,7 @@ async def tipall(ctx, amount: str, *args):
                     f'was sent spread to ({len(memids)}) members in server `{servername}`.\n'
                     f'Each member got: `{amountDiv_str}{COIN_NAME}`\n'
                     f'Actual spending: `{ActualSpend_str}{COIN_NAME}`')
-            except discord.Forbidden:
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
                 # add user to notifyList
                 print('Adding: ' + str(ctx.message.author.id) + ' not to receive DM tip')
                 store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
@@ -3244,7 +3244,7 @@ async def tipall(ctx, amount: str, *args):
                                         f'{EMOJI_MONEYFACE} You got a tip of {amountDiv_str} '
                                         f'{COIN_NAME} from `{ctx.message.author.name}` `.tipall` in server `{servername}`\n'
                                         f'{NOTIFICATION_OFF_CMD}')
-                                except discord.Forbidden:
+                                except (discord.Forbidden, discord.errors.Forbidden) as e:
                                     # add user to notifyList
                                     print('Adding: ' + str(member.id) + ' not to receive DM tip')
                                     store.sql_toggle_tipnotify(str(member.id), "OFF")
@@ -5270,7 +5270,7 @@ async def _tip(ctx, amount, coin: str):
                                         f'{tip_tx_tipper}\n'
                                         f'Each: `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`'
                                         f'Total spending: `{num_format_coin(ActualSpend, COIN_NAME)} {COIN_NAME}`')
-            except discord.Forbidden:
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
                 print('Adding: ' + str(ctx.message.author.id) + ' not to receive DM tip')
                 store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
             for member in ctx.message.mentions:
@@ -5282,7 +5282,7 @@ async def _tip(ctx, amount, coin: str):
                                                 f'{COIN_NAME} from `{ctx.message.author.name}` in server `{servername}`\n'
                                                 f'{tip_tx_tipper}\n'
                                                 f'{NOTIFICATION_OFF_CMD}')
-                            except discord.Forbidden:
+                            except (discord.Forbidden, discord.errors.Forbidden) as e:
                                 print('Adding: ' + str(member.id) + ' not to receive DM tip')
                                 store.sql_toggle_tipnotify(str(member.id), "OFF")
                             pass
@@ -5353,7 +5353,7 @@ async def _tip(ctx, amount, coin: str):
                     f'{COIN_NAME} '
                     f'was sent to ({len(memids)}) members in server `{servername}`.\n'
                     f'Each member got: `{amountDiv_str}{COIN_NAME}`\n')
-            except discord.Forbidden:
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
                 print('Adding: ' + str(ctx.message.author.id) + ' not to receive DM tip')
                 store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
             for member in ctx.message.mentions:
@@ -5366,7 +5366,7 @@ async def _tip(ctx, amount, coin: str):
                                     f'{EMOJI_MONEYFACE} You got a tip of `{amountDiv_str}{COIN_NAME}` '
                                     f'from `{ctx.message.author.name}` in server `{servername}`\n'
                                     f'{NOTIFICATION_OFF_CMD}')
-                            except discord.Forbidden:
+                            except (discord.Forbidden, discord.errors.Forbidden) as e:
                                 print('Adding: ' + str(member.id) + ' not to receive DM tip')
                                 store.sql_toggle_tipnotify(str(member.id), "OFF")
             return
@@ -5434,7 +5434,7 @@ async def _tip(ctx, amount, coin: str):
                     f'{COIN_NAME} '
                     f'was sent to ({len(memids)}) members in server `{servername}`.\n'
                     f'Each member got: `{amountDiv_str}{COIN_NAME}`\n')
-            except discord.Forbidden:
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
                 print('Adding: ' + str(ctx.message.author.id) + ' not to receive DM tip')
                 store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
             for member in ctx.message.mentions:
@@ -5447,7 +5447,7 @@ async def _tip(ctx, amount, coin: str):
                                     f'{EMOJI_MONEYFACE} You got a tip of `{amountDiv_str}{COIN_NAME}` '
                                     f'from `{ctx.message.author.name}` in server `{servername}`\n'
                                     f'{NOTIFICATION_OFF_CMD}')
-                            except discord.Forbidden:
+                            except (discord.Forbidden, discord.errors.Forbidden) as e:
                                 print('Adding: ' + str(member.id) + ' not to receive DM tip')
                                 store.sql_toggle_tipnotify(str(member.id), "OFF")
             return
@@ -5524,7 +5524,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
             await ctx.message.add_reaction(EMOJI_ERROR)
             try:
                 await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} The number of receivers are too many.')
-            except discord.Forbidden:
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
                 await ctx.message.author.send(f'{EMOJI_RED_NO} The number of receivers are too many in `{ctx.guild.name}`.')
             return
         # End of checking receivers numbers.
@@ -5600,7 +5600,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
                                         f'Transaction hash: `{tip}`\n'
                                         f'Each: `{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}`'
                                         f'Total spending: `{num_format_coin(ActualSpend, COIN_NAME)}{COIN_NAME}`')
-            except discord.Forbidden:
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
                 print('Adding: ' + str(ctx.message.author.id) + ' not to receive DM tip')
                 store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
             mention_list_name = ''
@@ -5615,7 +5615,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
                                                 f'{COIN_NAME} from `{ctx.message.author.name}` in server `{servername}` for active talking.\n'
                                                 f'Transaction hash: `{tip}`\n'
                                                 f'{NOTIFICATION_OFF_CMD}')
-                            except discord.Forbidden:
+                            except (discord.Forbidden, discord.errors.Forbidden) as e:
                                 print('Adding: ' + str(member.id) + ' not to receive DM tip')
                                 store.sql_toggle_tipnotify(str(member.id), "OFF")
                             pass
@@ -5687,7 +5687,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
                     f'{COIN_NAME} '
                     f'was sent to ({len(memids)}) members in server `{servername}` for active talking.\n'
                     f'Each member got: `{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}`\n')
-            except discord.Forbidden:
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
                 print('Adding: ' + str(ctx.message.author.id) + ' not to receive DM tip')
                 store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
             mention_list_name = ''
@@ -5703,7 +5703,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
                                     f'{EMOJI_MONEYFACE} You got a tip of `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}` '
                                     f'from `{ctx.message.author.name}` in server `{servername}` for active talking.\n'
                                     f'{NOTIFICATION_OFF_CMD}')
-                            except discord.Forbidden:
+                            except (discord.Forbidden, discord.errors.Forbidden) as e:
                                 print('Adding: ' + str(member.id) + ' not to receive DM tip')
                                 store.sql_toggle_tipnotify(str(member.id), "OFF")
             try:
@@ -5773,7 +5773,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
                     f'{COIN_NAME} '
                     f'was sent to ({len(memids)}) members in server `{servername}` for active talking.\n'
                     f'Each member got: `{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}`\n')
-            except discord.Forbidden:
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
                 print('Adding: ' + str(ctx.message.author.id) + ' not to receive DM tip')
                 store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
             mention_list_name = ''
@@ -5789,7 +5789,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
                                     f'{EMOJI_MONEYFACE} You got a tip of `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}` '
                                     f'from `{ctx.message.author.name}` in server `{servername}` for active talking.\n'
                                     f'{NOTIFICATION_OFF_CMD}')
-                            except discord.Forbidden:
+                            except (discord.Forbidden, discord.errors.Forbidden) as e:
                                 print('Adding: ' + str(member.id) + ' not to receive DM tip')
                                 store.sql_toggle_tipnotify(str(member.id), "OFF")
             try:

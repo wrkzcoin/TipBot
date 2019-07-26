@@ -1410,6 +1410,8 @@ def sql_toggle_tipnotify(user_id: str, onoff: str):
                           VALUES (%s, %s) """
                 cur.execute(sql, (user_id, int(time.time())))
                 conn_cursors.commit()
+        except pymysql.err.Warning as e:
+            traceback.print_exc(file=sys.stdout)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
     elif onoff == "ON":

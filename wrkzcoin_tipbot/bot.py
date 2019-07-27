@@ -96,7 +96,8 @@ EMOJI_COIN = {
     "XTOR" : "\U0001F315",
     "LOKI" : "\u2600",
     "XMR" : "\u2694",
-    "XTRI" : "\U0001F30C"
+    "XTRI" : "\U0001F30C",
+    "BLOG" : "\u270D"
     }
 
 EMOJI_RED_NO = "\u26D4"
@@ -109,7 +110,7 @@ EMOJI_LOCKED = "\U0001F512"
 
 ENABLE_COIN = config.Enable_Coin.split(",")
 ENABLE_COIN_DOGE = ["DOGE"]
-ENABLE_XMR = ["XTOR", "LOKI", "XMR", "XTRI"]
+ENABLE_XMR = ["XTOR", "LOKI", "XMR", "XTRI", "BLOG"]
 MAINTENANCE_COIN = [""]
 COIN_REPR = "COIN"
 DEFAULT_TICKER = "WRKZ"
@@ -138,6 +139,7 @@ NOTICE_COIN = {
     "LOKI" : None,
     "XTRI" : None,
     "XMR" : None,
+    "BLOG" : None,
     "DOGE" : "Please acknowledge that DOGE address is for **one-time** use only for depositing."
     }
 
@@ -1112,6 +1114,28 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
     else:
         table_data.append([COIN_NAME, "***", "***"])
     # End of Add XTRI
+    COIN_NAME = "BLOG"
+    if COIN_NAME not in MAINTENANCE_COIN:
+        wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
+        if wallet is None:
+            userregister = await store.sql_register_user(str(user_id), COIN_NAME)
+            wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
+        if wallet:
+            actual = wallet['actual_balance']
+            locked = wallet['locked_balance']
+            userdata_balance = store.sql_xmr_balance(str(user_id), COIN_NAME)
+            balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
+            if actual == locked:
+                balance_locked = num_format_coin(0, COIN_NAME)
+            else:
+                if locked - actual + float(userdata_balance['Adjust']) < 0:
+                    balance_locked =  num_format_coin(0, COIN_NAME)
+                else:
+                    balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
+            table_data.append([COIN_NAME, balance_actual, balance_locked])
+    else:
+        table_data.append([COIN_NAME, "***", "***"])
+    # End of Add BLOG
     table = AsciiTable(table_data)
     table.padding_left = 0
     table.padding_right = 0
@@ -1375,7 +1399,8 @@ async def balance(ctx, coin: str = None):
                         coinName += '*'
                     if wallet['forwardtip'] == "ON":
                         coinName += ' >>'
-                    table_data.append([coinName, balance_actual, balance_locked])
+                    if wallet['actual_balance'] + wallet['locked_balance'] != 0:
+                        table_data.append([coinName, balance_actual, balance_locked])
                     pass
             else:
                 table_data.append([COIN_NAME, "***", "***"])
@@ -1423,7 +1448,8 @@ async def balance(ctx, coin: str = None):
                         balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
                 if wallet['user_wallet_address'] is None:
                     COIN_NAME += '*'
-                table_data.append([COIN_NAME, balance_actual, balance_locked])
+                if actual + float(userdata_balance['Adjust']) != 0:
+                    table_data.append([COIN_NAME, balance_actual, balance_locked])
         else:
             table_data.append([COIN_NAME, "***", "***"])
         # End of Add XTOR
@@ -1447,7 +1473,8 @@ async def balance(ctx, coin: str = None):
                         balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
                 if wallet['user_wallet_address'] is None:
                     COIN_NAME += '*'
-                table_data.append([COIN_NAME, balance_actual, balance_locked])
+                if actual + float(userdata_balance['Adjust']) != 0:
+                    table_data.append([COIN_NAME, balance_actual, balance_locked])
         else:
             table_data.append([COIN_NAME, "***", "***"])
         # End of Add LOKI
@@ -1471,7 +1498,8 @@ async def balance(ctx, coin: str = None):
                         balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
                 if wallet['user_wallet_address'] is None:
                     COIN_NAME += '*'
-                table_data.append([COIN_NAME, balance_actual, balance_locked])
+                if actual + float(userdata_balance['Adjust']) != 0:
+                    table_data.append([COIN_NAME, balance_actual, balance_locked])
         else:
             table_data.append([COIN_NAME, "***", "***"])
         # End of Add XMR
@@ -1495,11 +1523,36 @@ async def balance(ctx, coin: str = None):
                         balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
                 if wallet['user_wallet_address'] is None:
                     COIN_NAME += '*'
-                table_data.append([COIN_NAME, balance_actual, balance_locked])
+                if actual + float(userdata_balance['Adjust']) != 0:
+                    table_data.append([COIN_NAME, balance_actual, balance_locked])
         else:
             table_data.append([COIN_NAME, "***", "***"])
         # End of Add XTRI
-
+        COIN_NAME = "BLOG"
+        if COIN_NAME not in MAINTENANCE_COIN:
+            wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+            if wallet is None:
+                userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+                wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+            if wallet:
+                actual = wallet['actual_balance']
+                locked = wallet['locked_balance']
+                userdata_balance = store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
+                balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
+                if actual == locked:
+                    balance_locked = num_format_coin(0, COIN_NAME)
+                else:
+                    if locked - actual + float(userdata_balance['Adjust']) < 0:
+                        balance_locked =  num_format_coin(0, COIN_NAME)
+                    else:
+                        balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
+                if wallet['user_wallet_address'] is None:
+                    COIN_NAME += '*'
+                if actual + float(userdata_balance['Adjust']) != 0:
+                    table_data.append([COIN_NAME, balance_actual, balance_locked])
+        else:
+            table_data.append([COIN_NAME, "***", "***"])
+        # End of Add BLOG
         table = AsciiTable(table_data)
         # table.inner_column_border = False
         # table.outer_border = False
@@ -4185,12 +4238,12 @@ async def stats(ctx, coin: str = None):
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     walletStatus = None
-    try:
-        walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
-    except Exception as e:
-        traceback.print_exc(file=sys.stdout)
-    
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    if coin_family == "TRTL" or coin_family == "CCX":
+        try:
+            walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
     
     if gettopblock:
         COIN_DEC = get_decimal(COIN_NAME)
@@ -4930,6 +4983,8 @@ def get_cn_coin_from_address(CoinAddress: str):
         COIN_NAME = "LOKI"
     elif CoinAddress.startswith("T") and (len(CoinAddress) == 97 or len(CoinAddress) == 98 or len(CoinAddress) == 109):
         COIN_NAME = "XTRI"
+    elif CoinAddress.startswith("cms") and (len(CoinAddress) == 98 or len(CoinAddress) == 109):
+        COIN_NAME = "BLOG"
     elif CoinAddress.startswith("D") and len(CoinAddress) == 34:
         COIN_NAME = "DOGE"
     # elif (CoinAddress[0] in ["3", "M", "L"]) and (len(CoinAddress) == 34:

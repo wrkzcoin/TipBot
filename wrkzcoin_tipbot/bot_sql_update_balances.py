@@ -61,6 +61,17 @@ async def update_balance():
         print(e)
     end = time.time()
     # End of XTRI
+    # BLOG:
+    COIN_NAME = "BLOG"
+    asyncio.sleep(INTERVAL_EACH)
+    print('Update balance: '+ COIN_NAME)
+    start = time.time()
+    try:
+        await store.sql_update_balances(COIN_NAME)
+    except Exception as e:
+        print(e)
+    end = time.time()
+    # End of BLOG
     print('Done update balance: '+ COIN_NAME+ ' duration (s): '+str(end - start))
     for coinItem in ENABLE_COIN:
         asyncio.sleep(INTERVAL_EACH)

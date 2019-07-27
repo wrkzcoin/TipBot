@@ -7,7 +7,7 @@ import json
 
 from config import config
 
-import sys
+import sys, traceback
 sys.path.append("..")
 
 
@@ -33,9 +33,14 @@ async def call_aiohttp_wallet(method_name: str, coin: str, time_out: int = None,
             async with aiohttp.ClientSession(headers={'Content-Type': 'application/json'}) as session:
                 async with session.post(url, ssl=False, json=full_payload, timeout=timeout) as response:
                     # sometimes => "message": "Not enough unlocked money" for checking fee
+                    if method_name == "transfer":
+                        print('{} - transfer'.format(coin.upper()))
+                        print(full_payload)
                     if response.status == 200:
                         res_data = await response.read()
                         res_data = res_data.decode('utf-8')
+                        if method_name == "transfer":
+                            print(res_data)
                         await session.close()
                         decoded_data = json.loads(res_data)
                         if 'result' in decoded_data:
@@ -55,6 +60,8 @@ async def call_aiohttp_wallet(method_name: str, coin: str, time_out: int = None,
         print('TIMEOUT: method_name: {} - coin_family: {} - time_out {}'.format(method_name, coin_family, time_out))
         print('TIMEOUT: payload: ')
         print(full_payload)
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
 
 
 async def call_doge_ltc(method_name: str, coin: str, payload: str = None) -> Dict:

@@ -413,12 +413,12 @@ async def on_message(message):
     commandList = ('TIP', 'TIPALL', 'DONATE', 'HELP', 'STATS', 'DONATE', 'SEND', 'WITHDRAW', 'BOTBAL', 'BAL PUB')
     try:
         # remove first char
-        if (isinstance(message.channel, discord.DMChannel) == False) and message.content[1:].upper().startswith(commandList) and (str(message.channel.id) in LIST_IGNORECHAN[str(message.guild.id)]):
-            await message.add_reaction(EMOJI_ERROR)
-            await message.channel.send(f'Bot not respond to #{message.channel.name}. It is set to ignore list by channel manager or discord server owner.')
-            return
-        else:
-            pass
+        if (isinstance(message.channel, discord.DMChannel) == False) and str(message.guild.id) in LIST_IGNORECHAN:
+            if message.content[1:].upper().startswith(commandList) \
+                and (str(message.channel.id) in LIST_IGNORECHAN[str(message.guild.id)]):
+                await message.add_reaction(EMOJI_ERROR)
+                await message.channel.send(f'Bot not respond to #{message.channel.name}. It is set to ignore list by channel manager or discord server owner.')
+                return
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         pass
@@ -1375,7 +1375,7 @@ async def balance(ctx, coin: str = None):
     # Get wallet status
     walletStatus = None
     COIN_NAME = None
-    if (coin is None) or (PUBMSG == "PUB"):
+    if (coin is None) or (PUBMSG == "PUB") or (PUBMSG == "PUBLIC"):
         table_data = [
             ['TICKER', 'Available', 'Locked']
         ]
@@ -3416,18 +3416,17 @@ async def send(ctx, amount: str, CoinAddress: str):
                                    f'`{CoinAddress}`')
                     return
         elif len(CoinAddress) == int(IntaddressLength):
-            if coin_family == "TRTL" or coin_family == "CCX":
-                valid_address = addressvalidation.validate_integrated_cn(CoinAddress, COIN_NAME)
-                # print(valid_address)
-                if (valid_address == 'invalid'):
-                    await ctx.message.add_reaction(EMOJI_ERROR)
-                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid integrated address:\n'
-                                   f'`{CoinAddress}`')
-                    return
-                if (len(valid_address) == 2):
-                    iCoinAddress = CoinAddress
-                    CoinAddress = valid_address['address']
-                    paymentid = valid_address['integrated_id']
+            valid_address = addressvalidation.validate_integrated_cn(CoinAddress, COIN_NAME)
+            # print(valid_address)
+            if (valid_address == 'invalid'):
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid integrated address:\n'
+                               f'`{CoinAddress}`')
+                return
+            if (len(valid_address) == 2):
+                iCoinAddress = CoinAddress
+                CoinAddress = valid_address['address']
+                paymentid = valid_address['integrated_id']
         elif len(CoinAddress) == int(addressLength) + 64 + 1:
             valid_address = {}
             check_address = CoinAddress.split(".")
@@ -5150,7 +5149,6 @@ async def height_error(ctx, error):
 
 @bot.event
 async def on_command_error(ctx, error):
-    print(error)
     if isinstance(error, commands.NoPrivateMessage):
         await ctx.send('This command cannot be used in private messages.')
     elif isinstance(error, commands.DisabledCommand):

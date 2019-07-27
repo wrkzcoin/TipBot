@@ -514,7 +514,7 @@ async def DOGE_LTC_listreceivedbyaddress(coin: str):
     payload = '0, true'
     valid_call = await rpc_client.call_doge_ltc('listreceivedbyaddress', coin.upper(), payload=payload)
     account_list = []
-    if len(valid_call) >=1:
+    if len(valid_call) >= 1:
         for item in valid_call:
             account_list.append({"address": item['address'], "account": item['account'], "amount": item['amount']})
     return account_list

@@ -1094,9 +1094,9 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
                     balance_locked =  num_format_coin(0, COIN_NAME)
                 else:
                     balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
-            table_data.append([COIN_NAME, balance_actual, balance_locked])
             if wallet['user_wallet_address'] is None:
                 COIN_NAME += '*'
+            table_data.append([COIN_NAME, balance_actual, balance_locked])
     else:
         table_data.append([COIN_NAME, "***", "***"])
     # End of Add XMR
@@ -1118,6 +1118,8 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
                     balance_locked =  num_format_coin(0, COIN_NAME)
                 else:
                     balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
+            if wallet['user_wallet_address'] is None:
+                COIN_NAME += '*'
             table_data.append([COIN_NAME, balance_actual, balance_locked])
     else:
         table_data.append([COIN_NAME, "***", "***"])
@@ -1140,6 +1142,8 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
                     balance_locked =  num_format_coin(0, COIN_NAME)
                 else:
                     balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
+            if wallet['user_wallet_address'] is None:
+                COIN_NAME += '*'
             table_data.append([COIN_NAME, balance_actual, balance_locked])
     else:
         table_data.append([COIN_NAME, "***", "***"])
@@ -1850,20 +1854,37 @@ async def forwardtip(ctx, coin: str, option: str):
         # return
     # End Check
     COIN_NAME = coin.upper()
-    if COIN_NAME not in ENABLE_COIN:
+    coin_family = None
+    try:
+        coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    if coin_family is None:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{ctx.author.mention} Please use available ticker: '+ ', '.join(ENABLE_COIN).lower())
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} We don\'t know that {COIN_NAME}')
         return
-    if option.upper() not in ["ON", "OFF"]:
+    elif coin_family == "XMR":
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} this {COIN_NAME} is not supported with **forwardtip**.')
+        return
+    elif coin_family not in ["TRTL", "CCX"]:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{ctx.author.mention} Please use supported ticker: '+ ', '.join(ENABLE_COIN).lower())
+        return
+    elif option.upper() not in ["ON", "OFF"]:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{ctx.author.mention} Parameter must be: **ON** or **OFF**')
+        return
+    else:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{ctx.author.mention} I can not find the error. Please report.')
         return
 
     userwallet = await store.sql_get_userwallet(ctx.message.author.id, COIN_NAME)
     if userwallet is None:
         userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
         userwallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-    #print(userwallet)
+
     # Do not allow to ON if 'user_wallet_address' is None
     if (userwallet['user_wallet_address'] is None) and option.upper() == "ON":
         await ctx.message.add_reaction(EMOJI_ERROR)

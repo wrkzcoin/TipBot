@@ -4838,7 +4838,6 @@ async def disclaimer(ctx, *args):
     return
 
 
-@commands.is_owner() # to remove after test
 @bot.command(pass_context=True, help=bot_help_itag, hidden = True)
 async def itag(ctx, *, itag_text: str = None):
     if isinstance(ctx.channel, discord.DMChannel):
@@ -5301,56 +5300,55 @@ async def on_command_error(ctx, error):
 # Update number of user, bot, channel
 async def update_user_guild():
     await bot.wait_until_ready()
-    await asyncio.sleep(10)
-    for g in bot.guilds:
-        num_channel = sum(1 for _ in g.channels)
-        num_user = sum(1 for _ in g.members)
-        num_bot = sum(1 for member in g.members if member.bot == True)
-        #print('guildID: {}, num_channel: {}, num_user: {}, num_bot: {}'.format(g.id, num_channel, num_user, num_bot))
-        store.sql_changeinfo_by_server(str(g.id), 'numb_user', num_user)
-        store.sql_changeinfo_by_server(str(g.id), 'numb_bot', num_bot)
-        store.sql_changeinfo_by_server(str(g.id), 'numb_channel', num_channel)
-    await asyncio.sleep(30)
+    while not bot.is_closed():
+        print('Update guild stats...')
+        for g in bot.guilds:
+            num_channel = sum(1 for _ in g.channels)
+            num_user = sum(1 for _ in g.members)
+            num_bot = sum(1 for member in g.members if member.bot == True)
+            num_online = sum(1 for member in g.members if member.status != discord.Status.offline)
+            store.sql_updatestat_by_server(str(g.id), num_user, num_bot, num_channel, num_online)
+        await asyncio.sleep(30)
 
 
 async def update_balance_wallets():
-    while not bot.is_closed:
-        # do not update yet
-        await asyncio.sleep(15)
-        store.sql_update_balances("TRTL")
-        await asyncio.sleep(20)
-        store.sql_update_balances("WRKZ")
-        await asyncio.sleep(20)
-        store.sql_update_balances("CX")
-        await asyncio.sleep(20)
-        store.sql_update_balances("DEGO")
-        await asyncio.sleep(20)
-        store.sql_update_balances("LCX")
-        await asyncio.sleep(20)
-        store.sql_update_balances("OSL")
-        await asyncio.sleep(20)
-        store.sql_update_balances("BTCM")
-        await asyncio.sleep(20)
-        store.sql_update_balances("MTIP")
-        await asyncio.sleep(20)
-        store.sql_update_balances("XCY")
-        await asyncio.sleep(20)
-        store.sql_update_balances("PLE")
-        await asyncio.sleep(20)
-        store.sql_update_balances("ELPH")
-        await asyncio.sleep(20)
-        store.sql_update_balances("ANX")
-        await asyncio.sleep(20)
-        store.sql_update_balances("NBX")
-        await asyncio.sleep(20)
-        store.sql_update_balances("ARMS")
-        await asyncio.sleep(20)
-        store.sql_update_balances("IRD")
-        await asyncio.sleep(20)
-        store.sql_update_balances("HITC")
-        await asyncio.sleep(20)
-        store.sql_update_balances("NACA")
-        await asyncio.sleep(20)
+    while not bot.is_closed():
+        # We use in background bot_sql_update_balances.py
+        # await asyncio.sleep(15)
+        # store.sql_update_balances("TRTL")
+        # await asyncio.sleep(20)
+        # store.sql_update_balances("WRKZ")
+        # await asyncio.sleep(20)
+        # store.sql_update_balances("CX")
+        # await asyncio.sleep(20)
+        # store.sql_update_balances("DEGO")
+        # await asyncio.sleep(20)
+        # store.sql_update_balances("LCX")
+        # await asyncio.sleep(20)
+        # store.sql_update_balances("OSL")
+        # await asyncio.sleep(20)
+        # store.sql_update_balances("BTCM")
+        # await asyncio.sleep(20)
+        # store.sql_update_balances("MTIP")
+        # await asyncio.sleep(20)
+        # store.sql_update_balances("XCY")
+        # await asyncio.sleep(20)
+        # store.sql_update_balances("PLE")
+        # await asyncio.sleep(20)
+        # store.sql_update_balances("ELPH")
+        # await asyncio.sleep(20)
+        # store.sql_update_balances("ANX")
+        # await asyncio.sleep(20)
+        # store.sql_update_balances("NBX")
+        # await asyncio.sleep(20)
+        # store.sql_update_balances("ARMS")
+        # await asyncio.sleep(20)
+        # store.sql_update_balances("IRD")
+        # await asyncio.sleep(20)
+        # store.sql_update_balances("HITC")
+        # await asyncio.sleep(20)
+        # store.sql_update_balances("NACA")
+        # await asyncio.sleep(20)
         await asyncio.sleep(config.wallet_balance_update_interval)
 
 

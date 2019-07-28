@@ -1246,7 +1246,7 @@ def sql_get_messages(server_id: str, channel_id: str, time_int: int):
 
 def sql_changeinfo_by_server(server_id: str, what: str, value: str):
     global conn_cursors
-    if what.lower() in ["servername", "prefix", "default_coin", "tiponly", "numb_user", "numb_bot", "numb_channel", "react_tip", "react_tip_100"]:
+    if what.lower() in ["servername", "prefix", "default_coin", "tiponly", "numb_user", "numb_bot", "numb_channel", "react_tip", "react_tip_100", "lastUpdate"]:
         try:
             #print(f"ok try to change {what} to {value}")
             openConnection_cursors()
@@ -1256,6 +1256,20 @@ def sql_changeinfo_by_server(server_id: str, what: str, value: str):
                 conn_cursors.commit()
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
+
+
+def sql_updatestat_by_server(server_id: str, numb_user: int, numb_bot: int, numb_channel: int, numb_online: int):
+    global conn_cursors
+    try:
+        openConnection_cursors()
+        with conn_cursors.cursor() as cur:
+            sql = """ UPDATE discord_server SET `numb_user` = %s, 
+                      `numb_bot`= %s, `numb_channel` = %s, `numb_online` = %s, 
+                     `lastUpdate` = %s WHERE `serverid` = %s """
+            cur.execute(sql, (numb_user, numb_bot, numb_channel, numb_online, int(time.time()), server_id,))
+            conn_cursors.commit()
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
 
 
 def sql_discord_userinfo_get(user_id: str):

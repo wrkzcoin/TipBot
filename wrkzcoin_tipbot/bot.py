@@ -57,6 +57,11 @@ REACT_TIP_STORE = []
 # save all temporary
 SAVING_ALL = None
 
+# disclaimer message
+DISCLAIM_MSG = """```Disclaimer: No warranty or guarantee is provided, expressed, or implied \
+when using this bot and any funds lost, mis-used or stolen in using this bot \
+are not the responsibility of the bot creator or hoster.```"""
+
 IS_MAINTENANCE = config.maintenance
 
 # Get them from https://emojipedia.org
@@ -164,12 +169,15 @@ bot_help_paymentid = "Make a random payment ID with 64 chars length."
 bot_help_address_qr = "Show an input address in QR code image."
 bot_help_payment_qr = f"Make QR code image for {COIN_REPR} payment."
 bot_help_tag = "Display a description or a link about what it is. (-add|-del) requires permission manage_channels"
+bot_help_itag = "Upload image (gif|png|jpeg) and add tag."
 bot_help_stats = f"Show summary {COIN_REPR}: height, difficulty, etc."
 bot_help_height = f"Show {COIN_REPR}'s current height"
 bot_help_notifytip = "Toggle notify tip notification from bot ON|OFF"
 bot_help_settings = "settings view and set for prefix, default coin. Requires permission manage_channels"
 bot_help_invite = "Invite link of bot to your server."
+bot_help_disclaimer = "Show disclaimer."
 bot_help_voucher = "(Testing) make a voucher image and your friend can claim via QR code."
+
 
 # admin commands
 bot_help_admin = "Various admin commands."
@@ -4800,6 +4808,20 @@ async def makeqr(ctx, *args):
                        file=discord.File(config.qrsettings.path + unique_filename + ".png"))
         os.remove(config.qrsettings.path + unique_filename + ".png")
     return
+
+
+@bot.command(pass_context=True, help=bot_help_disclaimer)
+async def disclaimer(ctx, *args):
+    global DISCLAIM_MSG
+    await ctx.send(f'{EMOJI_INFORMATION} **THANK YOU FOR USING** {DISCLAIM_MSG}')
+    return
+
+
+@bot.command(pass_context=True, help=bot_help_itag, hidden = True)
+async def itag(ctx, *args):
+    if isinstance(ctx.channel, discord.DMChannel):
+        await ctx.send(f'{EMOJI_RED_NO} This command can not be in private.')
+        return
 
 
 @bot.command(pass_context=True, help=bot_help_tag)

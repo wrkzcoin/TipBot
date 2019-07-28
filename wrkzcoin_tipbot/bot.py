@@ -62,6 +62,23 @@ DISCLAIM_MSG = """```Disclaimer: No warranty or guarantee is provided, expressed
 when using this bot and any funds lost, mis-used or stolen in using this bot \
 are not the responsibility of the bot creator or hoster.```"""
 
+DISCLAIM_MSG_LONG = """
+Disclaimer: TipBot, its owners, service providers or any other parties providing services, \
+are not in any way responsible or liable for any lost, mis-used, stolen funds, or any coin \
+network's issues. TipBot's purpose is to be fun, do testing, and share tips between \
+user to user, and its use is on each user’s own risks.
+\n\n
+We operate the bot on our own rented servers. We do not charge any node fees for transactions, \
+as well as no fees for depositing or withdrawing funds to the TipBot. \
+Feel free to donate if you like the TipBot and the service it provides. \
+Your donations will help to fund the development & maintenance. 
+\n\n
+We commit to make it as secure as possible to the best of our expertise, \
+however we accept no liability and responsibility for any loss or damage \
+caused to you. Additionally, the purpose of the TipBot is to spread awareness \
+of cryptocurrency through tips, which is one of our project’s main commitments.
+"""
+
 IS_MAINTENANCE = config.maintenance
 
 # Get them from https://emojipedia.org
@@ -4834,7 +4851,7 @@ async def makeqr(ctx, *args):
 @bot.command(pass_context=True, help=bot_help_disclaimer)
 async def disclaimer(ctx, *args):
     global DISCLAIM_MSG
-    await ctx.send(f'{EMOJI_INFORMATION} **THANK YOU FOR USING** {DISCLAIM_MSG}')
+    await ctx.send(f'{EMOJI_INFORMATION} **THANK YOU FOR USING** {DISCLAIM_MSG_LONG}')
     return
 
 
@@ -4855,19 +4872,23 @@ async def itag(ctx, *, itag_text: str = None):
                 await ctx.send('There is no **itag** in this server. Please add.\n')
                 return
         else:
-            # if itag id has input
-            
             # .itag -del tagid
             command_del = itag_text.split(" ")
             if len(command_del) >= 2:
                 TagIt = store.sql_itag_by_server(str(ctx.guild.id), command_del[1].upper())
                 if command_del[0].upper() == "-DEL" and TagIt:
-                    DeliTag = store.sql_itag_by_server_del(str(ctx.guild.id), command_del[1].upper())
-                    if DeliTag:
-                        await ctx.send(f'{ctx.author.mention} iTag **{command_del[1].upper()}** deleted.\n')
+                    # check permission if there is attachment with .itag
+                    if ctx.author.guild_permissions.manage_guild == False:
+                        await message.add_reaction(EMOJI_ERROR) 
+                        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **itag** Permission denied.')
+                        return
                     else:
-                        await ctx.send(f'{ctx.author.mention} iTag **{command_del[1].upper()}** error deletion.\n')
-                    return
+                        DeliTag = store.sql_itag_by_server_del(str(ctx.guild.id), command_del[1].upper())
+                        if DeliTag:
+                            await ctx.send(f'{ctx.author.mention} iTag **{command_del[1].upper()}** deleted.\n')
+                        else:
+                            await ctx.send(f'{ctx.author.mention} iTag **{command_del[1].upper()}** error deletion.\n')
+                        return
                 else:
                     await ctx.send(f'{ctx.author.mention} iTag unknow operation.\n')
                     return
@@ -4885,6 +4906,11 @@ async def itag(ctx, *, itag_text: str = None):
             await ctx.send(f'{EMOJI_RED_NO} You need to include **tag** for this image.')
             return
         else:
+            # check permission if there is attachment with .itag
+            if ctx.author.guild_permissions.manage_guild == False:
+                await message.add_reaction(EMOJI_ERROR) 
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **itag** Permission denied.')
+                return
             d = [i['itag_id'] for i in ListiTag]
             if itag_text.upper() in d:
                 await ctx.send(f'{EMOJI_RED_NO} iTag **{itag_text}** already exists here.')

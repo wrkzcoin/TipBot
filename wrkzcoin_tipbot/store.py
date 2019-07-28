@@ -7,6 +7,7 @@ import asyncio
 import daemonrpc_client, wallet
 from config import config
 import sys, traceback
+import os.path
 
 # Encrypt
 from cryptography.fernet import Fernet
@@ -1060,11 +1061,11 @@ def sql_tag_by_server_add(server_id: str, tag_id: str, tag_desc: str, added_byna
     try:
         openConnection_cursors()
         with conn_cursors.cursor() as cur:
-            sql = """ SELECT COUNT(tag_serverid) FROM discord_tag AS counting WHERE tag_serverid=%s """
+            sql = """ SELECT COUNT(*) FROM discord_tag WHERE tag_serverid=%s """
             cur.execute(sql, (server_id,))
             counting = cur.fetchone()
             if counting:
-                if counting['counting'] > 50:
+                if counting['COUNT(*)'] > 50:
                     return None
             sql = """ SELECT `tag_id`, `tag_desc`, `date_added`, `tag_serverid`, `added_byname`, `added_byuid`, 
                       `num_trigger` 
@@ -1098,6 +1099,79 @@ def sql_tag_by_server_del(server_id: str, tag_id: str):
                 return None
             else:
                 sql = """ DELETE FROM discord_tag WHERE `tag_id`=%s AND `tag_serverid`=%s """
+                cur.execute(sql, (tag_id.upper(), server_id,))
+                conn_cursors.commit()
+                return tag_id.upper()
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
+def sql_itag_by_server(server_id: str, tag_id: str = None):
+    global conn_cursors
+    try:
+        openConnection_cursors()
+        with conn_cursors.cursor() as cur:
+            if tag_id is None: 
+                sql = """ SELECT * FROM discord_itag WHERE itag_serverid = %s """
+                cur.execute(sql, (server_id,))
+                result = cur.fetchall()
+                tag_list = result
+                return tag_list
+            else:
+                sql = """ SELECT * FROM discord_itag WHERE itag_serverid = %s AND itag_id=%s """
+                cur.execute(sql, (server_id, tag_id,))
+                result = cur.fetchone()
+                if result:
+                    tag = result
+                    sql = """ UPDATE discord_itag SET num_trigger=num_trigger+1 WHERE itag_serverid = %s AND itag_id=%s """
+                    cur.execute(sql, (server_id, tag_id,))
+                    conn_cursors.commit()
+                    return tag
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
+def sql_itag_by_server_add(server_id: str, tag_id: str, added_byname: str, added_byuid: str, orig_name: str, stored_name: str, fsize: int):
+    global conn_cursors
+    try:
+        openConnection_cursors()
+        with conn_cursors.cursor() as cur:
+            sql = """ SELECT COUNT(*) FROM discord_itag WHERE itag_serverid=%s """
+            cur.execute(sql, (server_id,))
+            counting = cur.fetchone()
+            if counting:
+                if counting['COUNT(*)'] > config.itag.max_per_server:
+                    return None
+            sql = """ SELECT * FROM discord_itag WHERE itag_serverid = %s AND itag_id=%s """
+            cur.execute(sql, (server_id, tag_id.upper(),))
+            result = cur.fetchone()
+            if result is None:
+                sql = """ INSERT INTO discord_itag (`itag_id`, `date_added`, `itag_serverid`, 
+                          `added_byname`, `added_byuid`, `original_name`, `stored_name`, `size`) 
+                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                cur.execute(sql, (tag_id.upper(), int(time.time()), server_id, added_byname, added_byuid, orig_name, stored_name, fsize))
+                conn_cursors.commit()
+                return tag_id.upper()
+            else:
+                return None
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
+def sql_itag_by_server_del(server_id: str, tag_id: str):
+    global conn_cursors
+    try:
+        openConnection_cursors()
+        with conn_cursors.cursor() as cur:
+            sql = """ SELECT * FROM discord_itag WHERE itag_serverid = %s AND itag_id=%s """
+            cur.execute(sql, (server_id, tag_id.upper(),))
+            result = cur.fetchone()
+            if result is None:
+                return None
+            else:
+                if os.path.exists(config.itag.path + result['stored_name']):
+                    os.remove(config.itag.path + result['stored_name'])
+                sql = """ DELETE FROM discord_itag WHERE `itag_id`=%s AND `itag_serverid`=%s """
                 cur.execute(sql, (tag_id.upper(), server_id,))
                 conn_cursors.commit()
                 return tag_id.upper()

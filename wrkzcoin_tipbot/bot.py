@@ -29,7 +29,7 @@ from terminaltables import AsciiTable
 
 import sys, traceback
 import asyncio
-
+import aiohttp
 
 sys.path.append("..")
 
@@ -4838,11 +4838,105 @@ async def disclaimer(ctx, *args):
     return
 
 
+@commands.is_owner() # to remove after test
 @bot.command(pass_context=True, help=bot_help_itag, hidden = True)
-async def itag(ctx, *args):
+async def itag(ctx, *, itag_text: str = None):
     if isinstance(ctx.channel, discord.DMChannel):
         await ctx.send(f'{EMOJI_RED_NO} This command can not be in private.')
         return
+    ListiTag = store.sql_itag_by_server(str(ctx.guild.id))
+    if not ctx.message.attachments:
+        # Find available tag
+        if itag_text is None:
+            if len(ListiTag) > 0:
+                itags = (', '.join([w['itag_id'] for w in ListiTag])).lower()
+                await ctx.send(f'Available itag: `{itags}`.\nPlease use `.itag tagname` to show it.')
+                return
+            else:
+                await ctx.send('There is no **itag** in this server. Please add.\n')
+                return
+        else:
+            # if itag id has input
+            
+            # .itag -del tagid
+            command_del = itag_text.split(" ")
+            if len(command_del) >= 2:
+                TagIt = store.sql_itag_by_server(str(ctx.guild.id), command_del[1].upper())
+                if command_del[0].upper() == "-DEL" and TagIt:
+                    DeliTag = store.sql_itag_by_server_del(str(ctx.guild.id), command_del[1].upper())
+                    if DeliTag:
+                        await ctx.send(f'{ctx.author.mention} iTag **{command_del[1].upper()}** deleted.\n')
+                    else:
+                        await ctx.send(f'{ctx.author.mention} iTag **{command_del[1].upper()}** error deletion.\n')
+                    return
+                else:
+                    await ctx.send(f'{ctx.author.mention} iTag unknow operation.\n')
+                    return
+            elif len(command_del) == 1:
+                TagIt = store.sql_itag_by_server(str(ctx.guild.id), itag_text.upper())
+                if TagIt:
+                    tagLink = config.itag.static_link + TagIt['stored_name']
+                    await ctx.send(f'{tagLink}')
+                    return
+                else:
+                    await ctx.send(f'There is no itag **{itag_text}** in this server.\n')
+                    return
+    else:
+        if itag_text is None:
+            await ctx.send(f'{EMOJI_RED_NO} You need to include **tag** for this image.')
+            return
+        else:
+            d = [i['itag_id'] for i in ListiTag]
+            if itag_text.upper() in d:
+                await ctx.send(f'{EMOJI_RED_NO} iTag **{itag_text}** already exists here.')
+                return
+            else:
+                pass
+    # we passed of no attachment
+    attachment = ctx.message.attachments[0]
+    if not (attachment.filename.lower()).endswith(('.gif', '.jpeg', '.jpg', '.png')):
+        await ctx.send(f'{EMOJI_RED_NO} Attachment type rejected.')
+        return
+    else:
+        print('Filename: {}'.format(attachment.filename))
+    if attachment.size >= config.itag.max_size:
+        await ctx.send(f'{EMOJI_RED_NO} File too big.')
+        return
+    else:
+        print('Size: {}'.format(attachment.size))
+    
+    if re.match('^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*$', itag_text):
+        if len(itag_text) >= 16:
+            await ctx.send(f'itag **{itag_text}** is too long.')
+            return
+    else:
+        await ctx.send(f'{EMOJI_RED_NO} iTag id not accepted.')
+        return
+    link = attachment.url # https://cdn.discordapp.com/attachments
+    attach_save_name = str(uuid.uuid4()) + '.' + link.split(".")[-1].lower()
+    try:
+        if link.startswith("https://cdn.discordapp.com/attachments"):
+            async with aiohttp.ClientSession() as session:
+                async with session.get(link) as resp:
+                    if resp.status == 200:
+                        if resp.headers["Content-Type"] not in ["image/gif", "image/png", "image/jpeg", "image/jpg"]:
+                            await ctx.send(f'{EMOJI_RED_NO} Unsupported format file.')
+                            return
+                        else: 
+                            with open(config.itag.path + attach_save_name, 'wb') as f:
+                                f.write(await resp.read())
+                            # save to DB and inform
+                            addiTag = store.sql_itag_by_server_add(str(ctx.guild.id), itag_text.upper(),
+                                                                  str(ctx.message.author), str(ctx.message.author.id),
+                                                                  attachment.filename, attach_save_name, attachment.size)
+                            if addiTag is None:
+                                await ctx.send(f'{ctx.author.mention} Failed to add itag **{itag_text}**')
+                                return
+                            elif addiTag.upper() == itag_text.upper():
+                                await ctx.send(f'{ctx.author.mention} Successfully added itag **{itag_text}**')
+                                return
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
 
 
 @bot.command(pass_context=True, help=bot_help_tag)

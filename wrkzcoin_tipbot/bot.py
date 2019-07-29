@@ -1961,11 +1961,11 @@ async def register(ctx, wallet_address: str):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
         return
 
-    user_id = ctx.message.author.id
-    user = await store.sql_get_userwallet(ctx.message.author.id, COIN_NAME)
-    if user:
+    user = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+    if user is None:
+        userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+        user = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         existing_user = user
-        pass
 
     valid_address = None
     if COIN_NAME in ENABLE_COIN_DOGE:
@@ -2032,7 +2032,7 @@ async def register(ctx, wallet_address: str):
     if existing_user['user_wallet_address']:
         prev_address = existing_user['user_wallet_address']
         if prev_address != valid_address:
-            await store.sql_update_user(user_id, wallet_address, COIN_NAME)
+            await store.sql_update_user(str(ctx.message.author.id), wallet_address, COIN_NAME)
             await ctx.message.add_reaction(EMOJI_OK_HAND)
             await ctx.send(f'Your {COIN_NAME} {ctx.author.mention} withdraw address has changed from:\n'
                            f'`{prev_address}`\n to\n '
@@ -2043,7 +2043,7 @@ async def register(ctx, wallet_address: str):
             await ctx.send(f'{ctx.author.mention} Your {COIN_NAME} previous and new address is the same.')
             return
     else:
-        user = await store.sql_update_user(user_id, wallet_address, COIN_NAME)
+        user = await store.sql_update_user(str(ctx.message.author.id), wallet_address, COIN_NAME)
         await ctx.message.add_reaction(EMOJI_OK_HAND)
         await ctx.send(f'{ctx.author.mention} You have registered {COIN_NAME} withdraw address.\n'
                        f'You can use `{server_prefix}withdraw AMOUNT {COIN_NAME}` anytime.')
@@ -5012,10 +5012,11 @@ async def tag(ctx, *args):
             if len(tagDesc) <= 3:
                 await ctx.send(f'Tag desc for ***{args[1]}*** is too short.')
                 return
-            d = [i['tag_id'] for i in ListTag]
-            if tag.upper() in d:
-                await ctx.send(f'Tag **{args[1]}** already exists here.')
-                return
+            if len(ListTag) > 0:
+                d = [i['tag_id'] for i in ListTag]
+                if tag.upper() in d:
+                    await ctx.send(f'Tag **{args[1]}** already exists here.')
+                    return
             addTag = store.sql_tag_by_server_add(str(ctx.guild.id), tag.strip(), tagDesc.strip(),
                                                  ctx.message.author.name, str(ctx.message.author.id))
             if addTag is None:

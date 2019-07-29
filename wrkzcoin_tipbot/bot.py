@@ -4970,8 +4970,9 @@ async def tag(ctx, *args):
         await ctx.send(f'{EMOJI_RED_NO} This command can not be in private.')
         return
 
+    ListTag = store.sql_tag_by_server(str(ctx.guild.id))
+
     if len(args) == 0:
-        ListTag = store.sql_tag_by_server(str(ctx.guild.id))
         if len(ListTag) > 0:
             tags = (', '.join([w['tag_id'] for w in ListTag])).lower()
             await ctx.send(f'Available tag: `{tags}`.\nPlease use `.tag tagname` to show it in detail.'
@@ -5011,16 +5012,20 @@ async def tag(ctx, *args):
             if len(tagDesc) <= 3:
                 await ctx.send(f'Tag desc for ***{args[1]}*** is too short.')
                 return
+            d = [i['tag_id'] for i in ListTag]
+            if tag.upper() in d:
+                await ctx.send(f'Tag **{args[1]}** already exists here.')
+                return
             addTag = store.sql_tag_by_server_add(str(ctx.guild.id), tag.strip(), tagDesc.strip(),
-                                                ctx.message.author.name, str(ctx.message.author.id))
+                                                 ctx.message.author.name, str(ctx.message.author.id))
             if addTag is None:
-                await ctx.send(f'Failed to add tag ***{args[1]}***')
+                await ctx.send(f'Failed to add tag **{args[1]}**')
                 return
             if addTag.upper() == tag.upper():
-                await ctx.send(f'Successfully added tag ***{args[1]}***')
+                await ctx.send(f'Successfully added tag **{args[1]}**')
                 return
             else:
-                await ctx.send(f'Failed to add tag ***{args[1]}***')
+                await ctx.send(f'Failed to add tag **{args[1]}**')
                 return
         else:
             await ctx.send(f'Tag {args[1]} is not valid.')

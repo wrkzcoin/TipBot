@@ -473,27 +473,7 @@ async def sql_send_tip(user_from: str, user_to: str, amount: int, tiptype: str, 
                                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
                         cur.execute(sql, (COIN_NAME, user_from, user_to, amount, wallet.get_decimal(COIN_NAME), timestamp, tx_hash, tiptype.upper(),))
                         conn_cursors.commit()
-                    updateBalance = None
-                    if coin_family == "TRTL" or coin_family == "CCX":
-                        updateBalance = await wallet.get_balance_address(user_from_wallet['balance_wallet_address'],
-                                                                         coin.upper())
-                    if updateBalance:
-                        if coin_family == "TRTL" or coin_family == "CCX":
-                            sql = """ UPDATE cn_walletapi SET `actual_balance`=%s, `locked_balance`=%s, 
-                                      `lastUpdate`=%s, `decimal`=%s WHERE `balance_wallet_address`=%s AND `coin_name` = %s LIMIT 1 """
-                            cur.execute(sql, (updateBalance['unlocked'], updateBalance['locked'],
-                                              updateTime, wallet.get_decimal(COIN_NAME), user_from_wallet['balance_wallet_address'], COIN_NAME,))
-                            conn_cursors.commit()
-                            updateBalance = await wallet.get_balance_address(user_to_wallet['balance_wallet_address'],
-                                                                             coin.upper())
-                    if updateBalance:
-                        if coin_family == "TRTL" or coin_family == "CCX":
-                            sql = """ UPDATE cn_walletapi SET `actual_balance`=%s, 
-                                      `locked_balance`=%s, `lastUpdate`=%s, `decimal`=%s 
-                                      WHERE `balance_wallet_address`=%s AND `coin_name` = %s LIMIT 1 """
-                            cur.execute(sql, (updateBalance['unlocked'], updateBalance['locked'],
-                                        updateTime, wallet.get_decimal(COIN_NAME), user_to_wallet['balance_wallet_address'], COIN_NAME,))
-                            conn_cursors.commit()
+                        await sql_update_some_balances([user_from_wallet['balance_wallet_address'], user_to_wallet['balance_wallet_address']], COIN_NAME)
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
         return tx_hash
@@ -1030,6 +1010,35 @@ async def sql_send_to_voucher(user_id: str, user_name: str, message_creating: st
         return None
 
 
+def sql_faucet_add(claimed_user: str, claimed_server: str, coin_name: str, claimed_amount: float, decimal: int, tx_hash: str = None):
+    global conn_cursors
+    tx_hash = tx_hash or 'NULL'
+    try:
+        openConnection_cursors()
+        with conn_cursors.cursor() as cur:
+            sql = """ INSERT INTO discord_faucet (`claimed_user`, `coin_name`, `claimed_amount`, 
+                      `decimal`, `tx_hash`, `claimed_at`, `claimed_server`) 
+                      VALUES (%s, %s, %s, %s, %s, %s, %s) """
+            cur.execute(sql, (claimed_user, coin_name, claimed_amount, decimal, tx_hash, int(time.time()), claimed_server,))
+            conn_cursors.commit()
+            return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
+def sql_faucet_checkuser(userID: str):
+    global conn_cursors
+    try:
+        openConnection_cursors()
+        with conn_cursors.cursor() as cur:
+            sql = """ SELECT * FROM discord_faucet WHERE claimed_user = %s ORDER BY claimed_at DESC LIMIT 1"""
+            cur.execute(sql, (userID,))
+            result = cur.fetchone()
+            return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
 def sql_tag_by_server(server_id: str, tag_id: str = None):
     global conn_cursors
     try:
@@ -1251,7 +1260,8 @@ def sql_changeinfo_by_server(server_id: str, what: str, value: str):
             #print(f"ok try to change {what} to {value}")
             openConnection_cursors()
             with conn_cursors.cursor() as cur:
-                sql = """ UPDATE discord_server SET `""" + what.lower() + """` = '%s' WHERE `serverid` = %s """
+                print((value, server_id))
+                sql = """ UPDATE discord_server SET `""" + what.lower() + """` = %s WHERE `serverid` = %s """
                 cur.execute(sql, (value, server_id,))
                 conn_cursors.commit()
         except Exception as e:
@@ -1544,7 +1554,7 @@ def sql_mv_doge_single(user_from: str, to_user: str, amount: float, coin: str, t
     global conn_cursors
     if coin.upper() not in ENABLE_COIN_DOGE:
         return False
-    if tiptype.upper() not in ["TIP", "DONATE", "SECRETTIP"]:
+    if tiptype.upper() not in ["TIP", "DONATE", "SECRETTIP", "FAUCET"]:
         return False
     try:
         openConnection_cursors()
@@ -1667,7 +1677,7 @@ def sql_mv_xmr_single(user_from: str, to_user: str, amount: float, coin: str, ti
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     if coin_family != "XMR":
         return False
-    if tiptype.upper() not in ["TIP", "DONATE", "SECRETTIP"]:
+    if tiptype.upper() not in ["TIP", "DONATE", "SECRETTIP", "FAUCET"]:
         return False
     try:
         openConnection_cursors()

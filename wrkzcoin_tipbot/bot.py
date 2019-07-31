@@ -54,6 +54,19 @@ WITHDRAW_IN_PROCESS = []
 # tip-react temp storage
 REACT_TIP_STORE = []
 
+# faucet enabled coin. The faucet balance is taken from TipBot's own balance
+FAUCET_COINS = ["WRKZ", "TRTL", "DEGO", "MTIP", "DOGE"]
+
+# DOGE will divide by 10 after random
+FAUCET_MINMAX = {
+    "WRKZ": [1000, 5000],
+    "DEGO": [10000, 100000],
+    "MTIP": [10, 25],
+    "TRTL": [5, 10],
+    "DOGE": [1, 3]
+    }
+
+
 # save all temporary
 SAVING_ALL = None
 
@@ -194,6 +207,7 @@ bot_help_settings = "settings view and set for prefix, default coin. Requires pe
 bot_help_invite = "Invite link of bot to your server."
 bot_help_disclaimer = "Show disclaimer."
 bot_help_voucher = "(Testing) make a voucher image and your friend can claim via QR code."
+bot_help_take = "Get random faucet tip."
 
 
 # admin commands
@@ -1324,8 +1338,8 @@ async def info(ctx, coin: str = None):
             userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
             wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
     elif COIN_NAME in ENABLE_COIN_DOGE:
-        wallet = await store.sql_get_userwallet(ctx.message.author.id, COIN_NAME)
-        depositAddress = await DOGE_LTC_getaccountaddress(ctx.message.author.id, COIN_NAME)
+        wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        depositAddress = await DOGE_LTC_getaccountaddress(str(ctx.message.author.id), COIN_NAME)
         wallet['balance_wallet_address'] = depositAddress
     else:
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**')
@@ -1880,7 +1894,8 @@ async def forwardtip(ctx, coin: str, option: str):
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} We don\'t know that {COIN_NAME}')
         return
-    elif coin_family == "XMR":
+
+    if coin_family == "XMR":
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} this {COIN_NAME} is not supported with **forwardtip**.')
         return
@@ -1892,12 +1907,8 @@ async def forwardtip(ctx, coin: str, option: str):
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{ctx.author.mention} Parameter must be: **ON** or **OFF**')
         return
-    else:
-        await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{ctx.author.mention} I can not find the error. Please report.')
-        return
 
-    userwallet = await store.sql_get_userwallet(ctx.message.author.id, COIN_NAME)
+    userwallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
     if userwallet is None:
         userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
         userwallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
@@ -1965,11 +1976,12 @@ async def register(ctx, wallet_address: str):
     if user is None:
         userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
         user = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-        existing_user = user
+
+    existing_user = user
 
     valid_address = None
     if COIN_NAME in ENABLE_COIN_DOGE:
-        depositAddress = await DOGE_LTC_getaccountaddress(ctx.message.author.id, COIN_NAME)
+        depositAddress = await DOGE_LTC_getaccountaddress(str(ctx.message.author.id), COIN_NAME)
         user['balance_wallet_address'] = depositAddress
         if COIN_NAME == "DOGE":
             valid_address = await DOGE_LTC_validaddress(str(wallet_address), COIN_NAME)
@@ -2599,6 +2611,130 @@ async def notifytip(ctx, onoff: str):
         else:
             store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
             await ctx.send('OK, you will not get any notification when anyone tips.')
+            return
+
+
+@bot.command(pass_context=True, help=bot_help_take)
+async def take(ctx):
+    global FAUCET_COINS, FAUCET_MINMAX
+    # check if account locked
+    account_lock = await alert_if_userlock(ctx, 'take')
+    if account_lock:
+        await ctx.message.add_reaction(EMOJI_LOCKED) 
+        await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
+        return
+    # end of check if account locked
+
+    if isinstance(ctx.channel, discord.DMChannel):
+        await ctx.send(f'{EMOJI_RED_NO} This command can not be in private.')
+        return
+
+    # Check if user guild member less than 100 online
+    num_online = sum(1 for member in ctx.guild.members if member.status != discord.Status.offline)
+    if num_online <= 50:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} This command isn\'t available with this guild.')
+        return
+
+    # check user claim:
+    check_claimed = store.sql_faucet_checkuser(str(ctx.message.author.id))
+    if check_claimed:
+        # limit 12 hours
+        if int(time.time()) - check_claimed['claimed_at'] <= 43200:
+            remaining = await bot_faucet(ctx) or ''
+            time_waiting = seconds_str(43200 - int(time.time()) + check_claimed['claimed_at'])
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You just claimed within last 12h. Wait for {time_waiting}. Faucet balance:\n```{remaining}```')
+            await msg.add_reaction(EMOJI_OK_BOX)
+            return
+
+    COIN_NAME = random.choice(FAUCET_COINS)
+    while COIN_NAME in MAINTENANCE_COIN:
+        COIN_NAME = random.choice(FAUCET_COINS)
+
+    has_forwardtip = None
+    amount = random.randint(FAUCET_MINMAX[COIN_NAME][0], FAUCET_MINMAX[COIN_NAME][1])
+
+    wallet = None
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    if coin_family == "DOGE":
+        amount = float(amount / 10)
+
+    if coin_family == "TRTL" or coin_family == "CCX":
+        COIN_DEC = get_decimal(COIN_NAME)
+        real_amount = int(amount * COIN_DEC)
+        user_from = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
+        user_to = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        NetFee = get_tx_fee(coin = COIN_NAME)
+        if user_to is None:
+            userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user_to = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        if user_to['forwardtip'] == "ON":
+            has_forwardtip = True
+
+        if real_amount + NetFee >= user_from['actual_balance']:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{ctx.author.mention} Please try again later. Bot runs out of **{COIN_NAME}**')
+            return
+
+        tip = await store.sql_send_tip(str(bot.user.id), str(ctx.message.author.id), real_amount, 'FAUCET', COIN_NAME)
+        tip_tx_tipper = "Transaction hash: `{}`".format(tip)
+        if tip:
+            faucet_add = store.sql_faucet_add(str(ctx.message.author.id), str(ctx.guild.id), COIN_NAME, real_amount, COIN_DEC, tip)
+            if has_forwardtip:
+                await ctx.message.add_reaction(EMOJI_FORWARD)
+            else:
+                await ctx.message.add_reaction(get_emoji(COIN_NAME))
+            await ctx.send(f'{EMOJI_MONEYFACE} {ctx.author.mention} You got a random faucet {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}.\n'
+                           f'{tip_tx_tipper}')
+            return
+        else:
+            await ctx.send(f'{ctx.author.mention} Please try again later.')
+            await ctx.message.add_reaction(EMOJI_ERROR)
+
+    elif coin_family == "XMR":
+        COIN_DEC = get_decimal(COIN_NAME)
+        real_amount = int(amount * COIN_DEC)
+        user_from = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
+        real_amount = int(amount * COIN_DEC)
+        userdata_balance = store.sql_xmr_balance(str(bot.user.id), COIN_NAME)
+        if real_amount > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{ctx.author.mention} Please try again later. Bot runs out of **{COIN_NAME}**')
+            return
+        user_to = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        if user_to is None:
+            userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user_to = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        tip = store.sql_mv_xmr_single(str(bot.user.id), str(ctx.message.author.id), real_amount, COIN_NAME, "FAUCET")
+        if tip:
+            faucet_add = store.sql_faucet_add(str(ctx.message.author.id), str(ctx.guild.id), COIN_NAME, real_amount, COIN_DEC)
+            await ctx.message.add_reaction(get_emoji(COIN_NAME))
+            await ctx.send(f'{EMOJI_MONEYFACE} {ctx.author.mention} You got a random faucet {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
+            return
+        else:
+            await ctx.send(f'{ctx.author.mention} Please try again later.')
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            return
+    elif coin_family == "DOGE":
+        COIN_DEC = 1
+        real_amount = float(amount * COIN_DEC)
+        user_from = {}
+        user_from['actual_balance'] = float(await DOGE_LTC_getbalance_acc(str(bot.user.id), COIN_NAME, 6))
+        botdata_balance = store.sql_doge_balance(str(bot.user.id), COIN_NAME)
+        if real_amount > float(user_from['actual_balance']) + float(botdata_balance['Adjust']):
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{ctx.author.mention} Please try again later. Bot runs out of **{COIN_NAME}**')
+            return
+        tip = store.sql_mv_doge_single(str(bot.user.id), str(ctx.message.author.id), real_amount, COIN_NAME, "FAUCET")
+        if tip:
+            faucet_add = store.sql_faucet_add(str(ctx.message.author.id), str(ctx.guild.id), COIN_NAME, real_amount, COIN_DEC)
+            await ctx.message.add_reaction(get_emoji(COIN_NAME))
+            await ctx.send(f'{EMOJI_MONEYFACE} {ctx.author.mention} You got a random faucet {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
+            return
+        else:
+            await ctx.send(f'{ctx.author.mention} Please try again later.')
+            await ctx.message.add_reaction(EMOJI_ERROR)
             return
 
 
@@ -3704,7 +3840,7 @@ async def send(ctx, amount: str, CoinAddress: str):
                     return
 
             user_from = {}
-            user_from['address'] = await DOGE_LTC_getaccountaddress(ctx.message.author.id, COIN_NAME)
+            user_from['address'] = await DOGE_LTC_getaccountaddress(str(ctx.message.author.id), COIN_NAME)
             user_from['actual_balance'] = float(await DOGE_LTC_getbalance_acc(ctx.message.author.id, COIN_NAME, 6))
             real_amount = float(amount)
             userdata_balance = store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
@@ -4051,7 +4187,7 @@ async def optimize(ctx, coin: str, member: discord.Member = None):
     # End Check if maintenance
 
     # Check if user has a proper wallet with balance bigger than setting balance
-    user_from = await store.sql_get_userwallet(ctx.message.author.id, COIN_NAME)
+    user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
     if 'lastOptimize' in user_from:
         if int(time.time()) - int(user_from['lastOptimize']) < int(get_interval_opt(COIN_NAME)):
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -6047,6 +6183,53 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
 def truncate(number, digits) -> float:
     stepper = pow(10.0, digits)
     return math.trunc(stepper * number) / stepper
+
+
+def seconds_str(time: float):
+    # day = time // (24 * 3600)
+    # time = time % (24 * 3600)
+    hour = time // 3600
+    time %= 3600
+    minutes = time // 60
+    time %= 60
+    seconds = time
+    return "{}:{}:{}".format(hour, minutes, seconds)
+
+
+async def bot_faucet(ctx):
+    table_data = [
+        ['TICKER', 'Available', 'Locked']
+    ]
+    for COIN_NAME in [coinItem.upper() for coinItem in FAUCET_COINS]:
+        coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+        if (COIN_NAME not in MAINTENANCE_COIN) and coin_family in ["TRTL", "CCX"]:
+            COIN_DEC = get_decimal(COIN_NAME)
+            wallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
+            balance_actual = num_format_coin(wallet['actual_balance'], COIN_NAME)
+            balance_locked = num_format_coin(wallet['locked_balance'], COIN_NAME)
+            balance_total = num_format_coin((wallet['actual_balance'] + wallet['locked_balance']), COIN_NAME)
+            if wallet['actual_balance'] + wallet['locked_balance'] != 0:
+                table_data.append([COIN_NAME, balance_actual, balance_locked])
+    # Add DOGE
+    COIN_NAME = "DOGE"
+    if (COIN_NAME not in MAINTENANCE_COIN) and COIN_NAME in FAUCET_COINS:
+        actual = float(await DOGE_LTC_getbalance_acc(str(bot.user.id), COIN_NAME, 6))
+        locked = float(await DOGE_LTC_getbalance_acc(str(bot.user.id), COIN_NAME, 1))
+        userdata_balance = store.sql_doge_balance(str(bot.user.id), COIN_NAME)
+        if actual == locked:
+            balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
+            balance_locked = num_format_coin(0, COIN_NAME)
+        else:
+            balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
+            if locked - actual + float(userdata_balance['Adjust']) < 0:
+                balance_locked =  num_format_coin(0, COIN_NAME)
+            else:
+                balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
+        table_data.append([COIN_NAME, balance_actual, balance_locked])
+    table = AsciiTable(table_data)
+    table.padding_left = 0
+    table.padding_right = 0
+    return table.table
 
 
 @click.command()

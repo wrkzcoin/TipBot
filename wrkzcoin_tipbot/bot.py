@@ -55,7 +55,7 @@ WITHDRAW_IN_PROCESS = []
 REACT_TIP_STORE = []
 
 # faucet enabled coin. The faucet balance is taken from TipBot's own balance
-FAUCET_COINS = ["WRKZ", "TRTL", "DEGO", "MTIP", "DOGE"]
+FAUCET_COINS = ["WRKZ", "TRTL", "DEGO", "MTIP", "DOGE", "BTCM"]
 
 # DOGE will divide by 10 after random
 FAUCET_MINMAX = {
@@ -63,7 +63,8 @@ FAUCET_MINMAX = {
     "DEGO": [5000, 20000],
     "MTIP": [10, 25],
     "TRTL": [5, 10],
-    "DOGE": [1, 3]
+    "DOGE": [1, 3],
+    "BTCM": [5000, 10000]
     }
 
 
@@ -80,12 +81,12 @@ Disclaimer: TipBot, its owners, service providers or any other parties providing
 are not in any way responsible or liable for any lost, mis-used, stolen funds, or any coin \
 network's issues. TipBot's purpose is to be fun, do testing, and share tips between \
 user to user, and its use is on each user’s own risks.
-\n\n
+\n
 We operate the bot on our own rented servers. We do not charge any node fees for transactions, \
 as well as no fees for depositing or withdrawing funds to the TipBot. \
 Feel free to donate if you like the TipBot and the service it provides. \
 Your donations will help to fund the development & maintenance. 
-\n\n
+\n
 We commit to make it as secure as possible to the best of our expertise, \
 however we accept no liability and responsibility for any loss or damage \
 caused to you. Additionally, the purpose of the TipBot is to spread awareness \
@@ -177,6 +178,9 @@ NOTICE_COIN = {
     "BLOG" : None,
     "DOGE" : "Please acknowledge that DOGE address is for **one-time** use only for depositing."
     }
+
+# TRTL discord. Need for some specific tasks later.
+TRTL_DISCORD = 388915017187328002
 
 NOTIFICATION_OFF_CMD = 'Type: `.notifytip off` to turn off this DM notification.'
 MSG_LOCKED_ACCOUNT = "Your account is locked. Please contact CapEtn#4425 in WrkzCoin discord. Check `.about` for more info."
@@ -1760,6 +1764,7 @@ async def balance(ctx, coin: str = None):
 
 @bot.command(pass_context=True, aliases=['botbal'], help=bot_help_botbalance)
 async def botbalance(ctx, member: discord.Member, coin: str):
+    global TRTL_DISCORD
     if member.bot == False:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Only for bot!!')
@@ -1768,6 +1773,10 @@ async def botbalance(ctx, member: discord.Member, coin: str):
     COIN_NAME = coin.upper()
     if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE:
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**!')
+        return
+
+    # TRTL discord
+    if ctx.guild.id == TRTL_DISCORD and COIN_NAME != "TRTL":
         return
 
     walletStatus = None
@@ -2616,7 +2625,7 @@ async def notifytip(ctx, onoff: str):
 
 @bot.command(pass_context=True, help=bot_help_take)
 async def take(ctx):
-    global FAUCET_COINS, FAUCET_MINMAX
+    global FAUCET_COINS, FAUCET_MINMAX, TRTL_DISCORD
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'take')
     if account_lock:
@@ -2655,6 +2664,11 @@ async def take(ctx):
     has_forwardtip = None
     amount = random.randint(FAUCET_MINMAX[COIN_NAME][0], FAUCET_MINMAX[COIN_NAME][1])
 
+    # faucet only TRTL for TRTL and /number of faucet coins
+    if ctx.guild.id == TRTL_DISCORD:
+        COIN_NAME = "TRTL"
+        amount = amount / len(FAUCET_COINS)
+
     wallet = None
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     if coin_family == "DOGE":
@@ -2685,8 +2699,9 @@ async def take(ctx):
                 await ctx.message.add_reaction(EMOJI_FORWARD)
             else:
                 await ctx.message.add_reaction(get_emoji(COIN_NAME))
-            await ctx.send(f'{EMOJI_MONEYFACE} {ctx.author.mention} You got a random faucet {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}.\n'
-                           f'{tip_tx_tipper}')
+            msg = await ctx.send(f'{EMOJI_MONEYFACE} {ctx.author.mention} You got a random faucet {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}.\n'
+                                 f'{tip_tx_tipper}')
+            await msg.add_reaction(EMOJI_OK_BOX)
             return
         else:
             await ctx.send(f'{ctx.author.mention} Please try again later.')
@@ -2710,7 +2725,8 @@ async def take(ctx):
         if tip:
             faucet_add = store.sql_faucet_add(str(ctx.message.author.id), str(ctx.guild.id), COIN_NAME, real_amount, COIN_DEC)
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
-            await ctx.send(f'{EMOJI_MONEYFACE} {ctx.author.mention} You got a random faucet {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
+            msg = await ctx.send(f'{EMOJI_MONEYFACE} {ctx.author.mention} You got a random faucet {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
+            await msg.add_reaction(EMOJI_OK_BOX)
             return
         else:
             await ctx.send(f'{ctx.author.mention} Please try again later.')
@@ -2730,7 +2746,8 @@ async def take(ctx):
         if tip:
             faucet_add = store.sql_faucet_add(str(ctx.message.author.id), str(ctx.guild.id), COIN_NAME, real_amount, COIN_DEC)
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
-            await ctx.send(f'{EMOJI_MONEYFACE} {ctx.author.mention} You got a random faucet {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
+            msg = await ctx.send(f'{EMOJI_MONEYFACE} {ctx.author.mention} You got a random faucet {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
+            await msg.add_reaction(EMOJI_OK_BOX)
             return
         else:
             await ctx.send(f'{ctx.author.mention} Please try again later.')
@@ -2740,6 +2757,7 @@ async def take(ctx):
 
 @bot.command(pass_context=True, help=bot_help_tip)
 async def tip(ctx, amount: str, *args):
+    global TRTL_DISCORD
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'tip')
     if account_lock:
@@ -2778,6 +2796,10 @@ async def tip(ctx, amount: str, *args):
             COIN_NAME = serverinfo['default_coin'].upper()
     print("COIN_NAME: " + COIN_NAME)
 
+    # TRTL discord
+    if ctx.guild.id == TRTL_DISCORD and COIN_NAME != "TRTL":
+        return
+
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     # Check allowed coins
     tiponly_coins = serverinfo['tiponly'].split(",")
@@ -2788,7 +2810,7 @@ async def tip(ctx, amount: str, *args):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} not in allowed coins set by server manager.')
         return
     # End of checking allowed coins
-    
+
     if COIN_NAME in MAINTENANCE_COIN:
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
         return
@@ -4372,6 +4394,7 @@ async def paymentid(ctx, coin: str = None):
 
 @bot.command(pass_context=True, aliases=['stat'], help=bot_help_stats)
 async def stats(ctx, coin: str = None):
+    global TRTL_DISCORD
     COIN_NAME = None
     if (coin is None) and isinstance(ctx.message.channel, discord.DMChannel) == False:
             serverinfo = get_info_pref_coin(ctx)
@@ -4384,6 +4407,10 @@ async def stats(ctx, coin: str = None):
     if (COIN_NAME not in (ENABLE_COIN+ENABLE_XMR)) and COIN_NAME != "BOT":
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{ctx.author.mention} Please put available ticker: '+ ', '.join(ENABLE_COIN).lower())
+        return
+
+    # TRTL discord
+    if ctx.guild.id == TRTL_DISCORD and COIN_NAME != "TRTL":
         return
 
     if COIN_NAME in MAINTENANCE_COIN:
@@ -4485,6 +4512,7 @@ async def stats(ctx, coin: str = None):
 
 @bot.command(pass_context=True, help=bot_help_height, hidden = True)
 async def height(ctx, coin: str = None):
+    global TRTL_DISCORD
     COIN_NAME = None
     if coin is None:
         if isinstance(ctx.message.channel, discord.DMChannel):
@@ -4508,6 +4536,10 @@ async def height(ctx, coin: str = None):
             pass
     else:
         COIN_NAME = coin.upper()
+
+    # TRTL discord
+    if ctx.guild.id == TRTL_DISCORD and COIN_NAME != "TRTL":
+        return
 
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     if COIN_NAME not in (ENABLE_COIN + ENABLE_XMR):
@@ -6197,9 +6229,26 @@ def seconds_str(time: float):
 
 
 async def bot_faucet(ctx):
+    global TRTL_DISCORD
     table_data = [
         ['TICKER', 'Available', 'Locked']
     ]
+    # TRTL discord
+    if ctx.guild.id == TRTL_DISCORD:
+        COIN_NAME = "TRTL"
+        wallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
+        balance_actual = num_format_coin(wallet['actual_balance'], COIN_NAME)
+        balance_locked = num_format_coin(wallet['locked_balance'], COIN_NAME)
+        balance_total = num_format_coin((wallet['actual_balance'] + wallet['locked_balance']), COIN_NAME)
+        if wallet['actual_balance'] + wallet['locked_balance'] != 0:
+            table_data.append([COIN_NAME, balance_actual, balance_locked])
+        else:
+            table_data.append([COIN_NAME, '0', '0'])
+        table = AsciiTable(table_data)
+        table.padding_left = 0
+        table.padding_right = 0
+        return table.table
+    # End TRTL discord
     for COIN_NAME in [coinItem.upper() for coinItem in FAUCET_COINS]:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
         if (COIN_NAME not in MAINTENANCE_COIN) and coin_family in ["TRTL", "CCX"]:
@@ -6210,6 +6259,8 @@ async def bot_faucet(ctx):
             balance_total = num_format_coin((wallet['actual_balance'] + wallet['locked_balance']), COIN_NAME)
             if wallet['actual_balance'] + wallet['locked_balance'] != 0:
                 table_data.append([COIN_NAME, balance_actual, balance_locked])
+            else:
+                table_data.append([COIN_NAME, '0', '0'])
     # Add DOGE
     COIN_NAME = "DOGE"
     if (COIN_NAME not in MAINTENANCE_COIN) and COIN_NAME in FAUCET_COINS:

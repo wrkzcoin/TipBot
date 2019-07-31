@@ -60,7 +60,7 @@ FAUCET_COINS = ["WRKZ", "TRTL", "DEGO", "MTIP", "DOGE"]
 # DOGE will divide by 10 after random
 FAUCET_MINMAX = {
     "WRKZ": [1000, 5000],
-    "DEGO": [10000, 100000],
+    "DEGO": [5000, 20000],
     "MTIP": [10, 25],
     "TRTL": [5, 10],
     "DOGE": [1, 3]
@@ -2630,7 +2630,7 @@ async def take(ctx):
         return
 
     # Check if user guild member less than 100 online
-    num_online = sum(1 for member in ctx.guild.members if member.status != discord.Status.offline)
+    num_online = sum(1 for member in ctx.guild.members if member.status != discord.Status.offline and member.bot == False)
     if num_online <= 50:
         await ctx.message.add_reaction(EMOJI_ERROR)
         msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} This command isn\'t available with this guild.')
@@ -2644,7 +2644,7 @@ async def take(ctx):
             remaining = await bot_faucet(ctx) or ''
             time_waiting = seconds_str(43200 - int(time.time()) + check_claimed['claimed_at'])
             await ctx.message.add_reaction(EMOJI_ERROR)
-            msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You just claimed within last 12h. Wait for {time_waiting}. Faucet balance:\n```{remaining}```')
+            msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You just claimed within last 12h. Waiting time {time_waiting} for next **take**. Faucet balance:\n```{remaining}```')
             await msg.add_reaction(EMOJI_OK_BOX)
             return
 
@@ -6193,7 +6193,7 @@ def seconds_str(time: float):
     minutes = time // 60
     time %= 60
     seconds = time
-    return "{}:{}:{}".format(hour, minutes, seconds)
+    return "{:02d}:{:02d}:{:02d}".format(hour, minutes, seconds)
 
 
 async def bot_faucet(ctx):

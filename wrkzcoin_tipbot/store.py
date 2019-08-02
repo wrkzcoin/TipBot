@@ -873,7 +873,6 @@ async def sql_optimize_do(userID: str, coin: str = None):
     user_from_wallet = None
     if COIN_NAME in ENABLE_COIN:
         user_from_wallet = await sql_get_userwallet(userID, COIN_NAME)
-    #print('store.check estimation fusion first: ' + COIN_NAME)
     estimate = await wallet.wallet_estimate_fusion(user_from_wallet['balance_wallet_address'], 
                                              user_from_wallet['actual_balance'], COIN_NAME)
     if estimate:
@@ -886,7 +885,7 @@ async def sql_optimize_do(userID: str, coin: str = None):
         print('fusionReadyCount check error.')
         return 0
 
-    print('store.sql_optimize_do: ' + COIN_NAME)
+    #print('store.sql_optimize_do: ' + COIN_NAME)
     if user_from_wallet:
         OptimizeCount = 0
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
@@ -1617,7 +1616,6 @@ async def sql_external_doge_single(user_from: str, amount: float, fee: float, to
 
 def sql_doge_balance(userID: str, coin: str):
     global conn_cursors
-    print('store.sql_doge_balance')
     if coin.upper() not in ENABLE_COIN_DOGE:
         return False
     try:
@@ -1661,8 +1659,8 @@ def sql_doge_balance(userID: str, coin: str):
             balance['Income'] = Income or 0
             balance['TxExpense'] = TxExpense or 0
             balance['FeeExpense'] = FeeExpense or 0
-            print('balance: ')
-            print(balance)
+            #print('balance: ')
+            #print(balance)
             balance['Adjust'] = float(balance['Income']) - float(balance['Expense']) - float(balance['TxExpense']) - float(balance['FeeExpense'])
             #print(balance['Adjust'])
             return balance
@@ -1749,7 +1747,6 @@ async def sql_external_xmr_single(user_from: str, amount: float, to_address: str
 
 def sql_xmr_balance(userID: str, coin: str):
     global conn_cursors
-    print('store.sql_xmr_balance')
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     if coin_family != "XMR":

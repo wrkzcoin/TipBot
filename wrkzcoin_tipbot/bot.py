@@ -3084,7 +3084,8 @@ async def tip(ctx, amount: str, *args):
         try:
             tip = await store.sql_send_tip(str(ctx.message.author.id), str(member.id), real_amount, 'TIP', COIN_NAME)
             tip_tx_tipper = "Transaction hash: `{}`".format(tip)
-            await ctx.message.add_reaction(EMOJI_TIP)
+            if ctx.message.author.bot == False and serverinfo['react_tip'] == "ON":
+                await ctx.message.add_reaction(EMOJI_TIP)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         if tip:
@@ -3148,7 +3149,8 @@ async def tip(ctx, amount: str, *args):
         tip = store.sql_mv_xmr_single(str(ctx.message.author.id), str(member.id), real_amount, COIN_NAME, "TIP")
         if tip:
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
-            await ctx.message.add_reaction(EMOJI_TIP)
+            if ctx.message.author.bot == False and serverinfo['react_tip'] == "ON":
+                await ctx.message.add_reaction(EMOJI_TIP)
             servername = serverinfo['servername']
             # tipper shall always get DM. Ignore notifyList
             try:
@@ -3202,7 +3204,8 @@ async def tip(ctx, amount: str, *args):
         tip = store.sql_mv_doge_single(str(ctx.message.author.id), str(member.id), real_amount, COIN_NAME, "TIP")
         if tip:
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
-            await ctx.message.add_reaction(EMOJI_TIP)
+            if ctx.message.author.bot == False and serverinfo['react_tip'] == "ON":
+                await ctx.message.add_reaction(EMOJI_TIP)
             servername = serverinfo['servername']
             # tipper shall always get DM. Ignore notifyList
             try:
@@ -5769,7 +5772,8 @@ async def _tip(ctx, amount, coin: str):
         try:
             tip = await store.sql_send_tipall(str(ctx.message.author.id), destinations, real_amount, real_amount, list_receivers, 'TIPS', COIN_NAME)
             tip_tx_tipper = "Transaction hash: `{}`".format(tip)
-            await ctx.message.add_reaction(EMOJI_TIP)
+            if ctx.message.author.bot == False and serverinfo['react_tip'] == "ON":
+                await ctx.message.add_reaction(EMOJI_TIP)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         if tip:
@@ -5863,7 +5867,8 @@ async def _tip(ctx, amount, coin: str):
             tipAmount = num_format_coin(TotalAmount, COIN_NAME)
             amountDiv_str = num_format_coin(real_amount, COIN_NAME)
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
-            await ctx.message.add_reaction(EMOJI_TIP)
+            if ctx.message.author.bot == False and serverinfo['react_tip'] == "ON":
+                await ctx.message.add_reaction(EMOJI_TIP)
             # tipper shall always get DM. Ignore notifyList
             try:
                 await ctx.message.author.send(
@@ -5936,7 +5941,8 @@ async def _tip(ctx, amount, coin: str):
             return
         try:
             tips = store.sql_mv_doge_multiple(ctx.message.author.id, memids, real_amount, COIN_NAME, "TIPS")
-            await ctx.message.add_reaction(EMOJI_TIP)
+            if ctx.message.author.bot == False and serverinfo['react_tip'] == "ON":
+                await ctx.message.add_reaction(EMOJI_TIP)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         if tips:
@@ -6345,7 +6351,7 @@ async def _tip_react(reaction, user, amount, coin: str):
         list_receivers = []
         for member in listMembers:
             # print(member.name) # you'll just print out Member objects your way.
-            if user.id != member.id:
+            if user.id != member.id and reaction.message.author.id != member.id:
                 user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
                 if user_to is None:
                     userregister = await store.sql_register_user(str(member.id), COIN_NAME)
@@ -6419,7 +6425,7 @@ async def _tip_react(reaction, user, amount, coin: str):
             except (discord.Forbidden, discord.errors.Forbidden) as e:
                 store.sql_toggle_tipnotify(str(user.id), "OFF")
             for member in reaction.message.mentions:
-                if user.id != member.id:
+                if user.id != member.id and reaction.message.author.id != member.id:
                     if member.bot == False:
                         if str(member.id) not in notifyList:
                             try:
@@ -6453,7 +6459,7 @@ async def _tip_react(reaction, user, amount, coin: str):
         listMembers = reaction.message.mentions
         memids = []  # list of member ID
         for member in listMembers:
-            if user.id != member.id:
+            if user.id != member.id and reaction.message.author.id != member.id:
                 memids.append(str(member.id))
         TotalAmount = real_amount * len(memids)
 
@@ -6509,7 +6515,7 @@ async def _tip_react(reaction, user, amount, coin: str):
         listMembers = reaction.message.mentions
         memids = []  # list of member ID
         for member in listMembers:
-            if user.id != member.id:
+            if user.id != member.id and reaction.message.author.id != member.id:
                 memids.append(str(member.id))
         TotalAmount = real_amount * len(memids)
 

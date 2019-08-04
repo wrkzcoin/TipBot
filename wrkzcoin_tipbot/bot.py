@@ -109,6 +109,7 @@ EMOJI_SCALE = "\u2696"
 EMOJI_INFORMATION = "\u2139"
 EMOJI_100 = "\U0001F4AF"
 EMOJI_99 = "<:almost100:405478443028054036>"
+EMOJI_TIP = "<:tip:424333592102043649>"
 
 
 EMOJI_COIN = {
@@ -315,7 +316,7 @@ async def on_guild_join(guild):
 
 @bot.event
 async def on_reaction_add(reaction, user):
-    global REACT_TIP_STORE, TRTL_DISCORD, EMOJI_99
+    global REACT_TIP_STORE, TRTL_DISCORD, EMOJI_99, EMOJI_TIP
     # If bot re-act, ignore.
     if user.id == bot.user.id:
         return
@@ -499,6 +500,52 @@ async def on_reaction_add(reaction, user):
                         return
             else:
                 return
+        # EMOJI_TIP Only
+        elif str(reaction.emoji) == EMOJI_TIP \
+            and user.bot == False and reaction.message.author != user and reaction.message.author.bot == False:
+            # They re-act TIP emoji
+            # check if react_tip_100 is ON in the server
+            serverinfo = store.sql_info_by_server(str(reaction.message.guild.id))
+            if serverinfo['react_tip'] == "ON":
+                if (str(reaction.message.id) + '.' + str(user.id)) not in REACT_TIP_STORE:
+                    # OK add new message to array                  
+                    pass
+                else:
+                    # he already re-acted and tipped once
+                    return
+                # get the amount of 100 from defined
+                msg = reaction.message.content
+                # Check if bot re-act TIP also
+                if EMOJI_TIP in reaction.message.reactions:
+                    # bot in re-act list
+                    users_reacted = reaction.message.reactions[reaction.message.reactions.index(EMOJI_TIP)].users()
+                    if users_reacted:
+                        if bot.user in users_reacted:
+                            print('yes, bot also in TIP react')
+                        else:
+                            return
+                args = reaction.message.content.split(" ")
+                amount = args[1].replace(",", "")
+
+                try:
+                    amount = float(amount)
+                except ValueError:
+                    return
+                COIN_NAME = None
+                try:
+                    COIN_NAME = args[2].upper()
+                    if COIN_NAME in ENABLE_XMR:
+                        pass
+                    elif COIN_NAME not in ENABLE_COIN:
+                        if COIN_NAME in ENABLE_COIN_DOGE:
+                            pass
+                        elif 'default_coin' in serverinfo:
+                            COIN_NAME = serverinfo['default_coin'].upper()
+                except:
+                    if 'default_coin' in serverinfo:
+                        COIN_NAME = serverinfo['default_coin'].upper()
+                print("TIP REACT COIN_NAME: " + COIN_NAME)
+                await _tip_react(reaction, user, amount, COIN_NAME)
         return
 
 
@@ -3037,6 +3084,7 @@ async def tip(ctx, amount: str, *args):
         try:
             tip = await store.sql_send_tip(str(ctx.message.author.id), str(member.id), real_amount, 'TIP', COIN_NAME)
             tip_tx_tipper = "Transaction hash: `{}`".format(tip)
+            await ctx.message.add_reaction(EMOJI_TIP)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         if tip:
@@ -3100,6 +3148,7 @@ async def tip(ctx, amount: str, *args):
         tip = store.sql_mv_xmr_single(str(ctx.message.author.id), str(member.id), real_amount, COIN_NAME, "TIP")
         if tip:
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
+            await ctx.message.add_reaction(EMOJI_TIP)
             servername = serverinfo['servername']
             # tipper shall always get DM. Ignore notifyList
             try:
@@ -3153,6 +3202,7 @@ async def tip(ctx, amount: str, *args):
         tip = store.sql_mv_doge_single(str(ctx.message.author.id), str(member.id), real_amount, COIN_NAME, "TIP")
         if tip:
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
+            await ctx.message.add_reaction(EMOJI_TIP)
             servername = serverinfo['servername']
             # tipper shall always get DM. Ignore notifyList
             try:
@@ -5719,6 +5769,7 @@ async def _tip(ctx, amount, coin: str):
         try:
             tip = await store.sql_send_tipall(str(ctx.message.author.id), destinations, real_amount, real_amount, list_receivers, 'TIPS', COIN_NAME)
             tip_tx_tipper = "Transaction hash: `{}`".format(tip)
+            await ctx.message.add_reaction(EMOJI_TIP)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         if tip:
@@ -5812,6 +5863,7 @@ async def _tip(ctx, amount, coin: str):
             tipAmount = num_format_coin(TotalAmount, COIN_NAME)
             amountDiv_str = num_format_coin(real_amount, COIN_NAME)
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
+            await ctx.message.add_reaction(EMOJI_TIP)
             # tipper shall always get DM. Ignore notifyList
             try:
                 await ctx.message.author.send(
@@ -5884,6 +5936,7 @@ async def _tip(ctx, amount, coin: str):
             return
         try:
             tips = store.sql_mv_doge_multiple(ctx.message.author.id, memids, real_amount, COIN_NAME, "TIPS")
+            await ctx.message.add_reaction(EMOJI_TIP)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         if tips:
@@ -6261,6 +6314,239 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
     else:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**!')
+        return
+
+
+# Multiple tip_react
+async def _tip_react(reaction, user, amount, coin: str):
+    global REACT_TIP_STORE
+    serverinfo = store.sql_info_by_server(str(reaction.message.guild.id))
+    COIN_NAME = coin.upper()
+
+    # If only one user and he re-act
+    if len(reaction.message.mentions) == 1 and user in (reaction.message.mentions):
+        return
+        
+    notifyList = store.sql_get_tipnotify()
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    if coin_family == "TRTL" or coin_family == "CCX":
+        COIN_DEC = get_decimal(COIN_NAME)
+        real_amount = int(round(float(amount) * COIN_DEC))
+        MinTx = get_min_tx_amount(COIN_NAME)
+        MaxTX = get_max_tx_amount(COIN_NAME)
+        NetFee = get_tx_fee(coin = COIN_NAME)
+        user_from = await store.sql_get_userwallet(str(user.id), COIN_NAME)
+
+        destinations = []
+        listMembers = reaction.message.mentions
+
+        memids = []  # list of member ID
+        has_forwardtip = None
+        list_receivers = []
+        for member in listMembers:
+            # print(member.name) # you'll just print out Member objects your way.
+            if user.id != member.id:
+                user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
+                if user_to is None:
+                    userregister = await store.sql_register_user(str(member.id), COIN_NAME)
+                    user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
+                address_to = None
+                if user_to['forwardtip'] == "ON":
+                    address_to = user_to['user_wallet_address']
+                    has_forwardtip = True
+                else:
+                    address_to = user_to['balance_wallet_address']
+                if address_to:
+                    list_receivers.append(str(member.id))
+                    memids.append(address_to)
+
+        addresses = []
+        for desti in memids:
+            destinations.append({"address": desti, "amount": real_amount})
+            addresses.append(desti)
+
+        ActualSpend = real_amount * len(memids) + NetFee
+        if ActualSpend >= user_from['actual_balance']:
+            await user.send(f'{EMOJI_RED_NO} {user.mention} Insufficient balance {EMOJI_TIP} total of '
+                           f'{num_format_coin(ActualSpend, COIN_NAME)} '
+                           f'{COIN_NAME}.')
+            return
+
+        # Get wallet status
+        walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
+        if walletStatus is None:
+            await user.send(f'{EMOJI_RED_NO} {user.mention} {COIN_NAME} Wallet service hasn\'t started.')
+            return
+        else:
+            localDaemonBlockCount = int(walletStatus['blockCount'])
+            networkBlockCount = int(walletStatus['knownBlockCount'])
+            if networkBlockCount - localDaemonBlockCount >= 20:
+                # if height is different by 20
+                t_percent = '{:,.2f}'.format(truncate(localDaemonBlockCount / networkBlockCount * 100, 2))
+                t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
+                t_networkBlockCount = '{:,}'.format(networkBlockCount)
+                await user.send(f'{EMOJI_RED_NO} {user.mention} {COIN_NAME} Wallet service hasn\'t sync fully with network or being '
+                               're-sync. More info:\n```'
+                               f'networkBlockCount:     {t_networkBlockCount}\n'
+                               f'localDaemonBlockCount: {t_localDaemonBlockCount}\n'
+                               f'Progress %:            {t_percent}\n```'
+                               )
+                return
+        # End of wallet status
+        tip = None
+        try:
+            tip = await store.sql_send_tipall(str(user.id), destinations, real_amount, real_amount, list_receivers, 'TIPS', COIN_NAME)
+            tip_tx_tipper = "Transaction hash: `{}`".format(tip)
+            REACT_TIP_STORE.append((str(reaction.message.id) + '.' + str(user.id)))
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        if tip:
+            servername = serverinfo['servername']
+            try:
+                await store.sql_update_some_balances(addresses, COIN_NAME)
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            if has_forwardtip:
+                await reaction.message.add_reaction(EMOJI_FORWARD)
+            # tipper shall always get DM. Ignore notifyList
+            try:
+                await user.send(f'{EMOJI_ARROW_RIGHTHOOK} Total {EMOJI_TIP} of {num_format_coin(ActualSpend, COIN_NAME)} '
+                                f'{COIN_NAME} '
+                                f'was sent to ({len(destinations)}) members in server `{servername}`.\n'
+                                f'{tip_tx_tipper}\n'
+                                f'Each: `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`'
+                                f'Total spending: `{num_format_coin(ActualSpend, COIN_NAME)} {COIN_NAME}`')
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                store.sql_toggle_tipnotify(str(user.id), "OFF")
+            for member in reaction.message.mentions:
+                if user.id != member.id:
+                    if member.bot == False:
+                        if str(member.id) not in notifyList:
+                            try:
+                                await member.send(f'{EMOJI_MONEYFACE} You got a {EMOJI_TIP} of  {num_format_coin(real_amount, COIN_NAME)} '
+                                                f'{COIN_NAME} from `{user.name}` in server `{servername}`\n'
+                                                f'{tip_tx_tipper}\n'
+                                                f'{NOTIFICATION_OFF_CMD}')
+                            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                                store.sql_toggle_tipnotify(str(member.id), "OFF")
+                            pass
+            return
+        else:
+            await user.send(f'{EMOJI_RED_NO} {user.mention} You may need to `optimize` or try again for {EMOJI_TIP}.')
+            # add to failed tx table
+            store.sql_add_failed_tx(COIN_NAME, str(user.id), user.name, real_amount, "REACTTIP")
+            return
+
+    elif coin_family == "XMR":
+        COIN_DEC = get_decimal(COIN_NAME)
+        MinTx = get_min_tx_amount(COIN_NAME)
+        MaxTX = get_max_tx_amount(COIN_NAME)
+        user_from = await store.sql_get_userwallet(str(user.id), COIN_NAME)
+        real_amount = int(round(float(amount) * COIN_DEC))
+        userdata_balance = store.sql_xmr_balance(str(user.id), COIN_NAME)
+        if real_amount > user_from['actual_balance'] + userdata_balance['Adjust']:
+            await user.send(f'{EMOJI_RED_NO} {user.mention} Insufficient balance to send tip of '
+                            f'{num_format_coin(real_amount, COIN_NAME)} '
+                            f'{COIN_NAME}.')
+            return
+
+        listMembers = reaction.message.mentions
+        memids = []  # list of member ID
+        for member in listMembers:
+            if user.id != member.id:
+                memids.append(str(member.id))
+        TotalAmount = real_amount * len(memids)
+
+        if user_from['actual_balance'] + userdata_balance['Adjust'] < TotalAmount:
+            await user.send(f'{EMOJI_RED_NO} {user.mention} You don\'t have sufficient balance. ')
+            return
+        try:
+            tips = store.sql_mv_xmr_multiple(str(user.id), memids, real_amount, COIN_NAME, "TIPS")
+            REACT_TIP_STORE.append((str(reaction.message.id) + '.' + str(user.id)))
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        if tips:
+            servername = serverinfo['servername']
+            tipAmount = num_format_coin(TotalAmount, COIN_NAME)
+            amountDiv_str = num_format_coin(real_amount, COIN_NAME)
+            # tipper shall always get DM. Ignore notifyList
+            try:
+                await user.send(
+                    f'{EMOJI_ARROW_RIGHTHOOK} {EMOJI_TIP} of {tipAmount} '
+                    f'{COIN_NAME} '
+                    f'was sent to ({len(memids)}) members in server `{servername}`.\n'
+                    f'Each member got: `{amountDiv_str}{COIN_NAME}`\n')
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                store.sql_toggle_tipnotify(str(user.id), "OFF")
+            for member in reaction.message.mentions:
+                # print(member.name) # you'll just print out Member objects your way.
+                if (user.id != member.id):
+                    if member.bot == False:
+                        if str(member.id) not in notifyList:
+                            try:
+                                await member.send(
+                                    f'{EMOJI_MONEYFACE} You got a {EMOJI_TIP} of `{amountDiv_str}{COIN_NAME}` '
+                                    f'from `{user.name}` in server `{servername}`\n'
+                                    f'{NOTIFICATION_OFF_CMD}')
+                            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                                store.sql_toggle_tipnotify(str(member.id), "OFF")
+            return
+        return
+    elif COIN_NAME == "DOGE":
+        MinTx = config.daemonDOGE.min_mv_amount
+        MaxTX = config.daemonDOGE.max_mv_amount
+        user_from = {}
+        user_from['address'] = await DOGE_LTC_getaccountaddress(str(user.id), COIN_NAME)
+        user_from['actual_balance'] = float(await DOGE_LTC_getbalance_acc(user.id, COIN_NAME, 6))
+        real_amount = float(amount)
+        userdata_balance = store.sql_doge_balance(user.id, COIN_NAME)
+        if real_amount > user_from['actual_balance'] + userdata_balance['Adjust']:
+            await user.send(f'{EMOJI_RED_NO} {user.mention} Insufficient balance to send tip of '
+                            f'{num_format_coin(real_amount, COIN_NAME)} '
+                            f'{COIN_NAME}.')
+            return
+
+        listMembers = reaction.message.mentions
+        memids = []  # list of member ID
+        for member in listMembers:
+            if user.id != member.id:
+                memids.append(str(member.id))
+        TotalAmount = real_amount * len(memids)
+
+        if user_from['actual_balance'] + userdata_balance['Adjust'] < TotalAmount:
+            await user.send(f'{EMOJI_RED_NO} {user.mention} You don\'t have sufficient balance. ')
+            return
+        try:
+            tips = store.sql_mv_doge_multiple(user.id, memids, real_amount, COIN_NAME, "TIPS")
+            REACT_TIP_STORE.append((str(reaction.message.id) + '.' + str(user.id)))
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        if tips:
+            servername = serverinfo['servername']
+            tipAmount = num_format_coin(TotalAmount, COIN_NAME)
+            amountDiv_str = num_format_coin(real_amount, COIN_NAME)
+            # tipper shall always get DM. Ignore notifyList
+            try:
+                await user.send(
+                    f'{EMOJI_ARROW_RIGHTHOOK} {EMOJI_TIP} of {tipAmount} '
+                    f'{COIN_NAME} '
+                    f'was sent to ({len(memids)}) members in server `{servername}`.\n'
+                    f'Each member got: `{amountDiv_str}{COIN_NAME}`\n')
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                store.sql_toggle_tipnotify(str(user.id), "OFF")
+            for member in reaction.message.mentions:
+                # print(member.name) # you'll just print out Member objects your way.
+                if (user.id != member.id):
+                    if member.bot == False:
+                        if str(member.id) not in notifyList:
+                            try:
+                                await member.send(
+                                    f'{EMOJI_MONEYFACE} You got {EMOJI_TIP} of `{amountDiv_str}{COIN_NAME}` '
+                                    f'from `{user.name}` in server `{servername}`\n'
+                                    f'{NOTIFICATION_OFF_CMD}')
+                            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                                store.sql_toggle_tipnotify(str(member.id), "OFF")
+            return
         return
 
 

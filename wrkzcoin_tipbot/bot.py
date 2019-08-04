@@ -108,6 +108,7 @@ EMOJI_MONEYBAG = "\U0001F4B0"
 EMOJI_SCALE = "\u2696"
 EMOJI_INFORMATION = "\u2139"
 EMOJI_100 = "\U0001F4AF"
+EMOJI_99 = "<:almost100:405478443028054036>"
 
 
 EMOJI_COIN = {
@@ -314,7 +315,7 @@ async def on_guild_join(guild):
 
 @bot.event
 async def on_reaction_add(reaction, user):
-    global REACT_TIP_STORE
+    global REACT_TIP_STORE, TRTL_DISCORD, EMOJI_99
     # If bot re-act, ignore.
     if user.id == bot.user.id:
         return
@@ -422,8 +423,80 @@ async def on_reaction_add(reaction, user):
                         # add to failed tx table
                         store.sql_add_failed_tx(COIN_NAME, str(reaction.message.author.id), reaction.message.author.name, real_amount, "REACTTIP")
                         return
-                       
-
+        # EMOJI_99 TRTL_DISCORD Only
+        elif str(reaction.emoji) == EMOJI_99 and reaction.message.guild.id == TRTL_DISCORD \
+            and user.bot == False and reaction.message.author != user and reaction.message.author.bot == False:
+            # check if react_tip_100 is ON in the server
+            serverinfo = store.sql_info_by_server(str(reaction.message.guild.id))
+            if serverinfo['react_tip'] == "ON":
+                if (str(reaction.message.id) + '.' + str(user.id)) not in REACT_TIP_STORE:
+                    # OK add new message to array                  
+                    pass
+                else:
+                    # he already re-acted and tipped once
+                    return
+                # get the amount of 100 from defined
+                COIN_NAME = "TRTL"
+                COIN_DEC = get_decimal(COIN_NAME)
+                real_amount = 99 * COIN_DEC
+                MinTx = get_min_tx_amount(COIN_NAME)
+                MaxTX = get_max_tx_amount(COIN_NAME)
+                NetFee = get_tx_fee(coin = COIN_NAME)
+                user_from = await store.sql_get_userwallet(str(user.id), COIN_NAME)
+                has_forwardtip = None
+                if user_from is None:
+                    return
+                user_to = await store.sql_get_userwallet(str(reaction.message.author.id), COIN_NAME)
+                if user_to is None:
+                    userregister = await store.sql_register_user(str(reaction.message.author.id), COIN_NAME)
+                    user_to = await store.sql_get_userwallet(str(reaction.message.author.id), COIN_NAME)
+                if user_to['forwardtip'] == "ON":
+                    has_forwardtip = True
+                # process other check balance
+                if (real_amount + NetFee >= user_from['actual_balance']) or \
+                    (real_amount > MaxTX) or (real_amount < MinTx):
+                    return
+                else:
+                    tip = None
+                    try:
+                        tip = await store.sql_send_tip(str(user.id), str(reaction.message.author.id), real_amount, 'REACTTIP', COIN_NAME)
+                        tip_tx_tipper = "Transaction hash: `{}`".format(tip)
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                    if tip:
+                        notifyList = store.sql_get_tipnotify()
+                        REACT_TIP_STORE.append((str(reaction.message.id) + '.' + str(user.id)))
+                        servername = serverinfo['servername']
+                        if has_forwardtip:
+                            if EMOJI_FORWARD not in reaction.message.reactions:
+                                await reaction.message.add_reaction(EMOJI_FORWARD)
+                        else:
+                            if get_emoji(COIN_NAME) not in reaction.message.reactions:
+                                await reaction.message.add_reaction(get_emoji(COIN_NAME))
+                        # tipper shall always get DM. Ignore notifyList
+                        try:
+                            await user.send(
+                                f'{EMOJI_ARROW_RIGHTHOOK} Tip of {num_format_coin(real_amount, COIN_NAME)} '
+                                f'{COIN_NAME} '
+                                f'was sent to `{reaction.message.author.name}` in server `{servername}` by your re-acting {EMOJI_99}\n'
+                                f'{tip_tx_tipper}')
+                        except (discord.Forbidden, discord.errors.Forbidden) as e:
+                            store.sql_toggle_tipnotify(str(user.id), "OFF")
+                        if str(reaction.message.author.id) not in notifyList:
+                            try:
+                                await reaction.message.author.send(
+                                    f'{EMOJI_MONEYFACE} You got a tip of {num_format_coin(real_amount, COIN_NAME)} '
+                                    f'{COIN_NAME} from `{user.name}` in server `{servername}` from their re-acting {EMOJI_99}\n'
+                                    f'{tip_tx_tipper}\n'
+                                    f'{NOTIFICATION_OFF_CMD}')
+                            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                                store.sql_toggle_tipnotify(str(reaction.message.author.id), "OFF")
+                        return
+                    else:
+                        await reaction.message.author.send(f'{reaction.message.author.mention} Can not deliver TX for {COIN_NAME} right now. Try again soon.')
+                        # add to failed tx table
+                        store.sql_add_failed_tx(COIN_NAME, str(reaction.message.author.id), reaction.message.author.name, real_amount, "REACTTIP")
+                        return
             else:
                 return
         return

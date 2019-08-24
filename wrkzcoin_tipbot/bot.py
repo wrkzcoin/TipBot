@@ -267,7 +267,7 @@ async def get_prefix(bot, message):
         add_server_info = store.sql_addinfo_by_server(str(message.guild.id), message.guild.name,
                                                       config.discord.prefixCmd, "WRKZ")
         pre_cmd = config.discord.prefixCmd
-
+        serverinfo = store.sql_info_by_server(str(message.guild.id))
     if 'prefix' in serverinfo:
         pre_cmd = serverinfo['prefix']
     else:
@@ -420,9 +420,12 @@ async def on_reaction_add(reaction, user):
                                 store.sql_toggle_tipnotify(str(reaction.message.author.id), "OFF")
                         return
                     else:
-                        await reaction.message.author.send(f'{reaction.message.author.mention} Can not deliver TX for {COIN_NAME} right now. Try again soon.')
+                        try:
+                            await user.send(f'{user.mention} Can not deliver TX for {COIN_NAME} right now with {EMOJI_100}.')
+                        except (discord.Forbidden, discord.errors.Forbidden) as e:
+                            store.sql_toggle_tipnotify(str(user.id), "OFF")
                         # add to failed tx table
-                        store.sql_add_failed_tx(COIN_NAME, str(reaction.message.author.id), reaction.message.author.name, real_amount, "REACTTIP")
+                        store.sql_add_failed_tx(COIN_NAME, str(user.id), user.name, real_amount, "REACTTIP")
                         return
         # EMOJI_99 TRTL_DISCORD Only
         elif str(reaction.emoji) == EMOJI_99 and reaction.message.guild.id == TRTL_DISCORD \
@@ -494,9 +497,12 @@ async def on_reaction_add(reaction, user):
                                 store.sql_toggle_tipnotify(str(reaction.message.author.id), "OFF")
                         return
                     else:
-                        await reaction.message.author.send(f'{reaction.message.author.mention} Can not deliver TX for {COIN_NAME} right now. Try again soon.')
+                        try:
+                            await user.send(f'{user.mention} Can not deliver TX for {COIN_NAME} right now with {EMOJI_99}.')
+                        except (discord.Forbidden, discord.errors.Forbidden) as e:
+                            store.sql_toggle_tipnotify(str(user.id), "OFF")
                         # add to failed tx table
-                        store.sql_add_failed_tx(COIN_NAME, str(reaction.message.author.id), reaction.message.author.name, real_amount, "REACTTIP")
+                        store.sql_add_failed_tx(COIN_NAME, str(user.id), user.name, real_amount, "REACTTIP")
                         return
             else:
                 return

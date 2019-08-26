@@ -116,7 +116,6 @@ EMOJI_COIN = {
     "WRKZ" : "\U0001F477",
     "TRTL" : "\U0001F422",
     "DEGO" : "\U0001F49B",
-    "LCX" : "\U0001F517",
     "CX" : "\U0001F64F",
     "OSL" : "\U0001F381",
     "BTCM" : "\U0001F4A9",
@@ -159,7 +158,6 @@ NOTICE_COIN = {
     "WRKZ" : None,
     "TRTL" : None,
     "DEGO" : None,
-    "LCX" : EMOJI_INFORMATION + " LCX Project / service shutdown announced on July 10th, 2019.",
     "CX" : None,
     "OSL" : None,
     "BTCM" : None,
@@ -5404,8 +5402,6 @@ def get_cn_coin_from_address(CoinAddress: str):
         COIN_NAME = "WRKZ"
     elif CoinAddress.startswith("dg"):
         COIN_NAME = "DEGO"
-    elif CoinAddress.startswith("Xw"):
-        COIN_NAME = "LCX"
     elif CoinAddress.startswith("cat1"):
         COIN_NAME = "CX"
     elif CoinAddress.startswith("hannw"):
@@ -5645,8 +5641,6 @@ async def update_balance_wallets():
         # store.sql_update_balances("CX")
         # await asyncio.sleep(20)
         # store.sql_update_balances("DEGO")
-        # await asyncio.sleep(20)
-        # store.sql_update_balances("LCX")
         # await asyncio.sleep(20)
         # store.sql_update_balances("OSL")
         # await asyncio.sleep(20)

@@ -55,7 +55,7 @@ WITHDRAW_IN_PROCESS = []
 REACT_TIP_STORE = []
 
 # faucet enabled coin. The faucet balance is taken from TipBot's own balance
-FAUCET_COINS = ["WRKZ", "TRTL", "DEGO", "MTIP", "DOGE", "BTCM"]
+FAUCET_COINS = ["WRKZ", "TRTL", "DEGO", "MTIP", "DOGE", "BTCMZ"]
 
 # DOGE will divide by 10 after random
 FAUCET_MINMAX = {
@@ -64,7 +64,7 @@ FAUCET_MINMAX = {
     "MTIP": [10, 25],
     "TRTL": [5, 10],
     "DOGE": [1, 3],
-    "BTCM": [5000, 10000]
+    "BTCMZ": [5000, 10000]
     }
 
 
@@ -118,7 +118,7 @@ EMOJI_COIN = {
     "DEGO" : "\U0001F49B",
     "CX" : "\U0001F64F",
     "OSL" : "\U0001F381",
-    "BTCM" : "\U0001F4A9",
+    "BTCMZ" : "\U0001F4A9",
     "MTIP" : "\U0001F595",
     "XCY" : "\U0001F3B2",
     "PLE" : "\U0001F388",
@@ -160,7 +160,7 @@ NOTICE_COIN = {
     "DEGO" : None,
     "CX" : None,
     "OSL" : None,
-    "BTCM" : None,
+    "BTCMZ" : None,
     "MTIP" : None,
     "XCY" : None,
     "PLE" : None,
@@ -5407,7 +5407,7 @@ def get_cn_coin_from_address(CoinAddress: str):
     elif CoinAddress.startswith("hannw"):
         COIN_NAME = "OSL"
     elif CoinAddress.startswith("btcm"):
-        COIN_NAME = "BTCM"
+        COIN_NAME = "BTCMZ"
     elif CoinAddress.startswith("dicKTiPZ"):
         COIN_NAME = "MTIP"
     elif CoinAddress.startswith("XCY1"):
@@ -5644,7 +5644,7 @@ async def update_balance_wallets():
         # await asyncio.sleep(20)
         # store.sql_update_balances("OSL")
         # await asyncio.sleep(20)
-        # store.sql_update_balances("BTCM")
+        # store.sql_update_balances("BTCMZ")
         # await asyncio.sleep(20)
         # store.sql_update_balances("MTIP")
         # await asyncio.sleep(20)

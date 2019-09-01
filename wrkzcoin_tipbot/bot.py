@@ -72,21 +72,21 @@ FAUCET_MINMAX = {
 SAVING_ALL = None
 
 # disclaimer message
-DISCLAIM_MSG = """```Disclaimer: No warranty or guarantee is provided, expressed, or implied \
+DISCLAIM_MSG = """Disclaimer: No warranty or guarantee is provided, expressed, or implied \
 when using this bot and any funds lost, mis-used or stolen in using this bot \
-are not the responsibility of the bot creator or hoster.```"""
+are not the responsibility of the bot creator or hoster."""
 
 DISCLAIM_MSG_LONG = """
 Disclaimer: TipBot, its owners, service providers or any other parties providing services, \
 are not in any way responsible or liable for any lost, mis-used, stolen funds, or any coin \
 network's issues. TipBot's purpose is to be fun, do testing, and share tips between \
 user to user, and its use is on each user’s own risks.
-\n
+
 We operate the bot on our own rented servers. We do not charge any node fees for transactions, \
 as well as no fees for depositing or withdrawing funds to the TipBot. \
 Feel free to donate if you like the TipBot and the service it provides. \
 Your donations will help to fund the development & maintenance. 
-\n
+
 We commit to make it as secure as possible to the best of our expertise, \
 however we accept no liability and responsibility for any loss or damage \
 caused to you. Additionally, the purpose of the TipBot is to spread awareness \
@@ -176,7 +176,8 @@ NOTICE_COIN = {
     "XTRI" : None,
     "XMR" : None,
     "BLOG" : None,
-    "DOGE" : "Please acknowledge that DOGE address is for **one-time** use only for depositing."
+    "DOGE" : "Please acknowledge that DOGE address is for **one-time** use only for depositing.",
+    "default": "Thank you for using."
     }
 
 # TRTL discord. Need for some specific tasks later.
@@ -4506,7 +4507,7 @@ async def paymentid(ctx, coin: str = None):
 
 @bot.command(pass_context=True, aliases=['stat'], help=bot_help_stats)
 async def stats(ctx, coin: str = None):
-    global TRTL_DISCORD
+    global TRTL_DISCORD, NOTICE_COIN
     COIN_NAME = None
     if (coin is None) and isinstance(ctx.message.channel, discord.DMChannel) == False:
             serverinfo = get_info_pref_coin(ctx)
@@ -4532,19 +4533,16 @@ async def stats(ctx, coin: str = None):
     if COIN_NAME == "BOT":
         await bot.wait_until_ready()
         get_all_m = bot.get_all_members()
-        #membercount = '[Members] ' + '{:,.0f}'.format(sum([x.member_count for x in bot.guilds]))
-        guildnumber = '[Guilds]        ' + '{:,.0f}'.format(len(bot.guilds))
-        shardcount = '[Shards]        ' + '{:,.0f}'.format(bot.shard_count)
-        totalonline = '[Total Online]  ' + '{:,.0f}'.format(sum(1 for m in get_all_m if str(m.status) != 'offline'))
-        uniqmembers = '[Unique user]   ' + '{:,.0f}'.format(len(bot.users))
-        channelnumb = '[Channels]      ' + '{:,.0f}'.format(sum(1 for g in bot.guilds for _ in g.channels))
-        botid = '[Bot ID]        ' + str(bot.user.id)
-        botstats = '**[ TIPBOT ]**\n'
-        botstats = botstats + '```'
-        botstats = botstats + botid + '\n' + guildnumber + '\n' + shardcount + '\n' + totalonline + '\n' + uniqmembers + '\n' + channelnumb
-        botstats = botstats + '```'
-        await ctx.send(f'{botstats}')
-        await ctx.send('Please add ticker: '+ ', '.join(ENABLE_COIN).lower() + ' to get stats about coin instead.')
+        embed = discord.Embed(title="[ TIPBOT ]", description="Bot Stats", color=0xDEADBF)
+        embed.set_author(name=bot.user.name, icon_url=bot.user.avatar_url)
+        embed.add_field(name="Bot ID", value=str(bot.user.id), inline=True)
+        embed.add_field(name="Guilds", value='{:,.0f}'.format(len(bot.guilds)), inline=True)
+        embed.add_field(name="Shards", value='{:,.0f}'.format(bot.shard_count), inline=True)
+        embed.add_field(name="Total Online", value='{:,.0f}'.format(sum(1 for m in get_all_m if str(m.status) != 'offline')), inline=True)
+        embed.add_field(name="Unique user", value='{:,.0f}'.format(len(bot.users)), inline=True)
+        embed.add_field(name="Channels", value='{:,.0f}'.format(sum(1 for g in bot.guilds for _ in g.channels)), inline=True)
+        embed.set_footer(text='Please add ticker: '+ ', '.join(ENABLE_COIN).lower() + ' to get stats about coin instead.')
+        await ctx.send(embed=embed)
         return
 
     gettopblock = None
@@ -4581,13 +4579,21 @@ async def stats(ctx, coin: str = None):
         hashrate = str(hhashes(int(gettopblock['block_header']['difficulty']) / int(COIN_DIFF)))
         height = "{:,}".format(gettopblock['block_header']['height'])
         reward = "{:,}".format(int(gettopblock['block_header']['reward'])/int(COIN_DEC))
+
         if (walletStatus is None) or coin_family == "XMR":
-            msg = await ctx.send(f'**[ {COIN_NAME} ]**\n'
-                           f'```[NETWORK HEIGHT] {height}\n'
-                           f'[TIME]           {ago}\n'
-                           f'[DIFFICULTY]     {difficulty}\n'
-                           f'[BLOCK REWARD]   {reward}{COIN_NAME}\n'
-                           f'[NETWORK HASH]   {hashrate}\n```')
+            embed = discord.Embed(title=f"[ {COIN_NAME} ]", description="Coin Stats", timestamp=datetime.utcnow(), color=0xDEADBF)
+            embed.set_author(name=bot.user.name, icon_url=bot.user.avatar_url)
+            embed.add_field(name="NET HEIGHT", value=str(height), inline=True)
+            embed.add_field(name="FOUND", value=ago, inline=True)
+            embed.add_field(name="DIFFICULTY", value=difficulty, inline=True)
+            embed.add_field(name="BLOCK REWARD", value=f'{reward}{COIN_NAME}', inline=True)
+            embed.add_field(name="NETWORK HASH", value=hashrate, inline=True)
+            if NOTICE_COIN[COIN_NAME]:
+                notice_txt = NOTICE_COIN[COIN_NAME]
+            else:
+                notice_txt = NOTICE_COIN['default']
+            embed.set_footer(text=notice_txt)
+            msg = await ctx.send(embed=embed)
             await msg.add_reaction(EMOJI_OK_BOX)
             return
         else:
@@ -4596,24 +4602,23 @@ async def stats(ctx, coin: str = None):
             t_percent = '{:,.2f}'.format(truncate(localDaemonBlockCount/networkBlockCount*100,2))
             t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
             t_networkBlockCount = '{:,}'.format(networkBlockCount)
-            walletBalance = await get_sum_balances(COIN_NAME)
-            COIN_DEC = get_decimal(COIN_NAME)
-            balance_str = ''
-            if ('unlocked' in walletBalance) and ('locked' in walletBalance):
-                balance_actual = num_format_coin(walletBalance['unlocked'], COIN_NAME)
-                balance_locked = num_format_coin(walletBalance['locked'], COIN_NAME)
-                balance_str = f'[TOTAL UNLOCKED] {balance_actual}{COIN_NAME}\n'
-                balance_str = balance_str + f'[TOTAL LOCKED]   {balance_locked}{COIN_NAME}'
-            msg = await ctx.send(f'**[ {COIN_NAME} ]**\n'
-                           f'```[NETWORK HEIGHT] {height}\n'
-                           f'[TIME]           {ago}\n'
-                           f'[DIFFICULTY]     {difficulty}\n'
-                           f'[BLOCK REWARD]   {reward}{COIN_NAME}\n'
-                           f'[NETWORK HASH]   {hashrate}\n'
-                           f'[WALLET SYNC %]: {t_percent}\n'
-                           f'{balance_str}'
-                           '```'
-                           )
+            walletBalance = await get_sum_balances(COIN_NAME)          
+            embed = discord.Embed(title=f"[ {COIN_NAME} ]", description="Coin Stats", timestamp=datetime.utcnow(), color=0xDEADBF)
+            embed.set_author(name=bot.user.name, icon_url=bot.user.avatar_url)
+            embed.add_field(name="NET HEIGHT", value=str(height), inline=True)
+            embed.add_field(name="FOUND", value=ago, inline=True)
+            embed.add_field(name="DIFFICULTY", value=difficulty, inline=True)
+            embed.add_field(name="BLOCK REWARD", value=f'{reward}{COIN_NAME}', inline=True)
+            embed.add_field(name="NETWORK HASH", value=hashrate, inline=True)
+            embed.add_field(name="WALLET SYNC %", value=t_percent, inline=True)
+            embed.add_field(name="TOTAL UNLOCKED", value=num_format_coin(walletBalance['unlocked'], COIN_NAME) + COIN_NAME, inline=True)
+            embed.add_field(name="TOTAL LOCKED", value=num_format_coin(walletBalance['locked'], COIN_NAME) + COIN_NAME, inline=True)
+            if NOTICE_COIN[COIN_NAME]:
+                notice_txt = NOTICE_COIN[COIN_NAME]
+            else:
+                notice_txt = NOTICE_COIN['default']
+            embed.set_footer(text=notice_txt)
+            msg = await ctx.send(embed=embed)
             await msg.add_reaction(EMOJI_OK_BOX)
             return
     else:

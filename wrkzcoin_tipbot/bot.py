@@ -6000,7 +6000,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
         return
 
     notifyList = store.sql_get_tipnotify()
-    if coin_family not in ["TRTL", "CCX", "DOGE"]:
+    if coin_family not in ["TRTL", "CCX", "DOGE", "XMR"]:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} is restricted with this command.')
         return

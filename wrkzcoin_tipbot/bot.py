@@ -4798,8 +4798,8 @@ async def setting(ctx, *args):
                     await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} changed prefix in {ctx.guild.name} / {ctx.guild.id} to `{args[1].lower()}`')
                     return
         elif args[0].upper() == "DEFAULT_COIN" or args[0].upper() == "DEFAULTCOIN" or args[0].upper() == "COIN":
-            if args[1].upper() not in ENABLE_COIN:
-                await ctx.send('{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**!')
+            if args[1].upper() not in (ENABLE_COIN + ENABLE_XMR):
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**!')
                 return
             else:
                 if server_coin.upper() == args[1].upper():

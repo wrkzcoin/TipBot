@@ -4593,8 +4593,18 @@ async def stats(ctx, coin: str = None):
             else:
                 notice_txt = NOTICE_COIN['default']
             embed.set_footer(text=notice_txt)
-            msg = await ctx.send(embed=embed)
-            await msg.add_reaction(EMOJI_OK_BOX)
+            try:
+                msg = await ctx.send(embed=embed)
+                await msg.add_reaction(EMOJI_OK_BOX)
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                # if embedded denied
+                msg = await ctx.send(f'**[ {COIN_NAME} ]**\n'
+                               f'```[NETWORK HEIGHT] {height}\n'
+                               f'[TIME]           {ago}\n'
+                               f'[DIFFICULTY]     {difficulty}\n'
+                               f'[BLOCK REWARD]   {reward}{COIN_NAME}\n'
+                               f'[NETWORK HASH]   {hashrate}\n```')
+                await msg.add_reaction(EMOJI_OK_BOX)
             return
         else:
             localDaemonBlockCount = int(walletStatus['blockCount'])
@@ -4618,8 +4628,28 @@ async def stats(ctx, coin: str = None):
             else:
                 notice_txt = NOTICE_COIN['default']
             embed.set_footer(text=notice_txt)
-            msg = await ctx.send(embed=embed)
-            await msg.add_reaction(EMOJI_OK_BOX)
+            try:
+                msg = await ctx.send(embed=embed)
+                await msg.add_reaction(EMOJI_OK_BOX)
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                # if embedded denied
+                balance_str = ''
+                if ('unlocked' in walletBalance) and ('locked' in walletBalance):
+                    balance_actual = num_format_coin(walletBalance['unlocked'], COIN_NAME)
+                    balance_locked = num_format_coin(walletBalance['locked'], COIN_NAME)
+                    balance_str = f'[TOTAL UNLOCKED] {balance_actual}{COIN_NAME}\n'
+                    balance_str = balance_str + f'[TOTAL LOCKED]   {balance_locked}{COIN_NAME}'
+                    msg = await ctx.send(f'**[ {COIN_NAME} ]**\n'
+                                   f'```[NETWORK HEIGHT] {height}\n'
+                                   f'[TIME]           {ago}\n'
+                                   f'[DIFFICULTY]     {difficulty}\n'
+                                   f'[BLOCK REWARD]   {reward}{COIN_NAME}\n'
+                                   f'[NETWORK HASH]   {hashrate}\n'
+                                   f'[WALLET SYNC %]: {t_percent}\n'
+                                   f'{balance_str}'
+                                   '```'
+                                   )
+                await msg.add_reaction(EMOJI_OK_BOX)
             return
     else:
         msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME}\'s status unavailable.')

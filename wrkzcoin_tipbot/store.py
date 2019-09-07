@@ -279,45 +279,26 @@ async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD'):
         traceback.print_exc(file=sys.stdout)
 
 
-async def sql_update_user(userID, user_wallet_address, coin: str = None):
-    COIN_NAME = None
-    if coin is None:
-        COIN_NAME = "WRKZ"
-    else:
-        COIN_NAME = coin.upper()
+async def sql_update_user(userID, user_wallet_address, coin: str):
+    COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     global conn_cursors
     try:
         openConnection_cursors()
         with conn_cursors.cursor() as cur:
-            sql = None
-            if (coin_family == "TRTL" or coin_family == "CCX" or coin_family == "XMR") or (COIN_NAME in ENABLE_COIN_DOGE):
-                sql = """ SELECT user_id, user_wallet_address, balance_wallet_address FROM cn_user 
-                          WHERE `user_id`=%s AND `coin_name` = %s LIMIT 1 """
-            cur.execute(sql, (userID, COIN_NAME,))
-            result = cur.fetchone()
-            if result is None:
-                balance_address = None
-                if coin_family == "TRTL" or coin_family == "CCX" or coin_family == "XMR":
-                    balance_address = await wallet.registerOTHER(COIN_NAME)
-                elif coin.upper() == "DOGE" or coin.upper() == "LTC":
-                    balance_address = await wallet.DOGE_LTC_getaccountaddress(str(userID), coin.upper())
-                if balance_address is None:
-                    print('Internal error during call register wallet-api')
-                    return
-                return None
-            else:
-                if (coin_family == "TRTL" or coin_family == "CCX") or (COIN_NAME in ENABLE_COIN_DOGE):
-                    sql = """ UPDATE cn_user SET user_wallet_address=%s WHERE user_id=%s AND `coin_name` = %s LIMIT 1 """               
-                    cur.execute(sql, (user_wallet_address, str(userID), COIN_NAME, ))
-                    conn_cursors.commit()
-                elif coin_family == "XMR":
-                    sql = """ UPDATE """+coin.lower()+"""_user_paymentid SET user_wallet_address=%s WHERE `user_id`=%s AND `coin_name` = %s LIMIT 1 """               
-                    cur.execute(sql, (user_wallet_address, str(userID), COIN_NAME))
-                    conn_cursors.commit()
-                result2 = result
-                result2['user_wallet_address'] = user_wallet_address
-                return result2  # return userwallet
+            if coin_family == "TRTL" or coin_family == "CCX":
+                sql = """ UPDATE cn_user SET user_wallet_address=%s WHERE user_id=%s AND `coin_name` = %s LIMIT 1 """               
+                cur.execute(sql, (user_wallet_address, str(userID), COIN_NAME, ))
+                conn_cursors.commit()
+            elif coin_family == "XMR":
+                sql = """ UPDATE """+coin.lower()+"""_user_paymentid SET user_wallet_address=%s WHERE `user_id`=%s AND `coin_name` = %s LIMIT 1 """               
+                cur.execute(sql, (user_wallet_address, str(userID), COIN_NAME))
+                conn_cursors.commit()
+            elif coin_family == "DOGE":
+                sql = """ UPDATE """+coin.lower()+"""_user SET user_wallet_address=%s WHERE `user_id`=%s AND `coin_name` = %s LIMIT 1 """               
+                cur.execute(sql, (user_wallet_address, str(userID), COIN_NAME))
+                conn_cursors.commit()
+            return user_wallet_address  # return userwallet
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
 

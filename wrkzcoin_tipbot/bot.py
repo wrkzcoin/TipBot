@@ -2182,7 +2182,7 @@ async def register(ctx, wallet_address: str):
             await ctx.send(f'{ctx.author.mention} Your {COIN_NAME} previous and new address is the same.')
             return
     else:
-        user = await store.sql_update_user(str(ctx.message.author.id), wallet_address, COIN_NAME)
+        await store.sql_update_user(str(ctx.message.author.id), wallet_address, COIN_NAME)
         await ctx.message.add_reaction(EMOJI_OK_HAND)
         await ctx.send(f'{ctx.author.mention} You have registered {COIN_NAME} withdraw address.\n'
                        f'You can use `{server_prefix}withdraw AMOUNT {COIN_NAME}` anytime.')

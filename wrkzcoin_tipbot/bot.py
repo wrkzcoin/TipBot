@@ -2743,7 +2743,7 @@ async def notifytip(ctx, onoff: str):
 
 @bot.command(pass_context=True, help=bot_help_take)
 async def take(ctx):
-    global FAUCET_COINS, FAUCET_MINMAX, TRTL_DISCORD
+    global FAUCET_COINS, FAUCET_MINMAX, TRTL_DISCORD, WITHDRAW_IN_PROCESS
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'take')
     if account_lock:
@@ -2812,9 +2812,16 @@ async def take(ctx):
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{ctx.author.mention} Please try again later. Bot runs out of **{COIN_NAME}**')
             return
-
-        tip = await store.sql_send_tip(str(bot.user.id), str(ctx.message.author.id), real_amount, 'FAUCET', COIN_NAME)
-        tip_tx_tipper = "Transaction hash: `{}`".format(tip)
+        
+        tip = None
+        if ctx.message.author.id not in WITHDRAW_IN_PROCESS:
+            WITHDRAW_IN_PROCESS.append(ctx.message.author.id)
+            try:
+                tip = await store.sql_send_tip(str(bot.user.id), str(ctx.message.author.id), real_amount, 'FAUCET', COIN_NAME)
+                tip_tx_tipper = "Transaction hash: `{}`".format(tip)
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            WITHDRAW_IN_PROCESS.remove(ctx.message.author.id)
         if tip:
             faucet_add = store.sql_faucet_add(str(ctx.message.author.id), str(ctx.guild.id), COIN_NAME, real_amount, COIN_DEC, tip)
             if has_forwardtip:

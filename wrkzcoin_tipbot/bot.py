@@ -2786,7 +2786,7 @@ async def take(ctx):
     if ctx.guild.id == TRTL_DISCORD:
         COIN_NAME = "TRTL"
         amount = random.randint(FAUCET_MINMAX[COIN_NAME][0], FAUCET_MINMAX[COIN_NAME][1])
-        amount = amount / len(FAUCET_COINS)
+        amount = amount / len(FAUCET_COINS) / 0.4
         # if TRTL got less than 1, give 1
         if amount < 1:
             amount = 1
@@ -4553,7 +4553,7 @@ async def stats(ctx, coin: str = None):
         return
 
     gettopblock = None
-    timeout = 30
+    timeout = 60
     try:
         gettopblock = await daemonrpc_client.gettopblock(COIN_NAME, time_out=timeout)
     except asyncio.TimeoutError:
@@ -4707,7 +4707,7 @@ async def height(ctx, coin: str = None):
         return
 
     gettopblock = None
-    timeout = 30
+    timeout = 60
     try:
         gettopblock = await daemonrpc_client.gettopblock(COIN_NAME, time_out=timeout)
     except asyncio.TimeoutError:

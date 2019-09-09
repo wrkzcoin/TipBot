@@ -54,6 +54,7 @@ async def send_transaction(from_address: str, to_address: str, amount: int, coin
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     result = None
+    time_out = 32
     if coin_family == "TRTL" or coin_family == "CCX":
         payload = {
             'addresses': [from_address],
@@ -64,7 +65,7 @@ async def send_transaction(from_address: str, to_address: str, amount: int, coin
             'fee': get_tx_fee(COIN_NAME),
             'anonymity': get_mixin(COIN_NAME)
         }
-        result = await rpc_client.call_aiohttp_wallet('sendTransaction', COIN_NAME, time_out=8, payload=payload)
+        result = await rpc_client.call_aiohttp_wallet('sendTransaction', COIN_NAME, time_out=time_out, payload=payload)
         if result:
             if 'transactionHash' in result:
                 return result['transactionHash']
@@ -79,7 +80,7 @@ async def send_transaction(from_address: str, to_address: str, amount: int, coin
             "get_tx_hex": False,
             "get_tx_metadata": False
         }
-        result = await rpc_client.call_aiohttp_wallet('transfer', COIN_NAME, time_out=8, payload=payload)
+        result = await rpc_client.call_aiohttp_wallet('transfer', COIN_NAME, time_out=time_out, payload=payload)
         if result:
             if ('tx_hash' in result) and ('tx_key' in result):
                 return result
@@ -87,6 +88,7 @@ async def send_transaction(from_address: str, to_address: str, amount: int, coin
 
 
 async def send_transaction_id(from_address: str, to_address: str, amount: int, paymentid: str, coin: str) -> str:
+    time_out = 32
     coin = coin.upper()
     payload = {
         'addresses': [from_address],
@@ -99,7 +101,7 @@ async def send_transaction_id(from_address: str, to_address: str, amount: int, p
         'paymentId': paymentid
     }
     result = None
-    result = await rpc_client.call_aiohttp_wallet('sendTransaction', coin, time_out=8, payload=payload)
+    result = await rpc_client.call_aiohttp_wallet('sendTransaction', coin, time_out=time_out, payload=payload)
     if result:
         if 'transactionHash' in result:
             return result['transactionHash']
@@ -107,6 +109,7 @@ async def send_transaction_id(from_address: str, to_address: str, amount: int, p
 
 
 async def send_transactionall(from_address: str, to_address, coin: str, acc_index: int = None) -> str:
+    time_out = 32
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     result = None
@@ -117,7 +120,7 @@ async def send_transactionall(from_address: str, to_address, coin: str, acc_inde
             'fee': get_tx_fee(coin),
             'anonymity': get_mixin(coin),
         }
-        result = await rpc_client.call_aiohttp_wallet('sendTransaction', coin, time_out=8, payload=payload)
+        result = await rpc_client.call_aiohttp_wallet('sendTransaction', coin, time_out=time_out, payload=payload)
         if result:
             if 'transactionHash' in result:
                 return result['transactionHash']
@@ -132,7 +135,7 @@ async def send_transactionall(from_address: str, to_address, coin: str, acc_inde
             "get_tx_hex": False,
             "get_tx_metadata": False
         }
-        result = await rpc_client.call_aiohttp_wallet('transfer', COIN_NAME, time_out=8, payload=payload)
+        result = await rpc_client.call_aiohttp_wallet('transfer', COIN_NAME, time_out=time_out, payload=payload)
         if result:
             if ('tx_hash' in result) and ('tx_key' in result):
                 return result

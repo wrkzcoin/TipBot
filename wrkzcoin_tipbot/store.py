@@ -340,10 +340,10 @@ async def sql_get_userwallet(userID, coin: str = None):
                     walletStatus = await daemonrpc_client.getDaemonRPCStatus(COIN_NAME)
                     chainHeight = int(walletStatus['blocks'])
                     privateKey = await wallet.DOGE_LTC_dumpprivkey(depositAddress, COIN_NAME)
-                    sql = """ INSERT INTO """+coin.lower()+"""_user (`user_id`, `balance_wallet_address`, 
+                    sql = """ INSERT INTO """+coin.lower()+"""_user (`coin_name`, `user_id`, `balance_wallet_address`, 
                               `balance_wallet_address_ts`, `balance_wallet_address_ch`, `privateKey`) 
-                              VALUES (%s, %s, %s, %s, %s) """
-                    cur.execute(sql, (str(userID), depositAddress, int(time.time()), chainHeight, encrypt_string(privateKey), ))
+                              VALUES (%s, %s, %s, %s, %s, %s) """
+                    cur.execute(sql, (COIN_NAME, str(userID), depositAddress, int(time.time()), chainHeight, encrypt_string(privateKey), ))
                     conn_cursors.commit()               
                 else:
                     return None

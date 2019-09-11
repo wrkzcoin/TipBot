@@ -55,7 +55,8 @@ WITHDRAW_IN_PROCESS = []
 REACT_TIP_STORE = []
 
 # faucet enabled coin. The faucet balance is taken from TipBot's own balance
-FAUCET_COINS = ["WRKZ", "TRTL", "DEGO", "MTIP", "DOGE", "BTCMZ"]
+# FAUCET_COINS = ["WRKZ", "TRTL", "DEGO", "MTIP", "DOGE", "BTCMZ"]
+FAUCET_COINS = ["WRKZ", "TRTL", "BTCMZ", "DOGE", "MTIP"]
 
 # DOGE will divide by 10 after random
 FAUCET_MINMAX = {
@@ -110,7 +111,7 @@ EMOJI_INFORMATION = "\u2139"
 EMOJI_100 = "\U0001F4AF"
 EMOJI_99 = "<:almost100:405478443028054036>"
 EMOJI_TIP = "<:tip:424333592102043649>"
-
+EMOJI_MAINTENANCE = "\U0001F527"
 
 EMOJI_COIN = {
     "WRKZ" : "\U0001F477",
@@ -148,7 +149,7 @@ EMOJI_LOCKED = "\U0001F512"
 ENABLE_COIN = config.Enable_Coin.split(",")
 ENABLE_COIN_DOGE = ["DOGE"]
 ENABLE_XMR = ["XTOR", "LOKI", "XMR", "XTRI", "BLOG"]
-MAINTENANCE_COIN = [""]
+MAINTENANCE_COIN = ["DEGO"]
 COIN_REPR = "COIN"
 DEFAULT_TICKER = "WRKZ"
 ENABLE_COIN_VOUCHER = config.Enable_Coin_Voucher.split(",")
@@ -267,7 +268,7 @@ async def get_prefix(bot, message):
                                                       config.discord.prefixCmd, "WRKZ")
         pre_cmd = config.discord.prefixCmd
         serverinfo = store.sql_info_by_server(str(message.guild.id))
-    if 'prefix' in serverinfo:
+    if serverinfo and ('prefix' in serverinfo):
         pre_cmd = serverinfo['prefix']
     else:
         pre_cmd =  config.discord.prefixCmd
@@ -879,6 +880,7 @@ async def secrettip(ctx, amount: str, coin: str, user_id: str):
     COIN_NAME = coin.upper()
 
     if COIN_NAME in MAINTENANCE_COIN:
+        await ctx.message.add_reaction(EMOJI_MAINTENANCE)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
         return
 
@@ -1066,6 +1068,7 @@ async def save(ctx, coin: str):
     botLogChan = bot.get_channel(id=LOG_CHAN)
     COIN_NAME = coin.upper()
     if COIN_NAME in MAINTENANCE_COIN:
+        await ctx.message.add_reaction(EMOJI_MAINTENANCE)
         await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} in maintenance.')
         return
     
@@ -1369,6 +1372,18 @@ async def info(ctx, coin: str = None):
         return
     # end of check if account locked
 
+    # Check if maintenance
+    if IS_MAINTENANCE == 1:
+        if int(ctx.message.author.id) in MAINTENANCE_OWNER:
+            pass
+        else:
+            await ctx.message.add_reaction(EMOJI_WARNING)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {config.maintenance_msg}')
+            return
+    else:
+        pass
+    # End Check if maintenance
+
     global LIST_IGNORECHAN
     wallet = None
     COIN_NAME = None
@@ -1446,6 +1461,7 @@ async def info(ctx, coin: str = None):
         return
     
     if (COIN_NAME in MAINTENANCE_COIN) and (ctx.message.author.id not in MAINTENANCE_OWNER):
+        await ctx.message.add_reaction(EMOJI_MAINTENANCE)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
         return
     
@@ -1747,6 +1763,7 @@ async def balance(ctx, coin: str = None):
         return
 
     if COIN_NAME in MAINTENANCE_COIN:
+        await ctx.message.add_reaction(EMOJI_MAINTENANCE)
         msg = await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} in maintenance.')
         await msg.add_reaction(EMOJI_OK_BOX)
         return
@@ -1899,6 +1916,7 @@ async def botbalance(ctx, member: discord.Member, coin: str):
 
     walletStatus = None
     if COIN_NAME in MAINTENANCE_COIN:
+        await ctx.message.add_reaction(EMOJI_MAINTENANCE)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
         return
 
@@ -2096,6 +2114,7 @@ async def register(ctx, wallet_address: str):
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
 
     if COIN_NAME in MAINTENANCE_COIN:
+        await ctx.message.add_reaction(EMOJI_MAINTENANCE)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
         return
 
@@ -2245,6 +2264,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
 
     if COIN_NAME in MAINTENANCE_COIN:
+        await ctx.message.add_reaction(EMOJI_MAINTENANCE)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
         return
 
@@ -2536,6 +2556,7 @@ async def donate(ctx, amount: str, coin: str = None):
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     if COIN_NAME in MAINTENANCE_COIN:
+        await ctx.message.add_reaction(EMOJI_MAINTENANCE)
         await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} in maintenance.')
         return
 
@@ -2941,6 +2962,7 @@ async def tip(ctx, amount: str, *args):
     # End of checking allowed coins
 
     if COIN_NAME in MAINTENANCE_COIN:
+        await ctx.message.add_reaction(EMOJI_MAINTENANCE)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
         return
 
@@ -3299,6 +3321,7 @@ async def tipall(ctx, amount: str, *args):
     # End of checking allowed coins
 
     if COIN_NAME in MAINTENANCE_COIN:
+        await ctx.message.add_reaction(EMOJI_MAINTENANCE)
         await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} in maintenance.')
         return
 
@@ -3706,6 +3729,7 @@ async def send(ctx, amount: str, CoinAddress: str):
         IntaddressLength = get_intaddrlen(COIN_NAME)
         NetFee = get_tx_fee(coin = COIN_NAME)
         if COIN_NAME in MAINTENANCE_COIN:
+            await ctx.message.add_reaction(EMOJI_MAINTENANCE)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
             return
 
@@ -4413,6 +4437,7 @@ async def voucher(ctx, command: str, amount: str, coin: str = None):
     
     COIN_NAME = coin.upper() or "WRKZ"
     if COIN_NAME in MAINTENANCE_COIN:
+        await ctx.message.add_reaction(EMOJI_MAINTENANCE)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
         return
     print('VOUCHER: '+COIN_NAME)
@@ -4534,6 +4559,7 @@ async def stats(ctx, coin: str = None):
         return
 
     if COIN_NAME in MAINTENANCE_COIN:
+        await ctx.message.add_reaction(EMOJI_MAINTENANCE)
         await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} in maintenance.')
         return
 
@@ -4701,7 +4727,7 @@ async def height(ctx, coin: str = None):
         msg = await ctx.send(f'{ctx.author.mention} Please put available ticker: '+ ', '.join(ENABLE_COIN).lower())
         return
     elif COIN_NAME in MAINTENANCE_COIN:
-        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.message.add_reaction(EMOJI_MAINTENANCE)
         msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} is under maintenance.')
         await msg.add_reaction(EMOJI_OK_BOX)
         return

@@ -1235,7 +1235,7 @@ def sql_get_messages(server_id: str, channel_id: str, time_int: int):
 
 def sql_changeinfo_by_server(server_id: str, what: str, value: str):
     global conn_cursors
-    if what.lower() in ["servername", "prefix", "default_coin", "tiponly", "numb_user", "numb_bot", "numb_channel", "react_tip", "react_tip_100", "lastUpdate"]:
+    if what.lower() in ["servername", "prefix", "default_coin", "tiponly", "numb_user", "numb_bot", "numb_channel", "react_tip", "react_tip_100", "lastUpdate", "botchan"]:
         try:
             #print(f"ok try to change {what} to {value}")
             openConnection_cursors()

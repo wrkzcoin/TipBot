@@ -78,7 +78,7 @@ async def call_doge_ltc(method_name: str, coin: str, payload: str = None) -> Dic
     elif coin.upper() == "LTC":
         url = f'http://{config.daemonLTC.username}:{config.daemonLTC.password}@{config.daemonLTC.host}:{config.daemonLTC.rpcport}/'
     async with aiohttp.ClientSession() as session:
-        async with session.post(url, data=data, timeout=8) as response:
+        async with session.post(url, data=data, timeout=32) as response:
             if response.status == 200:
                 res_data = await response.read()
                 res_data = res_data.decode('utf-8')

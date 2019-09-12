@@ -55,8 +55,7 @@ WITHDRAW_IN_PROCESS = []
 REACT_TIP_STORE = []
 
 # faucet enabled coin. The faucet balance is taken from TipBot's own balance
-# FAUCET_COINS = ["WRKZ", "TRTL", "DEGO", "MTIP", "DOGE", "BTCMZ"]
-FAUCET_COINS = ["WRKZ", "TRTL", "BTCMZ", "DOGE", "MTIP"]
+FAUCET_COINS = ["WRKZ", "TRTL", "DEGO", "MTIP", "DOGE", "BTCMZ"]
 
 # DOGE will divide by 10 after random
 FAUCET_MINMAX = {
@@ -149,7 +148,7 @@ EMOJI_LOCKED = "\U0001F512"
 ENABLE_COIN = config.Enable_Coin.split(",")
 ENABLE_COIN_DOGE = ["DOGE"]
 ENABLE_XMR = ["XTOR", "LOKI", "XMR", "XTRI", "BLOG"]
-MAINTENANCE_COIN = ["DEGO"]
+MAINTENANCE_COIN = []
 COIN_REPR = "COIN"
 DEFAULT_TICKER = "WRKZ"
 ENABLE_COIN_VOUCHER = config.Enable_Coin_Voucher.split(",")
@@ -1362,6 +1361,16 @@ async def cleartx(ctx):
     return
 
 
+@commands.is_owner()
+@admin.command(hidden = True)
+async def test(ctx):
+    test_str = "WrkzRNDQDwFCBynKPc459v3LDa1gEGzG3j962tMUBko1fw9xgdaS9mNiGMgA9s1q7hS1Z8SGRVWzcGc8Sh8xsvfZ6u2wJEtoZB"
+    encrypted = store.encrypt_string(test_str)
+    decrypted = store.decrypt_string(encrypted)
+    await ctx.send('```Original: {}\nEncrypted: {}\nDecrypted: {}```'.format(test_str, encrypted, decrypted))
+    return
+
+
 @bot.command(pass_context=True, name='info', aliases=['wallet'], help=bot_help_info)
 async def info(ctx, coin: str = None):
     # check if account locked
@@ -1895,7 +1904,7 @@ async def balance(ctx, coin: str = None):
         f'{COIN_NAME}\n'
         f'{get_notice_txt(COIN_NAME)}\n{ago}')
     await msg.add_reaction(EMOJI_OK_BOX)
-
+    return
 
 @bot.command(pass_context=True, aliases=['botbal'], help=bot_help_botbalance)
 async def botbalance(ctx, member: discord.Member, coin: str):
@@ -2783,6 +2792,18 @@ async def take(ctx):
         await ctx.message.add_reaction(EMOJI_ERROR)
         msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} This command isn\'t available with this guild.')
         return
+
+    # check if bot channel is set:
+    serverinfo = store.sql_info_by_server(str(ctx.guild.id))
+    if serverinfo['botchan']:
+        try: 
+            if ctx.channel.id != int(serverinfo['botchan']):
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                botChan = bot.get_channel(id=int(serverinfo['botchan']))
+                await ctx.send(f'{EMOJI_RED_NO} {botChan.mention} is the bot channel!')
+                return
+        except ValueError:
+            pass
 
     # check user claim:
     check_claimed = store.sql_faucet_checkuser(str(ctx.message.author.id))
@@ -4558,7 +4579,7 @@ async def stats(ctx, coin: str = None):
     if isinstance(ctx.message.channel, discord.DMChannel) == False and ctx.guild.id == TRTL_DISCORD and COIN_NAME != "TRTL":
         return
 
-    if COIN_NAME in MAINTENANCE_COIN:
+    if (COIN_NAME in MAINTENANCE_COIN) and (ctx.message.author.id not in MAINTENANCE_OWNER):
         await ctx.message.add_reaction(EMOJI_MAINTENANCE)
         await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} in maintenance.')
         return
@@ -4832,6 +4853,28 @@ async def setting(ctx, *args):
                     return
             else:
                 await ctx.send(f'Channel #{ctx.channel.name} is not in ignore tip action list.')
+                return
+        elif args[0].upper() == "BOTCHAN" or args[0].upper() == "BOTCHANNEL" or args[0].upper() == "BOT_CHAN":
+            # botChan = ctx.channel.id
+            # check if bot channel exists,
+            if serverinfo['botchan']:
+                try: 
+                    if ctx.channel.id == int(serverinfo['botchan']):
+                        await ctx.send(f'{EMOJI_RED_NO} {ctx.channel.name} is already the bot channel here!')
+                        return
+                    else:
+                        # change channel info
+                        changeinfo = store.sql_changeinfo_by_server(str(ctx.guild.id), 'botchan', str(ctx.channel.id))
+                        await ctx.send(f'Bot channel has set to {ctx.channel.mention}.')
+                        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} change bot channel {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.')
+                        return
+                except ValueError:
+                    return
+            else:
+                # change channel info
+                changeinfo = store.sql_changeinfo_by_server(str(ctx.guild.id), 'botchan', str(ctx.channel.id))
+                await ctx.send(f'Bot channel has set to {ctx.channel.mention}.')
+                await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} changed bot channel {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.')
                 return
     elif len(args) == 2:
         if args[0].upper() == "TIPONLY":

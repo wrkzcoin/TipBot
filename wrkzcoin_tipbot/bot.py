@@ -1364,6 +1364,7 @@ async def cleartx(ctx):
 @commands.is_owner()
 @admin.command(hidden = True)
 async def test(ctx):
+    # where i always test something. Nothing to do here.
     test_str = "WrkzRNDQDwFCBynKPc459v3LDa1gEGzG3j962tMUBko1fw9xgdaS9mNiGMgA9s1q7hS1Z8SGRVWzcGc8Sh8xsvfZ6u2wJEtoZB"
     encrypted = store.encrypt_string(test_str)
     decrypted = store.decrypt_string(encrypted)
@@ -1532,6 +1533,7 @@ async def info(ctx, coin: str = None):
 
 @bot.command(pass_context=True, name='balance', aliases=['bal'], help=bot_help_balance)
 async def balance(ctx, coin: str = None):
+    serverinfo = None
     botLogChan = bot.get_channel(id=LOG_CHAN)
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'balance')
@@ -1562,6 +1564,19 @@ async def balance(ctx, coin: str = None):
             server_prefix = serverinfo['prefix']
             server_coin = serverinfo['default_coin'].upper()
         prefixChar = server_prefix
+
+    # check if bot channel is set:
+    if serverinfo and serverinfo['botchan']:
+        try: 
+            if ctx.channel.id != int(serverinfo['botchan']):
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                botChan = bot.get_channel(id=int(serverinfo['botchan']))
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} is the bot channel!!!')
+                return
+        except ValueError:
+            pass
+    # end of bot channel check
+
     # Get wallet status
     walletStatus = None
     COIN_NAME = None
@@ -2800,10 +2815,11 @@ async def take(ctx):
             if ctx.channel.id != int(serverinfo['botchan']):
                 await ctx.message.add_reaction(EMOJI_ERROR)
                 botChan = bot.get_channel(id=int(serverinfo['botchan']))
-                await ctx.send(f'{EMOJI_RED_NO} {botChan.mention} is the bot channel!')
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} is the bot channel!!!')
                 return
         except ValueError:
             pass
+    # end of bot channel check
 
     # check user claim:
     check_claimed = store.sql_faucet_checkuser(str(ctx.message.author.id))

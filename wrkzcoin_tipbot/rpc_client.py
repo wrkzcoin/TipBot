@@ -46,6 +46,7 @@ async def call_aiohttp_wallet(method_name: str, coin: str, time_out: int = None,
                         if 'result' in decoded_data:
                             return decoded_data['result']
                         else:
+                            print(decoded_data)
                             return None
         elif coin_family == "TRTL" or coin_family == "CCX":
             async with aiohttp.ClientSession() as session:
@@ -55,7 +56,11 @@ async def call_aiohttp_wallet(method_name: str, coin: str, time_out: int = None,
                         res_data = res_data.decode('utf-8')
                         await session.close()
                         decoded_data = json.loads(res_data)
-                        return decoded_data['result']
+                        if 'result' in decoded_data:
+                            return decoded_data['result']
+                        else:
+                            print(decoded_data)
+                            return None
     except asyncio.TimeoutError:
         print('TIMEOUT: method_name: {} - coin_family: {} - timeout {}'.format(method_name, coin_family, timeout))
         print('TIMEOUT: payload: ')

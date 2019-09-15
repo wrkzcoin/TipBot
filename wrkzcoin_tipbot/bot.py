@@ -2040,9 +2040,9 @@ async def botbalance(ctx, member: discord.Member, coin: str):
             depositAddress = await DOGE_LTC_getaccountaddress(str(member.id), COIN_NAME)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-        actual = float(await DOGE_LTC_getbalance_acc(bot.user.id, COIN_NAME, 6))
-        locked = float(await DOGE_LTC_getbalance_acc(bot.user.id, COIN_NAME, 1))
-        userdata_balance = store.sql_doge_balance(member.id, COIN_NAME)
+        actual = float(await DOGE_LTC_getbalance_acc(str(member.id), COIN_NAME, 6))
+        locked = float(await DOGE_LTC_getbalance_acc(str(member.id), COIN_NAME, 1))
+        userdata_balance = store.sql_doge_balance(str(member.id), COIN_NAME)
         if actual == locked:
             balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
             balance_locked = num_format_coin(0 , COIN_NAME)

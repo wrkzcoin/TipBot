@@ -57,7 +57,7 @@ async def call_aiohttp_wallet(method_name: str, coin: str, time_out: int = None,
                         decoded_data = json.loads(res_data)
                         return decoded_data['result']
     except asyncio.TimeoutError:
-        print('TIMEOUT: method_name: {} - coin_family: {} - time_out {}'.format(method_name, coin_family, time_out))
+        print('TIMEOUT: method_name: {} - coin_family: {} - timeout {}'.format(method_name, coin_family, timeout))
         print('TIMEOUT: payload: ')
         print(full_payload)
     except Exception as e:

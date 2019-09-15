@@ -530,12 +530,11 @@ async def on_reaction_add(reaction, user):
                         else:
                             return
                 args = reaction.message.content.split(" ")
-                amount = args[1].replace(",", "")
-
                 try:
-                    amount = float(amount)
+                    amount = float(args[1].replace(",", ""))
                 except ValueError:
                     return
+
                 COIN_NAME = None
                 try:
                     COIN_NAME = args[2].upper()
@@ -1358,6 +1357,13 @@ async def cleartx(ctx):
         await ctx.message.add_reaction(EMOJI_WARNING)
         await ctx.message.author.send(f'{ctx.author.mention} Clearing {len(WITHDRAW_IN_PROCESS)} {list_pending} in pending...')
         WITHDRAW_IN_PROCESS = [] 
+    return
+
+
+@commands.is_owner()
+@admin.command()
+async def guild(ctx):
+    # TODO
     return
 
 

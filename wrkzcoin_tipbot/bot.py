@@ -1362,6 +1362,45 @@ async def cleartx(ctx):
 
 @commands.is_owner()
 @admin.command()
+async def checkcoin(ctx, coin: str):
+    # Check of wallet in SQL consistence to wallet-service
+    botLogChan = bot.get_channel(id=LOG_CHAN)
+    COIN_NAME = coin.upper()
+    if COIN_NAME not in (ENABLE_COIN + ENABLE_XMR):
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.message.author.send(f'{COIN_NAME} is not in TipBot.')
+        return
+    if COIN_NAME in MAINTENANCE_COIN:
+        await ctx.message.add_reaction(EMOJI_MAINTENANCE)
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    if coin_family == "TRTL":
+        in_existing = 0
+        get_addresses = await store.get_all_user_balance_address(COIN_NAME)
+        if len(get_addresses) > 0:
+            list_in_wallet_service = await get_all_addresses(COIN_NAME)
+            for address in get_addresses:
+                if address['address'] not in list_in_wallet_service:
+                    in_existing += 1
+                    # print(address['address']+' scanHeight: '+str(address['scanHeight'])+' is NOT IN Wallet-Service')
+            await ctx.send(f'**{COIN_NAME}** Sub-wallets:'
+                           '```'
+                           f'In MySQL database: {len(get_addresses)}\n'
+                           f'In Wallet-Service: {len(list_in_wallet_service)}'
+                           '```'
+                           f'There is {str(in_existing)} subwallet(s) in MySQL which is not in Wallet-Service.')
+            return
+        else:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.message.author.send(f'{COIN_NAME} return no address.')
+            return
+    else:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.message.author.send(f'{COIN_NAME} not supporting with this function.')
+        return
+
+
+@commands.is_owner()
+@admin.command()
 async def guild(ctx):
     # TODO
     return
@@ -1391,6 +1430,7 @@ async def info(ctx, coin: str = None):
     # Check if maintenance
     if IS_MAINTENANCE == 1:
         if int(ctx.message.author.id) in MAINTENANCE_OWNER:
+            await ctx.message.add_reaction(EMOJI_MAINTENANCE)
             pass
         else:
             await ctx.message.add_reaction(EMOJI_WARNING)
@@ -4605,6 +4645,9 @@ async def stats(ctx, coin: str = None):
         await ctx.message.add_reaction(EMOJI_MAINTENANCE)
         await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} in maintenance.')
         return
+    elif (COIN_NAME in MAINTENANCE_COIN) and (ctx.message.author.id in MAINTENANCE_OWNER):
+        await ctx.message.add_reaction(EMOJI_MAINTENANCE)
+        pass
 
     if COIN_NAME == "BOT":
         await bot.wait_until_ready()

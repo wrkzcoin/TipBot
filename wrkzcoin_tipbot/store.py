@@ -77,6 +77,23 @@ def sql_get_walletinfo():
         traceback.print_exc(file=sys.stdout)
 
 
+async def get_all_user_balance_address(coin: str):
+    try:
+        openConnection()
+        with conn.cursor() as cur:
+            sql = """ SELECT `coin_name`, `balance_wallet_address`, `balance_wallet_address_ch`,`privateSpendKey` FROM `cn_user` WHERE `coin_name` = %s"""
+            cur.execute(sql, (coin))
+            result = cur.fetchall()
+            listAddr=[]
+            for row in result:
+                listAddr.append({'address':row['balance_wallet_address'], 'scanHeight': row['balance_wallet_address_ch'], 'privateSpendKey': decrypt_string(row['privateSpendKey'])})
+            return listAddr
+    except Exception as e:
+        print(e)
+    finally:
+        conn.close()
+
+
 async def sql_update_balances(coin: str = None):
     global conn
     updateTime = int(time.time())
@@ -235,7 +252,7 @@ async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD'):
                     balance_address = await wallet.make_integrated_address_xmr(main_address, COIN_NAME)
                 elif COIN_NAME in ENABLE_COIN_DOGE:
                     balance_address = await wallet.DOGE_LTC_register(str(userID), COIN_NAME)
-                print(balance_address)
+
                 if balance_address is None:
                     print('Internal error during call register wallet-api')
                     return

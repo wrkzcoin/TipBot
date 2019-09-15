@@ -41,6 +41,12 @@ async def registerOTHER(coin: str) -> str:
         return reg_address
 
 
+async def get_all_addresses(coin: str) -> Dict[str, Dict]:
+    COIN_NAME = coin.upper()
+    result = await rpc_client.call_aiohttp_wallet('getAddresses', COIN_NAME)
+    return result['addresses']
+
+
 async def getSpendKey(from_address: str, coin: str) -> str:
     coin = coin.upper()
     payload = {

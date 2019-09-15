@@ -16,8 +16,14 @@ class RPCException(Exception):
 
 
 async def getWalletStatus(coin: str):
-    info = {}
-    return await rpc_client.call_aiohttp_wallet('getStatus', coin.upper())
+    COIN_NAME = coin.upper()
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    timeout = 16
+    if coin_family == "TRTL" or coin_family == "CCX":
+        return await rpc_client.call_aiohttp_wallet('getStatus', COIN_NAME)
+    elif coin_family == "XMR":
+        # TODO: check wallet status
+        return await rpc_client.call_aiohttp_wallet('get_height', COIN_NAME, time_out=timeout)
 
 
 async def getDaemonRPCStatus(coin: str):

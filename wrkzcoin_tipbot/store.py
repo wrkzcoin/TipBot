@@ -1036,6 +1036,32 @@ def sql_faucet_checkuser(userID: str):
         traceback.print_exc(file=sys.stdout)
 
 
+def sql_faucet_count_user(userID: str):
+    global conn
+    try:
+        openConnection()
+        with conn.cursor() as cur:
+            sql = """ SELECT COUNT(*) FROM discord_faucet WHERE claimed_user = %s """
+            cur.execute(sql, (userID,))
+            result = cur.fetchone()
+            return int(result['COUNT(*)']) if 'COUNT(*)' in result else 0
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
+def sql_faucet_count_all():
+    global conn
+    try:
+        openConnection()
+        with conn.cursor() as cur:
+            sql = """ SELECT COUNT(*) FROM discord_faucet """
+            cur.execute(sql,)
+            result = cur.fetchone()
+            return int(result['COUNT(*)']) if 'COUNT(*)' in result else 0
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
 def sql_tag_by_server(server_id: str, tag_id: str = None):
     global conn
     try:

@@ -2906,8 +2906,13 @@ async def take(ctx):
         if int(time.time()) - check_claimed['claimed_at'] <= 43200:
             remaining = await bot_faucet(ctx) or ''
             time_waiting = seconds_str(43200 - int(time.time()) + check_claimed['claimed_at'])
+            number_user_claimed = '{:,.0f}'.format(store.sql_faucet_count_user(str(ctx.message.author.id)))
+            total_claimed = '{:,.0f}'.format(store.sql_faucet_count_all())
             await ctx.message.add_reaction(EMOJI_ERROR)
-            msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You just claimed within last 12h. Waiting time {time_waiting} for next **take**. Faucet balance:\n```{remaining}```')
+            msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You just claimed within last 12h. '
+                                 f'Waiting time {time_waiting} for next **take**. Faucet balance:\n```{remaining}```'
+                                 f'Total user claims: **{total_claimed}** times. '
+                                 f'You have claimed: **{number_user_claimed}** time(s).')
             await msg.add_reaction(EMOJI_OK_BOX)
             return
 

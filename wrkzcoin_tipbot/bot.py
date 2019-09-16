@@ -412,7 +412,7 @@ async def on_reaction_add(reaction, user):
                             try:
                                 await reaction.message.author.send(
                                     f'{EMOJI_MONEYFACE} You got a tip of {num_format_coin(real_amount, COIN_NAME)} '
-                                    f'{COIN_NAME} from `{user.name}` in server `{servername}` from their re-acting {EMOJI_100}\n'
+                                    f'{COIN_NAME} from `{user.name}#{user.discriminator}` in server `{servername}` from their re-acting {EMOJI_100}\n'
                                     f'{tip_tx_tipper}\n'
                                     f'{NOTIFICATION_OFF_CMD}')
                             except (discord.Forbidden, discord.errors.Forbidden) as e:
@@ -481,7 +481,7 @@ async def on_reaction_add(reaction, user):
                             await user.send(
                                 f'{EMOJI_ARROW_RIGHTHOOK} Tip of {num_format_coin(real_amount, COIN_NAME)} '
                                 f'{COIN_NAME} '
-                                f'was sent to `{reaction.message.author.name}` in server `{servername}` by your re-acting {EMOJI_99}\n'
+                                f'was sent to `{reaction.message.author.name}#{reaction.message.author.discriminator}` in server `{servername}` by your re-acting {EMOJI_99}\n'
                                 f'{tip_tx_tipper}')
                         except (discord.Forbidden, discord.errors.Forbidden) as e:
                             store.sql_toggle_tipnotify(str(user.id), "OFF")
@@ -489,7 +489,7 @@ async def on_reaction_add(reaction, user):
                             try:
                                 await reaction.message.author.send(
                                     f'{EMOJI_MONEYFACE} You got a tip of {num_format_coin(real_amount, COIN_NAME)} '
-                                    f'{COIN_NAME} from `{user.name}` in server `{servername}` from their re-acting {EMOJI_99}\n'
+                                    f'{COIN_NAME} from `{user.name}#{user.discriminator}` in server `{servername}` from their re-acting {EMOJI_99}\n'
                                     f'{tip_tx_tipper}\n'
                                     f'{NOTIFICATION_OFF_CMD}')
                             except (discord.Forbidden, discord.errors.Forbidden) as e:
@@ -1015,7 +1015,7 @@ async def secrettip(ctx, amount: str, coin: str, user_id: str):
             await ctx.message.author.send(
                 f'{EMOJI_ARROW_RIGHTHOOK} Secret tip of {num_format_coin(real_amount, COIN_NAME)} '
                 f'{COIN_NAME} '
-                f'was sent to `{user_id} / {member.name}`\n'
+                f'was sent to `{user_id} / {member.name}#{member.discriminator}`\n'
                 f'Transaction hash: `{tip}`')
         except (discord.Forbidden, discord.errors.Forbidden) as e:
             store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
@@ -1031,7 +1031,7 @@ async def secrettip(ctx, amount: str, coin: str, user_id: str):
                 store.sql_toggle_tipnotify(str(member.id), "OFF")
         else:
             try:
-                await ctx.message.author.send(f'`{member.name} / {user_id}` received '
+                await ctx.message.author.send(f'`{member.name}#{member.discriminator}` / {user_id}` received '
                                               f'{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}'
                                               ' but has notification **OFF** or **DM disable**.')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
@@ -3191,7 +3191,7 @@ async def tip(ctx, amount: str, *args):
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
                             f'{num_format_coin(real_amount, COIN_NAME)} '
-                            f'{COIN_NAME} to {member.name}.')
+                            f'{COIN_NAME} to {member.name}#{member.discriminator}.')
             return
 
         if real_amount > MaxTX:
@@ -3248,7 +3248,7 @@ async def tip(ctx, amount: str, *args):
                 await ctx.message.author.send(
                     f'{EMOJI_ARROW_RIGHTHOOK} Tip of {num_format_coin(real_amount, COIN_NAME)} '
                     f'{COIN_NAME} '
-                    f'was sent to `{member.name}` in server `{servername}`\n'
+                    f'was sent to `{member.name}#{member.discriminator}` in server `{servername}`\n'
                     f'{tip_tx_tipper}')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
                 store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
@@ -3256,7 +3256,7 @@ async def tip(ctx, amount: str, *args):
                 try:
                     await member.send(
                         f'{EMOJI_MONEYFACE} You got a tip of {num_format_coin(real_amount, COIN_NAME)} '
-                        f'{COIN_NAME} from `{ctx.message.author.name}` in server `{servername}`\n'
+                        f'{COIN_NAME} from `{ctx.message.author.name}#{ctx.message.author.discriminator}` in server `{servername}`\n'
                         f'{tip_tx_tipper}\n'
                         f'{NOTIFICATION_OFF_CMD}')
                 except (discord.Forbidden, discord.errors.Forbidden) as e:
@@ -3281,7 +3281,7 @@ async def tip(ctx, amount: str, *args):
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
                             f'{num_format_coin(real_amount, COIN_NAME)} '
-                            f'{COIN_NAME} to {member.name}.')
+                            f'{COIN_NAME} to {member.name}#{member.discriminator}.')
             return
         if real_amount < MinTx:
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -3306,14 +3306,14 @@ async def tip(ctx, amount: str, *args):
                 await ctx.message.author.send(
                     f'{EMOJI_ARROW_RIGHTHOOK} Tip of {num_format_coin(real_amount, COIN_NAME)} '
                     f'{COIN_NAME} '
-                    f'was sent to `{member.name}` in server `{servername}`\n')
+                    f'was sent to `{member.name}#{member.discriminator}` in server `{servername}`\n')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
                 store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
             if str(member.id) not in notifyList:
                 try:
                     await member.send(
                         f'{EMOJI_MONEYFACE} You got a tip of {num_format_coin(real_amount, COIN_NAME)} '
-                        f'{COIN_NAME} from `{ctx.message.author.name}` in server `{servername}`\n'
+                        f'{COIN_NAME} from `{ctx.message.author.name}#{ctx.message.author.discriminator}` in server `{servername}`\n'
                         f'{NOTIFICATION_OFF_CMD}')
                 except (discord.Forbidden, discord.errors.Forbidden) as e:
                     store.sql_toggle_tipnotify(str(member.id), "OFF")
@@ -3335,7 +3335,7 @@ async def tip(ctx, amount: str, *args):
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
                             f'{num_format_coin(real_amount, COIN_NAME)} '
-                            f'{COIN_NAME} to {member.name}.')
+                            f'{COIN_NAME} to {member.name}#{member.discriminator}.')
             return
         if real_amount < MinTx:
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -3362,14 +3362,14 @@ async def tip(ctx, amount: str, *args):
                     await ctx.message.author.send(
                         f'{EMOJI_ARROW_RIGHTHOOK} Tip of {num_format_coin(real_amount, COIN_NAME)} '
                         f'{COIN_NAME} '
-                        f'was sent to `{member.name}` in server `{servername}`\n')
+                        f'was sent to `{member.name}#{member.discriminator}` in server `{servername}`\n')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
                 store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
             if str(member.id) not in notifyList:
                 try:
                     await member.send(
                         f'{EMOJI_MONEYFACE} You got a tip of {num_format_coin(real_amount, COIN_NAME)} '
-                        f'{COIN_NAME} from `{ctx.message.author.name}` in server `{servername}`\n'
+                        f'{COIN_NAME} from `{ctx.message.author.name}#{ctx.message.author.discriminator}` in server `{servername}`\n'
                         f'{NOTIFICATION_OFF_CMD}')
                 except (discord.Forbidden, discord.errors.Forbidden) as e:
                     store.sql_toggle_tipnotify(str(member.id), "OFF")
@@ -3598,7 +3598,7 @@ async def tipall(ctx, amount: str, *args):
                                     user = bot.get_user(id=member.id)
                                     await user.send(
                                         f'{EMOJI_MONEYFACE} You got a tip of {amountDiv_str} '
-                                        f'{COIN_NAME} from `{ctx.message.author.name}` `.tipall` in server `{servername}`\n'
+                                        f'{COIN_NAME} from `{ctx.message.author.name}#{ctx.message.author.discriminator}` `.tipall` in server `{servername}`\n'
                                         f'{tip_tx_tipper}\n'
                                         f'{NOTIFICATION_OFF_CMD}')
                                     numMsg = numMsg + 1
@@ -3687,7 +3687,7 @@ async def tipall(ctx, amount: str, *args):
                                 try:
                                     await member.send(
                                         f'{EMOJI_MONEYFACE} You got a tip of {amountDiv_str} '
-                                        f'{COIN_NAME} from `{ctx.message.author.name}` `.tipall` in server `{servername}`\n'
+                                        f'{COIN_NAME} from `{ctx.message.author.name}#{ctx.message.author.discriminator}` `.tipall` in server `{servername}`\n'
                                         f'{NOTIFICATION_OFF_CMD}')
                                 except (discord.Forbidden, discord.errors.Forbidden) as e:
                                     store.sql_toggle_tipnotify(str(member.id), "OFF")
@@ -3773,7 +3773,7 @@ async def tipall(ctx, amount: str, *args):
                                 try:
                                     await member.send(
                                         f'{EMOJI_MONEYFACE} You got a tip of {amountDiv_str} '
-                                        f'{COIN_NAME} from `{ctx.message.author.name}` `.tipall` in server `{servername}`\n'
+                                        f'{COIN_NAME} from `{ctx.message.author.name}#{ctx.message.author.discriminator}` `.tipall` in server `{servername}`\n'
                                         f'{NOTIFICATION_OFF_CMD}')
                                 except (discord.Forbidden, discord.errors.Forbidden) as e:
                                     store.sql_toggle_tipnotify(str(member.id), "OFF")
@@ -4421,7 +4421,7 @@ async def optimize(ctx, coin: str, member: discord.Member = None):
             CountOpt = await store.sql_optimize_do(str(member.id), COIN_NAME)
             if CountOpt > 0:
                 await ctx.message.add_reaction(EMOJI_OK_HAND)
-                await ctx.send(f'***Optimize*** is being processed for {member.name} **{COIN_NAME}**. {CountOpt} fusion tx(s).')
+                await ctx.send(f'***Optimize*** is being processed for {member.name}#{member.discriminator} **{COIN_NAME}**. {CountOpt} fusion tx(s).')
                 return
             else:
                 await ctx.message.add_reaction(EMOJI_OK_HAND)
@@ -5575,7 +5575,7 @@ async def alert_if_userlock(ctx, cmd: str):
         return None
     else:
         if get_discord_userinfo['locked'].upper() == "YES":
-            await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} locked but is commanding `{cmd}`')
+            await botLogChan.send(f'{ctx.message.author.name}#{ctx.message.author.discriminator} / {ctx.message.author.id} locked but is commanding `{cmd}`')
             return True
         else:
             return None
@@ -6009,7 +6009,7 @@ async def _tip(ctx, amount, coin: str):
                         if str(member.id) not in notifyList:
                             try:
                                 await member.send(f'{EMOJI_MONEYFACE} You got a tip of  {num_format_coin(real_amount, COIN_NAME)} '
-                                                f'{COIN_NAME} from `{ctx.message.author.name}` in server `{servername}`\n'
+                                                f'{COIN_NAME} from `{ctx.message.author.name}#{ctx.message.author.discriminator}` in server `{servername}`\n'
                                                 f'{tip_tx_tipper}\n'
                                                 f'{NOTIFICATION_OFF_CMD}')
                             except (discord.Forbidden, discord.errors.Forbidden) as e:
@@ -6094,7 +6094,7 @@ async def _tip(ctx, amount, coin: str):
                             try:
                                 await member.send(
                                     f'{EMOJI_MONEYFACE} You got a tip of `{amountDiv_str}{COIN_NAME}` '
-                                    f'from `{ctx.message.author.name}` in server `{servername}`\n'
+                                    f'from `{ctx.message.author.name}#{ctx.message.author.discriminator}` in server `{servername}`\n'
                                     f'{NOTIFICATION_OFF_CMD}')
                             except (discord.Forbidden, discord.errors.Forbidden) as e:
                                 store.sql_toggle_tipnotify(str(member.id), "OFF")
@@ -6175,7 +6175,7 @@ async def _tip(ctx, amount, coin: str):
                             try:
                                 await member.send(
                                     f'{EMOJI_MONEYFACE} You got a tip of `{amountDiv_str}{COIN_NAME}` '
-                                    f'from `{ctx.message.author.name}` in server `{servername}`\n'
+                                    f'from `{ctx.message.author.name}#{ctx.message.author.discriminator}` in server `{servername}`\n'
                                     f'{NOTIFICATION_OFF_CMD}')
                             except (discord.Forbidden, discord.errors.Forbidden) as e:
                                 store.sql_toggle_tipnotify(str(member.id), "OFF")
@@ -6336,11 +6336,11 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
                 if ctx.message.author.id != int(member_id):
                     member = bot.get_user(id=int(member_id))
                     if member.bot == False:
-                        mention_list_name = mention_list_name + '`'+member.name + '` '
+                        mention_list_name = mention_list_name + '`'+member.name + '#' + member.discriminator + '` '
                         if str(member_id) not in notifyList:
                             try:
                                 await member.send(f'{EMOJI_MONEYFACE} You got a tip of {num_format_coin(real_amount, COIN_NAME)} '
-                                                f'{COIN_NAME} from `{ctx.message.author.name}` in server `{servername}` for active talking.\n'
+                                                f'{COIN_NAME} from `{ctx.message.author.name}#{ctx.message.author.discriminator}` in server `{servername}` for active talking.\n'
                                                 f'Transaction hash: `{tip}`\n'
                                                 f'{NOTIFICATION_OFF_CMD}')
                             except (discord.Forbidden, discord.errors.Forbidden) as e:
@@ -6422,12 +6422,12 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
                 if ctx.message.author.id != int(member_id):
                     member = bot.get_user(id=int(member_id))
                     if member.bot == False:
-                        mention_list_name = mention_list_name + '`'+member.name + '` '
+                        mention_list_name = mention_list_name + '`'+member.name + '#' + member.discriminator + '` '
                         if str(member_id) not in notifyList:
                             try:
                                 await member.send(
                                     f'{EMOJI_MONEYFACE} You got a tip of `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}` '
-                                    f'from `{ctx.message.author.name}` in server `{servername}` for active talking.\n'
+                                    f'from `{ctx.message.author.name}#{ctx.message.author.discriminator}` in server `{servername}` for active talking.\n'
                                     f'{NOTIFICATION_OFF_CMD}')
                             except (discord.Forbidden, discord.errors.Forbidden) as e:
                                 store.sql_toggle_tipnotify(str(member.id), "OFF")
@@ -6506,12 +6506,12 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
                 if ctx.message.author.id != int(member_id):
                     member = bot.get_user(id=int(member_id))
                     if member.bot == False:
-                        mention_list_name = mention_list_name + '`'+member.name + '` '
+                        mention_list_name = mention_list_name + '`'+member.name + '#' + member.discriminator + '` '
                         if str(member_id) not in notifyList:
                             try:
                                 await member.send(
                                     f'{EMOJI_MONEYFACE} You got a tip of `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}` '
-                                    f'from `{ctx.message.author.name}` in server `{servername}` for active talking.\n'
+                                    f'from `{ctx.message.author.name}#{ctx.message.author.discriminator}` in server `{servername}` for active talking.\n'
                                     f'{NOTIFICATION_OFF_CMD}')
                             except (discord.Forbidden, discord.errors.Forbidden) as e:
                                 store.sql_toggle_tipnotify(str(member.id), "OFF")
@@ -6638,7 +6638,7 @@ async def _tip_react(reaction, user, amount, coin: str):
                         if str(member.id) not in notifyList:
                             try:
                                 await member.send(f'{EMOJI_MONEYFACE} You got a {EMOJI_TIP} of  {num_format_coin(real_amount, COIN_NAME)} '
-                                                f'{COIN_NAME} from `{user.name}` in server `{servername}`\n'
+                                                f'{COIN_NAME} from `{user.name}#{user.discriminator}` in server `{servername}`\n'
                                                 f'{tip_tx_tipper}\n'
                                                 f'{NOTIFICATION_OFF_CMD}')
                             except (discord.Forbidden, discord.errors.Forbidden) as e:
@@ -6700,7 +6700,7 @@ async def _tip_react(reaction, user, amount, coin: str):
                             try:
                                 await member.send(
                                     f'{EMOJI_MONEYFACE} You got a {EMOJI_TIP} of `{amountDiv_str}{COIN_NAME}` '
-                                    f'from `{user.name}` in server `{servername}`\n'
+                                    f'from `{user.name}#{user.discriminator}` in server `{servername}`\n'
                                     f'{NOTIFICATION_OFF_CMD}')
                             except (discord.Forbidden, discord.errors.Forbidden) as e:
                                 store.sql_toggle_tipnotify(str(member.id), "OFF")
@@ -6756,7 +6756,7 @@ async def _tip_react(reaction, user, amount, coin: str):
                             try:
                                 await member.send(
                                     f'{EMOJI_MONEYFACE} You got {EMOJI_TIP} of `{amountDiv_str}{COIN_NAME}` '
-                                    f'from `{user.name}` in server `{servername}`\n'
+                                    f'from `{user.name}#{user.discriminator}` in server `{servername}`\n'
                                     f'{NOTIFICATION_OFF_CMD}')
                             except (discord.Forbidden, discord.errors.Forbidden) as e:
                                 store.sql_toggle_tipnotify(str(member.id), "OFF")

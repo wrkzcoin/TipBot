@@ -2867,6 +2867,11 @@ async def notifytip(ctx, onoff: str):
 @bot.command(pass_context=True, help=bot_help_take)
 async def take(ctx):
     global FAUCET_COINS, FAUCET_MINMAX, TRTL_DISCORD, WITHDRAW_IN_PROCESS
+    # disable faucet for TRTL discord
+    if ctx.guild.id == TRTL_DISCORD:
+        await ctx.message.add_reaction(EMOJI_LOCKED)
+        return
+
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'take')
     if account_lock:
@@ -4474,12 +4479,11 @@ async def optimize(ctx, coin: str, member: discord.Member = None):
 
     # Check if user has a proper wallet with balance bigger than setting balance
     user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-    if 'lastOptimize' in user_from:
+    if ('lastOptimize' in user_from) and user_from['lastOptimize']:
         if int(time.time()) - int(user_from['lastOptimize']) < int(get_interval_opt(COIN_NAME)):
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} **{COIN_NAME}** {ctx.author.mention} Please wait. You just did `optimize` within last 10mn.')
             return
-        pass
     if int(user_from['actual_balance']) / get_decimal(COIN_NAME) < int(get_min_opt(COIN_NAME)):
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} **{COIN_NAME}** Your balance may not need to optimize yet. Check again later.')
@@ -4487,7 +4491,11 @@ async def optimize(ctx, coin: str, member: discord.Member = None):
     else:
         # check if optimize has done for last 30mn
         # and if last 30mn more than 5 has been done in total
-        countOptimize = store.sql_optimize_check(COIN_NAME)
+        try:
+            countOptimize = store.sql_optimize_check(COIN_NAME)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            return
         if countOptimize >= 5:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(
@@ -4495,7 +4503,7 @@ async def optimize(ctx, coin: str, member: discord.Member = None):
             return
         else:
             # let's optimize and set status
-            CountOpt = await store.sql_optimize_do(ctx.message.author.id, COIN_NAME)
+            CountOpt = await store.sql_optimize_do(str(ctx.message.author.id), COIN_NAME)
             if CountOpt > 0:
                 await ctx.message.add_reaction(EMOJI_OK_HAND)
                 await ctx.send(f'***Optimize*** {ctx.author.mention} {COIN_NAME} is being processed for your wallet. {CountOpt} fusion tx(s).')

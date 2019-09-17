@@ -883,7 +883,7 @@ async def sql_optimize_do(userID: str, coin: str = None):
         print('fusionReadyCount check error.')
         return 0
 
-    #print('store.sql_optimize_do: ' + COIN_NAME)
+    print('store.sql_optimize_do: ' + COIN_NAME)
     if user_from_wallet:
         OptimizeCount = 0
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")

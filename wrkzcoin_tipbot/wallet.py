@@ -197,6 +197,7 @@ async def get_balance_address(address: str, coin: str, acc_index: int = None) ->
 
 
 async def wallet_optimize_single(subaddress: str, threshold: int, coin: str=None) -> int:
+    time_out = 32
     if coin is None:
         coin = "WRKZ"
     else:
@@ -220,22 +221,26 @@ async def wallet_optimize_single(subaddress: str, threshold: int, coin: str=None
     i = 0
     while True:
         url = get_wallet_api_url(coin)
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=full_payload, timeout=8) as response:
-                if response.status == 200:
-                    res_data = await response.read()
-                    res_data = res_data.decode('utf-8')
-                    await session.close()
-                    decoded_data = json.loads(res_data)
-                    if 'result' in decoded_data:
-                        if 'transactionHash' in decoded_data['result']:
-                            i=i+1
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, json=full_payload, timeout=time_out) as response:
+                    if response.status == 200:
+                        res_data = await response.read()
+                        res_data = res_data.decode('utf-8')
+                        await session.close()
+                        decoded_data = json.loads(res_data)
+                        if 'result' in decoded_data:
+                            if 'transactionHash' in decoded_data['result']:
+                                i=i+1
+                            else:
+                                break
                         else:
                             break
                     else:
                         break
-                else:
-                    break
+        except asyncio.TimeoutError:
+            print('TIMEOUT: method_name: {} - coin_family: {} - timeout {}'.format('sendFusionTransaction', coin, time_out))
+            return i
     return i
 
 

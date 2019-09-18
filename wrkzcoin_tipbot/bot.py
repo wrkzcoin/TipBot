@@ -3493,6 +3493,7 @@ async def tipall(ctx, amount: str, *args):
         memids = []  # list of member ID
         has_forwardtip = None
         list_receivers = []
+        addresses = []
         for member in listMembers:
             # print(member.name) # you'll just print out Member objects your way.
             if ctx.message.author.id != member.id:
@@ -3508,6 +3509,7 @@ async def tipall(ctx, amount: str, *args):
                             address_to = user_to['user_wallet_address']
                         else:
                             address_to = user_to['balance_wallet_address']
+                            addresses.append(address_to)
                         if address_to:
                             list_receivers.append(str(member.id))
                             memids.append(address_to)
@@ -3543,10 +3545,8 @@ async def tipall(ctx, amount: str, *args):
 
         amountDiv = int(round(real_amount / len(memids), 2))  # cut 2 decimal only
         destinations = []
-        addresses = []
         for desti in memids:
             destinations.append({"address": desti, "amount": amountDiv})
-            addresses.append(desti)
 
     # Get wallet status
         walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
@@ -5925,6 +5925,7 @@ async def _tip(ctx, amount, coin: str):
         memids = []  # list of member ID
         has_forwardtip = None
         list_receivers = []
+        addresses = []
         for member in listMembers:
             # print(member.name) # you'll just print out Member objects your way.
             if ctx.message.author.id != member.id:
@@ -5938,14 +5939,13 @@ async def _tip(ctx, amount, coin: str):
                     has_forwardtip = True
                 else:
                     address_to = user_to['balance_wallet_address']
+                    addresses.append(address_to)
                 if address_to:
                     list_receivers.append(str(member.id))
                     memids.append(address_to)
 
-        addresses = []
         for desti in memids:
             destinations.append({"address": desti, "amount": real_amount})
-            addresses.append(desti)
 
         ActualSpend = real_amount * len(memids) + NetFee
         if ActualSpend >= user_from['actual_balance']:
@@ -6245,6 +6245,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
         memids = []  # list of member ID
         has_forwardtip = None
         list_receivers = []
+        addresses = []
         for member_id in list_talker:
             if member_id != ctx.message.author.id:
                 user_to = await store.sql_get_userwallet(str(member_id), COIN_NAME)
@@ -6257,6 +6258,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
                     address_to = user_to['user_wallet_address']
                 else:
                     address_to = user_to['balance_wallet_address']
+                    addresses.append(address_to)
                 if address_to:
                     list_receivers.append(str(member_id))
                     memids.append(address_to)
@@ -6272,10 +6274,8 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
             return
         # End of checking receivers numbers.
 
-        addresses = []
         for desti in memids:
             destinations.append({"address": desti, "amount": real_amount})
-            addresses.append(desti)
 
         ActualSpend = real_amount * len(memids) + NetFee
 
@@ -6571,6 +6571,7 @@ async def _tip_react(reaction, user, amount, coin: str):
         memids = []  # list of member ID
         has_forwardtip = None
         list_receivers = []
+        addresses = []
         for member in listMembers:
             # print(member.name) # you'll just print out Member objects your way.
             if user.id != member.id and reaction.message.author.id != member.id:
@@ -6584,14 +6585,14 @@ async def _tip_react(reaction, user, amount, coin: str):
                     has_forwardtip = True
                 else:
                     address_to = user_to['balance_wallet_address']
+                    addresses.append(address_to)
                 if address_to:
                     list_receivers.append(str(member.id))
                     memids.append(address_to)
 
-        addresses = []
         for desti in memids:
             destinations.append({"address": desti, "amount": real_amount})
-            addresses.append(desti)
+
 
         ActualSpend = real_amount * len(memids) + NetFee
         if ActualSpend >= user_from['actual_balance']:

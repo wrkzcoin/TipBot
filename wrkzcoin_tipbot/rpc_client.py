@@ -25,7 +25,7 @@ async def call_aiohttp_wallet(method_name: str, coin: str, time_out: int = None,
         'method': f'{method_name}'
     }
     url = get_wallet_rpc_url(coin.upper())
-    timeout = time_out or 8
+    timeout = time_out or 32
     if method_name == "save" or method_name == "store":
         timeout = 300
     try:

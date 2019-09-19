@@ -76,7 +76,7 @@ DISCLAIM_MSG = """Disclaimer: No warranty or guarantee is provided, expressed, o
 when using this bot and any funds lost, mis-used or stolen in using this bot \
 are not the responsibility of the bot creator or hoster."""
 
-DISCLAIM_MSG_LONG = """
+DISCLAIM_MSG_LONG = """```
 Disclaimer: TipBot, its owners, service providers or any other parties providing services, \
 are not in any way responsible or liable for any lost, mis-used, stolen funds, or any coin \
 network's issues. TipBot's purpose is to be fun, do testing, and share tips between \
@@ -91,6 +91,7 @@ We commit to make it as secure as possible to the best of our expertise, \
 however we accept no liability and responsibility for any loss or damage \
 caused to you. Additionally, the purpose of the TipBot is to spread awareness \
 of cryptocurrency through tips, which is one of our project’s main commitments.
+```
 """
 
 IS_MAINTENANCE = config.maintenance
@@ -948,7 +949,7 @@ async def secrettip(ctx, amount: str, coin: str, user_id: str):
         # Get wallet status
         walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
         if walletStatus is None:
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t started.')
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} I can not connect to wallet service or daemon.')
             return
         else:
             localDaemonBlockCount = int(walletStatus['blockCount'])
@@ -1903,7 +1904,7 @@ async def balance(ctx, coin: str = None):
         return
 
     if walletStatus is None:
-        msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t started.')
+        msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} I can not connect to wallet service or daemon.')
         await msg.add_reaction(EMOJI_OK_BOX)
         return
     else:
@@ -1999,7 +2000,7 @@ async def botbalance(ctx, member: discord.Member, coin: str):
         pass
 
     if (walletStatus is None) and COIN_NAME in (ENABLE_COIN+ENABLE_COIN_DOGE):
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t started.')
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} I can not connect to wallet service or daemon.')
         return
     else:
         if COIN_NAME in ENABLE_COIN_DOGE:
@@ -2408,7 +2409,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
         walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
 
         if walletStatus is None:
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t started.')
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} I can not connect to wallet service or daemon.')
             return
         else:
             localDaemonBlockCount = int(walletStatus['blockCount'])
@@ -2694,7 +2695,7 @@ async def donate(ctx, amount: str, coin: str = None):
         # Get wallet status
         walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
         if walletStatus is None:
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t started.')
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} I can not connect to wallet service or daemon.')
             return
         else:
             localDaemonBlockCount = int(walletStatus['blockCount'])
@@ -3220,7 +3221,7 @@ async def tip(ctx, amount: str, *args):
         # Get wallet status
         walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
         if walletStatus is None:
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t started.')
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} I can not connect to wallet service or daemon.')
             return
         else:
             localDaemonBlockCount = int(walletStatus['blockCount'])
@@ -3551,7 +3552,7 @@ async def tipall(ctx, amount: str, *args):
     # Get wallet status
         walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
         if walletStatus is None:
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t started.')
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} I can not connect to wallet service or daemon.')
             return
         else:
             localDaemonBlockCount = int(walletStatus['blockCount'])
@@ -3966,7 +3967,7 @@ async def send(ctx, amount: str, CoinAddress: str):
         # Get wallet status
         walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
         if walletStatus is None:
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t started.')
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} I can not connect to wallet service or daemon.')
             return
         else:
             localDaemonBlockCount = int(walletStatus['blockCount'])
@@ -4445,7 +4446,7 @@ async def optimize(ctx, coin: str, member: discord.Member = None):
     # Get wallet status
     walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
     if walletStatus is None:
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t started.')
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} I can not connect to wallet service or daemon.')
         return
     else:
         localDaemonBlockCount = int(walletStatus['blockCount'])
@@ -5971,7 +5972,7 @@ async def _tip(ctx, amount, coin: str):
         # Get wallet status
         walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
         if walletStatus is None:
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t started.')
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} I can not connect to wallet service or daemon.')
             return
         else:
             localDaemonBlockCount = int(walletStatus['blockCount'])
@@ -6302,7 +6303,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
         # Get wallet status
         walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
         if walletStatus is None:
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t started.')
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} I can not connect to wallet service or daemon.')
             return
         else:
             localDaemonBlockCount = int(walletStatus['blockCount'])
@@ -6604,7 +6605,7 @@ async def _tip_react(reaction, user, amount, coin: str):
         # Get wallet status
         walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
         if walletStatus is None:
-            await user.send(f'{EMOJI_RED_NO} {user.mention} {COIN_NAME} Wallet service hasn\'t started.')
+            await user.send(f'{EMOJI_RED_NO} {user.mention} {COIN_NAME} I can not connect to wallet service or daemon.')
             return
         else:
             localDaemonBlockCount = int(walletStatus['blockCount'])

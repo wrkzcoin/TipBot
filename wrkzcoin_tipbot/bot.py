@@ -2538,9 +2538,9 @@ async def withdraw(ctx, amount: str, coin: str = None):
         MaxTX = get_max_tx_amount(coin = COIN_NAME)
         user_from = {}
         user_from['address'] = await DOGE_LTC_getaccountaddress(str(ctx.message.author.id), COIN_NAME)
-        user_from['actual_balance'] = float(await DOGE_LTC_getbalance_acc(ctx.message.author.id, COIN_NAME, 6))
+        user_from['actual_balance'] = float(await DOGE_LTC_getbalance_acc(str(ctx.message.author.id), COIN_NAME, 6))
         real_amount = float(amount)
-        userdata_balance = store.sql_doge_balance(ctx.message.author.id, COIN_NAME)
+        userdata_balance = store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
         NetFee = get_tx_fee(coin = COIN_NAME)
         if real_amount + NetFee > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -2563,7 +2563,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
         wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         withdrawTx = None
         if wallet['user_wallet_address']:
-            withdrawTx = await store.sql_external_doge_single(ctx.message.author.id, real_amount,
+            withdrawTx = await store.sql_external_doge_single(str(ctx.message.author.id), real_amount,
                                                               NetFee, wallet['user_wallet_address'],
                                                               COIN_NAME, "WITHDRAW")
         if withdrawTx:
@@ -3711,7 +3711,7 @@ async def tipall(ctx, amount: str, *args):
         MaxTX = config.daemonDOGE.max_mv_amount
         user_from = {}
         user_from['address'] = await DOGE_LTC_getaccountaddress(str(ctx.message.author.id), COIN_NAME)
-        user_from['actual_balance'] = float(await DOGE_LTC_getbalance_acc(ctx.message.author.id, COIN_NAME, 6))
+        user_from['actual_balance'] = float(await DOGE_LTC_getbalance_acc(str(ctx.message.author.id), COIN_NAME, 6))
         real_amount = float(amount)
         userdata_balance = store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
         if real_amount > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
@@ -4128,7 +4128,7 @@ async def send(ctx, amount: str, CoinAddress: str):
 
             user_from = {}
             user_from['address'] = await DOGE_LTC_getaccountaddress(str(ctx.message.author.id), COIN_NAME)
-            user_from['actual_balance'] = float(await DOGE_LTC_getbalance_acc(ctx.message.author.id, COIN_NAME, 6))
+            user_from['actual_balance'] = float(await DOGE_LTC_getbalance_acc(str(ctx.message.author.id), COIN_NAME, 6))
             real_amount = float(amount)
             userdata_balance = store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
             if real_amount + NetFee > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
@@ -6123,9 +6123,9 @@ async def _tip(ctx, amount, coin: str):
         MaxTX = config.daemonDOGE.max_mv_amount
         user_from = {}
         user_from['address'] = await DOGE_LTC_getaccountaddress(str(ctx.message.author.id), COIN_NAME)
-        user_from['actual_balance'] = float(await DOGE_LTC_getbalance_acc(ctx.message.author.id, COIN_NAME, 6))
+        user_from['actual_balance'] = float(await DOGE_LTC_getbalance_acc(str(ctx.message.author.id), COIN_NAME, 6))
         real_amount = float(amount)
-        userdata_balance = store.sql_doge_balance(ctx.message.author.id, COIN_NAME)
+        userdata_balance = store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
         if real_amount > user_from['actual_balance'] + userdata_balance['Adjust']:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
@@ -6163,7 +6163,7 @@ async def _tip(ctx, amount, coin: str):
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You don\'t have sufficient balance. ')
             return
         try:
-            tips = store.sql_mv_doge_multiple(ctx.message.author.id, memids, real_amount, COIN_NAME, "TIPS")
+            tips = store.sql_mv_doge_multiple(str(ctx.message.author.id), memids, real_amount, COIN_NAME, "TIPS")
             if ctx.message.author.bot == False and serverinfo['react_tip'] == "ON":
                 await ctx.message.add_reaction(EMOJI_TIP)
         except Exception as e:
@@ -6727,9 +6727,9 @@ async def _tip_react(reaction, user, amount, coin: str):
         MaxTX = config.daemonDOGE.max_mv_amount
         user_from = {}
         user_from['address'] = await DOGE_LTC_getaccountaddress(str(user.id), COIN_NAME)
-        user_from['actual_balance'] = float(await DOGE_LTC_getbalance_acc(user.id, COIN_NAME, 6))
+        user_from['actual_balance'] = float(await DOGE_LTC_getbalance_acc(str(user.id), COIN_NAME, 6))
         real_amount = float(amount)
-        userdata_balance = store.sql_doge_balance(user.id, COIN_NAME)
+        userdata_balance = store.sql_doge_balance(str(user.id), COIN_NAME)
         if real_amount > user_from['actual_balance'] + userdata_balance['Adjust']:
             await user.send(f'{EMOJI_RED_NO} {user.mention} Insufficient balance to send tip of '
                             f'{num_format_coin(real_amount, COIN_NAME)} '

@@ -1536,6 +1536,10 @@ async def info(ctx, coin: str = None):
         COIN_NAME = coin.upper()
         pass
 
+    if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR:
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**!')
+        return
+
     try:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     except Exception as e:

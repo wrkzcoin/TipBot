@@ -1612,18 +1612,6 @@ async def balance(ctx, coin: str = None):
             server_coin = serverinfo['default_coin'].upper()
         prefixChar = server_prefix
 
-    # check if bot channel is set:
-    if serverinfo and serverinfo['botchan']:
-        try: 
-            if ctx.channel.id != int(serverinfo['botchan']):
-                await ctx.message.add_reaction(EMOJI_ERROR)
-                botChan = bot.get_channel(id=int(serverinfo['botchan']))
-                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} is the bot channel!!!')
-                return
-        except ValueError:
-            pass
-    # end of bot channel check
-
     # Get wallet status
     walletStatus = None
     COIN_NAME = None
@@ -1971,6 +1959,23 @@ async def balance(ctx, coin: str = None):
 @bot.command(pass_context=True, aliases=['botbal'], help=bot_help_botbalance)
 async def botbalance(ctx, member: discord.Member, coin: str):
     global TRTL_DISCORD
+
+    # if public and there is a bot channel
+    if isinstance(ctx.channel, discord.DMChannel) == False:
+        serverinfo = get_info_pref_coin(ctx)
+        server_prefix = serverinfo['server_prefix']
+        # check if bot channel is set:
+        if serverinfo and serverinfo['botchan']:
+            try: 
+                if ctx.channel.id != int(serverinfo['botchan']):
+                    await ctx.message.add_reaction(EMOJI_ERROR)
+                    botChan = bot.get_channel(id=int(serverinfo['botchan']))
+                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} is the bot channel!!!')
+                    return
+            except ValueError:
+                pass
+        # end of bot channel check
+
     if member.bot == False:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Only for bot!!')
@@ -2200,6 +2205,22 @@ async def register(ctx, wallet_address: str):
         pass
     # End Check if maintenance
 
+    # if public and there is a bot channel
+    if isinstance(ctx.channel, discord.DMChannel) == False:
+        serverinfo = get_info_pref_coin(ctx)
+        server_prefix = serverinfo['server_prefix']
+        # check if bot channel is set:
+        if serverinfo and serverinfo['botchan']:
+            try: 
+                if ctx.channel.id != int(serverinfo['botchan']):
+                    await ctx.message.add_reaction(EMOJI_ERROR)
+                    botChan = bot.get_channel(id=int(serverinfo['botchan']))
+                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} is the bot channel!!!')
+                    return
+            except ValueError:
+                pass
+        # end of bot channel check
+
     if wallet_address.isalnum() == False:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
@@ -2345,12 +2366,23 @@ async def withdraw(ctx, amount: str, coin: str = None):
     else:
         pass
     # End Check if maintenance
+
     if isinstance(ctx.channel, discord.DMChannel):
         server_prefix = '.'
     else:
         serverinfo = get_info_pref_coin(ctx)
         server_prefix = serverinfo['server_prefix']
-
+        # check if bot channel is set:
+        if serverinfo and serverinfo['botchan']:
+            try: 
+                if ctx.channel.id != int(serverinfo['botchan']):
+                    await ctx.message.add_reaction(EMOJI_ERROR)
+                    botChan = bot.get_channel(id=int(serverinfo['botchan']))
+                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} is the bot channel!!!')
+                    return
+            except ValueError:
+                pass
+        # end of bot channel check
     try:
         amount = float(amount)
     except ValueError:
@@ -3808,6 +3840,22 @@ async def send(ctx, amount: str, CoinAddress: str):
     botLogChan = bot.get_channel(id=LOG_CHAN)
     amount = amount.replace(",", "")
 
+    # if public and there is a bot channel
+    if isinstance(ctx.channel, discord.DMChannel) == False:
+        serverinfo = get_info_pref_coin(ctx)
+        server_prefix = serverinfo['server_prefix']
+        # check if bot channel is set:
+        if serverinfo and serverinfo['botchan']:
+            try: 
+                if ctx.channel.id != int(serverinfo['botchan']):
+                    await ctx.message.add_reaction(EMOJI_ERROR)
+                    botChan = bot.get_channel(id=int(serverinfo['botchan']))
+                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} is the bot channel!!!')
+                    return
+            except ValueError:
+                pass
+        # end of bot channel check
+
     # Check flood of tip
     floodTip = store.sql_get_countLastTip(str(ctx.message.author.id), config.floodTipDuration)
     if floodTip >= config.floodTip:
@@ -4178,6 +4226,22 @@ async def address(ctx, *args):
     # TRTL discord
     if (isinstance(ctx.message.channel, discord.DMChannel) == False) and ctx.guild.id == TRTL_DISCORD:
         return
+
+    # if public and there is a bot channel
+    if isinstance(ctx.channel, discord.DMChannel) == False:
+        serverinfo = get_info_pref_coin(ctx)
+        server_prefix = serverinfo['server_prefix']
+        # check if bot channel is set:
+        if serverinfo and serverinfo['botchan']:
+            try: 
+                if ctx.channel.id != int(serverinfo['botchan']):
+                    await ctx.message.add_reaction(EMOJI_ERROR)
+                    botChan = bot.get_channel(id=int(serverinfo['botchan']))
+                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} is the bot channel!!!')
+                    return
+            except ValueError:
+                pass
+        # end of bot channel check
 
     if len(args) == 0:
         if isinstance(ctx.message.channel, discord.DMChannel):
@@ -4671,13 +4735,29 @@ async def paymentid(ctx, coin: str = None):
 async def stats(ctx, coin: str = None):
     global TRTL_DISCORD, NOTICE_COIN
     COIN_NAME = None
+    serverinfo = None
     if (coin is None) and isinstance(ctx.message.channel, discord.DMChannel) == False:
-            serverinfo = get_info_pref_coin(ctx)
-            COIN_NAME = serverinfo['default_coin'].upper()
+        serverinfo = get_info_pref_coin(ctx)
+        COIN_NAME = serverinfo['default_coin'].upper()
     elif (coin is None) and isinstance(ctx.message.channel, discord.DMChannel):
         COIN_NAME = "BOT"
+    elif coin and isinstance(ctx.message.channel, discord.DMChannel) == False:
+        serverinfo = get_info_pref_coin(ctx)
+        COIN_NAME = coin.upper()
     elif coin:
         COIN_NAME = coin.upper()
+
+    # check if bot channel is set:
+    if serverinfo and serverinfo['botchan']:
+        try: 
+            if ctx.channel.id != int(serverinfo['botchan']):
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                botChan = bot.get_channel(id=int(serverinfo['botchan']))
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} is the bot channel!!!')
+                return
+        except ValueError:
+            pass
+    # end of bot channel check
 
     if (COIN_NAME not in (ENABLE_COIN+ENABLE_XMR)) and COIN_NAME != "BOT":
         await ctx.message.add_reaction(EMOJI_ERROR)
@@ -4827,6 +4907,7 @@ async def stats(ctx, coin: str = None):
 async def height(ctx, coin: str = None):
     global TRTL_DISCORD
     COIN_NAME = None
+    serverinfo = None
     if coin is None:
         if isinstance(ctx.message.channel, discord.DMChannel):
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -4849,6 +4930,18 @@ async def height(ctx, coin: str = None):
             pass
     else:
         COIN_NAME = coin.upper()
+
+    # check if bot channel is set:
+    if serverinfo and serverinfo['botchan']:
+        try: 
+            if ctx.channel.id != int(serverinfo['botchan']):
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                botChan = bot.get_channel(id=int(serverinfo['botchan']))
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} is the bot channel!!!')
+                return
+        except ValueError:
+            pass
+    # end of bot channel check
 
     # TRTL discord
     if isinstance(ctx.message.channel, discord.DMChannel) == False and ctx.guild.id == TRTL_DISCORD and COIN_NAME != "TRTL":
@@ -5616,7 +5709,8 @@ def get_info_pref_coin(ctx):
             server_id = str(ctx.guild.id)
             server_prefix = serverinfo['prefix']
             server_coin = serverinfo['default_coin'].upper()
-        return {'server_prefix': server_prefix, 'default_coin': server_coin, 'server_id': server_id, 'servername': ctx.guild.name}
+            botchan = serverinfo['botchan'] or None
+        return {'server_prefix': server_prefix, 'default_coin': server_coin, 'server_id': server_id, 'servername': ctx.guild.name, 'botchan': botchan}
 
 
 def get_cn_coin_from_address(CoinAddress: str):

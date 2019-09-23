@@ -134,7 +134,7 @@ EMOJI_COIN = {
     "XTOR" : "\U0001F315",
     "LOKI" : "\u2600",
     "XMR" : "\u2694",
-    "XTRI" : "\U0001F30C",
+    "XEQ" : "\U0001F30C",
     "ARQ" : "\U0001F578",
     "BLOG" : "\u270D"
     }
@@ -149,7 +149,7 @@ EMOJI_LOCKED = "\U0001F512"
 
 ENABLE_COIN = config.Enable_Coin.split(",")
 ENABLE_COIN_DOGE = ["DOGE"]
-ENABLE_XMR = ["XTOR", "LOKI", "XMR", "XTRI", "BLOG", "ARQ"]
+ENABLE_XMR = ["XTOR", "LOKI", "XMR", "XEQ", "BLOG", "ARQ"]
 MAINTENANCE_COIN = []
 COIN_REPR = "COIN"
 DEFAULT_TICKER = "WRKZ"
@@ -175,7 +175,7 @@ NOTICE_COIN = {
     "NACA" : None,
     "XTOR" : None,
     "LOKI" : None,
-    "XTRI" : None,
+    "XEQ" : None,
     "ARQ" : None,
     "XMR" : None,
     "BLOG" : None,
@@ -1257,7 +1257,7 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
     else:
         table_data.append([COIN_NAME, "***", "***"])
     # End of Add XMR
-    COIN_NAME = "XTRI"
+    COIN_NAME = "XEQ"
     if COIN_NAME not in MAINTENANCE_COIN:
         wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
         if wallet is None:
@@ -1280,7 +1280,7 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
             table_data.append([COIN_NAME, balance_actual, balance_locked])
     else:
         table_data.append([COIN_NAME, "***", "***"])
-    # End of Add XTRI
+    # End of Add XEQ
     COIN_NAME = "ARQ"
     if COIN_NAME not in MAINTENANCE_COIN:
         wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
@@ -1773,7 +1773,7 @@ async def balance(ctx, coin: str = None):
         else:
             table_data.append([COIN_NAME, "***", "***"])
         # End of Add XMR
-        COIN_NAME = "XTRI"
+        COIN_NAME = "XEQ"
         if COIN_NAME not in MAINTENANCE_COIN:
             wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
             if wallet is None:
@@ -1797,7 +1797,7 @@ async def balance(ctx, coin: str = None):
                     table_data.append([COIN_NAME, balance_actual, balance_locked])
         else:
             table_data.append([COIN_NAME, "***", "***"])
-        # End of Add XTRI
+        # End of Add XEQ
         COIN_NAME = "BLOG"
         if COIN_NAME not in MAINTENANCE_COIN:
             wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
@@ -3510,6 +3510,10 @@ async def tipall(ctx, amount: str, *args):
             COIN_NAME = "WRKZ"
     else:
         COIN_NAME = args[0].upper()
+        if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR:
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**!')
+            return
+
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
         if coin_family not in ["TRTL", "XMR"]:
             if (args[0].upper() in ENABLE_COIN_DOGE):
@@ -5813,7 +5817,7 @@ def get_cn_coin_from_address(CoinAddress: str):
     elif CoinAddress.startswith("L") and (len(CoinAddress) == 95 or len(CoinAddress) == 106):
         COIN_NAME = "LOKI"
     elif CoinAddress.startswith("T") and (len(CoinAddress) == 97 or len(CoinAddress) == 98 or len(CoinAddress) == 109):
-        COIN_NAME = "XTRI"
+        COIN_NAME = "XEQ"
     elif CoinAddress.startswith("cms") and (len(CoinAddress) == 98 or len(CoinAddress) == 109):
         COIN_NAME = "BLOG"
     elif (CoinAddress.startswith("ar") or CoinAddress.startswith("aR")) and (len(CoinAddress) == 97 or len(CoinAddress) == 98 or len(CoinAddress) == 109):

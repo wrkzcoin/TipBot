@@ -50,8 +50,8 @@ async def update_balance():
     end = time.time()
     # End of XMR
     print('Done update balance: '+ COIN_NAME+ ' duration (s): '+str(end - start))
-    # XTRI:
-    COIN_NAME = "XTRI"
+    # XEQ:
+    COIN_NAME = "XEQ"
     asyncio.sleep(INTERVAL_EACH)
     print('Update balance: '+ COIN_NAME)
     start = time.time()
@@ -60,7 +60,7 @@ async def update_balance():
     except Exception as e:
         print(e)
     end = time.time()
-    # End of XTRI
+    # End of XEQ
     # BLOG:
     COIN_NAME = "BLOG"
     asyncio.sleep(INTERVAL_EACH)
@@ -82,7 +82,7 @@ async def update_balance():
     except Exception as e:
         print(e)
     end = time.time()
-    # End of XTRI
+    # End of ARQ
     print('Done update balance: '+ COIN_NAME+ ' duration (s): '+str(end - start))
     for coinItem in ENABLE_COIN:
         asyncio.sleep(INTERVAL_EACH)

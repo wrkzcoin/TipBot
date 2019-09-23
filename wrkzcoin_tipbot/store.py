@@ -820,8 +820,8 @@ def sql_get_donate_list():
                 donate_list.update({coin: 0})
             else:
                 donate_list.update({coin: float(result['donate'])})
-            # XTRI
-            coin = "XTRI"
+            # XEQ
+            coin = "XEQ"
             sql = """ SELECT SUM(amount) AS donate FROM """+coin.lower()+"""_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
             cur.execute(sql, (wallet.get_donate_address(coin)))
             result = cur.fetchone()

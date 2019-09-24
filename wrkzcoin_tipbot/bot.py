@@ -10,6 +10,9 @@ import time, timeago, json
 import pyotp
 
 import store, daemonrpc_client, addressvalidation
+from masari.address import address as address_msr
+from monero.address import address as address_xmr
+
 from config import config
 from wallet import *
 
@@ -136,6 +139,7 @@ EMOJI_COIN = {
     "XMR" : "\u2694",
     "XEQ" : "\U0001F30C",
     "ARQ" : "\U0001F578",
+    "MSR" : "\U0001F334",
     "BLOG" : "\u270D"
     }
 
@@ -149,7 +153,7 @@ EMOJI_LOCKED = "\U0001F512"
 
 ENABLE_COIN = config.Enable_Coin.split(",")
 ENABLE_COIN_DOGE = ["DOGE"]
-ENABLE_XMR = ["XTOR", "LOKI", "XMR", "XEQ", "BLOG", "ARQ"]
+ENABLE_XMR = ["XTOR", "LOKI", "XMR", "XEQ", "BLOG", "ARQ", "MSR"]
 MAINTENANCE_COIN = []
 COIN_REPR = "COIN"
 DEFAULT_TICKER = "WRKZ"
@@ -178,6 +182,7 @@ NOTICE_COIN = {
     "XEQ" : None,
     "ARQ" : None,
     "XMR" : None,
+    "MSR" : None,
     "BLOG" : None,
     "DOGE" : "Please acknowledge that DOGE address is for **one-time** use only for depositing.",
     "default": "Thank you for using."
@@ -1305,6 +1310,30 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
     else:
         table_data.append([COIN_NAME, "***", "***"])
     # End of Add ARQ
+    COIN_NAME = "MSR"
+    if COIN_NAME not in MAINTENANCE_COIN:
+        wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
+        if wallet is None:
+            userregister = await store.sql_register_user(str(user_id), COIN_NAME)
+            wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
+        if wallet:
+            actual = wallet['actual_balance']
+            locked = wallet['locked_balance']
+            userdata_balance = store.sql_xmr_balance(str(user_id), COIN_NAME)
+            balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
+            if actual == locked:
+                balance_locked = num_format_coin(0, COIN_NAME)
+            else:
+                if locked - actual + float(userdata_balance['Adjust']) < 0:
+                    balance_locked =  num_format_coin(0, COIN_NAME)
+                else:
+                    balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
+            if wallet['user_wallet_address'] is None:
+                COIN_NAME += '*'
+            table_data.append([COIN_NAME, balance_actual, balance_locked])
+    else:
+        table_data.append([COIN_NAME, "***", "***"])
+    # End of Add MSR
     COIN_NAME = "BLOG"
     if COIN_NAME not in MAINTENANCE_COIN:
         wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
@@ -1848,6 +1877,31 @@ async def balance(ctx, coin: str = None):
         else:
             table_data.append([COIN_NAME, "***", "***"])
         # End of Add ARQ
+        COIN_NAME = "MSR"
+        if COIN_NAME not in MAINTENANCE_COIN:
+            wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+            if wallet is None:
+                userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+                wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+            if wallet:
+                actual = wallet['actual_balance']
+                locked = wallet['locked_balance']
+                userdata_balance = store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
+                balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
+                if actual == locked:
+                    balance_locked = num_format_coin(0, COIN_NAME)
+                else:
+                    if locked - actual + float(userdata_balance['Adjust']) < 0:
+                        balance_locked =  num_format_coin(0, COIN_NAME)
+                    else:
+                        balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
+                if wallet['user_wallet_address'] is None:
+                    COIN_NAME += '*'
+                if actual + float(userdata_balance['Adjust']) != 0:
+                    table_data.append([COIN_NAME, balance_actual, balance_locked])
+        else:
+            table_data.append([COIN_NAME, "***", "***"])
+        # End of Add MSR
         table = AsciiTable(table_data)
         # table.inner_column_border = False
         # table.outer_border = False
@@ -2321,18 +2375,25 @@ async def register(ctx, wallet_address: str):
         if coin_family == "TRTL" or coin_family == "CCX":
             valid_address = addressvalidation.validate_address_cn(wallet_address, COIN_NAME)
         elif coin_family == "XMR":
-            valid_address = await validate_address_xmr(str(wallet_address), COIN_NAME)
-            if valid_address is None:
-                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
-                               f'`{wallet_address}`')
-            if valid_address['valid'] == True and valid_address['integrated'] == False \
-                and valid_address['subaddress'] == False and valid_address['nettype'] == 'mainnet':
-                # re-value valid_address
-                valid_address = str(wallet_address)
+            if COIN_NAME != "MSR":
+                valid_address = await validate_address_xmr(str(wallet_address), COIN_NAME)
+                if valid_address is None:
+                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
+                                   f'`{wallet_address}`')
+                if valid_address['valid'] == True and valid_address['integrated'] == False \
+                    and valid_address['subaddress'] == False and valid_address['nettype'] == 'mainnet':
+                    # re-value valid_address
+                    valid_address = str(wallet_address)
+                else:
+                    await ctx.message.add_reaction(EMOJI_ERROR)
+                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Please use {COIN_NAME} main address.')
+                    return
             else:
-                await ctx.message.add_reaction(EMOJI_ERROR)
-                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Please use {COIN_NAME} main address.')
-                return
+                valid_address = address_msr(wallet_address)
+                if type(valid_address).__name__ != "Address":
+                    await ctx.message.add_reaction(EMOJI_ERROR)
+                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Please use {COIN_NAME} main address.')
+                    return
         else:
             await ctx.message.add_reaction(EMOJI_WARNING)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Unknown Ticker.')
@@ -2451,6 +2512,11 @@ async def withdraw(ctx, amount: str, coin: str = None):
         return
 
     COIN_NAME = coin.upper()
+    if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR:
+        await ctx.message.add_reaction(EMOJI_WARNING)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Unknown Ticker.')
+        return
+
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
 
     if COIN_NAME in MAINTENANCE_COIN:
@@ -3968,29 +4034,18 @@ async def send(ctx, amount: str, CoinAddress: str):
 
         print('{} - {} - {}'.format(COIN_NAME, addressLength, IntaddressLength))
         if len(CoinAddress) == int(addressLength):
-            if coin_family == "TRTL" or coin_family == "CCX":
-                valid_address = addressvalidation.validate_address_cn(CoinAddress, COIN_NAME)
-                # print(valid_address)
-                if valid_address is None:
-                    await ctx.message.add_reaction(EMOJI_ERROR)
-                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
-                                   f'`{CoinAddress}`')
-                    return
-                if valid_address != CoinAddress:
-                    await ctx.message.add_reaction(EMOJI_ERROR)
-                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
-                                   f'`{CoinAddress}`')
-                    return
-            elif COIN_NAME in ENABLE_XMR:
-                valid_address = await validate_address_xmr(str(CoinAddress), COIN_NAME)
-                if valid_address['valid'] == True:
-                    valid_address = CoinAddress
-                    pass
-                else:
-                    await ctx.message.add_reaction(EMOJI_ERROR)
-                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
-                                   f'`{CoinAddress}`')
-                    return
+            valid_address = addressvalidation.validate_address_cn(CoinAddress, COIN_NAME)
+            # print(valid_address)
+            if valid_address is None:
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
+                               f'`{CoinAddress}`')
+                return
+            if valid_address != CoinAddress:
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
+                               f'`{CoinAddress}`')
+                return
         elif len(CoinAddress) == int(IntaddressLength):
             valid_address = addressvalidation.validate_integrated_cn(CoinAddress, COIN_NAME)
             # print(valid_address)
@@ -4148,12 +4203,14 @@ async def send(ctx, amount: str, CoinAddress: str):
         addressLength = get_addrlen(COIN_NAME)
         IntaddressLength = get_intaddrlen(COIN_NAME)
 
-        valid_address = await validate_address_xmr(str(CoinAddress), COIN_NAME)
-        if valid_address['valid'] == False or valid_address['nettype'] != 'mainnet':
-                await ctx.message.add_reaction(EMOJI_ERROR)
-                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Address: `{CoinAddress}` '
-                               'is invalid.')
-                return
+        # If not Masari
+        if COIN_NAME != "MSR":
+            valid_address = await validate_address_xmr(str(CoinAddress), COIN_NAME)
+            if valid_address['valid'] == False or valid_address['nettype'] != 'mainnet':
+                    await ctx.message.add_reaction(EMOJI_ERROR)
+                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Address: `{CoinAddress}` '
+                                   'is invalid.')
+                    return
         # OK valid address
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         userdata_balance = store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
@@ -4361,9 +4418,9 @@ async def address(ctx, *args):
         return
     # Check which coinname is it.
     COIN_NAME = get_cn_coin_from_address(CoinAddress)
-    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    coin_family = None
     if COIN_NAME:
-        pass
+        coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     else:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
@@ -4412,6 +4469,46 @@ async def address(ctx, *args):
                                 'Checked: Invalid.')
                 return
         elif COIN_NAME in ENABLE_XMR:
+            if COIN_NAME == "MSR":
+                addr = None
+                if len(CoinAddress) == 95:
+                    try:
+                        addr = address_msr(CoinAddress)
+                    except Exception as e:
+                        # traceback.print_exc(file=sys.stdout)
+                        pass
+                elif len(CoinAddress) == 106:
+                    addr = None
+                    try:
+                        addr = address_msr(CoinAddress)
+                    except Exception as e:
+                        # traceback.print_exc(file=sys.stdout)
+                        pass
+                # print(addr)
+                # print(type(addr))
+                if addr == CoinAddress:
+                    address_result = 'Valid: `{}`\n'.format(addr)                    
+                    if type(addr).__name__ == "Address":
+                        address_result += 'Main Address: `{}`\n'.format('True')
+                    else:
+                        address_result += 'Main Address: `{}`\n'.format('False')
+                    if type(addr).__name__ == "IntegratedAddress":
+                        address_result += 'Integrated: `{}`\n'.format('True')
+                    else:
+                        address_result += 'Integrated: `{}`\n'.format('False')
+                    if type(addr).__name__ == "SubAddress":
+                        address_result += 'Subaddress: `{}`\n'.format('True')
+                    else:
+                        address_result += 'Subaddress: `{}`\n'.format('False')
+                    print(address_result)
+                    await ctx.message.add_reaction(EMOJI_CHECK)
+                    await ctx.send(f'{EMOJI_CHECK} Address: `{CoinAddress}`\n{address_result}')
+                    return
+                else:
+                    await ctx.message.add_reaction(EMOJI_ERROR)
+                    await ctx.send(f'{EMOJI_RED_NO} Address: `{CoinAddress}`\n'
+                                    'Checked: Invalid.')
+                    return
             valid_address = await validate_address_xmr(str(CoinAddress), COIN_NAME)
             if valid_address is None:
                 await ctx.send(f'{EMOJI_RED_NO} Address: `{CoinAddress}`\n'
@@ -5812,8 +5909,28 @@ def get_cn_coin_from_address(CoinAddress: str):
         COIN_NAME = "TRTL"
     elif CoinAddress.startswith("bit") and (len(CoinAddress) == 98 or len(CoinAddress) == 109):
         COIN_NAME = "XTOR"
-    elif (CoinAddress.startswith("4") or CoinAddress.startswith("8")) and (len(CoinAddress) == 95 or len(CoinAddress) == 106):
-        COIN_NAME = "XMR"
+    elif (CoinAddress.startswith("4") or CoinAddress.startswith("8") or CoinAddress.startswith("5") or CoinAddress.startswith("9")) \
+        and (len(CoinAddress) == 95 or len(CoinAddress) == 106):
+        # XMR / MSR
+        # 5, 9: MSR
+        # 4, 8: XMR
+        addr = None
+        # Try MSR
+        try:
+            addr = address_msr(CoinAddress)
+            COIN_NAME = "MSR"
+            return COIN_NAME
+        except Exception as e:
+            # traceback.print_exc(file=sys.stdout)
+            pass
+        # Try XMR
+        try:
+            addr = address_xmr(CoinAddress)
+            COIN_NAME = "XMR"
+            return COIN_NAME
+        except Exception as e:
+            # traceback.print_exc(file=sys.stdout)
+            pass
     elif CoinAddress.startswith("L") and (len(CoinAddress) == 95 or len(CoinAddress) == 106):
         COIN_NAME = "LOKI"
     elif CoinAddress.startswith("T") and (len(CoinAddress) == 97 or len(CoinAddress) == 98 or len(CoinAddress) == 109):
@@ -5822,10 +5939,14 @@ def get_cn_coin_from_address(CoinAddress: str):
         COIN_NAME = "BLOG"
     elif (CoinAddress.startswith("ar") or CoinAddress.startswith("aR")) and (len(CoinAddress) == 97 or len(CoinAddress) == 98 or len(CoinAddress) == 109):
         COIN_NAME = "ARQ"
+    elif (CoinAddress.startswith("5") or CoinAddress.startswith("9")) and (len(CoinAddress) == 95 or len(CoinAddress) == 106):
+        COIN_NAME = "MSR"
     elif CoinAddress.startswith("D") and len(CoinAddress) == 34:
         COIN_NAME = "DOGE"
     # elif (CoinAddress[0] in ["3", "M", "L"]) and (len(CoinAddress) == 34:
         # COIN_NAME = "LTC"
+    print('get_cn_coin_from_address return: ')
+    print(COIN_NAME)
     return COIN_NAME
 
 

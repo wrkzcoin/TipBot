@@ -2715,10 +2715,16 @@ async def withdraw(ctx, amount: str, coin: str = None):
             return
         wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         withdrawTx = None
-        if wallet['user_wallet_address']:
-            withdrawTx = await store.sql_external_doge_single(str(ctx.message.author.id), real_amount,
-                                                              NetFee, wallet['user_wallet_address'],
-                                                              COIN_NAME, "WITHDRAW")
+        if ctx.message.author.id not in WITHDRAW_IN_PROCESS:
+            WITHDRAW_IN_PROCESS.append(ctx.message.author.id)
+            try:
+                if wallet['user_wallet_address']:
+                    withdrawTx = await store.sql_external_doge_single(str(ctx.message.author.id), real_amount,
+                                                                      NetFee, wallet['user_wallet_address'],
+                                                                      COIN_NAME, "WITHDRAW")
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            WITHDRAW_IN_PROCESS.remove(ctx.message.author.id)
         if withdrawTx:
             withdrawAddress = wallet['user_wallet_address']
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
@@ -4313,9 +4319,15 @@ async def send(ctx, amount: str, CoinAddress: str):
                                f'{num_format_coin(MaxTX, COIN_NAME)} '
                                f'{COIN_NAME}.')
                 return
-
-            SendTx = await store.sql_external_doge_single(str(ctx.message.author.id), real_amount, NetFee,
-                                                          CoinAddress, COIN_NAME, "SEND")
+            SendTx = None
+            if ctx.message.author.id not in WITHDRAW_IN_PROCESS:
+                WITHDRAW_IN_PROCESS.append(ctx.message.author.id)
+                try:
+                    SendTx = await store.sql_external_doge_single(str(ctx.message.author.id), real_amount, NetFee,
+                                                                  CoinAddress, COIN_NAME, "SEND")
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                WITHDRAW_IN_PROCESS.remove(ctx.message.author.id)
             if SendTx:
                 await ctx.message.add_reaction(get_emoji(COIN_NAME))
                 await botLogChan.send(f'A user successfully executed `.send {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`.')

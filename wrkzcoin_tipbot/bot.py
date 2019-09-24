@@ -62,12 +62,12 @@ FAUCET_COINS = ["WRKZ", "TRTL", "DEGO", "MTIP", "DOGE", "BTCMZ"]
 
 # DOGE will divide by 10 after random
 FAUCET_MINMAX = {
-    "WRKZ": [1000, 5000],
-    "DEGO": [5000, 20000],
-    "MTIP": [10, 25],
-    "TRTL": [5, 10],
+    "WRKZ": [1000, 2500],
+    "DEGO": [2500, 10000],
+    "MTIP": [5, 15],
+    "TRTL": [3, 10],
     "DOGE": [1, 3],
-    "BTCMZ": [5000, 10000]
+    "BTCMZ": [2500, 5000]
     }
 
 

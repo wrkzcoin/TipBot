@@ -322,6 +322,33 @@ async def on_guild_join(guild):
 
 
 @bot.event
+async def on_raw_reaction_add(payload):
+    global EMOJI_OK_BOX
+    if payload.guild_id is None:
+        return  # Reaction is on a private message
+    """Handle a reaction add."""
+    emoji_partial = str(payload.emoji)
+    message_id = payload.message_id
+    channel_id = payload.channel_id
+    user_id = payload.user_id
+    guild = bot.get_guild(payload.guild_id)
+    channel = bot.get_channel(id=channel_id)
+    if not channel:
+        return
+    if isinstance(channel, discord.DMChannel):
+        return
+    message = await channel.fetch_message(message_id)
+    author = message.author
+    member = bot.get_user(id=user_id)
+
+    if emoji_partial in [EMOJI_OK_BOX] and message.author.id == bot.user.id \
+        and author != member:
+        # Delete message
+        await message.delete()
+        return
+
+
+@bot.event
 async def on_reaction_add(reaction, user):
     global REACT_TIP_STORE, TRTL_DISCORD, EMOJI_99, EMOJI_TIP
     # If bot re-act, ignore.

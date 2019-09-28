@@ -171,10 +171,10 @@ NOTICE_COIN = {
     "XCY" : None,
     "PLE" : None,
     "ELPH" : None,
-    "ANX" : None,
+    "ANX" : "ANX will be delisted soon. All seed node dead.",
     "NBX" : None,
     "ARMS" : None,
-    "IRD" : None,
+    "IRD" : "IRD will be delisted. Please do not deposit,",
     "HITC" : None,
     "NACA" : None,
     "XTOR" : None,
@@ -1688,7 +1688,6 @@ async def balance(ctx, coin: str = None):
                 if wallet is None:
                     table_data.append([COIN_NAME, "N/A", "N/A"])
                     await botLogChan.send(f'A user call `{prefixChar}balance` failed with {COIN_NAME}')
-                    return
                 else:
                     balance_actual = num_format_coin(wallet['actual_balance'], COIN_NAME)
                     balance_locked = num_format_coin(wallet['locked_balance'], COIN_NAME)

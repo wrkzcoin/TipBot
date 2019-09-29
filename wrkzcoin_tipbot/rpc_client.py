@@ -28,6 +28,10 @@ async def call_aiohttp_wallet(method_name: str, coin: str, time_out: int = None,
     timeout = time_out or 32
     if method_name == "save" or method_name == "store":
         timeout = 300
+    elif method_name == "sendTransaction":
+        timeout = 180
+    elif method_name == "createAddress" or method_name == "getSpendKeys":
+        timeout = 60
     try:
         if coin_family == "XMR":
             async with aiohttp.ClientSession(headers={'Content-Type': 'application/json'}) as session:

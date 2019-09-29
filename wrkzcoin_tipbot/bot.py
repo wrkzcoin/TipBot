@@ -3165,7 +3165,7 @@ async def take(ctx):
             await msg.add_reaction(EMOJI_OK_BOX)
             return
         else:
-            await ctx.send(f'{ctx.author.mention} Please try again later.')
+            await ctx.send(f'{ctx.author.mention} Please try again later. Failed during executing tx **{COIN_NAME}**.')
             await ctx.message.add_reaction(EMOJI_ERROR)
 
     elif coin_family == "XMR":
@@ -3190,7 +3190,7 @@ async def take(ctx):
             await msg.add_reaction(EMOJI_OK_BOX)
             return
         else:
-            await ctx.send(f'{ctx.author.mention} Please try again later.')
+            await ctx.send(f'{ctx.author.mention} Please try again later. Failed during executing tx **{COIN_NAME}**.')
             await ctx.message.add_reaction(EMOJI_ERROR)
             return
     elif coin_family == "DOGE":
@@ -3211,7 +3211,7 @@ async def take(ctx):
             await msg.add_reaction(EMOJI_OK_BOX)
             return
         else:
-            await ctx.send(f'{ctx.author.mention} Please try again later.')
+            await ctx.send(f'{ctx.author.mention} Please try again later. Failed during executing tx **{COIN_NAME}**.')
             await ctx.message.add_reaction(EMOJI_ERROR)
             return
 

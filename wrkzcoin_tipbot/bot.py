@@ -1205,7 +1205,7 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
             balance_locked = num_format_coin(0, COIN_NAME)
         else:
             balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
-            if locked - actual + float(userdata_balance['Adjust']) < 0:
+            if locked - actual + float(userdata_balance['Adjust']) < 0 or locked == 0:
                 balance_locked =  num_format_coin(0, COIN_NAME)
             else:
                 balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
@@ -1231,7 +1231,7 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
             if actual == locked:
                 balance_locked = num_format_coin(0, COIN_NAME)
             else:
-                if locked - actual + float(userdata_balance['Adjust']) < 0:
+                if locked - actual + float(userdata_balance['Adjust']) < 0 or locked == 0:
                     balance_locked =  num_format_coin(0, COIN_NAME)
                 else:
                     balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
@@ -1255,7 +1255,7 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
             if actual == locked:
                 balance_locked = num_format_coin(0, COIN_NAME)
             else:
-                if locked - actual + float(userdata_balance['Adjust']) < 0:
+                if locked - actual + float(userdata_balance['Adjust']) < 0 or locked == 0:
                     balance_locked =  num_format_coin(0, COIN_NAME)
                 else:
                     balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
@@ -1279,7 +1279,7 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
             if actual == locked:
                 balance_locked = num_format_coin(0, COIN_NAME)
             else:
-                if locked - actual + float(userdata_balance['Adjust']) < 0:
+                if locked - actual + float(userdata_balance['Adjust']) < 0 or locked == 0:
                     balance_locked =  num_format_coin(0, COIN_NAME)
                 else:
                     balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
@@ -1303,7 +1303,7 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
             if actual == locked:
                 balance_locked = num_format_coin(0, COIN_NAME)
             else:
-                if locked - actual + float(userdata_balance['Adjust']) < 0:
+                if locked - actual + float(userdata_balance['Adjust']) < 0 or locked == 0:
                     balance_locked =  num_format_coin(0, COIN_NAME)
                 else:
                     balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
@@ -1327,7 +1327,7 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
             if actual == locked:
                 balance_locked = num_format_coin(0, COIN_NAME)
             else:
-                if locked - actual + float(userdata_balance['Adjust']) < 0:
+                if locked - actual + float(userdata_balance['Adjust']) < 0 or locked == 0:
                     balance_locked =  num_format_coin(0, COIN_NAME)
                 else:
                     balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
@@ -1351,7 +1351,7 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
             if actual == locked:
                 balance_locked = num_format_coin(0, COIN_NAME)
             else:
-                if locked - actual + float(userdata_balance['Adjust']) < 0:
+                if locked - actual + float(userdata_balance['Adjust']) < 0 or locked == 0:
                     balance_locked =  num_format_coin(0, COIN_NAME)
                 else:
                     balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
@@ -1375,7 +1375,7 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
             if actual == locked:
                 balance_locked = num_format_coin(0, COIN_NAME)
             else:
-                if locked - actual + float(userdata_balance['Adjust']) < 0:
+                if locked - actual + float(userdata_balance['Adjust']) < 0 or locked == 0:
                     balance_locked =  num_format_coin(0, COIN_NAME)
                 else:
                     balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
@@ -1741,7 +1741,7 @@ async def balance(ctx, coin: str = None):
                 balance_locked = num_format_coin(0, COIN_NAME)
             else:
                 balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
-                if locked - actual + float(userdata_balance['Adjust']) < 0:
+                if locked - actual + float(userdata_balance['Adjust']) < 0 or locked == 0:
                     balance_locked =  num_format_coin(0, COIN_NAME)
                 else:
                     balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
@@ -1767,7 +1767,7 @@ async def balance(ctx, coin: str = None):
                 if actual == locked:
                     balance_locked = num_format_coin(0, COIN_NAME)
                 else:
-                    if locked - actual + float(userdata_balance['Adjust']) < 0:
+                    if locked - actual + float(userdata_balance['Adjust']) < 0 or locked == 0:
                         balance_locked =  num_format_coin(0, COIN_NAME)
                     else:
                         balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
@@ -1792,7 +1792,7 @@ async def balance(ctx, coin: str = None):
                 if actual == locked:
                     balance_locked = num_format_coin(0, COIN_NAME)
                 else:
-                    if locked - actual + float(userdata_balance['Adjust']) < 0:
+                    if locked - actual + float(userdata_balance['Adjust']) < 0 or locked == 0:
                         balance_locked =  num_format_coin(0, COIN_NAME)
                     else:
                         balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
@@ -1817,7 +1817,7 @@ async def balance(ctx, coin: str = None):
                 if actual == locked:
                     balance_locked = num_format_coin(0, COIN_NAME)
                 else:
-                    if locked - actual + float(userdata_balance['Adjust']) < 0:
+                    if locked - actual + float(userdata_balance['Adjust']) < 0 or locked == 0:
                         balance_locked =  num_format_coin(0, COIN_NAME)
                     else:
                         balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
@@ -1842,7 +1842,7 @@ async def balance(ctx, coin: str = None):
                 if actual == locked:
                     balance_locked = num_format_coin(0, COIN_NAME)
                 else:
-                    if locked - actual + float(userdata_balance['Adjust']) < 0:
+                    if locked - actual + float(userdata_balance['Adjust']) < 0 or locked == 0:
                         balance_locked =  num_format_coin(0, COIN_NAME)
                     else:
                         balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
@@ -1867,7 +1867,7 @@ async def balance(ctx, coin: str = None):
                 if actual == locked:
                     balance_locked = num_format_coin(0, COIN_NAME)
                 else:
-                    if locked - actual + float(userdata_balance['Adjust']) < 0:
+                    if locked - actual + float(userdata_balance['Adjust']) < 0 or locked == 0:
                         balance_locked =  num_format_coin(0, COIN_NAME)
                     else:
                         balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
@@ -1892,7 +1892,7 @@ async def balance(ctx, coin: str = None):
                 if actual == locked:
                     balance_locked = num_format_coin(0, COIN_NAME)
                 else:
-                    if locked - actual + float(userdata_balance['Adjust']) < 0:
+                    if locked - actual + float(userdata_balance['Adjust']) < 0 or locked == 0:
                         balance_locked =  num_format_coin(0, COIN_NAME)
                     else:
                         balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
@@ -1917,7 +1917,7 @@ async def balance(ctx, coin: str = None):
                 if actual == locked:
                     balance_locked = num_format_coin(0, COIN_NAME)
                 else:
-                    if locked - actual + float(userdata_balance['Adjust']) < 0:
+                    if locked - actual + float(userdata_balance['Adjust']) < 0 or locked == 0:
                         balance_locked =  num_format_coin(0, COIN_NAME)
                     else:
                         balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
@@ -1979,7 +1979,7 @@ async def balance(ctx, coin: str = None):
                 balance_locked = num_format_coin(0 , COIN_NAME)
             else:
                 balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
-                if locked - actual + float(userdata_balance['Adjust']) < 0:
+                if locked - actual + float(userdata_balance['Adjust']) < 0 or locked == 0:
                     balance_locked = num_format_coin(0, COIN_NAME)
                 else:
                     balance_locked = num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
@@ -2005,7 +2005,7 @@ async def balance(ctx, coin: str = None):
             balance_locked = num_format_coin(0 , COIN_NAME)
         else:
             balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
-            if locked - actual + float(userdata_balance['Adjust']) < 0:
+            if locked - actual + float(userdata_balance['Adjust']) < 0 or locked == 0:
                 balance_locked = num_format_coin(0, COIN_NAME)
             else:
                 balance_locked = num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
@@ -2192,7 +2192,7 @@ async def botbalance(ctx, member: discord.Member, coin: str):
             balance_locked = num_format_coin(0 , COIN_NAME)
         else:
             balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
-            if locked - actual + float(userdata_balance['Adjust']) < 0:
+            if locked - actual + float(userdata_balance['Adjust']) < 0 or locked == 0:
                 balance_locked =  num_format_coin(0, COIN_NAME)
             else:
                 balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
@@ -2220,7 +2220,7 @@ async def botbalance(ctx, member: discord.Member, coin: str):
             if actual == locked:
                 balance_locked = num_format_coin(0, COIN_NAME)
             else:
-                if locked - actual + float(userdata_balance['Adjust']) < 0:
+                if locked - actual + float(userdata_balance['Adjust']) < 0 or locked == 0:
                     balance_locked =  num_format_coin(0, COIN_NAME)
                 else:
                     balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
@@ -7158,7 +7158,7 @@ async def bot_faucet(ctx):
             balance_locked = num_format_coin(0, COIN_NAME)
         else:
             balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
-            if locked - actual + float(userdata_balance['Adjust']) < 0:
+            if locked - actual + float(userdata_balance['Adjust']) < 0 or locked == 0:
                 balance_locked =  num_format_coin(0, COIN_NAME)
             else:
                 balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)

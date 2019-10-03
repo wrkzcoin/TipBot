@@ -4990,13 +4990,12 @@ async def stats(ctx, coin: str = None):
         return
 
     gettopblock = None
-    timeout = 60
+    timeout = 30
     try:
         gettopblock = await daemonrpc_client.gettopblock(COIN_NAME, time_out=timeout)
     except asyncio.TimeoutError:
-        msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} connection to daemon timeout after {str(timeout)} seconds.')
+        msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} connection to daemon timeout after {str(timeout)} seconds. I am checking info from wallet now.')
         await msg.add_reaction(EMOJI_OK_BOX)
-        return
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     walletStatus = None
@@ -5096,9 +5095,49 @@ async def stats(ctx, coin: str = None):
                 await msg.add_reaction(EMOJI_OK_BOX)
             return
     else:
-        msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME}\'s status unavailable.')
-        await msg.add_reaction(EMOJI_OK_BOX)
-        return
+        if gettopblock is None and coin_family == "TRTL" and walletStatus:
+            localDaemonBlockCount = int(walletStatus['blockCount'])
+            networkBlockCount = int(walletStatus['knownBlockCount'])
+            t_percent = '{:,.2f}'.format(truncate(localDaemonBlockCount/networkBlockCount*100,2))
+            t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
+            t_networkBlockCount = '{:,}'.format(networkBlockCount)
+            walletBalance = await get_sum_balances(COIN_NAME)          
+            embed = discord.Embed(title=f"[ {COIN_NAME} ]", description="Daemon RPC not available", timestamp=datetime.utcnow(), color=0xDEADBF)
+            embed.set_author(name=bot.user.name, icon_url=bot.user.avatar_url)
+            embed.add_field(name="LOCAL DAEMON", value=str(t_localDaemonBlockCount), inline=True)
+            embed.add_field(name="NETWORK", value=str(t_networkBlockCount), inline=True)
+            embed.add_field(name="WALLET SYNC %", value=t_percent, inline=True)
+            embed.add_field(name="TOTAL UNLOCKED", value=num_format_coin(walletBalance['unlocked'], COIN_NAME) + COIN_NAME, inline=True)
+            embed.add_field(name="TOTAL LOCKED", value=num_format_coin(walletBalance['locked'], COIN_NAME) + COIN_NAME, inline=True)
+            if NOTICE_COIN[COIN_NAME]:
+                notice_txt = NOTICE_COIN[COIN_NAME]
+            else:
+                notice_txt = NOTICE_COIN['default']
+            embed.set_footer(text=notice_txt)
+            try:
+                msg = await ctx.send(embed=embed)
+                await msg.add_reaction(EMOJI_OK_BOX)
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                # if embedded denied
+                balance_str = ''
+                if ('unlocked' in walletBalance) and ('locked' in walletBalance):
+                    balance_actual = num_format_coin(walletBalance['unlocked'], COIN_NAME)
+                    balance_locked = num_format_coin(walletBalance['locked'], COIN_NAME)
+                    balance_str = f'[TOTAL UNLOCKED] {balance_actual}{COIN_NAME}\n'
+                    balance_str = balance_str + f'[TOTAL LOCKED]   {balance_locked}{COIN_NAME}'
+                    msg = await ctx.send(f'**[ {COIN_NAME} ]**\n'
+                                   f'```[LOCAL DAEMON]   {t_localDaemonBlockCount}\n'
+                                   f'[NETWORK]        {t_networkBlockCount}\n'
+                                   f'[WALLET SYNC %]: {t_percent}\n'
+                                   f'{balance_str}'
+                                   '```'
+                                   )
+                await msg.add_reaction(EMOJI_OK_BOX)
+            return
+        else:
+            msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME}\'s status unavailable.')
+            await msg.add_reaction(EMOJI_OK_BOX)
+            return
 
 
 @bot.command(pass_context=True, help=bot_help_height, hidden = True)

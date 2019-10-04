@@ -9,7 +9,7 @@ from discord.utils import get
 import time, timeago, json
 import pyotp
 
-import store, daemonrpc_client, addressvalidation
+import store, daemonrpc_client, addressvalidation, walletapi
 from masari.address import address as address_msr
 from monero.address import address as address_xmr
 
@@ -5058,7 +5058,10 @@ async def stats(ctx, coin: str = None):
             t_percent = '{:,.2f}'.format(truncate(localDaemonBlockCount/networkBlockCount*100,2))
             t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
             t_networkBlockCount = '{:,}'.format(networkBlockCount)
-            walletBalance = await get_sum_balances(COIN_NAME)          
+            if COIN_NAME in WALLET_API_COIN:
+                walletBalance = await walletapi.walletapi_get_sum_balances(COIN_NAME)    
+            else:
+                walletBalance = await get_sum_balances(COIN_NAME)          
             embed = discord.Embed(title=f"[ {COIN_NAME} ]", description="Coin Stats", timestamp=datetime.utcnow(), color=0xDEADBF)
             embed.set_author(name=bot.user.name, icon_url=bot.user.avatar_url)
             embed.add_field(name="NET HEIGHT", value=str(height), inline=True)
@@ -5104,7 +5107,10 @@ async def stats(ctx, coin: str = None):
             t_percent = '{:,.2f}'.format(truncate(localDaemonBlockCount/networkBlockCount*100,2))
             t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
             t_networkBlockCount = '{:,}'.format(networkBlockCount)
-            walletBalance = await get_sum_balances(COIN_NAME)          
+            if COIN_NAME in WALLET_API_COIN:
+                walletBalance = await walletapi.walletapi_get_sum_balances(COIN_NAME)    
+            else:
+                walletBalance = await get_sum_balances(COIN_NAME)          
             embed = discord.Embed(title=f"[ {COIN_NAME} ]", description="Daemon RPC not available", timestamp=datetime.utcnow(), color=0xDEADBF)
             embed.set_author(name=bot.user.name, icon_url=bot.user.avatar_url)
             embed.add_field(name="LOCAL DAEMON", value=str(t_localDaemonBlockCount), inline=True)

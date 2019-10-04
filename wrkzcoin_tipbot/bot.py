@@ -60,6 +60,9 @@ REACT_TIP_STORE = []
 # faucet enabled coin. The faucet balance is taken from TipBot's own balance
 FAUCET_COINS = ["WRKZ", "TRTL", "DEGO", "MTIP", "DOGE", "BTCMZ"]
 
+# Coin using wallet-api
+WALLET_API_COIN = ["DEGO"]
+
 # DOGE will divide by 10 after random
 FAUCET_MINMAX = {
     "WRKZ": [1000, 2500],

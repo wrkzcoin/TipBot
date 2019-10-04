@@ -164,6 +164,7 @@ async def walletapi_get_some_balances(wallet_addresses: List[str], coin: str) ->
                     json_resp = await response.json()
                     if response.status == 200 or response.status == 201:
                         wallet = await response.json()
+                        wallet['address'] = address
                         wallets.append(wallet)
                     elif 'errorMessage' in json_resp:
                         raise RPCException(json_resp['errorMessage'])

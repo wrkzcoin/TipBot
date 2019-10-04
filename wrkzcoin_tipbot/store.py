@@ -483,7 +483,10 @@ async def sql_send_tip(user_from: str, user_to: str, amount: int, tiptype: str, 
                                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
                         cur.execute(sql, (COIN_NAME, user_from, user_to, amount, wallet.get_decimal(COIN_NAME), timestamp, tx_hash, tiptype.upper(),))
                         conn.commit()
-                        await sql_update_some_balances([user_from_wallet['balance_wallet_address'], user_to_wallet['balance_wallet_address']], COIN_NAME)
+                        if COIN_NAME in WALLET_API_COIN:
+                            await walletapi.walletapi_sql_update_some_balances([user_from_wallet['balance_wallet_address'], user_to_wallet['balance_wallet_address']], COIN_NAME)
+                        else:
+                            await sql_update_some_balances([user_from_wallet['balance_wallet_address'], user_to_wallet['balance_wallet_address']], COIN_NAME)
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
         return tx_hash

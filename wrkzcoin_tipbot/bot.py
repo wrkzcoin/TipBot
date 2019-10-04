@@ -166,7 +166,7 @@ ENABLE_COIN_VOUCHER = config.Enable_Coin_Voucher.split(",")
 NOTICE_COIN = {
     "WRKZ" : None,
     "TRTL" : None,
-    "DEGO" : None,
+    "DEGO" : "We are migrating DEGO to wallet-api. Work still in progress",
     "CX" : None,
     "OSL" : "OSL will do swapping at height 400,000. Please withdraw all your **OSL** before end of Oct 2019.",
     "BTCMZ" : None,
@@ -2922,7 +2922,7 @@ async def donate(ctx, amount: str, coin: str = None):
             return
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{ctx.author.mention} Thank you but you may need to `optimize` or try again later.')
+            await ctx.send(f'{ctx.author.mention} TX failed. Thank you but you may need to `optimize` or try again later.')
             # add to failed tx table
             store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "DONATE")
             return

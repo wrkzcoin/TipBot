@@ -249,12 +249,14 @@ async def walletapi_wallet_optimize_single(subaddress: str, coin: str) -> int:
 async def save_walletapi(coin: str):
     time_out = 1200
     COIN_NAME = coin.upper()
+    start = time.time()
     method = "/save"
     try:
         async with aiohttp.ClientSession() as session:
             async with session.put(get_wallet_api_url(COIN_NAME) + method, headers=get_wallet_api_header(COIN_NAME), timeout=time_out) as response:
                 if response.status == 200 or response.status == 201:
-                    return True
+                    end = time.time()
+                    return float(end - start)
                 else:
                     return False
     except asyncio.TimeoutError:

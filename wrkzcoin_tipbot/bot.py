@@ -1119,13 +1119,23 @@ async def save(ctx, coin: str):
         return
     
     if COIN_NAME in (ENABLE_COIN+ENABLE_XMR):
-        duration = await rpc_cn_wallet_save(COIN_NAME)
-        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} called `save` for {COIN_NAME}')
-        if duration:
-            await ctx.message.author.send(f'{get_emoji(COIN_NAME)} {COIN_NAME} `save` took {round(duration,3)}s.')
+        await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+        if COIN_NAME in WALLET_API_COIN:
+            duration = await walletapi.save_walletapi(COIN_NAME)
+            await botLogChan.send(f'{ctx.message.author.name}#{ctx.message.author.discriminator} called `save` for {COIN_NAME}')
+            if duration:
+                await ctx.message.author.send(f'{get_emoji(COIN_NAME)} {COIN_NAME} `save` took {round(duration, 3)}s.')
+            else:
+                await ctx.message.author.send(f'{get_emoji(COIN_NAME)} {COIN_NAME} `save` calling error.')
+            return
         else:
-            await ctx.message.author.send(f'{get_emoji(COIN_NAME)} {COIN_NAME} `save` calling error.')
-        return
+            duration = await rpc_cn_wallet_save(COIN_NAME)
+            await botLogChan.send(f'{ctx.message.author.name}#{ctx.message.author.discriminator} called `save` for {COIN_NAME}')
+            if duration:
+                await ctx.message.author.send(f'{get_emoji(COIN_NAME)} {COIN_NAME} `save` took {round(duration, 3)}s.')
+            else:
+                await ctx.message.author.send(f'{get_emoji(COIN_NAME)} {COIN_NAME} `save` calling error.')
+            return
     elif COIN_NAME == "ALL" or COIN_NAME == "ALLCOIN":
         if SAVING_ALL:
             await ctx.send(f'{ctx.author.mention} {EMOJI_RED_NO} another of this process is running. Wait to complete.')
@@ -1133,7 +1143,7 @@ async def save(ctx, coin: str):
         start = time.time()
         duration_msg = "```"
         await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
-        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} called `save all`')
+        await botLogChan.send(f'{ctx.message.author.name}#{ctx.message.author.discriminator} called `save all`')
         SAVING_ALL = True
         for coinItem in (ENABLE_COIN+ENABLE_XMR):
             if coinItem in MAINTENANCE_COIN:
@@ -1143,9 +1153,13 @@ async def save(ctx, coin: str):
                     duration_msg += "{} Skipped.\n".format(coinItem)
                 else:
                     try:
-                        one_save = await rpc_cn_wallet_save(coinItem)
+                        if coinItem in WALLET_API_COIN:
+                            one_save = await walletapi.save_walletapi(coinItem)
+                        else:
+                            one_save = await rpc_cn_wallet_save(coinItem)
                         duration_msg += "{} saved took {}s.\n".format(coinItem, round(one_save,3))
                     except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
                         duration_msg += "{} internal error. {}\n".format(coinItem, str(e))
         SAVING_ALL = None
         end = time.time()
@@ -1164,7 +1178,7 @@ async def shutdown(ctx):
     botLogChan = bot.get_channel(id=LOG_CHAN)
     IS_MAINTENANCE = 1
     await ctx.send(f'{EMOJI_REFRESH} {ctx.author.mention} .. restarting .. back soon.')
-    await botLogChan.send(f'{EMOJI_REFRESH} {ctx.message.author.name} / {ctx.message.author.id} called `restart`. I will be back soon hopefully.')
+    await botLogChan.send(f'{EMOJI_REFRESH} {ctx.message.author.name}#{ctx.message.author.discriminator} called `restart`. I will be back soon hopefully.')
     await bot.logout()
 
 

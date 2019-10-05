@@ -3295,7 +3295,7 @@ async def tip(ctx, amount: str, *args):
         if len(args) >= 2:
             time_given = None
             if args[0].upper() == "LAST" or args[1].upper() == "LAST":
-                time_string = ctx.message.content.lower().split("last",1)[1].strip()
+                time_string = ctx.message.content.lower().split("last", 1)[1].strip()
                 time_second = None
                 try:
                     time_string = time_string.replace("years", "y")
@@ -3307,13 +3307,20 @@ async def tip(ctx, amount: str, *args):
                     time_string = time_string.replace("mons", "mon")
                     time_string = time_string.replace("weeks", "w")
                     time_string = time_string.replace("week", "w")
+
                     time_string = time_string.replace("day", "d")
                     time_string = time_string.replace("days", "d")
+
                     time_string = time_string.replace("hours", "h")
-                    time_string = time_string.replace("minutes", "mn")
+                    time_string = time_string.replace("hour", "h")
                     time_string = time_string.replace("hrs", "h")
                     time_string = time_string.replace("hr", "h")
+
+                    time_string = time_string.replace("minutes", "mn")
                     time_string = time_string.replace("mns", "mn")
+                    time_string = time_string.replace("mins", "mn")
+                    time_string = time_string.replace("min", "mn")
+
                     mult = {'y': 12*30*24*60*60, 'mon': 30*24*60*60, 'w': 7*24*60*60, 'd': 24*60*60, 'h': 60*60, 'mn': 60}
                     time_second = sum(int(num) * mult.get(val, 1) for num, val in re.findall('(\d+)(\w+)', time_string))
                 except Exception as e:

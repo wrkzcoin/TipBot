@@ -483,10 +483,7 @@ async def sql_send_tip(user_from: str, user_to: str, amount: int, tiptype: str, 
                                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
                         cur.execute(sql, (COIN_NAME, user_from, user_to, amount, wallet.get_decimal(COIN_NAME), timestamp, tx_hash, tiptype.upper(),))
                         conn.commit()
-                        if COIN_NAME in WALLET_API_COIN:
-                            await walletapi.walletapi_sql_update_some_balances([user_from_wallet['balance_wallet_address'], user_to_wallet['balance_wallet_address']], COIN_NAME)
-                        else:
-                            await sql_update_some_balances([user_from_wallet['balance_wallet_address'], user_to_wallet['balance_wallet_address']], COIN_NAME)
+                        await sql_update_some_balances([user_from_wallet['balance_wallet_address'], user_to_wallet['balance_wallet_address']], COIN_NAME)
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
         return tx_hash
@@ -909,12 +906,9 @@ def sql_get_donate_list():
         traceback.print_exc(file=sys.stdout)
 
 
-def sql_optimize_check(coin: str = None):
+def sql_optimize_check(coin: str):
     global conn
-    if coin is None:
-        COIN_NAME = "WRKZ"
-    else:
-        COIN_NAME = coin.upper()
+    COIN_NAME = coin.upper()
     try:
         openConnection()
         with conn.cursor() as cur:
@@ -923,7 +917,7 @@ def sql_optimize_check(coin: str = None):
                 sql = """ SELECT COUNT(*) FROM cn_user WHERE lastOptimize>%s AND `coin_name` = %s """
                 cur.execute(sql, (timeNow, COIN_NAME,))
                 result = cur.fetchone()
-                return result['COUNT(*)'] or 0
+                return result['COUNT(*)'] if (result and 'COUNT(*)' in result) else 0
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
 
@@ -935,7 +929,11 @@ async def sql_optimize_do(userID: str, coin: str):
     if COIN_NAME in ENABLE_COIN:
         user_from_wallet = await sql_get_userwallet(userID, COIN_NAME)
     if COIN_NAME in WALLET_API_COIN:
-        OptimizeCount = await walletapi.walletapi_wallet_optimize_single(user_from_wallet, COIN_NAME)
+        OptimizeCount = 0
+        try:
+            OptimizeCount = await walletapi.walletapi_wallet_optimize_single(user_from_wallet['balance_wallet_address'], COIN_NAME)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
         if OptimizeCount > 0:
             updateTime = int(time.time())
             sql_optimize_update(str(userID), COIN_NAME)

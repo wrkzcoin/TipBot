@@ -340,15 +340,25 @@ async def on_raw_reaction_add(payload):
         return
     if isinstance(channel, discord.DMChannel):
         return
-    message = await channel.fetch_message(message_id)
-    author = message.author
-    member = bot.get_user(id=user_id)
-
-    if emoji_partial in [EMOJI_OK_BOX] and message.author.id == bot.user.id \
-        and author != member:
-        # Delete message
-        await message.delete()
-        return
+    message = None
+    author = None
+    if message_id:
+        try:
+            message = await channel.fetch_message(message_id)
+            author = message.author
+        except discord.errors.NotFound as e:
+            # No message found
+            return
+        member = bot.get_user(id=user_id)
+        if emoji_partial in [EMOJI_OK_BOX] and message.author.id == bot.user.id \
+            and author != member and message:
+            # Delete message
+            try:
+                await message.delete()
+                return
+            except discord.errors.NotFound as e:
+                # No message found
+                return
 
 
 @bot.event
@@ -4760,6 +4770,7 @@ async def optimize(ctx, coin: str, member: discord.Member = None):
         # and if last 30mn more than 5 has been done in total
         try:
             countOptimize = store.sql_optimize_check(COIN_NAME)
+            print('store.sql_optimize_check {} countOptimize: {}'.format(COIN_NAME, countOptimize))
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
             return

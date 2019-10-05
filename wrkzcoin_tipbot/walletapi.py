@@ -216,7 +216,7 @@ async def walletapi_wallet_optimize_single(subaddress: str, coin: str) -> int:
     COIN_NAME = coin.upper()
 
     json_data = {
-        "mixin": get_mixin(coin),
+        "mixin": get_mixin(COIN_NAME),
         "sourceAddresses": [
             subaddress
         ],
@@ -231,14 +231,14 @@ async def walletapi_wallet_optimize_single(subaddress: str, coin: str) -> int:
                 async with session.post(get_wallet_api_url(COIN_NAME) + method, headers=get_wallet_api_header(COIN_NAME), json=json_data, timeout=time_out) as response:
                     if response.status == 200 or response.status == 201:
                         res_data = await response.json()
-                        if 'result' in res_data:
-                            if 'transactionHash' in res_data['result']:
-                                i = i + 1
-                            else:
-                                break
+                        if 'transactionHash' in res_data:
+                            i = i + 1
                         else:
                             break
                     else:
+                        #print('response.text: ')
+                        #print(await response.text())
+                        print('fusion {} response.status return: {}'.format(COIN_NAME, response.status))
                         break
         except asyncio.TimeoutError:
             print('TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method, COIN_NAME, time_out))

@@ -5059,7 +5059,9 @@ async def stats(ctx, coin: str = None):
         reward = "{:,}".format(int(gettopblock['block_header']['reward'])/int(COIN_DEC))
 
         if (walletStatus is None) or coin_family == "XMR":
-            embed = discord.Embed(title=f"[ {COIN_NAME} ]", description="Coin Stats", timestamp=datetime.utcnow(), color=0xDEADBF)
+            embed = discord.Embed(title=f"[ {COIN_NAME} ]", 
+                                  description=f"Tip min/max: {num_format_coin(get_min_tx_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_tx_amount(COIN_NAME), COIN_NAME)}{COIN_NAME}", 
+                                  timestamp=datetime.utcnow(), color=0xDEADBF)
             embed.set_author(name=bot.user.name, icon_url=bot.user.avatar_url)
             embed.add_field(name="NET HEIGHT", value=str(height), inline=True)
             embed.add_field(name="FOUND", value=ago, inline=True)
@@ -5081,7 +5083,9 @@ async def stats(ctx, coin: str = None):
                                f'[TIME]           {ago}\n'
                                f'[DIFFICULTY]     {difficulty}\n'
                                f'[BLOCK REWARD]   {reward}{COIN_NAME}\n'
-                               f'[NETWORK HASH]   {hashrate}\n```')
+                               f'[NETWORK HASH]   {hashrate}\n'
+                               f'[TIP Min/Max]    {num_format_coin(get_min_tx_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_tx_amount(COIN_NAME), COIN_NAME)}{COIN_NAME}\n'
+                               '```')
                 await msg.add_reaction(EMOJI_OK_BOX)
             return
         else:
@@ -5094,7 +5098,9 @@ async def stats(ctx, coin: str = None):
                 walletBalance = await walletapi.walletapi_get_sum_balances(COIN_NAME)    
             else:
                 walletBalance = await get_sum_balances(COIN_NAME)          
-            embed = discord.Embed(title=f"[ {COIN_NAME} ]", description="Coin Stats", timestamp=datetime.utcnow(), color=0xDEADBF)
+            embed = discord.Embed(title=f"[ {COIN_NAME} ]", 
+                                  description=f"Tip min/max: {num_format_coin(get_min_tx_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_tx_amount(COIN_NAME), COIN_NAME)}{COIN_NAME}", 
+                                  timestamp=datetime.utcnow(), color=0xDEADBF)
             embed.set_author(name=bot.user.name, icon_url=bot.user.avatar_url)
             embed.add_field(name="NET HEIGHT", value=str(height), inline=True)
             embed.add_field(name="FOUND", value=ago, inline=True)
@@ -5126,10 +5132,10 @@ async def stats(ctx, coin: str = None):
                                    f'[DIFFICULTY]     {difficulty}\n'
                                    f'[BLOCK REWARD]   {reward}{COIN_NAME}\n'
                                    f'[NETWORK HASH]   {hashrate}\n'
+                                   f'[TIP Min/Max]    {num_format_coin(get_min_tx_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_tx_amount(COIN_NAME), COIN_NAME)}{COIN_NAME}\n'
                                    f'[WALLET SYNC %]: {t_percent}\n'
                                    f'{balance_str}'
-                                   '```'
-                                   )
+                                   '```')
                 await msg.add_reaction(EMOJI_OK_BOX)
             return
     else:
@@ -5143,7 +5149,9 @@ async def stats(ctx, coin: str = None):
                 walletBalance = await walletapi.walletapi_get_sum_balances(COIN_NAME)    
             else:
                 walletBalance = await get_sum_balances(COIN_NAME)          
-            embed = discord.Embed(title=f"[ {COIN_NAME} ]", description="Daemon RPC not available", timestamp=datetime.utcnow(), color=0xDEADBF)
+            embed = discord.Embed(title=f"[ {COIN_NAME} ]", 
+                                  description=f"Tip min/max: {num_format_coin(get_min_tx_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_tx_amount(COIN_NAME), COIN_NAME)}{COIN_NAME}", 
+                                  timestamp=datetime.utcnow(), color=0xDEADBF)
             embed.set_author(name=bot.user.name, icon_url=bot.user.avatar_url)
             embed.add_field(name="LOCAL DAEMON", value=str(t_localDaemonBlockCount), inline=True)
             embed.add_field(name="NETWORK", value=str(t_networkBlockCount), inline=True)
@@ -5151,9 +5159,9 @@ async def stats(ctx, coin: str = None):
             embed.add_field(name="TOTAL UNLOCKED", value=num_format_coin(walletBalance['unlocked'], COIN_NAME) + COIN_NAME, inline=True)
             embed.add_field(name="TOTAL LOCKED", value=num_format_coin(walletBalance['locked'], COIN_NAME) + COIN_NAME, inline=True)
             if NOTICE_COIN[COIN_NAME]:
-                notice_txt = NOTICE_COIN[COIN_NAME]
+                notice_txt = NOTICE_COIN[COIN_NAME] + " | Daemon RPC not available"
             else:
-                notice_txt = NOTICE_COIN['default']
+                notice_txt = NOTICE_COIN['default'] + " | Daemon RPC not available"
             embed.set_footer(text=notice_txt)
             try:
                 msg = await ctx.send(embed=embed)
@@ -5170,6 +5178,7 @@ async def stats(ctx, coin: str = None):
                                    f'```[LOCAL DAEMON]   {t_localDaemonBlockCount}\n'
                                    f'[NETWORK]        {t_networkBlockCount}\n'
                                    f'[WALLET SYNC %]: {t_percent}\n'
+                                   f'[TIP Min/Max]    {num_format_coin(get_min_tx_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_tx_amount(COIN_NAME), COIN_NAME)}{COIN_NAME}\n'
                                    f'{balance_str}'
                                    '```'
                                    )

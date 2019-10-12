@@ -38,7 +38,7 @@ import aiohttp
 # CRITICAL, ERROR, WARNING, INFO, and DEBUG and if not specified defaults to WARNING.
 import logging
 logger = logging.getLogger('discord')
-logger.setLevel(logging.WARNING)
+logger.setLevel(logging.ERROR)
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
 logger.addHandler(handler)
@@ -166,7 +166,7 @@ EMOJI_LOCKED = "\U0001F512"
 ENABLE_COIN = config.Enable_Coin.split(",")
 ENABLE_COIN_DOGE = ["DOGE"]
 ENABLE_XMR = ["XTOR", "LOKI", "XMR", "XEQ", "BLOG", "ARQ", "MSR"]
-MAINTENANCE_COIN = ["DOGE"]
+MAINTENANCE_COIN = ["DOGE", "DEGO"]
 
 COIN_REPR = "COIN"
 DEFAULT_TICKER = "WRKZ"

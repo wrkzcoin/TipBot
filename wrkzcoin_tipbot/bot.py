@@ -34,6 +34,15 @@ import sys, traceback
 import asyncio
 import aiohttp
 
+# add logging
+# CRITICAL, ERROR, WARNING, INFO, and DEBUG and if not specified defaults to WARNING.
+import logging
+logger = logging.getLogger('discord')
+logger.setLevel(logging.WARNING)
+handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
+handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
+logger.addHandler(handler)
+
 sys.path.append("..")
 
 MAINTENANCE_OWNER = [386761001808166912]  # list owner
@@ -157,7 +166,8 @@ EMOJI_LOCKED = "\U0001F512"
 ENABLE_COIN = config.Enable_Coin.split(",")
 ENABLE_COIN_DOGE = ["DOGE"]
 ENABLE_XMR = ["XTOR", "LOKI", "XMR", "XEQ", "BLOG", "ARQ", "MSR"]
-MAINTENANCE_COIN = []
+MAINTENANCE_COIN = ["DOGE"]
+
 COIN_REPR = "COIN"
 DEFAULT_TICKER = "WRKZ"
 ENABLE_COIN_VOUCHER = config.Enable_Coin_Voucher.split(",")
@@ -5040,7 +5050,11 @@ async def stats(ctx, coin: str = None):
             walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-    
+    elif coin_family == "XMR":
+        try:
+            walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
     if gettopblock:
         COIN_DEC = get_decimal(COIN_NAME)
         COIN_DIFF = get_diff_target(COIN_NAME)
@@ -5058,7 +5072,7 @@ async def stats(ctx, coin: str = None):
         height = "{:,}".format(gettopblock['block_header']['height'])
         reward = "{:,}".format(int(gettopblock['block_header']['reward'])/int(COIN_DEC))
 
-        if (walletStatus is None) or coin_family == "XMR":
+        if coin_family == "XMR":
             embed = discord.Embed(title=f"[ {COIN_NAME} ]", 
                                   description=f"Tip min/max: {num_format_coin(get_min_tx_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_tx_amount(COIN_NAME), COIN_NAME)}{COIN_NAME}", 
                                   timestamp=datetime.utcnow(), color=0xDEADBF)
@@ -5068,6 +5082,9 @@ async def stats(ctx, coin: str = None):
             embed.add_field(name="DIFFICULTY", value=difficulty, inline=True)
             embed.add_field(name="BLOCK REWARD", value=f'{reward}{COIN_NAME}', inline=True)
             embed.add_field(name="NETWORK HASH", value=hashrate, inline=True)
+            if walletStatus:
+                t_percent = '{:,.2f}'.format(truncate(walletStatus['height']/gettopblock['block_header']['height']*100,2))
+                embed.add_field(name="WALLET SYNC %", value=t_percent, inline=True)
             if NOTICE_COIN[COIN_NAME]:
                 notice_txt = NOTICE_COIN[COIN_NAME]
             else:

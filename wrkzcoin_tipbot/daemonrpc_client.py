@@ -6,7 +6,7 @@ import json
 import aiohttp
 import asyncio
 
-import sys
+import sys, traceback
 sys.path.append("..")
 from config import config
 
@@ -28,14 +28,17 @@ async def getWalletStatus(coin: str):
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(walletapi.get_wallet_api_url(COIN_NAME) + method, headers=walletapi.get_wallet_api_header(COIN_NAME), timeout=time_out) as response:
-                    json_resp = response.json()
+                    json_resp = await response.json()
                     if response.status == 200 or response.status == 201:
-                        result = await response.json()
+                        result = json_resp
                         return {"blockCount": result['walletBlockCount'], "knownBlockCount": result['networkBlockCount']}
-                    elif 'errorMessage' in json_resp:
+                    elif json_resp and 'errorMessage' in json_resp:
                         raise RPCException(json_resp['errorMessage'])
         except asyncio.TimeoutError:
             print('TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method, COIN_NAME, time_out))
+            return None
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
             return None
     if coin_family == "TRTL" or coin_family == "CCX":
         return await rpc_client.call_aiohttp_wallet('getStatus', COIN_NAME)
@@ -63,12 +66,19 @@ async def gettopblock(coin: str, time_out: int = None):
             'method': 'getblockheaderbyheight',
             'params': {'height': result['count'] - 1}
         }
-        async with aiohttp.ClientSession() as session:
-            async with session.post(get_daemon_rpc_url(COIN_NAME)+'/json_rpc', json=full_payload, timeout=timeout) as response:
-                if response.status == 200:
-                    res_data = await response.json()
-                    await session.close()
-                    return res_data['result']
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(get_daemon_rpc_url(COIN_NAME)+'/json_rpc', json=full_payload, timeout=timeout) as response:
+                    if response.status == 200:
+                        res_data = await response.json()
+                        await session.close()
+                        return res_data['result']
+        except asyncio.TimeoutError:
+            print('TIMEOUT: {} COIN_NAME {} - timeout {}'.format('getblockheaderbyheight', COIN_NAME, time_out))
+            return None
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+            return None
 
 
 async def call_daemon(method_name: str, coin: str, time_out: int = None, payload: Dict = None) -> Dict:
@@ -78,13 +88,20 @@ async def call_daemon(method_name: str, coin: str, time_out: int = None, payload
         'id': str(uuid4()),
         'method': f'{method_name}'
     }
-    timeout = time_out or 8
-    async with aiohttp.ClientSession() as session:
-        async with session.post(get_daemon_rpc_url(coin.upper())+'/json_rpc', json=full_payload, timeout=timeout) as response:
-            if response.status == 200:
-                res_data = await response.json()
-                await session.close()
-                return res_data['result']
+    timeout = time_out or 16
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(get_daemon_rpc_url(coin.upper())+'/json_rpc', json=full_payload, timeout=timeout) as response:
+                if response.status == 200:
+                    res_data = await response.json()
+                    await session.close()
+                    return res_data['result']
+    except asyncio.TimeoutError:
+        print('TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method_name, coin.upper(), time_out))
+        return None
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+        return None
 
 
 def get_daemon_rpc_url(coin: str = None):

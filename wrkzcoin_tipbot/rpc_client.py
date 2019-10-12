@@ -34,41 +34,53 @@ async def call_aiohttp_wallet(method_name: str, coin: str, time_out: int = None,
         timeout = 60
     try:
         if coin_family == "XMR":
-            async with aiohttp.ClientSession(headers={'Content-Type': 'application/json'}) as session:
-                async with session.post(url, ssl=False, json=full_payload, timeout=timeout) as response:
-                    # sometimes => "message": "Not enough unlocked money" for checking fee
-                    if method_name == "transfer":
-                        print('{} - transfer'.format(coin.upper()))
-                        print(full_payload)
-                    if response.status == 200:
-                        res_data = await response.read()
-                        res_data = res_data.decode('utf-8')
+            try:
+                async with aiohttp.ClientSession(headers={'Content-Type': 'application/json'}) as session:
+                    async with session.post(url, ssl=False, json=full_payload, timeout=timeout) as response:
+                        # sometimes => "message": "Not enough unlocked money" for checking fee
                         if method_name == "transfer":
-                            print(res_data)
-                        await session.close()
-                        decoded_data = json.loads(res_data)
-                        if 'result' in decoded_data:
-                            return decoded_data['result']
-                        else:
-                            print(decoded_data)
-                            return None
+                            print('{} - transfer'.format(coin.upper()))
+                            print(full_payload)
+                        if response.status == 200:
+                            res_data = await response.read()
+                            res_data = res_data.decode('utf-8')
+                            if method_name == "transfer":
+                                print(res_data)
+                            await session.close()
+                            decoded_data = json.loads(res_data)
+                            if 'result' in decoded_data:
+                                return decoded_data['result']
+                            else:
+                                print(decoded_data)
+                                return None
+            except asyncio.TimeoutError:
+                print('TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method_name, coin.upper(), timeout))
+                return None
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+                return None
         elif coin_family == "TRTL" or coin_family == "CCX":
-            async with aiohttp.ClientSession() as session:
-                async with session.post(url, json=full_payload, timeout=timeout) as response:
-                    if response.status == 200:
-                        res_data = await response.read()
-                        res_data = res_data.decode('utf-8')
-                        await session.close()
-                        decoded_data = json.loads(res_data)
-                        if 'result' in decoded_data:
-                            return decoded_data['result']
-                        else:
-                            print(decoded_data)
-                            return None
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(url, json=full_payload, timeout=timeout) as response:
+                        if response.status == 200:
+                            res_data = await response.read()
+                            res_data = res_data.decode('utf-8')
+                            await session.close()
+                            decoded_data = json.loads(res_data)
+                            if 'result' in decoded_data:
+                                return decoded_data['result']
+                            else:
+                                print(decoded_data)
+                                return None
+            except asyncio.TimeoutError:
+                print('TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method_name, coin.upper(), timeout))
+                return None
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+                return None
     except asyncio.TimeoutError:
         print('TIMEOUT: method_name: {} - coin_family: {} - timeout {}'.format(method_name, coin_family, timeout))
-        print('TIMEOUT: payload: ')
-        print(full_payload)
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
 
@@ -86,14 +98,19 @@ async def call_doge_ltc(method_name: str, coin: str, payload: str = None) -> Dic
         url = f'http://{config.daemonDOGE.username}:{config.daemonDOGE.password}@{config.daemonDOGE.host}:{config.daemonDOGE.rpcport}/'
     elif coin.upper() == "LTC":
         url = f'http://{config.daemonLTC.username}:{config.daemonLTC.password}@{config.daemonLTC.host}:{config.daemonLTC.rpcport}/'
-    async with aiohttp.ClientSession() as session:
-        async with session.post(url, data=data, timeout=32) as response:
-            if response.status == 200:
-                res_data = await response.read()
-                res_data = res_data.decode('utf-8')
-                await session.close()
-                decoded_data = json.loads(res_data)
-                return decoded_data['result']
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, data=data, timeout=32) as response:
+                if response.status == 200:
+                    res_data = await response.read()
+                    res_data = res_data.decode('utf-8')
+                    await session.close()
+                    decoded_data = json.loads(res_data)
+                    return decoded_data['result']
+    except asyncio.TimeoutError:
+        print('TIMEOUT: method_name: {} - COIN: {} - timeout {}'.format(method_name, coin.upper(), timeout))
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
 
 
 def get_wallet_rpc_url(coin: str = None):

@@ -7049,15 +7049,21 @@ async def _tip_react(reaction, user, amount, coin: str):
 
         ActualSpend = real_amount * len(memids) + NetFee
         if ActualSpend >= user_from['actual_balance']:
-            await user.send(f'{EMOJI_RED_NO} {user.mention} Insufficient balance {EMOJI_TIP} total of '
-                           f'{num_format_coin(ActualSpend, COIN_NAME)} '
-                           f'{COIN_NAME}.')
+            try:
+                await user.send(f'{EMOJI_RED_NO} {user.mention} Insufficient balance {EMOJI_TIP} total of '
+                               f'{num_format_coin(ActualSpend, COIN_NAME)} '
+                               f'{COIN_NAME}.')
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                print(f"_tip_react Can not send DM to {user.id}")
             return
 
         # Get wallet status
         walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
         if walletStatus is None:
-            await user.send(f'{EMOJI_RED_NO} {user.mention} {COIN_NAME} I can not connect to wallet service or daemon.')
+            try:
+                await user.send(f'{EMOJI_RED_NO} {user.mention} {COIN_NAME} I can not connect to wallet service or daemon.')
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                print(f"{COIN_NAME} _tip_reactCan not send DM to {user.id}")
             return
         else:
             localDaemonBlockCount = int(walletStatus['blockCount'])
@@ -7067,12 +7073,15 @@ async def _tip_react(reaction, user, amount, coin: str):
                 t_percent = '{:,.2f}'.format(truncate(localDaemonBlockCount / networkBlockCount * 100, 2))
                 t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
                 t_networkBlockCount = '{:,}'.format(networkBlockCount)
-                await user.send(f'{EMOJI_RED_NO} {user.mention} {COIN_NAME} Wallet service hasn\'t sync fully with network or being '
-                               're-sync. More info:\n```'
-                               f'networkBlockCount:     {t_networkBlockCount}\n'
-                               f'localDaemonBlockCount: {t_localDaemonBlockCount}\n'
-                               f'Progress %:            {t_percent}\n```'
-                               )
+                try:
+                    await user.send(f'{EMOJI_RED_NO} {user.mention} {COIN_NAME} Wallet service hasn\'t sync fully with network or being '
+                                   're-sync. More info:\n```'
+                                   f'networkBlockCount:     {t_networkBlockCount}\n'
+                                   f'localDaemonBlockCount: {t_localDaemonBlockCount}\n'
+                                   f'Progress %:            {t_percent}\n```'
+                                   )
+                except (discord.Forbidden, discord.errors.Forbidden) as e:
+                    print(f"{COIN_NAME} _tip_reactCan not send DM to {user.id}")
                 return
         # End of wallet status
         tip = None
@@ -7140,7 +7149,10 @@ async def _tip_react(reaction, user, amount, coin: str):
         TotalAmount = real_amount * len(memids)
 
         if user_from['actual_balance'] + userdata_balance['Adjust'] < TotalAmount:
-            await user.send(f'{EMOJI_RED_NO} {user.mention} You don\'t have sufficient balance. ')
+            try:
+                await user.send(f'{EMOJI_RED_NO} {user.mention} You don\'t have sufficient balance. ')
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                print(f"{COIN_NAME} _tip_reactCan not send DM to {user.id}")
             return
         try:
             tips = store.sql_mv_xmr_multiple(str(user.id), memids, real_amount, COIN_NAME, "TIPS")
@@ -7183,9 +7195,12 @@ async def _tip_react(reaction, user, amount, coin: str):
         real_amount = float(amount)
         userdata_balance = store.sql_doge_balance(str(user.id), COIN_NAME)
         if real_amount > user_from['actual_balance'] + userdata_balance['Adjust']:
-            await user.send(f'{EMOJI_RED_NO} {user.mention} Insufficient balance to send tip of '
-                            f'{num_format_coin(real_amount, COIN_NAME)} '
-                            f'{COIN_NAME}.')
+            try:
+                await user.send(f'{EMOJI_RED_NO} {user.mention} Insufficient balance to send tip of '
+                                f'{num_format_coin(real_amount, COIN_NAME)} '
+                                f'{COIN_NAME}.')
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                print(f"{COIN_NAME} _tip_reactCan not send DM to {user.id}")
             return
 
         listMembers = reaction.message.mentions
@@ -7196,7 +7211,10 @@ async def _tip_react(reaction, user, amount, coin: str):
         TotalAmount = real_amount * len(memids)
 
         if user_from['actual_balance'] + userdata_balance['Adjust'] < TotalAmount:
-            await user.send(f'{EMOJI_RED_NO} {user.mention} You don\'t have sufficient balance. ')
+            try:
+                await user.send(f'{EMOJI_RED_NO} {user.mention} You don\'t have sufficient balance. ')
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                print(f"{COIN_NAME} _tip_reactCan not send DM to {user.id}")
             return
         try:
             tips = store.sql_mv_doge_multiple(user.id, memids, real_amount, COIN_NAME, "TIPS")

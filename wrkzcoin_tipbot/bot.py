@@ -140,7 +140,7 @@ EMOJI_COIN = {
     "PLE" : "\U0001F388",
     "ELPH" : "\U0001F310",
     "ANX" : "\U0001F3E6",
-    "NBX" : "\U0001F5A4",
+    "NBXC" : "\U0001F5A4",
     "ARMS" : "\U0001F52B",
     "IRD" : "\U0001F538",
     "HITC" : "\U0001F691",
@@ -166,7 +166,7 @@ EMOJI_LOCKED = "\U0001F512"
 ENABLE_COIN = config.Enable_Coin.split(",")
 ENABLE_COIN_DOGE = ["DOGE"]
 ENABLE_XMR = ["XTOR", "LOKI", "XMR", "XEQ", "BLOG", "ARQ", "MSR"]
-MAINTENANCE_COIN = ["DOGE", "DEGO"]
+MAINTENANCE_COIN = ["DEGO", "DOGE", "MSR"]
 
 COIN_REPR = "COIN"
 DEFAULT_TICKER = "WRKZ"
@@ -174,7 +174,7 @@ ENABLE_COIN_VOUCHER = config.Enable_Coin_Voucher.split(",")
 
 # Some notice about coin that going to swap or take out.
 NOTICE_COIN = {
-    "WRKZ" : None,
+    "WRKZ" : f"{EMOJI_INFORMATION} WRKZ new network fee 500.00WRKZ.",
     "TRTL" : None,
     "DEGO" : "We are migrating DEGO to wallet-api. Work still in progress",
     "CX" : None,
@@ -185,7 +185,7 @@ NOTICE_COIN = {
     "PLE" : None,
     "ELPH" : None,
     "ANX" : None,
-    "NBX" : None,
+    "NBXC" : None,
     "ARMS" : None,
     "IRD" : None,
     "HITC" : None,
@@ -1513,6 +1513,9 @@ async def checkcoin(ctx, coin: str):
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.message.author.send(f'{COIN_NAME} return no address.')
             return
+    elif COIN_NAME == "DOGE":
+        # TODO
+        pass
     else:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.message.author.send(f'{COIN_NAME} not supporting with this function.')
@@ -1993,7 +1996,7 @@ async def balance(ctx, coin: str = None):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**')
         return
 
-    if COIN_NAME in MAINTENANCE_COIN:
+    if COIN_NAME in MAINTENANCE_COIN and ctx.message.author.id not in MAINTENANCE_OWNER:
         await ctx.message.add_reaction(EMOJI_MAINTENANCE)
         msg = await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} in maintenance.')
         await msg.add_reaction(EMOJI_OK_BOX)
@@ -2788,6 +2791,10 @@ async def withdraw(ctx, amount: str, coin: str = None):
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
             WITHDRAW_IN_PROCESS.remove(ctx.message.author.id)
+        else:
+            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+            await msg.add_reaction(EMOJI_OK_BOX)
+            return
         if withdrawTx:
             withdrawAddress = wallet['user_wallet_address']
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
@@ -3140,7 +3147,8 @@ async def take(ctx):
             msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You just claimed within last 12h. '
                                  f'Waiting time {time_waiting} for next **take**. Faucet balance:\n```{remaining}```'
                                  f'Total user claims: **{total_claimed}** times. '
-                                 f'You have claimed: **{number_user_claimed}** time(s).')
+                                 f'You have claimed: **{number_user_claimed}** time(s). '
+                                 f'Tip me if you want to feed these faucets.')
             await msg.add_reaction(EMOJI_OK_BOX)
             return
 
@@ -3191,6 +3199,10 @@ async def take(ctx):
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
             WITHDRAW_IN_PROCESS.remove(ctx.message.author.id)
+        else:
+            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+            await msg.add_reaction(EMOJI_OK_BOX)
+            return
         if tip:
             faucet_add = store.sql_faucet_add(str(ctx.message.author.id), str(ctx.guild.id), COIN_NAME, real_amount, COIN_DEC, tip)
             if has_forwardtip:
@@ -4398,6 +4410,10 @@ async def send(ctx, amount: str, CoinAddress: str):
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
                 WITHDRAW_IN_PROCESS.remove(ctx.message.author.id)
+            else:
+                msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+                await msg.add_reaction(EMOJI_OK_BOX)
+                return
             if SendTx:
                 await ctx.message.add_reaction(get_emoji(COIN_NAME))
                 await botLogChan.send(f'A user successfully executed `.send {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`.')
@@ -5106,15 +5122,17 @@ async def stats(ctx, coin: str = None):
                 await msg.add_reaction(EMOJI_OK_BOX)
             return
         else:
-            localDaemonBlockCount = int(walletStatus['blockCount'])
-            networkBlockCount = int(walletStatus['knownBlockCount'])
-            t_percent = '{:,.2f}'.format(truncate(localDaemonBlockCount/networkBlockCount*100,2))
-            t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
-            t_networkBlockCount = '{:,}'.format(networkBlockCount)
-            if COIN_NAME in WALLET_API_COIN:
-                walletBalance = await walletapi.walletapi_get_sum_balances(COIN_NAME)    
-            else:
-                walletBalance = await get_sum_balances(COIN_NAME)          
+            walletBalance = None
+            if walletStatus:
+                localDaemonBlockCount = int(walletStatus['blockCount'])
+                networkBlockCount = int(walletStatus['knownBlockCount'])
+                t_percent = '{:,.2f}'.format(truncate(localDaemonBlockCount/networkBlockCount*100,2))
+                t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
+                t_networkBlockCount = '{:,}'.format(networkBlockCount)
+                if COIN_NAME in WALLET_API_COIN:
+                    walletBalance = await walletapi.walletapi_get_sum_balances(COIN_NAME)    
+                else:
+                    walletBalance = await get_sum_balances(COIN_NAME)          
             embed = discord.Embed(title=f"[ {COIN_NAME} ]", 
                                   description=f"Tip min/max: {num_format_coin(get_min_tx_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_tx_amount(COIN_NAME), COIN_NAME)}{COIN_NAME}", 
                                   timestamp=datetime.utcnow(), color=0xDEADBF)
@@ -5124,9 +5142,10 @@ async def stats(ctx, coin: str = None):
             embed.add_field(name="DIFFICULTY", value=difficulty, inline=True)
             embed.add_field(name="BLOCK REWARD", value=f'{reward}{COIN_NAME}', inline=True)
             embed.add_field(name="NETWORK HASH", value=hashrate, inline=True)
-            embed.add_field(name="WALLET SYNC %", value=t_percent, inline=True)
-            embed.add_field(name="TOTAL UNLOCKED", value=num_format_coin(walletBalance['unlocked'], COIN_NAME) + COIN_NAME, inline=True)
-            embed.add_field(name="TOTAL LOCKED", value=num_format_coin(walletBalance['locked'], COIN_NAME) + COIN_NAME, inline=True)
+            if walletStatus:
+                embed.add_field(name="WALLET SYNC %", value=t_percent, inline=True)
+                embed.add_field(name="TOTAL UNLOCKED", value=num_format_coin(walletBalance['unlocked'], COIN_NAME) + COIN_NAME, inline=True)
+                embed.add_field(name="TOTAL LOCKED", value=num_format_coin(walletBalance['locked'], COIN_NAME) + COIN_NAME, inline=True)
             if NOTICE_COIN[COIN_NAME]:
                 notice_txt = NOTICE_COIN[COIN_NAME]
             else:
@@ -5138,7 +5157,7 @@ async def stats(ctx, coin: str = None):
             except (discord.Forbidden, discord.errors.Forbidden) as e:
                 # if embedded denied
                 balance_str = ''
-                if ('unlocked' in walletBalance) and ('locked' in walletBalance):
+                if walletBalance and ('unlocked' in walletBalance) and ('locked' in walletBalance) and walletStatus:
                     balance_actual = num_format_coin(walletBalance['unlocked'], COIN_NAME)
                     balance_locked = num_format_coin(walletBalance['locked'], COIN_NAME)
                     balance_str = f'[TOTAL UNLOCKED] {balance_actual}{COIN_NAME}\n'
@@ -5152,6 +5171,15 @@ async def stats(ctx, coin: str = None):
                                    f'[TIP Min/Max]    {num_format_coin(get_min_tx_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_tx_amount(COIN_NAME), COIN_NAME)}{COIN_NAME}\n'
                                    f'[WALLET SYNC %]: {t_percent}\n'
                                    f'{balance_str}'
+                                   '```')
+                else:
+                    msg = await ctx.send(f'**[ {COIN_NAME} ]**\n'
+                                   f'```[NETWORK HEIGHT] {height}\n'
+                                   f'[TIME]           {ago}\n'
+                                   f'[DIFFICULTY]     {difficulty}\n'
+                                   f'[BLOCK REWARD]   {reward}{COIN_NAME}\n'
+                                   f'[NETWORK HASH]   {hashrate}\n'
+                                   f'[TIP Min/Max]    {num_format_coin(get_min_tx_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_tx_amount(COIN_NAME), COIN_NAME)}{COIN_NAME}\n'
                                    '```')
                 await msg.add_reaction(EMOJI_OK_BOX)
             return
@@ -6040,7 +6068,7 @@ def get_cn_coin_from_address(CoinAddress: str):
     elif CoinAddress.startswith("aNX1"):
         COIN_NAME = "ANX"
     elif CoinAddress.startswith("Nib1"):
-        COIN_NAME = "NBX"
+        COIN_NAME = "NBXC"
     elif CoinAddress.startswith("guns"):
         COIN_NAME = "ARMS"
     elif CoinAddress.startswith("ir"):
@@ -6303,7 +6331,7 @@ async def update_balance_wallets():
         # await asyncio.sleep(20)
         # store.sql_update_balances("ANX")
         # await asyncio.sleep(20)
-        # store.sql_update_balances("NBX")
+        # store.sql_update_balances("NBXC")
         # await asyncio.sleep(20)
         # store.sql_update_balances("ARMS")
         # await asyncio.sleep(20)

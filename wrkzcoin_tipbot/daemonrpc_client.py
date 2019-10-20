@@ -41,6 +41,9 @@ async def getWalletStatus(coin: str):
             print('aiohttp.ContentTypeError: {} COIN_NAME {}'.format(method, COIN_NAME))
             print(await response.text())
             return None
+        except aiohttp.ClientConnectorError:
+            print('aiohttp.ClientConnectorError: {} COIN_NAME {}'.format(method, COIN_NAME))
+            return None
         except Exception:
             traceback.print_exc(file=sys.stdout)
             return None

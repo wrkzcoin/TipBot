@@ -358,7 +358,7 @@ async def get_tx_fee_xmr(coin: str, amount: int = None, to_address: str = None):
 
 def get_coin_fullname(coin: str = None):
     qr_address_pref = {"TRTL":"turtlecoin","DEGO":"derogold","CX":"catalyst","WRKZ":"wrkzcoin","OSL":"oscillate",\
-    "BTCMZ":"bitcoinmono","MTIP":"monkeytips","XCY":"cypruscoin","PLE":"plenteum","ELPH":"elphyrecoin","ANX":"aluisyocoin","NBX":"nibbleclassic",\
+    "BTCMZ":"bitcoinmono","MTIP":"monkeytips","XCY":"cypruscoin","PLE":"plenteum","ELPH":"elphyrecoin","ANX":"aluisyocoin","NBXC":"nibbleclassic",\
     "ARMS":"2acoin","HITC":"hitc","NACA":"nashcash","XTOR":"bittoro","BLOG":"blogcoin","LOKI":"loki","XMR":"monero","XEQ":"Equilibria","ARQ":"arqma",\
     "MSR":"masari"}
     return getattr(qr_address_pref,coin,"wrkzcoin")

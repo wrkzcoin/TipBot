@@ -86,6 +86,7 @@ async def call_aiohttp_wallet(method_name: str, coin: str, time_out: int = None,
 
 
 async def call_doge_ltc(method_name: str, coin: str, payload: str = None) -> Dict:
+    timeout = 64
     headers = {
         'content-type': 'text/plain;',
     }
@@ -100,7 +101,7 @@ async def call_doge_ltc(method_name: str, coin: str, payload: str = None) -> Dic
         url = f'http://{config.daemonLTC.username}:{config.daemonLTC.password}@{config.daemonLTC.host}:{config.daemonLTC.rpcport}/'
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.post(url, data=data, timeout=32) as response:
+            async with session.post(url, data=data, timeout=timeout) as response:
                 if response.status == 200:
                     res_data = await response.read()
                     res_data = res_data.decode('utf-8')

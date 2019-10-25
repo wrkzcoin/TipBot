@@ -7,7 +7,7 @@ import asyncio
 
 
 ENABLE_COIN = config.Enable_Coin.split(",")
-INTERVAL_EACH = 60
+INTERVAL_EACH = 120
 
 
 # Let's run balance update by a separate process

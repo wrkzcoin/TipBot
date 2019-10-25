@@ -511,6 +511,11 @@ async def DOGE_LTC_getbalance_acc(account: str, coin: str, confirmation: int=Non
     return valid_call
 
 
+async def DOGE_LTC_list_acc(coin: str) -> str:
+    list_accounts = await rpc_client.call_doge_ltc('listaccounts', coin.upper())
+    return list_accounts
+
+
 async def DOGE_LTC_getaccountaddress(account: str, coin: str) -> str:
     payload = f'"{account}"'
     valid_call = await rpc_client.call_doge_ltc('getaccountaddress', coin.upper(), payload=payload)

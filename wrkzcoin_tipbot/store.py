@@ -1724,7 +1724,10 @@ async def sql_external_doge_single(user_from: str, amount: float, fee: float, to
         return False
     try:
         openConnection()
+        print("DOGE EXTERNAL: ")
+        print((to_address, amount, user_from, coin.upper()))
         txHash = await wallet.DOGE_LTC_sendtoaddress(to_address, amount, user_from, coin.upper())
+        print("COMPLETE DOGE EXTERNAL TX")
         with conn.cursor() as cur: 
             sql = """ INSERT INTO """+coin.lower()+"""_external_tx (`user_id`, `amount`, `fee`, `to_address`, 
                       `type`, `date`, `tx_hash`) 
@@ -1789,6 +1792,33 @@ def sql_doge_balance(userID: str, coin: str):
             return balance
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
+
+
+async def sql_doge_checkcoin(coin: str):
+    global conn
+    COIN_NAME = coin.upper()
+    if COIN_NAME not in ENABLE_COIN_DOGE:
+        return False
+    try:
+        total_balance = 0
+        negative_str = ""
+        list_accounts = await wallet.DOGE_LTC_list_acc(COIN_NAME)
+        if list_accounts:
+            for userID, balance in list_accounts.items():
+                if len(userID) > 0:
+                    userdata_balance = sql_doge_balance(userID, COIN_NAME)
+                    balance_actual = balance + float(userdata_balance['Adjust'])
+                    if balance_actual < 0:
+                        negative_str += str(userID) + ": " + str(balance_actual) + COIN_NAME + "\n"
+                        print('{} has {} balance negative!! {}{}'.format(userID, COIN_NAME, balance_actual, COIN_NAME))
+                    else:
+                        total_balance += balance_actual
+            return "Total_balance: " + str(total_balance) + COIN_NAME + "\n" + negative_str
+        else:
+            return False
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return False
 
 
 # XMR Based

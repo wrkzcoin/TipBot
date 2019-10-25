@@ -67,7 +67,7 @@ WITHDRAW_IN_PROCESS = []
 REACT_TIP_STORE = []
 
 # faucet enabled coin. The faucet balance is taken from TipBot's own balance
-FAUCET_COINS = ["WRKZ", "TRTL", "DEGO", "MTIP", "DOGE", "BTCMZ"]
+FAUCET_COINS = ["WRKZ", "TRTL", "DEGO", "MTIP", "BTCMZ"]
 
 # Coin using wallet-api
 WALLET_API_COIN = ["DEGO"]
@@ -166,7 +166,7 @@ EMOJI_LOCKED = "\U0001F512"
 ENABLE_COIN = config.Enable_Coin.split(",")
 ENABLE_COIN_DOGE = ["DOGE"]
 ENABLE_XMR = ["XTOR", "LOKI", "XMR", "XEQ", "BLOG", "ARQ", "MSR"]
-MAINTENANCE_COIN = ["DEGO", "DOGE", "MSR"]
+MAINTENANCE_COIN = ["DEGO"]
 
 COIN_REPR = "COIN"
 DEFAULT_TICKER = "WRKZ"
@@ -1486,7 +1486,7 @@ async def checkcoin(ctx, coin: str):
     # Check of wallet in SQL consistence to wallet-service
     botLogChan = bot.get_channel(id=LOG_CHAN)
     COIN_NAME = coin.upper()
-    if COIN_NAME not in (ENABLE_COIN + ENABLE_XMR):
+    if COIN_NAME not in (ENABLE_COIN + ENABLE_XMR + ENABLE_COIN_DOGE):
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.message.author.send(f'{COIN_NAME} is not in TipBot.')
         return
@@ -1515,7 +1515,13 @@ async def checkcoin(ctx, coin: str):
             return
     elif COIN_NAME == "DOGE":
         # TODO
-        pass
+        total_balance_str = await store.sql_doge_checkcoin(COIN_NAME)
+        if total_balance_str:
+            await ctx.send(f'**{COIN_NAME}** Checking:\n'
+                           '```'
+                           f'{total_balance_str}'
+                           '```')
+            return
     else:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.message.author.send(f'{COIN_NAME} not supporting with this function.')

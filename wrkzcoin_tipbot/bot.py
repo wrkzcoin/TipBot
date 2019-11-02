@@ -1124,8 +1124,8 @@ async def save(ctx, coin: str):
     COIN_NAME = coin.upper()
     if COIN_NAME in MAINTENANCE_COIN:
         await ctx.message.add_reaction(EMOJI_MAINTENANCE)
-        await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} in maintenance.')
-        return
+        await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} in maintenance. But I will try to **save** as per your command.')
+        pass
     
     if COIN_NAME in (ENABLE_COIN+ENABLE_XMR):
         await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)

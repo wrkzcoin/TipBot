@@ -70,7 +70,7 @@ REACT_TIP_STORE = []
 FAUCET_COINS = ["WRKZ", "TRTL", "DEGO", "MTIP", "BTCMZ"]
 
 # Coin using wallet-api
-WALLET_API_COIN = ["DEGO"]
+WALLET_API_COIN = config.Enable_Coin_WalletApi.split(",")
 
 # DOGE will divide by 10 after random
 FAUCET_MINMAX = {

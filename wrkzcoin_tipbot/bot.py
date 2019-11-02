@@ -38,7 +38,7 @@ import aiohttp
 # CRITICAL, ERROR, WARNING, INFO, and DEBUG and if not specified defaults to WARNING.
 import logging
 logger = logging.getLogger('discord')
-logger.setLevel(logging.ERROR)
+logger.setLevel(logging.INFO)
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
 logger.addHandler(handler)
@@ -165,8 +165,8 @@ EMOJI_LOCKED = "\U0001F512"
 
 ENABLE_COIN = config.Enable_Coin.split(",")
 ENABLE_COIN_DOGE = ["DOGE"]
-ENABLE_XMR = ["XTOR", "LOKI", "XMR", "XEQ", "BLOG", "ARQ", "MSR"]
-MAINTENANCE_COIN = ["DEGO"]
+ENABLE_XMR = config.Enable_Coin_XMR.split(",")
+MAINTENANCE_COIN = config.Maintenance_Coin.split(",")
 
 COIN_REPR = "COIN"
 DEFAULT_TICKER = "WRKZ"
@@ -178,7 +178,6 @@ NOTICE_COIN = {
     "TRTL" : None,
     "DEGO" : "We are migrating DEGO to wallet-api. Work still in progress",
     "CX" : None,
-    "OSL" : "OSL will do swapping at height 400,000. Please withdraw all your **OSL** before end of Oct 2019.",
     "BTCMZ" : None,
     "MTIP" : None,
     "XCY" : None,
@@ -1517,7 +1516,7 @@ async def checkcoin(ctx, coin: str):
         # TODO
         total_balance_str = await store.sql_doge_checkcoin(COIN_NAME)
         if total_balance_str:
-            await ctx.send(f'**{COIN_NAME}** Checking:\n'
+            await ctx.send(f'**{COIN_NAME}** Checking:'
                            '```'
                            f'{total_balance_str}'
                            '```')
@@ -1532,6 +1531,50 @@ async def checkcoin(ctx, coin: str):
 @admin.command()
 async def guild(ctx):
     # TODO
+    return
+
+
+@commands.is_owner()
+@admin.command(hidden = True)
+async def dumpinfo(ctx, coin: str):
+    COIN_NAME = coin.upper()
+    if COIN_NAME not in ENABLE_COIN:
+        await ctx.message.author.send('COIN **{}** NOT SUPPORTED.'.format(COIN_NAME))
+        return
+
+    start = time.time()
+    try:
+        await store.sql_update_balances(COIN_NAME)
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    end = time.time()
+    await ctx.message.author.send('Done update balance: '+ COIN_NAME+ ' duration (s): '+str(end - start))
+
+    # get all balance
+    random_filename = str(uuid.uuid4()) + "_" + COIN_NAME + ".csv"
+    write_csv_coin = await store.sql_get_alluser_balance(COIN_NAME, random_filename)
+    if os.path.exists(random_filename) and write_csv_coin:
+        await ctx.message.author.send(f"Dump created for: **{COIN_NAME}**",
+                                      file=discord.File(random_filename))
+        os.remove(random_filename)
+    else:
+        await ctx.message.author.send('Internal Error for dump info - FILE NOT FOUND: **{}**'.format(COIN_NAME))
+        return
+
+    # Saving
+    await ctx.message.author.send('*Calling wallet saving for*: **{}**'.format(COIN_NAME))
+    duration = None
+    if COIN_NAME in ENABLE_COIN:
+        await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+        if COIN_NAME in WALLET_API_COIN:
+            duration = await walletapi.save_walletapi(COIN_NAME)
+        else:
+            duration = await rpc_cn_wallet_save(COIN_NAME)
+
+        if duration:
+            await ctx.message.author.send(f'{get_emoji(COIN_NAME)} {COIN_NAME} `save` took {round(duration, 3)}s.')
+        else:
+            await ctx.message.author.send(f'{get_emoji(COIN_NAME)} {COIN_NAME} `save` calling error.')
     return
 
 
@@ -6059,8 +6102,6 @@ def get_cn_coin_from_address(CoinAddress: str):
         COIN_NAME = "DEGO"
     elif CoinAddress.startswith("cat1"):
         COIN_NAME = "CX"
-    elif CoinAddress.startswith("hannw"):
-        COIN_NAME = "OSL"
     elif CoinAddress.startswith("btcm"):
         COIN_NAME = "BTCMZ"
     elif CoinAddress.startswith("dicKTiPZ"):
@@ -6322,8 +6363,6 @@ async def update_balance_wallets():
         # store.sql_update_balances("CX")
         # await asyncio.sleep(20)
         # store.sql_update_balances("DEGO")
-        # await asyncio.sleep(20)
-        # store.sql_update_balances("OSL")
         # await asyncio.sleep(20)
         # store.sql_update_balances("BTCMZ")
         # await asyncio.sleep(20)

@@ -17,7 +17,7 @@ async def update_balance():
         # do not update yet
         # XTOR:
         COIN_NAME = "XTOR"
-        asyncio.sleep(INTERVAL_EACH)
+        time.sleep(INTERVAL_EACH)
         print('Update balance: '+ COIN_NAME)
         start = time.time()
         try:
@@ -29,7 +29,7 @@ async def update_balance():
         print('Done update balance: '+ COIN_NAME+ ' duration (s): '+str(end - start))
         # LOKI:
         COIN_NAME = "LOKI"
-        asyncio.sleep(INTERVAL_EACH)
+        time.sleep(INTERVAL_EACH)
         print('Update balance: '+ COIN_NAME)
         start = time.time()
         try:
@@ -41,7 +41,7 @@ async def update_balance():
         print('Done update balance: '+ COIN_NAME+ ' duration (s): '+str(end - start))
         # XMR:
         COIN_NAME = "XMR"
-        asyncio.sleep(INTERVAL_EACH)
+        time.sleep(INTERVAL_EACH)
         print('Update balance: '+ COIN_NAME)
         start = time.time()
         try:
@@ -53,7 +53,7 @@ async def update_balance():
         print('Done update balance: '+ COIN_NAME+ ' duration (s): '+str(end - start))
         # XEQ:
         COIN_NAME = "XEQ"
-        asyncio.sleep(INTERVAL_EACH)
+        time.sleep(INTERVAL_EACH)
         print('Update balance: '+ COIN_NAME)
         start = time.time()
         try:
@@ -64,7 +64,7 @@ async def update_balance():
         # End of XEQ
         # BLOG:
         COIN_NAME = "BLOG"
-        asyncio.sleep(INTERVAL_EACH)
+        time.sleep(INTERVAL_EACH)
         print('Update balance: '+ COIN_NAME)
         start = time.time()
         try:
@@ -75,7 +75,7 @@ async def update_balance():
         # End of BLOG
         # ARQ:
         COIN_NAME = "ARQ"
-        asyncio.sleep(INTERVAL_EACH)
+        time.sleep(INTERVAL_EACH)
         print('Update balance: '+ COIN_NAME)
         start = time.time()
         try:
@@ -86,7 +86,7 @@ async def update_balance():
         # End of ARQ
         # MSR:
         COIN_NAME = "MSR"
-        asyncio.sleep(INTERVAL_EACH)
+        time.sleep(INTERVAL_EACH)
         print('Update balance: '+ COIN_NAME)
         start = time.time()
         try:
@@ -97,7 +97,7 @@ async def update_balance():
         # End of MSR
         print('Done update balance: '+ COIN_NAME+ ' duration (s): '+str(end - start))
         for coinItem in ENABLE_COIN:
-            asyncio.sleep(INTERVAL_EACH)
+            time.sleep(INTERVAL_EACH)
             print('Update balance: '+ coinItem.upper().strip())
             start = time.time()
             try:

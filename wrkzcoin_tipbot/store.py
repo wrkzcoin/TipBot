@@ -221,6 +221,32 @@ async def sql_update_some_balances(wallet_addresses: List[str], coin: str):
         return
 
 
+async def sql_get_alluser_balance(coin: str, filename: str):
+    global conn
+    COIN_NAME = coin.upper()
+    if COIN_NAME in ENABLE_COIN:
+        try:
+            openConnection()
+            with conn.cursor() as cur:
+                sql = """ SELECT user_id, balance_wallet_address, user_wallet_address, user_server FROM cn_user 
+                          WHERE `coin_name` = %s """
+                cur.execute(sql, (COIN_NAME,))
+                result = cur.fetchall()
+                write_csv_dumpinfo = open(filename, "w")
+                for item in result:
+                    getBalance = await sql_get_userwallet(item['user_id'], COIN_NAME)
+                    if getBalance:
+                        user_balance_total = getBalance['actual_balance'] + getBalance['locked_balance']
+                        write_csv_dumpinfo.write(str(item['user_id']) + ';' + wallet.num_format_coin(user_balance_total, COIN_NAME) + ';' + item['balance_wallet_address'] + '\n')
+                write_csv_dumpinfo.close()
+                return True
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            return None
+    else:
+        return None
+
+
 async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD'):
     user_server = user_server.upper()
     if user_server not in ['DISCORD', 'TELEGRAM']:

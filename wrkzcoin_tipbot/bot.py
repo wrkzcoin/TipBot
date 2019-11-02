@@ -5148,8 +5148,8 @@ async def stats(ctx, coin: str = None):
             embed.add_field(name="BLOCK REWARD", value=f'{reward}{COIN_NAME}', inline=True)
             embed.add_field(name="NETWORK HASH", value=hashrate, inline=True)
             if walletStatus:
-                t_percent = '{:,.2f}'.format(truncate(walletStatus['height']/gettopblock['block_header']['height']*100,2))
-                embed.add_field(name="WALLET SYNC %", value=t_percent, inline=True)
+                t_percent = '{:,.2f}'.format(truncate((walletStatus['height'] - 1)/gettopblock['block_header']['height']*100,2))
+                embed.add_field(name="WALLET SYNC %", value=t_percent + '% (' + '{:,.0f}'.format(walletStatus['height'] - 1) + ')', inline=True)
             if NOTICE_COIN[COIN_NAME]:
                 notice_txt = NOTICE_COIN[COIN_NAME]
             else:
@@ -5175,7 +5175,7 @@ async def stats(ctx, coin: str = None):
             if walletStatus:
                 localDaemonBlockCount = int(walletStatus['blockCount'])
                 networkBlockCount = int(walletStatus['knownBlockCount'])
-                t_percent = '{:,.2f}'.format(truncate(localDaemonBlockCount/networkBlockCount*100,2))
+                t_percent = '{:,.2f}'.format(truncate((localDaemonBlockCount - 1)/networkBlockCount*100,2))
                 t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
                 t_networkBlockCount = '{:,}'.format(networkBlockCount)
                 if COIN_NAME in WALLET_API_COIN:
@@ -5192,7 +5192,7 @@ async def stats(ctx, coin: str = None):
             embed.add_field(name="BLOCK REWARD", value=f'{reward}{COIN_NAME}', inline=True)
             embed.add_field(name="NETWORK HASH", value=hashrate, inline=True)
             if walletStatus:
-                embed.add_field(name="WALLET SYNC %", value=t_percent, inline=True)
+                embed.add_field(name="WALLET SYNC %", value=t_percent + '% (' + '{:,.0f}'.format(localDaemonBlockCount - 1) + ')', inline=True)
                 embed.add_field(name="TOTAL UNLOCKED", value=num_format_coin(walletBalance['unlocked'], COIN_NAME) + COIN_NAME, inline=True)
                 embed.add_field(name="TOTAL LOCKED", value=num_format_coin(walletBalance['locked'], COIN_NAME) + COIN_NAME, inline=True)
             if NOTICE_COIN[COIN_NAME]:
@@ -5218,7 +5218,7 @@ async def stats(ctx, coin: str = None):
                                    f'[BLOCK REWARD]   {reward}{COIN_NAME}\n'
                                    f'[NETWORK HASH]   {hashrate}\n'
                                    f'[TIP Min/Max]    {num_format_coin(get_min_tx_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_tx_amount(COIN_NAME), COIN_NAME)}{COIN_NAME}\n'
-                                   f'[WALLET SYNC %]: {t_percent}\n'
+                                   f'[WALLET SYNC %]: {t_percent}' + '% (' + '{:,.0f}'.format(localDaemonBlockCount - 1) + ')\n'
                                    f'{balance_str}'
                                    '```')
                 else:
@@ -5236,7 +5236,7 @@ async def stats(ctx, coin: str = None):
         if gettopblock is None and coin_family == "TRTL" and walletStatus:
             localDaemonBlockCount = int(walletStatus['blockCount'])
             networkBlockCount = int(walletStatus['knownBlockCount'])
-            t_percent = '{:,.2f}'.format(truncate(localDaemonBlockCount/networkBlockCount*100,2))
+            t_percent = '{:,.2f}'.format(truncate((localDaemonBlockCount - 1)/networkBlockCount*100,2))
             t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
             t_networkBlockCount = '{:,}'.format(networkBlockCount)
             if COIN_NAME in WALLET_API_COIN:
@@ -5249,7 +5249,7 @@ async def stats(ctx, coin: str = None):
             embed.set_author(name=bot.user.name, icon_url=bot.user.avatar_url)
             embed.add_field(name="LOCAL DAEMON", value=str(t_localDaemonBlockCount), inline=True)
             embed.add_field(name="NETWORK", value=str(t_networkBlockCount), inline=True)
-            embed.add_field(name="WALLET SYNC %", value=t_percent, inline=True)
+            embed.add_field(name="WALLET SYNC %", value=t_percent + '% (' + '{:,.0f}'.format(localDaemonBlockCount - 1) + ')', inline=True)
             embed.add_field(name="TOTAL UNLOCKED", value=num_format_coin(walletBalance['unlocked'], COIN_NAME) + COIN_NAME, inline=True)
             embed.add_field(name="TOTAL LOCKED", value=num_format_coin(walletBalance['locked'], COIN_NAME) + COIN_NAME, inline=True)
             if NOTICE_COIN[COIN_NAME]:
@@ -5271,7 +5271,7 @@ async def stats(ctx, coin: str = None):
                     msg = await ctx.send(f'**[ {COIN_NAME} ]**\n'
                                    f'```[LOCAL DAEMON]   {t_localDaemonBlockCount}\n'
                                    f'[NETWORK]        {t_networkBlockCount}\n'
-                                   f'[WALLET SYNC %]: {t_percent}\n'
+                                   f'[WALLET SYNC %]: {t_percent}' + '% (' + '{:,.0f}'.format(localDaemonBlockCount - 1) + ')\n'
                                    f'[TIP Min/Max]    {num_format_coin(get_min_tx_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_tx_amount(COIN_NAME), COIN_NAME)}{COIN_NAME}\n'
                                    f'{balance_str}'
                                    '```'

@@ -11,7 +11,7 @@ sys.path.append("..")
 from config import config
 
 # Coin using wallet-api
-WALLET_API_COIN = ["DEGO"]
+WALLET_API_COIN = config.Enable_Coin_WalletApi.split(",")
 
 class RPCException(Exception):
     def __init__(self, message):

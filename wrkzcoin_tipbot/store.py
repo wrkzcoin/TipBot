@@ -37,7 +37,7 @@ ENABLE_COIN = config.Enable_Coin.split(",")
 ENABLE_COIN_DOGE = ["DOGE"]
 
 # Coin using wallet-api
-WALLET_API_COIN = ["DEGO"]
+WALLET_API_COIN = config.Enable_Coin_WalletApi.split(",")
 
 
 # openConnection_cursors 

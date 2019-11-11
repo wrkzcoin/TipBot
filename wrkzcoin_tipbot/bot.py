@@ -3188,7 +3188,7 @@ async def take(ctx):
         await ctx.send(f'{EMOJI_RED_NO} This command can not be in private.')
         return
 
-    # Check if user guild member less than 100 online
+    # Check if user guild member less than 15 online
     num_online = sum(1 for member in ctx.guild.members if member.status != discord.Status.offline and member.bot == False)
     if num_online <= 15:
         await ctx.message.add_reaction(EMOJI_ERROR)
@@ -3349,6 +3349,13 @@ async def tip(ctx, amount: str, *args):
         await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
         return
     # end of check if account locked
+
+    # Check if user guild member less than 5 online
+    num_online = sum(1 for member in ctx.guild.members if member.status != discord.Status.offline and member.bot == False)
+    if num_online < 5:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} This command isn\'t available with this guild.')
+        return
 
     botLogChan = bot.get_channel(id=LOG_CHAN)
     amount = amount.replace(",", "")
@@ -3714,6 +3721,13 @@ async def tipall(ctx, amount: str, *args):
         await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
         return
     # end of check if account locked
+
+    # Check if user guild member less than 5 online
+    num_online = sum(1 for member in ctx.guild.members if member.status != discord.Status.offline and member.bot == False)
+    if num_online < 5:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} This command isn\'t available with this guild.')
+        return
 
     botLogChan = bot.get_channel(id=LOG_CHAN)
     amount = amount.replace(",", "")

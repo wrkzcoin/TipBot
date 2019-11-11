@@ -1137,11 +1137,17 @@ def sql_faucet_add(claimed_user: str, claimed_server: str, coin_name: str, claim
 
 def sql_faucet_checkuser(userID: str):
     global conn
+    list_roach = sql_roach_get_by_id(userID)
     try:
         openConnection()
         with conn.cursor() as cur:
-            sql = """ SELECT * FROM discord_faucet WHERE claimed_user = %s ORDER BY claimed_at DESC LIMIT 1"""
-            cur.execute(sql, (userID,))
+            if list_roach:
+                roach_sql = "(" + ",".join(list_roach) + ")"
+                sql = """ SELECT * FROM discord_faucet WHERE claimed_user IN """+roach_sql+""" ORDER BY claimed_at DESC LIMIT 1"""
+                cur.execute(sql,)
+            else:
+                sql = """ SELECT * FROM discord_faucet WHERE claimed_user = %s ORDER BY claimed_at DESC LIMIT 1"""
+                cur.execute(sql, (userID,))
             result = cur.fetchone()
             return result
     except Exception as e:
@@ -1469,6 +1475,48 @@ def sql_userinfo_locked(user_id: str, locked: str, locked_reason: str, locked_by
                 cur.execute(sql, (locked.upper(), locked_reason, locked_by, int(time.time()), user_id))
                 conn.commit()
             return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
+def sql_roach_add(main_id: str, roach_id: str, roach_name: str, main_name: str):
+    try:
+        openConnection()
+        with conn.cursor() as cur:
+            # select first
+            sql = """ SELECT `roach_id`, `main_id`, `date` FROM discord_faucetroach 
+                      WHERE `roach_id` = %s AND `main_id` = %s """
+            cur.execute(sql, (roach_id, main_id,))
+            result = cur.fetchone()
+            if result is None:
+                sql = """ INSERT INTO `discord_faucetroach` (`roach_id`, `main_id`, `roach_name`, `main_name`, `date`)
+                      VALUES (%s, %s, %s, %s, %s) """
+                cur.execute(sql, (roach_id, main_id, roach_name, main_name, int(time.time())))
+                conn.commit()
+                return True
+            else:
+                return None
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
+def sql_roach_get_by_id(roach_id: str):
+    try:
+        openConnection()
+        with conn.cursor() as cur:
+            # select first
+            sql = """ SELECT `roach_id`, `main_id`, `date` FROM discord_faucetroach 
+                      WHERE `roach_id` = %s OR `main_id` = %s """
+            cur.execute(sql, (roach_id, roach_id,))
+            result = cur.fetchall()
+            if result is None:
+                return None
+            else:
+                roaches = []
+                for each in result:
+                    roaches.append(each['roach_id'])
+                    roaches.append(each['main_id'])
+                return set(roaches)
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
 

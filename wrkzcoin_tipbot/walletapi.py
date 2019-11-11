@@ -55,7 +55,7 @@ async def walletapi_get_all_addresses(coin: str) -> Dict[str, Dict]:
 
 
 async def walletapi_send_transaction(from_address: str, to_address: str, amount: int, coin: str) -> str:
-    time_out = 32
+    time_out = 300
     COIN_NAME = coin.upper()
     json_data = {
         "destinations": [{"address": to_address, "amount": amount}],
@@ -82,7 +82,7 @@ async def walletapi_send_transaction(from_address: str, to_address: str, amount:
 
 
 async def walletapi_send_transaction_id(from_address: str, to_address: str, amount: int, paymentid: str, coin: str) -> str:
-    time_out = 32
+    time_out = 300
     COIN_NAME = coin.upper()
     json_data = {
         'addresses': [from_address],
@@ -108,7 +108,7 @@ async def walletapi_send_transaction_id(from_address: str, to_address: str, amou
 
 
 async def walletapi_send_transactionall(from_address: str, to_address, coin: str) -> str:
-    time_out = 32
+    time_out = 300
     COIN_NAME = coin.upper()
     result = None
     json_data = {

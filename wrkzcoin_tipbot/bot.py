@@ -175,27 +175,27 @@ ENABLE_COIN_VOUCHER = config.Enable_Coin_Voucher.split(",")
 # Some notice about coin that going to swap or take out.
 NOTICE_COIN = {
     "WRKZ" : f"{EMOJI_INFORMATION} WRKZ new network fee 500.00WRKZ.",
-    "TRTL" : None,
-    "DEGO" : "We are migrating DEGO to wallet-api. Work still in progress",
-    "CX" : None,
-    "BTCMZ" : None,
-    "MTIP" : None,
-    "XCY" : None,
-    "PLE" : None,
-    "ELPH" : None,
-    "ANX" : None,
-    "NBXC" : None,
-    "ARMS" : None,
-    "IRD" : None,
-    "HITC" : None,
-    "NACA" : None,
-    "XTOR" : None,
-    "LOKI" : None,
-    "XEQ" : None,
-    "ARQ" : None,
-    "XMR" : None,
-    "MSR" : None,
-    "BLOG" : None,
+    "TRTL" : getattr(getattr(config,"daemonTRTL"),"coin_notice", None),
+    "DEGO" : getattr(getattr(config,"daemonDEGO"),"coin_notice", None),
+    "CX" : getattr(getattr(config,"daemonCX"),"coin_notice", None),
+    "BTCMZ" : getattr(getattr(config,"daemonBTCMZ"),"coin_notice", None),
+    "MTIP" : getattr(getattr(config,"daemonMTIP"),"coin_notice", None),
+    "XCY" : getattr(getattr(config,"daemonXCY"),"coin_notice", None),
+    "PLE" : getattr(getattr(config,"daemonPLE"),"coin_notice", None),
+    "ELPH" : getattr(getattr(config,"daemonELPH"),"coin_notice", None),
+    "ANX" : getattr(getattr(config,"daemonANX"),"coin_notice", None),
+    "NBXC" : getattr(getattr(config,"daemonNBXC"),"coin_notice", None),
+    "ARMS" : getattr(getattr(config,"daemonARMS"),"coin_notice", None),
+    "IRD" : getattr(getattr(config,"daemonIRD"),"coin_notice", None),
+    "HITC" : getattr(getattr(config,"daemonHITC"),"coin_notice", None),
+    "NACA" : getattr(getattr(config,"daemonNACA"),"coin_notice", None),
+    "XTOR" : getattr(getattr(config,"daemonXTOR"),"coin_notice", None),
+    "LOKI" : getattr(getattr(config,"daemonLOKI"),"coin_notice", None),
+    "XEQ" : getattr(getattr(config,"daemonXEQ"),"coin_notice", None),
+    "ARQ" : getattr(getattr(config,"daemonARQ"),"coin_notice", None),
+    "XMR" : getattr(getattr(config,"daemonXMR"),"coin_notice", None),
+    "MSR" : getattr(getattr(config,"daemonMSR"),"coin_notice", None),
+    "BLOG" : getattr(getattr(config,"daemonBLOG"),"coin_notice", None),
     "DOGE" : "Please acknowledge that DOGE address is for **one-time** use only for depositing.",
     "default": "Thank you for using."
     }
@@ -1463,6 +1463,31 @@ async def unlockuser(ctx, user_id: str):
     else:
         await ctx.message.author.send(f'{user_id} not stored in **discord userinfo** yet. Nothing to unlocked.')
         return
+
+
+@commands.is_owner()
+@admin.command()
+async def roachadd(ctx, main_id: str, user_id: str):
+    if main_id == user_id:
+        await ctx.message.author.send(f'{main_id} and {user_id} can not be the same.')
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        return
+    else:
+        main_member = bot.get_user(id=int(main_id))
+        roach_user = bot.get_user(id=int(user_id))
+        if main_member and roach_user:
+            add_roach = store.sql_roach_add(main_id, user_id, roach_user.name+"#"+roach_user.discriminator, main_member.name+"#"+main_member.discriminator)
+            if add_roach:
+                await ctx.message.author.send(f'Succesfully add new roach **{user_id}** / {roach_user.name}#{roach_user.discriminator} to Main ID: **{main_id}** / {main_member.name}#{main_member.discriminator}.')
+                await ctx.message.add_reaction(EMOJI_OK_BOX)
+            else:
+                await ctx.message.author.send(f'{main_id} and {user_id} added fail or already existed.')
+                await ctx.message.add_reaction(EMOJI_ERROR)
+            return   
+        else:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.message.author.send(f'{main_id} and/or {user_id} not found.')
+            return
 
 
 @commands.is_owner()

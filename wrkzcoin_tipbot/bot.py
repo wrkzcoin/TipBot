@@ -6391,40 +6391,40 @@ async def update_user_guild():
         await asyncio.sleep(60)
 
 
-async def update_balance_wallets():
+async def saving_wallet():
+    global LOG_CHAN
+    saving = False
+    await bot.wait_until_ready()
+    botLogChan = bot.get_channel(id=LOG_CHAN)
     while not bot.is_closed():
         # We use in background bot_sql_update_balances.py
         # await asyncio.sleep(15)
         # store.sql_update_balances("TRTL")
         # await asyncio.sleep(20)
         # store.sql_update_balances("WRKZ")
-        # await asyncio.sleep(20)
-        # store.sql_update_balances("CX")
-        # await asyncio.sleep(20)
-        # store.sql_update_balances("DEGO")
-        # await asyncio.sleep(20)
-        # store.sql_update_balances("BTCMZ")
-        # await asyncio.sleep(20)
-        # store.sql_update_balances("MTIP")
-        # await asyncio.sleep(20)
-        # store.sql_update_balances("XCY")
-        # await asyncio.sleep(20)
-        # store.sql_update_balances("PLE")
-        # await asyncio.sleep(20)
-        # store.sql_update_balances("ELPH")
-        # await asyncio.sleep(20)
-        # store.sql_update_balances("ANX")
-        # await asyncio.sleep(20)
-        # store.sql_update_balances("NBXC")
-        # await asyncio.sleep(20)
-        # store.sql_update_balances("ARMS")
-        # await asyncio.sleep(20)
-        # store.sql_update_balances("IRD")
-        # await asyncio.sleep(20)
-        # store.sql_update_balances("HITC")
-        # await asyncio.sleep(20)
-        # store.sql_update_balances("NACA")
-        # await asyncio.sleep(20)
+        while botLogChan is None:
+            botLogChan = bot.get_channel(id=LOG_CHAN)
+            await asyncio.sleep(10)
+        COIN_SAVING = ENABLE_COIN + ENABLE_XMR
+        for COIN_NAME in COIN_SAVING:
+            if (COIN_NAME in MAINTENANCE_COIN) or COIN_NAME in ["CCX", "ANX"]:
+                continue
+            if (COIN_NAME in ENABLE_COIN + ENABLE_XMR) and saving == False:
+                duration = None
+                saving = True
+                try:
+                    if COIN_NAME in WALLET_API_COIN:
+                        duration = await walletapi.save_walletapi(COIN_NAME)
+                    else:
+                        duration = await rpc_cn_wallet_save(COIN_NAME)
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                if duration:
+                    await botLogChan.send(f'AUTOSAVE FOR **{COIN_NAME}** TOOK **{round(duration, 3)}s**.')
+                else:
+                    await ctx.message.author.send(f'AUTOSAVE FOR **{COIN_NAME}** FAILED.')
+                saving = False
+            await asyncio.sleep(300)
         await asyncio.sleep(config.wallet_balance_update_interval)
 
 
@@ -7407,7 +7407,7 @@ async def bot_faucet(ctx):
 
 @click.command()
 def main():
-    #bot.loop.create_task(update_balance_wallets())
+    bot.loop.create_task(saving_wallet())
     bot.loop.create_task(update_user_guild())
     bot.run(config.discord.token, reconnect=True)
 

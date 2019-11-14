@@ -6420,9 +6420,12 @@ async def saving_wallet():
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
                 if duration:
-                    await botLogChan.send(f'AUTOSAVE FOR **{COIN_NAME}** TOOK **{round(duration, 3)}s**.')
+                    if duration > 3:
+                        await botLogChan.send(f'INFO: AUTOSAVE FOR **{COIN_NAME}** TOOK **{round(duration, 3)}s**.')
+                    else:
+                        print(f'INFO: AUTOSAVE FOR **{COIN_NAME}** TOOK **{round(duration, 3)}s**.')
                 else:
-                    await botLogChan.send(f'AUTOSAVE FOR **{COIN_NAME}** FAILED.')
+                    await botLogChan.send(f'WARNING: AUTOSAVE FOR **{COIN_NAME}** FAILED.')
                 saving = False
             await asyncio.sleep(300)
         await asyncio.sleep(config.wallet_balance_update_interval)

@@ -6422,7 +6422,7 @@ async def saving_wallet():
                 if duration:
                     await botLogChan.send(f'AUTOSAVE FOR **{COIN_NAME}** TOOK **{round(duration, 3)}s**.')
                 else:
-                    await ctx.message.author.send(f'AUTOSAVE FOR **{COIN_NAME}** FAILED.')
+                    await botLogChan.send(f'AUTOSAVE FOR **{COIN_NAME}** FAILED.')
                 saving = False
             await asyncio.sleep(300)
         await asyncio.sleep(config.wallet_balance_update_interval)

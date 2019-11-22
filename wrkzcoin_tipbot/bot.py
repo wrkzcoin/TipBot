@@ -339,15 +339,19 @@ async def on_raw_reaction_add(payload):
     if payload.guild_id is None:
         return  # Reaction is on a private message
     """Handle a reaction add."""
-    emoji_partial = str(payload.emoji)
-    message_id = payload.message_id
-    channel_id = payload.channel_id
-    user_id = payload.user_id
-    guild = bot.get_guild(payload.guild_id)
-    channel = bot.get_channel(id=channel_id)
-    if not channel:
-        return
-    if isinstance(channel, discord.DMChannel):
+    try:
+        emoji_partial = str(payload.emoji)
+        message_id = payload.message_id
+        channel_id = payload.channel_id
+        user_id = payload.user_id
+        guild = bot.get_guild(payload.guild_id)
+        channel = bot.get_channel(id=channel_id)
+        if not channel:
+            return
+        if isinstance(channel, discord.DMChannel):
+            return
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
         return
     message = None
     author = None
@@ -2263,7 +2267,7 @@ async def botbalance(ctx, member: discord.Member, coin: str):
         elif COIN_NAME in ENABLE_COIN:
             localDaemonBlockCount = int(walletStatus['blockCount'])
             networkBlockCount = int(walletStatus['knownBlockCount'])
-        if COIN_NAME in (ENABLE_COIN+ENABLE_COIN_DOGE) and (networkBlockCount - localDaemonBlockCount >= 20):
+        if COIN_NAME in (ENABLE_COIN+ENABLE_COIN_DOGE) and (networkBlockCount - localDaemonBlockCount >= 100):
             # if height is different by 20
             t_percent = '{:,.2f}'.format(truncate(localDaemonBlockCount / networkBlockCount * 100, 2))
             t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)

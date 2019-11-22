@@ -3193,7 +3193,7 @@ async def take(ctx):
         return
 
     # Check if user guild member less than 15 online
-    num_online = sum(1 for member in ctx.guild.members if member.status != discord.Status.offline and member.bot == False)
+    num_online = sum(member.status != "offline" and not member.bot for member in ctx.message.guild.members)
     if num_online <= 15:
         await ctx.message.add_reaction(EMOJI_ERROR)
         msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} This command isn\'t available with this guild.')
@@ -3355,7 +3355,7 @@ async def tip(ctx, amount: str, *args):
     # end of check if account locked
 
     # Check if user guild member less than 5 online
-    num_online = sum(1 for member in ctx.guild.members if member.status != discord.Status.offline and member.bot == False)
+    num_online = sum(member.status != "offline" and not member.bot for member in ctx.message.guild.members)
     if num_online < 5:
         await ctx.message.add_reaction(EMOJI_ERROR)
         msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} This command isn\'t available with this guild.')
@@ -3727,7 +3727,7 @@ async def tipall(ctx, amount: str, *args):
     # end of check if account locked
 
     # Check if user guild member less than 5 online
-    num_online = sum(1 for member in ctx.guild.members if member.status != discord.Status.offline and member.bot == False)
+    num_online = sum(member.status != "offline" and not member.bot for member in ctx.message.guild.members)
     if num_online < 5:
         await ctx.message.add_reaction(EMOJI_ERROR)
         msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} This command isn\'t available with this guild.')
@@ -3817,7 +3817,7 @@ async def tipall(ctx, amount: str, *args):
         MinTx = get_min_tx_amount(COIN_NAME)
         MaxTX = get_max_tx_amount(COIN_NAME)
         NetFee = get_tx_fee(coin = COIN_NAME)
-        listMembers = [member for member in ctx.guild.members if member.status != discord.Status.offline]
+        listMembers = [member for member in ctx.guild.members if member.status != "offline"]
         # Check number of receivers.
         if len(listMembers) > config.tipallMax:
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -3987,7 +3987,7 @@ async def tipall(ctx, amount: str, *args):
                            f'{COIN_NAME}.')
             return
 
-        listMembers = [member for member in ctx.guild.members if member.status != discord.Status.offline]
+        listMembers = [member for member in ctx.guild.members if member.status != "offline"]
         # Check number of receivers.
         if len(listMembers) > config.tipallMax:
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -4070,7 +4070,7 @@ async def tipall(ctx, amount: str, *args):
                            f'{COIN_NAME}.')
             return
 
-        listMembers = [member for member in ctx.guild.members if member.status != discord.Status.offline]
+        listMembers = [member for member in ctx.guild.members if member.status != "offline"]
         # Check number of receivers.
         if len(listMembers) > config.tipallMax:
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -6390,7 +6390,7 @@ async def update_user_guild():
             num_channel = sum(1 for _ in g.channels)
             num_user = sum(1 for _ in g.members)
             num_bot = sum(1 for member in g.members if member.bot == True)
-            num_online = sum(1 for member in g.members if member.status != discord.Status.offline)
+            num_online = sum(1 for member in g.members if member.status != "offline")
             store.sql_updatestat_by_server(str(g.id), num_user, num_bot, num_channel, num_online)
         await asyncio.sleep(60)
 
@@ -6424,7 +6424,7 @@ async def saving_wallet():
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
                 if duration:
-                    if duration > 3:
+                    if duration > 5:
                         await botLogChan.send(f'INFO: AUTOSAVE FOR **{COIN_NAME}** TOOK **{round(duration, 3)}s**.')
                     else:
                         print(f'INFO: AUTOSAVE FOR **{COIN_NAME}** TOOK **{round(duration, 3)}s**.')

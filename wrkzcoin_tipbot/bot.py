@@ -3411,7 +3411,7 @@ async def tip(ctx, amount: str, *args):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
         return
 
-    if len(ctx.message.mentions) == 0:
+    if len(ctx.message.mentions) == 0 or (len(ctx.message.mentions) == 1 and (bot.user in ctx.message.mentions)):
         # Use how time.
         if len(args) >= 2:
             time_given = None
@@ -3475,7 +3475,7 @@ async def tip(ctx, amount: str, *args):
         else:
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
             return
-    elif len(ctx.message.mentions) == 1:
+    elif len(ctx.message.mentions) == 1 and (bot.user not in ctx.message.mentions):
         member = ctx.message.mentions[0]
         if ctx.message.author.id == member.id:
             await ctx.message.add_reaction(EMOJI_ERROR)

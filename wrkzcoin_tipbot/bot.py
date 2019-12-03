@@ -4350,7 +4350,7 @@ async def send(ctx, amount: str, CoinAddress: str):
             else:
                 await ctx.message.add_reaction(EMOJI_ERROR)
                 await botLogChan.send(f'A user failed to execute `.send {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}` with paymentid.')
-                await ctx.send('{ctx.author.mention} You may need to `optimize` or retry.')
+                await ctx.send(f'{ctx.author.mention} You may need to `optimize` or retry.')
                 return
         else:
             tip = None

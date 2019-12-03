@@ -85,13 +85,13 @@ async def walletapi_send_transaction_id(from_address: str, to_address: str, amou
     time_out = 300
     COIN_NAME = coin.upper()
     json_data = {
-        'addresses': [from_address],
-        'transfers': [{
+        'sourceAddresses': [from_address],
+        'destinations': [{
             "amount": amount,
             "address": to_address
         }],
         'fee': get_tx_fee(coin),
-        'anonymity': get_mixin(coin),
+        'mixin': get_mixin(coin),
         'paymentId': paymentid
     }
     method = "/transactions/send/advanced"
@@ -236,8 +236,8 @@ async def walletapi_wallet_optimize_single(subaddress: str, coin: str) -> int:
                         else:
                             break
                     else:
-                        #print('response.text: ')
-                        #print(await response.text())
+                        print('response.text: ')
+                        print(await response.text())
                         print('fusion {} response.status return: {}'.format(COIN_NAME, response.status))
                         break
         except asyncio.TimeoutError:

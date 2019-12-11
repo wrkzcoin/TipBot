@@ -124,16 +124,31 @@ async def sql_update_balances(coin: str = None):
                     actual_balance = details['unlocked']
                     locked_balance = details['locked']
                     decimal = wallet.get_decimal(COIN_NAME)
-                    values_str.append(f"('{COIN_NAME}', '{address}', {actual_balance}, {locked_balance}, {decimal}, {updateTime})\n")
+                    if COIN_NAME in ["DEGO"]:
+                        dust_balance = details['dust']
+                        values_str.append(f"('{COIN_NAME}', '{address}', {actual_balance}, {locked_balance}, {dust_balance}, {decimal}, {updateTime})\n")
+                    else:
+                        values_str.append(f"('{COIN_NAME}', '{address}', {actual_balance}, {locked_balance}, {decimal}, {updateTime})\n")
                 values_sql = "VALUES " + ",".join(values_str)
-                sql = """ INSERT INTO cn_walletapi (`coin_name`, `balance_wallet_address`, `actual_balance`, 
-                          `locked_balance`, `decimal`, `lastUpdate`) """+values_sql+""" 
-                          ON DUPLICATE KEY UPDATE 
-                          `actual_balance` = VALUES(`actual_balance`),
-                          `locked_balance` = VALUES(`locked_balance`),
-                          `decimal` = VALUES(`decimal`),
-                          `lastUpdate` = VALUES(`lastUpdate`)
-                          """
+                if COIN_NAME in ["DEGO"]:
+                    sql = """ INSERT INTO cn_walletapi (`coin_name`, `balance_wallet_address`, `actual_balance`, 
+                              `locked_balance`, `dust_balance`, `decimal`, `lastUpdate`) """+values_sql+""" 
+                              ON DUPLICATE KEY UPDATE 
+                              `actual_balance` = VALUES(`actual_balance`),
+                              `locked_balance` = VALUES(`locked_balance`),
+                              `dust_balance` = VALUES(`dust_balance`),
+                              `decimal` = VALUES(`decimal`),
+                              `lastUpdate` = VALUES(`lastUpdate`)
+                              """
+                else:
+                    sql = """ INSERT INTO cn_walletapi (`coin_name`, `balance_wallet_address`, `actual_balance`, 
+                              `locked_balance`, `decimal`, `lastUpdate`) """+values_sql+""" 
+                              ON DUPLICATE KEY UPDATE 
+                              `actual_balance` = VALUES(`actual_balance`),
+                              `locked_balance` = VALUES(`locked_balance`),
+                              `decimal` = VALUES(`decimal`),
+                              `lastUpdate` = VALUES(`lastUpdate`)
+                              """
                 cur.execute(sql,)
                 conn.commit()
                 end_sql = time.time()

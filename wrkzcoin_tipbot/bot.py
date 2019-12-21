@@ -3411,7 +3411,7 @@ async def tip(ctx, amount: str, *args):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
         return
 
-    if len(ctx.message.mentions) == 0 or (len(ctx.message.mentions) == 1 and (bot.user in ctx.message.mentions)):
+    if len(ctx.message.mentions) == 0:
         # Use how time.
         if len(args) >= 2:
             time_given = None
@@ -3475,6 +3475,10 @@ async def tip(ctx, amount: str, *args):
         else:
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
             return
+    elif len(ctx.message.mentions) == 1 and (bot.user in ctx.message.mentions):
+        # Tip to TipBot
+        member = ctx.message.mentions[0]
+        print('TipBot is receiving tip from {} amount: {}{}'.format(ctx.message.author.name, amount, COIN_NAME))
     elif len(ctx.message.mentions) == 1 and (bot.user not in ctx.message.mentions):
         member = ctx.message.mentions[0]
         if ctx.message.author.id == member.id:
@@ -3503,8 +3507,6 @@ async def tip(ctx, amount: str, *args):
             await ctx.message.add_reaction(EMOJI_WARNING)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {config.maintenance_msg}')
             return
-    else:
-        pass
     # End Check if maintenance
 
     notifyList = store.sql_get_tipnotify()
@@ -3524,6 +3526,7 @@ async def tip(ctx, amount: str, *args):
         MinTx = get_min_tx_amount(COIN_NAME)
         MaxTX = get_max_tx_amount(COIN_NAME)
         NetFee = get_tx_fee(coin = COIN_NAME)
+
         if real_amount + NetFee >= user_from['actual_balance']:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '

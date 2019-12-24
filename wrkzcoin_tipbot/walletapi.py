@@ -233,6 +233,7 @@ async def walletapi_wallet_optimize_single(subaddress: str, coin: str) -> int:
                         res_data = await response.json()
                         if 'transactionHash' in res_data:
                             i = i + 1
+                            print("Optimizing {} - {}: {}".format(COIN_NAME, subaddress[:20], res_data['transactionHash']))
                         else:
                             break
                     else:

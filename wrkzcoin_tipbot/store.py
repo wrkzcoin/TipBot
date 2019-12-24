@@ -16,6 +16,8 @@ from cryptography.fernet import Fernet
 import pymysql, pymysqlpool
 import pymysql.cursors
 
+DUST_COIN = []
+
 pymysqlpool.logger.setLevel('DEBUG')
 myconfig = {
     'host': config.mysql.host,
@@ -124,13 +126,13 @@ async def sql_update_balances(coin: str = None):
                     actual_balance = details['unlocked']
                     locked_balance = details['locked']
                     decimal = wallet.get_decimal(COIN_NAME)
-                    if COIN_NAME in ["DEGO"]:
+                    if COIN_NAME in DUST_COIN:
                         dust_balance = details['dust']
                         values_str.append(f"('{COIN_NAME}', '{address}', {actual_balance}, {locked_balance}, {dust_balance}, {decimal}, {updateTime})\n")
                     else:
                         values_str.append(f"('{COIN_NAME}', '{address}', {actual_balance}, {locked_balance}, {decimal}, {updateTime})\n")
                 values_sql = "VALUES " + ",".join(values_str)
-                if COIN_NAME in ["DEGO"]:
+                if COIN_NAME in DUST_COIN:
                     sql = """ INSERT INTO cn_walletapi (`coin_name`, `balance_wallet_address`, `actual_balance`, 
                               `locked_balance`, `dust_balance`, `decimal`, `lastUpdate`) """+values_sql+""" 
                               ON DUPLICATE KEY UPDATE 

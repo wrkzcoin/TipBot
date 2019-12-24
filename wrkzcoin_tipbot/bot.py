@@ -2745,7 +2745,8 @@ async def withdraw(ctx, amount: str, coin: str = None):
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await botLogChan.send(f'A user failed to execute `.withdraw {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`')
-            await ctx.send(f'{ctx.author.mention} You may need to `optimize` or try again.')
+            msg = await ctx.send(f'{ctx.author.mention} You may need to `optimize` or try again.')
+            await msg.add_reaction(EMOJI_OK_BOX)
             # add to failed tx table
             store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "WITHDRAW")
             return
@@ -3041,7 +3042,8 @@ async def donate(ctx, amount: str, coin: str = None):
             return
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{ctx.author.mention} TX failed. Thank you but you may need to `optimize` or try again later.')
+            msg = await ctx.send(f'{ctx.author.mention} TX failed. Thank you but you may need to `optimize` or try again later.')
+            await msg.add_reaction(EMOJI_OK_BOX)
             # add to failed tx table
             store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "DONATE")
             return
@@ -4353,7 +4355,8 @@ async def send(ctx, amount: str, CoinAddress: str):
             else:
                 await ctx.message.add_reaction(EMOJI_ERROR)
                 await botLogChan.send(f'A user failed to execute `.send {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}` with paymentid.')
-                await ctx.send(f'{ctx.author.mention} You may need to `optimize` or retry.')
+                msg = await ctx.send(f'{ctx.author.mention} You may need to `optimize` or retry.')
+                await msg.add_reaction(EMOJI_OK_BOX)
                 return
         else:
             tip = None
@@ -6579,7 +6582,8 @@ async def _tip(ctx, amount, coin: str):
             return
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You may need to `optimize` or try again.')
+            msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You may need to `optimize` or try again.')
+            await msg.add_reaction(EMOJI_OK_BOX)
             # add to failed tx table
             store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "TIPS")
             return
@@ -6915,7 +6919,8 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
             return
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You may need to `optimize` or try again later.')
+            msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You may need to `optimize` or try again later.')
+            await msg.add_reaction(EMOJI_OK_BOX)
             # add to failed tx table
             store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "TIPS")
             return
@@ -7217,7 +7222,8 @@ async def _tip_react(reaction, user, amount, coin: str):
                             pass
             return
         else:
-            await user.send(f'{EMOJI_RED_NO} {user.mention} You may need to `optimize` or try again for {EMOJI_TIP}.')
+            msg = await user.send(f'{EMOJI_RED_NO} {user.mention} You may need to `optimize` or try again for {EMOJI_TIP}.')
+            await msg.add_reaction(EMOJI_OK_BOX)
             # add to failed tx table
             store.sql_add_failed_tx(COIN_NAME, str(user.id), user.name, real_amount, "REACTTIP")
             return

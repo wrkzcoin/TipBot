@@ -11,6 +11,8 @@ from config import config
 import sys
 sys.path.append("..")
 
+FEE_PER_BYTE_COIN = config.Fee_Per_Byte_Coin.split(",")
+
 class RPCException(Exception):
     def __init__(self, message):
         super(RPCException, self).__init__(message)
@@ -57,23 +59,37 @@ async def walletapi_get_all_addresses(coin: str) -> Dict[str, Dict]:
 async def walletapi_send_transaction(from_address: str, to_address: str, amount: int, coin: str) -> str:
     time_out = 300
     COIN_NAME = coin.upper()
-    json_data = {
-        "destinations": [{"address": to_address, "amount": amount}],
-        "mixin": get_mixin(coin),
-        "fee": get_tx_fee(coin),
-        "sourceAddresses": [
-            from_address
-        ],
-        "paymentID": "",
-        "changeAddress": from_address
-    }
+    if COIN_NAME not in FEE_PER_BYTE_COIN:
+        json_data = {
+            "destinations": [{"address": to_address, "amount": amount}],
+            "mixin": get_mixin(COIN_NAME),
+            "fee": get_tx_fee(COIN_NAME),
+            "sourceAddresses": [
+                from_address
+            ],
+            "paymentID": "",
+            "changeAddress": from_address
+        }
+    else:
+        json_data = {
+            "destinations": [{"address": to_address, "amount": amount}],
+            "mixin": get_mixin(COIN_NAME),
+            "sourceAddresses": [
+                from_address
+            ],
+            "paymentID": "",
+            "changeAddress": from_address
+        }
     method = "/transactions/send/advanced"
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(get_wallet_api_url(COIN_NAME) + method, headers=get_wallet_api_header(COIN_NAME), json=json_data, timeout=time_out) as response:
                 json_resp = await response.json()
                 if response.status == 200 or response.status == 201:
-                    return json_resp['transactionHash']
+                    if COIN_NAME not in FEE_PER_BYTE_COIN:
+                        return {"transactionHash": json_resp['transactionHash'], "fee": get_tx_fee(COIN_NAME)}
+                    else:
+                        return {"transactionHash": json_resp['transactionHash'], "fee": json_resp['fee']}
                 elif 'errorMessage' in json_resp:
                     raise RPCException(json_resp['errorMessage'])
     except asyncio.TimeoutError:
@@ -84,23 +100,37 @@ async def walletapi_send_transaction(from_address: str, to_address: str, amount:
 async def walletapi_send_transaction_id(from_address: str, to_address: str, amount: int, paymentid: str, coin: str) -> str:
     time_out = 300
     COIN_NAME = coin.upper()
-    json_data = {
-        'sourceAddresses': [from_address],
-        'destinations': [{
-            "amount": amount,
-            "address": to_address
-        }],
-        'fee': get_tx_fee(coin),
-        'mixin': get_mixin(coin),
-        'paymentID': paymentid
-    }
+    if COIN_NAME not in FEE_PER_BYTE_COIN:
+        json_data = {
+            'sourceAddresses': [from_address],
+            'destinations': [{
+                "amount": amount,
+                "address": to_address
+            }],
+            'fee': get_tx_fee(COIN_NAME),
+            'mixin': get_mixin(COIN_NAME),
+            'paymentID': paymentid
+        }
+    else:
+        json_data = {
+            'sourceAddresses': [from_address],
+            'destinations': [{
+                "amount": amount,
+                "address": to_address
+            }],
+            'mixin': get_mixin(COIN_NAME),
+            'paymentID': paymentid
+        }
     method = "/transactions/send/advanced"
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(get_wallet_api_url(COIN_NAME) + method, headers=get_wallet_api_header(COIN_NAME), json=json_data, timeout=time_out) as response:
                 json_resp = await response.json()
                 if response.status == 200 or response.status == 201:
-                    return json_resp['transactionHash']
+                    if COIN_NAME not in FEE_PER_BYTE_COIN:
+                        return {"transactionHash": json_resp['transactionHash'], "fee": get_tx_fee(COIN_NAME)}
+                    else:
+                        return {"transactionHash": json_resp['transactionHash'], "fee": json_resp['fee']}
                 elif 'errorMessage' in json_resp:
                     raise RPCException(json_resp['errorMessage'])
     except asyncio.TimeoutError:
@@ -111,23 +141,37 @@ async def walletapi_send_transactionall(from_address: str, to_address, coin: str
     time_out = 300
     COIN_NAME = coin.upper()
     result = None
-    json_data = {
-        "destinations": to_address,
-        "mixin": get_mixin(coin),
-        "fee": get_tx_fee(coin),
-        "sourceAddresses": [
-            from_address
-        ],
-        "paymentID": "",
-        "changeAddress": from_address
-    }
+    if COIN_NAME not in FEE_PER_BYTE_COIN:
+        json_data = {
+            "destinations": to_address,
+            "mixin": get_mixin(COIN_NAME),
+            "fee": get_tx_fee(COIN_NAME),
+            "sourceAddresses": [
+                from_address
+            ],
+            "paymentID": "",
+            "changeAddress": from_address
+        }
+    else:
+        json_data = {
+            "destinations": to_address,
+            "mixin": get_mixin(COIN_NAME),
+            "sourceAddresses": [
+                from_address
+            ],
+            "paymentID": "",
+            "changeAddress": from_address
+        }
     method = "/transactions/send/advanced"
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(get_wallet_api_url(COIN_NAME) + method, headers=get_wallet_api_header(COIN_NAME), json=json_data, timeout=time_out) as response:
                 json_resp = await response.json()
                 if response.status == 200 or response.status == 201:
-                    return json_resp['transactionHash']
+                    if COIN_NAME not in FEE_PER_BYTE_COIN:
+                        return {"transactionHash": json_resp['transactionHash'], "fee": get_tx_fee(COIN_NAME)}
+                    else:
+                        return {"transactionHash": json_resp['transactionHash'], "fee": json_resp['fee']}
                 elif 'errorMessage' in json_resp:
                     raise RPCException(json_resp['errorMessage'])
     except asyncio.TimeoutError:

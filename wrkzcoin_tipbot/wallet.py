@@ -11,7 +11,7 @@ from config import config
 
 import sys
 sys.path.append("..")
-
+FEE_PER_BYTE_COIN = config.Fee_Per_Byte_Coin.split(",")
 
 async def registerOTHER(coin: str) -> str:
     COIN_NAME = coin.upper()
@@ -62,19 +62,32 @@ async def send_transaction(from_address: str, to_address: str, amount: int, coin
     result = None
     time_out = 32
     if coin_family == "TRTL" or coin_family == "CCX":
-        payload = {
-            'addresses': [from_address],
-            'transfers': [{
-                "amount": amount,
-                "address": to_address
-            }],
-            'fee': get_tx_fee(COIN_NAME),
-            'anonymity': get_mixin(COIN_NAME)
-        }
+        if COIN_NAME not in FEE_PER_BYTE_COIN:
+            payload = {
+                'addresses': [from_address],
+                'transfers': [{
+                    "amount": amount,
+                    "address": to_address
+                }],
+                'fee': get_tx_fee(COIN_NAME),
+                'anonymity': get_mixin(COIN_NAME)
+            }
+        else:
+            payload = {
+                'addresses': [from_address],
+                'transfers': [{
+                    "amount": amount,
+                    "address": to_address
+                }],
+                'anonymity': get_mixin(COIN_NAME)
+            }
         result = await rpc_client.call_aiohttp_wallet('sendTransaction', COIN_NAME, time_out=time_out, payload=payload)
         if result:
             if 'transactionHash' in result:
-                return result['transactionHash']
+                if COIN_NAME not in FEE_PER_BYTE_COIN:
+                    return {"transactionHash": result['transactionHash'], "fee": get_tx_fee(COIN_NAME)}
+                else:
+                    return {"transactionHash": result['transactionHash'], "fee": result['fee']}
     elif coin_family == "XMR":
         payload = {
             "destinations": [{'amount': amount, 'address': to_address}],
@@ -95,22 +108,36 @@ async def send_transaction(from_address: str, to_address: str, amount: int, coin
 
 async def send_transaction_id(from_address: str, to_address: str, amount: int, paymentid: str, coin: str) -> str:
     time_out = 32
-    coin = coin.upper()
-    payload = {
-        'addresses': [from_address],
-        'transfers': [{
-            "amount": amount,
-            "address": to_address
-        }],
-        'fee': get_tx_fee(coin),
-        'anonymity': get_mixin(coin),
-        'paymentId': paymentid
-    }
+    COIN_NAME = coin.upper()
+    if COIN_NAME not in FEE_PER_BYTE_COIN:
+        payload = {
+            'addresses': [from_address],
+            'transfers': [{
+                "amount": amount,
+                "address": to_address
+            }],
+            'fee': get_tx_fee(COIN_NAME),
+            'anonymity': get_mixin(COIN_NAME),
+            'paymentId': paymentid
+        }
+    else:
+        payload = {
+            'addresses': [from_address],
+            'transfers': [{
+                "amount": amount,
+                "address": to_address
+            }],
+            'anonymity': get_mixin(COIN_NAME),
+            'paymentId': paymentid
+        }
     result = None
-    result = await rpc_client.call_aiohttp_wallet('sendTransaction', coin, time_out=time_out, payload=payload)
+    result = await rpc_client.call_aiohttp_wallet('sendTransaction', COIN_NAME, time_out=time_out, payload=payload)
     if result:
         if 'transactionHash' in result:
-            return result['transactionHash']
+            if COIN_NAME not in FEE_PER_BYTE_COIN:
+                return {"transactionHash": result['transactionHash'], "fee": get_tx_fee(COIN_NAME)}
+            else:
+                return {"transactionHash": result['transactionHash'], "fee": result['fee']}
     return result
 
 
@@ -120,16 +147,26 @@ async def send_transactionall(from_address: str, to_address, coin: str, acc_inde
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     result = None
     if coin_family == "TRTL" or coin_family == "CCX":
-        payload = {
-            'addresses': [from_address],
-            'transfers': to_address,
-            'fee': get_tx_fee(coin),
-            'anonymity': get_mixin(coin),
-        }
+        if COIN_NAME not in FEE_PER_BYTE_COIN:
+            payload = {
+                'addresses': [from_address],
+                'transfers': to_address,
+                'fee': get_tx_fee(coin),
+                'anonymity': get_mixin(coin),
+            }
+        else:
+            payload = {
+                'addresses': [from_address],
+                'transfers': to_address,
+                'anonymity': get_mixin(coin),
+            }
         result = await rpc_client.call_aiohttp_wallet('sendTransaction', coin, time_out=time_out, payload=payload)
         if result:
             if 'transactionHash' in result:
-                return result['transactionHash']
+                if COIN_NAME not in FEE_PER_BYTE_COIN:
+                    return {"transactionHash": result['transactionHash'], "fee": get_tx_fee(COIN_NAME)}
+                else:
+                    return {"transactionHash": result['transactionHash'], "fee": result['fee']}
     elif coin_family == "XMR":
         payload = {
             "destinations": to_address,

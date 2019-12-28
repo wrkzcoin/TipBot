@@ -17,6 +17,7 @@ import pymysql, pymysqlpool
 import pymysql.cursors
 
 DUST_COIN = []
+FEE_PER_BYTE_COIN = config.Fee_Per_Byte_Coin.split(",")
 
 pymysqlpool.logger.setLevel('DEBUG')
 myconfig = {
@@ -522,9 +523,14 @@ async def sql_send_tip(user_from: str, user_to: str, amount: int, tiptype: str, 
                     timestamp = int(time.time())
                     sql = None
                     if coin_family == "TRTL" or coin_family == "CCX":
-                        sql = """ INSERT INTO cn_tip (`coin_name`, `from_user`, `to_user`, `amount`, `decimal`, `date`, `tx_hash`, `tip_tips_tipall`) 
-                                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
-                        cur.execute(sql, (COIN_NAME, user_from, user_to, amount, wallet.get_decimal(COIN_NAME), timestamp, tx_hash, tiptype.upper(),))
+                        fee = 0
+                        if COIN_NAME not in FEE_PER_BYTE_COIN:
+                            fee = wallet.get_tx_fee(COIN_NAME)
+                        else:
+                            fee = tx_hash['fee']
+                        sql = """ INSERT INTO cn_tip (`coin_name`, `from_user`, `to_user`, `amount`, `decimal`, `date`, `tx_hash`, `tip_tips_tipall`, `fee`) 
+                                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                        cur.execute(sql, (COIN_NAME, user_from, user_to, amount, wallet.get_decimal(COIN_NAME), timestamp, tx_hash['transactionHash'], tiptype.upper(), fee))
                         conn.commit()
                         await sql_update_some_balances([user_from_wallet['balance_wallet_address'], user_to_wallet['balance_wallet_address']], COIN_NAME)
             except Exception as e:
@@ -566,9 +572,14 @@ async def sql_send_secrettip(user_from: str, user_to: str, amount: int, coin: st
                     sql = None
                     updateBalance = None
                     if coin.upper() in ENABLE_COIN:
-                        sql = """ INSERT INTO bot_secrettip (`coin_name`, `from_user`, `to_user`, `amount`, `decimal_coin`, `date`, `tx_hash`) 
-                                  VALUES (%s, %s, %s, %s, %s, %s, %s) """
-                        cur.execute(sql, (coin.upper(), user_from, user_to, amount, wallet.get_decimal(coin.upper()), timestamp, tx_hash,))
+                        fee = 0
+                        if COIN_NAME not in FEE_PER_BYTE_COIN:
+                            fee = wallet.get_tx_fee(COIN_NAME)
+                        else:
+                            fee = tx_hash['fee']
+                        sql = """ INSERT INTO bot_secrettip (`coin_name`, `from_user`, `to_user`, `amount`, `decimal_coin`, `date`, `tx_hash`, `fee`) 
+                                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                        cur.execute(sql, (coin.upper(), user_from, user_to, amount, wallet.get_decimal(coin.upper()), timestamp, tx_hash['transactionHash'], fee))
                         conn.commit()
                         if coin.upper() in WALLET_API_COIN:
                             updateBalance = await walletapi.walletapi_get_balance_address(user_from_wallet['balance_wallet_address'],
@@ -623,19 +634,25 @@ async def sql_send_tipall(user_from: str, user_tos, amount: int, amount_div: int
             else:
                 tx_hash = await wallet.send_transactionall(user_from_wallet['balance_wallet_address'], user_tos, COIN_NAME)
         if tx_hash:
+            tx_hash_hash = tx_hash['transactionHash']
             try:
                 openConnection()
                 with conn.cursor() as cur:
                     timestamp = int(time.time())
                     if coin_family == "TRTL" or coin_family == "CCX":
-                        sql = """ INSERT INTO cn_tipall (`coin_name`, `from_user`, `amount_total`, `decimal`, `date`, `tx_hash`, `numb_receivers`) 
-                                  VALUES (%s, %s, %s, %s, %s, %s, %s) """
-                        cur.execute(sql, (COIN_NAME, user_from, amount, wallet.get_decimal(COIN_NAME), timestamp, tx_hash, len(user_tos),))
+                        fee = 0
+                        if COIN_NAME not in FEE_PER_BYTE_COIN:
+                            fee = wallet.get_tx_fee(COIN_NAME)
+                        else:
+                            fee = tx_hash['fee']
+                        sql = """ INSERT INTO cn_tipall (`coin_name`, `from_user`, `amount_total`, `decimal`, `date`, `tx_hash`, `numb_receivers`, `fee`) 
+                                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                        cur.execute(sql, (COIN_NAME, user_from, amount, wallet.get_decimal(COIN_NAME), timestamp, tx_hash['transactionHash'], len(user_tos), fee))
                         conn.commit()
 
                         values_str = []
                         for item in user_ids:
-                            values_str.append(f"('{COIN_NAME}', '{user_from}', '{item}', {amount_div}, {int(wallet.get_decimal(COIN_NAME))}, {timestamp}, '{tx_hash}', '{tiptype.upper()}')\n")
+                            values_str.append(f"('{COIN_NAME}', '{user_from}', '{item}', {amount_div}, {int(wallet.get_decimal(COIN_NAME))}, {timestamp}, '{tx_hash_hash}', '{tiptype.upper()}')\n")
                         values_sql = "VALUES " + ",".join(values_str)
                         sql = """ INSERT INTO cn_tip (`coin_name`, `from_user`, `to_user`, `amount`, `decimal`, `date`, `tx_hash`, `tip_tips_tipall`) 
                                   """+values_sql+""" """
@@ -676,9 +693,14 @@ async def sql_send_tip_Ex(user_from: str, address_to: str, amount: int, coin: st
                     timestamp = int(time.time())
                     updateBalance = None
                     if coin_family == "TRTL" or coin_family == "CCX":
+                        fee = 0
+                        if COIN_NAME not in FEE_PER_BYTE_COIN:
+                            fee = wallet.get_tx_fee(COIN_NAME)
+                        else:
+                            fee = tx_hash['fee']
                         sql = """ INSERT INTO cn_send (`coin_name`, `from_user`, `to_address`, `amount`, `decimal`, `date`, 
-                                  `tx_hash`) VALUES (%s, %s, %s, %s, %s, %s, %s) """
-                        cur.execute(sql, (COIN_NAME, user_from, address_to, amount, wallet.get_decimal(COIN_NAME), timestamp, tx_hash,))
+                                  `tx_hash`, `fee`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                        cur.execute(sql, (COIN_NAME, user_from, address_to, amount, wallet.get_decimal(COIN_NAME), timestamp, tx_hash['transactionHash'], fee))
                         conn.commit()
                         if COIN_NAME in WALLET_API_COIN:
                             updateBalance = await walletapi.walletapi_get_balance_address(user_from_wallet['balance_wallet_address'], 
@@ -728,9 +750,14 @@ async def sql_send_tip_Ex_id(user_from: str, address_to: str, amount: int, payme
                 with conn.cursor() as cur:
                     timestamp = int(time.time())
                     if COIN_NAME in ENABLE_COIN:
+                        fee = 0
+                        if COIN_NAME not in FEE_PER_BYTE_COIN:
+                            fee = wallet.get_tx_fee(COIN_NAME)
+                        else:
+                            fee = tx_hash['fee']
                         sql = """ INSERT INTO cn_send (`coin_name`, `from_user`, `to_address`, `amount`, `decimal`, `date`, 
-                                  `tx_hash`, `paymentid`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
-                        cur.execute(sql, (COIN_NAME, user_from, address_to, amount, wallet.get_decimal(COIN_NAME), timestamp, tx_hash, paymentid, ))
+                                  `tx_hash`, `paymentid`, `fee`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                        cur.execute(sql, (COIN_NAME, user_from, address_to, amount, wallet.get_decimal(COIN_NAME), timestamp, tx_hash['transactionHash'], paymentid, fee))
                         conn.commit()
                         if COIN_NAME in WALLET_API_COIN:
                             updateBalance = await walletapi.walletapi_get_balance_address(user_from_wallet['balance_wallet_address'], COIN_NAME)
@@ -780,8 +807,13 @@ async def sql_withdraw(user_from: str, amount: int, coin: str):
                     updateBalance = None
                     if coin_family == "TRTL" or coin_family == "CCX":
                         sql = """ INSERT INTO cn_withdraw (`coin_name`, `user_id`, `to_address`, `amount`, 
-                                  `decimal`, `date`, `tx_hash`) VALUES (%s, %s, %s, %s, %s, %s, %s) """
-                        cur.execute(sql, (COIN_NAME, user_from, user_from_wallet['user_wallet_address'], amount, wallet.get_decimal(COIN_NAME), timestamp, tx_hash,))
+                                  `decimal`, `date`, `tx_hash`, `fee`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                        fee = 0
+                        if COIN_NAME not in FEE_PER_BYTE_COIN:
+                            fee = wallet.get_tx_fee(COIN_NAME)
+                        else:
+                            fee = tx_hash['fee']
+                        cur.execute(sql, (COIN_NAME, user_from, user_from_wallet['user_wallet_address'], amount, wallet.get_decimal(COIN_NAME), timestamp, tx_hash['transactionHash'], fee))
                         conn.commit()
                         if COIN_NAME in WALLET_API_COIN:
                             updateBalance = await walletapi.walletapi_get_balance_address(user_from_wallet['balance_wallet_address'], COIN_NAME)
@@ -835,8 +867,13 @@ async def sql_donate(user_from: str, address_to: str, amount: int, coin: str) ->
                     updateBalance = None
                     if coin_family == "TRTL" or coin_family == "CCX":
                         sql = """ INSERT INTO cn_donate (`coin_name`, `from_user`, `to_address`, `amount`, 
-                                  `decimal`, `date`, `tx_hash`) VALUES (%s, %s, %s, %s, %s, %s, %s) """
-                        cur.execute(sql, (COIN_NAME, user_from, address_to, amount, wallet.get_decimal(COIN_NAME), timestamp, tx_hash,))
+                                  `decimal`, `date`, `tx_hash`, `fee`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                        fee = 0
+                        if COIN_NAME not in FEE_PER_BYTE_COIN:
+                            fee = wallet.get_tx_fee(COIN_NAME)
+                        else:
+                            fee = tx_hash['fee']
+                        cur.execute(sql, (COIN_NAME, user_from, address_to, amount, wallet.get_decimal(COIN_NAME), timestamp, tx_hash['transactionHash'], fee))
                         conn.commit()
                         if COIN_NAME in WALLET_API_COIN:
                             updateBalance = await walletapi.walletapi_get_balance_address(user_from_wallet['balance_wallet_address'], COIN_NAME)
@@ -1091,6 +1128,7 @@ async def sql_optimize_admin_do(coin: str, opt_num: int = None):
 
 
 async def sql_send_to_voucher(user_id: str, user_name: str, message_creating: str, amount: int, reserved_fee: int, secret_string: str, voucher_image_name: str, coin: str = None):
+    # TODO: rewrite tx_hash
     global conn
     if coin is None:
         COIN_NAME = "WRKZ"
@@ -1145,7 +1183,7 @@ def sql_faucet_add(claimed_user: str, claimed_server: str, coin_name: str, claim
             sql = """ INSERT INTO discord_faucet (`claimed_user`, `coin_name`, `claimed_amount`, 
                       `decimal`, `tx_hash`, `claimed_at`, `claimed_server`) 
                       VALUES (%s, %s, %s, %s, %s, %s, %s) """
-            cur.execute(sql, (claimed_user, coin_name, claimed_amount, decimal, tx_hash, int(time.time()), claimed_server,))
+            cur.execute(sql, (claimed_user, coin_name, claimed_amount, decimal, tx_hash['transactionHash'], int(time.time()), claimed_server,))
             conn.commit()
             return True
     except Exception as e:

@@ -136,7 +136,6 @@ EMOJI_COIN = {
     "OSL" : "\U0001F381",
     "BTCMZ" : "\U0001F4A9",
     "MTIP" : "\U0001F595",
-    "XCY" : "\U0001F3B2",
     "PLE" : "\U0001F388",
     "ELPH" : "\U0001F310",
     "ANX" : "\U0001F3E6",
@@ -180,7 +179,6 @@ NOTICE_COIN = {
     "CX" : getattr(getattr(config,"daemonCX"),"coin_notice", None),
     "BTCMZ" : getattr(getattr(config,"daemonBTCMZ"),"coin_notice", None),
     "MTIP" : getattr(getattr(config,"daemonMTIP"),"coin_notice", None),
-    "XCY" : getattr(getattr(config,"daemonXCY"),"coin_notice", None),
     "PLE" : getattr(getattr(config,"daemonPLE"),"coin_notice", None),
     "ELPH" : getattr(getattr(config,"daemonELPH"),"coin_notice", None),
     "ANX" : getattr(getattr(config,"daemonANX"),"coin_notice", None),
@@ -2652,12 +2650,12 @@ async def withdraw(ctx, amount: str, coin: str = None):
         amount = float(amount)
     except ValueError:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid given amount.')
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid given amount for `withdraw`.')
         return
 
     if coin is None:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Please have **ticker** (coin name) after amount.')
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Please have **ticker** (coin name) after amount for `withdraw`.')
         return
 
     COIN_NAME = coin.upper()
@@ -6169,8 +6167,6 @@ def get_cn_coin_from_address(CoinAddress: str):
         COIN_NAME = "BTCMZ"
     elif CoinAddress.startswith("dicKTiPZ"):
         COIN_NAME = "MTIP"
-    elif CoinAddress.startswith("XCY1"):
-        COIN_NAME = "XCY"
     elif CoinAddress.startswith("PLe"):
         COIN_NAME = "PLE"
     elif CoinAddress.startswith("Phyrex"):

@@ -51,7 +51,7 @@ TESTER = [ 288403695878537218 ]
 # bingo and duckhunt
 BOT_IGNORECHAN = [558173489194991626, 524572420468899860]  # list ignore chan
 LOG_CHAN = 572686071771430922
-BOT_INVITELINK = None
+
 WALLET_SERVICE = None
 LIST_IGNORECHAN = None
 
@@ -299,7 +299,7 @@ bot = AutoShardedBot(command_prefix = get_prefix, case_insensitive=True, owner_i
 
 @bot.event
 async def on_ready():
-    global LIST_IGNORECHAN, BOT_INVITELINK
+    global LIST_IGNORECHAN
     print('Ready!')
     print("Hello, I am TipBot Bot!")
     # get WALLET_SERVICE. TODO: Use that later.
@@ -674,10 +674,11 @@ async def on_message(message):
 
 @bot.command(pass_context=True, name='about', help=bot_help_about, hidden = True)
 async def about(ctx):
+    invite_link = "https://discordapp.com/oauth2/authorize?client_id="+str(bot.user.id)+"&scope=bot&permissions=3072"
     botdetails = discord.Embed(title='About Me', description='', colour=7047495)
     botdetails.add_field(name='Creator\'s Discord Name:', value='CapEtn#4425', inline=True)
     botdetails.add_field(name='My Github:', value='https://github.com/wrkzcoin/TipBot', inline=True)
-    botdetails.add_field(name='Invite Me:', value=f'{BOT_INVITELINK}', inline=True)
+    botdetails.add_field(name='Invite Me:', value=f'{invite_link}', inline=True)
     botdetails.add_field(name='Servers I am in:', value=len(bot.guilds), inline=True)
     botdetails.add_field(name='Support Me:', value=f'<@{bot.user.id}> donate AMOUNT ticker', inline=True)
     botdetails.set_footer(text='Made in Python3.6+ with discord.py library!', icon_url='http://findicons.com/files/icons/2804/plex/512/python.png')
@@ -6102,8 +6103,9 @@ async def tag(ctx, *args):
 
 @bot.command(pass_context=True, name='invite', aliases=['inviteme'], help=bot_help_invite)
 async def invite(ctx):
+    invite_link = "https://discordapp.com/oauth2/authorize?client_id="+str(bot.user.id)+"&scope=bot&permissions=3072"
     await ctx.send('**[INVITE LINK]**\n\n'
-                f'{BOT_INVITELINK}')
+                f'{invite_link}')
 
 
 def hhashes(num) -> str:

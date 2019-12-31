@@ -3426,7 +3426,10 @@ async def tip(ctx, amount: str, *args):
     adjust_amount = get_round_amount(COIN_NAME, amount)
     if int(adjust_amount) != int(amount):
         # Message that tipbot adjust
-        await ctx.send(f'{EMOJI_INFORMATION} {ctx.author.mention} {COIN_NAME} amount adjusted from {num_format_coin(amount*get_decimal(COIN_NAME), COIN_NAME)} to {num_format_coin(adjust_amount*get_decimal(COIN_NAME), COIN_NAME)}. *Waiting for Tx*')
+        try:
+            await ctx.send(f'{EMOJI_INFORMATION} {ctx.author.mention} {COIN_NAME} amount adjusted from {num_format_coin(amount*get_decimal(COIN_NAME), COIN_NAME)} to {num_format_coin(adjust_amount*get_decimal(COIN_NAME), COIN_NAME)}. *Waiting for Tx*')
+        except (discord.Forbidden, discord.errors.Forbidden) as e:
+            pass
         amount = int(adjust_amount)
 
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")

@@ -198,6 +198,12 @@ NOTICE_COIN = {
     "default": "Thank you for using."
     }
 
+# atomic Amount
+ROUND_AMOUNT_COIN = {
+    "DEGO" : 4 # 10^4
+    }
+
+
 # TRTL discord. Need for some specific tasks later.
 TRTL_DISCORD = 388915017187328002
 
@@ -248,6 +254,20 @@ bot_help_account_twofa = "Generate a 2FA and scanned with Authenticator Program.
 bot_help_account_verify = "Verify 2FA code from QR code and your Authenticator Program."
 bot_help_account_unverify = "Unverify your account and disable 2FA code."
 bot_help_account_secrettip = "Tip someone anonymously by their ID."
+
+
+def get_round_amount(coin: str, amount: int):
+    COIN_NAME = coin.upper()
+    if COIN_NAME in ROUND_AMOUNT_COIN:
+        if amount > 10**ROUND_AMOUNT_COIN[COIN_NAME]:
+            n = 10**ROUND_AMOUNT_COIN[COIN_NAME]
+            return amount // n * n
+        else:
+            # less than define, cut only decimal
+            COIN_DEC = get_decimal(COIN_NAME)
+            return amount // COIN_DEC * COIN_DEC
+    else:
+        return amount
 
 
 def get_emoji(coin: str):
@@ -3402,6 +3422,12 @@ async def tip(ctx, amount: str, *args):
     # TRTL discord
     if ctx.guild.id == TRTL_DISCORD and COIN_NAME != "TRTL":
         return
+
+    adjust_amount = get_round_amount(COIN_NAME, amount)
+    if int(adjust_amount) != int(amount):
+        # Message that tipbot adjust
+        await ctx.send(f'{EMOJI_INFORMATION} {ctx.author.mention} {COIN_NAME} amount adjusted from {num_format_coin(amount*get_decimal(COIN_NAME), COIN_NAME)} to {num_format_coin(adjust_amount*get_decimal(COIN_NAME), COIN_NAME)}. *Waiting for Tx*')
+        amount = int(adjust_amount)
 
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     # Check allowed coins

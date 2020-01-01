@@ -36,7 +36,7 @@ async def call_aiohttp_wallet(method_name: str, coin: str, time_out: int = None,
         if coin_family == "XMR":
             try:
                 async with aiohttp.ClientSession(headers={'Content-Type': 'application/json'}) as session:
-                    async with session.post(url, ssl=False, json=full_payload, timeout=timeout) as response:
+                    async with session.post(url, json=full_payload, timeout=timeout) as response:
                         # sometimes => "message": "Not enough unlocked money" for checking fee
                         if method_name == "transfer":
                             print('{} - transfer'.format(coin.upper()))

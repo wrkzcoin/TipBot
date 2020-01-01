@@ -151,7 +151,8 @@ EMOJI_COIN = {
     "XEQ" : "\U0001F30C",
     "ARQ" : "\U0001F578",
     "MSR" : "\U0001F334",
-    "BLOG" : "\u270D"
+    "BLOG" : "\u270D",
+    "XAM" : "\U0001F344"
     }
 
 EMOJI_RED_NO = "\u26D4"
@@ -194,6 +195,7 @@ NOTICE_COIN = {
     "XMR" : getattr(getattr(config,"daemonXMR"),"coin_notice", None),
     "MSR" : getattr(getattr(config,"daemonMSR"),"coin_notice", None),
     "BLOG" : getattr(getattr(config,"daemonBLOG"),"coin_notice", None),
+    "XAM" : getattr(getattr(config,"daemonXAM"),"coin_notice", None),
     "DOGE" : "Please acknowledge that DOGE address is for **one-time** use only for depositing.",
     "default": "Thank you for using."
     }
@@ -1447,7 +1449,30 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
             table_data.append([COIN_NAME, balance_actual, balance_locked])
     else:
         table_data.append([COIN_NAME, "***", "***"])
-    # End of Add BLOG
+    COIN_NAME = "XAM"
+    if COIN_NAME not in MAINTENANCE_COIN:
+        wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
+        if wallet is None:
+            userregister = await store.sql_register_user(str(user_id), COIN_NAME)
+            wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
+        if wallet:
+            actual = wallet['actual_balance']
+            locked = wallet['locked_balance']
+            userdata_balance = store.sql_xmr_balance(str(user_id), COIN_NAME)
+            balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
+            if actual == locked:
+                balance_locked = num_format_coin(0, COIN_NAME)
+            else:
+                if locked - actual + float(userdata_balance['Adjust']) < 0 or locked == 0:
+                    balance_locked =  num_format_coin(0, COIN_NAME)
+                else:
+                    balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
+            if wallet['user_wallet_address'] is None:
+                COIN_NAME += '*'
+            table_data.append([COIN_NAME, balance_actual, balance_locked])
+    else:
+        table_data.append([COIN_NAME, "***", "***"])
+    # End of Add XAM
     table = AsciiTable(table_data)
     table.padding_left = 0
     table.padding_right = 0
@@ -2069,6 +2094,31 @@ async def balance(ctx, coin: str = None):
         else:
             table_data.append([COIN_NAME, "***", "***"])
         # End of Add MSR
+        COIN_NAME = "XAM"
+        if COIN_NAME not in MAINTENANCE_COIN:
+            wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+            if wallet is None:
+                userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+                wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+            if wallet:
+                actual = wallet['actual_balance']
+                locked = wallet['locked_balance']
+                userdata_balance = store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
+                balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
+                if actual == locked:
+                    balance_locked = num_format_coin(0, COIN_NAME)
+                else:
+                    if locked - actual + float(userdata_balance['Adjust']) < 0 or locked == 0:
+                        balance_locked =  num_format_coin(0, COIN_NAME)
+                    else:
+                        balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
+                if wallet['user_wallet_address'] is None:
+                    COIN_NAME += '*'
+                if actual + float(userdata_balance['Adjust']) != 0:
+                    table_data.append([COIN_NAME, balance_actual, balance_locked])
+        else:
+            table_data.append([COIN_NAME, "***", "***"])
+        # End of Add XAM
         table = AsciiTable(table_data)
         # table.inner_column_border = False
         # table.outer_border = False
@@ -6238,6 +6288,8 @@ def get_cn_coin_from_address(CoinAddress: str):
         except Exception as e:
             # traceback.print_exc(file=sys.stdout)
             pass
+    elif (CoinAddress.startswith("amit") and len(CoinAddress) == 98) or (CoinAddress.startswith("aint") and len(CoinAddress) == 109):
+        COIN_NAME = "XAM"
     elif CoinAddress.startswith("L") and (len(CoinAddress) == 95 or len(CoinAddress) == 106):
         COIN_NAME = "LOKI"
     elif CoinAddress.startswith("T") and (len(CoinAddress) == 97 or len(CoinAddress) == 98 or len(CoinAddress) == 109):
@@ -6248,6 +6300,8 @@ def get_cn_coin_from_address(CoinAddress: str):
         COIN_NAME = "ARQ"
     elif (CoinAddress.startswith("5") or CoinAddress.startswith("9")) and (len(CoinAddress) == 95 or len(CoinAddress) == 106):
         COIN_NAME = "MSR"
+    elif (CoinAddress.startswith("amit") or CoinAddress.startswith("aint")) and (len(CoinAddress) == 98 or len(CoinAddress) == 109):
+        COIN_NAME = "XAM"
     elif CoinAddress.startswith("D") and len(CoinAddress) == 34:
         COIN_NAME = "DOGE"
     # elif (CoinAddress[0] in ["3", "M", "L"]) and (len(CoinAddress) == 34:

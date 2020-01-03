@@ -127,6 +127,7 @@ EMOJI_100 = "\U0001F4AF"
 EMOJI_99 = "<:almost100:405478443028054036>"
 EMOJI_TIP = "<:tip:424333592102043649>"
 EMOJI_MAINTENANCE = "\U0001F527"
+EMOJI_QUESTEXCLAIM = "\u2049"
 
 EMOJI_COIN = {
     "WRKZ" : "\U0001F477",
@@ -3557,10 +3558,24 @@ async def tip(ctx, amount: str, *args):
                             await _tip_talker(ctx, amount, message_talker, COIN_NAME)
                             return
             else:
-                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                try:
+                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
+                except (discord.Forbidden, discord.errors.Forbidden) as e:
+                    try:
+                        await ctx.message.author.send(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
+                    except (discord.Forbidden, discord.errors.Forbidden) as e:
+                        return
                 return
         else:
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            try:
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                try:
+                    await ctx.message.author.send(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
+                except (discord.Forbidden, discord.errors.Forbidden) as e:
+                    return
             return
     elif len(ctx.message.mentions) == 1 and (bot.user in ctx.message.mentions):
         # Tip to TipBot
@@ -4288,8 +4303,14 @@ async def send(ctx, amount: str, CoinAddress: str):
     if COIN_NAME:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     else:
-        await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} could not find what address it is.')
+        await ctx.message.add_reaction(EMOJI_QUESTEXCLAIM)
+        try:
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} could not find what address it is.')
+        except (discord.Forbidden, discord.errors.Forbidden) as e:
+            try:
+                await ctx.message.author.send(f'{EMOJI_RED_NO} {ctx.author.mention} could not find what address it is.')
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                return
         return
 
     if coin_family == "TRTL" or coin_family == "CCX":
@@ -4302,32 +4323,50 @@ async def send(ctx, amount: str, CoinAddress: str):
         NetFee = get_tx_fee(coin = COIN_NAME)
         if COIN_NAME in MAINTENANCE_COIN:
             await ctx.message.add_reaction(EMOJI_MAINTENANCE)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
+            try:
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                try:
+                    await ctx.message.author.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
+                except (discord.Forbidden, discord.errors.Forbidden) as e:
+                    return
             return
 
         print('{} - {} - {}'.format(COIN_NAME, addressLength, IntaddressLength))
         if len(CoinAddress) == int(addressLength):
             valid_address = addressvalidation.validate_address_cn(CoinAddress, COIN_NAME)
             # print(valid_address)
-            if valid_address is None:
-                await ctx.message.add_reaction(EMOJI_ERROR)
-                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
-                               f'`{CoinAddress}`')
-                return
             if valid_address != CoinAddress:
-                await ctx.message.add_reaction(EMOJI_ERROR)
-                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
-                               f'`{CoinAddress}`')
+                valid_address = None
+
+            if valid_address is None:
+                await ctx.message.add_reaction(EMOJI_QUESTEXCLAIM)
+                try:
+                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
+                                   f'`{CoinAddress}`')
+                except (discord.Forbidden, discord.errors.Forbidden) as e:
+                    try:
+                        await ctx.message.author.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
+                                                      f'`{CoinAddress}`')
+                    except (discord.Forbidden, discord.errors.Forbidden) as e:
+                        return
                 return
         elif len(CoinAddress) == int(IntaddressLength):
             valid_address = addressvalidation.validate_integrated_cn(CoinAddress, COIN_NAME)
             # print(valid_address)
-            if (valid_address == 'invalid'):
-                await ctx.message.add_reaction(EMOJI_ERROR)
-                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid integrated address:\n'
-                               f'`{CoinAddress}`')
+            if valid_address == 'invalid':
+                await ctx.message.add_reaction(EMOJI_QUESTEXCLAIM)
+                try:
+                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid integrated address:\n'
+                                   f'`{CoinAddress}`')
+                except (discord.Forbidden, discord.errors.Forbidden) as e:
+                    try:
+                        await ctx.message.author.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid integrated address:\n'
+                                                      f'`{CoinAddress}`')
+                    except (discord.Forbidden, discord.errors.Forbidden) as e:
+                        return
                 return
-            if (len(valid_address) == 2):
+            if len(valid_address) == 2:
                 iCoinAddress = CoinAddress
                 CoinAddress = valid_address['address']
                 paymentid = valid_address['integrated_id']
@@ -4335,25 +4374,45 @@ async def send(ctx, amount: str, CoinAddress: str):
             valid_address = {}
             check_address = CoinAddress.split(".")
             if len(check_address) != 2:
-                await ctx.message.add_reaction(EMOJI_ERROR)
-                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid {COIN_NAME} address + paymentid')
+                await ctx.message.add_reaction(EMOJI_QUESTEXCLAIM)
+                try:
+                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid {COIN_NAME} address + paymentid')
+                except (discord.Forbidden, discord.errors.Forbidden) as e:
+                    try:
+                        await ctx.message.author.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid {COIN_NAME} address + paymentid')
+                    except (discord.Forbidden, discord.errors.Forbidden) as e:
+                        return
                 return
             else:
                 valid_address_str = addressvalidation.validate_address_cn(check_address[0], COIN_NAME)
                 paymentid = check_address[1].strip()
                 if valid_address_str is None:
-                    await ctx.message.add_reaction(EMOJI_ERROR)
-                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
-                                   f'`{check_address[0]}`')
+                    await ctx.message.add_reaction(EMOJI_QUESTEXCLAIM)
+                    try:
+                        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
+                                       f'`{check_address[0]}`')
+                    except (discord.Forbidden, discord.errors.Forbidden) as e:
+                        try:
+                            await ctx.message.author.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
+                                                          f'`{check_address[0]}`')
+                        except (discord.Forbidden, discord.errors.Forbidden) as e:
+                            return
                     return
                 else:
                     valid_address['address'] = valid_address_str
             # Check payment ID
                 if len(paymentid) == 64:
                     if not re.match(r'[a-zA-Z0-9]{64,}', paymentid.strip()):
-                        await ctx.message.add_reaction(EMOJI_ERROR)
-                        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} PaymentID: `{paymentid}`\n'
-                                        'Should be in 64 correct format.')
+                        await ctx.message.add_reaction(EMOJI_QUESTEXCLAIM)
+                        try:
+                            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} PaymentID: `{paymentid}`\n'
+                                            'Should be in 64 correct format.')
+                        except (discord.Forbidden, discord.errors.Forbidden) as e:
+                            try:
+                                await ctx.message.author.send(f'{EMOJI_RED_NO} {ctx.author.mention} PaymentID: `{paymentid}`\n'
+                                                              'Should be in 64 correct format.')
+                            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                                return
                         return
                     else:
                         CoinAddress = valid_address['address']
@@ -4361,14 +4420,28 @@ async def send(ctx, amount: str, CoinAddress: str):
                         iCoinAddress = addressvalidation.make_integrated_cn(valid_address['address'], COIN_NAME, paymentid)['integrated_address']
                         pass
                 else:
-                    await ctx.message.add_reaction(EMOJI_ERROR)
-                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} PaymentID: `{paymentid}`\n'
-                                    'Incorrect length')
+                    await ctx.message.add_reaction(EMOJI_QUESTEXCLAIM)
+                    try:
+                        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} PaymentID: `{paymentid}`\n'
+                                        'Incorrect length')
+                    except (discord.Forbidden, discord.errors.Forbidden) as e:
+                        try:
+                            await ctx.message.author.send(f'{EMOJI_RED_NO} {ctx.author.mention} PaymentID: `{paymentid}`\n'
+                                                         'Incorrect length')
+                        except (discord.Forbidden, discord.errors.Forbidden) as e:
+                            return
                     return
         else:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
-                           f'`{CoinAddress}`')
+            await ctx.message.add_reaction(EMOJI_QUESTEXCLAIM)
+            try:
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
+                               f'`{CoinAddress}`')
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                try:
+                    await ctx.message.author.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
+                                                  f'`{CoinAddress}`')
+                except (discord.Forbidden, discord.errors.Forbidden) as e:
+                    return
             return
 
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)

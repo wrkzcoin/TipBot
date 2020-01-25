@@ -215,6 +215,7 @@ bot_description = f"Tip {COIN_REPR} to other users on your server."
 bot_help_about = "About TipBot"
 bot_help_register = "Register or change your deposit address."
 bot_help_info = "Get your account's info."
+bot_help_userinfo = "Get user info in discord server."
 bot_help_withdraw = f"Withdraw {COIN_REPR} from your balance."
 bot_help_balance = f"Check your {COIN_REPR} balance."
 bot_help_botbalance = f"Check (only) bot {COIN_REPR} balance."
@@ -1664,6 +1665,26 @@ async def test(ctx):
     decrypted = store.decrypt_string(encrypted)
     await ctx.send('```Original: {}\nEncrypted: {}\nDecrypted: {}```'.format(test_str, encrypted, decrypted))
     return
+
+
+@bot.command(pass_context=True, name='userinfo', aliases=['user'], help=bot_help_userinfo)
+async def userinfo(ctx, member: discord.Member):
+    if isinstance(ctx.channel, discord.DMChannel) == True:
+        return
+    try:
+        embed = discord.Embed(title="{}'s info".format(member.name), description="Here's what I could find.", color=0x00ff00)
+        embed.add_field(name="Name", value=member.name, inline=True)
+        embed.add_field(name="Display Name", value=member.display_name, inline=True)
+        embed.add_field(name="ID", value=member.id, inline=True)
+        embed.add_field(name="Status", value=member.status, inline=True)
+        embed.add_field(name="Highest role", value=member.top_role)
+        embed.add_field(name="Joined", value=str(timeago.format(member.joined_at, datetime.utcnow())))
+        embed.add_field(name="Created", value=str(timeago.format(member.created_at, datetime.utcnow())))
+        embed.set_thumbnail(url=member.avatar_url)
+        await ctx.send(embed=embed)
+    except:
+        error = discord.Embed(title=":exclamation: Error", description=" :warning: You need to mention the user you want this info for!", color=0xe51e1e)
+        await ctx.send(embed=error)
 
 
 @bot.command(pass_context=True, name='info', aliases=['wallet'], help=bot_help_info)

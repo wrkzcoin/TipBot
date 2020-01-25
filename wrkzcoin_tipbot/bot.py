@@ -3821,7 +3821,7 @@ async def tip(ctx, amount: str, *args):
         return
 
 
-@bot.command(pass_context=True, help=bot_help_tipall)
+@bot.command(pass_context=True, help=bot_help_tipall, hidden = True)
 async def tipall(ctx, amount: str, *args):
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'tipall')

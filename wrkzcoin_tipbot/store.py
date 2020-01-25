@@ -16,6 +16,12 @@ from cryptography.fernet import Fernet
 import pymysql, pymysqlpool
 import pymysql.cursors
 
+# redis
+import redis
+redis_pool = None
+redis_conn = None
+redis_expired = 120
+
 DUST_COIN = []
 FEE_PER_BYTE_COIN = config.Fee_Per_Byte_Coin.split(",")
 
@@ -42,6 +48,20 @@ ENABLE_COIN_DOGE = ["DOGE"]
 
 # Coin using wallet-api
 WALLET_API_COIN = config.Enable_Coin_WalletApi.split(",")
+
+def init():
+    global redis_pool
+    print("PID %d: initializing redis pool..." % os.getpid())
+    redis_pool = redis.ConnectionPool(host='localhost', port=6379, decode_responses=True, db=8)
+
+
+def openRedis():
+    global redis_pool, redis_conn
+    if redis_conn is None:
+        try:
+            redis_conn = redis.Redis(connection_pool=redis_pool)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
 
 
 # openConnection_cursors 
@@ -350,7 +370,16 @@ async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD'):
 
 
 async def sql_update_user(userID, user_wallet_address, coin: str):
+    global redis_conn
     COIN_NAME = coin.upper()
+    # Check if exist in redis
+    try:
+        openRedis()
+        if redis_conn and redis_conn.exists(f'TIPBOT:WALLET_{str(userID)}_{COIN_NAME}'):
+            return redis_conn.delete(f'TIPBOT:WALLET_{str(userID)}_{COIN_NAME}')
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     global conn
     try:
@@ -374,12 +403,20 @@ async def sql_update_user(userID, user_wallet_address, coin: str):
 
 
 async def sql_get_userwallet(userID, coin: str = None):
-    global conn
+    global conn, redis_conn, redis_expired
     COIN_NAME = None
     if coin is None:
         coin = "WRKZ"
     else:
         COIN_NAME = coin.upper()
+
+    # Check if exist in redis
+    try:
+        openRedis()
+        if redis_conn and redis_conn.exists(f'TIPBOT:WALLET_{str(userID)}_{COIN_NAME}'):
+            return redis_conn.get(json.loads(f'TIPBOT:WALLET_{str(userID)}_{COIN_NAME}'))
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
 
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     try:
@@ -424,6 +461,12 @@ async def sql_get_userwallet(userID, coin: str = None):
                     userwallet['balance_wallet_address'] = depositAddress
                 if coin_family == "XMR":
                     userwallet['balance_wallet_address'] = userwallet['int_address']
+                    # add to redis
+                    try:
+                        if redis_conn:
+                            redis_conn.set(f'TIPBOT:WALLET_{str(userID)}_{COIN_NAME}', json.dumps(userwallet), ex=redis_expired)
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
                     return userwallet
                 with conn.cursor() as cur:
                     result2 = None
@@ -454,7 +497,12 @@ async def sql_get_userwallet(userID, coin: str = None):
                     userwallet['actual_balance'] = balance_actual
                     userwallet['locked_balance'] = balance_locked
                     userwallet['lastUpdate'] = int(time.time())
-                #print(userwallet)
+                # add to redis
+                try:
+                    if redis_conn:
+                        redis_conn.set(f'TIPBOT:WALLET_{str(userID)}_{COIN_NAME}', json.dumps(userwallet), ex=redis_expired)
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
                 return userwallet
     except Exception as e:
         traceback.print_exc(file=sys.stdout)

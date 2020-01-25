@@ -1677,8 +1677,8 @@ async def userinfo(ctx, member: discord.Member):
         embed.add_field(name="ID", value=member.id, inline=True)
         embed.add_field(name="Status", value=member.status, inline=True)
         embed.add_field(name="Highest role", value=member.top_role)
-        embed.add_field(name="Joined", value=str(timeago.format(member.joined_at, datetime.utcnow())))
-        embed.add_field(name="Created", value=str(timeago.format(member.created_at, datetime.utcnow())))
+        embed.add_field(name="Joined", value=str(member.joined_at.strftime("%d-%b-%Y") + ': ' + timeago.format(member.joined_at, datetime.utcnow())))
+        embed.add_field(name="Created", value=str(member.created_at.strftime("%d-%b-%Y") + ': ' + timeago.format(member.created_at, datetime.utcnow())))
         embed.set_thumbnail(url=member.avatar_url)
         await ctx.send(embed=embed)
     except:

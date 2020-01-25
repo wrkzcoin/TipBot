@@ -60,7 +60,7 @@ async def send_transaction(from_address: str, to_address: str, amount: int, coin
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     result = None
-    time_out = 32
+    time_out = 64
     if coin_family == "TRTL" or coin_family == "CCX":
         if COIN_NAME not in FEE_PER_BYTE_COIN:
             payload = {
@@ -413,7 +413,7 @@ def get_coin_fullname(coin: str = None):
     qr_address_pref = {"TRTL":"turtlecoin","DEGO":"derogold","CX":"catalyst","WRKZ":"wrkzcoin",\
     "BTCMZ":"bitcoinmono","MTIP":"monkeytips","PLE":"plenteum","ELPH":"elphyrecoin","ANX":"aluisyocoin","NBXC":"nibbleclassic",\
     "ARMS":"2acoin","HITC":"hitc","NACA":"nashcash","XTOR":"bittoro","BLOG":"blogcoin","LOKI":"loki","XMR":"monero","XEQ":"Equilibria","ARQ":"arqma",\
-    "MSR":"masari", "XAM":"amity"}
+    "MSR":"masari", "XAM":"amity", "OSL":"oscillate"}
     return getattr(qr_address_pref,coin,"wrkzcoin")
 
 

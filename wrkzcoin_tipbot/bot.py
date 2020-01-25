@@ -138,12 +138,10 @@ EMOJI_COIN = {
     "BTCMZ" : "\U0001F4A9",
     "MTIP" : "\U0001F595",
     "PLE" : "\U0001F388",
-    "ELPH" : "\U0001F310",
     "ANX" : "\U0001F3E6",
     "NBXC" : "\U0001F5A4",
     "ARMS" : "\U0001F52B",
     "IRD" : "\U0001F538",
-    "HITC" : "\U0001F691",
     "NACA" : "\U0001F355",
     "DOGE" : "\U0001F436",
     "XTOR" : "\U0001F315",
@@ -153,7 +151,8 @@ EMOJI_COIN = {
     "ARQ" : "\U0001F578",
     "MSR" : "\U0001F334",
     "BLOG" : "\u270D",
-    "XAM" : "\U0001F344"
+    "XAM" : "\U0001F344",
+    "OSL" : "\U0001F9EC"
     }
 
 EMOJI_RED_NO = "\u26D4"
@@ -182,12 +181,10 @@ NOTICE_COIN = {
     "BTCMZ" : getattr(getattr(config,"daemonBTCMZ"),"coin_notice", None),
     "MTIP" : getattr(getattr(config,"daemonMTIP"),"coin_notice", None),
     "PLE" : getattr(getattr(config,"daemonPLE"),"coin_notice", None),
-    "ELPH" : getattr(getattr(config,"daemonELPH"),"coin_notice", None),
     "ANX" : getattr(getattr(config,"daemonANX"),"coin_notice", None),
     "NBXC" : getattr(getattr(config,"daemonNBXC"),"coin_notice", None),
     "ARMS" : getattr(getattr(config,"daemonARMS"),"coin_notice", None),
     "IRD" : getattr(getattr(config,"daemonIRD"),"coin_notice", None),
-    "HITC" : getattr(getattr(config,"daemonHITC"),"coin_notice", None),
     "NACA" : getattr(getattr(config,"daemonNACA"),"coin_notice", None),
     "XTOR" : getattr(getattr(config,"daemonXTOR"),"coin_notice", None),
     "LOKI" : getattr(getattr(config,"daemonLOKI"),"coin_notice", None),
@@ -197,6 +194,7 @@ NOTICE_COIN = {
     "MSR" : getattr(getattr(config,"daemonMSR"),"coin_notice", None),
     "BLOG" : getattr(getattr(config,"daemonBLOG"),"coin_notice", None),
     "XAM" : getattr(getattr(config,"daemonXAM"),"coin_notice", None),
+    "OSL" : getattr(getattr(config,"daemonOSL"),"coin_notice", None),
     "DOGE" : "Please acknowledge that DOGE address is for **one-time** use only for depositing.",
     "default": "Thank you for using."
     }
@@ -237,6 +235,7 @@ bot_help_height = f"Show {COIN_REPR}'s current height"
 bot_help_notifytip = "Toggle notify tip notification from bot ON|OFF"
 bot_help_settings = "settings view and set for prefix, default coin. Requires permission manage_channels"
 bot_help_invite = "Invite link of bot to your server."
+bot_help_random_number = "Get random number. Example .rand 1-100"
 bot_help_disclaimer = "Show disclaimer."
 bot_help_voucher = "(Testing) make a voucher image and your friend can claim via QR code."
 bot_help_take = "Get random faucet tip."
@@ -6258,6 +6257,40 @@ async def invite(ctx):
                 f'{invite_link}')
 
 
+@bot.command(pass_context=True, help=bot_help_random_number)
+async def rand(ctx, randstring: str = None):
+    rand_numb = None
+    if randstring is None:
+        rand_numb = random.randint(1,100)
+    else:
+        randstring = randstring.replace(",", "")
+        rand_min_max = randstring.split("-")
+        if len(rand_min_max) <= 1:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid range given. Example, use: `rand 1-50`')
+            return
+        try:
+            min_numb = int(rand_min_max[0])
+            max_numb = int(rand_min_max[1])
+            if max_numb - min_numb <= 0:
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid range given. Example, use: `rand 1-50`')
+                return
+            else:
+                rand_numb = random.randint(min_numb,max_numb)
+        except ValueError:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid range given. Example, use: `rand 1-50`')
+            return
+    if rand_numb:
+        await ctx.message.add_reaction(EMOJI_OK_BOX)
+        try:
+            msg = await ctx.send('{} Random number: **{:,}**'.format(ctx.author.mention, rand_numb))
+            await msg.add_reaction(EMOJI_OK_BOX)
+        except (discord.Forbidden, discord.errors.Forbidden) as e:
+            return
+
+
 def hhashes(num) -> str:
     for x in ['H/s', 'KH/s', 'MH/s', 'GH/s']:
         if num < 1000.0:
@@ -6321,8 +6354,6 @@ def get_cn_coin_from_address(CoinAddress: str):
         COIN_NAME = "MTIP"
     elif CoinAddress.startswith("PLe"):
         COIN_NAME = "PLE"
-    elif CoinAddress.startswith("Phyrex"):
-        COIN_NAME = "ELPH"
     elif CoinAddress.startswith("aNX1"):
         COIN_NAME = "ANX"
     elif CoinAddress.startswith("Nib1"):
@@ -6331,8 +6362,6 @@ def get_cn_coin_from_address(CoinAddress: str):
         COIN_NAME = "ARMS"
     elif CoinAddress.startswith("ir"):
         COIN_NAME = "IRD"
-    elif CoinAddress.startswith("hi"):
-        COIN_NAME = "HITC"
     elif CoinAddress.startswith("NaCa"):
         COIN_NAME = "NACA"
     elif CoinAddress.startswith("TRTL"):
@@ -6361,7 +6390,8 @@ def get_cn_coin_from_address(CoinAddress: str):
         except Exception as e:
             # traceback.print_exc(file=sys.stdout)
             pass
-    elif (CoinAddress.startswith("amit") and len(CoinAddress) == 98) or (CoinAddress.startswith("aint") and len(CoinAddress) == 109):
+    elif (CoinAddress.startswith("amit") and len(CoinAddress) == 98) or (CoinAddress.startswith("aint") and len(CoinAddress) == 109)  or \
+        (CoinAddress.startswith("asub") and len(CoinAddress) == 99):
         COIN_NAME = "XAM"
     elif CoinAddress.startswith("L") and (len(CoinAddress) == 95 or len(CoinAddress) == 106):
         COIN_NAME = "LOKI"
@@ -6373,8 +6403,6 @@ def get_cn_coin_from_address(CoinAddress: str):
         COIN_NAME = "ARQ"
     elif (CoinAddress.startswith("5") or CoinAddress.startswith("9")) and (len(CoinAddress) == 95 or len(CoinAddress) == 106):
         COIN_NAME = "MSR"
-    elif (CoinAddress.startswith("amit") or CoinAddress.startswith("aint")) and (len(CoinAddress) == 98 or len(CoinAddress) == 109):
-        COIN_NAME = "XAM"
     elif CoinAddress.startswith("D") and len(CoinAddress) == 34:
         COIN_NAME = "DOGE"
     # elif (CoinAddress[0] in ["3", "M", "L"]) and (len(CoinAddress) == 34:

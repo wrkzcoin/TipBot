@@ -25,6 +25,7 @@ myconfig = {
     'user':config.mysql.user,
     'password':config.mysql.password,
     'database':config.mysql.db,
+    'charset':'utf8mb4',
     'cursorclass': pymysql.cursors.DictCursor,
     'autocommit':True
     }

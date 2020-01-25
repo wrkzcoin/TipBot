@@ -2086,11 +2086,19 @@ async def sql_external_xmr_single(user_from: str, amount: float, to_address: str
 
 
 def sql_xmr_balance(userID: str, coin: str):
-    global conn
+    global conn, redis_conn, redis_expired
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     if coin_family != "XMR":
         return False
+    # Check if exist in redis
+    try:
+        openRedis()
+        if redis_conn and redis_conn.exists(f'TIPBOT:BALANCE_{str(userID)}_{COIN_NAME}'):
+            return json.loads(redis_conn.get(f'TIPBOT:BALANCE_{str(userID)}_{COIN_NAME}').decode())
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
     try:
         openConnection()
         with conn.cursor() as cur: 
@@ -2127,12 +2135,18 @@ def sql_xmr_balance(userID: str, coin: str):
                 FeeExpense = 0
 
             balance = {}
-            balance['Expense'] = Expense or 0
-            balance['Expense'] = round(balance['Expense'], 4)
-            balance['Income'] = Income or 0
-            balance['TxExpense'] = TxExpense or 0
-            balance['FeeExpense'] = FeeExpense or 0
-            balance['Adjust'] = float(balance['Income']) - float(balance['Expense']) - float(balance['TxExpense']) - float(balance['FeeExpense'])
+            balance['Expense'] = float(Expense) if Expense else 0
+            balance['Expense'] = float(round(balance['Expense'], 4))
+            balance['Income'] = float(Income) if Income else 0
+            balance['TxExpense'] = float(TxExpense) if TxExpense else 0
+            balance['FeeExpense'] = float(FeeExpense) if FeeExpense else 0
+            balance['Adjust'] = balance['Income'] - balance['Expense'] - balance['TxExpense'] - balance['FeeExpense']
+            # add to redis
+            try:
+                if redis_conn:
+                    redis_conn.set(f'TIPBOT:BALANCE_{str(userID)}_{COIN_NAME}', json.dumps(balance), ex=redis_expired)
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
             return balance
     except Exception as e:
         traceback.print_exc(file=sys.stdout)

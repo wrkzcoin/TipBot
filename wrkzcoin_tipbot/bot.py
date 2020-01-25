@@ -181,7 +181,6 @@ NOTICE_COIN = {
     "BTCMZ" : getattr(getattr(config,"daemonBTCMZ"),"coin_notice", None),
     "MTIP" : getattr(getattr(config,"daemonMTIP"),"coin_notice", None),
     "PLE" : getattr(getattr(config,"daemonPLE"),"coin_notice", None),
-    "ANX" : getattr(getattr(config,"daemonANX"),"coin_notice", None),
     "NBXC" : getattr(getattr(config,"daemonNBXC"),"coin_notice", None),
     "ARMS" : getattr(getattr(config,"daemonARMS"),"coin_notice", None),
     "IRD" : getattr(getattr(config,"daemonIRD"),"coin_notice", None),
@@ -1188,7 +1187,7 @@ async def save(ctx, coin: str):
             if coinItem in MAINTENANCE_COIN:
                 duration_msg += "{} Maintenance.\n".format(coinItem)
             else:
-                if coinItem in ["CCX", "ANX"]:
+                if coinItem in ["CCX"]:
                     duration_msg += "{} Skipped.\n".format(coinItem)
                 else:
                     try:
@@ -6375,8 +6374,6 @@ def get_cn_coin_from_address(CoinAddress: str):
         COIN_NAME = "MTIP"
     elif CoinAddress.startswith("PLe"):
         COIN_NAME = "PLE"
-    elif CoinAddress.startswith("aNX1"):
-        COIN_NAME = "ANX"
     elif CoinAddress.startswith("Nib1"):
         COIN_NAME = "NBXC"
     elif CoinAddress.startswith("guns"):
@@ -6632,7 +6629,7 @@ async def saving_wallet():
             await asyncio.sleep(10)
         COIN_SAVING = ENABLE_COIN + ENABLE_XMR
         for COIN_NAME in COIN_SAVING:
-            if (COIN_NAME in MAINTENANCE_COIN) or COIN_NAME in ["CCX", "ANX"]:
+            if (COIN_NAME in MAINTENANCE_COIN) or COIN_NAME in ["CCX"]:
                 continue
             if (COIN_NAME in ENABLE_COIN + ENABLE_XMR) and saving == False:
                 duration = None

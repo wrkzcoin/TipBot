@@ -2085,7 +2085,7 @@ async def sql_external_xmr_single(user_from: str, amount: float, to_address: str
     return False
 
 
-def sql_xmr_balance(userID: str, coin: str):
+def sql_xmr_balance(userID: str, coin: str, redis_reset: bool = True):
     global conn, redis_conn, redis_expired
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
@@ -2095,7 +2095,10 @@ def sql_xmr_balance(userID: str, coin: str):
     try:
         openRedis()
         if redis_conn and redis_conn.exists(f'TIPBOT:BALANCE_{str(userID)}_{COIN_NAME}'):
-            return json.loads(redis_conn.get(f'TIPBOT:BALANCE_{str(userID)}_{COIN_NAME}').decode())
+            if redis_reset == False:
+                return json.loads(redis_conn.get(f'TIPBOT:BALANCE_{str(userID)}_{COIN_NAME}').decode())
+            else:
+                redis_conn.delete(f'TIPBOT:BALANCE_{str(userID)}_{COIN_NAME}')
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
 

@@ -80,7 +80,7 @@ class Address(BaseAddress):
     :param address: a Monero address as string-like object
     :param label: a label for the address (defaults to `None`)
     """
-    _valid_netbytes = (28, 33, 34)
+    _valid_netbytes = (18, 53, 24)
     # NOTE: _valid_netbytes order is (mainnet, testnet, stagenet)
 
     def view_key(self):
@@ -123,7 +123,7 @@ class Address(BaseAddress):
         payment_id = numbers.PaymentID(payment_id)
         if not payment_id.is_short():
             raise TypeError("Payment ID {0} has more than 64 bits and cannot be integrated".format(payment_id))
-        prefix = 34 if self.is_testnet() else 35 if self.is_stagenet() else 29
+        prefix = 54 if self.is_testnet() else 25 if self.is_stagenet() else 19
         data = bytearray([prefix]) + self._decoded[1:65] + struct.pack('>Q', int(payment_id))
         checksum = bytearray(keccak_256(data).digest()[:4])
         return IntegratedAddress(base58.encode(hexlify(data + checksum)))
@@ -135,7 +135,7 @@ class SubAddress(BaseAddress):
     Any type of address which is not the master one for a wallet.
     """
 
-    _valid_netbytes = (52, 73, 46)
+    _valid_netbytes = (42, 63, 36)
     # NOTE: _valid_netbytes order is (mainnet, testnet, stagenet)
 
     def with_payment_id(self, _):
@@ -148,7 +148,7 @@ class IntegratedAddress(Address):
     A master address integrated with payment id (short one, max 64 bit).
     """
 
-    _valid_netbytes = (29, 34, 35)
+    _valid_netbytes = (19, 54, 25)
     # NOTE: _valid_netbytes order is (mainnet, testnet, stagenet)
 
     def __init__(self, address):
@@ -169,13 +169,13 @@ class IntegratedAddress(Address):
         """Returns the base address without payment id.
         :rtype: :class:`Address`
         """
-        prefix = 33 if self.is_testnet() else 34 if self.is_stagenet() else 28
+        prefix = 53 if self.is_testnet() else 24 if self.is_stagenet() else 18
         data = bytearray([prefix]) + self._decoded[1:65]
         checksum = keccak_256(data).digest()[:4]
         return Address(base58.encode(hexlify(data + checksum)))
 
 
-def address(addr, label=None):
+def address_xmr(addr, label=None):
     """Discover the proper class and return instance for a given Monero address.
 
     :param addr: the address as a string-like object

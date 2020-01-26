@@ -13,8 +13,8 @@ if sys.version_info < (3,): # pragma: no cover
 else:                       # pragma: no cover
     _str_types = (str, bytes)
 
-_ADDR_REGEX = re.compile(r'^[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]{95}$')
-_IADDR_REGEX = re.compile(r'^[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]{106}$')
+_ADDR_REGEX = re.compile(r'^[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]{97,98}$')
+_IADDR_REGEX = re.compile(r'^[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]{109}$')
 
 class BaseAddress(object):
     label = None
@@ -22,7 +22,7 @@ class BaseAddress(object):
     def __init__(self, addr, label=None):
         addr = str(addr)
         if not _ADDR_REGEX.match(addr):
-            raise ValueError("Address must be 95 characters long base58-encoded string, "
+            raise ValueError("Address must be 98 characters long base58-encoded string, "
                 "is {addr} ({len} chars length)".format(addr=addr, len=len(addr)))
         self._decode(addr)
         self.label = label or self.label
@@ -80,7 +80,7 @@ class Address(BaseAddress):
     :param address: a Monero address as string-like object
     :param label: a label for the address (defaults to `None`)
     """
-    _valid_netbytes = (18, 53, 24)
+    _valid_netbytes = (1449763, 4087331, 286243)
     # NOTE: _valid_netbytes order is (mainnet, testnet, stagenet)
 
     def view_key(self):
@@ -123,7 +123,7 @@ class Address(BaseAddress):
         payment_id = numbers.PaymentID(payment_id)
         if not payment_id.is_short():
             raise TypeError("Payment ID {0} has more than 64 bits and cannot be integrated".format(payment_id))
-        prefix = 54 if self.is_testnet() else 25 if self.is_stagenet() else 19
+        prefix = 1903396 if self.is_testnet() else 938790 if self.is_stagenet() else 1466787
         data = bytearray([prefix]) + self._decoded[1:65] + struct.pack('>Q', int(payment_id))
         checksum = bytearray(keccak_256(data).digest()[:4])
         return IntegratedAddress(base58.encode(hexlify(data + checksum)))
@@ -135,7 +135,7 @@ class SubAddress(BaseAddress):
     Any type of address which is not the master one for a wallet.
     """
 
-    _valid_netbytes = (42, 63, 36)
+    _valid_netbytes = (294, 294, 294)
     # NOTE: _valid_netbytes order is (mainnet, testnet, stagenet)
 
     def with_payment_id(self, _):
@@ -148,7 +148,7 @@ class IntegratedAddress(Address):
     A master address integrated with payment id (short one, max 64 bit).
     """
 
-    _valid_netbytes = (19, 54, 25)
+    _valid_netbytes = (1466787, 1903396, 938790)
     # NOTE: _valid_netbytes order is (mainnet, testnet, stagenet)
 
     def __init__(self, address):
@@ -169,13 +169,13 @@ class IntegratedAddress(Address):
         """Returns the base address without payment id.
         :rtype: :class:`Address`
         """
-        prefix = 53 if self.is_testnet() else 24 if self.is_stagenet() else 18
+        prefix = 4087331 if self.is_testnet() else 286243 if self.is_stagenet() else 1449763
         data = bytearray([prefix]) + self._decoded[1:65]
         checksum = keccak_256(data).digest()[:4]
         return Address(base58.encode(hexlify(data + checksum)))
 
 
-def address(addr, label=None):
+def address_upx(addr, label=None):
     """Discover the proper class and return instance for a given Monero address.
 
     :param addr: the address as a string-like object
@@ -197,5 +197,5 @@ def address(addr, label=None):
                 sorted(Address._valid_netbytes + SubAddress._valid_netbytes)))))
     elif _IADDR_REGEX.match(addr):
         return IntegratedAddress(addr)
-    raise ValueError("Address must be either 95 or 106 characters long base58-encoded string, "
+    raise ValueError("Address must be either 98 or 109 characters long base58-encoded string, "
         "is {addr} ({len} chars length)".format(addr=addr, len=len(addr)))

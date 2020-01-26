@@ -34,6 +34,9 @@ import sys, traceback
 import asyncio
 import aiohttp
 
+# numexpr
+import numexpr
+
 # add logging
 # CRITICAL, ERROR, WARNING, INFO, and DEBUG and if not specified defaults to WARNING.
 import logging
@@ -239,7 +242,7 @@ bot_help_random_number = "Get random number. Example .rand 1-100"
 bot_help_disclaimer = "Show disclaimer."
 bot_help_voucher = "(Testing) make a voucher image and your friend can claim via QR code."
 bot_help_take = "Get random faucet tip."
-
+bot_help_cal = "Use built-in calculator."
 
 # admin commands
 bot_help_admin = "Various admin commands."
@@ -1684,6 +1687,33 @@ async def userinfo(ctx, member: discord.Member):
     except:
         error = discord.Embed(title=":exclamation: Error", description=" :warning: You need to mention the user you want this info for!", color=0xe51e1e)
         await ctx.send(embed=error)
+
+
+@bot.command(pass_context=True, name='cal', aliases=['calcule', 'calculator', 'calc'], help=bot_help_cal)
+async def cal(ctx, eval_string: str = None):
+    if eval_string is None:
+        await ctx.send(f'{EMOJI_INFORMATION} {ctx.author.mention}, Example: `cal 2+3+4/2`')
+        return
+    else:
+        eval_string_original = eval_string
+        eval_string = eval_string.replace(",", "")
+        supported_function = ['+', '-', '*', '/', '(', ')', '.', ',']
+        additional_support = ['exp', 'sqrt', 'abs', 'log10', 'log', 'sinh', 'cosh', 'tanh', 'sin', 'cos', 'tan']
+        test_string = eval_string
+        for each in additional_support:
+            test_string = test_string.replace(each, "")
+        if all([c.isdigit() or c in supported_function for c in test_string]):
+            try:
+                result = numexpr.evaluate(eval_string).item()
+                msg = await ctx.send(f'{EMOJI_INFORMATION} {ctx.author.mention} result of `{eval_string_original}`:```{result}```')
+                await msg.add_reaction(EMOJI_OK_BOX)
+                return
+            except Exception as e:
+                await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} I can not find the result.')
+                return
+        else:
+            await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} Unsupported usage.')
+            return
 
 
 @bot.command(pass_context=True, name='info', aliases=['wallet'], help=bot_help_info)

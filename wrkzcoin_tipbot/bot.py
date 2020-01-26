@@ -1691,6 +1691,8 @@ async def userinfo(ctx, member: discord.Member):
 
 @bot.command(pass_context=True, name='cal', aliases=['calcule', 'calculator', 'calc'], help=bot_help_cal)
 async def cal(ctx, eval_string: str = None):
+    if isinstance(ctx.channel, discord.DMChannel) == True:
+        return
     if eval_string is None:
         await ctx.send(f'{EMOJI_INFORMATION} {ctx.author.mention}, Example: `cal 2+3+4/2`')
         return
@@ -1709,10 +1711,10 @@ async def cal(ctx, eval_string: str = None):
                 await msg.add_reaction(EMOJI_OK_BOX)
                 return
             except Exception as e:
-                await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} I can not find the result.')
+                await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} I can not find the result for `{eval_string_original}`.')
                 return
         else:
-            await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} Unsupported usage.')
+            await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} Unsupported usage for `{eval_string_original}`.')
             return
 
 

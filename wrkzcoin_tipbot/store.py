@@ -376,7 +376,7 @@ async def sql_update_user(userID, user_wallet_address, coin: str):
     try:
         openRedis()
         if redis_conn and redis_conn.exists(f'TIPBOT:WALLET_{str(userID)}_{COIN_NAME}'):
-            return redis_conn.delete(f'TIPBOT:WALLET_{str(userID)}_{COIN_NAME}')
+            redis_conn.delete(f'TIPBOT:WALLET_{str(userID)}_{COIN_NAME}')
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
 
@@ -414,7 +414,7 @@ async def sql_get_userwallet(userID, coin: str = None):
     try:
         openRedis()
         if redis_conn and redis_conn.exists(f'TIPBOT:WALLET_{str(userID)}_{COIN_NAME}'):
-            return redis_conn.get(json.loads(f'TIPBOT:WALLET_{str(userID)}_{COIN_NAME}'))
+            return json.loads(redis_conn.get(f'TIPBOT:WALLET_{str(userID)}_{COIN_NAME}').decode())
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
 

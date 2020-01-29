@@ -13,6 +13,7 @@ import store, daemonrpc_client, addressvalidation, walletapi
 from generic_xmr.address_msr import address_msr as address_msr
 from generic_xmr.address_xmr import address_xmr as address_xmr
 from generic_xmr.address_upx import address_upx as address_upx
+from generic_xmr.address_xam import address_xam as address_xam
 
 from config import config
 from wallet import *
@@ -2693,7 +2694,7 @@ async def register(ctx, wallet_address: str):
         if coin_family == "TRTL" or coin_family == "CCX":
             valid_address = addressvalidation.validate_address_cn(wallet_address, COIN_NAME)
         elif coin_family == "XMR":
-            if COIN_NAME not in ["MSR", "UPX"]:
+            if COIN_NAME not in ["MSR", "UPX", "XAM"]:
                 valid_address = await validate_address_xmr(str(wallet_address), COIN_NAME)
                 if valid_address is None:
                     await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
@@ -5016,6 +5017,46 @@ async def address(ctx, *args):
                     await ctx.send(f'{EMOJI_RED_NO} Address: `{CoinAddress}`\n'
                                     'Checked: Invalid.')
                     return
+            elif COIN_NAME == "XAM":
+                addr = None
+                if len(CoinAddress) == 98 or len(CoinAddress) == 99:
+                    try:
+                        addr = address_xam(CoinAddress)
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                        pass
+                elif len(CoinAddress) == 109:
+                    addr = None
+                    try:
+                        addr = address_xam(CoinAddress)
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                        pass
+                print(addr)
+                print(type(addr))
+                if addr == CoinAddress:
+                    address_result = 'Valid: `{}`\n'.format(addr)                    
+                    if type(addr).__name__ == "Address":
+                        address_result += 'Main Address: `{}`\n'.format('True')
+                    else:
+                        address_result += 'Main Address: `{}`\n'.format('False')
+                    if type(addr).__name__ == "IntegratedAddress":
+                        address_result += 'Integrated: `{}`\n'.format('True')
+                    else:
+                        address_result += 'Integrated: `{}`\n'.format('False')
+                    if type(addr).__name__ == "SubAddress":
+                        address_result += 'Subaddress: `{}`\n'.format('True')
+                    else:
+                        address_result += 'Subaddress: `{}`\n'.format('False')
+                    print(address_result)
+                    await ctx.message.add_reaction(EMOJI_CHECK)
+                    await ctx.send(f'{EMOJI_CHECK} Address: `{CoinAddress}`\n{address_result}')
+                    return
+                else:
+                    await ctx.message.add_reaction(EMOJI_ERROR)
+                    await ctx.send(f'{EMOJI_RED_NO} Address: `{CoinAddress}`\n'
+                                    'Checked: Invalid.')
+                    return
             valid_address = await validate_address_xmr(str(CoinAddress), COIN_NAME)
             if valid_address is None:
                 await ctx.send(f'{EMOJI_RED_NO} Address: `{CoinAddress}`\n'
@@ -6533,6 +6574,14 @@ def get_cn_coin_from_address(CoinAddress: str):
         try:
             addr = address_upx(CoinAddress)
             COIN_NAME = "UPX"
+            return COIN_NAME
+        except Exception as e:
+            # traceback.print_exc(file=sys.stdout)
+            pass
+        # Try XAM
+        try:
+            addr = address_xam(CoinAddress)
+            COIN_NAME = "XAM"
             return COIN_NAME
         except Exception as e:
             # traceback.print_exc(file=sys.stdout)

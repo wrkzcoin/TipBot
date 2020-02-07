@@ -39,9 +39,18 @@ import aiohttp
 # numexpr
 import numexpr
 
+
+
 # add logging
 # CRITICAL, ERROR, WARNING, INFO, and DEBUG and if not specified defaults to WARNING.
 import logging
+
+# redis
+import redis
+redis_pool = None
+redis_conn = None
+redis_expired = 120
+
 logger = logging.getLogger('discord')
 logger.setLevel(logging.INFO)
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
@@ -72,17 +81,18 @@ WITHDRAW_IN_PROCESS = []
 REACT_TIP_STORE = []
 
 # faucet enabled coin. The faucet balance is taken from TipBot's own balance
-FAUCET_COINS = ["WRKZ", "TRTL", "DEGO", "MTIP", "BTCMZ"]
+FAUCET_COINS = config.Enable_Faucet_Coin.split(",")
+FAUCET_COINS_ROUND_NUMBERS = config.Enable_Faucet_Coin_round_number.split(",")
 
 # Coin using wallet-api
 WALLET_API_COIN = config.Enable_Coin_WalletApi.split(",")
 
 # DOGE will divide by 10 after random
 FAUCET_MINMAX = {
-    "WRKZ": [1000, 2500],
+    "WRKZ": [1000, 2000],
     "DEGO": [2500, 10000],
-    "MTIP": [5, 15],
-    "TRTL": [3, 10],
+    "MTIP": [15, 25],
+    "TRTL": [15, 25],
     "DOGE": [1, 3],
     "BTCMZ": [2500, 5000]
     }
@@ -180,7 +190,7 @@ ENABLE_COIN_VOUCHER = config.Enable_Coin_Voucher.split(",")
 
 # Some notice about coin that going to swap or take out.
 NOTICE_COIN = {
-    "WRKZ" : f"{EMOJI_INFORMATION} WRKZ new network fee 500.00WRKZ.",
+    "WRKZ" : getattr(getattr(config,"daemonWRKZ"),"coin_notice", None),
     "TRTL" : getattr(getattr(config,"daemonTRTL"),"coin_notice", None),
     "DEGO" : getattr(getattr(config,"daemonDEGO"),"coin_notice", None),
     "CX" : getattr(getattr(config,"daemonCX"),"coin_notice", None),
@@ -263,6 +273,21 @@ bot_help_account_twofa = "Generate a 2FA and scanned with Authenticator Program.
 bot_help_account_verify = "Verify 2FA code from QR code and your Authenticator Program."
 bot_help_account_unverify = "Unverify your account and disable 2FA code."
 bot_help_account_secrettip = "Tip someone anonymously by their ID."
+bot_help_account_tipemoji = "Put additional Emoji to your successful tip."
+
+def init():
+    global redis_pool
+    print("PID %d: initializing redis pool..." % os.getpid())
+    redis_pool = redis.ConnectionPool(host='localhost', port=6379, decode_responses=True, db=8)
+
+
+def openRedis():
+    global redis_pool, redis_conn
+    if redis_conn is None:
+        try:
+            redis_conn = redis.Redis(connection_pool=redis_pool)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
 
 
 def get_round_amount(coin: str, amount: int):
@@ -291,11 +316,11 @@ def get_notice_txt(coin: str):
     COIN_NAME = coin.upper()
     if COIN_NAME in NOTICE_COIN:
         if NOTICE_COIN[COIN_NAME] is None:
-            return "*Any support, please approach CapEtn#4425.*"
+            return "*Any support for this TipBot, please join* `https://chat.wrkz.work`"
         else:
             return NOTICE_COIN[COIN_NAME]
     else:
-        return "*Any support, please approach CapEtn#4425.*"
+        return "*Any support for this TipBot, please join* `https://chat.wrkz.work`"
 
 
 # Steal from https://github.com/cree-py/RemixBot/blob/master/bot.py#L49
@@ -724,7 +749,14 @@ async def account(ctx):
     return
 
 
-@account.command(aliases=['2fa'], help=bot_help_account_twofa)
+@account.command(aliases=['emojitip'], help=bot_help_account_tipemoji, hidden = True)
+async def tipemoji(ctx):
+    if ctx.invoked_subcommand is None:
+        await ctx.send('Invalid `account` command passed...')
+    return
+
+
+@account.command(aliases=['2fa'], help=bot_help_account_twofa, hidden = True)
 async def twofa(ctx):
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'account twofa')
@@ -835,7 +867,7 @@ async def twofa(ctx):
     return
 
 
-@account.command(help=bot_help_account_verify)
+@account.command(help=bot_help_account_verify, hidden = True)
 async def verify(ctx, codes: str):
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'account verify')
@@ -889,7 +921,7 @@ async def verify(ctx, codes: str):
             return
 
 
-@account.command(help=bot_help_account_unverify)
+@account.command(help=bot_help_account_unverify, hidden = True)
 async def unverify(ctx, codes: str):
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'account verify')
@@ -943,7 +975,7 @@ async def unverify(ctx, codes: str):
             return
 
 
-@account.command(help=bot_help_account_secrettip)
+@account.command(help=bot_help_account_secrettip, hidden = True)
 async def secrettip(ctx, amount: str, coin: str, user_id: str):
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'tip')
@@ -968,7 +1000,7 @@ async def secrettip(ctx, amount: str, coin: str, user_id: str):
 
     COIN_NAME = coin.upper()
 
-    if COIN_NAME in MAINTENANCE_COIN:
+    if is_maintenance_coin(COIN_NAME):
         await ctx.message.add_reaction(EMOJI_MAINTENANCE)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
         return
@@ -1153,12 +1185,25 @@ async def admin(ctx):
 
 
 @commands.is_owner()
+@admin.command(aliases=['maintenance'])
+async def maint(ctx, coin: str):
+    COIN_NAME = coin.upper()
+    if is_maintenance_coin(COIN_NAME):
+        await ctx.send(f'{EMOJI_OK_BOX} Set **{COIN_NAME}** to maintenance **OFF**.')
+        set_main = set_maintenance_coin(COIN_NAME, False)
+    else:
+        await ctx.send(f'{EMOJI_OK_BOX} Set **{COIN_NAME}** to maintenance **ON**.')
+        set_main = set_maintenance_coin(COIN_NAME, True)
+    return
+
+
+@commands.is_owner()
 @admin.command(help=bot_help_admin_save)
 async def save(ctx, coin: str):
     global SAVING_ALL
     botLogChan = bot.get_channel(id=LOG_CHAN)
     COIN_NAME = coin.upper()
-    if COIN_NAME in MAINTENANCE_COIN:
+    if is_maintenance_coin(COIN_NAME):
         await ctx.message.add_reaction(EMOJI_MAINTENANCE)
         await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} in maintenance. But I will try to **save** as per your command.')
         pass
@@ -1191,7 +1236,7 @@ async def save(ctx, coin: str):
         await botLogChan.send(f'{ctx.message.author.name}#{ctx.message.author.discriminator} called `save all`')
         SAVING_ALL = True
         for coinItem in (ENABLE_COIN+ENABLE_XMR):
-            if coinItem in MAINTENANCE_COIN:
+            if is_maintenance_coin(coinItem):
                 duration_msg += "{} Maintenance.\n".format(coinItem)
             else:
                 if coinItem in ["CCX"]:
@@ -1236,7 +1281,7 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
         ['TICKER', 'Available', 'Locked']
     ]
     for coinItem in ENABLE_COIN:
-        if coinItem not in MAINTENANCE_COIN:
+        if not is_maintenance_coin(coinItem):
             COIN_DEC = get_decimal(coinItem.upper())
             wallet = await store.sql_get_userwallet(str(user_id), coinItem.upper())
             if wallet is None:
@@ -1266,7 +1311,7 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
             table_data.append([coinItem.upper(), "***", "***"])
     # Add DOGE
     COIN_NAME = "DOGE"
-    if COIN_NAME not in MAINTENANCE_COIN and create_acc:
+    if not is_maintenance_coin(COIN_NAME) and create_acc:
         depositAddress = await DOGE_LTC_getaccountaddress(str(user_id), COIN_NAME)
         actual = float(await DOGE_LTC_getbalance_acc(str(user_id), COIN_NAME, 6))
         locked = float(await DOGE_LTC_getbalance_acc(str(user_id), COIN_NAME, 1))
@@ -1290,7 +1335,7 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
     # End of Add DOGE
     # Add XTOR
     COIN_NAME = "XTOR"
-    if COIN_NAME not in MAINTENANCE_COIN:
+    if not is_maintenance_coin(COIN_NAME):
         wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
         if wallet is None:
             userregister = await store.sql_register_user(str(user_id), COIN_NAME)
@@ -1314,7 +1359,7 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
             table_data.append([COIN_NAME, "***", "***"])
     # End of Add XTOR
     COIN_NAME = "LOKI"
-    if COIN_NAME not in MAINTENANCE_COIN:
+    if not is_maintenance_coin(COIN_NAME):
         wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
         if wallet is None:
             userregister = await store.sql_register_user(str(user_id), COIN_NAME)
@@ -1338,7 +1383,7 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
         table_data.append([COIN_NAME, "***", "***"])
     # End of Add LOKI
     COIN_NAME = "XMR"
-    if COIN_NAME not in MAINTENANCE_COIN:
+    if not is_maintenance_coin(COIN_NAME):
         wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
         if wallet is None:
             userregister = await store.sql_register_user(str(user_id), COIN_NAME)
@@ -1362,7 +1407,7 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
         table_data.append([COIN_NAME, "***", "***"])
     # End of Add XMR
     COIN_NAME = "XEQ"
-    if COIN_NAME not in MAINTENANCE_COIN:
+    if not is_maintenance_coin(COIN_NAME):
         wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
         if wallet is None:
             userregister = await store.sql_register_user(str(user_id), COIN_NAME)
@@ -1386,7 +1431,7 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
         table_data.append([COIN_NAME, "***", "***"])
     # End of Add XEQ
     COIN_NAME = "ARQ"
-    if COIN_NAME not in MAINTENANCE_COIN:
+    if not is_maintenance_coin(COIN_NAME):
         wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
         if wallet is None:
             userregister = await store.sql_register_user(str(user_id), COIN_NAME)
@@ -1410,7 +1455,7 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
         table_data.append([COIN_NAME, "***", "***"])
     # End of Add ARQ
     COIN_NAME = "MSR"
-    if COIN_NAME not in MAINTENANCE_COIN:
+    if not is_maintenance_coin(COIN_NAME):
         wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
         if wallet is None:
             userregister = await store.sql_register_user(str(user_id), COIN_NAME)
@@ -1434,7 +1479,7 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
         table_data.append([COIN_NAME, "***", "***"])
     # End of Add MSR
     COIN_NAME = "BLOG"
-    if COIN_NAME not in MAINTENANCE_COIN:
+    if not is_maintenance_coin(COIN_NAME):
         wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
         if wallet is None:
             userregister = await store.sql_register_user(str(user_id), COIN_NAME)
@@ -1457,7 +1502,7 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
     else:
         table_data.append([COIN_NAME, "***", "***"])
     COIN_NAME = "XAM"
-    if COIN_NAME not in MAINTENANCE_COIN:
+    if not is_maintenance_coin(COIN_NAME):
         wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
         if wallet is None:
             userregister = await store.sql_register_user(str(user_id), COIN_NAME)
@@ -1478,7 +1523,7 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
                 COIN_NAME += '*'
             table_data.append([COIN_NAME, balance_actual, balance_locked])
     COIN_NAME = "UPX"
-    if COIN_NAME not in MAINTENANCE_COIN:
+    if not is_maintenance_coin(COIN_NAME):
         wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
         if wallet is None:
             userregister = await store.sql_register_user(str(user_id), COIN_NAME)
@@ -1594,7 +1639,7 @@ async def checkcoin(ctx, coin: str):
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.message.author.send(f'{COIN_NAME} is not in TipBot.')
         return
-    if COIN_NAME in MAINTENANCE_COIN:
+    if is_maintenance_coin(COIN_NAME):
         await ctx.message.add_reaction(EMOJI_MAINTENANCE)
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     if coin_family == "TRTL":
@@ -1846,7 +1891,7 @@ async def info(ctx, coin: str = None):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**')
         return
     
-    if (COIN_NAME in MAINTENANCE_COIN) and (ctx.message.author.id not in MAINTENANCE_OWNER):
+    if is_maintenance_coin(COIN_NAME) and (ctx.message.author.id not in MAINTENANCE_OWNER):
         await ctx.message.add_reaction(EMOJI_MAINTENANCE)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
         return
@@ -1949,7 +1994,7 @@ async def balance(ctx, coin: str = None):
             ['TICKER', 'Available', 'Locked']
         ]
         for COIN_NAME in [coinItem.upper() for coinItem in ENABLE_COIN]:
-            if COIN_NAME not in MAINTENANCE_COIN:
+            if not is_maintenance_coin(COIN_NAME):
                 COIN_DEC = get_decimal(COIN_NAME)
                 wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
                 if wallet is None:
@@ -1974,7 +2019,7 @@ async def balance(ctx, coin: str = None):
                 table_data.append([COIN_NAME, "***", "***"])
         # Add DOGE
         COIN_NAME = "DOGE"
-        if COIN_NAME not in MAINTENANCE_COIN:
+        if not is_maintenance_coin(COIN_NAME):
             depositAddress = await DOGE_LTC_getaccountaddress(str(ctx.message.author.id), COIN_NAME)
             actual = float(await DOGE_LTC_getbalance_acc(str(ctx.message.author.id), COIN_NAME, 6))
             locked = float(await DOGE_LTC_getbalance_acc(str(ctx.message.author.id), COIN_NAME, 1))
@@ -1997,7 +2042,7 @@ async def balance(ctx, coin: str = None):
         # End of Add DOGE
         # Add XTOR
         COIN_NAME = "XTOR"
-        if COIN_NAME not in MAINTENANCE_COIN:
+        if not is_maintenance_coin(COIN_NAME):
             wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
             if wallet is None:
                 userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
@@ -2022,7 +2067,7 @@ async def balance(ctx, coin: str = None):
             table_data.append([COIN_NAME, "***", "***"])
         # End of Add XTOR
         COIN_NAME = "LOKI"
-        if COIN_NAME not in MAINTENANCE_COIN:
+        if not is_maintenance_coin(COIN_NAME):
             wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
             if wallet is None:
                 userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
@@ -2047,7 +2092,7 @@ async def balance(ctx, coin: str = None):
             table_data.append([COIN_NAME, "***", "***"])
         # End of Add LOKI
         COIN_NAME = "XMR"
-        if COIN_NAME not in MAINTENANCE_COIN:
+        if not is_maintenance_coin(COIN_NAME):
             wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
             if wallet is None:
                 userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
@@ -2072,7 +2117,7 @@ async def balance(ctx, coin: str = None):
             table_data.append([COIN_NAME, "***", "***"])
         # End of Add XMR
         COIN_NAME = "XEQ"
-        if COIN_NAME not in MAINTENANCE_COIN:
+        if not is_maintenance_coin(COIN_NAME):
             wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
             if wallet is None:
                 userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
@@ -2097,7 +2142,7 @@ async def balance(ctx, coin: str = None):
             table_data.append([COIN_NAME, "***", "***"])
         # End of Add XEQ
         COIN_NAME = "BLOG"
-        if COIN_NAME not in MAINTENANCE_COIN:
+        if not is_maintenance_coin(COIN_NAME):
             wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
             if wallet is None:
                 userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
@@ -2122,7 +2167,7 @@ async def balance(ctx, coin: str = None):
             table_data.append([COIN_NAME, "***", "***"])
         # End of Add BLOG
         COIN_NAME = "ARQ"
-        if COIN_NAME not in MAINTENANCE_COIN:
+        if not is_maintenance_coin(COIN_NAME):
             wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
             if wallet is None:
                 userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
@@ -2147,7 +2192,7 @@ async def balance(ctx, coin: str = None):
             table_data.append([COIN_NAME, "***", "***"])
         # End of Add ARQ
         COIN_NAME = "MSR"
-        if COIN_NAME not in MAINTENANCE_COIN:
+        if not is_maintenance_coin(COIN_NAME):
             wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
             if wallet is None:
                 userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
@@ -2172,7 +2217,7 @@ async def balance(ctx, coin: str = None):
             table_data.append([COIN_NAME, "***", "***"])
         # End of Add MSR
         COIN_NAME = "XAM"
-        if COIN_NAME not in MAINTENANCE_COIN:
+        if not is_maintenance_coin(COIN_NAME):
             wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
             if wallet is None:
                 userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
@@ -2197,7 +2242,7 @@ async def balance(ctx, coin: str = None):
             table_data.append([COIN_NAME, "***", "***"])
         # End of Add XAM
         COIN_NAME = "UPX"
-        if COIN_NAME not in MAINTENANCE_COIN:
+        if not is_maintenance_coin(COIN_NAME):
             wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
             if wallet is None:
                 userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
@@ -2230,11 +2275,11 @@ async def balance(ctx, coin: str = None):
         if PUBMSG.upper() == "PUB" or PUBMSG.upper() == "PUBLIC":
             msg = await ctx.send('**[ BALANCE LIST ]**\n'
                             f'```{table.table}```\n'
-                            f'Related command: `{prefixChar}balance TICKER` or `{prefixChar}info TICKER`\n')
+                            f'Related command: `{prefixChar}balance TICKER` or `{prefixChar}info TICKER`\n`***`: On Maintenance\n')
         else:
             msg = await ctx.message.author.send('**[ BALANCE LIST ]**\n'
                             f'```{table.table}```\n'
-                            f'Related command: `{prefixChar}balance TICKER` or `{prefixChar}info TICKER`\n'
+                            f'Related command: `{prefixChar}balance TICKER` or `{prefixChar}info TICKER`\n`***`: On Maintenance\n'
                             f'{get_notice_txt(COIN_NAME)}')
         await msg.add_reaction(EMOJI_OK_BOX)
         return
@@ -2249,7 +2294,7 @@ async def balance(ctx, coin: str = None):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**')
         return
 
-    if COIN_NAME in MAINTENANCE_COIN and ctx.message.author.id not in MAINTENANCE_OWNER:
+    if is_maintenance_coin(COIN_NAME) and ctx.message.author.id not in MAINTENANCE_OWNER:
         await ctx.message.add_reaction(EMOJI_MAINTENANCE)
         msg = await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} in maintenance.')
         await msg.add_reaction(EMOJI_OK_BOX)
@@ -2419,7 +2464,7 @@ async def botbalance(ctx, member: discord.Member, coin: str):
         return
 
     walletStatus = None
-    if COIN_NAME in MAINTENANCE_COIN:
+    if is_maintenance_coin(COIN_NAME):
         await ctx.message.add_reaction(EMOJI_MAINTENANCE)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
         return
@@ -2665,7 +2710,7 @@ async def register(ctx, wallet_address: str):
 
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
 
-    if COIN_NAME in MAINTENANCE_COIN:
+    if is_maintenance_coin(COIN_NAME):
         await ctx.message.add_reaction(EMOJI_MAINTENANCE)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
         return
@@ -2846,7 +2891,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
 
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
 
-    if COIN_NAME in MAINTENANCE_COIN:
+    if is_maintenance_coin(COIN_NAME):
         await ctx.message.add_reaction(EMOJI_MAINTENANCE)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
         return
@@ -3150,7 +3195,7 @@ async def donate(ctx, amount: str, coin: str = None):
             coin = "WRKZ"
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-    if COIN_NAME in MAINTENANCE_COIN:
+    if is_maintenance_coin(COIN_NAME):
         await ctx.message.add_reaction(EMOJI_MAINTENANCE)
         await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} in maintenance.')
         return
@@ -3361,7 +3406,7 @@ async def notifytip(ctx, onoff: str):
 
 @bot.command(pass_context=True, help=bot_help_take)
 async def take(ctx):
-    global FAUCET_COINS, FAUCET_MINMAX, TRTL_DISCORD, WITHDRAW_IN_PROCESS
+    global FAUCET_COINS, FAUCET_MINMAX, TRTL_DISCORD, FAUCET_COINS_ROUND_NUMBERS, WITHDRAW_IN_PROCESS
     # disable faucet for TRTL discord
     if ctx.guild.id == TRTL_DISCORD:
         await ctx.message.add_reaction(EMOJI_LOCKED)
@@ -3400,12 +3445,13 @@ async def take(ctx):
     # end of bot channel check
 
     # check user claim:
+    claim_interval = 24 * 3600
     check_claimed = store.sql_faucet_checkuser(str(ctx.message.author.id))
     if check_claimed:
         # limit 12 hours
-        if int(time.time()) - check_claimed['claimed_at'] <= 43200:
+        if int(time.time()) - check_claimed['claimed_at'] <= claim_interval:
             remaining = await bot_faucet(ctx) or ''
-            time_waiting = seconds_str(43200 - int(time.time()) + check_claimed['claimed_at'])
+            time_waiting = seconds_str(claim_interval - int(time.time()) + check_claimed['claimed_at'])
             number_user_claimed = '{:,.0f}'.format(store.sql_faucet_count_user(str(ctx.message.author.id)))
             total_claimed = '{:,.0f}'.format(store.sql_faucet_count_all())
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -3418,26 +3464,23 @@ async def take(ctx):
             return
 
     COIN_NAME = random.choice(FAUCET_COINS)
-    while COIN_NAME in MAINTENANCE_COIN:
+    while is_maintenance_coin(COIN_NAME):
         COIN_NAME = random.choice(FAUCET_COINS)
 
     has_forwardtip = None
     amount = random.randint(FAUCET_MINMAX[COIN_NAME][0], FAUCET_MINMAX[COIN_NAME][1])
-
-    # faucet only TRTL for TRTL and /number of faucet coins
-    if ctx.guild.id == TRTL_DISCORD:
-        COIN_NAME = "TRTL"
-        amount = random.randint(FAUCET_MINMAX[COIN_NAME][0], FAUCET_MINMAX[COIN_NAME][1])
-        amount = amount / len(FAUCET_COINS) / 0.4
-        # if TRTL got less than 1, give 1
-        if amount < 1:
-            amount = 1
 
     wallet = None
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     if coin_family == "DOGE":
         amount = float(amount / 10)
 
+    def myround_number(x, base=5):
+        return base * round(x/base)
+
+    if COIN_NAME in FAUCET_COINS_ROUND_NUMBERS:
+        amount = myround_number(amount)
+        if amount == 0: amount = 5 
     if coin_family == "TRTL" or coin_family == "CCX":
         COIN_DEC = get_decimal(COIN_NAME)
         real_amount = int(amount * COIN_DEC)
@@ -3603,7 +3646,7 @@ async def tip(ctx, amount: str, *args):
         return
     # End of checking allowed coins
 
-    if COIN_NAME in MAINTENANCE_COIN:
+    if is_maintenance_coin(COIN_NAME):
         await ctx.message.add_reaction(EMOJI_MAINTENANCE)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
         return
@@ -3998,7 +4041,7 @@ async def tipall(ctx, amount: str, *args):
         return
     # End of checking allowed coins
 
-    if COIN_NAME in MAINTENANCE_COIN:
+    if is_maintenance_coin(COIN_NAME):
         await ctx.message.add_reaction(EMOJI_MAINTENANCE)
         await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} in maintenance.')
         return
@@ -4430,7 +4473,7 @@ async def send(ctx, amount: str, CoinAddress: str):
         addressLength = get_addrlen(COIN_NAME)
         IntaddressLength = get_intaddrlen(COIN_NAME)
         NetFee = get_tx_fee(coin = COIN_NAME)
-        if COIN_NAME in MAINTENANCE_COIN:
+        if is_maintenance_coin(COIN_NAME):
             await ctx.message.add_reaction(EMOJI_MAINTENANCE)
             try:
                 await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
@@ -5339,7 +5382,7 @@ async def voucher(ctx, command: str, amount: str, coin: str = None):
             coin = "WRKZ"
     
     COIN_NAME = coin.upper() or "WRKZ"
-    if COIN_NAME in MAINTENANCE_COIN:
+    if is_maintenance_coin(COIN_NAME):
         await ctx.message.add_reaction(EMOJI_MAINTENANCE)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
         return
@@ -5477,11 +5520,11 @@ async def stats(ctx, coin: str = None):
     if isinstance(ctx.message.channel, discord.DMChannel) == False and ctx.guild.id == TRTL_DISCORD and COIN_NAME != "TRTL":
         return
 
-    if (COIN_NAME in MAINTENANCE_COIN) and (ctx.message.author.id not in MAINTENANCE_OWNER):
+    if is_maintenance_coin(COIN_NAME) and (ctx.message.author.id not in MAINTENANCE_OWNER):
         await ctx.message.add_reaction(EMOJI_MAINTENANCE)
         await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} in maintenance.')
         return
-    elif (COIN_NAME in MAINTENANCE_COIN) and (ctx.message.author.id in MAINTENANCE_OWNER):
+    elif is_maintenance_coin(COIN_NAME) and (ctx.message.author.id in MAINTENANCE_OWNER):
         await ctx.message.add_reaction(EMOJI_MAINTENANCE)
         pass
 
@@ -5734,7 +5777,7 @@ async def height(ctx, coin: str = None):
         await ctx.message.add_reaction(EMOJI_ERROR)
         msg = await ctx.send(f'{ctx.author.mention} Please put available ticker: '+ ', '.join(ENABLE_COIN).lower())
         return
-    elif COIN_NAME in MAINTENANCE_COIN:
+    elif is_maintenance_coin(COIN_NAME):
         await ctx.message.add_reaction(EMOJI_MAINTENANCE)
         msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} is under maintenance.')
         await msg.add_reaction(EMOJI_OK_BOX)
@@ -6317,8 +6360,8 @@ async def itag(ctx, *, itag_text: str = None):
         return
     else:
         print('Size: {}'.format(attachment.size))
-    
-    if re.match('^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*$', itag_text):
+    print("iTag: {}".format(itag_text))
+    if re.match(r'^[a-zA-Z0-9_-]*$', itag_text):
         if len(itag_text) >= 16:
             await ctx.send(f'itag **{itag_text}** is too long.')
             return
@@ -6817,7 +6860,7 @@ async def saving_wallet():
             await asyncio.sleep(10)
         COIN_SAVING = ENABLE_COIN + ENABLE_XMR
         for COIN_NAME in COIN_SAVING:
-            if (COIN_NAME in MAINTENANCE_COIN) or COIN_NAME in ["CCX"]:
+            if is_maintenance_coin(COIN_NAME) or (COIN_NAME in ["CCX"]):
                 continue
             if (COIN_NAME in ENABLE_COIN + ENABLE_XMR) and saving == False:
                 duration = None
@@ -7776,6 +7819,47 @@ def seconds_str(time: float):
     return "{:02d}:{:02d}:{:02d}".format(hour, minutes, seconds)
 
 
+def is_maintenance_coin(coin: str):
+    global redis_conn, redis_expired, MAINTENANCE_COIN
+    COIN_NAME = coin.upper()
+    if COIN_NAME in MAINTENANCE_COIN:
+        return True
+    # Check if exist in redis
+    try:
+        openRedis()
+        key = 'TIPBOT:COIN_' + COIN_NAME + '_MAINT'
+        if redis_conn and redis_conn.exists(key):
+            return True
+        else:
+            return False
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
+def set_maintenance_coin(coin: str, set_maint: bool = True):
+    global redis_conn, redis_expired, MAINTENANCE_COIN
+    COIN_NAME = coin.upper()
+    if COIN_NAME in MAINTENANCE_COIN:
+        return True
+
+    # Check if exist in redis
+    try:
+        openRedis()
+        key = 'TIPBOT:COIN_' + COIN_NAME + '_MAINT'
+        if set_maint == True:
+            if redis_conn and redis_conn.exists(key):
+                return True
+            else:
+                redis_conn.set(key, "ON")
+                return True
+        else:
+            if redis_conn and redis_conn.exists(key):
+                redis_conn.delete(key)
+            return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
 async def bot_faucet(ctx):
     global TRTL_DISCORD
     table_data = [
@@ -7799,7 +7883,7 @@ async def bot_faucet(ctx):
     # End TRTL discord
     for COIN_NAME in [coinItem.upper() for coinItem in FAUCET_COINS]:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-        if (COIN_NAME not in MAINTENANCE_COIN) and coin_family in ["TRTL", "CCX"]:
+        if (not is_maintenance_coin(COIN_NAME)) and coin_family in ["TRTL", "CCX"]:
             COIN_DEC = get_decimal(COIN_NAME)
             wallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
             balance_actual = num_format_coin(wallet['actual_balance'], COIN_NAME)
@@ -7811,7 +7895,7 @@ async def bot_faucet(ctx):
                 table_data.append([COIN_NAME, '0', '0'])
     # Add DOGE
     COIN_NAME = "DOGE"
-    if (COIN_NAME not in MAINTENANCE_COIN) and COIN_NAME in FAUCET_COINS:
+    if (not is_maintenance_coin(COIN_NAME)) and (COIN_NAME in FAUCET_COINS):
         actual = float(await DOGE_LTC_getbalance_acc(str(bot.user.id), COIN_NAME, 6))
         locked = float(await DOGE_LTC_getbalance_acc(str(bot.user.id), COIN_NAME, 1))
         userdata_balance = store.sql_doge_balance(str(bot.user.id), COIN_NAME)

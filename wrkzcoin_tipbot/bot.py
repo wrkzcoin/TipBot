@@ -3445,17 +3445,17 @@ async def take(ctx):
     # end of bot channel check
 
     # check user claim:
-    claim_interval = 24 * 3600
+    claim_interval = 24
     check_claimed = store.sql_faucet_checkuser(str(ctx.message.author.id))
     if check_claimed:
         # limit 12 hours
-        if int(time.time()) - check_claimed['claimed_at'] <= claim_interval:
+        if int(time.time()) - check_claimed['claimed_at'] <= claim_interval*3600:
             remaining = await bot_faucet(ctx) or ''
-            time_waiting = seconds_str(claim_interval - int(time.time()) + check_claimed['claimed_at'])
+            time_waiting = seconds_str(claim_interval*3600 - int(time.time()) + check_claimed['claimed_at'])
             number_user_claimed = '{:,.0f}'.format(store.sql_faucet_count_user(str(ctx.message.author.id)))
             total_claimed = '{:,.0f}'.format(store.sql_faucet_count_all())
             await ctx.message.add_reaction(EMOJI_ERROR)
-            msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You just claimed within last 12h. '
+            msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You just claimed within last {claim_interval}h. '
                                  f'Waiting time {time_waiting} for next **take**. Faucet balance:\n```{remaining}```'
                                  f'Total user claims: **{total_claimed}** times. '
                                  f'You have claimed: **{number_user_claimed}** time(s). '

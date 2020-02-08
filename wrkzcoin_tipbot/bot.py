@@ -3453,6 +3453,13 @@ async def take(ctx):
         msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} This command isn\'t available with this guild.')
         return
 
+    # check if user create account less than 3 days
+    account_created = ctx.message.author.created_at
+    if (datetime.utcnow() - account_created).total_seconds() <= 3*24*3600:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using .take')
+        return
+
     # check if bot channel is set:
     serverinfo = store.sql_info_by_server(str(ctx.guild.id))
     if serverinfo['botchan']:

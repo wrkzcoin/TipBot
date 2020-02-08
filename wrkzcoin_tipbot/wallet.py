@@ -458,7 +458,7 @@ def num_format_coin(amount, coin: str = None):
     if COIN_NAME == 	"DOGE":
         return '{:,.6f}'.format(amount)
     if coin_decimal > 100000000:
-        amount_str = '{:,.10f}'.format(amount / coin_decimal)
+        amount_str = '{:,.8f}'.format(amount / coin_decimal)
     elif coin_decimal > 1000000:
         amount_str = '{:,.8f}'.format(amount / coin_decimal)
     elif coin_decimal > 10000:

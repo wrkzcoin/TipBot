@@ -1198,6 +1198,19 @@ async def maint(ctx, coin: str):
 
 
 @commands.is_owner()
+@admin.command(aliases=['tx'])
+async def txable(ctx, coin: str):
+    COIN_NAME = coin.upper()
+    if is_coin_txable(COIN_NAME):
+        await ctx.send(f'{EMOJI_OK_BOX} Set **{COIN_NAME}** **DISABLE** TX.')
+        set_main = set_coin_txable(COIN_NAME, False)
+    else:
+        await ctx.send(f'{EMOJI_OK_BOX} Set **{COIN_NAME}** **ENABLE** TX.')
+        set_main = set_coin_txable(COIN_NAME, True)
+    return
+
+
+@commands.is_owner()
 @admin.command(help=bot_help_admin_save)
 async def save(ctx, coin: str):
     global SAVING_ALL
@@ -1991,7 +2004,7 @@ async def balance(ctx, coin: str = None):
     COIN_NAME = None
     if (coin is None) or (PUBMSG == "PUB") or (PUBMSG == "PUBLIC"):
         table_data = [
-            ['TICKER', 'Available', 'Locked']
+            ['TICKER', 'Available', 'Locked', 'TX']
         ]
         for COIN_NAME in [coinItem.upper() for coinItem in ENABLE_COIN]:
             if not is_maintenance_coin(COIN_NAME):
@@ -2001,7 +2014,7 @@ async def balance(ctx, coin: str = None):
                     userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
                     wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
                 if wallet is None:
-                    table_data.append([COIN_NAME, "N/A", "N/A"])
+                    table_data.append([COIN_NAME, "N/A", "N/A", "N/A"])
                     await botLogChan.send(f'A user call `{prefixChar}balance` failed with {COIN_NAME}')
                 else:
                     balance_actual = num_format_coin(wallet['actual_balance'], COIN_NAME)
@@ -2013,10 +2026,10 @@ async def balance(ctx, coin: str = None):
                     if wallet['forwardtip'] == "ON":
                         coinName += ' >>'
                     if wallet['actual_balance'] + wallet['locked_balance'] != 0:
-                        table_data.append([coinName, balance_actual, balance_locked])
+                        table_data.append([coinName, balance_actual, balance_locked, "YES" if is_coin_txable(COIN_NAME) else "NO"])
                     pass
             else:
-                table_data.append([COIN_NAME, "***", "***"])
+                table_data.append([COIN_NAME, "***", "***", "***"])
         # Add DOGE
         COIN_NAME = "DOGE"
         if not is_maintenance_coin(COIN_NAME):
@@ -2036,9 +2049,9 @@ async def balance(ctx, coin: str = None):
             wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
             if wallet['user_wallet_address'] is None:
                 COIN_NAME += '*'
-            table_data.append([COIN_NAME, balance_actual, balance_locked])
+            table_data.append([COIN_NAME, balance_actual, balance_locked, "YES" if is_coin_txable(COIN_NAME) else "NO"])
         else:
-            table_data.append([COIN_NAME, "***", "***"])
+            table_data.append([COIN_NAME, "***", "***", "***"])
         # End of Add DOGE
         # Add XTOR
         COIN_NAME = "XTOR"
@@ -2062,9 +2075,9 @@ async def balance(ctx, coin: str = None):
                 if wallet['user_wallet_address'] is None:
                     COIN_NAME += '*'
                 if actual + float(userdata_balance['Adjust']) != 0:
-                    table_data.append([COIN_NAME, balance_actual, balance_locked])
+                    table_data.append([COIN_NAME, balance_actual, balance_locked, "YES" if is_coin_txable(COIN_NAME) else "NO"])
         else:
-            table_data.append([COIN_NAME, "***", "***"])
+            table_data.append([COIN_NAME, "***", "***", "***"])
         # End of Add XTOR
         COIN_NAME = "LOKI"
         if not is_maintenance_coin(COIN_NAME):
@@ -2087,9 +2100,9 @@ async def balance(ctx, coin: str = None):
                 if wallet['user_wallet_address'] is None:
                     COIN_NAME += '*'
                 if actual + float(userdata_balance['Adjust']) != 0:
-                    table_data.append([COIN_NAME, balance_actual, balance_locked])
+                    table_data.append([COIN_NAME, balance_actual, balance_locked, "YES" if is_coin_txable(COIN_NAME) else "NO"])
         else:
-            table_data.append([COIN_NAME, "***", "***"])
+            table_data.append([COIN_NAME, "***", "***", "***"])
         # End of Add LOKI
         COIN_NAME = "XMR"
         if not is_maintenance_coin(COIN_NAME):
@@ -2112,9 +2125,9 @@ async def balance(ctx, coin: str = None):
                 if wallet['user_wallet_address'] is None:
                     COIN_NAME += '*'
                 if actual + float(userdata_balance['Adjust']) != 0:
-                    table_data.append([COIN_NAME, balance_actual, balance_locked])
+                    table_data.append([COIN_NAME, balance_actual, balance_locked, "YES" if is_coin_txable(COIN_NAME) else "NO"])
         else:
-            table_data.append([COIN_NAME, "***", "***"])
+            table_data.append([COIN_NAME, "***", "***", "***"])
         # End of Add XMR
         COIN_NAME = "XEQ"
         if not is_maintenance_coin(COIN_NAME):
@@ -2137,9 +2150,9 @@ async def balance(ctx, coin: str = None):
                 if wallet['user_wallet_address'] is None:
                     COIN_NAME += '*'
                 if actual + float(userdata_balance['Adjust']) != 0:
-                    table_data.append([COIN_NAME, balance_actual, balance_locked])
+                    table_data.append([COIN_NAME, balance_actual, balance_locked, "YES" if is_coin_txable(COIN_NAME) else "NO"])
         else:
-            table_data.append([COIN_NAME, "***", "***"])
+            table_data.append([COIN_NAME, "***", "***", "***"])
         # End of Add XEQ
         COIN_NAME = "BLOG"
         if not is_maintenance_coin(COIN_NAME):
@@ -2162,9 +2175,9 @@ async def balance(ctx, coin: str = None):
                 if wallet['user_wallet_address'] is None:
                     COIN_NAME += '*'
                 if actual + float(userdata_balance['Adjust']) != 0:
-                    table_data.append([COIN_NAME, balance_actual, balance_locked])
+                    table_data.append([COIN_NAME, balance_actual, balance_locked, "YES" if is_coin_txable(COIN_NAME) else "NO"])
         else:
-            table_data.append([COIN_NAME, "***", "***"])
+            table_data.append([COIN_NAME, "***", "***", "***"])
         # End of Add BLOG
         COIN_NAME = "ARQ"
         if not is_maintenance_coin(COIN_NAME):
@@ -2187,9 +2200,9 @@ async def balance(ctx, coin: str = None):
                 if wallet['user_wallet_address'] is None:
                     COIN_NAME += '*'
                 if actual + float(userdata_balance['Adjust']) != 0:
-                    table_data.append([COIN_NAME, balance_actual, balance_locked])
+                    table_data.append([COIN_NAME, balance_actual, balance_locked, "YES" if is_coin_txable(COIN_NAME) else "NO"])
         else:
-            table_data.append([COIN_NAME, "***", "***"])
+            table_data.append([COIN_NAME, "***", "***", "***"])
         # End of Add ARQ
         COIN_NAME = "MSR"
         if not is_maintenance_coin(COIN_NAME):
@@ -2212,9 +2225,9 @@ async def balance(ctx, coin: str = None):
                 if wallet['user_wallet_address'] is None:
                     COIN_NAME += '*'
                 if actual + float(userdata_balance['Adjust']) != 0:
-                    table_data.append([COIN_NAME, balance_actual, balance_locked])
+                    table_data.append([COIN_NAME, balance_actual, balance_locked, "YES" if is_coin_txable(COIN_NAME) else "NO"])
         else:
-            table_data.append([COIN_NAME, "***", "***"])
+            table_data.append([COIN_NAME, "***", "***", "***"])
         # End of Add MSR
         COIN_NAME = "XAM"
         if not is_maintenance_coin(COIN_NAME):
@@ -2237,9 +2250,9 @@ async def balance(ctx, coin: str = None):
                 if wallet['user_wallet_address'] is None:
                     COIN_NAME += '*'
                 if actual + float(userdata_balance['Adjust']) != 0:
-                    table_data.append([COIN_NAME, balance_actual, balance_locked])
+                    table_data.append([COIN_NAME, balance_actual, balance_locked, "YES" if is_coin_txable(COIN_NAME) else "NO"])
         else:
-            table_data.append([COIN_NAME, "***", "***"])
+            table_data.append([COIN_NAME, "***", "***", "***"])
         # End of Add XAM
         COIN_NAME = "UPX"
         if not is_maintenance_coin(COIN_NAME):
@@ -2262,9 +2275,9 @@ async def balance(ctx, coin: str = None):
                 if wallet['user_wallet_address'] is None:
                     COIN_NAME += '*'
                 if actual + float(userdata_balance['Adjust']) != 0:
-                    table_data.append([COIN_NAME, balance_actual, balance_locked])
+                    table_data.append([COIN_NAME, balance_actual, balance_locked, "YES" if is_coin_txable(COIN_NAME) else "NO"])
         else:
-            table_data.append([COIN_NAME, "***", "***"])
+            table_data.append([COIN_NAME, "***", "***", "***"])
         # End of Add UPX
         table = AsciiTable(table_data)
         # table.inner_column_border = False
@@ -2884,6 +2897,11 @@ async def withdraw(ctx, amount: str, coin: str = None):
         return
 
     COIN_NAME = coin.upper()
+    if not is_coin_txable(COIN_NAME):
+        msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} TX is currently disable for {COIN_NAME}.')
+        await msg.add_reaction(EMOJI_OK_BOX)
+        return
+
     if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR:
         await ctx.message.add_reaction(EMOJI_WARNING)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Unknown Ticker.')
@@ -3194,6 +3212,10 @@ async def donate(ctx, amount: str, coin: str = None):
         else:
             coin = "WRKZ"
     COIN_NAME = coin.upper()
+    if not is_coin_txable(COIN_NAME):
+        msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} TX is currently disable for {COIN_NAME}.')
+        await msg.add_reaction(EMOJI_OK_BOX)
+        return
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     if is_maintenance_coin(COIN_NAME):
         await ctx.message.add_reaction(EMOJI_MAINTENANCE)
@@ -4031,6 +4053,10 @@ async def tipall(ctx, amount: str, *args):
     print('TIPALL COIN_NAME:' + COIN_NAME)
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
 
+    if not is_coin_txable(COIN_NAME):
+        msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} TX is currently disable for {COIN_NAME}.')
+        await msg.add_reaction(EMOJI_OK_BOX)
+        return
     # Check allowed coins
     tiponly_coins = serverinfo['tiponly'].split(",")
     if COIN_NAME == serverinfo['default_coin'].upper() or serverinfo['tiponly'].upper() == "ALLCOIN":
@@ -4452,6 +4478,10 @@ async def send(ctx, amount: str, CoinAddress: str):
     # Check which coinname is it.
     COIN_NAME = get_cn_coin_from_address(CoinAddress)
     coin_family = None
+    if not is_coin_txable(COIN_NAME):
+        msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} TX is currently disable for {COIN_NAME}.')
+        await msg.add_reaction(EMOJI_OK_BOX)
+        return
     if COIN_NAME:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     else:
@@ -5387,6 +5417,11 @@ async def voucher(ctx, command: str, amount: str, coin: str = None):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
         return
     print('VOUCHER: '+COIN_NAME)
+
+    if not is_coin_txable(COIN_NAME):
+        msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} TX is currently disable for {COIN_NAME}.')
+        await msg.add_reaction(EMOJI_OK_BOX)
+        return
 
     COIN_DEC = get_decimal(COIN_NAME)
     real_amount = int(amount * COIN_DEC)
@@ -7856,6 +7891,44 @@ def set_maintenance_coin(coin: str, set_maint: bool = True):
             if redis_conn and redis_conn.exists(key):
                 redis_conn.delete(key)
             return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
+def is_coin_txable(coin: str):
+    global redis_conn, redis_expired, MAINTENANCE_COIN
+    COIN_NAME = coin.upper()
+    if is_maintenance_coin(COIN_NAME):
+        return False
+    # Check if exist in redis
+    try:
+        openRedis()
+        key = 'TIPBOT:COIN_' + COIN_NAME + '_TX'
+        if redis_conn and redis_conn.exists(key):
+            return False
+        else:
+            return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
+def set_coin_txable(coin: str, set_txable: bool = True):
+    global redis_conn, redis_expired, MAINTENANCE_COIN
+    COIN_NAME = coin.upper()
+    if COIN_NAME in MAINTENANCE_COIN:
+        return False
+
+    # Check if exist in redis
+    try:
+        openRedis()
+        key = 'TIPBOT:COIN_' + COIN_NAME + '_TX'
+        if set_txable == True:
+            if redis_conn and redis_conn.exists(key):
+                redis_conn.delete(key)
+                return True
+        else:
+            if redis_conn and not redis_conn.exists(key):
+                redis_conn.set(key, "ON")                
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
 

@@ -4206,7 +4206,6 @@ async def tipall(ctx, amount: str, *args):
             tip_tx_tipper += "\nTx Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
             await store.sql_update_some_balances(addresses, COIN_NAME)
             ActualSpend = int(amountDiv * len(destinations) + NetFee)
-            tip_tx_tipper = "Transaction hash: `{}`".format(tip)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         if tip:

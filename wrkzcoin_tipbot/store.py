@@ -1303,7 +1303,7 @@ def sql_faucet_count_all():
 
 
 def sql_tag_by_server(server_id: str, tag_id: str = None):
-    global conn
+    global conn, redis_pool, redis_conn
     try:
         openConnection()
         with conn.cursor() as cur:
@@ -1314,16 +1314,26 @@ def sql_tag_by_server(server_id: str, tag_id: str = None):
                 tag_list = result
                 return tag_list
             else:
-                sql = """ SELECT `tag_id`, `tag_desc`, `date_added`, `tag_serverid`, `added_byname`, 
-                          `added_byuid`, `num_trigger` FROM discord_tag WHERE tag_serverid = %s AND tag_id=%s """
-                cur.execute(sql, (server_id, tag_id,))
-                result = cur.fetchone()
-                if result:
-                    tag = result
-                    sql = """ UPDATE discord_tag SET num_trigger=num_trigger+1 WHERE tag_serverid = %s AND tag_id=%s """
-                    cur.execute(sql, (server_id, tag_id,))
-                    conn.commit()
-                    return tag
+                # Check if exist in redis
+                try:
+                    openRedis()
+                    if redis_conn and redis_conn.exists(f'TIPBOT:TAG_{str(server_id)}_{tag_id}'):
+                        tag = result
+                        sql = """ UPDATE discord_tag SET num_trigger=num_trigger+1 WHERE tag_serverid = %s AND tag_id=%s """
+                        cur.execute(sql, (server_id, tag_id,))
+                        conn.commit()
+                        return json.loads(redis_conn.get(f'TIPBOT:TAG_{str(server_id)}_{tag_id}'))
+                    else:
+                        sql = """ SELECT `tag_id`, `tag_desc`, `date_added`, `tag_serverid`, `added_byname`, 
+                                  `added_byuid`, `num_trigger` FROM discord_tag WHERE tag_serverid = %s AND tag_id=%s """
+                        cur.execute(sql, (server_id, tag_id,))
+                        result = cur.fetchone()
+                        if result:
+                            redis_conn.set(f'TIPBOT:TAG_{str(server_id)}_{tag_id}', json.dumps(result))
+                            return json.loads(redis_conn.get(f'TIPBOT:TAG_{str(server_id)}_{tag_id}'))
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
 
@@ -1373,6 +1383,13 @@ def sql_tag_by_server_del(server_id: str, tag_id: str):
                 sql = """ DELETE FROM discord_tag WHERE `tag_id`=%s AND `tag_serverid`=%s """
                 cur.execute(sql, (tag_id.upper(), server_id,))
                 conn.commit()
+                # Check if exist in redis
+                try:
+                    openRedis()
+                    if redis_conn and redis_conn.exists(f'TIPBOT:TAG_{str(server_id)}_{tag_id}'):
+                        redis_conn.delete(f'TIPBOT:TAG_{str(server_id)}_{tag_id}')
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
                 return tag_id.upper()
     except Exception as e:
         traceback.print_exc(file=sys.stdout)

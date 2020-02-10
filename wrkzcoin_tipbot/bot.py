@@ -6460,20 +6460,19 @@ async def tag(ctx, *args):
         # if .tag test
         TagIt = store.sql_tag_by_server(str(ctx.guild.id), args[0].upper())
         # print(TagIt)
-        if (TagIt is not None):
+        if TagIt:
             tagDesc = TagIt['tag_desc']
             await ctx.send(f'{tagDesc}')
             return
         else:
             await ctx.send(f'There is no tag {args[0]} in this server.\n'
                             'If you have permission to manage discord server.\n'
-                            'Use: `.tag -add|-del tagname <Tag description ... >`')
+                            'Use: ```.tag -add|-del tagname <Tag description ... >```')
             return
     if (args[0].lower() in ['-add', '-del']) and ctx.author.guild_permissions.manage_guild == False:
-        await ctx.send('Permission denied.')
+        await ctx.send(f'{ctx.author.mention} Permission denied.')
         return
     if args[0].lower() == '-add' and ctx.author.guild_permissions.manage_guild:
-        # print('Has permission:' + str(ctx.message.content))
         if re.match('^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*$', args[1]):
             tag = args[1].upper()
             if len(tag) >= 32:
@@ -6482,26 +6481,26 @@ async def tag(ctx, *args):
 
             tagDesc = ctx.message.content.strip()[(9 + len(tag) + 1):]
             if len(tagDesc) <= 3:
-                await ctx.send(f'Tag desc for ***{args[1]}*** is too short.')
+                await ctx.send(f'{ctx.author.mention} Tag desc for ***{args[1]}*** is too short.')
                 return
             if len(ListTag) > 0:
                 d = [i['tag_id'] for i in ListTag]
                 if tag.upper() in d:
-                    await ctx.send(f'Tag **{args[1]}** already exists here.')
+                    await ctx.send(f'{ctx.author.mention} Tag **{args[1]}** already exists here.')
                     return
             addTag = store.sql_tag_by_server_add(str(ctx.guild.id), tag.strip(), tagDesc.strip(),
                                                  ctx.message.author.name, str(ctx.message.author.id))
             if addTag is None:
-                await ctx.send(f'Failed to add tag **{args[1]}**')
+                await ctx.send(f'{ctx.author.mention} Failed to add tag **{args[1]}**')
                 return
             if addTag.upper() == tag.upper():
-                await ctx.send(f'Successfully added tag **{args[1]}**')
+                await ctx.send(f'{ctx.author.mention} Successfully added tag **{args[1]}**')
                 return
             else:
-                await ctx.send(f'Failed to add tag **{args[1]}**')
+                await ctx.send(f'{ctx.author.mention} Failed to add tag **{args[1]}**')
                 return
         else:
-            await ctx.send(f'Tag {args[1]} is not valid.')
+            await ctx.send(f'{ctx.author.mention} Tag {args[1]} is not valid.')
             return
         return
     elif args[0].lower() == '-del' and ctx.author.guild_permissions.manage_guild:

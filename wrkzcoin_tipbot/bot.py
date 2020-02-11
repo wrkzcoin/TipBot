@@ -125,6 +125,7 @@ of cryptocurrency through tips, which is one of our project’s main commitments
 """
 
 IS_MAINTENANCE = config.maintenance
+IS_RESTARTING = False
 
 # Get them from https://emojipedia.org
 EMOJI_MONEYFACE = "\U0001F911"
@@ -351,7 +352,7 @@ bot = AutoShardedBot(command_prefix = get_prefix, case_insensitive=True, owner_i
 
 @bot.event
 async def on_ready():
-    global LIST_IGNORECHAN
+    global LIST_IGNORECHAN, IS_RESTARTING
     print('Ready!')
     print("Hello, I am TipBot Bot!")
     # get WALLET_SERVICE. TODO: Use that later.
@@ -369,6 +370,7 @@ async def on_ready():
     await bot.change_presence(status=discord.Status.online, activity=game)
     botLogChan = bot.get_channel(id=LOG_CHAN)
     await botLogChan.send(f'{EMOJI_REFRESH} I am back :)')
+    IS_RESTARTING = False
 
 
 @bot.event
@@ -1278,10 +1280,16 @@ async def save(ctx, coin: str):
 @commands.is_owner()
 @admin.command(pass_context=True, name='shutdown', aliases=['restart'], help=bot_help_admin_shutdown)
 async def shutdown(ctx):
+    global IS_RESTARTING
     botLogChan = bot.get_channel(id=LOG_CHAN)
+    if IS_RESTARTING:
+        await ctx.send(f'{EMOJI_REFRESH} {ctx.author.mention} I already got this command earlier.')
+        return
     IS_MAINTENANCE = 1
-    await ctx.send(f'{EMOJI_REFRESH} {ctx.author.mention} .. restarting .. back soon.')
-    await botLogChan.send(f'{EMOJI_REFRESH} {ctx.message.author.name}#{ctx.message.author.discriminator} called `restart`. I will be back soon hopefully.')
+    IS_RESTARTING = True
+    await ctx.send(f'{EMOJI_REFRESH} {ctx.author.mention} .. I will restarting in 30s.. back soon.')
+    await botLogChan.send(f'{EMOJI_REFRESH} {ctx.message.author.name}#{ctx.message.author.discriminator} called `restart`. I am restarting in 30s and will back soon hopefully.')
+    await asyncio.sleep(30)
     await bot.logout()
 
 
@@ -2671,6 +2679,13 @@ async def forwardtip(ctx, coin: str, option: str):
 @bot.command(pass_context=True, name='register', aliases=['registerwallet', 'reg', 'updatewallet'],
              help=bot_help_register)
 async def register(ctx, wallet_address: str):
+    global IS_RESTARTING
+    # check if bot is going to restart
+    if IS_RESTARTING:
+        await ctx.message.add_reaction(EMOJI_REFRESH)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is going to restart soon. Wait until it is back for using this.')
+        return
+
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'register')
     if account_lock:
@@ -2835,7 +2850,13 @@ async def register(ctx, wallet_address: str):
 
 @bot.command(pass_context=True, help=bot_help_withdraw)
 async def withdraw(ctx, amount: str, coin: str = None):
-    global WITHDRAW_IN_PROCESS
+    global WITHDRAW_IN_PROCESS, IS_RESTARTING
+    # check if bot is going to restart
+    if IS_RESTARTING:
+        await ctx.message.add_reaction(EMOJI_REFRESH)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is going to restart soon. Wait until it is back for using this.')
+        return
+
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'withdraw')
     if account_lock:
@@ -3142,6 +3163,12 @@ async def withdraw(ctx, amount: str, coin: str = None):
 
 @bot.command(pass_context=True, help=bot_help_donate)
 async def donate(ctx, amount: str, coin: str = None):
+    global IS_RESTARTING
+    # check if bot is going to restart
+    if IS_RESTARTING:
+        await ctx.message.add_reaction(EMOJI_REFRESH)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is going to restart soon. Wait until it is back for using this.')
+        return
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'donate')
     if account_lock:
@@ -3428,7 +3455,13 @@ async def notifytip(ctx, onoff: str):
 
 @bot.command(pass_context=True, help=bot_help_take)
 async def take(ctx):
-    global FAUCET_COINS, FAUCET_MINMAX, TRTL_DISCORD, FAUCET_COINS_ROUND_NUMBERS, WITHDRAW_IN_PROCESS
+    global FAUCET_COINS, FAUCET_MINMAX, TRTL_DISCORD, FAUCET_COINS_ROUND_NUMBERS, WITHDRAW_IN_PROCESS, IS_RESTARTING
+    # check if bot is going to restart
+    if IS_RESTARTING:
+        await ctx.message.add_reaction(EMOJI_REFRESH)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is going to restart soon. Wait until it is back for using this.')
+        return
+
     # disable faucet for TRTL discord
     if ctx.guild.id == TRTL_DISCORD:
         await ctx.message.add_reaction(EMOJI_LOCKED)
@@ -3605,7 +3638,12 @@ async def take(ctx):
 
 @bot.command(pass_context=True, help=bot_help_tip)
 async def tip(ctx, amount: str, *args):
-    global TRTL_DISCORD
+    global TRTL_DISCORD, IS_RESTARTING
+    # check if bot is going to restart
+    if IS_RESTARTING:
+        await ctx.message.add_reaction(EMOJI_REFRESH)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is going to restart soon. Wait until it is back for using this.')
+        return
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'tip')
     if account_lock:
@@ -4005,6 +4043,12 @@ async def tip(ctx, amount: str, *args):
 
 @bot.command(pass_context=True, help=bot_help_tipall, hidden = True)
 async def tipall(ctx, amount: str, *args):
+    global IS_RESTARTING
+    # check if bot is going to restart
+    if IS_RESTARTING:
+        await ctx.message.add_reaction(EMOJI_REFRESH)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is going to restart soon. Wait until it is back for using this.')
+        return
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'tipall')
     if account_lock:
@@ -4425,7 +4469,12 @@ async def tipall(ctx, amount: str, *args):
 
 @bot.command(pass_context=True, help=bot_help_send)
 async def send(ctx, amount: str, CoinAddress: str):
-    global WITHDRAW_IN_PROCESS
+    global WITHDRAW_IN_PROCESS, IS_RESTARTING
+    # check if bot is going to restart
+    if IS_RESTARTING:
+        await ctx.message.add_reaction(EMOJI_REFRESH)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is going to restart soon. Wait until it is back for using this.')
+        return
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'send')
     if account_lock:
@@ -5246,6 +5295,13 @@ async def address(ctx, *args):
 
 @bot.command(pass_context=True, name='optimize', aliases=['opt'], help=bot_help_optimize)
 async def optimize(ctx, coin: str, member: discord.Member = None):
+    global IS_RESTARTING
+    # check if bot is going to restart
+    if IS_RESTARTING:
+        await ctx.message.add_reaction(EMOJI_REFRESH)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is going to restart soon. Wait until it is back for using this.')
+        return
+
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'optimize')
     if account_lock:
@@ -5370,6 +5426,13 @@ async def optimize(ctx, coin: str, member: discord.Member = None):
 
 @bot.command(pass_context=True, name='voucher', aliases=['redeem'], help=bot_help_voucher, hidden = True)
 async def voucher(ctx, command: str, amount: str, coin: str = None):
+    global IS_RESTARTING
+    # check if bot is going to restart
+    if IS_RESTARTING:
+        await ctx.message.add_reaction(EMOJI_REFRESH)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is going to restart soon. Wait until it is back for using this.')
+        return
+
     # This is still ongoing work
     botLogChan = bot.get_channel(id=LOG_CHAN)
     amount = amount.replace(",", "")

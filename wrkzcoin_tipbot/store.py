@@ -1318,7 +1318,6 @@ def sql_tag_by_server(server_id: str, tag_id: str = None):
                 try:
                     openRedis()
                     if redis_conn and redis_conn.exists(f'TIPBOT:TAG_{str(server_id)}_{tag_id}'):
-                        tag = result
                         sql = """ UPDATE discord_tag SET num_trigger=num_trigger+1 WHERE tag_serverid = %s AND tag_id=%s """
                         cur.execute(sql, (server_id, tag_id,))
                         conn.commit()

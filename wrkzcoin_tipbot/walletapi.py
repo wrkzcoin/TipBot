@@ -109,7 +109,8 @@ async def walletapi_send_transaction_id(from_address: str, to_address: str, amou
             }],
             'fee': get_tx_fee(COIN_NAME),
             'mixin': get_mixin(COIN_NAME),
-            'paymentID': paymentid
+            'paymentID': paymentid,
+            'changeAddress': from_address
         }
     else:
         json_data = {
@@ -119,7 +120,8 @@ async def walletapi_send_transaction_id(from_address: str, to_address: str, amou
                 "address": to_address
             }],
             'mixin': get_mixin(COIN_NAME),
-            'paymentID': paymentid
+            'paymentID': paymentid,
+            'changeAddress': from_address
         }
     method = "/transactions/send/advanced"
     try:

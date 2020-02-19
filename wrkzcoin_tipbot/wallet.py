@@ -118,7 +118,8 @@ async def send_transaction_id(from_address: str, to_address: str, amount: int, p
             }],
             'fee': get_tx_fee(COIN_NAME),
             'anonymity': get_mixin(COIN_NAME),
-            'paymentId': paymentid
+            'paymentId': paymentid,
+            'changeAddress': from_address
         }
     else:
         payload = {
@@ -128,7 +129,8 @@ async def send_transaction_id(from_address: str, to_address: str, amount: int, p
                 "address": to_address
             }],
             'anonymity': get_mixin(COIN_NAME),
-            'paymentId': paymentid
+            'paymentId': paymentid,
+            'changeAddress': from_address
         }
     result = None
     result = await rpc_client.call_aiohttp_wallet('sendTransaction', COIN_NAME, time_out=time_out, payload=payload)

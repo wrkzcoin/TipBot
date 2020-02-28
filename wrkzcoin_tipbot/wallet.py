@@ -415,7 +415,7 @@ def get_coin_fullname(coin: str = None):
     qr_address_pref = {"TRTL":"turtlecoin","DEGO":"derogold","CX":"catalyst","WRKZ":"wrkzcoin",\
     "BTCMZ":"bitcoinmono","MTIP":"monkeytips","PLE":"plenteum","NBXC":"nibbleclassic",\
     "ARMS":"2acoin","NACA":"nashcash","XTOR":"bittoro","BLOG":"blogcoin","LOKI":"loki","XMR":"monero","XEQ":"Equilibria","ARQ":"arqma",\
-    "MSR":"masari", "XAM":"amity", "UPX":"Uplexa"}
+    "MSR":"masari", "XAM":"amity", "UPX":"Uplexa", "XWP":"Swap"}
     return getattr(qr_address_pref,coin,"wrkzcoin")
 
 

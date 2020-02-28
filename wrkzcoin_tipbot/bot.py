@@ -150,7 +150,6 @@ EMOJI_COIN = {
     "TRTL" : "\U0001F422",
     "DEGO" : "\U0001F49B",
     "CX" : "\U0001F64F",
-    "OSL" : "\U0001F381",
     "BTCMZ" : "\U0001F4A9",
     "MTIP" : "\U0001F595",
     "PLE" : "\U0001F388",
@@ -169,7 +168,7 @@ EMOJI_COIN = {
     "BLOG" : "\u270D",
     "XAM" : "\U0001F344",
     "UPX" : "\U0001F50B",
-    "OSL" : "\U0001F9EC"
+    "XWP" : "\u2194"
     }
 
 EMOJI_RED_NO = "\u26D4"
@@ -210,8 +209,8 @@ NOTICE_COIN = {
     "MSR" : getattr(getattr(config,"daemonMSR"),"coin_notice", None),
     "BLOG" : getattr(getattr(config,"daemonBLOG"),"coin_notice", None),
     "XAM" : getattr(getattr(config,"daemonXAM"),"coin_notice", None),
-    "OSL" : getattr(getattr(config,"daemonOSL"),"coin_notice", None),
-    "UPX" : getattr(getattr(config,"daemonOSL"),"coin_notice", None),
+    "UPX" : getattr(getattr(config,"daemonUPX"),"coin_notice", None),
+    "XWP" : getattr(getattr(config,"daemonXWP"),"coin_notice", None),
     "DOGE" : "Please acknowledge that DOGE address is for **one-time** use only for depositing.",
     "default": "Thank you for using."
     }
@@ -1566,7 +1565,30 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
             table_data.append([COIN_NAME, balance_actual, balance_locked])
     else:
         table_data.append([COIN_NAME, "***", "***"])
-    # End of Add UPX
+    COIN_NAME = "XWP"
+    if not is_maintenance_coin(COIN_NAME):
+        wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
+        if wallet is None:
+            userregister = await store.sql_register_user(str(user_id), COIN_NAME)
+            wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
+        if wallet:
+            actual = wallet['actual_balance']
+            locked = wallet['locked_balance']
+            userdata_balance = store.sql_xmr_balance(str(user_id), COIN_NAME)
+            balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
+            if actual == locked:
+                balance_locked = num_format_coin(0, COIN_NAME)
+            else:
+                if locked - actual + float(userdata_balance['Adjust']) < 0 or locked == 0:
+                    balance_locked =  num_format_coin(0, COIN_NAME)
+                else:
+                    balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
+            if wallet['user_wallet_address'] is None:
+                COIN_NAME += '*'
+            table_data.append([COIN_NAME, balance_actual, balance_locked])
+    else:
+        table_data.append([COIN_NAME, "***", "***"])
+    # End of Add XWP
     table = AsciiTable(table_data)
     table.padding_left = 0
     table.padding_right = 0
@@ -2287,6 +2309,31 @@ async def balance(ctx, coin: str = None):
         else:
             table_data.append([COIN_NAME, "***", "***", "***"])
         # End of Add UPX
+        COIN_NAME = "XWP"
+        if not is_maintenance_coin(COIN_NAME):
+            wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+            if wallet is None:
+                userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+                wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+            if wallet:
+                actual = wallet['actual_balance']
+                locked = wallet['locked_balance']
+                userdata_balance = store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
+                balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
+                if actual == locked:
+                    balance_locked = num_format_coin(0, COIN_NAME)
+                else:
+                    if locked - actual + float(userdata_balance['Adjust']) < 0 or locked == 0:
+                        balance_locked =  num_format_coin(0, COIN_NAME)
+                    else:
+                        balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
+                if wallet['user_wallet_address'] is None:
+                    COIN_NAME += '*'
+                if actual + float(userdata_balance['Adjust']) != 0:
+                    table_data.append([COIN_NAME, balance_actual, balance_locked, "YES" if is_coin_txable(COIN_NAME) else "NO"])
+        else:
+            table_data.append([COIN_NAME, "***", "***", "***"])
+        # End of Add XWP
         table = AsciiTable(table_data)
         # table.inner_column_border = False
         # table.outer_border = False
@@ -5678,13 +5725,6 @@ async def stats(ctx, coin: str = None):
         height = "{:,}".format(gettopblock['block_header']['height'])
         reward = "{:,}".format(int(gettopblock['block_header']['reward'])/int(COIN_DEC))
 
-        blockfound = datetime.utcfromtimestamp(int(gettopblock['block_header']['timestamp'])).strftime("%Y-%m-%d %H:%M:%S")
-        ago = str(timeago.format(blockfound, datetime.utcnow()))
-        difficulty = "{:,}".format(gettopblock['block_header']['difficulty'])
-        hashrate = str(hhashes(int(gettopblock['block_header']['difficulty']) / int(COIN_DIFF)))
-        height = "{:,}".format(gettopblock['block_header']['height'])
-        reward = "{:,}".format(int(gettopblock['block_header']['reward'])/int(COIN_DEC))
-
         if coin_family == "XMR":
             embed = discord.Embed(title=f"[ {COIN_NAME} ]", 
                                   description=f"Tip min/max: {num_format_coin(get_min_tx_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_tx_amount(COIN_NAME), COIN_NAME)}{COIN_NAME}", 
@@ -5694,7 +5734,8 @@ async def stats(ctx, coin: str = None):
             embed.add_field(name="FOUND", value=ago, inline=True)
             embed.add_field(name="DIFFICULTY", value=difficulty, inline=True)
             embed.add_field(name="BLOCK REWARD", value=f'{reward}{COIN_NAME}', inline=True)
-            embed.add_field(name="NETWORK HASH", value=hashrate, inline=True)
+            if COIN_NAME not in ["XWP"]:
+                embed.add_field(name="NETWORK HASH", value=hashrate, inline=True)
             if walletStatus:
                 t_percent = '{:,.2f}'.format(truncate((walletStatus['height'] - 1)/gettopblock['block_header']['height']*100,2))
                 embed.add_field(name="WALLET SYNC %", value=t_percent + '% (' + '{:,.0f}'.format(walletStatus['height'] - 1) + ')', inline=True)
@@ -5713,7 +5754,6 @@ async def stats(ctx, coin: str = None):
                                f'[TIME]           {ago}\n'
                                f'[DIFFICULTY]     {difficulty}\n'
                                f'[BLOCK REWARD]   {reward}{COIN_NAME}\n'
-                               f'[NETWORK HASH]   {hashrate}\n'
                                f'[TIP Min/Max]    {num_format_coin(get_min_tx_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_tx_amount(COIN_NAME), COIN_NAME)}{COIN_NAME}\n'
                                '```')
                 await msg.add_reaction(EMOJI_OK_BOX)
@@ -6628,7 +6668,7 @@ async def rand(ctx, randstring: str = None):
 
 
 def hhashes(num) -> str:
-    for x in ['H/s', 'KH/s', 'MH/s', 'GH/s']:
+    for x in ['H/s', 'KH/s', 'MH/s', 'GH/s', 'KGH/s']:
         if num < 1000.0:
             return "%3.1f%s" % (num, x)
         num /= 1000.0
@@ -6755,6 +6795,10 @@ def get_cn_coin_from_address(CoinAddress: str):
         COIN_NAME = "UPX"
     elif (CoinAddress.startswith("5") or CoinAddress.startswith("9")) and (len(CoinAddress) == 95 or len(CoinAddress) == 106):
         COIN_NAME = "MSR"
+    elif (CoinAddress.startswith("fh") and len(CoinAddress) == 97) or \
+    (CoinAddress.startswith("fi") and len(CoinAddress) == 108) or \
+    (CoinAddress.startswith("fs") and len(CoinAddress) == 97):
+        COIN_NAME = "XWP"
     elif CoinAddress.startswith("D") and len(CoinAddress) == 34:
         COIN_NAME = "DOGE"
     # elif (CoinAddress[0] in ["3", "M", "L"]) and (len(CoinAddress) == 34:

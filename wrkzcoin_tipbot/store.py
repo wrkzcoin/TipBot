@@ -1048,6 +1048,15 @@ def sql_get_donate_list():
                 donate_list.update({coin: 0})
             else:
                 donate_list.update({coin: float(result['donate'])})
+            # XWP
+            coin = "XWP"
+            sql = """ SELECT SUM(amount) AS donate FROM """+coin.lower()+"""_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
+            cur.execute(sql, (wallet.get_donate_address(coin)))
+            result = cur.fetchone()
+            if result['donate'] is None:
+                donate_list.update({coin: 0})
+            else:
+                donate_list.update({coin: float(result['donate'])})
         return donate_list
     except Exception as e:
         traceback.print_exc(file=sys.stdout)

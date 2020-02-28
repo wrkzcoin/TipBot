@@ -117,6 +117,17 @@ async def update_balance():
             print(e)
         end = time.time()
         # End of UPX
+        # XWP:
+        COIN_NAME = "XWP"
+        time.sleep(INTERVAL_EACH)
+        print('Update balance: '+ COIN_NAME)
+        start = time.time()
+        try:
+            await store.sql_update_balances(COIN_NAME)
+        except Exception as e:
+            print(e)
+        end = time.time()
+        # End of XWP
         print('Done update balance: '+ COIN_NAME+ ' duration (s): '+str(end - start))
         for coinItem in ENABLE_COIN:
             time.sleep(INTERVAL_EACH)

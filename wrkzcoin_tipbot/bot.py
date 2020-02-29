@@ -1312,6 +1312,17 @@ async def shutdown(ctx):
 @admin.command(help=bot_help_admin_baluser)
 async def baluser(ctx, user_id: str, create_wallet: str = None):
     create_acc = None
+    # check if there is that user
+    try:
+        user_id = int(user_id)
+        member = bot.get_user(id=user_id)
+        if member is None:
+            await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} I cannot find that user.')
+            return
+    except ValueError:
+        await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} Invalid user.')
+        return
+
     # for verification | future restoration of lost account
     table_data = [
         ['TICKER', 'Available', 'Locked']

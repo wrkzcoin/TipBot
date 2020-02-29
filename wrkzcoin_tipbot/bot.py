@@ -2354,6 +2354,11 @@ async def balance(ctx, coin: str = None):
     else:
         COIN_NAME = coin.upper()
 
+    if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**!')
+        return
+
     coin_family = "TRTL"
     try:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")

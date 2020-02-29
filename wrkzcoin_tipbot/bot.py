@@ -1840,7 +1840,7 @@ async def balance(ctx, coin: str = None):
         table_data = [
             ['TICKER', 'Available', 'Locked', 'TX']
         ]
-        table_data_str = ""
+        table_data_str = []
         for COIN_NAME in [coinItem.upper() for coinItem in ENABLE_COIN]:
             if not is_maintenance_coin(COIN_NAME):
                 COIN_DEC = get_decimal(COIN_NAME)
@@ -1864,7 +1864,7 @@ async def balance(ctx, coin: str = None):
                         if coin:
                             table_data.append([coinName, balance_actual, balance_locked, "YES" if is_coin_txable(COIN_NAME) else "NO"])
                         else:
-                            table_data_str += "{}{}, ".format(balance_actual, coinName)
+                            table_data_str.append("{}{}".format(balance_actual, coinName))
                     pass
             else:
                 if coin: table_data.append([COIN_NAME, "***", "***", "***"])
@@ -1893,7 +1893,7 @@ async def balance(ctx, coin: str = None):
                 if coin:
                     table_data.append([COIN_NAME, balance_actual, balance_locked, "YES" if is_coin_txable(COIN_NAME) else "NO"])
                 else:
-                    table_data_str += "{}{}, ".format(balance_actual, COIN_NAME)
+                    table_data_str.append("{}{}".format(balance_actual, COIN_NAME))
             else:
                 table_data.append([COIN_NAME, "***", "***", "***"])
         for COIN_NAME in [coinItem.upper() for coinItem in ENABLE_XMR]:
@@ -1920,7 +1920,7 @@ async def balance(ctx, coin: str = None):
                         if coin:
                             table_data.append([COIN_NAME, balance_actual, balance_locked, "YES" if is_coin_txable(COIN_NAME) else "NO"])
                         else:
-                            table_data_str += "{}{}, ".format(balance_actual, COIN_NAME)
+                            table_data_str.append("{}{}".format(balance_actual, COIN_NAME))
             else:
                 table_data.append([COIN_NAME, "***", "***", "***"])
         table = AsciiTable(table_data)
@@ -1930,6 +1930,7 @@ async def balance(ctx, coin: str = None):
         table.padding_right = 0
         await ctx.message.add_reaction(EMOJI_OK_HAND)
         if coin is None:
+            table_data_str = ", ".join(table_data_str)
             msg = await ctx.message.author.send('**[ BALANCE LIST ]**\n'
                             f'```{table_data_str}```'
                             f'Related command: `{prefixChar}balance TICKER` or `{prefixChar}info TICKER` or `{prefixChar}balance LIST`\n')

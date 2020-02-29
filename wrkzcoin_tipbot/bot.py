@@ -412,7 +412,7 @@ async def on_raw_reaction_add(payload):
         try:
             message = await channel.fetch_message(message_id)
             author = message.author
-        except discord.errors.NotFound as e:
+        except (discord.errors.NotFound, discord.errors.Forbidden) as e:
             # No message found
             return
         member = bot.get_user(id=user_id)

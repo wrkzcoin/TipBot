@@ -9,6 +9,7 @@ from config import config
 
 import sys, traceback
 sys.path.append("..")
+ENABLE_COIN_DOGE = config.Enable_Coin_Doge.split(",")
 
 
 class RPCException(Exception):
@@ -86,6 +87,7 @@ async def call_aiohttp_wallet(method_name: str, coin: str, time_out: int = None,
 
 
 async def call_doge(method_name: str, coin: str, payload: str = None) -> Dict:
+    global ENABLE_COIN_DOGE
     timeout = 64
     COIN_NAME = coin.upper()
     headers = {
@@ -96,7 +98,7 @@ async def call_doge(method_name: str, coin: str, payload: str = None) -> Dict:
     else:
         data = '{"jsonrpc": "1.0", "id":"'+str(uuid4())+'", "method": "'+method_name+'", "params": ['+payload+'] }'
     url = None
-    if COIN_NAME in ["DOGE", "LTC", "BTC", "DASH", "BCH"]:
+    if COIN_NAME in ENABLE_COIN_DOGE:
         url = 'http://'+getattr(config,"daemon"+COIN_NAME).username+':'+getattr(config,"daemon"+COIN_NAME).password+'@'+getattr(config,"daemon"+COIN_NAME).rpchost+'/'
     try:
         async with aiohttp.ClientSession() as session:

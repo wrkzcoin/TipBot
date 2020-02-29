@@ -158,7 +158,6 @@ EMOJI_COIN = {
     "ARMS" : "\U0001F52B",
     "IRD" : "\U0001F538",
     "NACA" : "\U0001F355",
-    "DOGE" : "\U0001F436",
     "XTOR" : "\U0001F315",
     "LOKI" : "\u2600",
     "XMR" : "\u2694",
@@ -168,7 +167,12 @@ EMOJI_COIN = {
     "BLOG" : "\u270D",
     "XAM" : "\U0001F344",
     "UPX" : "\U0001F50B",
-    "XWP" : "\u2194"
+    "XWP" : "\u2194",
+    "DOGE" : "\U0001F436",
+    "BTC" : "\U0001F4B2",
+    "BCH" : "\U0001F4B5",
+    "DASH" : "\U0001F4A8",
+    "LTC" : "\U0001F4A1"
     }
 
 EMOJI_RED_NO = "\u26D4"
@@ -180,7 +184,7 @@ EMOJI_ZIPPED_MOUTH = "\U0001F910"
 EMOJI_LOCKED = "\U0001F512"
 
 ENABLE_COIN = config.Enable_Coin.split(",")
-ENABLE_COIN_DOGE = ["DOGE"]
+ENABLE_COIN_DOGE = config.Enable_Coin_Doge.split(",")
 ENABLE_XMR = config.Enable_Coin_XMR.split(",")
 MAINTENANCE_COIN = config.Maintenance_Coin.split(",")
 
@@ -212,6 +216,10 @@ NOTICE_COIN = {
     "UPX" : getattr(getattr(config,"daemonUPX"),"coin_notice", None),
     "XWP" : getattr(getattr(config,"daemonXWP"),"coin_notice", None),
     "DOGE" : getattr(getattr(config,"daemonDOGE"),"coin_notice", None),
+    "BTC" : getattr(getattr(config,"daemonBTC"),"coin_notice", None),
+    "BCH" : getattr(getattr(config,"daemonBCH"),"coin_notice", None),
+    "DASH" : getattr(getattr(config,"daemonDASH"),"coin_notice", None),
+    "LTC" : getattr(getattr(config,"daemonLTC"),"coin_notice", None),
     "default": "Thank you for using."
     }
 
@@ -2825,7 +2833,7 @@ async def register(ctx, wallet_address: str):
             user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
             user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         user_from['address'] = user_from['balance_wallet_address']
-        if COIN_NAME in ["DOGE"]:
+        if COIN_NAME in ENABLE_COIN_DOGE:
             valid_address = await doge_validaddress(str(wallet_address), COIN_NAME)
             if ('isvalid' in valid_address):
                 if str(valid_address['isvalid']) == "True":
@@ -6894,10 +6902,15 @@ def get_cn_coin_from_address(CoinAddress: str):
         COIN_NAME = "XWP"
     elif CoinAddress.startswith("D") and len(CoinAddress) == 34:
         COIN_NAME = "DOGE"
-    # elif (CoinAddress[0] in ["3", "M", "L"]) and (len(CoinAddress) == 34:
-        # COIN_NAME = "LTC"
-    print('get_cn_coin_from_address return: ')
-    print(COIN_NAME)
+    elif (CoinAddress[0] in ["M", "L"]) and len(CoinAddress) == 34:
+        COIN_NAME = "LTC"
+    elif (CoinAddress[0] in ["3", "1"]) and len(CoinAddress) == 34:
+        COIN_NAME = "BTC"
+    elif CoinAddress.startswith("bitcoincash") and len(CoinAddress) == 54:
+        COIN_NAME = "BCH"
+    elif (CoinAddress[0] in ["X"]) and len(CoinAddress) == 34:
+        COIN_NAME = "DASH"
+    print('get_cn_coin_from_address return {}: {}'.format(CoinAddress, COIN_NAME))
     return COIN_NAME
 
 

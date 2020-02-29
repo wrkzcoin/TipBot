@@ -7,6 +7,8 @@ import asyncio
 
 
 ENABLE_COIN = config.Enable_Coin.split(",")
+ENABLE_COIN_DOGE = config.Enable_Coin_Doge.split(",")
+ENABLE_XMR = config.Enable_Coin_XMR.split(",")
 INTERVAL_EACH = 10
 
 
@@ -15,131 +17,31 @@ async def update_balance():
     while True:
         print('sleep in second: '+str(INTERVAL_EACH))
         # do not update yet
-        # DOGE:
-        COIN_NAME = "DOGE"
-        time.sleep(INTERVAL_EACH)
-        print('Update balance: '+ COIN_NAME)
-        start = time.time()
-        try:
-            await store.sql_update_balances(COIN_NAME)
-        except Exception as e:
-            print(e)
-        end = time.time()
-        # End of DOGE
-        # XTOR:
-        COIN_NAME = "XTOR"
-        time.sleep(INTERVAL_EACH)
-        print('Update balance: '+ COIN_NAME)
-        start = time.time()
-        try:
-            await store.sql_update_balances(COIN_NAME)
-        except Exception as e:
-            print(e)
-        end = time.time()
-        # End of XTOR
-        print('Done update balance: '+ COIN_NAME+ ' duration (s): '+str(end - start))
-        # LOKI:
-        COIN_NAME = "LOKI"
-        time.sleep(INTERVAL_EACH)
-        print('Update balance: '+ COIN_NAME)
-        start = time.time()
-        try:
-            await store.sql_update_balances(COIN_NAME)
-        except Exception as e:
-            print(e)
-        end = time.time()
-        # End of LOKI
-        print('Done update balance: '+ COIN_NAME+ ' duration (s): '+str(end - start))
-        # XMR:
-        COIN_NAME = "XMR"
-        time.sleep(INTERVAL_EACH)
-        print('Update balance: '+ COIN_NAME)
-        start = time.time()
-        try:
-            await store.sql_update_balances(COIN_NAME)
-        except Exception as e:
-            print(e)
-        end = time.time()
-        # End of XMR
-        print('Done update balance: '+ COIN_NAME+ ' duration (s): '+str(end - start))
-        # XEQ:
-        COIN_NAME = "XEQ"
-        time.sleep(INTERVAL_EACH)
-        print('Update balance: '+ COIN_NAME)
-        start = time.time()
-        try:
-            await store.sql_update_balances(COIN_NAME)
-        except Exception as e:
-            print(e)
-        end = time.time()
-        # End of XEQ
-        # BLOG:
-        COIN_NAME = "BLOG"
-        time.sleep(INTERVAL_EACH)
-        print('Update balance: '+ COIN_NAME)
-        start = time.time()
-        try:
-            await store.sql_update_balances(COIN_NAME)
-        except Exception as e:
-            print(e)
-        end = time.time()
-        # End of BLOG
-        # ARQ:
-        COIN_NAME = "ARQ"
-        time.sleep(INTERVAL_EACH)
-        print('Update balance: '+ COIN_NAME)
-        start = time.time()
-        try:
-            await store.sql_update_balances(COIN_NAME)
-        except Exception as e:
-            print(e)
-        end = time.time()
-        # End of ARQ
-        # MSR:
-        COIN_NAME = "MSR"
-        time.sleep(INTERVAL_EACH)
-        print('Update balance: '+ COIN_NAME)
-        start = time.time()
-        try:
-            await store.sql_update_balances(COIN_NAME)
-        except Exception as e:
-            print(e)
-        end = time.time()
-        # End of MSR
-        # XAM:
-        COIN_NAME = "XAM"
-        time.sleep(INTERVAL_EACH)
-        print('Update balance: '+ COIN_NAME)
-        start = time.time()
-        try:
-            await store.sql_update_balances(COIN_NAME)
-        except Exception as e:
-            print(e)
-        end = time.time()
-        # End of XAM
-        # UPX:
-        COIN_NAME = "UPX"
-        time.sleep(INTERVAL_EACH)
-        print('Update balance: '+ COIN_NAME)
-        start = time.time()
-        try:
-            await store.sql_update_balances(COIN_NAME)
-        except Exception as e:
-            print(e)
-        end = time.time()
-        # End of UPX
-        # XWP:
-        COIN_NAME = "XWP"
-        time.sleep(INTERVAL_EACH)
-        print('Update balance: '+ COIN_NAME)
-        start = time.time()
-        try:
-            await store.sql_update_balances(COIN_NAME)
-        except Exception as e:
-            print(e)
-        end = time.time()
-        # End of XWP
-        print('Done update balance: '+ COIN_NAME+ ' duration (s): '+str(end - start))
+        # DOGE family:
+        for coinItem in ENABLE_COIN_DOGE:
+            time.sleep(INTERVAL_EACH)
+            print('Update balance: '+ coinItem)
+            start = time.time()
+            try:
+                await store.sql_update_balances(coinItem.upper().strip())
+            except Exception as e:
+                print(e)
+            end = time.time()
+            time.sleep(INTERVAL_EACH)
+            # End of DOGE family
+        # XMR family:
+        for coinItem in ENABLE_XMR:
+            time.sleep(INTERVAL_EACH)
+            print('Update balance: '+ coinItem)
+            start = time.time()
+            try:
+                await store.sql_update_balances(coinItem.upper().strip())
+            except Exception as e:
+                print(e)
+            end = time.time()
+            print('Done update balance: '+ COIN_NAME+ ' duration (s): '+str(end - start))
+            time.sleep(INTERVAL_EACH)
+            # End of XMR family
         for coinItem in ENABLE_COIN:
             time.sleep(INTERVAL_EACH)
             print('Update balance: '+ coinItem.upper().strip())
@@ -150,7 +52,7 @@ async def update_balance():
                 print(e)
             end = time.time()
             print('Done update balance: '+ coinItem.upper().strip()+ ' duration (s): '+str(end - start))
-
+            time.sleep(INTERVAL_EACH)
 loop = asyncio.get_event_loop()  
 loop.run_until_complete(update_balance())  
 loop.close()

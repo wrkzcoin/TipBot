@@ -12,6 +12,8 @@ from config import config
 
 # Coin using wallet-api
 WALLET_API_COIN = config.Enable_Coin_WalletApi.split(",")
+ENABLE_COIN_DOGE = config.Enable_Coin_Doge.split(",")
+
 
 class RPCException(Exception):
     def __init__(self, message):
@@ -55,8 +57,9 @@ async def getWalletStatus(coin: str):
 
 
 async def getDaemonRPCStatus(coin: str):
+    global ENABLE_COIN_DOGE
     COIN_NAME = coin.upper()
-    if COIN_NAME in ["DOGE", "LTC", "BTC", "DASH", "BCH"]:
+    if COIN_NAME in ENABLE_COIN_DOGE:
         result = await rpc_client.call_doge('getinfo', COIN_NAME)
     return result
 

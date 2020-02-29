@@ -44,7 +44,7 @@ conn = connPool.get_connection(timeout=5, retry_num=2)
 sys.path.append("..")
 
 ENABLE_COIN = config.Enable_Coin.split(",")
-ENABLE_COIN_DOGE = ["DOGE"]
+ENABLE_COIN_DOGE = config.Enable_Coin_Doge.split(",")
 
 # Coin using wallet-api
 WALLET_API_COIN = config.Enable_Coin_WalletApi.split(",")
@@ -255,7 +255,6 @@ async def sql_update_balances(coin: str = None):
                             except Exception as e:
                                 traceback.print_exc(file=sys.stdout)
                     if len(list_balance_user) > 0:
-                        print(list_balance_user)
                         list_update = []
                         timestamp = int(time.time())
                         for key, value in list_balance_user.items():
@@ -387,8 +386,6 @@ async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD'):
                     else:
                         if coin_family == "TRTL" or coin_family == "CCX":
                             chainHeight = int(walletStatus['blockCount'])
-                        elif COIN_NAME in ENABLE_COIN_DOGE:
-                            chainHeight = int(walletStatus['blocks'])
                     if coin_family == "TRTL" or coin_family == "CCX":
                         sql = """ INSERT INTO cn_user (`coin_name`, `user_id`, `balance_wallet_address`, 
                                   `balance_wallet_address_ts`, `balance_wallet_address_ch`, `privateSpendKey`) 

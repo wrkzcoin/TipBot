@@ -311,12 +311,64 @@ async def wallet_estimate_fusion(subaddress: str, threshold: int, coin: str=None
     return result
 
 
-def get_wallet_api_url(coin: str = None):
-    COIN_NAME = None
-    if coin is None:
-        COIN_NAME = "WRKZ"
-    else:
-        COIN_NAME = coin.upper()
+async def doge_register(account: str, coin: str) -> str:
+    COIN_NAME = coin.upper()
+    naming = "tipbot_" + account
+    payload = f'"{naming}"'
+    address_call = await rpc_client.call_doge('getnewaddress', COIN_NAME, payload=payload)
+    reg_address = {}
+    reg_address['address'] = address_call
+    payload = f'"{address_call}"'
+    key_call = await rpc_client.call_doge('dumpprivkey', COIN_NAME, payload=payload)
+    reg_address['privateKey'] = key_call
+    if reg_address['address'] and reg_address['privateKey']:
+        return reg_address
+    return None
+
+
+async def doge_sendtoaddress(to_address: str, amount: float, comment: str, coin: str, comment_to: str=None) -> str:
+    COIN_NAME = coin.upper()
+    if comment_to is None:
+        comment_to = "tipbot"
+    payload = f'"{to_address}", {amount}, "{comment}", "{comment_to}", true'
+    valid_call = await rpc_client.call_doge('sendtoaddress', COIN_NAME, payload=payload)
+    return valid_call
+
+
+async def doge_listtransactions(coin: str, last_count: int = 50):
+    COIN_NAME = coin.upper()
+    payload = '"*", 50, 0'
+    valid_call = await rpc_client.call_doge('listtransactions', COIN_NAME, payload=payload)
+    return valid_call
+
+# not use yet
+async def doge_listreceivedbyaddress(coin: str):
+    COIN_NAME = coin.upper()
+    payload = '0, true'
+    valid_call = await rpc_client.call_doge('listreceivedbyaddress', COIN_NAME, payload=payload)
+    account_list = []
+    if len(valid_call) >= 1:
+        for item in valid_call:
+            account_list.append({"address": item['address'], "account": item['account'], "amount": item['amount']})
+    return account_list
+
+
+async def doge_dumpprivkey(address: str, coin: str) -> str:
+    COIN_NAME = coin.upper()
+    payload = f'"{address}"'
+    key_call = await rpc_client.call_doge('dumpprivkey', COIN_NAME, payload=payload)
+    return key_call
+    
+
+async def doge_validaddress(address: str, coin: str) -> str:
+    COIN_NAME = coin.upper()
+    payload = f'"{address}"'
+    valid_call = await rpc_client.call_doge('validateaddress', COIN_NAME, payload=payload)
+    return valid_call
+
+
+def get_wallet_api_url(coin: str):
+    COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     if coin_family == "TRTL":
         return "http://"+getattr(config,"daemon"+COIN_NAME,config.daemonWRKZ).wallethost + ":" + \
@@ -443,21 +495,22 @@ def get_coinlogo_path(coin: str = None):
     return config.qrsettings.coin_logo_path + getattr(config,"daemon"+coin,config.daemonWRKZ).voucher_logo
 
 
-def num_format_coin(amount, coin: str = None):
-    COIN_NAME = None
-    if coin is None:
-        COIN_NAME = "WRKZ"
-    else:
-        COIN_NAME = coin.upper()
-    
+def num_format_coin(amount, coin: str):
+    COIN_NAME = coin.upper() 
     if COIN_NAME == "DOGE":
         coin_decimal = 1
     elif COIN_NAME == "LTC":
         coin_decimal = 1
+    elif COIN_NAME == "BTC":
+        coin_decimal = 1
+    elif COIN_NAME == "DASH":
+        coin_decimal = 1
+    elif COIN_NAME == "BCH":
+        coin_decimal = 1
     else:
         coin_decimal = get_decimal(COIN_NAME)
     amount_str = 'Invalid.'
-    if COIN_NAME == 	"DOGE":
+    if COIN_NAME in ["DOGE", "LTC", "BTC", "DASH", "BCH"]:
         return '{:,.6f}'.format(amount)
     if coin_decimal > 100000000:
         amount_str = '{:,.8f}'.format(amount / coin_decimal)
@@ -539,63 +592,6 @@ async def get_transfers_xmr(coin: str, height_start: int = None, height_end: int
         return result
 
 
-async def DOGE_LTC_register(account: str, coin: str) -> str:
-    payload = f'"{account}"'
-    address_call = await rpc_client.call_doge_ltc('getnewaddress', coin.upper(), payload=payload)
-    reg_address = {}
-    reg_address['address'] = address_call
-    payload = f'"{address_call}"'
-    key_call = await rpc_client.call_doge_ltc('dumpprivkey', coin.upper(), payload=payload)
-    reg_address['privateKey'] = key_call
-    return reg_address
-
-
-async def DOGE_LTC_validaddress(address: str, coin: str) -> str:
-    payload = f'"{address}"'
-    valid_call = await rpc_client.call_doge_ltc('validateaddress', coin.upper(), payload=payload)
-    return valid_call
-
-
-async def DOGE_LTC_getbalance_acc(account: str, coin: str, confirmation: int=None) -> str:
-    if confirmation is None:
-        conf = 1
-    else:
-        conf = confirmation
-    payload = f'"{account}", {conf}'
-    valid_call = await rpc_client.call_doge_ltc('getbalance', coin.upper(), payload=payload)
-    return valid_call
-
-
-async def DOGE_LTC_list_acc(coin: str) -> str:
-    list_accounts = await rpc_client.call_doge_ltc('listaccounts', coin.upper())
-    return list_accounts
-
-
-async def DOGE_LTC_getaccountaddress(account: str, coin: str) -> str:
-    payload = f'"{account}"'
-    valid_call = await rpc_client.call_doge_ltc('getaccountaddress', coin.upper(), payload=payload)
-    return valid_call
-
-
-async def DOGE_LTC_sendtoaddress(to_address: str, amount: float, comment: str, coin: str, comment_to: str=None) -> str:
-    if comment_to is None:
-        comment_to = "wrkz"
-    payload = f'"{to_address}", {amount}, "{comment}", "{comment_to}", true'
-    valid_call = await rpc_client.call_doge_ltc('sendtoaddress', coin.upper(), payload=payload)
-    return valid_call
-
-
-async def DOGE_LTC_listreceivedbyaddress(coin: str):
-    payload = '0, true'
-    valid_call = await rpc_client.call_doge_ltc('listreceivedbyaddress', coin.upper(), payload=payload)
-    account_list = []
-    if len(valid_call) >= 1:
-        for item in valid_call:
-            account_list.append({"address": item['address'], "account": item['account'], "amount": item['amount']})
-    return account_list
-
-
-async def DOGE_LTC_dumpprivkey(address: str, coin: str) -> str:
-    payload = f'"{address}"'
-    key_call = await rpc_client.call_doge_ltc('dumpprivkey', coin.upper(), payload=payload)
-    return key_call
+def get_confirm_depth(coin: str):
+    COIN_NAME = coin.upper()
+    return int(getattr(config,"daemon"+COIN_NAME).confirm_depth)

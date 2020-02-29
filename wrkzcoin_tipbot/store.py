@@ -179,7 +179,7 @@ async def sql_update_balances(coin: str = None):
                 print('Time updated to SQL: '+str(end_sql - end))
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-    if coin_family == "XMR":
+    elif coin_family == "XMR":
         print('SQL: Updating get_transfers '+COIN_NAME)
         get_transfers = await wallet.get_transfers_xmr(COIN_NAME)
         if len(get_transfers) >= 1:
@@ -219,6 +219,53 @@ async def sql_update_balances(coin: str = None):
                         conn.commit()
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
+    elif coin_family == "DOGE":
+        print('SQL: Updating get_transfers '+COIN_NAME)
+        get_transfers = await wallet.doge_listtransactions(COIN_NAME)
+        if get_transfers and len(get_transfers) >= 1:
+            try:
+                openConnection()
+                with conn.cursor() as cur:
+                    sql = """ SELECT * FROM doge_get_transfers WHERE `coin_name` = %s AND `category` IN (%s, %s) """
+                    cur.execute(sql, (COIN_NAME, 'receive', 'send'))
+                    result = cur.fetchall()
+                    d = [i['txid'] for i in result]
+                    # print('=================='+COIN_NAME+'===========')
+                    # print(d)
+                    # print('=================='+COIN_NAME+'===========')
+                    list_balance_user = {}
+                    for tx in get_transfers:
+                        # add to balance only confirmation depth meet
+                        if wallet.get_confirm_depth(COIN_NAME) < int(tx['confirmations']):
+                            if ('address' in tx) and (tx['address'] in list_balance_user) and (tx['amount'] > 0):
+                                list_balance_user[tx['address']] += tx['amount']
+                            elif ('address' in tx) and (tx['address'] not in list_balance_user) and (tx['amount'] > 0):
+                                list_balance_user[tx['address']] = tx['amount']
+                            try:
+                                if tx['txid'] not in d:
+                                    if tx['category'] == "receive":
+                                        sql = """ INSERT IGNORE INTO doge_get_transfers (`coin_name`, `txid`, `blockhash`, 
+                                        `address`, `blocktime`, `amount`, `confirmations`, `category`, `time_insert`) 
+                                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                        cur.execute(sql, (COIN_NAME, tx['txid'], tx['blockhash'], tx['address'],
+                                                          tx['blocktime'], tx['amount'], tx['confirmations'], tx['category'], int(time.time())))
+                                        conn.commit()
+                            except pymysql.err.Warning as e:
+                                print(e)
+                            except Exception as e:
+                                traceback.print_exc(file=sys.stdout)
+                    if len(list_balance_user) > 0:
+                        print(list_balance_user)
+                        list_update = []
+                        timestamp = int(time.time())
+                        for key, value in list_balance_user.items():
+                            list_update.append((value, timestamp, key))
+                        cur.executemany(""" UPDATE doge_user SET `actual_balance` = %s, `lastUpdate` = %s 
+                                        WHERE balance_wallet_address = %s """, list_update)
+                        conn.commit()
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+
 
 
 async def sql_update_some_balances(wallet_addresses: List[str], coin: str):
@@ -307,13 +354,12 @@ async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD'):
                 sql = """ SELECT * FROM """+coin.lower()+"""_user_paymentid WHERE `user_id`=%s AND `coin_name` = %s LIMIT 1 """
                 cur.execute(sql, (str(userID), COIN_NAME))
                 result = cur.fetchone()
-            elif COIN_NAME in ENABLE_COIN_DOGE:
-                sql = """ SELECT user_id, balance_wallet_address, user_wallet_address FROM """+coin.lower()+"""_user
-                          WHERE `user_id`=%s LIMIT 1 """
-                cur.execute(sql, userID)
+            elif coin_family == "DOGE":
+                sql = """ SELECT * FROM doge_user WHERE `user_id`=%s AND `coin_name` = %s LIMIT 1 """
+                cur.execute(sql, (str(userID), COIN_NAME))
                 result = cur.fetchone()
             if result is None:
-                balance_address = {}
+                balance_address = None
                 man_address = None
                 if coin_family == "TRTL" or coin_family == "CCX":
                     if COIN_NAME in WALLET_API_COIN:
@@ -323,9 +369,8 @@ async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD'):
                 if coin_family == "XMR":
                     main_address = getattr(getattr(config,"daemon"+COIN_NAME),"MainAddress")
                     balance_address = await wallet.make_integrated_address_xmr(main_address, COIN_NAME)
-                elif COIN_NAME in ENABLE_COIN_DOGE:
-                    balance_address = await wallet.DOGE_LTC_register(str(userID), COIN_NAME)
-
+                elif coin_family == "DOGE":
+                    balance_address = await wallet.doge_register(str(userID), COIN_NAME)
                 if balance_address is None:
                     print('Internal error during call register wallet-api')
                     return
@@ -350,18 +395,20 @@ async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD'):
                                   VALUES (%s, %s, %s, %s, %s, %s) """
                         cur.execute(sql, (COIN_NAME, str(userID), balance_address['address'], int(time.time()), chainHeight,
                                           encrypt_string(balance_address['privateSpendKey']), ))
+                        conn.commit()
                     elif coin_family == "XMR":
                         sql = """ INSERT INTO """+coin.lower()+"""_user_paymentid (`coin_name`, `user_id`, `main_address`, `paymentid`, 
                                   `int_address`, `paymentid_ts`) 
                                   VALUES (%s, %s, %s, %s, %s, %s) """
                         cur.execute(sql, (COIN_NAME, str(userID), main_address, balance_address['payment_id'], balance_address['integrated_address'], int(time.time())))
-                    elif COIN_NAME in ENABLE_COIN_DOGE:
-                        sql = """ INSERT INTO """+coin.lower()+"""_user (`user_id`, `balance_wallet_address`, 
-                                  `balance_wallet_address_ts`, `balance_wallet_address_ch`, `privateKey`) 
+                        conn.commit()
+                    elif coin_family == "DOGE":
+                        sql = """ INSERT INTO doge_user (`coin_name`, `user_id`, `balance_wallet_address`, `address_ts`, 
+                                  `privateKey`) 
                                   VALUES (%s, %s, %s, %s, %s) """
-                        cur.execute(sql, (str(userID), balance_address['address'], int(time.time()),
-                                          chainHeight, encrypt_string(balance_address['privateKey']), ))
-                    conn.commit()
+                        cur.execute(sql, (COIN_NAME, str(userID), balance_address['address'], int(time.time()), encrypt_string(balance_address['privateKey'])))
+                        balance_address['address'] = balance_address['address']
+                        conn.commit()
                     return balance_address
             else:
                 return result
@@ -394,7 +441,7 @@ async def sql_update_user(userID, user_wallet_address, coin: str):
                 cur.execute(sql, (user_wallet_address, str(userID), COIN_NAME))
                 conn.commit()
             elif coin_family == "DOGE":
-                sql = """ UPDATE """+coin.lower()+"""_user SET user_wallet_address=%s WHERE `user_id`=%s AND `coin_name` = %s LIMIT 1 """               
+                sql = """ UPDATE doge_user SET user_wallet_address=%s WHERE `user_id`=%s AND `coin_name` = %s LIMIT 1 """               
                 cur.execute(sql, (user_wallet_address, str(userID), COIN_NAME))
                 conn.commit()
             return user_wallet_address  # return userwallet
@@ -402,13 +449,9 @@ async def sql_update_user(userID, user_wallet_address, coin: str):
         traceback.print_exc(file=sys.stdout)
 
 
-async def sql_get_userwallet(userID, coin: str = None):
+async def sql_get_userwallet(userID, coin: str):
     global conn, redis_conn, redis_expired
-    COIN_NAME = None
-    if coin is None:
-        coin = "WRKZ"
-    else:
-        COIN_NAME = coin.upper()
+    COIN_NAME = coin.upper()
 
     # Check if exist in redis
     try:
@@ -434,78 +477,42 @@ async def sql_get_userwallet(userID, coin: str = None):
                 sql = """ SELECT * FROM """+coin.lower()+"""_user_paymentid WHERE `user_id`=%s AND `coin_name` = %s LIMIT 1 """
                 cur.execute(sql, (str(userID), COIN_NAME))
                 result = cur.fetchone()
-            elif COIN_NAME in ENABLE_COIN_DOGE:
-                sql = """ SELECT user_id, balance_wallet_address, user_wallet_address, balance_wallet_address_ts, 
-                          balance_wallet_address_ch, lastUpdate 
-                          FROM """+coin.lower()+"""_user WHERE `user_id`=%s LIMIT 1 """
-                cur.execute(sql, (str(userID),))
+            elif coin_family == "DOGE":
+                sql = """ SELECT user_id, balance_wallet_address, user_wallet_address, address_ts, lastUpdate 
+                          FROM doge_user WHERE `user_id`=%s AND `coin_name`=%s LIMIT 1 """
+                cur.execute(sql, (str(userID), COIN_NAME))
                 result = cur.fetchone()
-            if result is None:
-                if COIN_NAME in ENABLE_COIN_DOGE:
-                    # Sometimes balance account exists
-                    depositAddress = await wallet.DOGE_LTC_getaccountaddress(str(userID), COIN_NAME)
-                    walletStatus = await daemonrpc_client.getDaemonRPCStatus(COIN_NAME)
-                    chainHeight = int(walletStatus['blocks'])
-                    privateKey = await wallet.DOGE_LTC_dumpprivkey(depositAddress, COIN_NAME)
-                    sql = """ INSERT INTO """+coin.lower()+"""_user (`coin_name`, `user_id`, `balance_wallet_address`, 
-                              `balance_wallet_address_ts`, `balance_wallet_address_ch`, `privateKey`) 
-                              VALUES (%s, %s, %s, %s, %s, %s) """
-                    cur.execute(sql, (COIN_NAME, str(userID), depositAddress, int(time.time()), chainHeight, encrypt_string(privateKey), ))
-                    conn.commit()               
-                else:
-                    return None
-            else:
+            if result:
                 userwallet = result
-                if COIN_NAME in ENABLE_COIN_DOGE:
-                    depositAddress = await wallet.DOGE_LTC_getaccountaddress(str(userID), coin.upper())
-                    userwallet['balance_wallet_address'] = depositAddress
-                if coin_family == "XMR":
-                    userwallet['balance_wallet_address'] = userwallet['int_address']
-                    # add to redis
-                    try:
-                        if redis_conn:
-                            redis_conn.set(f'TIPBOT:WALLET_{str(userID)}_{COIN_NAME}', json.dumps(userwallet), ex=redis_expired)
-                    except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
-                    return userwallet
-                with conn.cursor() as cur:
-                    result2 = None
-                    if coin_family == "TRTL" or coin_family == "CCX":
+                result2 = None
+                if coin_family == "XMR": userwallet['balance_wallet_address'] = userwallet['int_address']
+                if coin_family == "TRTL" or coin_family == "CCX":
+                    with conn.cursor() as cur:
                         sql = """ SELECT `balance_wallet_address`, `actual_balance`, `locked_balance`, `decimal`, `lastUpdate` FROM cn_walletapi 
                                   WHERE `balance_wallet_address` = %s AND `coin_name` = %s LIMIT 1 """
                         cur.execute(sql, (userwallet['balance_wallet_address'], COIN_NAME,))
                         result2 = cur.fetchone()
-                if coin_family == "TRTL" or coin_family == "CCX":
-                    if result2:
-                        userwallet['actual_balance'] = int(result2['actual_balance'])
-                        userwallet['locked_balance'] = int(result2['locked_balance'])
-                        userwallet['lastUpdate'] = int(result2['lastUpdate'])
-                    else:
-                        userwallet['actual_balance'] = 0
-                        userwallet['locked_balance'] = 0
-                        userwallet['lastUpdate'] = int(time.time())
-                if COIN_NAME in ENABLE_COIN_DOGE:
-                    # Call to API instead
-                    actual = float(await wallet.DOGE_LTC_getbalance_acc(str(userID), coin.upper(), 6))
-                    locked = float(await wallet.DOGE_LTC_getbalance_acc(str(userID), coin.upper(), 1))
-                    if actual == locked:
-                        balance_actual = '{:,.8f}'.format(actual)
-                        balance_locked = '{:,.8f}'.format(0)
-                    else:
-                        balance_actual = '{:,.8f}'.format(actual)
-                        balance_locked = '{:,.8f}'.format(locked - actual)
-                    userwallet['actual_balance'] = balance_actual
-                    userwallet['locked_balance'] = balance_locked
-                    userwallet['lastUpdate'] = int(time.time())
-                # add to redis
-                try:
-                    if redis_conn:
-                        redis_conn.set(f'TIPBOT:WALLET_{str(userID)}_{COIN_NAME}', json.dumps(userwallet), ex=redis_expired)
-                except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
+                        if result2:
+                            userwallet['actual_balance'] = int(result2['actual_balance'])
+                            userwallet['locked_balance'] = int(result2['locked_balance'])
+                            userwallet['lastUpdate'] = int(result2['lastUpdate'])
+                        else:
+                            userwallet['actual_balance'] = 0
+                            userwallet['locked_balance'] = 0
+                            userwallet['lastUpdate'] = int(time.time())
+                elif coin_family == "DOGE":
+                    with conn.cursor() as cur:
+                        sql = """ SELECT * FROM doge_user WHERE `user_id`=%s AND `coin_name` = %s LIMIT 1 """
+                        cur.execute(sql, (str(userID), COIN_NAME))
+                        result = cur.fetchone()
+                        if result:
+                            userwallet['actual_balance'] = result['actual_balance']
+                            userwallet['locked_balance'] = 0 # There shall not be locked balance
+                            userwallet['lastUpdate'] = result['lastUpdate']
                 return userwallet
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
+    return None
 
 
 def sql_get_countLastTip(userID, lastDuration: int):
@@ -1893,18 +1900,19 @@ def sql_updateinfo_by_server(server_id: str, what: str, value: str):
         traceback.print_exc(file=sys.stdout)
 
 # DOGE
-def sql_mv_doge_single(user_from: str, to_user: str, amount: float, coin: str, tiptype: str):
+async def sql_mv_doge_single(user_from: str, to_user: str, amount: float, coin: str, tiptype: str):
     global conn
-    if coin.upper() not in ENABLE_COIN_DOGE:
+    COIN_NAME = coin.upper()
+    if COIN_NAME not in ENABLE_COIN_DOGE:
         return False
     if tiptype.upper() not in ["TIP", "DONATE", "SECRETTIP", "FAUCET"]:
         return False
     try:
         openConnection()
         with conn.cursor() as cur: 
-            sql = """ INSERT INTO """+coin.lower()+"""_mv_tx (`from_userid`, `to_userid`, `amount`, `type`, `date`) 
-                      VALUES (%s, %s, %s, %s, %s) """
-            cur.execute(sql, (user_from, to_user, amount, tiptype.upper(), int(time.time()),))
+            sql = """ INSERT INTO doge_mv_tx (`coin_name`, `from_userid`, `to_userid`, `amount`, `type`, `date`) 
+                      VALUES (%s, %s, %s, %s, %s, %s) """
+            cur.execute(sql, (COIN_NAME, user_from, to_user, amount, tiptype.upper(), int(time.time()),))
             conn.commit()
         return True
     except Exception as e:
@@ -1912,22 +1920,23 @@ def sql_mv_doge_single(user_from: str, to_user: str, amount: float, coin: str, t
     return False
 
 
-def sql_mv_doge_multiple(user_from: str, user_tos, amount_each: float, coin: str, tiptype: str):
+async def sql_mv_doge_multiple(user_from: str, user_tos, amount_each: float, coin: str, tiptype: str):
     # user_tos is array "account1", "account2", ....
     global conn
-    if coin.upper() not in ENABLE_COIN_DOGE:
+    COIN_NAME = coin.upper()
+    if COIN_NAME not in ENABLE_COIN_DOGE:
         return False
     if tiptype.upper() not in ["TIPS", "TIPALL"]:
         return False
     values_str = []
     currentTs = int(time.time())
     for item in user_tos:
-        values_str.append(f"('{user_from}', '{item}', {amount_each}, '{tiptype.upper()}', {currentTs})\n")
+        values_str.append(f"('{COIN_NAME}', '{user_from}', '{item}', {amount_each}, '{tiptype.upper()}', {currentTs})\n")
     values_sql = "VALUES " + ",".join(values_str)
     try:
         openConnection()
         with conn.cursor() as cur: 
-            sql = """ INSERT INTO """+coin.lower()+"""_mv_tx (`from_userid`, `to_userid`, `amount`, `type`, `date`) 
+            sql = """ INSERT INTO doge_mv_tx (`coin_name`, `from_userid`, `to_userid`, `amount`, `type`, `date`) 
                       """+values_sql+""" """
             cur.execute(sql,)
             conn.commit()
@@ -1939,21 +1948,22 @@ def sql_mv_doge_multiple(user_from: str, user_tos, amount_each: float, coin: str
 
 async def sql_external_doge_single(user_from: str, amount: float, fee: float, to_address: str, coin: str, tiptype: str):
     global conn
-    if coin.upper() not in ENABLE_COIN_DOGE:
+    COIN_NAME = coin.upper()
+    if COIN_NAME not in ENABLE_COIN_DOGE:
         return False
     if tiptype.upper() not in ["SEND", "WITHDRAW"]:
         return False
     try:
         openConnection()
         print("DOGE EXTERNAL: ")
-        print((to_address, amount, user_from, coin.upper()))
-        txHash = await wallet.DOGE_LTC_sendtoaddress(to_address, amount, user_from, coin.upper())
+        print((to_address, amount, user_from, COIN_NAME))
+        txHash = await wallet.doge_sendtoaddress(to_address, amount, user_from, COIN_NAME)
         print("COMPLETE DOGE EXTERNAL TX")
         with conn.cursor() as cur: 
-            sql = """ INSERT INTO """+coin.lower()+"""_external_tx (`user_id`, `amount`, `fee`, `to_address`, 
+            sql = """ INSERT INTO doge_external_tx (`coin_name`, `user_id`, `amount`, `fee`, `to_address`, 
                       `type`, `date`, `tx_hash`) 
-                      VALUES (%s, %s, %s, %s, %s, %s, %s) """
-            cur.execute(sql, (user_from, amount, fee, to_address, tiptype.upper(), int(time.time()), txHash,))
+                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+            cur.execute(sql, (COIN_NAME, user_from, amount, fee, to_address, tiptype.upper(), int(time.time()), txHash,))
             conn.commit()
         return txHash
     except Exception as e:
@@ -1961,39 +1971,40 @@ async def sql_external_doge_single(user_from: str, amount: float, fee: float, to
     return False
 
 
-def sql_doge_balance(userID: str, coin: str):
+async def sql_doge_balance(userID: str, coin: str):
     global conn
-    if coin.upper() not in ENABLE_COIN_DOGE:
+    COIN_NAME = coin.upper()
+    if COIN_NAME not in ENABLE_COIN_DOGE:
         return False
     try:
         openConnection()
         with conn.cursor() as cur: 
-            sql = """ SELECT SUM(amount) AS Expense FROM """+coin.lower()+"""_mv_tx WHERE `from_userid`=%s """
-            cur.execute(sql, userID)
+            sql = """ SELECT SUM(amount) AS Expense FROM doge_mv_tx WHERE `from_userid`=%s AND `coin_name`=%s """
+            cur.execute(sql, (userID, COIN_NAME))
             result = cur.fetchone()
             if result:
                 Expense = result['Expense']
             else:
                 Expense = 0
 
-            sql = """ SELECT SUM(amount) AS Income FROM """+coin.lower()+"""_mv_tx WHERE `to_userid`=%s """
-            cur.execute(sql, userID)
+            sql = """ SELECT SUM(amount) AS Income FROM doge_mv_tx WHERE `to_userid`=%s AND `coin_name`=%s """
+            cur.execute(sql, (userID, COIN_NAME))
             result = cur.fetchone()
             if result:
                 Income = result['Income']
             else:
                 Income = 0
 
-            sql = """ SELECT SUM(amount) AS TxExpense FROM """+coin.lower()+"""_external_tx WHERE `user_id`=%s """
-            cur.execute(sql, userID)
+            sql = """ SELECT SUM(amount) AS TxExpense FROM doge_external_tx WHERE `user_id`=%s AND `coin_name`=%s """
+            cur.execute(sql, (userID, COIN_NAME))
             result = cur.fetchone()
             if result:
                 TxExpense = result['TxExpense']
             else:
                 TxExpense = 0
 
-            sql = """ SELECT SUM(fee) AS FeeExpense FROM """+coin.lower()+"""_external_tx WHERE `user_id`=%s """
-            cur.execute(sql, userID)
+            sql = """ SELECT SUM(fee) AS FeeExpense FROM doge_external_tx WHERE `user_id`=%s AND `coin_name`=%s """
+            cur.execute(sql, (userID, COIN_NAME))
             result = cur.fetchone()
             if result:
                 FeeExpense = result['FeeExpense']
@@ -2013,33 +2024,6 @@ def sql_doge_balance(userID: str, coin: str):
             return balance
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
-
-
-async def sql_doge_checkcoin(coin: str):
-    global conn
-    COIN_NAME = coin.upper()
-    if COIN_NAME not in ENABLE_COIN_DOGE:
-        return False
-    try:
-        total_balance = 0
-        negative_str = ""
-        list_accounts = await wallet.DOGE_LTC_list_acc(COIN_NAME)
-        if list_accounts:
-            for userID, balance in list_accounts.items():
-                if len(userID) > 0:
-                    userdata_balance = sql_doge_balance(userID, COIN_NAME)
-                    balance_actual = balance + float(userdata_balance['Adjust'])
-                    if balance_actual < 0:
-                        negative_str += str(userID) + ": " + str(balance_actual) + COIN_NAME + "\n"
-                        print('{} has {} balance negative!! {}{}'.format(userID, COIN_NAME, balance_actual, COIN_NAME))
-                    else:
-                        total_balance += balance_actual
-            return "Total_balance: " + str(total_balance) + COIN_NAME + "\n" + negative_str
-        else:
-            return False
-    except Exception as e:
-        traceback.print_exc(file=sys.stdout)
-    return False
 
 
 # XMR Based

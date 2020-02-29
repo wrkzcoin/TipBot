@@ -85,8 +85,9 @@ async def call_aiohttp_wallet(method_name: str, coin: str, time_out: int = None,
         traceback.print_exc(file=sys.stdout)
 
 
-async def call_doge_ltc(method_name: str, coin: str, payload: str = None) -> Dict:
+async def call_doge(method_name: str, coin: str, payload: str = None) -> Dict:
     timeout = 64
+    COIN_NAME = coin.upper()
     headers = {
         'content-type': 'text/plain;',
     }
@@ -95,10 +96,8 @@ async def call_doge_ltc(method_name: str, coin: str, payload: str = None) -> Dic
     else:
         data = '{"jsonrpc": "1.0", "id":"'+str(uuid4())+'", "method": "'+method_name+'", "params": ['+payload+'] }'
     url = None
-    if coin.upper() == "DOGE":
-        url = f'http://{config.daemonDOGE.username}:{config.daemonDOGE.password}@{config.daemonDOGE.host}:{config.daemonDOGE.rpcport}/'
-    elif coin.upper() == "LTC":
-        url = f'http://{config.daemonLTC.username}:{config.daemonLTC.password}@{config.daemonLTC.host}:{config.daemonLTC.rpcport}/'
+    if COIN_NAME in ["DOGE", "LTC", "BTC", "DASH", "BCH"]:
+        url = 'http://'+getattr(config,"daemon"+COIN_NAME).username+':'+getattr(config,"daemon"+COIN_NAME).password+'@'+getattr(config,"daemon"+COIN_NAME).rpchost+'/'
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(url, data=data, timeout=timeout) as response:

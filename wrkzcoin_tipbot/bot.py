@@ -211,7 +211,7 @@ NOTICE_COIN = {
     "XAM" : getattr(getattr(config,"daemonXAM"),"coin_notice", None),
     "UPX" : getattr(getattr(config,"daemonUPX"),"coin_notice", None),
     "XWP" : getattr(getattr(config,"daemonXWP"),"coin_notice", None),
-    "DOGE" : "Please acknowledge that DOGE address is for **one-time** use only for depositing.",
+    "DOGE" : getattr(getattr(config,"daemonDOGE"),"coin_notice", None),
     "default": "Thank you for using."
     }
 
@@ -1095,13 +1095,21 @@ async def secrettip(ctx, amount: str, coin: str, user_id: str):
     elif COIN_NAME in ENABLE_COIN_DOGE:
         MinTx = config.daemonDOGE.min_mv_amount
         MaxTX = config.daemonDOGE.max_mv_amount
-        user_from = {}
-        user_from['address'] = await DOGE_LTC_getaccountaddress(str(ctx.message.author.id), COIN_NAME)
-        user_from['actual_balance'] = float(await DOGE_LTC_getbalance_acc(str(ctx.message.author.id), COIN_NAME, 6))
-        user_to = {}
-        user_to['address'] = await DOGE_LTC_getaccountaddress(user_id, COIN_NAME)
+
+        user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        if user_from is None:
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        user_from['address'] = user_from['balance_wallet_address']
+
+
+        user_to = await store.sql_get_userwallet(user_id, COIN_NAME)
+        if user_to is None:
+            user_to = await store.sql_register_user(user_id, COIN_NAME)
+            user_to = await store.sql_get_userwallet(user_id, COIN_NAME)
+        user_to['address'] = user_to['balance_wallet_address']
         real_amount = float(amount)
-        userdata_balance = store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
+        userdata_balance = await store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
         if real_amount > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send a secret tip of '
@@ -1121,8 +1129,8 @@ async def secrettip(ctx, amount: str, coin: str, user_id: str):
                            f'{COIN_NAME}.')
             return
     tip = None
-    if COIN_NAME == "DOGE":
-        tip = store.sql_mv_doge_single(str(ctx.message.author.id), user_id, real_amount, COIN_NAME, "SECRETTIP")
+    if coin_family == "DOGE":
+        tip = await store.sql_mv_doge_single(str(ctx.message.author.id), user_id, real_amount, COIN_NAME, "SECRETTIP")
         tip = "N/A for "+COIN_NAME
     else:
         try:
@@ -1332,10 +1340,13 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
     # Add DOGE
     COIN_NAME = "DOGE"
     if not is_maintenance_coin(COIN_NAME) and create_acc:
-        depositAddress = await DOGE_LTC_getaccountaddress(str(user_id), COIN_NAME)
-        actual = float(await DOGE_LTC_getbalance_acc(str(user_id), COIN_NAME, 6))
-        locked = float(await DOGE_LTC_getbalance_acc(str(user_id), COIN_NAME, 1))
-        userdata_balance = store.sql_doge_balance(str(user_id), COIN_NAME)
+        wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
+        if wallet is None:
+            wallet = await store.sql_register_user(str(user_id), COIN_NAME)
+            wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
+        actual = wallet['actual_balance']
+        locked = wallet['locked_balance']
+        userdata_balance = await store.sql_doge_balance(str(user_id), COIN_NAME)
 
         if actual == locked:
             balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
@@ -1705,15 +1716,6 @@ async def checkcoin(ctx, coin: str):
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.message.author.send(f'{COIN_NAME} return no address.')
             return
-    elif COIN_NAME == "DOGE":
-        # TODO
-        total_balance_str = await store.sql_doge_checkcoin(COIN_NAME)
-        if total_balance_str:
-            await ctx.send(f'**{COIN_NAME}** Checking:'
-                           '```'
-                           f'{total_balance_str}'
-                           '```')
-            return
     else:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.message.author.send(f'{COIN_NAME} not supporting with this function.')
@@ -1949,10 +1951,11 @@ async def info(ctx, coin: str = None):
         if wallet is None:
             userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
             wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-    elif COIN_NAME in ENABLE_COIN_DOGE:
+    elif coin_family == "DOGE":
         wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-        depositAddress = await DOGE_LTC_getaccountaddress(str(ctx.message.author.id), COIN_NAME)
-        wallet['balance_wallet_address'] = depositAddress
+        if wallet is None:
+            wallet = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
     else:
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**')
         return
@@ -2063,10 +2066,14 @@ async def balance(ctx, coin: str = None):
         # Add DOGE
         COIN_NAME = "DOGE"
         if not is_maintenance_coin(COIN_NAME):
-            depositAddress = await DOGE_LTC_getaccountaddress(str(ctx.message.author.id), COIN_NAME)
-            actual = float(await DOGE_LTC_getbalance_acc(str(ctx.message.author.id), COIN_NAME, 6))
-            locked = float(await DOGE_LTC_getbalance_acc(str(ctx.message.author.id), COIN_NAME, 1))
-            userdata_balance = store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
+            userwallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+            if userwallet is None:
+                userwallet = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+                userwallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+            depositAddress = userwallet['balance_wallet_address']
+            actual = userwallet['actual_balance']
+            locked = userwallet['locked_balance']
+            userdata_balance = await store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
             if actual == locked:
                 balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
                 balance_locked = num_format_coin(0, COIN_NAME)
@@ -2406,11 +2413,16 @@ async def balance(ctx, coin: str = None):
         else:
             await message.add_reaction(EMOJI_ERROR)
             return
-    elif COIN_NAME == "DOGE":
-        depositAddress = await DOGE_LTC_getaccountaddress(str(ctx.message.author.id), COIN_NAME)
-        actual = float(await DOGE_LTC_getbalance_acc(str(ctx.message.author.id), COIN_NAME, 6))
-        locked = float(await DOGE_LTC_getbalance_acc(str(ctx.message.author.id), COIN_NAME, 1))
-        userdata_balance = store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
+    elif coin_family == "DOGE":
+        userwallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        if userwallet is None:
+            userwallet = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            userwallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+
+        depositAddress = userwallet['balance_wallet_address']
+        actual = userwallet['actual_balance']
+        locked = userwallet['locked_balance']
+        userdata_balance = await store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
         if actual == locked:				
             balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']) , COIN_NAME)
             balance_locked = num_format_coin(0 , COIN_NAME)
@@ -2592,12 +2604,16 @@ async def botbalance(ctx, member: discord.Member, coin: str):
     # Bypass other if they re in ENABLE_COIN_DOGE
     if COIN_NAME in ENABLE_COIN_DOGE:
         try:
-            depositAddress = await DOGE_LTC_getaccountaddress(str(member.id), COIN_NAME)
+            userwallet = await store.sql_get_userwallet(str(member.id), COIN_NAME)
+            if userwallet is None:
+                userwallet = await store.sql_register_user(str(member.id), COIN_NAME)
+                userwallet = await store.sql_get_userwallet(str(member.id), COIN_NAME)
+            depositAddress = userwallet['balance_wallet_address']
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-        actual = float(await DOGE_LTC_getbalance_acc(str(member.id), COIN_NAME, 6))
-        locked = float(await DOGE_LTC_getbalance_acc(str(member.id), COIN_NAME, 1))
-        userdata_balance = store.sql_doge_balance(str(member.id), COIN_NAME)
+        actual = userwallet['actual_balance']
+        locked = userwallet['locked_balance']
+        userdata_balance = await store.sql_doge_balance(str(member.id), COIN_NAME)
         if actual == locked:
             balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
             balance_locked = num_format_coin(0 , COIN_NAME)
@@ -2804,10 +2820,13 @@ async def register(ctx, wallet_address: str):
 
     valid_address = None
     if COIN_NAME in ENABLE_COIN_DOGE:
-        depositAddress = await DOGE_LTC_getaccountaddress(str(ctx.message.author.id), COIN_NAME)
-        user['balance_wallet_address'] = depositAddress
-        if COIN_NAME == "DOGE":
-            valid_address = await DOGE_LTC_validaddress(str(wallet_address), COIN_NAME)
+        user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        if user_from is None:
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        user_from['address'] = user_from['balance_wallet_address']
+        if COIN_NAME in ["DOGE"]:
+            valid_address = await doge_validaddress(str(wallet_address), COIN_NAME)
             if ('isvalid' in valid_address):
                 if str(valid_address['isvalid']) == "True":
                     valid_address = wallet_address
@@ -2991,6 +3010,9 @@ async def withdraw(ctx, amount: str, coin: str = None):
         COIN_DEC = get_decimal(COIN_NAME)
         real_amount = int(amount * COIN_DEC)
         user = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        if user is None:
+            user = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         MinTx = get_min_tx_amount(COIN_NAME)
         MaxTX = get_max_tx_amount(COIN_NAME)
         NetFee = get_tx_fee(coin = COIN_NAME)
@@ -3075,6 +3097,9 @@ async def withdraw(ctx, amount: str, coin: str = None):
         COIN_DEC = get_decimal(COIN_NAME)
         real_amount = int(amount * COIN_DEC)
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        if user_from is None:
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         MinTx = get_min_tx_amount(COIN_NAME)
         MaxTX = get_max_tx_amount(COIN_NAME)
         userdata_balance = store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
@@ -3151,14 +3176,18 @@ async def withdraw(ctx, amount: str, coin: str = None):
             return
         return
 
-    elif COIN_NAME == "DOGE":
+    elif coin_family == "DOGE":
         MinTx = get_min_tx_amount(coin = COIN_NAME)
         MaxTX = get_max_tx_amount(coin = COIN_NAME)
-        user_from = {}
-        user_from['address'] = await DOGE_LTC_getaccountaddress(str(ctx.message.author.id), COIN_NAME)
-        user_from['actual_balance'] = float(await DOGE_LTC_getbalance_acc(str(ctx.message.author.id), COIN_NAME, 6))
+
+        user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        if user_from is None:
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        user_from['address'] = user_from['balance_wallet_address']
+
         real_amount = float(amount)
-        userdata_balance = store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
+        userdata_balance = await store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
         NetFee = get_tx_fee(coin = COIN_NAME)
         if real_amount + NetFee > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -3179,6 +3208,9 @@ async def withdraw(ctx, amount: str, coin: str = None):
                            f'{COIN_NAME}.')
             return
         wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        if wallet is None:
+            wallet = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         withdrawTx = None
         if ctx.message.author.id not in WITHDRAW_IN_PROCESS:
             WITHDRAW_IN_PROCESS.append(ctx.message.author.id)
@@ -3306,6 +3338,9 @@ async def donate(ctx, amount: str, coin: str = None):
         COIN_DEC = get_decimal(COIN_NAME)
         real_amount = int(amount * COIN_DEC)
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        if user_from is None:
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         MinTx = get_min_tx_amount(COIN_NAME)
         MaxTX = get_max_tx_amount(COIN_NAME)
         NetFee = get_tx_fee(coin = COIN_NAME)
@@ -3383,6 +3418,9 @@ async def donate(ctx, amount: str, coin: str = None):
         COIN_DEC = get_decimal(COIN_NAME)
         real_amount = int(amount * COIN_DEC)
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        if user_from is None:
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         MinTx = get_min_tx_amount(COIN_NAME)
         MaxTX = get_max_tx_amount(COIN_NAME)
         userdata_balance = store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
@@ -3421,14 +3459,18 @@ async def donate(ctx, amount: str, coin: str = None):
             await ctx.message.add_reaction(EMOJI_ERROR)
             return
         return
-    elif COIN_NAME == "DOGE":
+    elif coin_family == "DOGE":
         MinTx = config.daemonDOGE.min_mv_amount
         MaxTX = config.daemonDOGE.max_mv_amount
-        user_from = {}
-        user_from['address'] = await DOGE_LTC_getaccountaddress(str(ctx.message.author.id), COIN_NAME)
-        user_from['actual_balance'] = float(await DOGE_LTC_getbalance_acc(str(ctx.message.author.id), COIN_NAME, 6))
+
+        user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        if user_from is None:
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        user_from['address'] = user_from['balance_wallet_address']
+
         real_amount = float(amount)
-        userdata_balance = store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
+        userdata_balance = await store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
         if real_amount > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to donate '
@@ -3448,7 +3490,7 @@ async def donate(ctx, amount: str, coin: str = None):
                            f'{COIN_NAME}.')
             return
 
-        donateTx = store.sql_mv_doge_single(str(ctx.message.author.id), get_donate_account_name(COIN_NAME), real_amount,
+        donateTx = await store.sql_mv_doge_single(str(ctx.message.author.id), get_donate_account_name(COIN_NAME), real_amount,
                                             COIN_NAME, "DONATE")
         if donateTx:
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
@@ -3644,6 +3686,9 @@ async def take(ctx):
         COIN_DEC = get_decimal(COIN_NAME)
         real_amount = int(amount * COIN_DEC)
         user_from = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
+        if user_from is None:
+            user_from = await store.sql_register_user(str(bot.user.id), COIN_NAME)
+            user_from = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
         real_amount = int(amount * COIN_DEC)
         userdata_balance = store.sql_xmr_balance(str(bot.user.id), COIN_NAME)
         if real_amount > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
@@ -3668,14 +3713,19 @@ async def take(ctx):
     elif coin_family == "DOGE":
         COIN_DEC = 1
         real_amount = float(amount * COIN_DEC)
-        user_from = {}
-        user_from['actual_balance'] = float(await DOGE_LTC_getbalance_acc(str(bot.user.id), COIN_NAME, 6))
-        botdata_balance = store.sql_doge_balance(str(bot.user.id), COIN_NAME)
+
+        user_from = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
+        if user_from is None:
+            user_from = await store.sql_register_user(str(bot.user.id), COIN_NAME)
+            user_from = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
+        user_from['address'] = user_from['balance_wallet_address']
+
+        botdata_balance = await store.sql_doge_balance(str(bot.user.id), COIN_NAME)
         if real_amount > float(user_from['actual_balance']) + float(botdata_balance['Adjust']):
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{ctx.author.mention} Please try again later. Bot runs out of **{COIN_NAME}**')
             return
-        tip = store.sql_mv_doge_single(str(bot.user.id), str(ctx.message.author.id), real_amount, COIN_NAME, "FAUCET")
+        tip = await store.sql_mv_doge_single(str(bot.user.id), str(ctx.message.author.id), real_amount, COIN_NAME, "FAUCET")
         if tip:
             faucet_add = store.sql_faucet_add(str(ctx.message.author.id), str(ctx.guild.id), COIN_NAME, real_amount, COIN_DEC)
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
@@ -3989,6 +4039,9 @@ async def tip(ctx, amount: str, *args):
         MinTx = get_min_tx_amount(COIN_NAME)
         MaxTX = get_max_tx_amount(COIN_NAME)
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        if user_from is None:
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         real_amount = int(amount * COIN_DEC)
         userdata_balance = store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
         if real_amount > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
@@ -4035,16 +4088,27 @@ async def tip(ctx, amount: str, *args):
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
         return
-    elif COIN_NAME == "DOGE":
-        MinTx = config.daemonDOGE.min_mv_amount
-        MaxTX = config.daemonDOGE.max_mv_amount
-        user_from = {}
-        user_from['address'] = await DOGE_LTC_getaccountaddress(str(ctx.message.author.id), COIN_NAME)
-        user_from['actual_balance'] = float(await DOGE_LTC_getbalance_acc(str(ctx.message.author.id), COIN_NAME, 6))
-        user_to = {}
-        user_to['address'] = await DOGE_LTC_getaccountaddress(str(member.id), COIN_NAME)
+    elif coin_family == "DOGE":
+        MinTx = getattr(config,"daemon"+COIN_NAME).min_mv_amount
+        MaxTX = getattr(config,"daemon"+COIN_NAME).max_mv_amount
+
+        user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        if user_from is None:
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        user_from['address'] = user_from['balance_wallet_address']
+
+        user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
+        if user_to is None:
+            user_to = await store.sql_register_user(str(member.id), COIN_NAME)
+            user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
+        if user_to is None:
+            user_to = await store.sql_register_user(str(member.id), COIN_NAME)
+            user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
+        user_to['address'] = user_to['balance_wallet_address']
+
         real_amount = float(amount)
-        userdata_balance = store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
+        userdata_balance = await store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
         if real_amount > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
@@ -4064,7 +4128,7 @@ async def tip(ctx, amount: str, *args):
                            f'{COIN_NAME}.')
             return
 
-        tip = store.sql_mv_doge_single(str(ctx.message.author.id), str(member.id), real_amount, COIN_NAME, "TIP")
+        tip = await store.sql_mv_doge_single(str(ctx.message.author.id), str(member.id), real_amount, COIN_NAME, "TIP")
         if tip:
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
             if ctx.message.author.bot == False and serverinfo['react_tip'] == "ON":
@@ -4240,7 +4304,9 @@ async def tipall(ctx, amount: str, *args):
                             memids.append(address_to)
 
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-
+        if user_from is None:
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if real_amount + NetFee >= user_from['actual_balance']:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to spread tip of '
@@ -4355,6 +4421,9 @@ async def tipall(ctx, amount: str, *args):
         MinTx = get_min_tx_amount(COIN_NAME)
         MaxTX = get_max_tx_amount(COIN_NAME)
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        if user_from is None:
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         userdata_balance = store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
         if real_amount > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -4431,14 +4500,18 @@ async def tipall(ctx, amount: str, *args):
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
         return
-    elif COIN_NAME == "DOGE":
+    elif coin_family == "DOGE":
         MinTx = config.daemonDOGE.min_mv_amount
         MaxTX = config.daemonDOGE.max_mv_amount
-        user_from = {}
-        user_from['address'] = await DOGE_LTC_getaccountaddress(str(ctx.message.author.id), COIN_NAME)
-        user_from['actual_balance'] = float(await DOGE_LTC_getbalance_acc(str(ctx.message.author.id), COIN_NAME, 6))
+
+        user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        if user_from is None:
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        user_from['address'] = user_from['balance_wallet_address']
+
         real_amount = float(amount)
-        userdata_balance = store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
+        userdata_balance = await store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
         if real_amount > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
@@ -4484,7 +4557,7 @@ async def tipall(ctx, amount: str, *args):
                            f'{COIN_NAME} for each member. You need at least {num_format_coin(len(memids) * MinTx, COIN_NAME)}.')
             return
 
-        tips = store.sql_mv_doge_multiple(str(ctx.message.author.id), memids, amountDiv, COIN_NAME, "TIPALL")
+        tips = await store.sql_mv_doge_multiple(str(ctx.message.author.id), memids, amountDiv, COIN_NAME, "TIPALL")
         if tips:
             servername = serverinfo['servername']
             tipAmount = num_format_coin(real_amount, COIN_NAME)
@@ -4734,6 +4807,9 @@ async def send(ctx, amount: str, CoinAddress: str):
             return
 
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        if user_from is None:
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if user_from['balance_wallet_address'] == CoinAddress:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You can not send to your own deposit address.')
@@ -4851,6 +4927,9 @@ async def send(ctx, amount: str, CoinAddress: str):
                     return
         # OK valid address
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        if user_from is None:
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         userdata_balance = store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
         # If balance 0, no need to check anything
         if float(user_from['actual_balance']) + float(userdata_balance['Adjust']) <= 0:
@@ -4913,12 +4992,12 @@ async def send(ctx, amount: str, CoinAddress: str):
             return
         return
     else:
-        if COIN_NAME == "DOGE":
+        if coin_family == "DOGE":
             addressLength = get_addrlen(coin = COIN_NAME)
             MinTx = get_min_tx_amount(coin = COIN_NAME)
             MaxTX = get_max_tx_amount(coin = COIN_NAME)
             NetFee = get_tx_fee(coin = COIN_NAME)
-            valid_address = await DOGE_LTC_validaddress(str(CoinAddress), COIN_NAME)
+            valid_address = await doge_validaddress(str(CoinAddress), COIN_NAME)
             if 'isvalid' in valid_address:
                 if str(valid_address['isvalid']) == "True":
                     pass
@@ -4928,11 +5007,14 @@ async def send(ctx, amount: str, CoinAddress: str):
                                     'is invalid.')
                     return
 
-            user_from = {}
-            user_from['address'] = await DOGE_LTC_getaccountaddress(str(ctx.message.author.id), COIN_NAME)
-            user_from['actual_balance'] = float(await DOGE_LTC_getbalance_acc(str(ctx.message.author.id), COIN_NAME, 6))
+            user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+            if user_from is None:
+                user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+                user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+            user_from['address'] = user_from['balance_wallet_address']
+
             real_amount = float(amount)
-            userdata_balance = store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
+            userdata_balance = await store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
             if real_amount + NetFee > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
                 await ctx.message.add_reaction(EMOJI_ERROR)
                 await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send out '
@@ -5080,8 +5162,8 @@ async def address(ctx, *args):
         IntaddressLength = get_intaddrlen(COIN_NAME)
 
     if len(args) == 1:
-        if COIN_NAME == "DOGE":
-            valid_address = await DOGE_LTC_validaddress(str(CoinAddress), COIN_NAME)
+        if coin_family == "DOGE":
+            valid_address = await doge_validaddress(str(CoinAddress), COIN_NAME)
             if 'isvalid' in valid_address:
                 if str(valid_address['isvalid']) == "True":
                     await ctx.message.add_reaction(EMOJI_CHECK)
@@ -5099,7 +5181,7 @@ async def address(ctx, *args):
                                 'Checked: Invalid.')
                 return
         elif COIN_NAME == "LTC":
-            valid_address = await DOGE_LTC_validaddress(str(CoinAddress), COIN_NAME)
+            valid_address = await doge_validaddress(str(CoinAddress), COIN_NAME)
             if 'isvalid' in valid_address:
                 if str(valid_address['isvalid']) == "True":
                     await ctx.message.add_reaction(EMOJI_CHECK)
@@ -5386,7 +5468,10 @@ async def optimize(ctx, coin: str, member: discord.Member = None):
     else:
         # check permission to optimize
         if int(ctx.message.author.id) in MAINTENANCE_OWNER:
-            user_from = await store.sql_get_userwallet(member.mention, COIN_NAME)
+            user_from = await store.sql_get_userwallet(str(member.mention.id), COIN_NAME)
+            if user_from is None:
+                user_from = await store.sql_register_user(str(member.mention.id), COIN_NAME)
+                user_from = await store.sql_get_userwallet(str(member.mention.id), COIN_NAME)
             # let's optimize and set status
             CountOpt = await store.sql_optimize_do(str(member.id), COIN_NAME)
             await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
@@ -5440,6 +5525,9 @@ async def optimize(ctx, coin: str, member: discord.Member = None):
 
     # Check if user has a proper wallet with balance bigger than setting balance
     user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+    if user_from is None:
+        user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+        user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
     if ('lastOptimize' in user_from) and user_from['lastOptimize']:
         if int(time.time()) - int(user_from['lastOptimize']) < int(get_interval_opt(COIN_NAME)):
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -7050,7 +7138,9 @@ async def _tip(ctx, amount, coin: str):
         MaxTX = get_max_tx_amount(COIN_NAME)
         NetFee = get_tx_fee(coin = COIN_NAME)
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-
+        if user_from is None:
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if real_amount > MaxTX:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
@@ -7190,6 +7280,9 @@ async def _tip(ctx, amount, coin: str):
         MinTx = get_min_tx_amount(COIN_NAME)
         MaxTX = get_max_tx_amount(COIN_NAME)
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        if user_from is None:
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         real_amount = int(round(float(amount) * COIN_DEC))
         userdata_balance = store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
         if real_amount > user_from['actual_balance'] + userdata_balance['Adjust']:
@@ -7265,14 +7358,18 @@ async def _tip(ctx, amount, coin: str):
             await ctx.message.add_reaction(EMOJI_ERROR)
             return
         return
-    elif COIN_NAME == "DOGE":
-        MinTx = config.daemonDOGE.min_mv_amount
-        MaxTX = config.daemonDOGE.max_mv_amount
-        user_from = {}
-        user_from['address'] = await DOGE_LTC_getaccountaddress(str(ctx.message.author.id), COIN_NAME)
-        user_from['actual_balance'] = float(await DOGE_LTC_getbalance_acc(str(ctx.message.author.id), COIN_NAME, 6))
+    elif coin_family == "DOGE":
+        MinTx = getattr(config,"daemon"+COIN_NAME).min_mv_amount
+        MaxTX = getattr(config,"daemon"+COIN_NAME).max_mv_amount
+
+        user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        if user_from is None:
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        user_from['address'] = user_from['balance_wallet_address']
+
         real_amount = float(amount)
-        userdata_balance = store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
+        userdata_balance = await store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
         if real_amount > user_from['actual_balance'] + userdata_balance['Adjust']:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
@@ -7310,7 +7407,7 @@ async def _tip(ctx, amount, coin: str):
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You don\'t have sufficient balance. ')
             return
         try:
-            tips = store.sql_mv_doge_multiple(str(ctx.message.author.id), memids, real_amount, COIN_NAME, "TIPS")
+            tips = await store.sql_mv_doge_multiple(str(ctx.message.author.id), memids, real_amount, COIN_NAME, "TIPS")
             if ctx.message.author.bot == False and serverinfo['react_tip'] == "ON":
                 await ctx.message.add_reaction(EMOJI_TIP)
         except Exception as e:
@@ -7375,6 +7472,9 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
         MinTx = get_min_tx_amount(COIN_NAME)
         MaxTX = get_max_tx_amount(COIN_NAME)
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        if user_from is None:
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         NetFee = get_tx_fee(coin = COIN_NAME)
         if real_amount + NetFee > MaxTX:
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -7532,6 +7632,9 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
         MinTx = get_min_tx_amount(COIN_NAME)
         MaxTX = get_max_tx_amount(COIN_NAME)
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        if user_from is None:
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         real_amount = int(round(float(amount) * COIN_DEC))
         userdata_balance = store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
         if real_amount > user_from['actual_balance'] + userdata_balance['Adjust']:
@@ -7610,14 +7713,17 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
             await ctx.message.add_reaction(EMOJI_ERROR)
             return
         return
-    elif COIN_NAME == "DOGE":
-        MinTx = config.daemonDOGE.min_mv_amount
-        MaxTX = config.daemonDOGE.max_mv_amount
-        user_from = {}
-        user_from['address'] = await DOGE_LTC_getaccountaddress(str(ctx.message.author.id), COIN_NAME)
-        user_from['actual_balance'] = float(await DOGE_LTC_getbalance_acc(str(ctx.message.author.id), COIN_NAME, 6))
+    elif coin_family == "DOGE":
+        MinTx = getattr(config,"daemon"+COIN_NAME).min_mv_amount
+        MaxTX = getattr(config,"daemon"+COIN_NAME).max_mv_amount
+
+        user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        if user_from is None:
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        user_from['address'] = user_from['balance_wallet_address']
         real_amount = float(amount)
-        userdata_balance = store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
+        userdata_balance = await store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
         if real_amount > user_from['actual_balance'] + userdata_balance['Adjust']:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
@@ -7654,7 +7760,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You don\'t have sufficient balance. ')
             return
         try:
-            tips = store.sql_mv_doge_multiple(str(ctx.message.author.id), memids, real_amount, COIN_NAME, "TIPS")
+            tips = await store.sql_mv_doge_multiple(str(ctx.message.author.id), memids, real_amount, COIN_NAME, "TIPS")
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         if tips:
@@ -7719,7 +7825,9 @@ async def _tip_react(reaction, user, amount, coin: str):
         MaxTX = get_max_tx_amount(COIN_NAME)
         NetFee = get_tx_fee(coin = COIN_NAME)
         user_from = await store.sql_get_userwallet(str(user.id), COIN_NAME)
-
+        if user_from is None:
+            user_from = await store.sql_register_user(str(user.id), COIN_NAME)
+            user_from = await store.sql_get_userwallet(str(user.id), COIN_NAME)
         destinations = []
         listMembers = reaction.message.mentions
 
@@ -7838,6 +7946,9 @@ async def _tip_react(reaction, user, amount, coin: str):
         MinTx = get_min_tx_amount(COIN_NAME)
         MaxTX = get_max_tx_amount(COIN_NAME)
         user_from = await store.sql_get_userwallet(str(user.id), COIN_NAME)
+        if user_from is None:
+            user_from = await store.sql_register_user(str(user.id), COIN_NAME)
+            user_from = await store.sql_get_userwallet(str(user.id), COIN_NAME)
         real_amount = int(round(float(amount) * COIN_DEC))
         userdata_balance = store.sql_xmr_balance(str(user.id), COIN_NAME)
         if real_amount > user_from['actual_balance'] + userdata_balance['Adjust']:
@@ -7891,14 +8002,17 @@ async def _tip_react(reaction, user, amount, coin: str):
                                 store.sql_toggle_tipnotify(str(member.id), "OFF")
             return
         return
-    elif COIN_NAME == "DOGE":
-        MinTx = config.daemonDOGE.min_mv_amount
-        MaxTX = config.daemonDOGE.max_mv_amount
-        user_from = {}
-        user_from['address'] = await DOGE_LTC_getaccountaddress(str(user.id), COIN_NAME)
-        user_from['actual_balance'] = float(await DOGE_LTC_getbalance_acc(str(user.id), COIN_NAME, 6))
+    elif coin_family == "DOGE":
+        MinTx = getattr(config,"daemon"+COIN_NAME).min_mv_amount
+        MaxTX = getattr(config,"daemon"+COIN_NAME).max_mv_amount
+
+        user_from = await store.sql_get_userwallet(str(user.id), COIN_NAME)
+        if user_from is None:
+            user_from = await store.sql_register_user(str(user.id), COIN_NAME)
+            user_from = await store.sql_get_userwallet(str(user.id), COIN_NAME)
+        user_from['address'] = user_from['balance_wallet_address']
         real_amount = float(amount)
-        userdata_balance = store.sql_doge_balance(str(user.id), COIN_NAME)
+        userdata_balance = await store.sql_doge_balance(str(user.id), COIN_NAME)
         if real_amount > user_from['actual_balance'] + userdata_balance['Adjust']:
             try:
                 await user.send(f'{EMOJI_RED_NO} {user.mention} Insufficient balance to send tip of '
@@ -7922,7 +8036,7 @@ async def _tip_react(reaction, user, amount, coin: str):
                 print(f"{COIN_NAME} _tip_reactCan not send DM to {user.id}")
             return
         try:
-            tips = store.sql_mv_doge_multiple(user.id, memids, real_amount, COIN_NAME, "TIPS")
+            tips = await store.sql_mv_doge_multiple(user.id, memids, real_amount, COIN_NAME, "TIPS")
             REACT_TIP_STORE.append((str(reaction.message.id) + '.' + str(user.id)))
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
@@ -8059,6 +8173,9 @@ async def bot_faucet(ctx):
     if ctx.guild.id == TRTL_DISCORD:
         COIN_NAME = "TRTL"
         wallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
+        if wallet is None:
+            wallet = await store.sql_register_user(str(bot.user.id), COIN_NAME)
+            wallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
         balance_actual = num_format_coin(wallet['actual_balance'], COIN_NAME)
         balance_locked = num_format_coin(wallet['locked_balance'], COIN_NAME)
         balance_total = num_format_coin((wallet['actual_balance'] + wallet['locked_balance']), COIN_NAME)
@@ -8076,6 +8193,9 @@ async def bot_faucet(ctx):
         if (not is_maintenance_coin(COIN_NAME)) and coin_family in ["TRTL", "CCX"]:
             COIN_DEC = get_decimal(COIN_NAME)
             wallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
+            if wallet is None:
+                wallet = await store.sql_register_user(str(bot.user.id), COIN_NAME)
+                wallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
             balance_actual = num_format_coin(wallet['actual_balance'], COIN_NAME)
             balance_locked = num_format_coin(wallet['locked_balance'], COIN_NAME)
             balance_total = num_format_coin((wallet['actual_balance'] + wallet['locked_balance']), COIN_NAME)
@@ -8086,9 +8206,13 @@ async def bot_faucet(ctx):
     # Add DOGE
     COIN_NAME = "DOGE"
     if (not is_maintenance_coin(COIN_NAME)) and (COIN_NAME in FAUCET_COINS):
-        actual = float(await DOGE_LTC_getbalance_acc(str(bot.user.id), COIN_NAME, 6))
-        locked = float(await DOGE_LTC_getbalance_acc(str(bot.user.id), COIN_NAME, 1))
-        userdata_balance = store.sql_doge_balance(str(bot.user.id), COIN_NAME)
+        userwallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
+        if userwallet is None:
+            userwallet = await store.sql_register_user(str(bot.user.id), COIN_NAME)
+            userwallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
+        actual = userwallet['actual_balance']
+        locked = userwallet['locked_balance']
+        userdata_balance = await store.sql_doge_balance(str(bot.user.id), COIN_NAME)
         if actual == locked:
             balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
             balance_locked = num_format_coin(0, COIN_NAME)

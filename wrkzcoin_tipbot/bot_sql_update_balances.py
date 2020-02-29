@@ -15,6 +15,17 @@ async def update_balance():
     while True:
         print('sleep in second: '+str(INTERVAL_EACH))
         # do not update yet
+        # DOGE:
+        COIN_NAME = "DOGE"
+        time.sleep(INTERVAL_EACH)
+        print('Update balance: '+ COIN_NAME)
+        start = time.time()
+        try:
+            await store.sql_update_balances(COIN_NAME)
+        except Exception as e:
+            print(e)
+        end = time.time()
+        # End of DOGE
         # XTOR:
         COIN_NAME = "XTOR"
         time.sleep(INTERVAL_EACH)

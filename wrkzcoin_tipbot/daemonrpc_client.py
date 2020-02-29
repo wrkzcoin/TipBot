@@ -56,8 +56,8 @@ async def getWalletStatus(coin: str):
 
 async def getDaemonRPCStatus(coin: str):
     COIN_NAME = coin.upper()
-    if (COIN_NAME == "DOGE") or (COIN_NAME == "LTC"):
-        result = await rpc_client.call_doge_ltc('getinfo', COIN_NAME)
+    if COIN_NAME in ["DOGE", "LTC", "BTC", "DASH", "BCH"]:
+        result = await rpc_client.call_doge('getinfo', COIN_NAME)
     return result
 
 

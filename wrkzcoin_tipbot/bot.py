@@ -1202,6 +1202,55 @@ async def admin(ctx):
 
 
 @commands.is_owner()
+@admin.command(aliases=['addbalance'])
+async def credit(ctx, amount: str, coin: str, to_userid: str):
+    COIN_NAME = coin.upper()
+    if COIN_NAME not in (ENABLE_COIN + ENABLE_XMR + ENABLE_COIN_DOGE):
+        await ctx.send(f'{EMOJI_ERROR} **{COIN_NAME}** is not in our list.')
+        return
+
+    # check if bot can find user
+    member = bot.get_user(id=int(to_userid))
+    if member is None:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} I cannot find user with userid **{to_userid}**.')
+        return
+    # check if user / address exist in database
+    amount = amount.replace(",", "")
+    try:
+        amount = float(amount)
+    except ValueError:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid credit amount.')
+        return
+
+    coin_family = None
+    wallet = None
+    try:
+        coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**')
+        return
+    if coin_family == "XMR" or coin_family == "DOGE":
+        wallet = await store.sql_get_userwallet(to_userid, COIN_NAME)
+        if wallet is None:
+            userregister = await store.sql_register_user(to_userid, COIN_NAME)
+            wallet = await store.sql_get_userwallet(to_userid, COIN_NAME)
+    else:
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} not support ticker **{COIN_NAME}**')
+        return
+
+    COIN_DEC = get_decimal(COIN_NAME)
+    real_amount = int(amount * COIN_DEC) if coin_family in ["XMR", "TRTL"] else amount * COIN_DEC
+    credit_to = await store.sql_credit(str(ctx.message.author.id), to_userid, real_amount, COIN_NAME, ctx.message.content)
+    if credit_to:
+        msg = await ctx.send(f'{ctx.author.mention} amount **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** has been credited to userid **{to_userid}**.')
+        await msg.add_reaction(EMOJI_OK_BOX)
+        return
+
+
+@commands.is_owner()
 @admin.command(aliases=['maintenance'])
 async def maint(ctx, coin: str):
     COIN_NAME = coin.upper()
@@ -1330,17 +1379,13 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
     if create_wallet and create_wallet.upper() == "ON":
         create_acc = True
     for coinItem in ENABLE_COIN:
-        if not is_maintenance_coin(coinItem) and create_acc:
+        if not is_maintenance_coin(coinItem):
             COIN_DEC = get_decimal(coinItem.upper())
             wallet = await store.sql_get_userwallet(str(user_id), coinItem.upper())
-            if wallet is None:
+            if wallet is None and create_acc:
                 userregister = await store.sql_register_user(str(user_id), coinItem.upper())
                 wallet = await store.sql_get_userwallet(str(user_id), coinItem.upper())
-                if wallet:
-                    table_data.append([coinItem.upper(), num_format_coin(0, coinItem.upper()), num_format_coin(0, coinItem.upper())])
-                else:
-                    table_data.append([coinItem.upper(), "N/A", "N/A"])
-            else:
+            if wallet:
                 balance_actual = num_format_coin(wallet['actual_balance'], coinItem.upper())
                 balance_locked = num_format_coin(wallet['locked_balance'], coinItem.upper())
                 balance_total = num_format_coin((wallet['actual_balance'] + wallet['locked_balance']), coinItem.upper())
@@ -1351,37 +1396,40 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
                     coinName += ' >>'
                 table_data.append([coinName, balance_actual, balance_locked])
                 pass
+            else:
+                table_data.append([coinItem.upper(), "N/A", "N/A"])
         else:
             table_data.append([coinItem.upper(), "***", "***"])
     for COIN_NAME in [coinItem.upper() for coinItem in ENABLE_COIN_DOGE]:
-        if not is_maintenance_coin(COIN_NAME) and create_acc:
+        if not is_maintenance_coin(COIN_NAME):
             wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
-            if wallet is None:
+            if wallet is None and create_acc:
                 wallet = await store.sql_register_user(str(user_id), COIN_NAME)
                 wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
-            actual = wallet['actual_balance']
-            locked = wallet['locked_balance']
-            userdata_balance = await store.sql_doge_balance(str(user_id), COIN_NAME)
-
-            if actual == locked:
-                balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
-                balance_locked = num_format_coin(0, COIN_NAME)
-            else:
-                balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
-                if locked - actual + float(userdata_balance['Adjust']) < 0 or locked == 0:
-                    balance_locked =  num_format_coin(0, COIN_NAME)
+            if wallet:
+                actual = wallet['actual_balance']
+                locked = wallet['locked_balance']
+                userdata_balance = await store.sql_doge_balance(str(user_id), COIN_NAME)
+                if actual == locked:
+                    balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
+                    balance_locked = num_format_coin(0, COIN_NAME)
                 else:
-                    balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
-            wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-            if wallet['user_wallet_address'] is None:
-                COIN_NAME += '*'
-            table_data.append([COIN_NAME, balance_actual, balance_locked])
+                    balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
+                    if locked - actual + float(userdata_balance['Adjust']) < 0 or locked == 0:
+                        balance_locked =  num_format_coin(0, COIN_NAME)
+                    else:
+                        balance_locked =  num_format_coin(locked - actual + float(userdata_balance['Adjust']), COIN_NAME)
+                if wallet['user_wallet_address'] is None:
+                    COIN_NAME += '*'
+                table_data.append([COIN_NAME, balance_actual, balance_locked])
+            else:
+                table_data.append([coinItem.upper(), "N/A", "N/A"])
         else:
             table_data.append([COIN_NAME, "***", "***"])
     for COIN_NAME in [coinItem.upper() for coinItem in ENABLE_XMR]:
-        if not is_maintenance_coin(COIN_NAME) and create_acc:
+        if not is_maintenance_coin(COIN_NAME):
             wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
-            if wallet is None:
+            if wallet is None and create_acc:
                 userregister = await store.sql_register_user(str(user_id), COIN_NAME)
                 wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
             if wallet:
@@ -1399,6 +1447,8 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
                 if wallet['user_wallet_address'] is None:
                     COIN_NAME += '*'
                 table_data.append([COIN_NAME, balance_actual, balance_locked])
+            else:
+                table_data.append([coinItem.upper(), "N/A", "N/A"])
         else:
             table_data.append([COIN_NAME, "***", "***"])
     table = AsciiTable(table_data)

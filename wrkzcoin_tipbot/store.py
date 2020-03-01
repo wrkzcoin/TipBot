@@ -266,6 +266,22 @@ async def sql_update_balances(coin: str = None):
                 traceback.print_exc(file=sys.stdout)
 
 
+async def sql_credit(user_from: str, to_user: str, amount: float, coin: str, reason: str):
+    global conn
+    COIN_NAME = coin.upper()
+    try:
+        openConnection()
+        print((COIN_NAME, user_from, to_user, amount, wallet.get_decimal(COIN_NAME), int(time.time()), reason,))
+        with conn.cursor() as cur: 
+            sql = """ INSERT INTO credit_balance (`coin_name`, `from_userid`, `to_userid`, `amount`, `decimal`, `credit_date`, `reason`) 
+                      VALUES (%s, %s, %s, %s, %s, %s, %s) """
+            cur.execute(sql, (COIN_NAME, user_from, to_user, amount, wallet.get_decimal(COIN_NAME), int(time.time()), reason,))
+            conn.commit()
+        return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return False
+
 
 async def sql_update_some_balances(wallet_addresses: List[str], coin: str):
     global conn
@@ -2008,15 +2024,27 @@ async def sql_doge_balance(userID: str, coin: str):
             else:
                 FeeExpense = 0
 
+            # Credit by admin is positive (Positive)
+            sql = """ SELECT SUM(amount) AS Credited FROM credit_balance WHERE `coin_name`=%s AND `to_userid`=%s  
+                  """
+            cur.execute(sql, (COIN_NAME, userID))
+            result = cur.fetchone()
+            if result:
+                Credited = result['Credited']
+            else:
+                Credited = 0
+
             balance = {}
             balance['Expense'] = Expense or 0
             balance['Expense'] = round(balance['Expense'], 4)
             balance['Income'] = Income or 0
             balance['TxExpense'] = TxExpense or 0
             balance['FeeExpense'] = FeeExpense or 0
+            balance['Credited'] = Credited if Credited else 0
             #print('balance: ')
             #print(balance)
-            balance['Adjust'] = float(balance['Income']) - float(balance['Expense']) - float(balance['TxExpense']) - float(balance['FeeExpense'])
+            balance['Adjust'] = float(balance['Credited']) + float(balance['Income']) - float(balance['Expense']) \
+            - float(balance['TxExpense']) - float(balance['FeeExpense'])
             #print(balance['Adjust'])
             return balance
     except Exception as e:
@@ -2152,13 +2180,24 @@ def sql_xmr_balance(userID: str, coin: str, redis_reset: bool = True):
             else:
                 FeeExpense = 0
 
+            # Credit by admin is positive (Positive)
+            sql = """ SELECT SUM(amount) AS Credited FROM credit_balance WHERE `coin_name`=%s AND `to_userid`=%s  
+                  """
+            cur.execute(sql, (COIN_NAME, userID))
+            result = cur.fetchone()
+            if result:
+                Credited = result['Credited']
+            else:
+                Credited = 0
+
             balance = {}
             balance['Expense'] = float(Expense) if Expense else 0
             balance['Expense'] = float(round(balance['Expense'], 4))
             balance['Income'] = float(Income) if Income else 0
             balance['TxExpense'] = float(TxExpense) if TxExpense else 0
             balance['FeeExpense'] = float(FeeExpense) if FeeExpense else 0
-            balance['Adjust'] = balance['Income'] - balance['Expense'] - balance['TxExpense'] - balance['FeeExpense']
+            balance['Credited'] = float(Credited) if Credited else 0
+            balance['Adjust'] = balance['Credited']+ balance['Income'] - balance['Expense'] - balance['TxExpense'] - balance['FeeExpense']
             # add to redis
             try:
                 if redis_conn:

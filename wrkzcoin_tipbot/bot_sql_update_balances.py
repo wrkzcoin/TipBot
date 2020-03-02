@@ -9,7 +9,7 @@ import asyncio
 ENABLE_COIN = config.Enable_Coin.split(",")
 ENABLE_COIN_DOGE = config.Enable_Coin_Doge.split(",")
 ENABLE_XMR = config.Enable_Coin_XMR.split(",")
-INTERVAL_EACH = 10
+INTERVAL_EACH = 5
 
 
 # Let's run balance update by a separate process
@@ -27,6 +27,7 @@ async def update_balance():
             except Exception as e:
                 print(e)
             end = time.time()
+            print('Done update balance: '+ coinItem.upper().strip()+ ' duration (s): '+str(end - start))
             time.sleep(INTERVAL_EACH)
             # End of DOGE family
         # XMR family:
@@ -39,7 +40,7 @@ async def update_balance():
             except Exception as e:
                 print(e)
             end = time.time()
-            print('Done update balance: '+ COIN_NAME+ ' duration (s): '+str(end - start))
+            print('Done update balance: '+ coinItem.upper().strip()+ ' duration (s): '+str(end - start))
             time.sleep(INTERVAL_EACH)
             # End of XMR family
         for coinItem in ENABLE_COIN:

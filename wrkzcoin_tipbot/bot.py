@@ -161,7 +161,6 @@ EMOJI_COIN = {
     "XTOR" : "\U0001F315",
     "LOKI" : "\u2600",
     "XMR" : "\u2694",
-    "XEQ" : "\U0001F30C",
     "ARQ" : "\U0001F578",
     "MSR" : "\U0001F334",
     "BLOG" : "\u270D",
@@ -208,7 +207,6 @@ NOTICE_COIN = {
     "NACA" : getattr(getattr(config,"daemonNACA"),"coin_notice", None),
     "XTOR" : getattr(getattr(config,"daemonXTOR"),"coin_notice", None),
     "LOKI" : getattr(getattr(config,"daemonLOKI"),"coin_notice", None),
-    "XEQ" : getattr(getattr(config,"daemonXEQ"),"coin_notice", None),
     "ARQ" : getattr(getattr(config,"daemonARQ"),"coin_notice", None),
     "XMR" : getattr(getattr(config,"daemonXMR"),"coin_notice", None),
     "MSR" : getattr(getattr(config,"daemonMSR"),"coin_notice", None),
@@ -6512,8 +6510,6 @@ def get_cn_coin_from_address(CoinAddress: str):
         COIN_NAME = "XAM"
     elif CoinAddress.startswith("L") and (len(CoinAddress) == 95 or len(CoinAddress) == 106):
         COIN_NAME = "LOKI"
-    elif CoinAddress.startswith("T") and (len(CoinAddress) == 97 or len(CoinAddress) == 98 or len(CoinAddress) == 109):
-        COIN_NAME = "XEQ"
     elif CoinAddress.startswith("cms") and (len(CoinAddress) == 98 or len(CoinAddress) == 109):
         COIN_NAME = "BLOG"
     elif (CoinAddress.startswith("ar") or CoinAddress.startswith("aR")) and (len(CoinAddress) == 97 or len(CoinAddress) == 98 or len(CoinAddress) == 109):

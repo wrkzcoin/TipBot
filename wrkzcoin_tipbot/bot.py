@@ -184,6 +184,7 @@ EMOJI_ZIPPED_MOUTH = "\U0001F910"
 EMOJI_LOCKED = "\U0001F512"
 
 ENABLE_COIN = config.Enable_Coin.split(",")
+ENABLE_COIN_OFFCHAIN = config.Enable_Coin_Offchain.split(",")
 ENABLE_COIN_DOGE = config.Enable_Coin_Doge.split(",")
 ENABLE_XMR = config.Enable_Coin_XMR.split(",")
 MAINTENANCE_COIN = config.Maintenance_Coin.split(",")
@@ -1378,28 +1379,27 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
     ]
     if create_wallet and create_wallet.upper() == "ON":
         create_acc = True
-    for coinItem in ENABLE_COIN:
-        if not is_maintenance_coin(coinItem):
-            COIN_DEC = get_decimal(coinItem.upper())
-            wallet = await store.sql_get_userwallet(str(user_id), coinItem.upper())
+    for COIN_NAME in [coinItem.upper() for coinItem in ENABLE_COIN]:
+        if not is_maintenance_coin(COIN_NAME):
+            COIN_DEC = get_decimal(COIN_NAME)
+            wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
             if wallet is None and create_acc:
-                userregister = await store.sql_register_user(str(user_id), coinItem.upper())
-                wallet = await store.sql_get_userwallet(str(user_id), coinItem.upper())
+                userregister = await store.sql_register_user(str(user_id), COIN_NAME)
+                wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
             if wallet:
-                balance_actual = num_format_coin(wallet['actual_balance'], coinItem.upper())
-                balance_locked = num_format_coin(wallet['locked_balance'], coinItem.upper())
-                balance_total = num_format_coin((wallet['actual_balance'] + wallet['locked_balance']), coinItem.upper())
-                coinName = coinItem.upper()
+                balance_actual = num_format_coin(wallet['actual_balance'], COIN_NAME)
+                balance_locked = num_format_coin(wallet['locked_balance'], COIN_NAME)
+                balance_total = num_format_coin((wallet['actual_balance'] + wallet['locked_balance']), COIN_NAME)
                 if  wallet['user_wallet_address'] is None:
-                    coinName += '*'
+                    COIN_NAME += '*'
                 if wallet['forwardtip'] == "ON":
-                    coinName += ' >>'
-                table_data.append([coinName, balance_actual, balance_locked])
+                    COIN_NAME += ' >>'
+                table_data.append([COIN_NAME, balance_actual, balance_locked])
                 pass
             else:
-                table_data.append([coinItem.upper(), "N/A", "N/A"])
+                table_data.append([COIN_NAME, "N/A", "N/A"])
         else:
-            table_data.append([coinItem.upper(), "***", "***"])
+            table_data.append([COIN_NAME, "***", "***"])
     for COIN_NAME in [coinItem.upper() for coinItem in ENABLE_COIN_DOGE]:
         if not is_maintenance_coin(COIN_NAME):
             wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
@@ -1423,7 +1423,7 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
                     COIN_NAME += '*'
                 table_data.append([COIN_NAME, balance_actual, balance_locked])
             else:
-                table_data.append([coinItem.upper(), "N/A", "N/A"])
+                table_data.append([COIN_NAME, "N/A", "N/A"])
         else:
             table_data.append([COIN_NAME, "***", "***"])
     for COIN_NAME in [coinItem.upper() for coinItem in ENABLE_XMR]:
@@ -1448,7 +1448,7 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
                     COIN_NAME += '*'
                 table_data.append([COIN_NAME, balance_actual, balance_locked])
             else:
-                table_data.append([coinItem.upper(), "N/A", "N/A"])
+                table_data.append([COIN_NAME, "N/A", "N/A"])
         else:
             table_data.append([COIN_NAME, "***", "***"])
     table = AsciiTable(table_data)

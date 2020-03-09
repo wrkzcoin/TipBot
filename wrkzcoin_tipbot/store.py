@@ -44,6 +44,7 @@ conn = connPool.get_connection(timeout=5, retry_num=2)
 sys.path.append("..")
 
 ENABLE_COIN = config.Enable_Coin.split(",")
+ENABLE_XMR = config.Enable_Coin_XMR.split(",")
 ENABLE_COIN_DOGE = config.Enable_Coin_Doge.split(",")
 
 # Coin using wallet-api
@@ -970,6 +971,7 @@ def sql_get_donate_list():
         openConnection()
         sql = None
         with conn.cursor() as cur:
+            # TRTL fam
             for coin in ENABLE_COIN:
                 sql = """ SELECT SUM(amount) AS donate FROM cn_donate WHERE `coin_name`= %s """
                 cur.execute(sql, (coin.upper()))
@@ -978,15 +980,15 @@ def sql_get_donate_list():
                    donate_list.update({coin: 0})
                 else:
                    donate_list.update({coin: float(result['donate'])})
-            # DOGE
-            coin = "DOGE"
-            sql = """ SELECT SUM(amount) AS donate FROM """+coin.lower()+"""_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
-            cur.execute(sql, (wallet.get_donate_address(coin)))
-            result = cur.fetchone()
-            if result['donate'] is None:
-                donate_list.update({coin: 0})
-            else:
-                donate_list.update({coin: float(result['donate'])})
+            # DOGE fam
+            for coin in ENABLE_COIN_DOGE:
+                sql = """ SELECT SUM(amount) AS donate FROM doge_mv_tx WHERE `type`='DONATE' AND `to_userid`= %s AND `coin_name`= %s """
+                cur.execute(sql, ((wallet.get_donate_address(coin), coin.upper())))
+                result = cur.fetchone()
+                if result['donate'] is None:
+                   donate_list.update({coin: 0})
+                else:
+                   donate_list.update({coin: float(result['donate'])})
             # XTOR
             coin = "XTOR"
             sql = """ SELECT SUM(amount) AS donate FROM """+coin.lower()+"""_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """

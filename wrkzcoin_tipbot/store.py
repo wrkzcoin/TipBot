@@ -519,10 +519,9 @@ async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD'):
                     if (walletStatus is None) and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
                         print('Can not reach wallet-api during sql_register_user')
                         chainHeight = 0
-                    else:
-                        if coin_family == "TRTL" or coin_family == "CCX":
-                            chainHeight = int(walletStatus['blockCount'])
+                            
                     if coin_family == "TRTL" and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
+                        chainHeight = int(walletStatus['blockCount'])
                         sql = """ INSERT INTO cn_user (`coin_name`, `user_id`, `balance_wallet_address`, 
                                   `balance_wallet_address_ts`, `balance_wallet_address_ch`, `privateSpendKey`) 
                                   VALUES (%s, %s, %s, %s, %s, %s) """

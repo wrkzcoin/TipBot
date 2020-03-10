@@ -5491,7 +5491,7 @@ async def stats(ctx, coin: str = None):
 
         if coin_family == "XMR":
             desc = f"Tip min/max: {num_format_coin(get_min_mv_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_mv_amount(COIN_NAME), COIN_NAME)}{COIN_NAME}\n"
-            desc += f"TX min/max: {num_format_coin(get_min_tx_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_tx_amount(COIN_NAME), COIN_NAME)}{COIN_NAME}\n"
+            desc += f"Tx min/max: {num_format_coin(get_min_tx_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_tx_amount(COIN_NAME), COIN_NAME)}{COIN_NAME}\n"
             embed = discord.Embed(title=f"[ {COIN_NAME} ]", 
                                   description=desc, 
                                   timestamp=datetime.utcnow(), color=0xDEADBF)
@@ -5538,7 +5538,7 @@ async def stats(ctx, coin: str = None):
                 else:
                     walletBalance = await get_sum_balances(COIN_NAME)
             desc = f"Tip min/max: {num_format_coin(get_min_mv_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_mv_amount(COIN_NAME), COIN_NAME)}{COIN_NAME}\n"
-            desc += f"TX min/max: {num_format_coin(get_min_tx_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_tx_amount(COIN_NAME), COIN_NAME)}{COIN_NAME}\n"
+            desc += f"Tx min/max: {num_format_coin(get_min_tx_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_tx_amount(COIN_NAME), COIN_NAME)}{COIN_NAME}\n"
             embed = discord.Embed(title=f"[ {COIN_NAME} ]", 
                                   description=desc, 
                                   timestamp=datetime.utcnow(), color=0xDEADBF)

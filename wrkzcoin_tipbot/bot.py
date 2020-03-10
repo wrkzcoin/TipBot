@@ -260,6 +260,7 @@ bot_help_disclaimer = "Show disclaimer."
 bot_help_voucher = "(Testing) make a voucher image and your friend can claim via QR code."
 bot_help_take = "Get random faucet tip."
 bot_help_cal = "Use built-in calculator."
+bot_help_coininfo = "List of coin status."
 
 # admin commands
 bot_help_admin = "Various admin commands."
@@ -1280,6 +1281,32 @@ async def txable(ctx, coin: str):
 
 
 @commands.is_owner()
+@admin.command(aliases=['tip'])
+async def tipable(ctx, coin: str):
+    COIN_NAME = coin.upper()
+    if is_coin_tipable(COIN_NAME):
+        await ctx.send(f'{EMOJI_OK_BOX} Set **{COIN_NAME}** **DISABLE** TIP.')
+        set_main = set_coin_tipable(COIN_NAME, False)
+    else:
+        await ctx.send(f'{EMOJI_OK_BOX} Set **{COIN_NAME}** **ENABLE** TIP.')
+        set_main = set_coin_tipable(COIN_NAME, True)
+    return
+
+
+@commands.is_owner()
+@admin.command(aliases=['deposit'])
+async def depositable(ctx, coin: str):
+    COIN_NAME = coin.upper()
+    if is_coin_depositable(COIN_NAME):
+        await ctx.send(f'{EMOJI_OK_BOX} Set **{COIN_NAME}** **DISABLE** DEPOSIT.')
+        set_main = set_coin_depositable(COIN_NAME, False)
+    else:
+        await ctx.send(f'{EMOJI_OK_BOX} Set **{COIN_NAME}** **ENABLE** DEPOSIT.')
+        set_main = set_coin_depositable(COIN_NAME, True)
+    return
+
+
+@commands.is_owner()
 @admin.command(help=bot_help_admin_save)
 async def save(ctx, coin: str):
     global SAVING_ALL
@@ -1786,6 +1813,11 @@ async def info(ctx, coin: str = None):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**!')
         return
 
+    if not is_coin_depositable(COIN_NAME):
+        msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} DEPOSITING is currently disable for {COIN_NAME}.')
+        await msg.add_reaction(EMOJI_OK_BOX)
+        return
+
     try:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     except Exception as e:
@@ -1853,6 +1885,73 @@ async def info(ctx, coin: str = None):
                                f'{EMOJI_SCALE} Registered Wallet: `NONE, Please register.`\n'
                                f'{get_notice_txt(COIN_NAME)}')
     return
+
+
+@bot.command(pass_context=True, name='coininfo', aliases=['coinf_info', 'coin'], help=bot_help_coininfo)
+async def coininfo(ctx, coin: str = None):
+    if coin is None:
+        table_data = [
+            ["TICKER", "Height", "Tip", "Wdraw", "Depth"]
+            ]
+        for COIN_NAME in [coinItem.upper() for coinItem in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR]:
+            height = None
+            try:
+                openRedis()
+                if redis_conn and redis_conn.exists(f'TIPBOT:DAEMON_HEIGHT_{COIN_NAME}'):
+                    height = int(redis_conn.get(f'TIPBOT:DAEMON_HEIGHT_{COIN_NAME}'))
+                    if not is_maintenance_coin(COIN_NAME):
+                        table_data.append([COIN_NAME,  '{:,.0f}'.format(height), "ON" if is_coin_tipable(COIN_NAME) else "OFF"\
+                        , "ON" if is_coin_txable(COIN_NAME) else "OFF"\
+                        , get_confirm_depth(COIN_NAME)])
+                    else:
+                        table_data.append([COIN_NAME, "***", "***", "***", get_confirm_depth(COIN_NAME)])
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+
+        table = AsciiTable(table_data)
+        # table.inner_column_border = False
+        # table.outer_border = False
+        table.padding_left = 0
+        table.padding_right = 0
+        msg = await ctx.send('**[ TIPBOT COIN LIST ]**\n'
+                                            f'```{table.table}```')
+        
+        return
+    else:
+        COIN_NAME = coin.upper()
+        if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR:
+            await ctx.message.author.send(f'{ctx.author.mention} **{COIN_NAME}** is not in our list.')
+            return
+        else:
+            response_text = "**[ COIN INFO {} ]**".format(COIN_NAME)
+            response_text += "```"
+            try:
+                openRedis()
+                if redis_conn and redis_conn.exists(f'TIPBOT:DAEMON_HEIGHT_{COIN_NAME}'):
+                    height = int(redis_conn.get(f'TIPBOT:DAEMON_HEIGHT_{COIN_NAME}'))
+                    response_text += "Height: {:,.0f}".format(height) + "\n"
+                response_text += "Confirmation: {} Blocks".format(get_confirm_depth(COIN_NAME)) + "\n"
+                if is_coin_tipable(COIN_NAME): 
+                    response_text += "Tipping: ON\n"
+                else:
+                    response_text += "Tipping: OFF\n"
+                if is_coin_depositable(COIN_NAME): 
+                    response_text += "Deposit: ON\n"
+                else:
+                    response_text += "Deposit: OFF\n"
+                if is_coin_txable(COIN_NAME): 
+                    response_text += "Withdraw: ON\n"
+                else:
+                    response_text += "Withdraw: OFF\n"
+                get_tip_min_max = "Tip Min/Max:\n   " + num_format_coin(get_min_mv_amount(COIN_NAME), COIN_NAME) + " / " + num_format_coin(get_max_mv_amount(COIN_NAME), COIN_NAME) + COIN_NAME
+                response_text += get_tip_min_max + "\n"
+                get_tx_min_max = "Withdraw Min/Max:\n   " + num_format_coin(get_min_tx_amount(COIN_NAME), COIN_NAME) + " / " + num_format_coin(get_max_tx_amount(COIN_NAME), COIN_NAME) + COIN_NAME
+                response_text += get_tx_min_max
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            response_text += "```"
+            await ctx.send(response_text)
+            return
 
 
 @bot.command(pass_context=True, name='balance', aliases=['bal'], help=bot_help_balance)
@@ -2985,10 +3084,6 @@ async def donate(ctx, amount: str, coin: str = None):
         else:
             coin = "WRKZ"
     COIN_NAME = coin.upper()
-    if not is_coin_txable(COIN_NAME):
-        msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} TX is currently disable for {COIN_NAME}.')
-        await msg.add_reaction(EMOJI_OK_BOX)
-        return
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     if is_maintenance_coin(COIN_NAME):
         await ctx.message.add_reaction(EMOJI_MAINTENANCE)
@@ -3460,6 +3555,11 @@ async def tip(ctx, amount: str, *args):
     if ctx.guild.id == TRTL_DISCORD and COIN_NAME != "TRTL":
         return
 
+    if not is_coin_tipable(COIN_NAME):
+        msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} TIPPING is currently disable for {COIN_NAME}.')
+        await msg.add_reaction(EMOJI_OK_BOX)
+        return
+
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     # Check allowed coins
     tiponly_coins = serverinfo['tiponly'].split(",")
@@ -3874,10 +3974,11 @@ async def tipall(ctx, amount: str, *args):
     print('TIPALL COIN_NAME:' + COIN_NAME)
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
 
-    if not is_coin_txable(COIN_NAME):
-        msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} TX is currently disable for {COIN_NAME}.')
+    if not is_coin_tipable(COIN_NAME):
+        msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} TIPPING is currently disable for {COIN_NAME}.')
         await msg.add_reaction(EMOJI_OK_BOX)
         return
+
     # Check allowed coins
     tiponly_coins = serverinfo['tiponly'].split(",")
     if COIN_NAME == serverinfo['default_coin'].upper() or serverinfo['tiponly'].upper() == "ALLCOIN":
@@ -5297,11 +5398,6 @@ async def voucher(ctx, command: str, amount: str, coin: str = None):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
         return
     print('VOUCHER: '+COIN_NAME)
-
-    if not is_coin_txable(COIN_NAME):
-        msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} TX is currently disable for {COIN_NAME}.')
-        await msg.add_reaction(EMOJI_OK_BOX)
-        return
 
     COIN_DEC = get_decimal(COIN_NAME)
     real_amount = int(amount * COIN_DEC)
@@ -7917,6 +8013,82 @@ def set_coin_txable(coin: str, set_txable: bool = True):
         openRedis()
         key = 'TIPBOT:COIN_' + COIN_NAME + '_TX'
         if set_txable == True:
+            if redis_conn and redis_conn.exists(key):
+                redis_conn.delete(key)
+                return True
+        else:
+            if redis_conn and not redis_conn.exists(key):
+                redis_conn.set(key, "ON")                
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
+def is_coin_depositable(coin: str):
+    global redis_conn, redis_expired
+    COIN_NAME = coin.upper()
+    if is_maintenance_coin(COIN_NAME):
+        return False
+    # Check if exist in redis
+    try:
+        openRedis()
+        key = 'TIPBOT:COIN_' + COIN_NAME + '_DEPOSIT'
+        if redis_conn and redis_conn.exists(key):
+            return False
+        else:
+            return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
+def set_coin_depositable(coin: str, set_deposit: bool = True):
+    global redis_conn, redis_expired
+    COIN_NAME = coin.upper()
+    if is_maintenance_coin(COIN_NAME):
+        return False
+
+    # Check if exist in redis
+    try:
+        openRedis()
+        key = 'TIPBOT:COIN_' + COIN_NAME + '_DEPOSIT'
+        if set_deposit == True:
+            if redis_conn and redis_conn.exists(key):
+                redis_conn.delete(key)
+                return True
+        else:
+            if redis_conn and not redis_conn.exists(key):
+                redis_conn.set(key, "ON")                
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
+def is_coin_tipable(coin: str):
+    global redis_conn, redis_expired
+    COIN_NAME = coin.upper()
+    if is_maintenance_coin(COIN_NAME):
+        return False
+    # Check if exist in redis
+    try:
+        openRedis()
+        key = 'TIPBOT:COIN_' + COIN_NAME + '_TIP'
+        if redis_conn and redis_conn.exists(key):
+            return False
+        else:
+            return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
+def set_coin_tipable(coin: str, set_tipable: bool = True):
+    global redis_conn, redis_expired
+    COIN_NAME = coin.upper()
+    if is_maintenance_coin(COIN_NAME):
+        return False
+
+    # Check if exist in redis
+    try:
+        openRedis()
+        key = 'TIPBOT:COIN_' + COIN_NAME + '_TIP'
+        if set_tipable == True:
             if redis_conn and redis_conn.exists(key):
                 redis_conn.delete(key)
                 return True

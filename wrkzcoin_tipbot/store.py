@@ -292,26 +292,28 @@ async def sql_update_balances(coin: str = None):
                     # print('=================='+COIN_NAME+'===========')
                     list_balance_user = {}
                     for tx in get_transfers['in']:
-                        if ('payment_id' in tx) and (tx['payment_id'] in list_balance_user):
-                            list_balance_user[tx['payment_id']] += tx['amount']
-                        elif ('payment_id' in tx) and (tx['payment_id'] not in list_balance_user):
-                            list_balance_user[tx['payment_id']] = tx['amount']
-                        try:
-                            if tx['txid'] not in d:
-                                sql = """ INSERT IGNORE INTO """+coin.lower()+"""_get_transfers (`coin_name`, `in_out`, `txid`, 
-                                `payment_id`, `height`, `timestamp`, `amount`, `fee`, `decimal`, `address`, time_insert) 
-                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                                cur.execute(sql, (COIN_NAME, tx['type'].upper(), tx['txid'], tx['payment_id'], tx['height'], tx['timestamp'],
-                                                  tx['amount'], tx['fee'], wallet.get_decimal(COIN_NAME), tx['address'], int(time.time())))
-                                conn.commit()
-                                # add to notification list also
-                                sql = """ INSERT IGNORE INTO discord_notify_new_tx (`coin_name`, `txid`, 
-                                `payment_id`, `height`, `amount`, `fee`, `decimal`) 
-                                VALUES (%s, %s, %s, %s, %s, %s, %s) """
-                                cur.execute(sql, (COIN_NAME, tx['txid'], tx['payment_id'], tx['height'],
-                                                  tx['amount'], tx['fee'], wallet.get_decimal(COIN_NAME)))
-                        except Exception as e:
-                            traceback.print_exc(file=sys.stdout)
+                        # add to balance only confirmation depth meet
+                        if height > int(tx['height']) + wallet.get_confirm_depth(COIN_NAME):
+                            if ('payment_id' in tx) and (tx['payment_id'] in list_balance_user):
+                                list_balance_user[tx['payment_id']] += tx['amount']
+                            elif ('payment_id' in tx) and (tx['payment_id'] not in list_balance_user):
+                                list_balance_user[tx['payment_id']] = tx['amount']
+                            try:
+                                if tx['txid'] not in d:
+                                    sql = """ INSERT IGNORE INTO """+coin.lower()+"""_get_transfers (`coin_name`, `in_out`, `txid`, 
+                                    `payment_id`, `height`, `timestamp`, `amount`, `fee`, `decimal`, `address`, time_insert) 
+                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                    cur.execute(sql, (COIN_NAME, tx['type'].upper(), tx['txid'], tx['payment_id'], tx['height'], tx['timestamp'],
+                                                      tx['amount'], tx['fee'], wallet.get_decimal(COIN_NAME), tx['address'], int(time.time())))
+                                    conn.commit()
+                                    # add to notification list also
+                                    sql = """ INSERT IGNORE INTO discord_notify_new_tx (`coin_name`, `txid`, 
+                                    `payment_id`, `height`, `amount`, `fee`, `decimal`) 
+                                    VALUES (%s, %s, %s, %s, %s, %s, %s) """
+                                    cur.execute(sql, (COIN_NAME, tx['txid'], tx['payment_id'], tx['height'],
+                                                      tx['amount'], tx['fee'], wallet.get_decimal(COIN_NAME)))
+                            except Exception as e:
+                                traceback.print_exc(file=sys.stdout)
                     if len(list_balance_user) > 0:
                         list_update = []
                         timestamp = int(time.time())

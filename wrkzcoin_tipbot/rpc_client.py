@@ -60,7 +60,7 @@ async def call_aiohttp_wallet(method_name: str, coin: str, time_out: int = None,
             except Exception:
                 traceback.print_exc(file=sys.stdout)
                 return None
-        elif coin_family == "TRTL" or coin_family == "CCX":
+        elif coin_family == "TRTL":
             try:
                 async with aiohttp.ClientSession() as session:
                     async with session.post(url, json=full_payload, timeout=timeout) as response:

@@ -187,6 +187,41 @@ async def send_transactionall(from_address: str, to_address, coin: str, acc_inde
     return result
 
 
+async def send_transaction_offchain(from_address: str, to_address: str, amount: int, coin: str, acc_index: int = None) -> str:
+    COIN_NAME = coin.upper()
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    result = None
+    time_out = 64
+    if coin_family == "TRTL":
+        if COIN_NAME not in FEE_PER_BYTE_COIN:
+            payload = {
+                'addresses': [from_address],
+                'transfers': [{
+                    "amount": amount,
+                    "address": to_address
+                }],
+                'fee': get_tx_fee(COIN_NAME),
+                'anonymity': get_mixin(COIN_NAME)
+            }
+        else:
+            payload = {
+                'addresses': [from_address],
+                'transfers': [{
+                    "amount": amount,
+                    "address": to_address
+                }],
+                'anonymity': get_mixin(COIN_NAME)
+            }
+        result = await rpc_client.call_aiohttp_wallet('sendTransaction', COIN_NAME, time_out=time_out, payload=payload)
+        if result:
+            if 'transactionHash' in result:
+                if COIN_NAME not in FEE_PER_BYTE_COIN:
+                    return {"transactionHash": result['transactionHash'], "fee": get_tx_fee(COIN_NAME)}
+                else:
+                    return {"transactionHash": result['transactionHash'], "fee": result['fee']}
+    return result
+
+
 async def get_all_balances_all(coin: str) -> Dict[str, Dict]:
     coin = coin.upper()
     walletCall = await rpc_client.call_aiohttp_wallet('getAddresses', coin)
@@ -475,6 +510,14 @@ def get_reserved_fee(coin: str = None):
     return getattr(config,"daemon"+coin,config.daemonWRKZ).voucher_reserved_fee
 
 
+def get_min_mv_amount(coin: str = None):
+    return getattr(config,"daemon"+coin,config.daemonWRKZ).min_mv_amount
+
+
+def get_max_mv_amount(coin: str = None):
+    return getattr(config,"daemon"+coin,config.daemonWRKZ).max_mv_amount
+
+
 def get_min_tx_amount(coin: str = None):
     return getattr(config,"daemon"+coin,config.daemonWRKZ).min_tx_amount
 
@@ -561,6 +604,23 @@ async def make_integrated_address_xmr(address: str, coin: str, paymentid: str = 
             return address_ia
         else:
             return None
+
+
+async def getTransactions(coin: str, firstBlockIndex: int=2000000, blockCount: int= 200000):
+    COIN_NAME = coin.upper()
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    result = None
+    time_out = 64
+    if coin_family == "TRTL":
+        payload = {
+            'firstBlockIndex': firstBlockIndex,
+            'blockCount': blockCount,
+            }
+        result = await rpc_client.call_aiohttp_wallet('getTransactions', COIN_NAME, time_out=time_out, payload=payload)
+        if result:
+            if 'items' in result:
+                return result['items']
+    return None
 
 
 async def get_transfers_xmr(coin: str, height_start: int = None, height_end: int = None):

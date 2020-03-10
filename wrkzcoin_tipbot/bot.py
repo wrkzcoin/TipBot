@@ -1072,29 +1072,31 @@ async def secrettip(ctx, amount: str, coin: str, user_id: str):
                            f'{COIN_NAME}.')
             return
 
-        # Get wallet status
-        walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
-        if walletStatus is None:
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} I can not connect to wallet service or daemon.')
-            return
-        else:
-            localDaemonBlockCount = int(walletStatus['blockCount'])
-            networkBlockCount = int(walletStatus['knownBlockCount'])
-            if networkBlockCount - localDaemonBlockCount >= 20:
-                # if height is different by 20
-                t_percent = '{:,.2f}'.format(truncate(localDaemonBlockCount / networkBlockCount * 100, 2))
-                t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
-                t_networkBlockCount = '{:,}'.format(networkBlockCount)
-                await ctx.message.add_reaction(EMOJI_WARNING)
-                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t sync fully with network or being re-sync. More info:\n```'
-                               f'networkBlockCount:     {t_networkBlockCount}\n'
-                               f'localDaemonBlockCount: {t_localDaemonBlockCount}\n'
-                               f'Progress %:            {t_percent}\n```'
-                               )
+        # if off-chain, no need to check other status:
+        if COIN_NAME not in ENABLE_COIN_OFFCHAIN:
+            # Get wallet status
+            walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
+            if walletStatus is None:
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} I can not connect to wallet service or daemon.')
                 return
             else:
-                pass
-        # End of wallet status
+                localDaemonBlockCount = int(walletStatus['blockCount'])
+                networkBlockCount = int(walletStatus['knownBlockCount'])
+                if networkBlockCount - localDaemonBlockCount >= 20:
+                    # if height is different by 20
+                    t_percent = '{:,.2f}'.format(truncate(localDaemonBlockCount / networkBlockCount * 100, 2))
+                    t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
+                    t_networkBlockCount = '{:,}'.format(networkBlockCount)
+                    await ctx.message.add_reaction(EMOJI_WARNING)
+                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t sync fully with network or being re-sync. More info:\n```'
+                                   f'networkBlockCount:     {t_networkBlockCount}\n'
+                                   f'localDaemonBlockCount: {t_localDaemonBlockCount}\n'
+                                   f'Progress %:            {t_percent}\n```'
+                                   )
+                    return
+                else:
+                    pass
+            # End of wallet status
     elif COIN_NAME in ENABLE_COIN_DOGE:
         MinTx = config.daemonDOGE.min_mv_amount
         MaxTX = config.daemonDOGE.max_mv_amount
@@ -2020,9 +2022,10 @@ async def balance(ctx, coin: str = None):
         await msg.add_reaction(EMOJI_OK_BOX)
         return
     if coin_family == "TRTL":
-        walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
-        COIN_DEC = get_decimal(COIN_NAME)
-        pass
+        # if off-chain, no need to check other status:
+        if COIN_NAME not in ENABLE_COIN_OFFCHAIN:
+            walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
+            COIN_DEC = get_decimal(COIN_NAME)
     elif coin_family == "XMR":
         wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if wallet is None:
@@ -2089,29 +2092,31 @@ async def balance(ctx, coin: str = None):
         await msg.add_reaction(EMOJI_OK_BOX)
         return
 
-    if walletStatus is None:
-        msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} I can not connect to wallet service or daemon.')
-        await msg.add_reaction(EMOJI_OK_BOX)
-        return
-    else:
-        localDaemonBlockCount = int(walletStatus['blockCount'])
-        networkBlockCount = int(walletStatus['knownBlockCount'])
-        if networkBlockCount - localDaemonBlockCount >= 20:
-            # if height is different by 20
-            t_percent = '{:,.2f}'.format(truncate(localDaemonBlockCount / networkBlockCount * 100, 2))
-            t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
-            t_networkBlockCount = '{:,}'.format(networkBlockCount)
-            await ctx.message.add_reaction(EMOJI_WARNING)
-            msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t sync fully with network or being re-sync. More info:\n```'
-                           f'networkBlockCount:     {t_networkBlockCount}\n'
-                           f'localDaemonBlockCount: {t_localDaemonBlockCount}\n'
-                           f'Progress %:            {t_percent}\n```'
-                           )
+    # if off-chain, no need to check other status:
+    if COIN_NAME not in ENABLE_COIN_OFFCHAIN:
+        if walletStatus is None:
+            msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} I can not connect to wallet service or daemon.')
             await msg.add_reaction(EMOJI_OK_BOX)
             return
         else:
-            pass
-    # End of wallet status
+            localDaemonBlockCount = int(walletStatus['blockCount'])
+            networkBlockCount = int(walletStatus['knownBlockCount'])
+            if networkBlockCount - localDaemonBlockCount >= 20:
+                # if height is different by 20
+                t_percent = '{:,.2f}'.format(truncate(localDaemonBlockCount / networkBlockCount * 100, 2))
+                t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
+                t_networkBlockCount = '{:,}'.format(networkBlockCount)
+                await ctx.message.add_reaction(EMOJI_WARNING)
+                msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t sync fully with network or being re-sync. More info:\n```'
+                               f'networkBlockCount:     {t_networkBlockCount}\n'
+                               f'localDaemonBlockCount: {t_localDaemonBlockCount}\n'
+                               f'Progress %:            {t_percent}\n```'
+                               )
+                await msg.add_reaction(EMOJI_OK_BOX)
+                return
+            else:
+                pass
+        # End of wallet status
 
     # Check if maintenance
     if IS_MAINTENANCE == 1:
@@ -3021,29 +3026,31 @@ async def donate(ctx, amount: str, coin: str = None):
 
             return
 
-        # Get wallet status
-        walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
-        if walletStatus is None:
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} I can not connect to wallet service or daemon.')
-            return
-        else:
-            localDaemonBlockCount = int(walletStatus['blockCount'])
-            networkBlockCount = int(walletStatus['knownBlockCount'])
-            if networkBlockCount - localDaemonBlockCount >= 20:
-                # if height is different by 20
-                t_percent = '{:,.2f}'.format(truncate(localDaemonBlockCount / networkBlockCount * 100, 2))
-                t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
-                t_networkBlockCount = '{:,}'.format(networkBlockCount)
-                await ctx.message.add_reaction(EMOJI_WARNING)
-                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t sync fully with network or being re-sync. More info:\n```'
-                               f'networkBlockCount:     {t_networkBlockCount}\n'
-                               f'localDaemonBlockCount: {t_localDaemonBlockCount}\n'
-                               f'Progress %:            {t_percent}\n```'
-                               )
+        # if off-chain, no need to check other status:
+        if COIN_NAME not in ENABLE_COIN_OFFCHAIN:
+            # Get wallet status
+            walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
+            if walletStatus is None:
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} I can not connect to wallet service or daemon.')
                 return
             else:
-                pass
-        # End of wallet status
+                localDaemonBlockCount = int(walletStatus['blockCount'])
+                networkBlockCount = int(walletStatus['knownBlockCount'])
+                if networkBlockCount - localDaemonBlockCount >= 20:
+                    # if height is different by 20
+                    t_percent = '{:,.2f}'.format(truncate(localDaemonBlockCount / networkBlockCount * 100, 2))
+                    t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
+                    t_networkBlockCount = '{:,}'.format(networkBlockCount)
+                    await ctx.message.add_reaction(EMOJI_WARNING)
+                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t sync fully with network or being re-sync. More info:\n```'
+                                   f'networkBlockCount:     {t_networkBlockCount}\n'
+                                   f'localDaemonBlockCount: {t_localDaemonBlockCount}\n'
+                                   f'Progress %:            {t_percent}\n```'
+                                   )
+                    return
+                else:
+                    pass
+            # End of wallet status
 
         tip = None
         try:
@@ -5105,6 +5112,11 @@ async def optimize(ctx, coin: str, member: discord.Member = None):
         await ctx.send(f'{EMOJI_RED_NO} You need to specify a correct TICKER. Or {COIN_NAME} not optimizable.')
         return
 
+    if COIN_NAME in ENABLE_COIN_OFFCHAIN:
+        await ctx.message.add_reaction(EMOJI_WARNING)
+        await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} is off chain. You do not need to optimize.')
+        return
+
     if member is None:
         # Check if in logchan
         if ctx.message.channel.id == LOG_CHAN and (ctx.message.author.id in MAINTENANCE_OWNER):
@@ -6870,7 +6882,7 @@ async def _tip(ctx, amount, coin: str):
             user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
             user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if COIN_NAME in ENABLE_COIN_OFFCHAIN:
-            userdata_balance = await store.sql_cnoff_balance(str(user_id), COIN_NAME)
+            userdata_balance = await store.sql_cnoff_balance(str(ctx.message.author.id), COIN_NAME)
             user_from['actual_balance'] = user_from['actual_balance'] + int(userdata_balance['Adjust'])
         if real_amount > MaxTX:
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -6934,30 +6946,33 @@ async def _tip(ctx, amount, coin: str):
                            f'{COIN_NAME}.')
             return
 
-        # Get wallet status
-        walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
-        if walletStatus is None:
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} I can not connect to wallet service or daemon.')
-            return
-        else:
-            localDaemonBlockCount = int(walletStatus['blockCount'])
-            networkBlockCount = int(walletStatus['knownBlockCount'])
-            if networkBlockCount - localDaemonBlockCount >= 20:
-                # if height is different by 20
-                t_percent = '{:,.2f}'.format(truncate(localDaemonBlockCount / networkBlockCount * 100, 2))
-                t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
-                t_networkBlockCount = '{:,}'.format(networkBlockCount)
-                await ctx.message.add_reaction(EMOJI_WARNING)
-                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t sync fully with network or being '
-                               're-sync. More info:\n```'
-                               f'networkBlockCount:     {t_networkBlockCount}\n'
-                               f'localDaemonBlockCount: {t_localDaemonBlockCount}\n'
-                               f'Progress %:            {t_percent}\n```'
-                               )
+        # if off-chain, no need to check other status:
+        if COIN_NAME not in ENABLE_COIN_OFFCHAIN:
+            # Get wallet status
+            walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
+            if walletStatus is None:
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} I can not connect to wallet service or daemon.')
                 return
-        # End of wallet status
+            else:
+                localDaemonBlockCount = int(walletStatus['blockCount'])
+                networkBlockCount = int(walletStatus['knownBlockCount'])
+                if networkBlockCount - localDaemonBlockCount >= 20:
+                    # if height is different by 20
+                    t_percent = '{:,.2f}'.format(truncate(localDaemonBlockCount / networkBlockCount * 100, 2))
+                    t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
+                    t_networkBlockCount = '{:,}'.format(networkBlockCount)
+                    await ctx.message.add_reaction(EMOJI_WARNING)
+                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t sync fully with network or being '
+                                   're-sync. More info:\n```'
+                                   f'networkBlockCount:     {t_networkBlockCount}\n'
+                                   f'localDaemonBlockCount: {t_localDaemonBlockCount}\n'
+                                   f'Progress %:            {t_percent}\n```'
+                                   )
+                    return
+            # End of wallet status
         tip = None
         try:
+            print("sql_send_tipall")
             tip = await store.sql_send_tipall(str(ctx.message.author.id), destinations, real_amount, real_amount, list_receivers, 'TIPS', COIN_NAME)
             tip_tx_tipper = "Transaction hash: `{}`".format(tip['transactionHash'])
             tip_tx_tipper += "\nTx Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
@@ -7208,7 +7223,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
             user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
             user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if COIN_NAME in ENABLE_COIN_OFFCHAIN:
-            userdata_balance = await store.sql_cnoff_balance(str(user_id), COIN_NAME)
+            userdata_balance = await store.sql_cnoff_balance(str(ctx.message.author.id), COIN_NAME)
             user_from['actual_balance'] = user_from['actual_balance'] + int(userdata_balance['Adjust'])
         NetFee = get_tx_fee(coin = COIN_NAME)
         if real_amount + NetFee > MaxTX:

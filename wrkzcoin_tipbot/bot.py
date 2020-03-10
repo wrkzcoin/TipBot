@@ -493,7 +493,10 @@ async def on_reaction_add(reaction, user):
                 if user_to is None:
                     userregister = await store.sql_register_user(str(reaction.message.author.id), COIN_NAME)
                     user_to = await store.sql_get_userwallet(str(reaction.message.author.id), COIN_NAME)
-                if user_to['forwardtip'] == "ON":
+                if COIN_NAME in ENABLE_COIN_OFFCHAIN:
+                    userdata_balance = await store.sql_cnoff_balance(str(user.id), COIN_NAME)
+                    user_from['actual_balance'] = user_from['actual_balance'] + int(userdata_balance['Adjust'])
+                if user_to['forwardtip'] == "ON" and COIN_NAME in ENABLE_COIN_OFFCHAIN:
                     has_forwardtip = True
                 # process other check balance
                 if (real_amount + NetFee >= user_from['actual_balance']) or \
@@ -567,11 +570,14 @@ async def on_reaction_add(reaction, user):
                 has_forwardtip = None
                 if user_from is None:
                     return
+                if COIN_NAME in ENABLE_COIN_OFFCHAIN:
+                    userdata_balance = await store.sql_cnoff_balance(str(user.id), COIN_NAME)
+                    user_from['actual_balance'] = user_from['actual_balance'] + int(userdata_balance['Adjust'])
                 user_to = await store.sql_get_userwallet(str(reaction.message.author.id), COIN_NAME)
                 if user_to is None:
                     userregister = await store.sql_register_user(str(reaction.message.author.id), COIN_NAME)
                     user_to = await store.sql_get_userwallet(str(reaction.message.author.id), COIN_NAME)
-                if user_to['forwardtip'] == "ON":
+                if user_to['forwardtip'] == "ON" and COIN_NAME in ENABLE_COIN_OFFCHAIN:
                     has_forwardtip = True
                 # process other check balance
                 if (real_amount + NetFee >= user_from['actual_balance']) or \
@@ -7579,6 +7585,9 @@ async def _tip_react(reaction, user, amount, coin: str):
         if user_from is None:
             user_from = await store.sql_register_user(str(user.id), COIN_NAME)
             user_from = await store.sql_get_userwallet(str(user.id), COIN_NAME)
+        if COIN_NAME in ENABLE_COIN_OFFCHAIN:
+            userdata_balance = await store.sql_cnoff_balance(str(user.id), COIN_NAME)
+            user_from['actual_balance'] = user_from['actual_balance'] + int(userdata_balance['Adjust'])
         destinations = []
         listMembers = reaction.message.mentions
 

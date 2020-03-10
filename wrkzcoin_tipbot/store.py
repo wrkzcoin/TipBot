@@ -789,7 +789,7 @@ async def sql_send_secrettip(user_from: str, user_to: str, amount: int, coin: st
                 with conn.cursor() as cur: 
                     sql = """ INSERT INTO cnoff_mv_tx (`coin_name`, `from_userid`, `to_userid`, `amount`, `decimal`, `type`, `date`) 
                               VALUES (%s, %s, %s, %s, %s, %s, %s) """
-                    cur.execute(sql, (COIN_NAME, user_from, to_user, amount, wallet.get_decimal(COIN_NAME), 'SECRETTIP', int(time.time()),))
+                    cur.execute(sql, (COIN_NAME, user_from, user_to, amount, wallet.get_decimal(COIN_NAME), 'SECRETTIP', int(time.time()),))
                     conn.commit()
                 return {'transactionHash': 'NONE', 'fee': 0}
             except Exception as e:
@@ -1160,7 +1160,7 @@ async def sql_donate(user_from: str, address_to: str, amount: int, coin: str) ->
                 with conn.cursor() as cur: 
                     sql = """ INSERT INTO cnoff_mv_tx (`coin_name`, `from_userid`, `to_userid`, `amount`, `decimal`, `type`, `date`) 
                               VALUES (%s, %s, %s, %s, %s, %s, %s) """
-                    cur.execute(sql, (COIN_NAME, user_from, to_user, amount, wallet.get_decimal(COIN_NAME), 'DONATE', int(time.time()),))
+                    cur.execute(sql, (COIN_NAME, user_from, wallet.get_donate_address(COIN_NAME), amount, wallet.get_decimal(COIN_NAME), 'DONATE', int(time.time()),))
                     conn.commit()
                 return {'transactionHash': 'NONE', 'fee': 0}
             except Exception as e:

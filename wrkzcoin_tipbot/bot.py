@@ -2568,6 +2568,13 @@ async def register(ctx, wallet_address: str):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
         return
 
+    if coin_family == "TRTL" or coin_family == "XMR":
+        main_address = getattr(getattr(config,"daemon"+COIN_NAME),"MainAddress")
+        if wallet_address == main_address:
+            await ctx.message.add_reaction(EMOJI_QUESTEXCLAIM)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} do not register with main address. You could lose your coin when withdraw.')
+            return
+
     user = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
     if user is None:
         userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)

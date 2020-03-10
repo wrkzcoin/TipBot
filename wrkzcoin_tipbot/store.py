@@ -512,11 +512,11 @@ async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD'):
                 else:
                     chainHeight = 0
                     walletStatus = None
-                    if coin_family == "TRTL" or coin_family == "CCX":
+                    if coin_family == "TRTL" and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
                         walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
                     elif COIN_NAME in ENABLE_COIN_DOGE:
                         walletStatus = await daemonrpc_client.getDaemonRPCStatus(COIN_NAME)
-                    if (walletStatus is None) and (coin_family != "XMR"):
+                    if (walletStatus is None) and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
                         print('Can not reach wallet-api during sql_register_user')
                         chainHeight = 0
                     else:

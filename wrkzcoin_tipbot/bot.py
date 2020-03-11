@@ -3508,9 +3508,9 @@ async def tip(ctx, amount: str, *args):
         real_amount = int(amount * COIN_DEC)
         MinTx = get_min_mv_amount(COIN_NAME)
         MaxTX = get_max_mv_amount(COIN_NAME)
-        NetFee = get_tx_fee(coin = COIN_NAME)
+        NetFee = get_tx_fee(coin = COIN_NAME) if (COIN_NAME not in ENABLE_COIN_OFFCHAIN) else 0
 
-        if real_amount + NetFee >= user_from['actual_balance']:
+        if real_amount + NetFee > user_from['actual_balance']:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
                             f'{num_format_coin(real_amount, COIN_NAME)} '

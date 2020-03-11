@@ -6676,6 +6676,8 @@ async def update_balance():
         for coinItem in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR:
             if is_maintenance_coin(coinItem):
                 print("BOT.PY: {} is on maintenance. No need update balance.".format(coinItem))
+            elif not is_coin_depositable(coinItem):
+                print("BOT.PY: {} deposit is off. No need update balance.".format(coinItem))
             else:
                 await asyncio.sleep(INTERVAL_EACH)
                 print('BOT.PY: Update balance: '+ coinItem)

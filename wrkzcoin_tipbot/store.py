@@ -919,7 +919,7 @@ async def sql_send_tip_Ex_id(user_from: str, address_to: str, amount: int, payme
             else:
                 tx_hash = await wallet.send_transaction_id(user_from_wallet['balance_wallet_address'], address_to,
                                                            amount, paymentid, COIN_NAME)
-        elif coin_family == "TRTL" and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
+        elif coin_family == "TRTL" and (COIN_NAME in ENABLE_COIN_OFFCHAIN):
             # send from wallet and store in cnoff_external_tx
             main_address = getattr(getattr(config,"daemon"+COIN_NAME),"MainAddress")
             if COIN_NAME in WALLET_API_COIN:
@@ -928,7 +928,6 @@ async def sql_send_tip_Ex_id(user_from: str, address_to: str, amount: int, payme
             else:
                 tx_hash = await wallet.send_transaction_id(main_address, address_to,
                                                            amount, paymentid, COIN_NAME)
-            
         if tx_hash:
             updateTime = int(time.time())
             try:

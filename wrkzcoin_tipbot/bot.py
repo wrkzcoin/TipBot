@@ -6670,17 +6670,19 @@ async def update_user_guild():
 
 # Let's run balance update by a separate process
 async def update_balance():
-    INTERVAL_EACH = 10
+    INTERVAL_EACH = 20
     while True:
-        print('BOT.PY: sleep in second: '+str(INTERVAL_EACH))
+        # print('BOT.PY: sleep in second: '+str(INTERVAL_EACH))
         for coinItem in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR:
             if is_maintenance_coin(coinItem):
-                print("BOT.PY: {} is on maintenance. No need update balance.".format(coinItem))
+                # print("BOT.PY: {} is on maintenance. No need update balance.".format(coinItem))
+                pass
             elif not is_coin_depositable(coinItem):
-                print("BOT.PY: {} deposit is off. No need update balance.".format(coinItem))
+                # print("BOT.PY: {} deposit is off. No need update balance.".format(coinItem))
+                pass
             else:
                 await asyncio.sleep(INTERVAL_EACH)
-                print('BOT.PY: Update balance: '+ coinItem)
+                # print('BOT.PY: Update balance: '+ coinItem)
                 start = time.time()
                 try:
                     await store.sql_update_balances(coinItem)
@@ -6717,7 +6719,7 @@ async def notify_new_tx_user():
                         print('Can not find user id {} to notification tx: {}'.format(user_tx['user_id'], eachTx['txid']))
         else:
             print('No tx for notification')
-        print('Sleep {}s'.format(INTERVAL_EACH))
+        # print('Sleep {}s'.format(INTERVAL_EACH))
         await asyncio.sleep(INTERVAL_EACH)
 
 

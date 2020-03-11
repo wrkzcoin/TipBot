@@ -243,7 +243,6 @@ bot_help_tip = f"Give {COIN_REPR} to a user from your balance."
 bot_help_forwardtip = f"Forward all your received tip of {COIN_REPR} to registered wallet."
 bot_help_tipall = f"Spread a tip amount of {COIN_REPR} to all online members."
 bot_help_send = f"Send {COIN_REPR} to a {COIN_REPR} address from your balance (supported integrated address)."
-bot_help_optimize = f"Optimize your tip balance of {COIN_REPR} for large tip, send, tipall, withdraw"
 bot_help_address = f"Check {COIN_REPR} address | Generate {COIN_REPR} integrated address."
 bot_help_paymentid = "Make a random payment ID with 64 chars length."
 bot_help_address_qr = "Show an input address in QR code image."
@@ -357,10 +356,7 @@ async def on_ready():
     global LIST_IGNORECHAN, IS_RESTARTING
     print('Ready!')
     print("Hello, I am TipBot Bot!")
-    # get WALLET_SERVICE. TODO: Use that later.
-    # WALLET_SERVICE = store.sql_get_walletinfo()
     LIST_IGNORECHAN = store.sql_listignorechan()
-    # print(WALLET_SERVICE)
     print(bot.user.name)
     print(bot.user.id)
     print('------')
@@ -2648,8 +2644,8 @@ async def withdraw(ctx, amount: str, coin: str = None):
             return
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
-            await botLogChan.send(f'A user failed to execute `.withdraw {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`')
-            msg = await ctx.send(f'{ctx.author.mention} You may need to `optimize` or try again.')
+            await botLogChan.send(f'A user failed to execute withdraw `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`')
+            msg = await ctx.send(f'{ctx.author.mention} Please try again or report.')
             await msg.add_reaction(EMOJI_OK_BOX)
             # add to failed tx table
             store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "WITHDRAW")
@@ -2973,7 +2969,8 @@ async def donate(ctx, amount: str, coin: str = None):
             return
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
-            msg = await ctx.send(f'{ctx.author.mention} TX failed. Thank you but you may need to `optimize` or try again later.')
+            msg = await ctx.send(f'{ctx.author.mention} Donating failed, try again. Thank you.')
+            await botLogChan.send(f'A user failed to donate `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`.')
             await msg.add_reaction(EMOJI_OK_BOX)
             # add to failed tx table
             store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "DONATE")
@@ -4482,8 +4479,8 @@ async def send(ctx, amount: str, CoinAddress: str):
                 return
             else:
                 await ctx.message.add_reaction(EMOJI_ERROR)
-                await botLogChan.send(f'A user failed to execute `.send {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}` with paymentid.')
-                msg = await ctx.send(f'{ctx.author.mention} You may need to `optimize` or retry.')
+                await botLogChan.send(f'A user failed to execute send `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}` with paymentid.')
+                msg = await ctx.send(f'{ctx.author.mention} Please try again or report.')
                 await msg.add_reaction(EMOJI_OK_BOX)
                 return
         else:
@@ -5025,149 +5022,6 @@ async def address(ctx, *args):
                        '`.address <coin_address> <paymentid>`\n'
                        'This will generate an integrate address.\n\n')
         return
-
-
-@bot.command(pass_context=True, name='optimize', aliases=['opt'], help=bot_help_optimize)
-async def optimize(ctx, coin: str, member: discord.Member = None):
-    global IS_RESTARTING
-    # check if bot is going to restart
-    if IS_RESTARTING:
-        await ctx.message.add_reaction(EMOJI_REFRESH)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is going to restart soon. Wait until it is back for using this.')
-        return
-
-    # check if account locked
-    account_lock = await alert_if_userlock(ctx, 'optimize')
-    if account_lock:
-        await ctx.message.add_reaction(EMOJI_LOCKED) 
-        await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
-        return
-    # end of check if account locked
-
-    botLogChan = bot.get_channel(id=LOG_CHAN)
-    COIN_NAME = coin.upper()
-    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-    if coin_family != "TRTL":
-        await ctx.message.add_reaction(EMOJI_WARNING)
-        await ctx.send(f'{EMOJI_RED_NO} You need to specify a correct TICKER. Or {COIN_NAME} not optimizable.')
-        return
-
-    if COIN_NAME in ENABLE_COIN_OFFCHAIN:
-        await ctx.message.add_reaction(EMOJI_WARNING)
-        await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} is off chain. You do not need to optimize.')
-        return
-
-    if member is None:
-        # Check if in logchan
-        if ctx.message.channel.id == LOG_CHAN and (ctx.message.author.id in MAINTENANCE_OWNER):
-            wallet_to_opt = 5
-            await botLogChan.send(f'OK, I will do some optimization for this `{COIN_NAME}`..')
-            opt_numb = await store.sql_optimize_admin_do(COIN_NAME, wallet_to_opt)
-            if opt_numb:
-                await botLogChan.send(f'I optimized only {opt_numb} wallets of `{COIN_NAME}`..')
-            else:
-                await botLogChan.send('Forgive me! Something wrong...')
-            return
-        else:
-            pass
-    else:
-        # check permission to optimize
-        if int(ctx.message.author.id) in MAINTENANCE_OWNER:
-            user_from = await store.sql_get_userwallet(str(member.mention.id), COIN_NAME)
-            if user_from is None:
-                user_from = await store.sql_register_user(str(member.mention.id), COIN_NAME)
-                user_from = await store.sql_get_userwallet(str(member.mention.id), COIN_NAME)
-            # let's optimize and set status
-            CountOpt = await store.sql_optimize_do(str(member.id), COIN_NAME)
-            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
-            if CountOpt > 0:
-                await ctx.message.add_reaction(EMOJI_OK_HAND)
-                await ctx.send(f'***Optimize*** is being processed for {member.name}#{member.discriminator} **{COIN_NAME}**. {CountOpt} fusion tx(s).')
-                return
-            else:
-                await ctx.message.add_reaction(EMOJI_OK_HAND)
-                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **{COIN_NAME}** No `optimize` is needed or wait for unlock.')
-                return
-        else:
-            await ctx.message.add_reaction(EMOJI_WARNING)
-            await ctx.send(f'{EMOJI_RED_NO} **{COIN_NAME}** You only need to optimize your own tip jar.')
-            return
-    # Get wallet status
-    walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
-    if walletStatus is None:
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} I can not connect to wallet service or daemon.')
-        return
-    else:
-        localDaemonBlockCount = int(walletStatus['blockCount'])
-        networkBlockCount = int(walletStatus['knownBlockCount'])
-        if networkBlockCount - localDaemonBlockCount >= 20:
-            # if height is different by 20
-            t_percent = '{:,.2f}'.format(truncate(localDaemonBlockCount / networkBlockCount * 100, 2))
-            t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
-            t_networkBlockCount = '{:,}'.format(networkBlockCount)
-            await ctx.message.add_reaction(EMOJI_WARNING)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t sync fully with network or being re-sync. More info:\n```'
-                           f'networkBlockCount:     {t_networkBlockCount}\n'
-                           f'localDaemonBlockCount: {t_localDaemonBlockCount}\n'
-                           f'Progress %:            {t_percent}\n```'
-                           )
-            return
-        else:
-            pass
-    # End of wallet status
-
-    # Check if maintenance
-    if IS_MAINTENANCE == 1:
-        if int(ctx.message.author.id) in MAINTENANCE_OWNER:
-            pass
-        else:
-            await ctx.message.add_reaction(EMOJI_WARNING)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {config.maintenance_msg}')
-            return
-    else:
-        pass
-    # End Check if maintenance
-
-    # Check if user has a proper wallet with balance bigger than setting balance
-    user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-    if user_from is None:
-        user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
-        user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-    if ('lastOptimize' in user_from) and user_from['lastOptimize']:
-        if int(time.time()) - int(user_from['lastOptimize']) < int(get_interval_opt(COIN_NAME)):
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} **{COIN_NAME}** {ctx.author.mention} Please wait. You just did `optimize` within last 10mn.')
-            return
-    if int(user_from['actual_balance']) / get_decimal(COIN_NAME) < int(get_min_opt(COIN_NAME)):
-        await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} **{COIN_NAME}** Your balance may not need to optimize yet. Check again later.')
-        return
-    else:
-        # check if optimize has done for last 30mn
-        # and if last 30mn more than 5 has been done in total
-        try:
-            countOptimize = store.sql_optimize_check(COIN_NAME)
-            print('store.sql_optimize_check {} countOptimize: {}'.format(COIN_NAME, countOptimize))
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-            return
-        if countOptimize >= 5:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(
-                f'{EMOJI_RED_NO} {COIN_NAME} {ctx.author.mention} Please wait. There are a few `optimize` within last 10mn from other people.')
-            return
-        else:
-            # let's optimize and set status
-            CountOpt = await store.sql_optimize_do(str(ctx.message.author.id), COIN_NAME)
-            if CountOpt > 0:
-                await ctx.message.add_reaction(EMOJI_OK_HAND)
-                await ctx.send(f'***Optimize*** {ctx.author.mention} {COIN_NAME} is being processed for your wallet. {CountOpt} fusion tx(s).')
-                return
-            else:
-                await ctx.message.add_reaction(EMOJI_OK_HAND)
-                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} No `optimize` is needed or wait for unlock.')
-                return
-
 
 @bot.command(pass_context=True, name='voucher', aliases=['redeem'], help=bot_help_voucher, hidden = True)
 async def voucher(ctx, command: str, amount: str, coin: str = None):
@@ -6642,11 +6496,6 @@ async def voucher_error(ctx, error):
     pass
 
 
-@optimize.error
-async def optimize_error(ctx, error):
-    pass
-
-
 @address.error
 async def address_error(ctx, error):
     pass
@@ -6797,6 +6646,7 @@ async def saving_wallet():
 
 # Multiple tip
 async def _tip(ctx, amount, coin: str):
+    botLogChan = bot.get_channel(id=LOG_CHAN)
     serverinfo = store.sql_info_by_server(str(ctx.guild.id))
     COIN_NAME = coin.upper()
 
@@ -6947,7 +6797,8 @@ async def _tip(ctx, amount, coin: str):
             return
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
-            msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You may need to `optimize` or try again.')
+            msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Tipping failed, try again.')
+            await botLogChan.send(f'A user failed to _tip `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`.')
             await msg.add_reaction(EMOJI_OK_BOX)
             # add to failed tx table
             store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "TIPS")
@@ -7129,6 +6980,7 @@ async def _tip(ctx, amount, coin: str):
 
 # Multiple tip
 async def _tip_talker(ctx, amount, list_talker, coin: str = None):
+    botLogChan = bot.get_channel(id=LOG_CHAN)
     serverinfo = store.sql_info_by_server(str(ctx.guild.id))
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
@@ -7304,7 +7156,8 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
             return
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
-            msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You may need to `optimize` or try again later.')
+            msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Tipping failed, try again.')
+            await botLogChan.send(f'A user failed to _tip_talker `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`.')
             await msg.add_reaction(EMOJI_OK_BOX)
             # add to failed tx table
             store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "TIPS")
@@ -7491,6 +7344,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
 # Multiple tip_react
 async def _tip_react(reaction, user, amount, coin: str):
     global REACT_TIP_STORE
+    botLogChan = bot.get_channel(id=LOG_CHAN)
     serverinfo = store.sql_info_by_server(str(reaction.message.guild.id))
     COIN_NAME = coin.upper()
 
@@ -7623,7 +7477,8 @@ async def _tip_react(reaction, user, amount, coin: str):
                             pass
             return
         else:
-            msg = await user.send(f'{EMOJI_RED_NO} {user.mention} You may need to `optimize` or try again for {EMOJI_TIP}.')
+            msg = await user.send(f'{EMOJI_RED_NO} {user.mention} Try again for {EMOJI_TIP}.')
+            await botLogChan.send(f'A user failed to _tip_react `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`.')
             await msg.add_reaction(EMOJI_OK_BOX)
             # add to failed tx table
             store.sql_add_failed_tx(COIN_NAME, str(user.id), user.name, real_amount, "REACTTIP")

@@ -78,35 +78,6 @@ def openConnection():
         sys.exit()
 
 
-def sql_get_walletinfo():
-    global conn
-    wallet_service = {}
-    try:
-        openConnection()
-        with conn.cursor() as cur: 
-            sql = """ SELECT `coin_name`, `coin_family`, `host`, `port`, `wallethost`, `walletport`, `mixin`, 
-                      `tx_fee`, `min_tx_amount`, `max_tx_amount`, `DonateAddress`, `prefix`, `prefixChar`, `decimal`, 
-                      `AddrLen`, `IntAddrLen`, `DiffTarget`, `MinToOptimize`, `IntervalOptimize`, 
-                      `withdraw_enable`, `deposit_enable`, `send_enable`, `tip_enable`, `tipall_enable`, `donate_enable`, 
-                      `maintenance` 
-                      FROM discord_walletservice """
-            cur.execute(sql,)
-            result = cur.fetchall()
-            if result is None:
-                return None
-            else:
-                for row in result:
-                    wallet_service[str(row[0].upper())] = {'coin_name': row[0], 'coin_family': row[1], 'host': row[2], 
-                        'port': str(row[3]), 'wallethost': row[4], 'walletport': str(row[5]), 'mixin': int(row[6]), 'tx_fee': int(row[7]), 
-                        'min_tx_amount': int(row[8]), 'max_tx_amount': int(row[9]), 'DonateAddress': row[10], 'prefix': str(row[11]), 'prefixChar': str(row[12]), 
-                        'decimal': int(row[13]), 'AddrLen': int(row[14]), 'IntAddrLen': int(row[15]), 'DiffTarget': int(row[16]), 'MinToOptimize': int(row[17]), 
-                        'IntervalOptimize': int(row[18]), 'withdraw_enable': row[19], 'deposit_enable': row[20], 'send_enable': row[21], 'tip_enable': row[22], 
-                        'tipall_enable': row[23], 'donate_enable': row[24], 'maintenance': row[25]}
-                return wallet_service
-    except Exception as e:
-        traceback.print_exc(file=sys.stdout)
-
-
 async def get_all_user_balance_address(coin: str):
     try:
         openConnection()
@@ -519,8 +490,8 @@ async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD'):
                         walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
                     elif COIN_NAME in ENABLE_COIN_DOGE:
                         walletStatus = await daemonrpc_client.getDaemonRPCStatus(COIN_NAME)
-                    if (walletStatus is None) and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
-                        print('Can not reach wallet-api during sql_register_user')
+                    if (walletStatus is None) and (COIN_NAME not in ENABLE_COIN_OFFCHAIN) and coin_family != "TRTL":
+                        print(f'Can not reach wallet-api during sql_register_user {COIN_NAME}')
                         chainHeight = 0
                             
                     if coin_family == "TRTL" and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
@@ -614,7 +585,7 @@ async def sql_get_userwallet(userID, coin: str):
             result = None
             if coin_family == "TRTL" and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
                 sql = """ SELECT user_id, balance_wallet_address, user_wallet_address, balance_wallet_address_ts, 
-                          balance_wallet_address_ch, lastOptimize, forwardtip 
+                          balance_wallet_address_ch, forwardtip 
                           FROM cn_user WHERE `user_id`=%s AND `coin_name` = %s LIMIT 1 """
                 cur.execute(sql, (str(userID), COIN_NAME,))
                 result = cur.fetchone()
@@ -1223,147 +1194,6 @@ def sql_get_donate_list():
         return donate_list
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
-
-
-def sql_optimize_check(coin: str):
-    global conn
-    COIN_NAME = coin.upper()
-    try:
-        openConnection()
-        with conn.cursor() as cur:
-            timeNow = int(time.time()) - 600
-            if COIN_NAME in ENABLE_COIN:
-                sql = """ SELECT COUNT(*) FROM cn_user WHERE lastOptimize>%s AND `coin_name` = %s """
-                cur.execute(sql, (timeNow, COIN_NAME,))
-                result = cur.fetchone()
-                return result['COUNT(*)'] if (result and 'COUNT(*)' in result) else 0
-    except Exception as e:
-        traceback.print_exc(file=sys.stdout)
-
-
-async def sql_optimize_do(userID: str, coin: str):
-    global conn
-    COIN_NAME = coin.upper()
-    user_from_wallet = None
-    if COIN_NAME in ENABLE_COIN:
-        user_from_wallet = await sql_get_userwallet(userID, COIN_NAME)
-    if COIN_NAME in WALLET_API_COIN:
-        OptimizeCount = 0
-        try:
-            OptimizeCount = await walletapi.walletapi_wallet_optimize_single(user_from_wallet['balance_wallet_address'], COIN_NAME)
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-        if OptimizeCount > 0:
-            updateTime = int(time.time())
-            sql_optimize_update(str(userID), COIN_NAME)
-            try:
-                openConnection()
-                updateBalance = await walletapi.walletapi_get_balance_address(user_from_wallet['balance_wallet_address'], COIN_NAME)
-                with conn.cursor() as cur:
-                    sql = """ UPDATE cn_walletapi SET `actual_balance`=%s, 
-                             `locked_balance`=%s, `lastUpdate`=%s, `decimal` = %s 
-                             WHERE `balance_wallet_address`=%s AND `coin_name`=%s LIMIT 1 """
-                    cur.execute(sql, (updateBalance['unlocked'], updateBalance['locked'], 
-                                updateTime, wallet.get_decimal(COIN_NAME), user_from_wallet['balance_wallet_address'], COIN_NAME,))
-                    conn.commit()
-            except Exception as e:
-                traceback.print_exc(file=sys.stdout)
-            return OptimizeCount
-        else:
-            return 0
-
-    estimate = await wallet.wallet_estimate_fusion(user_from_wallet['balance_wallet_address'], 
-                                             user_from_wallet['actual_balance'], COIN_NAME)
-    if estimate:
-        if 'fusionReadyCount' in estimate:
-            print('fusionReadyCount: '+ str(estimate['fusionReadyCount']))
-            print('totalOutputCount: '+ str(estimate['totalOutputCount']))
-            if estimate['fusionReadyCount'] == 0:
-                return 0
-    else:
-        print('fusionReadyCount check error.')
-        return 0
-
-    print('store.sql_optimize_do: ' + COIN_NAME)
-    if user_from_wallet:
-        OptimizeCount = 0
-        coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-        if coin_family == "TRTL":
-            OptimizeCount = await wallet.wallet_optimize_single(user_from_wallet['balance_wallet_address'], 
-                                                                int(user_from_wallet['actual_balance']), COIN_NAME)
-        else:
-            return      
-        if OptimizeCount > 0:
-            updateTime = int(time.time())
-            sql_optimize_update(str(userID), COIN_NAME)
-            try:
-                openConnection()
-                updateBalance = await wallet.get_balance_address(user_from_wallet['balance_wallet_address'], COIN_NAME)
-                with conn.cursor() as cur:
-                    sql = """ UPDATE cn_walletapi SET `actual_balance`=%s, 
-                             `locked_balance`=%s, `lastUpdate`=%s, `decimal` = %s 
-                             WHERE `balance_wallet_address`=%s AND `coin_name`=%s LIMIT 1 """
-                    cur.execute(sql, (updateBalance['unlocked'], updateBalance['locked'], 
-                                updateTime, wallet.get_decimal(COIN_NAME), user_from_wallet['balance_wallet_address'], COIN_NAME,))
-                    conn.commit()
-            except Exception as e:
-                traceback.print_exc(file=sys.stdout)
-        return OptimizeCount
-
-
-def sql_optimize_update(userID: str, coin: str = None):
-    global conn
-    if coin is None:
-        COIN_NAME = "WRKZ"
-    else:
-        COIN_NAME = coin.upper()
-    try:
-        openConnection()
-        with conn.cursor() as cur:
-            timeNow = int(time.time())
-            if COIN_NAME in ENABLE_COIN:
-                sql = """ UPDATE cn_user SET `lastOptimize`=%s 
-                          WHERE `user_id`=%s AND `coin_name`=%s LIMIT 1 """
-                cur.execute(sql, (timeNow, str(userID), COIN_NAME,))
-                conn.commit()
-    except Exception as e:
-        traceback.print_exc(file=sys.stdout)
-
-
-async def sql_optimize_admin_do(coin: str, opt_num: int = None):
-    global conn
-    if opt_num is None:
-        opt_num = 5
-    if coin is None:
-        coin = "WRKZ"
-    if coin.upper() in ENABLE_COIN:
-        addresses = await wallet.get_all_balances_all(coin.upper())
-    else:
-        return None
-    AccumOpt = 0
-    for address in addresses:
-        if address['unlocked'] > 0:
-            estimate = None
-            # TODO: walletapi
-            estimate = await wallet.wallet_estimate_fusion(address['address'], address['unlocked'], coin.upper())
-            if estimate:
-                if 'fusionReadyCount' in estimate:
-                    #print('fusionReadyCount: '+ str(estimate['fusionReadyCount']))
-                    #print('totalOutputCount: '+ str(estimate['totalOutputCount']))
-                    if estimate['fusionReadyCount'] >= 2:
-                        print(f'Optimize {coin.upper()}: ' + address['address'])
-                        OptimizeCount = 0
-                        try:
-                            # TODO: walletapi
-                            OptimizeCount = await wallet.wallet_optimize_single(address['address'], int(round(address['unlocked']/2)), coin.upper())
-                        except Exception as e:
-                            traceback.print_exc(file=sys.stdout)
-                        if OptimizeCount > 0:
-                            AccumOpt = AccumOpt + 1
-                        if AccumOpt >= opt_num:
-                            break
-                        return AccumOpt
-    return None
 
 
 async def sql_send_to_voucher(user_id: str, user_name: str, message_creating: str, amount: int, reserved_fee: int, secret_string: str, voucher_image_name: str, coin: str = None):

@@ -3823,10 +3823,18 @@ async def tipall(ctx, amount: str, *args):
         real_amount = int(amount * COIN_DEC)
         MinTx = get_min_mv_amount(COIN_NAME)
         MaxTX = get_max_mv_amount(COIN_NAME)
-        NetFee = get_tx_fee(coin = COIN_NAME)
-        listMembers = [member for member in ctx.guild.members if member.status != "offline"]
+        NetFee = get_tx_fee(coin = COIN_NAME) if (COIN_NAME not in ENABLE_COIN_OFFCHAIN) else 0
+        listMembers = [member for member in ctx.guild.members if member.status != discord.Status.offline]
+        print("Number of tip-all in {}: {}".format(ctx.guild.name, len(listMembers)))
         # Check number of receivers.
-        if len(listMembers) > config.tipallMax:
+        if (len(listMembers) > config.tipallMax) and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            try:
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} The number of receivers are too many. This command isn\'t available here.')
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                await ctx.message.author.send(f'{EMOJI_RED_NO} The number of receivers are too many in `{ctx.guild.name}`. This command isn\'t available here.')
+            return
+        elif (len(listMembers) > config.tipallMax_Offchain) and (COIN_NAME in ENABLE_COIN_OFFCHAIN):
             await ctx.message.add_reaction(EMOJI_ERROR)
             try:
                 await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} The number of receivers are too many. This command isn\'t available here.')
@@ -3849,7 +3857,7 @@ async def tipall(ctx, amount: str, *args):
                 if str(member.status) != 'offline':
                     if member.bot == False:
                         address_to = None
-                        if user_to['forwardtip'] == "ON":
+                        if user_to['forwardtip'] == "ON" and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
                             has_forwardtip = True
                             address_to = user_to['user_wallet_address']
                         else:
@@ -3892,7 +3900,7 @@ async def tipall(ctx, amount: str, *args):
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
                            f'{num_format_coin(MinTx, COIN_NAME)} '
-                           f'{COIN_NAME} for each member. You need at least {num_format_coin(len(memids) * MinTx, COIN_NAME)}.')
+                           f'{COIN_NAME} for each member. You need at least {num_format_coin(len(memids) * MinTx, COIN_NAME)}{COIN_NAME}.')
             return
 
         amountDiv = int(round(real_amount / len(memids), 2))  # cut 2 decimal only
@@ -3960,16 +3968,22 @@ async def tipall(ctx, amount: str, *args):
                     if str(member.status) != 'offline':
                         if member.bot == False:
                             if str(member.id) not in notifyList:
-                                try:
-                                    user = bot.get_user(id=member.id)
-                                    await user.send(
-                                        f'{EMOJI_MONEYFACE} You got a tip of {amountDiv_str} '
-                                        f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} `.tipall` in server `{servername}`\n'
-                                        f'{tip_tx_tipper}\n'
-                                        f'{NOTIFICATION_OFF_CMD}')
-                                    numMsg = numMsg + 1
-                                except (discord.Forbidden, discord.errors.Forbidden) as e:
-                                    store.sql_toggle_tipnotify(str(member.id), "OFF")
+                                # random user to DM
+                                dm_user = bool(random.getrandbits(1)) if len(listMembers) > config.tipallMax_LimitDM else True
+                                if dm_user:
+                                    try:
+                                        user = bot.get_user(id=member.id)
+                                        await user.send(
+                                            f'{EMOJI_MONEYFACE} You got a tip of {amountDiv_str} '
+                                            f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} `.tipall` in server `{servername}`\n'
+                                            f'{tip_tx_tipper}\n'
+                                            f'{NOTIFICATION_OFF_CMD}')
+                                        numMsg += 1
+                                    except (discord.Forbidden, discord.errors.Forbidden) as e:
+                                        store.sql_toggle_tipnotify(str(member.id), "OFF")
+                if numMsg >= config.tipallMax_LimitDM:
+                    # stop DM if reaches
+                    break
             print('Messaged to users: (.tipall): '+str(numMsg))
             return
         else:
@@ -4008,9 +4022,10 @@ async def tipall(ctx, amount: str, *args):
                            f'{COIN_NAME}.')
             return
 
-        listMembers = [member for member in ctx.guild.members if member.status != "offline"]
+        listMembers = [member for member in ctx.guild.members if member.status != discord.Status.offline]
+        print("Number of tip-all in {}: {}".format(ctx.guild.name, len(listMembers)))
         # Check number of receivers.
-        if len(listMembers) > config.tipallMax:
+        if len(listMembers) > config.tipallMax_Offchain:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} The number of receivers are too many. This command isn\'t available here.')
             return
@@ -4028,7 +4043,7 @@ async def tipall(ctx, amount: str, *args):
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
                            f'{num_format_coin(MinTx, COIN_NAME)} '
-                           f'{COIN_NAME} for each member. You need at least {num_format_coin(len(memids) * MinTx, COIN_NAME)}.')
+                           f'{COIN_NAME} for each member. You need at least {num_format_coin(len(memids) * MinTx, COIN_NAME)}{COIN_NAME}.')
             return
 
         tips = store.sql_mv_xmr_multiple(str(ctx.message.author.id), memids, amountDiv, COIN_NAME, "TIPALL")
@@ -4048,18 +4063,26 @@ async def tipall(ctx, amount: str, *args):
                     f'Actual spending: `{ActualSpend_str}{COIN_NAME}`')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
                 store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
+            numMsg = 0
             for member in listMembers:
                 if ctx.message.author.id != member.id:
                     if str(member.status) != 'offline':
                         if member.bot == False:
                             if str(member.id) not in notifyList:
-                                try:
-                                    await member.send(
-                                        f'{EMOJI_MONEYFACE} You got a tip of {amountDiv_str} '
-                                        f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} `.tipall` in server `{servername}`\n'
-                                        f'{NOTIFICATION_OFF_CMD}')
-                                except (discord.Forbidden, discord.errors.Forbidden) as e:
-                                    store.sql_toggle_tipnotify(str(member.id), "OFF")
+                                # random user to DM
+                                dm_user = bool(random.getrandbits(1)) if len(listMembers) > config.tipallMax_LimitDM else True
+                                if dm_user:
+                                    try:
+                                        await member.send(
+                                            f'{EMOJI_MONEYFACE} You got a tip of {amountDiv_str} '
+                                            f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} `.tipall` in server `{servername}`\n'
+                                            f'{NOTIFICATION_OFF_CMD}')
+                                        numMsg += 1
+                                    except (discord.Forbidden, discord.errors.Forbidden) as e:
+                                        store.sql_toggle_tipnotify(str(member.id), "OFF")
+                if numMsg >= config.tipallMax_LimitDM:
+                    # stop DM if reaches
+                    break
             return
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -4095,9 +4118,10 @@ async def tipall(ctx, amount: str, *args):
                            f'{COIN_NAME}.')
             return
 
-        listMembers = [member for member in ctx.guild.members if member.status != "offline"]
+        listMembers = [member for member in ctx.guild.members if member.status != discord.Status.offline]
+        print("Number of tip-all in {}: {}".format(ctx.guild.name, len(listMembers)))
         # Check number of receivers.
-        if len(listMembers) > config.tipallMax:
+        if len(listMembers) > config.tipallMax_Offchain:
             await ctx.message.add_reaction(EMOJI_ERROR)
             try:
                 await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} The number of receivers are too many. This command isn\'t available here.')
@@ -4118,7 +4142,7 @@ async def tipall(ctx, amount: str, *args):
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
                            f'{num_format_coin(MinTx, COIN_NAME)} '
-                           f'{COIN_NAME} for each member. You need at least {num_format_coin(len(memids) * MinTx, COIN_NAME)}.')
+                           f'{COIN_NAME} for each member. You need at least {num_format_coin(len(memids) * MinTx, COIN_NAME)}{COIN_NAME}.')
             return
 
         tips = await store.sql_mv_doge_multiple(str(ctx.message.author.id), memids, amountDiv, COIN_NAME, "TIPALL")
@@ -4138,18 +4162,26 @@ async def tipall(ctx, amount: str, *args):
                     f'Actual spending: `{ActualSpend_str}{COIN_NAME}`')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
                 store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
+            numMsg = 0
             for member in listMembers:
                 if ctx.message.author.id != member.id:
                     if str(member.status) != 'offline':
                         if member.bot == False:
                             if str(member.id) not in notifyList:
-                                try:
-                                    await member.send(
-                                        f'{EMOJI_MONEYFACE} You got a tip of {amountDiv_str} '
-                                        f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} `.tipall` in server `{servername}`\n'
-                                        f'{NOTIFICATION_OFF_CMD}')
-                                except (discord.Forbidden, discord.errors.Forbidden) as e:
-                                    store.sql_toggle_tipnotify(str(member.id), "OFF")
+                                # random user to DM
+                                dm_user = bool(random.getrandbits(1)) if len(listMembers) > config.tipallMax_LimitDM else True
+                                if dm_user:
+                                    try:
+                                        await member.send(
+                                            f'{EMOJI_MONEYFACE} You got a tip of {amountDiv_str} '
+                                            f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} `.tipall` in server `{servername}`\n'
+                                            f'{NOTIFICATION_OFF_CMD}')
+                                        numMsg += 1
+                                    except (discord.Forbidden, discord.errors.Forbidden) as e:
+                                        store.sql_toggle_tipnotify(str(member.id), "OFF")
+                if numMsg >= config.tipallMax_LimitDM:
+                    # stop DM if reaches
+                    break
             return
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)

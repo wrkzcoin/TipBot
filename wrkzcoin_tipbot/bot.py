@@ -5023,6 +5023,7 @@ async def address(ctx, *args):
                        'This will generate an integrate address.\n\n')
         return
 
+
 @bot.command(pass_context=True, name='voucher', aliases=['redeem'], help=bot_help_voucher, hidden = True)
 async def voucher(ctx, command: str, amount: str, coin: str = None):
     global IS_RESTARTING
@@ -5808,178 +5809,6 @@ async def addressqr(ctx, *args):
         return
 
 
-@bot.command(pass_context=True, name='makeqr', aliases=['make-qr', 'paymentqr', 'payqr'], help=bot_help_payment_qr, hidden = True)
-async def makeqr(ctx, *args):
-    global TRTL_DISCORD
-    # TRTL discord
-    if (isinstance(ctx.message.channel, discord.DMChannel) == False) and ctx.guild.id == TRTL_DISCORD:
-        return
-
-    if len(args) < 2:
-        await ctx.send('**[ MAKE QR EXAMPLES ]**\n'
-                       '```'
-                       '.makeqr Address Amount\n'
-                       '.makeqr Address Amount -m AddressName\n'
-                       '.makeqr Address paymentid Amount\n'
-                       '.makeqr Address paymentid Amount -m AddressName\n'
-                       'This will generate a QR code from address, paymentid, amount. Optionally with AdddressName'
-                       '```\n\n')
-        return
-
-    # Check which coinname is it.
-    CoinAddress = args[0]
-    COIN_NAME = get_cn_coin_from_address(CoinAddress)
-    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-    if COIN_NAME:
-        addressLength = get_addrlen(COIN_NAME)
-        if coin_family == "TRTL" or coin_family == "CCX" or coin_family == "XMR":
-            IntaddressLength = get_intaddrlen(COIN_NAME)
-        COIN_DEC = get_decimal(COIN_NAME)
-        qrstring = get_coin_fullname(COIN_NAME) + '://'
-    else:
-        await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
-                       f'`{CoinAddress}`')
-        return
-
-    # Check if address is valid first
-    msgQR = (' '.join(args))
-    try:
-        if "-m" in args:
-            msgRemark = msgQR[msgQR.index('-m') + len('-m'):].strip()[:64]
-            if len(msgRemark) < 1:
-                msgRemark = "No Name"
-            print('msgRemark: ' + msgRemark)
-        else:
-            pass
-    except:
-        pass
-
-    if len(args) == 2 or len(args) == 4:
-        CoinAddress = args[0]
-        # Check amount
-        try:
-            amount = float(args[1])
-        except ValueError:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} Invalid amount.')
-            return
-        real_amount = int(amount * COIN_DEC)
-        if len(CoinAddress) == int(addressLength):
-            valid_address = addressvalidation.validate_address_cn(CoinAddress, COIN_NAME)
-            if (valid_address is None):
-                await ctx.message.add_reaction(EMOJI_ERROR)
-                await ctx.send(f'{EMOJI_RED_NO} Address: `{CoinAddress}`\n'
-                                'Invalid address.')
-                return
-            else:
-                pass
-        elif len(CoinAddress) == int(IntaddressLength):
-            # Integrated address
-            valid_address = addressvalidation.validate_integrated_cn(CoinAddress, COIN_NAME)
-            if valid_address == 'invalid':
-                await ctx.message.add_reaction(EMOJI_ERROR)
-                await ctx.send(f'{EMOJI_RED_NO} Integrated Address: `{CoinAddress}`\n'
-                                'Invalid integrated address.')
-                return
-            if len(valid_address) == 2:
-                pass
-        else:
-            # incorrect length
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} Address: `{CoinAddress}`\n'
-                            'Incorrect address length')
-            return
-        qrstring += CoinAddress + '?amount=' + str(real_amount)
-        if ("-m" in args):
-            qrstring = qrstring + '&name=' + msgRemark
-        print(qrstring)
-        pass
-    elif len(args) == 3 or len(args) == 5:
-        CoinAddress = args[0]
-        # Check amount
-        try:
-            amount = float(args[2])
-        except ValueError:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} Invalid amount.')
-            return
-        real_amount = int(amount * COIN_DEC)
-        # Check payment ID
-        paymentid = args[1]
-        if len(paymentid) == 64:
-            if not re.match(r'[a-zA-Z0-9]{64,}', paymentid.strip()):
-                await ctx.message.add_reaction(EMOJI_ERROR)
-                await ctx.send(f'{EMOJI_RED_NO} PaymentID: `{paymentid}`\n'
-                                'Should be in 64 correct format.')
-                return
-            else:
-                pass
-        else:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} PaymentID: `{paymentid}`\n'
-                            'Incorrect length.')
-            return
-
-        if len(CoinAddress) == int(addressLength):
-            valid_address = addressvalidation.validate_address_cn(CoinAddress, COIN_NAME)
-            if valid_address is None:
-                await ctx.message.add_reaction(EMOJI_ERROR)
-                await ctx.send(f'{EMOJI_RED_NO} Address: `{CoinAddress}`\n'
-                                'Invalid address.')
-                return
-            else:
-                pass
-        elif len(CoinAddress) == int(IntaddressLength):
-            # Integrated address
-            valid_address = addressvalidation.validate_integrated_cn(CoinAddress, COIN_NAME)
-            if valid_address == 'invalid':
-                await ctx.message.add_reaction(EMOJI_ERROR)
-                await ctx.send(f'{EMOJI_RED_NO} Integrated Address: `{CoinAddress}`\n'
-                                'Invalid integrated address.')
-                return
-            if len(valid_address) == 2:
-                await ctx.message.add_reaction(EMOJI_ERROR)
-                await ctx.send(f'{EMOJI_RED_NO} You cannot use integrated address and paymentid at the same time.')
-                return
-            return
-        else:
-            # incorrect length
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} Address: `{CoinAddress}`\n'
-                            'Incorrect address length')
-            return
-        qrstring += CoinAddress + '?amount=' + str(real_amount) + '&paymentid=' + paymentid
-        if "-m" in args:
-            qrstring = qrstring + '&name=' + msgRemark
-        print(qrstring)
-        pass
-    # let's send
-    await ctx.message.add_reaction(EMOJI_OK_HAND)
-    unique_filename = str(uuid.uuid4())
-    # do some QR code
-    qr = qrcode.QRCode(
-        version=1,
-        error_correction=qrcode.constants.ERROR_CORRECT_L,
-        box_size=10,
-        border=2,
-    )
-    qr.add_data(qrstring)
-    qr.make(fit=True)
-    img = qr.make_image(fill_color="black", back_color="white")
-    img = img.resize((256, 256))
-    img.save(config.qrsettings.path + unique_filename + ".png")
-    if isinstance(ctx.channel, discord.DMChannel):
-        await ctx.message.author.send(f"QR Custom Payment:\n```{qrstring}```",
-                                      file=discord.File(config.qrsettings.path + unique_filename + ".png"))
-        os.remove(config.qrsettings.path + unique_filename + ".png")
-    else:
-        await ctx.send(f"QR Custom Payment:\n```{qrstring}```",
-                       file=discord.File(config.qrsettings.path + unique_filename + ".png"))
-        os.remove(config.qrsettings.path + unique_filename + ".png")
-    return
-
-
 @bot.command(pass_context=True, help=bot_help_disclaimer)
 async def disclaimer(ctx, *args):
     global DISCLAIM_MSG
@@ -6503,11 +6332,6 @@ async def address_error(ctx, error):
 
 @paymentid.error
 async def payment_error(ctx, error):
-    pass
-
-
-@makeqr.error
-async def makeqr_error(ctx, error):
     pass
 
 

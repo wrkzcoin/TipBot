@@ -669,10 +669,23 @@ def sql_get_countLastTip(userID, lastDuration: int):
             cur.execute(sql, (str(userID), lapDuration, str(userID), lapDuration, str(userID), lapDuration,
                               str(userID), lapDuration, str(userID), lapDuration,))
             result = cur.fetchall()
-            if result is None:
+
+            # Can be tipall or tip many, let's count all
+            sql = """ SELECT `coin_name`, `from_userid`,`amount`,`date` FROM cnoff_mv_tx WHERE `from_userid` = %s AND `date`>%s 
+                      ORDER BY `date` DESC LIMIT 100 """
+            cur.execute(sql, (str(userID), lapDuration,))
+            result2 = cur.fetchall()
+
+            # doge table
+            sql = """ SELECT `coin_name`, `from_userid`,`amount`,`date` FROM doge_mv_tx WHERE `from_userid` = %s AND `date`>%s 
+                      ORDER BY `date` DESC LIMIT 100 """
+            cur.execute(sql, (str(userID), lapDuration,))
+            result3 = cur.fetchall()
+
+            if (result is None) and (result2 is None) and (result3 is None):
                 return 0
             else:
-                return len(result)
+                return (len(result) if result else 0) + (len(result2) if result2 else 0) + (len(result3) if result3 else 0)
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
 

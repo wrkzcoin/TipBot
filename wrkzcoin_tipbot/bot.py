@@ -6485,7 +6485,7 @@ async def update_user_guild():
 
 # Let's run balance update by a separate process
 async def update_balance():
-    INTERVAL_EACH = 20
+    INTERVAL_EACH = config.interval.update_balance
     while True:
         # print('BOT.PY: sleep in second: '+str(INTERVAL_EACH))
         for coinItem in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR:
@@ -6508,7 +6508,7 @@ async def update_balance():
 
 # Notify user
 async def notify_new_tx_user():
-    INTERVAL_EACH = 10
+    INTERVAL_EACH = config.interval.notify_tx
     while True:
         pending_tx = await store.sql_get_new_tx_table('NO', 'NO')
         if pending_tx and len(pending_tx) > 0:
@@ -6532,15 +6532,12 @@ async def notify_new_tx_user():
                         update_notify_tx = await store.sql_update_notify_tx_table(eachTx['payment_id'], user_tx['user_id'], user_found.name, 'YES', 'NO' if is_notify_failed == False else 'YES')
                     else:
                         print('Can not find user id {} to notification tx: {}'.format(user_tx['user_id'], eachTx['txid']))
-        else:
-            print('No tx for notification')
-        # print('Sleep {}s'.format(INTERVAL_EACH))
         await asyncio.sleep(INTERVAL_EACH)
 
 
 # Notify user
 async def notify_new_swap_user():
-    INTERVAL_EACH = 10
+    INTERVAL_EACH = config.interval.swap_tx
     while True:
         pending_tx = await store.sql_get_new_swap_table('NO', 'NO')
         if pending_tx and len(pending_tx) > 0:
@@ -6567,11 +6564,6 @@ async def saving_wallet():
     await bot.wait_until_ready()
     botLogChan = bot.get_channel(id=LOG_CHAN)
     while not bot.is_closed():
-        # We use in background bot_sql_update_balances.py
-        # await asyncio.sleep(15)
-        # store.sql_update_balances("TRTL")
-        # await asyncio.sleep(20)
-        # store.sql_update_balances("WRKZ")
         while botLogChan is None:
             botLogChan = bot.get_channel(id=LOG_CHAN)
             await asyncio.sleep(10)
@@ -6597,8 +6589,8 @@ async def saving_wallet():
                 else:
                     await botLogChan.send(f'WARNING: AUTOSAVE FOR **{COIN_NAME}** FAILED.')
                 saving = False
-            await asyncio.sleep(300)
-        await asyncio.sleep(config.wallet_balance_update_interval)
+            await asyncio.sleep(config.interval.saving_wallet_sleep)
+        await asyncio.sleep(config.interval.wallet_balance_update_interval)
 
 
 # Multiple tip
@@ -6710,7 +6702,6 @@ async def _tip(ctx, amount, coin: str):
             # End of wallet status
         tip = None
         try:
-            print("sql_send_tipall")
             tip = await store.sql_send_tipall(str(ctx.message.author.id), destinations, real_amount, real_amount, list_receivers, 'TIPS', COIN_NAME)
             tip_tx_tipper = "Transaction hash: `{}`".format(tip['transactionHash'])
             tip_tx_tipper += "\nTx Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)

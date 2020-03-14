@@ -48,6 +48,8 @@ ENABLE_XMR = config.Enable_Coin_XMR.split(",")
 ENABLE_COIN_DOGE = config.Enable_Coin_Doge.split(",")
 XS_COIN = ["DEGO"]
 ENABLE_COIN_OFFCHAIN = config.Enable_Coin_Offchain.split(",")
+ENABLE_SWAP = config.Enabe_Swap_Coin.split(",")
+
 
 # Coin using wallet-api
 WALLET_API_COIN = config.Enable_Coin_WalletApi.split(",")
@@ -185,9 +187,9 @@ async def sql_update_balances(coin: str = None):
             traceback.print_exc(file=sys.stdout)
     elif coin_family == "TRTL" and (COIN_NAME in ENABLE_COIN_OFFCHAIN):
         # print('SQL: Updating get_transfers '+COIN_NAME)
-        get_transfers = await wallet.getTransactions(COIN_NAME, int(height)-10000, 100000)
-        if len(get_transfers) >= 1:
-            try:
+        get_transfers = await wallet.getTransactions(COIN_NAME, int(height)-100000, 100000)
+        try:
+            if len(get_transfers) >= 1:
                 openConnection()
                 with conn.cursor() as cur:
                     sql = """ SELECT * FROM cnoff_get_transfers WHERE `coin_name` = %s """
@@ -238,16 +240,24 @@ async def sql_update_balances(coin: str = None):
                             else:
                                 # print('{} has some tx but not yet meet confirmation depth.'.format(COIN_NAME))
                                 pass
-                    if len(list_balance_user) > 0:
-                        list_update = []
-                        timestamp = int(time.time())
-                        for key, value in list_balance_user.items():
-                            list_update.append((value, timestamp, key))
+            if list_balance_user and len(list_balance_user) > 0:
+                openConnection()
+                with conn.cursor() as cur:
+                    sql = """ SELECT coin_name, payment_id, SUM(amount) AS txIn FROM cnoff_get_transfers 
+                              WHERE coin_name = %s AND amount > 0 
+                              GROUP BY payment_id """
+                    cur.execute(sql, (COIN_NAME,))
+                    result = cur.fetchall()
+                    timestamp = int(time.time())
+                    list_update = []
+                    if result and len(result) > 0:
+                        for eachTxIn in result:
+                            list_update.append((eachTxIn['txIn'], timestamp, eachTxIn['payment_id']))
                         cur.executemany(""" UPDATE cnoff_user_paymentid SET `actual_balance` = %s, `lastUpdate` = %s 
-                                        WHERE paymentid = %s """, list_update)
+                                            WHERE paymentid = %s """, list_update)
                         conn.commit()
-            except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
     elif coin_family == "XMR":
         # print('SQL: Updating get_transfers '+COIN_NAME)
         get_transfers = await wallet.get_transfers_xmr(COIN_NAME)
@@ -1994,6 +2004,22 @@ async def sql_doge_balance(userID: str, coin: str):
             else:
                 FeeExpense = 0
 
+            sql = """ SELECT SUM(amount) AS SwapIn FROM discord_swap_balance WHERE `owner_id`=%s AND `coin_name` = %s and `to` = %s """
+            cur.execute(sql, (userID, COIN_NAME, 'TIPBOT'))
+            result = cur.fetchone()
+            if result:
+                SwapIn = result['SwapIn']
+            else:
+                SwapIn = 0
+
+            sql = """ SELECT SUM(amount) AS SwapOut FROM discord_swap_balance WHERE `owner_id`=%s AND `coin_name` = %s and `from` = %s """
+            cur.execute(sql, (userID, COIN_NAME, 'TIPBOT'))
+            result = cur.fetchone()
+            if result:
+                SwapOut = result['SwapOut']
+            else:
+                SwapOut = 0
+
             # Credit by admin is positive (Positive)
             sql = """ SELECT SUM(amount) AS Credited FROM credit_balance WHERE `coin_name`=%s AND `to_userid`=%s  
                   """
@@ -2010,11 +2036,13 @@ async def sql_doge_balance(userID: str, coin: str):
             balance['Income'] = Income or 0
             balance['TxExpense'] = TxExpense or 0
             balance['FeeExpense'] = FeeExpense or 0
+            balance['SwapIn'] = SwapIn or 0
+            balance['SwapOut'] = SwapOut or 0
             balance['Credited'] = Credited if Credited else 0
             #print('balance: ')
             #print(balance)
-            balance['Adjust'] = float(balance['Credited']) + float(balance['Income']) - float(balance['Expense']) \
-            - float(balance['TxExpense']) - float(balance['FeeExpense'])
+            balance['Adjust'] = float(balance['Credited']) + float(balance['Income']) + balance['SwapIn'] - float(balance['Expense']) \
+            - float(balance['TxExpense']) - float(balance['FeeExpense']) - balance['SwapOut']
             #print(balance['Adjust'])
             return balance
     except Exception as e:
@@ -2150,6 +2178,22 @@ async def sql_cnoff_balance(userID: str, coin: str, redis_reset: bool = True):
             else:
                 FeeExpense = 0
 
+            sql = """ SELECT SUM(amount) AS SwapIn FROM discord_swap_balance WHERE `owner_id`=%s AND `coin_name` = %s and `to` = %s """
+            cur.execute(sql, (userID, COIN_NAME, 'TIPBOT'))
+            result = cur.fetchone()
+            if result:
+                SwapIn = result['SwapIn']
+            else:
+                SwapIn = 0
+
+            sql = """ SELECT SUM(amount) AS SwapOut FROM discord_swap_balance WHERE `owner_id`=%s AND `coin_name` = %s and `from` = %s """
+            cur.execute(sql, (userID, COIN_NAME, 'TIPBOT'))
+            result = cur.fetchone()
+            if result:
+                SwapOut = result['SwapOut']
+            else:
+                SwapOut = 0
+
             # Credit by admin is positive (Positive)
             sql = """ SELECT SUM(amount) AS Credited FROM credit_balance WHERE `coin_name`=%s AND `to_userid`=%s  
                   """
@@ -2166,8 +2210,11 @@ async def sql_cnoff_balance(userID: str, coin: str, redis_reset: bool = True):
             balance['Income'] = float(Income) if Income else 0
             balance['TxExpense'] = float(TxExpense) if TxExpense else 0
             balance['FeeExpense'] = float(FeeExpense) if FeeExpense else 0
+            balance['SwapIn'] = float(SwapIn) if SwapIn else 0
+            balance['SwapOut'] = float(SwapOut) if SwapOut else 0
             balance['Credited'] = float(Credited) if Credited else 0
-            balance['Adjust'] = balance['Credited']+ balance['Income'] - balance['Expense'] - balance['TxExpense'] - balance['FeeExpense']
+            balance['Adjust'] = balance['Credited'] + balance['Income'] + balance['SwapIn'] - balance['Expense'] \
+            - balance['TxExpense'] - balance['FeeExpense'] - balance['SwapOut']
             # add to redis
             try:
                 if redis_conn:
@@ -2231,6 +2278,22 @@ async def sql_xmr_balance(userID: str, coin: str, redis_reset: bool = True):
             else:
                 FeeExpense = 0
 
+            sql = """ SELECT SUM(amount) AS SwapIn FROM discord_swap_balance WHERE `owner_id`=%s AND `coin_name` = %s and `to` = %s """
+            cur.execute(sql, (userID, COIN_NAME, 'TIPBOT'))
+            result = cur.fetchone()
+            if result:
+                SwapIn = result['SwapIn']
+            else:
+                SwapIn = 0
+
+            sql = """ SELECT SUM(amount) AS SwapOut FROM discord_swap_balance WHERE `owner_id`=%s AND `coin_name` = %s and `from` = %s """
+            cur.execute(sql, (userID, COIN_NAME, 'TIPBOT'))
+            result = cur.fetchone()
+            if result:
+                SwapOut = result['SwapOut']
+            else:
+                SwapOut = 0
+
             # Credit by admin is positive (Positive)
             sql = """ SELECT SUM(amount) AS Credited FROM credit_balance WHERE `coin_name`=%s AND `to_userid`=%s  
                   """
@@ -2248,7 +2311,9 @@ async def sql_xmr_balance(userID: str, coin: str, redis_reset: bool = True):
             balance['TxExpense'] = float(TxExpense) if TxExpense else 0
             balance['FeeExpense'] = float(FeeExpense) if FeeExpense else 0
             balance['Credited'] = float(Credited) if Credited else 0
-            balance['Adjust'] = balance['Credited']+ balance['Income'] - balance['Expense'] - balance['TxExpense'] - balance['FeeExpense']
+            balance['SwapIn'] = float(SwapIn) if SwapIn else 0
+            balance['SwapOut'] = float(SwapOut) if SwapOut else 0
+            balance['Adjust'] = balance['Credited'] + balance['Income'] + balance['SwapIn'] - balance['Expense'] - balance['TxExpense'] - balance['FeeExpense'] - balance['SwapOut']
             # add to redis
             try:
                 if redis_conn:
@@ -2378,6 +2443,52 @@ def sql_set_forwardtip(userID: str, coin: str, option: str):
                 conn.commit()
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
+
+
+async def sql_swap_balance(coin: str, owner_id: str, owner_name: str, from_: str, to_: str, amount: float):
+    global conn, ENABLE_SWAP
+    COIN_NAME = coin.upper()
+    if COIN_NAME not in ENABLE_SWAP:
+        return False
+    try:
+        openConnection()
+        with conn.cursor() as cur: 
+            sql = """ INSERT INTO discord_swap_balance (`coin_name`, `owner_id`, `owner_name`, `from`, `to`, `amount`, `decimal`) 
+                      VALUES (%s, %s, %s, %s, %s, %s, %s) """
+            cur.execute(sql, (COIN_NAME, owner_id, owner_name, from_, to_, amount, wallet.get_decimal(COIN_NAME)))
+            conn.commit()
+        return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return False
+
+
+async def sql_get_new_swap_table(notified: str = 'NO', failed_notify: str = 'NO'):
+    global conn
+    try:
+        openConnection()
+        with conn.cursor() as cur:
+            sql = """ SELECT * FROM discord_swap_balance WHERE `notified`=%s AND `failed_notify`=%s AND `to` = %s """
+            cur.execute(sql, (notified, failed_notify, 'TIPBOT',))
+            result = cur.fetchall()
+            return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
+async def sql_update_notify_swap_table(id: int, notified: str = 'YES', failed_notify: str = 'NO'):
+    global conn
+    try:
+        openConnection()
+        with conn.cursor() as cur:
+            sql = """ UPDATE discord_swap_balance SET `notified`=%s, `failed_notify`=%s, 
+                      `notified_time`=%s WHERE `id`=%s """
+            cur.execute(sql, (notified, failed_notify, float("%.3f" % time.time()), id,))
+            conn.commit()
+            return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return False
 
 
 # Steal from https://nitratine.net/blog/post/encryption-and-decryption-in-python/

@@ -189,6 +189,7 @@ MAINTENANCE_COIN = config.Maintenance_Coin.split(",")
 COIN_REPR = "COIN"
 DEFAULT_TICKER = "WRKZ"
 ENABLE_COIN_VOUCHER = config.Enable_Coin_Voucher.split(",")
+ENABLE_SWAP = config.Enabe_Swap_Coin.split(",")
 
 # Some notice about coin that going to swap or take out.
 NOTICE_COIN = {
@@ -260,6 +261,7 @@ bot_help_voucher = "(Testing) make a voucher image and your friend can claim via
 bot_help_take = "Get random faucet tip."
 bot_help_cal = "Use built-in calculator."
 bot_help_coininfo = "List of coin status."
+bot_help_swap = "Swap balance amount between our bot to our bot"
 
 # admin commands
 bot_help_admin = "Various admin commands."
@@ -3109,6 +3111,116 @@ async def notifytip(ctx, onoff: str):
             return
 
 
+@bot.command(pass_context=True, help=bot_help_swap)
+async def swap(ctx, amount: str, coin: str, to: str):
+    global IS_RESTARTING
+    botLogChan = bot.get_channel(id=LOG_CHAN)
+    
+    to = to.upper()
+    if to != "MARKETBOT":
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} supporting to **MARKETBOT** only right now.')
+        return
+    # check if bot is going to restart
+    if IS_RESTARTING:
+        await ctx.message.add_reaction(EMOJI_REFRESH)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is going to restart soon. Wait until it is back for using this.')
+        return
+    # check if account locked
+    account_lock = await alert_if_userlock(ctx, 'swap')
+    if account_lock:
+        await ctx.message.add_reaction(EMOJI_LOCKED) 
+        await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
+        return
+    # end of check if account locked
+
+    amount = amount.replace(",", "")
+    try:
+        amount = float(amount)
+    except ValueError:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid amount.')
+        return
+
+    # Check if maintenance
+    if IS_MAINTENANCE == 1:
+        if int(ctx.message.author.id) in MAINTENANCE_OWNER:
+            pass
+        else:
+            await ctx.message.add_reaction(EMOJI_WARNING)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {config.maintenance_msg}')
+            return
+    else:
+        pass
+    # End Check if maintenance
+
+    COIN_NAME = coin.upper()
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+
+    if COIN_NAME not in ENABLE_SWAP:
+        await ctx.send(f'{EMOJI_ERROR} **{COIN_NAME}** is not in swap list.')
+        return
+
+    if is_maintenance_coin(COIN_NAME):
+        await ctx.message.add_reaction(EMOJI_MAINTENANCE)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
+        return
+
+    user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+    if user_from is None:
+        user_reg = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+        user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+    COIN_DEC = get_decimal(COIN_NAME)
+    real_amount = int(amount * COIN_DEC) if coin_family in ["TRTL", "XMR"] else amount
+    MinTx = get_min_mv_amount(COIN_NAME)
+    MaxTX = get_max_mv_amount(COIN_NAME)
+    if coin_family == "TRTL" and COIN_NAME in ENABLE_COIN_OFFCHAIN:
+        userdata_balance = await store.sql_cnoff_balance(str(ctx.message.author.id), COIN_NAME)
+        user_from['actual_balance'] = user_from['actual_balance'] + int(userdata_balance['Adjust'])
+    elif coin_family == "XMR":
+        userdata_balance = await store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
+        user_from['actual_balance'] = user_from['actual_balance'] + float(userdata_balance['Adjust'])
+    elif coin_family == "DOGE":
+        userdata_balance = await store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
+        user_from['actual_balance'] = user_from['actual_balance'] + float(userdata_balance['Adjust'])
+
+    if real_amount > user_from['actual_balance']:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to swap '
+                       f'{num_format_coin(real_amount, COIN_NAME)} '
+                       f'{COIN_NAME} to {to.upper()}.')
+        return
+
+    if real_amount > MaxTX:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transaction cannot be bigger than '
+                       f'{num_format_coin(MaxTX, COIN_NAME)} '
+                       f'{COIN_NAME}.')
+        return
+    elif real_amount < MinTx:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transaction cannot be smaller than '
+                       f'{num_format_coin(MinTx, COIN_NAME)} '
+                       f'{COIN_NAME}.')
+        return
+    swapit = None
+    try:
+        swapit = await store.sql_swap_balance(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, 'TIPBOT', to.upper(), real_amount)
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    if swapit:
+        await ctx.message.add_reaction(EMOJI_OK_BOX)
+        await ctx.message.author.send(
+                f'{EMOJI_ARROW_RIGHTHOOK} You swap {num_format_coin(real_amount, COIN_NAME)} '
+                f'{COIN_NAME} to **{to.upper()}**.')
+        return
+    else:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await botLogChan.send(f'A user call failed to swap {COIN_NAME} to {to.upper()}')
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Internal error during swap.')
+        return
+
+
 @bot.command(pass_context=True, help=bot_help_take)
 async def take(ctx):
     global FAUCET_COINS, FAUCET_MINMAX, TRTL_DISCORD, FAUCET_COINS_ROUND_NUMBERS, WITHDRAW_IN_PROCESS, IS_RESTARTING
@@ -3661,9 +3773,7 @@ async def tip(ctx, amount: str, *args):
         if user_to is None:
             user_to = await store.sql_register_user(str(member.id), COIN_NAME)
             user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
-        if user_to is None:
-            user_to = await store.sql_register_user(str(member.id), COIN_NAME)
-            user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
+
         user_to['address'] = user_to['balance_wallet_address']
 
         real_amount = float(amount)
@@ -6428,6 +6538,29 @@ async def notify_new_tx_user():
         await asyncio.sleep(INTERVAL_EACH)
 
 
+# Notify user
+async def notify_new_swap_user():
+    INTERVAL_EACH = 10
+    while True:
+        pending_tx = await store.sql_get_new_swap_table('NO', 'NO')
+        if pending_tx and len(pending_tx) > 0:
+            # let's notify_new_tx_user
+            for eachSwap in pending_tx:
+                user_found = bot.get_user(id=int(eachSwap['owner_id']))
+                if user_found:
+                    is_notify_failed = False
+                    try:
+                        msg = "You got incoming swap: ```" + "Coin: {}\nAmount: {}\nFrom: {}".format(eachSwap['coin_name'], num_format_coin(eachSwap['amount'], eachSwap['coin_name']), eachSwap['from']) + "```"
+                        await user_found.send(msg)
+                    except (discord.Forbidden, discord.errors.Forbidden) as e:
+                        is_notify_failed = True
+                        pass
+                    update_notify_tx = await store.sql_update_notify_swap_table(eachSwap['id'], 'YES', 'NO' if is_notify_failed == False else 'YES')
+                else:
+                    print('Can not find user id {} to notification swap: #{}'.format(eachSwap['owner_id'], eachSwap['id']))
+        await asyncio.sleep(INTERVAL_EACH)
+
+
 async def saving_wallet():
     global LOG_CHAN
     saving = False
@@ -7684,6 +7817,7 @@ def main():
     bot.loop.create_task(update_user_guild())
     bot.loop.create_task(update_balance())
     bot.loop.create_task(notify_new_tx_user())
+    bot.loop.create_task(notify_new_swap_user())
     bot.run(config.discord.token, reconnect=True)
 
 

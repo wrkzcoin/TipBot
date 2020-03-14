@@ -3516,6 +3516,7 @@ async def tip(ctx, amount: str, *args):
                     time_string = time_string.replace("mns", "mn")
                     time_string = time_string.replace("mins", "mn")
                     time_string = time_string.replace("min", "mn")
+                    time_string = time_string.replace("m", "mn")
 
                     mult = {'y': 12*30*24*60*60, 'mon': 30*24*60*60, 'w': 7*24*60*60, 'd': 24*60*60, 'h': 60*60, 'mn': 60}
                     time_second = sum(int(num) * mult.get(val, 1) for num, val in re.findall('(\d+)(\w+)', time_string))

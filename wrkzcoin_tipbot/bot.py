@@ -246,8 +246,6 @@ bot_help_tipall = f"Spread a tip amount of {COIN_REPR} to all online members."
 bot_help_send = f"Send {COIN_REPR} to a {COIN_REPR} address from your balance (supported integrated address)."
 bot_help_address = f"Check {COIN_REPR} address | Generate {COIN_REPR} integrated address."
 bot_help_paymentid = "Make a random payment ID with 64 chars length."
-bot_help_address_qr = "Show an input address in QR code image."
-bot_help_payment_qr = f"Make QR code image for {COIN_REPR} payment."
 bot_help_tag = "Display a description or a link about what it is. (-add|-del) requires permission manage_channels"
 bot_help_itag = "Upload image (gif|png|jpeg) and add tag."
 bot_help_stats = f"Show summary {COIN_REPR}: height, difficulty, etc."
@@ -5810,113 +5808,6 @@ async def setting(ctx, *args):
                     changeinfo = store.sql_changeinfo_by_server(str(ctx.guild.id), 'tiponly', tiponly_value.upper())
                     return
         await ctx.send(f'{ctx.author.mention} In valid command input and parameter.')
-        return
-
-@bot.command(pass_context=True, name='addressqr', aliases=['qr', 'showqr'], help=bot_help_address_qr, hidden = True)
-async def addressqr(ctx, *args):
-    global TRTL_DISCORD
-    # TRTL discord
-    if (isinstance(ctx.message.channel, discord.DMChannel) == False) and ctx.guild.id == TRTL_DISCORD:
-        return
-
-    # Check if address is valid first
-    if len(args) == 0:
-        COIN_NAME = 'WRKZ'
-        if isinstance(ctx.message.channel, discord.DMChannel):
-            COIN_NAME = 'WRKZ'
-        else:
-            serverinfo = store.sql_info_by_server(str(ctx.guild.id))
-            try:
-                COIN_NAME = args[0].upper()
-                if COIN_NAME not in ENABLE_COIN:
-                    if COIN_NAME in ENABLE_COIN_DOGE:
-                        pass
-                    elif 'default_coin' in serverinfo:
-                        COIN_NAME = serverinfo['default_coin'].upper()
-                else:
-                    pass
-            except:
-                if 'default_coin' in serverinfo:
-                    COIN_NAME = serverinfo['default_coin'].upper()
-            print("COIN_NAME: " + COIN_NAME)
-        # TODO: change this.
-        donateAddress = get_donate_address(COIN_NAME) or 'WrkzRNDQDwFCBynKPc459v3LDa1gEGzG3j962tMUBko1fw9xgdaS9mNiGMgA9s1q7hS1Z8SGRVWzcGc8Sh8xsvfZ6u2wJEtoZB'
-        await ctx.send('**[ QR ADDRESS EXAMPLES ]**\n\n'
-                       f'```.qr {donateAddress}\n'
-                       'This will generate a QR address.'
-                       '```\n\n')
-        return
-
-    CoinAddress = args[0]
-    # Check which coinname is it.
-    COIN_NAME = get_cn_coin_from_address(CoinAddress)
-    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-    if COIN_NAME:
-        addressLength = get_addrlen(COIN_NAME)
-        if coin_family == "TRTL" or coin_family == "CCX" or coin_family == "XMR":
-            IntaddressLength = get_intaddrlen(COIN_NAME)
-    else:
-        await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
-                       f'`{CoinAddress}`')
-        return
-
-    if len(args) == 1:
-        CoinAddress = args[0]
-        if len(CoinAddress) == int(addressLength):
-            valid_address = addressvalidation.validate_address_cn(CoinAddress, COIN_NAME)
-            if valid_address is None:
-                await ctx.message.add_reaction(EMOJI_ERROR)
-                await ctx.send(f'{EMOJI_RED_NO} Address: `{CoinAddress}`\n'
-                                'Invalid address.')
-                return
-            else:
-                pass
-        elif len(CoinAddress) == int(IntaddressLength):
-            # Integrated address
-            valid_address = addressvalidation.validate_integrated_cn(CoinAddress, COIN_NAME)
-            if valid_address == 'invalid':
-                await ctx.message.add_reaction(EMOJI_ERROR)
-                await ctx.send(f'{EMOJI_RED_NO} Integrated Address: `{CoinAddress}`\n'
-                                'Invalid integrated address.')
-                return
-            if len(valid_address) == 2:
-                pass
-        else:
-            # incorrect length
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} Address: `{CoinAddress}`\n'
-                            'Incorrect address length')
-            return
-    # let's send
-    await ctx.message.add_reaction(EMOJI_OK_HAND)
-    if os.path.exists(config.qrsettings.path + str(args[0]) + ".png"):
-        if isinstance(ctx.channel, discord.DMChannel):
-            await ctx.message.author.send("QR Code of address: ```" + args[0] + "```", 
-                                          file=discord.File(config.qrsettings.path + str(args[0]) + ".png"))
-        else:
-            await ctx.send("QR Code of address: ```" + args[0] + "```",
-                           file=discord.File(config.qrsettings.path + str(args[0]) + ".png"))
-        return
-    else:
-        # do some QR code
-        qr = qrcode.QRCode(
-            version=1,
-            error_correction=qrcode.constants.ERROR_CORRECT_L,
-            box_size=10,
-            border=2,
-        )
-        qr.add_data(args[0])
-        qr.make(fit=True)
-        img = qr.make_image(fill_color="black", back_color="white")
-        img = img.resize((256, 256))
-        img.save(config.qrsettings.path + str(args[0]) + ".png")
-        if isinstance(ctx.channel, discord.DMChannel):
-            await ctx.message.author.send("QR Code of address: ```" + args[0] + "```",
-                                          file=discord.File(config.qrsettings.path + str(args[0]) + ".png"))
-        else:
-            await ctx.send("QR Code of address: ```" + args[0] + "```",
-                           file=discord.File(config.qrsettings.path + str(args[0]) + ".png"))
         return
 
 

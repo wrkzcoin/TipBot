@@ -212,8 +212,8 @@ async def start_cmd_handler(message: types.Message):
                 if wallet is None:
                     userregister = await store.sql_register_user(message.from_user.username, COIN_ITEM, 'TELEGRAM', message.chat.id)
                     wallet = await store.sql_get_userwallet(message.from_user.username, COIN_ITEM, 'TELEGRAM')
-                    userdata_balance = await store.sql_cnoff_balance(message.from_user.username, COIN_ITEM, 'TELEGRAM')
-                    wallet['actual_balance'] = wallet['actual_balance'] + int(userdata_balance['Adjust'])
+                userdata_balance = await store.sql_cnoff_balance(message.from_user.username, COIN_ITEM, 'TELEGRAM')
+                wallet['actual_balance'] = wallet['actual_balance'] + int(userdata_balance['Adjust'])
                 balance_actual = num_format_coin(wallet['actual_balance'], COIN_ITEM)
                 coin_str += COIN_ITEM + ": " + balance_actual + COIN_ITEM + "\n"
             message_text = text(bold(f'[YOUR {COIN_NAME} BALANCE]:\n'),

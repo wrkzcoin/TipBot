@@ -346,9 +346,11 @@ async def wallet_estimate_fusion(subaddress: str, threshold: int, coin: str=None
     return result
 
 
-async def doge_register(account: str, coin: str) -> str:
+async def doge_register(account: str, coin: str, user_server: str = 'DISCORD') -> str:
     COIN_NAME = coin.upper()
     naming = "tipbot_" + account
+    if user_server == "TELEGRAM":
+        naming = "teletip_" + account
     payload = f'"{naming}"'
     address_call = await rpc_client.call_doge('getnewaddress', COIN_NAME, payload=payload)
     reg_address = {}

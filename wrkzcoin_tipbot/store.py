@@ -494,7 +494,7 @@ async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD', cha
                     main_address = getattr(getattr(config,"daemon"+COIN_NAME),"MainAddress")
                     balance_address = await wallet.make_integrated_address_xmr(main_address, COIN_NAME)
                 elif coin_family == "DOGE":
-                    balance_address = await wallet.doge_register(str(userID), COIN_NAME)
+                    balance_address = await wallet.doge_register(str(userID), COIN_NAME, user_server)
                 if balance_address is None:
                     print('Internal error during call register wallet-api')
                     return
@@ -714,7 +714,6 @@ async def sql_send_tip(user_from: str, user_to: str, amount: int, tiptype: str, 
     user_from_wallet = None
     user_to_wallet = None
     address_to = None
-    #print('sql_send_tip')
     if coin_family == "TRTL" or coin_family == "XMR":
         user_from_wallet = await sql_get_userwallet(user_from, COIN_NAME, user_server)
         user_to_wallet = await sql_get_userwallet(user_to, COIN_NAME, user_server)
@@ -1931,8 +1930,11 @@ def sql_updateinfo_by_server(server_id: str, what: str, value: str):
         traceback.print_exc(file=sys.stdout)
 
 # DOGE
-async def sql_mv_doge_single(user_from: str, to_user: str, amount: float, coin: str, tiptype: str):
+async def sql_mv_doge_single(user_from: str, to_user: str, amount: float, coin: str, tiptype: str, user_server: str = 'DISCORD'):
     global conn
+    user_server = user_server.upper()
+    if user_server not in ['DISCORD', 'TELEGRAM']:
+        return
     COIN_NAME = coin.upper()
     if COIN_NAME not in ENABLE_COIN_DOGE:
         return False
@@ -1941,9 +1943,9 @@ async def sql_mv_doge_single(user_from: str, to_user: str, amount: float, coin: 
     try:
         openConnection()
         with conn.cursor() as cur: 
-            sql = """ INSERT INTO doge_mv_tx (`coin_name`, `from_userid`, `to_userid`, `amount`, `type`, `date`) 
-                      VALUES (%s, %s, %s, %s, %s, %s) """
-            cur.execute(sql, (COIN_NAME, user_from, to_user, amount, tiptype.upper(), int(time.time()),))
+            sql = """ INSERT INTO doge_mv_tx (`coin_name`, `from_userid`, `to_userid`, `amount`, `type`, `date`, `user_server`) 
+                      VALUES (%s, %s, %s, %s, %s, %s, %s) """
+            cur.execute(sql, (COIN_NAME, user_from, to_user, amount, tiptype.upper(), int(time.time()), user_server))
             conn.commit()
         return True
     except Exception as e:
@@ -1977,8 +1979,11 @@ async def sql_mv_doge_multiple(user_from: str, user_tos, amount_each: float, coi
     return False
 
 
-async def sql_external_doge_single(user_from: str, amount: float, fee: float, to_address: str, coin: str, tiptype: str):
+async def sql_external_doge_single(user_from: str, amount: float, fee: float, to_address: str, coin: str, tiptype: str, user_server: str = 'DISCORD'):
     global conn
+    user_server = user_server.upper()
+    if user_server not in ['DISCORD', 'TELEGRAM']:
+        return
     COIN_NAME = coin.upper()
     if COIN_NAME not in ENABLE_COIN_DOGE:
         return False
@@ -1992,9 +1997,9 @@ async def sql_external_doge_single(user_from: str, amount: float, fee: float, to
         print("COMPLETE DOGE EXTERNAL TX")
         with conn.cursor() as cur: 
             sql = """ INSERT INTO doge_external_tx (`coin_name`, `user_id`, `amount`, `fee`, `to_address`, 
-                      `type`, `date`, `tx_hash`) 
-                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
-            cur.execute(sql, (COIN_NAME, user_from, amount, fee, to_address, tiptype.upper(), int(time.time()), txHash,))
+                      `type`, `date`, `tx_hash`, `user_server`) 
+                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
+            cur.execute(sql, (COIN_NAME, user_from, amount, fee, to_address, tiptype.upper(), int(time.time()), txHash, user_server))
             conn.commit()
         return txHash
     except Exception as e:
@@ -2002,56 +2007,59 @@ async def sql_external_doge_single(user_from: str, amount: float, fee: float, to
     return False
 
 
-async def sql_doge_balance(userID: str, coin: str):
+async def sql_doge_balance(userID: str, coin: str, user_server: str = 'DISCORD'):
     global conn
+    user_server = user_server.upper()
+    if user_server not in ['DISCORD', 'TELEGRAM']:
+        return
     COIN_NAME = coin.upper()
     if COIN_NAME not in ENABLE_COIN_DOGE:
         return False
     try:
         openConnection()
         with conn.cursor() as cur: 
-            sql = """ SELECT SUM(amount) AS Expense FROM doge_mv_tx WHERE `from_userid`=%s AND `coin_name`=%s """
-            cur.execute(sql, (userID, COIN_NAME))
+            sql = """ SELECT SUM(amount) AS Expense FROM doge_mv_tx WHERE `from_userid`=%s AND `coin_name`=%s AND `user_server`=%s """
+            cur.execute(sql, (userID, COIN_NAME, user_server))
             result = cur.fetchone()
             if result:
                 Expense = result['Expense']
             else:
                 Expense = 0
 
-            sql = """ SELECT SUM(amount) AS Income FROM doge_mv_tx WHERE `to_userid`=%s AND `coin_name`=%s """
-            cur.execute(sql, (userID, COIN_NAME))
+            sql = """ SELECT SUM(amount) AS Income FROM doge_mv_tx WHERE `to_userid`=%s AND `coin_name`=%s AND `user_server`=%s """
+            cur.execute(sql, (userID, COIN_NAME, user_server))
             result = cur.fetchone()
             if result:
                 Income = result['Income']
             else:
                 Income = 0
 
-            sql = """ SELECT SUM(amount) AS TxExpense FROM doge_external_tx WHERE `user_id`=%s AND `coin_name`=%s """
-            cur.execute(sql, (userID, COIN_NAME))
+            sql = """ SELECT SUM(amount) AS TxExpense FROM doge_external_tx WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s """
+            cur.execute(sql, (userID, COIN_NAME, user_server))
             result = cur.fetchone()
             if result:
                 TxExpense = result['TxExpense']
             else:
                 TxExpense = 0
 
-            sql = """ SELECT SUM(fee) AS FeeExpense FROM doge_external_tx WHERE `user_id`=%s AND `coin_name`=%s """
-            cur.execute(sql, (userID, COIN_NAME))
+            sql = """ SELECT SUM(fee) AS FeeExpense FROM doge_external_tx WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s """
+            cur.execute(sql, (userID, COIN_NAME, user_server))
             result = cur.fetchone()
             if result:
                 FeeExpense = result['FeeExpense']
             else:
                 FeeExpense = 0
 
-            sql = """ SELECT SUM(amount) AS SwapIn FROM discord_swap_balance WHERE `owner_id`=%s AND `coin_name` = %s and `to` = %s """
-            cur.execute(sql, (userID, COIN_NAME, 'TIPBOT'))
+            sql = """ SELECT SUM(amount) AS SwapIn FROM discord_swap_balance WHERE `owner_id`=%s AND `coin_name` = %s AND `to` = %s AND `user_server`=%s """
+            cur.execute(sql, (userID, COIN_NAME, 'TIPBOT', user_server))
             result = cur.fetchone()
             if result:
                 SwapIn = result['SwapIn']
             else:
                 SwapIn = 0
 
-            sql = """ SELECT SUM(amount) AS SwapOut FROM discord_swap_balance WHERE `owner_id`=%s AND `coin_name` = %s and `from` = %s """
-            cur.execute(sql, (userID, COIN_NAME, 'TIPBOT'))
+            sql = """ SELECT SUM(amount) AS SwapOut FROM discord_swap_balance WHERE `owner_id`=%s AND `coin_name` = %s AND `from` = %s AND `user_server`=%s """
+            cur.execute(sql, (userID, COIN_NAME, 'TIPBOT', user_server))
             result = cur.fetchone()
             if result:
                 SwapOut = result['SwapOut']
@@ -2059,9 +2067,9 @@ async def sql_doge_balance(userID: str, coin: str):
                 SwapOut = 0
 
             # Credit by admin is positive (Positive)
-            sql = """ SELECT SUM(amount) AS Credited FROM credit_balance WHERE `coin_name`=%s AND `to_userid`=%s  
-                  """
-            cur.execute(sql, (COIN_NAME, userID))
+            sql = """ SELECT SUM(amount) AS Credited FROM credit_balance WHERE `coin_name`=%s AND `to_userid`=%s 
+                  AND `user_server`=%s """
+            cur.execute(sql, (COIN_NAME, userID, user_server))
             result = cur.fetchone()
             if result:
                 Credited = result['Credited']

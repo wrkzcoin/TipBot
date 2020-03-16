@@ -24,7 +24,8 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 ENABLE_COIN = config.telegram.Enabe_Telegram_Coin.split(",")
-ENABLE_COIN_DOGE = config.Enable_Coin_Doge.split(",")
+ENABLE_COIN_DOGE = config.telegram.Enable_Coin_Doge.split(",")
+MAINTENANCE_COIN = config.Maintenance_Coin.split(",")
 
 WITHDRAW_IN_PROCESS = []
 redis_pool = None
@@ -95,7 +96,7 @@ async def start_cmd_handler(message: types.Message):
         # default row_width is 3, so here we can omit it actually
         # kept for clearness
 
-        btns_text = tuple(["/info " + item for item in ENABLE_COIN])
+        btns_text = tuple(["/info " + item for item in ENABLE_COIN + ENABLE_COIN_DOGE])
 
         more_btns_text = (
             "/start",
@@ -107,7 +108,7 @@ async def start_cmd_handler(message: types.Message):
     else:
         # /info WRKZ
         COIN_NAME = args[1].upper()
-        if COIN_NAME not in ENABLE_COIN:
+        if COIN_NAME not in ENABLE_COIN + ENABLE_COIN_DOGE:
             message_text = text(bold("Invalid command /info"))
             await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
                                 parse_mode=ParseMode.MARKDOWN)
@@ -142,7 +143,7 @@ async def start_cmd_handler(message: types.Message):
         # default row_width is 3, so here we can omit it actually
         # kept for clearness
 
-        btns_text = tuple(["/coininfo " + item for item in ENABLE_COIN])
+        btns_text = tuple(["/coininfo " + item for item in ENABLE_COIN + ENABLE_COIN_DOGE])
         more_btns_text = (
             "/start",
         )
@@ -153,7 +154,7 @@ async def start_cmd_handler(message: types.Message):
     else:
         # /coininfo WRKZ
         COIN_NAME = args[1].upper()
-        if COIN_NAME not in ENABLE_COIN:
+        if COIN_NAME not in ENABLE_COIN + ENABLE_COIN_DOGE:
             message_text = text(bold("Invalid command /coininfo"))
             await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
                                 parse_mode=ParseMode.MARKDOWN)
@@ -205,7 +206,7 @@ async def start_cmd_handler(message: types.Message):
         # default row_width is 3, so here we can omit it actually
         # kept for clearness
 
-        btns_text = tuple(["/bal " + item for item in ENABLE_COIN + ["list"]])
+        btns_text = tuple(["/bal " + item for item in ENABLE_COIN + ENABLE_COIN_DOGE + ["list"]])
 
         more_btns_text = (
             "/start",
@@ -220,48 +221,51 @@ async def start_cmd_handler(message: types.Message):
         if COIN_NAME == "LIST":
             message_text = ""
             coin_str = "\n"
-            for COIN_ITEM in [coinItem.upper() for coinItem in ENABLE_COIN]:
+            for COIN_ITEM in [coinItem.upper() for coinItem in ENABLE_COIN + ENABLE_COIN_DOGE]:
                 COIN_DEC = get_decimal(COIN_ITEM)
                 wallet = await store.sql_get_userwallet(message.from_user.username, COIN_ITEM, 'TELEGRAM')
                 if wallet is None:
                     userregister = await store.sql_register_user(message.from_user.username, COIN_ITEM, 'TELEGRAM', message.chat.id)
                     wallet = await store.sql_get_userwallet(message.from_user.username, COIN_ITEM, 'TELEGRAM')
-                userdata_balance = await store.sql_cnoff_balance(message.from_user.username, COIN_ITEM, 'TELEGRAM')
-                wallet['actual_balance'] = wallet['actual_balance'] + int(userdata_balance['Adjust'])
+                coin_family = getattr(getattr(config,"daemon"+COIN_ITEM),"coin_family","TRTL")
+                if coin_family == "TRTL":
+                    userdata_balance = await store.sql_cnoff_balance(message.from_user.username, COIN_ITEM, 'TELEGRAM')
+                    wallet['actual_balance'] = wallet['actual_balance'] + int(userdata_balance['Adjust'])
+                elif coin_family == "DOGE":
+                    userdata_balance = await store.sql_doge_balance(message.from_user.username, COIN_ITEM, 'TELEGRAM')
+                    wallet['actual_balance'] = wallet['actual_balance'] + float(userdata_balance['Adjust'])
                 balance_actual = num_format_coin(wallet['actual_balance'], COIN_ITEM)
                 coin_str += COIN_ITEM + ": " + balance_actual + COIN_ITEM + "\n"
-            message_text = text(bold(f'[YOUR {COIN_NAME} BALANCE]:\n'),
+            message_text = text(bold(f'[YOUR BALANCE SHEET]:\n'),
                                 code(coin_str))
             await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
                                 parse_mode=ParseMode.MARKDOWN)
             return
-        elif COIN_NAME not in ENABLE_COIN:
+        elif COIN_NAME not in ENABLE_COIN + ENABLE_COIN_DOGE:
             message_text = text(bold(f"Invalid coin /bal {COIN_NAME}"))
             await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
                                 parse_mode=ParseMode.MARKDOWN)
             return
-        # get balance user
-        coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-        userwallet = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
-
-        if userwallet is None:
-            userwallet = await store.sql_register_user(message.from_user.username, COIN_NAME, 'TELEGRAM', message.chat.id)
+        else:    
+            # get balance user for a specific coin
+            coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
             userwallet = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
-        if coin_family == "TRTL":
-            userdata_balance = await store.sql_cnoff_balance(message.from_user.username, COIN_NAME, 'TELEGRAM')
-            userwallet['actual_balance'] = userwallet['actual_balance'] + int(userdata_balance['Adjust'])
-        elif coin_family == "XMR":
-            userdata_balance = await store.sql_xmr_balance(message.from_user.username, COIN_NAME)
-            userwallet['actual_balance'] = userwallet['actual_balance'] + float(userdata_balance['Adjust'])
-        elif coin_family == "DOGE":
-            userdata_balance = await store.sql_doge_balance(message.from_user.username, COIN_NAME)
-            userwallet['actual_balance'] = userwallet['actual_balance'] + float(userdata_balance['Adjust'])
 
-        message_text = text(bold(f'[YOUR {COIN_NAME} BALANCE]:\n'),
-                            "Available: ", code(num_format_coin(userwallet['actual_balance'], COIN_NAME) + COIN_NAME))
-        await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
-                            parse_mode=ParseMode.MARKDOWN)
-        return
+            if userwallet is None:
+                userwallet = await store.sql_register_user(message.from_user.username, COIN_NAME, 'TELEGRAM', message.chat.id)
+                userwallet = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
+            if coin_family == "TRTL":
+                userdata_balance = await store.sql_cnoff_balance(message.from_user.username, COIN_NAME, 'TELEGRAM')
+                userwallet['actual_balance'] = userwallet['actual_balance'] + int(userdata_balance['Adjust'])
+            elif coin_family == "DOGE":
+                userdata_balance = await store.sql_doge_balance(message.from_user.username, COIN_NAME, 'TELEGRAM')
+                userwallet['actual_balance'] = userwallet['actual_balance'] + float(userdata_balance['Adjust'])
+
+            message_text = text(bold(f'[YOUR {COIN_NAME} BALANCE]:\n'),
+                                "Available: ", code(num_format_coin(userwallet['actual_balance'], COIN_NAME) + COIN_NAME))
+            await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
+                                parse_mode=ParseMode.MARKDOWN)
+            return
 
 
 @dp.message_handler(commands='register')
@@ -295,47 +299,89 @@ async def start_cmd_handler(message: types.Message):
                 await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
                                     parse_mode=ParseMode.MARKDOWN)
                 return
+            if COIN_NAME not in ENABLE_COIN + ENABLE_COIN_DOGE:
+                message_text = text(bold("Invalid or unsupported coin address."))
+                await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
+                                    parse_mode=ParseMode.MARKDOWN)
+                return
             # get coin family
             coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-            addressLength = get_addrlen(COIN_NAME)
-            IntaddressLength = 0
-            if coin_family == "TRTL" or coin_family == "XMR":
-                IntaddressLength = get_intaddrlen(COIN_NAME)
-            if len(wallet_address) == int(addressLength):
-                valid_address = addressvalidation.validate_address_cn(wallet_address, COIN_NAME)
-                if valid_address is None:
-                    message_text = text(bold("Invalid address:\n"),
-                                        code(wallet_address))
-                    await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
-                                        parse_mode=ParseMode.MARKDOWN)
-                    return
-                else:
-                    # print(message.from_user)
-                    # {"id": 634637482, "is_bot": false, "first_name": "Captain", "last_name": "Geek", "username": "Capt41n", "language_code": "en"}
-                    user_addr = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
-                    if user_addr is None:
-                        userregister = await store.sql_register_user(message.from_user.username, COIN_NAME, 'TELEGRAM', message.chat.id)
-                        user_addr = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
-
-                    prev_address = user_addr['user_wallet_address']
-                    if prev_address != valid_address:
-                        await store.sql_update_user(message.from_user.username, wallet_address, COIN_NAME, 'TELEGRAM')
-                        message_text = text(bold("You registered a withdrawn address:\n"),
+            if coin_family == "TRTL":
+                addressLength = get_addrlen(COIN_NAME)
+                IntaddressLength = 0
+                if coin_family == "TRTL" or coin_family == "XMR":
+                    IntaddressLength = get_intaddrlen(COIN_NAME)
+                if len(wallet_address) == int(addressLength):
+                    valid_address = addressvalidation.validate_address_cn(wallet_address, COIN_NAME)
+                    if valid_address is None:
+                        message_text = text(bold("Invalid address:\n"),
                                             code(wallet_address))
                         await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
                                             parse_mode=ParseMode.MARKDOWN)
                         return
                     else:
-                        message_text = text("Your previous registered address is the same as new address. Action not taken.")
-                        await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove())
+                        user_addr = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
+                        if user_addr is None:
+                            userregister = await store.sql_register_user(message.from_user.username, COIN_NAME, 'TELEGRAM', message.chat.id)
+                            user_addr = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
+
+                        prev_address = user_addr['user_wallet_address']
+                        if prev_address != valid_address:
+                            await store.sql_update_user(message.from_user.username, wallet_address, COIN_NAME, 'TELEGRAM')
+                            message_text = text(bold("You registered a withdrawn address:\n"),
+                                                code(wallet_address))
+                            await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
+                                                parse_mode=ParseMode.MARKDOWN)
+                            return
+                        else:
+                            message_text = text("Your previous registered address is the same as new address. Action not taken.")
+                            await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove())
+                            return
+                elif len(wallet_address) == int(IntaddressLength): 
+                    # Not allowed integrated address
+                    message_text = text(bold("Integrated address not allowed:\n"),
+                                        code(wallet_address))
+                    await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
+                                        parse_mode=ParseMode.MARKDOWN)
+                    return
+            elif coin_family == "DOGE":
+                valid_address = None
+                user_from = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
+                if user_from is None:
+                    user_from = await store.sql_register_user(message.from_user.username, COIN_NAME, 'TELEGRAM')
+                    user_from = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
+                user_from['address'] = user_from['balance_wallet_address']
+                prev_address = user_from['user_wallet_address']
+
+                valid_address = await doge_validaddress(str(wallet_address), COIN_NAME)
+                if ('isvalid' in valid_address):
+                    if str(valid_address['isvalid']) == "True":
+                        valid_address = wallet_address
+                    else:
+                        message_text = text(bold("Unknown address:\n"),
+                                            code(wallet_address))
+                        await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
+                                            parse_mode=ParseMode.MARKDOWN)
                         return
-            elif len(wallet_address) == int(IntaddressLength): 
-                # Not allowed integrated address
-                message_text = text(bold("Integrated address not allowed:\n"),
-                                    code(wallet_address))
-                await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
-                                    parse_mode=ParseMode.MARKDOWN)
-                return
+                if user_from['balance_wallet_address'] == wallet_address:
+                    message_text = text(bold("Can not register with your deposit address:\n"),
+                                        code(wallet_address))
+                    await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
+                                        parse_mode=ParseMode.MARKDOWN)
+                    return
+                elif prev_address and prev_address == wallet_address:
+                    message_text = text(bold("Previous and new address is the same:\n"),
+                                        code(wallet_address))
+                    await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
+                                        parse_mode=ParseMode.MARKDOWN)
+                    return
+                else:
+                    await store.sql_update_user(message.from_user.username, wallet_address, COIN_NAME, 'TELEGRAM')
+                    message_text = text(bold("You registered a withdrawn address:\n"),
+                                        code(wallet_address))
+                    await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
+                                        parse_mode=ParseMode.MARKDOWN)
+                    return
 
 
 @dp.message_handler(commands='tip')
@@ -358,9 +404,9 @@ async def start_cmd_handler(message: types.Message):
         return
 
     COIN_NAME = args[2].upper()
-    if COIN_NAME not in ENABLE_COIN:
+    if COIN_NAME not in ENABLE_COIN + ENABLE_COIN_DOGE:
         message_text = text(bold(f"Invalid {COIN_NAME}\n\n"), 
-                            "Supported coins: ", code(", ".join(ENABLE_COIN)))
+                            "Supported coins: ", code(", ".join(ENABLE_COIN + ENABLE_COIN_DOGE)))
         await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
                             parse_mode=ParseMode.MARKDOWN)
         return
@@ -412,9 +458,11 @@ async def start_cmd_handler(message: types.Message):
             if coin_family == "TRTL":
                 userdata_balance = await store.sql_cnoff_balance(message.from_user.username, COIN_NAME, 'TELEGRAM')
                 user_from['actual_balance'] = user_from['actual_balance'] + int(userdata_balance['Adjust'])
-
+            elif coin_family == "DOGE":
+                userdata_balance = await store.sql_doge_balance(message.from_user.username, COIN_NAME, 'TELEGRAM')
+                user_from['actual_balance'] = user_from['actual_balance'] + float(userdata_balance['Adjust'])
             COIN_DEC = get_decimal(COIN_NAME)
-            real_amount = int(amount * COIN_DEC) if coin_family == "TRTL" else amount
+            real_amount = int(amount * COIN_DEC) if (coin_family == "TRTL" or coin_family == "XMR") else amount
             MinTx = get_min_mv_amount(COIN_NAME)
             MaxTX = get_max_mv_amount(COIN_NAME)
 
@@ -443,7 +491,7 @@ async def start_cmd_handler(message: types.Message):
                         await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
                                             parse_mode=ParseMode.MARKDOWN)
                         return
-                    tip = await store.sql_send_tip(message.from_user.username, user_to, real_amount, 'TIP', COIN_NAME, 'TELEGRAM')
+                    tip = await store.sql_mv_doge_single(message.from_user.username, user_to, real_amount, COIN_NAME, 'TIP', 'TELEGRAM')
                     message_text = text(bold(f"You sent a new tip to {user_to}:\n\n"), code("Amount: {}{}".format(num_format_coin(real_amount, COIN_NAME), COIN_NAME)))
                     to_message_text = text(bold(f"You got a new tip from {message.from_user.username}:\n\n"), code("Amount: {}{}".format(num_format_coin(real_amount, COIN_NAME), COIN_NAME)))
                     try:
@@ -486,9 +534,9 @@ async def start_cmd_handler(message: types.Message):
         return
    
     COIN_NAME = args[2].upper()
-    if COIN_NAME not in ENABLE_COIN:
+    if COIN_NAME not in ENABLE_COIN + ENABLE_COIN_DOGE:
         message_text = text(bold(f"Invalid {COIN_NAME}\n\n"), 
-                            "Supported coins: ", code(", ".join(ENABLE_COIN)))
+                            "Supported coins: ", code(", ".join(ENABLE_COIN + ENABLE_COIN_DOGE)))
         await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
                             parse_mode=ParseMode.MARKDOWN)
         return
@@ -531,111 +579,157 @@ async def start_cmd_handler(message: types.Message):
             return
         # get coin family
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-        addressLength = get_addrlen(COIN_NAME)
-        IntaddressLength = 0
-        paymentid = None
-        CoinAddress = None
+        if coin_family == "TRTL" or coin_family == "DOGE":
+            addressLength = get_addrlen(COIN_NAME)
+            IntaddressLength = 0
+            paymentid = None
+            CoinAddress = None
 
-        user_from = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
-        if coin_family == "TRTL":
-            userdata_balance = await store.sql_cnoff_balance(message.from_user.username, COIN_NAME, 'TELEGRAM')
-            user_from['actual_balance'] = user_from['actual_balance'] + int(userdata_balance['Adjust'])
+            user_from = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
+            if coin_family == "TRTL":
+                userdata_balance = await store.sql_cnoff_balance(message.from_user.username, COIN_NAME, 'TELEGRAM')
+                user_from['actual_balance'] = user_from['actual_balance'] + int(userdata_balance['Adjust'])
+            elif coin_family == "DOGE":
+                userdata_balance = await store.sql_doge_balance(message.from_user.username, COIN_NAME, 'TELEGRAM')
+                user_from['actual_balance'] = user_from['actual_balance'] + float(userdata_balance['Adjust'])
 
-        COIN_DEC = get_decimal(COIN_NAME)
-        real_amount = int(amount * COIN_DEC) if coin_family == "TRTL" else amount
-        MinTx = get_min_tx_amount(COIN_NAME)
-        MaxTX = get_max_tx_amount(COIN_NAME)
-        NetFee = get_reserved_fee(coin = COIN_NAME)
-        message_text = ''
-        valid_amount = True
-        if real_amount + NetFee > user_from['actual_balance']:
-            message_text = 'Not enough reserved fee / Insufficient balance to send ' + num_format_coin(real_amount, COIN_NAME) + COIN_NAME + ' to ' + wallet_address
-            valid_amount = False
-        elif real_amount > MaxTX:
-            message_text = 'Transactions cannot be bigger than ' + num_format_coin(MaxTX, COIN_NAME) + COIN_NAME
-            valid_amount = False
-        elif real_amount < MinTx:
-            message_text = 'Transactions cannot be bigger than ' + num_format_coin(MinTx, COIN_NAME) + COIN_NAME
-            valid_amount = False
-        if valid_amount == False:
-            await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
-                                parse_mode=ParseMode.MARKDOWN)
-            return
-
-        if coin_family == "TRTL" or coin_family == "XMR":
-            IntaddressLength = get_intaddrlen(COIN_NAME)
-        if len(wallet_address) == int(addressLength):
-            valid_address = addressvalidation.validate_address_cn(wallet_address, COIN_NAME)
-            if valid_address is None:
-                message_text = text(bold("Invalid address:\n"),
-                                    code(wallet_address))
-                await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
-                                    parse_mode=ParseMode.MARKDOWN)
-                return
-            else:
-                user_from = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
-                if user_from is None:
-                    userregister = await store.sql_register_user(message.from_user.username, COIN_NAME, 'TELEGRAM', message.chat.id)
-                    user_from = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
-                CoinAddress = wallet_address
-        elif len(wallet_address) == int(IntaddressLength): 
-            # use integrated address
-            valid_address = addressvalidation.validate_integrated_cn(wallet_address, COIN_NAME)
-            if valid_address == 'invalid':
-                message_text = text(bold("Invalid address:\n"),
-                                    code(wallet_address))
-                await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
-                                    parse_mode=ParseMode.MARKDOWN)
-                return
-            elif len(valid_address) == 2:
-                address_paymentID = wallet_address
-                CoinAddress = valid_address['address']
-                paymentid = valid_address['integrated_id']
-
-        main_address = getattr(getattr(config,"daemon"+COIN_NAME),"MainAddress")
-        if CoinAddress and CoinAddress == main_address:
-            # Not allow to send to own main address
-            message_text = text(bold("Can not send to:\n"),
-                                code(wallet_address))
-            await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
-                                parse_mode=ParseMode.MARKDOWN)
-            return
-        else:
-            tip = None
-            if message.from_user.username not in WITHDRAW_IN_PROCESS:
-                WITHDRAW_IN_PROCESS.append(message.from_user.username)
-            else:
-                message_text = text(bold("You have another tx in progress.\n"))
+            COIN_DEC = get_decimal(COIN_NAME)
+            real_amount = int(amount * COIN_DEC) if (coin_family == "TRTL" or coin_family == "XMR") else amount
+            MinTx = get_min_tx_amount(COIN_NAME)
+            MaxTX = get_max_tx_amount(COIN_NAME)
+            NetFee = get_reserved_fee(coin = COIN_NAME)
+            message_text = ''
+            valid_amount = True
+            if real_amount + NetFee > user_from['actual_balance']:
+                message_text = 'Not enough reserved fee / Insufficient balance to send ' + num_format_coin(real_amount, COIN_NAME) + COIN_NAME + ' to ' + wallet_address
+                valid_amount = False
+            elif real_amount > MaxTX:
+                message_text = 'Transactions cannot be bigger than ' + num_format_coin(MaxTX, COIN_NAME) + COIN_NAME
+                valid_amount = False
+            elif real_amount < MinTx:
+                message_text = 'Transactions cannot be bigger than ' + num_format_coin(MinTx, COIN_NAME) + COIN_NAME
+                valid_amount = False
+            if valid_amount == False:
                 await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
                                     parse_mode=ParseMode.MARKDOWN)
                 return
 
-            if paymentid:
-                try:
-                    tip = await store.sql_send_tip_Ex_id(message.from_user.username, CoinAddress, real_amount, paymentid, COIN_NAME, 'TELEGRAM')
-                except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
-            else:
-                try:
-                    tip = await store.sql_send_tip_Ex(message.from_user.username, CoinAddress, real_amount, COIN_NAME, 'TELEGRAM')
-                except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
-            if message.from_user.username in WITHDRAW_IN_PROCESS:
-                WITHDRAW_IN_PROCESS.remove(message.from_user.username)
-            if tip:
-                tip_tx_tipper = "Transaction hash: {}".format(tip['transactionHash'])
-                tip_tx_tipper += "\nTx Fee: {}{}".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
-                
-                message_text = text(bold(f"You have sent {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}:\n"),
-                                    code(tip_tx_tipper))
-                await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
-                                    parse_mode=ParseMode.MARKDOWN)
-                return
-            else:
-                message_text = text(bold(f"Internal error for sending {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}"))
-                await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
-                                    parse_mode=ParseMode.MARKDOWN)
-                return
+            if coin_family == "TRTL" or coin_family == "XMR":
+                IntaddressLength = get_intaddrlen(COIN_NAME)
+                if len(wallet_address) == int(addressLength):
+                    valid_address = addressvalidation.validate_address_cn(wallet_address, COIN_NAME)
+                    if valid_address is None:
+                        message_text = text(bold("Invalid address:\n"),
+                                            code(wallet_address))
+                        await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
+                                            parse_mode=ParseMode.MARKDOWN)
+                        return
+                    else:
+                        user_from = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
+                        if user_from is None:
+                            userregister = await store.sql_register_user(message.from_user.username, COIN_NAME, 'TELEGRAM', message.chat.id)
+                            user_from = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
+                        CoinAddress = wallet_address
+                elif len(wallet_address) == int(IntaddressLength): 
+                    # use integrated address
+                    valid_address = addressvalidation.validate_integrated_cn(wallet_address, COIN_NAME)
+                    if valid_address == 'invalid':
+                        message_text = text(bold("Invalid address:\n"),
+                                            code(wallet_address))
+                        await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
+                                            parse_mode=ParseMode.MARKDOWN)
+                        return
+                    elif len(valid_address) == 2:
+                        address_paymentID = wallet_address
+                        CoinAddress = valid_address['address']
+                        paymentid = valid_address['integrated_id']
+
+                main_address = getattr(getattr(config,"daemon"+COIN_NAME),"MainAddress")
+                if CoinAddress and CoinAddress == main_address:
+                    # Not allow to send to own main address
+                    message_text = text(bold("Can not send to:\n"),
+                                        code(wallet_address))
+                    await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
+                                        parse_mode=ParseMode.MARKDOWN)
+                    return
+                else:
+                    tip = None
+                    if message.from_user.username not in WITHDRAW_IN_PROCESS:
+                        WITHDRAW_IN_PROCESS.append(message.from_user.username)
+                    else:
+                        message_text = text(bold("You have another tx in progress.\n"))
+                        await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
+                                            parse_mode=ParseMode.MARKDOWN)
+                        return
+
+                    if paymentid:
+                        try:
+                            tip = await store.sql_send_tip_Ex_id(message.from_user.username, CoinAddress, real_amount, paymentid, COIN_NAME, 'TELEGRAM')
+                        except Exception as e:
+                            traceback.print_exc(file=sys.stdout)
+                    else:
+                        try:
+                            tip = await store.sql_send_tip_Ex(message.from_user.username, CoinAddress, real_amount, COIN_NAME, 'TELEGRAM')
+                        except Exception as e:
+                            traceback.print_exc(file=sys.stdout)
+                    if message.from_user.username in WITHDRAW_IN_PROCESS:
+                        WITHDRAW_IN_PROCESS.remove(message.from_user.username)
+                    if tip:
+                        tip_tx_tipper = "Transaction hash: {}".format(tip['transactionHash'])
+                        tip_tx_tipper += "\nTx Fee: {}{}".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
+                        
+                        message_text = text(bold(f"You have sent {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}:\n"),
+                                            code(tip_tx_tipper))
+                        await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
+                                            parse_mode=ParseMode.MARKDOWN)
+                        return
+                    else:
+                        message_text = text(bold(f"Internal error for sending {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}"))
+                        await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
+                                            parse_mode=ParseMode.MARKDOWN)
+                        return
+            elif coin_family == "DOGE":
+                valid_address = await doge_validaddress(str(wallet_address), COIN_NAME)
+                if 'isvalid' in valid_address:
+                    if str(valid_address['isvalid']) != "True":
+                        message_text = text(bold("Invalid address:\n"),
+                                            code(wallet_address))
+                        await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
+                                            parse_mode=ParseMode.MARKDOWN)
+                        return
+                    else:
+                        sendTx = None
+                        if message.from_user.username not in WITHDRAW_IN_PROCESS:
+                            WITHDRAW_IN_PROCESS.append(message.from_user.username)
+                        else:
+                            message_text = text(bold("You have another tx in progress.\n"))
+                            await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
+                                                parse_mode=ParseMode.MARKDOWN)
+                            return
+
+                        try:
+                            NetFee = get_tx_fee(coin = COIN_NAME)
+                            sendTx = await store.sql_external_doge_single(message.from_user.username, real_amount, NetFee, wallet_address, COIN_NAME, 'SEND', 'TELEGRAM')
+                        except Exception as e:
+                            traceback.print_exc(file=sys.stdout)
+
+                        if message.from_user.username in WITHDRAW_IN_PROCESS:
+                            WITHDRAW_IN_PROCESS.remove(message.from_user.username)
+                        if sendTx:
+                            tx_text = "Transaction hash: {}".format(SendTx)
+                            tx_text += "\nNetwork fee deducted from the amount."
+                            
+                            message_text = text(bold(f"You have sent {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}:\n"),
+                                                code(tx_text))
+                            await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
+                                                parse_mode=ParseMode.MARKDOWN)
+                            return
+                        else:
+                            message_text = text(bold(f"Internal error for sending {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}"))
+                            await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
+                                                parse_mode=ParseMode.MARKDOWN)
+                            return
+
 
 
 @dp.message_handler(commands='withdraw')
@@ -653,9 +747,9 @@ async def start_cmd_handler(message: types.Message):
         return
    
     COIN_NAME = args[2].upper()
-    if COIN_NAME not in ENABLE_COIN:
+    if COIN_NAME not in ENABLE_COIN + ENABLE_COIN_DOGE:
         message_text = text(bold(f"Invalid {COIN_NAME}\n\n"), 
-                            "Supported coins: ", code(", ".join(ENABLE_COIN)))
+                            "Supported coins: ", code(", ".join(ENABLE_COIN + ENABLE_COIN_DOGE)))
         await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
                             parse_mode=ParseMode.MARKDOWN)
         return
@@ -681,6 +775,10 @@ async def start_cmd_handler(message: types.Message):
     if coin_family == "TRTL":
         userdata_balance = await store.sql_cnoff_balance(message.from_user.username, COIN_NAME, 'TELEGRAM')
         user_from['actual_balance'] = user_from['actual_balance'] + int(userdata_balance['Adjust'])
+    elif coin_family == "DOGE":
+        userdata_balance = await store.sql_doge_balance(message.from_user.username, COIN_NAME, 'TELEGRAM')
+        user_from['actual_balance'] = user_from['actual_balance'] + float(userdata_balance['Adjust'])
+
     if user_from is None:
         message_text = text(bold(f"You have not registered {COIN_NAME}"))
         await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
@@ -694,7 +792,7 @@ async def start_cmd_handler(message: types.Message):
     elif user_from['user_wallet_address']:
         wallet_address = user_from['user_wallet_address']
         COIN_DEC = get_decimal(COIN_NAME)
-        real_amount = int(amount * COIN_DEC) if coin_family == "TRTL" else amount
+        real_amount = int(amount * COIN_DEC) if (coin_family == "TRTL" or coin_family == "XMR") else amount
         MinTx = get_min_tx_amount(COIN_NAME)
         MaxTX = get_max_tx_amount(COIN_NAME)
         NetFee = get_reserved_fee(coin = COIN_NAME)
@@ -713,16 +811,48 @@ async def start_cmd_handler(message: types.Message):
             await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
                                 parse_mode=ParseMode.MARKDOWN)
             return
+        
+        if coin_family == "TRTL":
+            main_address = getattr(getattr(config,"daemon"+COIN_NAME),"MainAddress")
+            if wallet_address and wallet_address == main_address:
+                # Not allow to send to own main address
+                message_text = text(bold("Can not send to:\n"),
+                                    code(wallet_address))
+                await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
+                                    parse_mode=ParseMode.MARKDOWN)
+                return
+            else:
+                tip = None
+                if message.from_user.username not in WITHDRAW_IN_PROCESS:
+                    WITHDRAW_IN_PROCESS.append(message.from_user.username)
+                else:
+                    message_text = text(bold("You have another tx in progress.\n"))
+                    await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
+                                        parse_mode=ParseMode.MARKDOWN)
+                    return
 
-        main_address = getattr(getattr(config,"daemon"+COIN_NAME),"MainAddress")
-        if wallet_address and wallet_address == main_address:
-            # Not allow to send to own main address
-            message_text = text(bold("Can not send to:\n"),
-                                code(wallet_address))
-            await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
-                                parse_mode=ParseMode.MARKDOWN)
-            return
-        else:
+                try:
+                    tip = await store.sql_withdraw(message.from_user.username, real_amount, COIN_NAME, 'TELEGRAM')
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+
+                if message.from_user.username in WITHDRAW_IN_PROCESS:
+                    WITHDRAW_IN_PROCESS.remove(message.from_user.username)
+                if tip:
+                    tip_tx_tipper = "Transaction hash: {}".format(tip['transactionHash'])
+                    tip_tx_tipper += "\nTx Fee: {}{}".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
+                    
+                    message_text = text(bold(f"You have withdrawn {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}:\n"),
+                                        code(tip_tx_tipper))
+                    await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
+                                        parse_mode=ParseMode.MARKDOWN)
+                    return
+                else:
+                    message_text = text(bold(f"Internal error for sending {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}"))
+                    await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
+                                        parse_mode=ParseMode.MARKDOWN)
+                    return
+        elif coin_family == "DOGE":
             tip = None
             if message.from_user.username not in WITHDRAW_IN_PROCESS:
                 WITHDRAW_IN_PROCESS.append(message.from_user.username)
@@ -733,18 +863,21 @@ async def start_cmd_handler(message: types.Message):
                 return
 
             try:
-                tip = await store.sql_withdraw(message.from_user.username, real_amount, COIN_NAME, 'TELEGRAM')
+                NetFee = get_tx_fee(coin = COIN_NAME)
+                withdrawTx = await store.sql_external_doge_single(message.from_user.username, real_amount,
+                                                                  NetFee, wallet_address,
+                                                                  COIN_NAME, 'WITHDRAW', 'TELEGRAM')
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
 
             if message.from_user.username in WITHDRAW_IN_PROCESS:
                 WITHDRAW_IN_PROCESS.remove(message.from_user.username)
-            if tip:
-                tip_tx_tipper = "Transaction hash: {}".format(tip['transactionHash'])
-                tip_tx_tipper += "\nTx Fee: {}{}".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
-                
+            if withdrawTx:
+                tx_text = "Transaction hash: {}\n".format(withdrawTx)
+                tx_text += "To: {}".format(wallet_address)
+                tx_text += "Network fee deducted from the amount." 
                 message_text = text(bold(f"You have withdrawn {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}:\n"),
-                                    code(tip_tx_tipper))
+                                    code(tx_text))
                 await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
                                     parse_mode=ParseMode.MARKDOWN)
                 return
@@ -770,9 +903,9 @@ async def start_cmd_handler(message: types.Message):
         return
    
     COIN_NAME = args[2].upper()
-    if COIN_NAME not in ENABLE_COIN:
+    if COIN_NAME not in ENABLE_COIN + ENABLE_COIN_DOGE:
         message_text = text(bold(f"Invalid {COIN_NAME}\n\n"), 
-                            "Supported coins: ", code(", ".join(ENABLE_COIN)))
+                            "Supported coins: ", code(", ".join(ENABLE_COIN + ENABLE_COIN_DOGE)))
         await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
                             parse_mode=ParseMode.MARKDOWN)
         return
@@ -791,16 +924,18 @@ async def start_cmd_handler(message: types.Message):
     if coin_family == "TRTL":
         userdata_balance = await store.sql_cnoff_balance(message.from_user.username, COIN_NAME, 'TELEGRAM')
         user_from['actual_balance'] = user_from['actual_balance'] + int(userdata_balance['Adjust'])
-
+    elif coin_family == "DOGE":
+        userdata_balance = await store.sql_doge_balance(message.from_user.username, COIN_NAME, 'TELEGRAM')
+        user_from['actual_balance'] = user_from['actual_balance'] + float(userdata_balance['Adjust'])
     COIN_DEC = get_decimal(COIN_NAME)
-    real_amount = int(amount * COIN_DEC) if coin_family == "TRTL" else amount
+    real_amount = int(amount * COIN_DEC) if (coin_family == "TRTL" or coin_family == "XMR") else amount
     MinTx = get_min_mv_amount(COIN_NAME)
     MaxTX = get_max_mv_amount(COIN_NAME)
 
     message_text = ''
     valid_amount = True
     if real_amount > user_from['actual_balance']:
-        message_text = 'Insufficient balance to send ' + num_format_coin(real_amount, COIN_NAME) + COIN_NAME + ' to ' + wallet_address
+        message_text = 'Insufficient balance to donate ' + num_format_coin(real_amount, COIN_NAME) + COIN_NAME
         valid_amount = False
     elif real_amount > MaxTX:
         message_text = 'Transactions cannot be bigger than ' + num_format_coin(MaxTX, COIN_NAME) + COIN_NAME
@@ -816,11 +951,13 @@ async def start_cmd_handler(message: types.Message):
 
     if message.from_user.username not in WITHDRAW_IN_PROCESS:
         WITHDRAW_IN_PROCESS.append(message.from_user.username)
-
         tip = None
         try:
             CoinAddress = get_donate_address(COIN_NAME)
-            tip = await store.sql_donate(message.from_user.username, CoinAddress, real_amount, COIN_NAME, 'TELEGRAM')
+            if coin_family == "TRTL":
+                tip = await store.sql_donate(message.from_user.username, CoinAddress, real_amount, COIN_NAME, 'TELEGRAM')
+            elif coin_family == "DOGE":
+                tip = await store.sql_mv_doge_single(message.from_user.username, CoinAddress, real_amount, COIN_NAME, 'DONATE', 'TELEGRAM')
             message_text = text(bold("You donated:"), code("\nAmount: {}{}".format(num_format_coin(real_amount, COIN_NAME), COIN_NAME)), "Thank you very much.")
             await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
                                 parse_mode=ParseMode.MARKDOWN)

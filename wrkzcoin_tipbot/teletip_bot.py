@@ -91,7 +91,12 @@ async def start_cmd_handler(message: types.Message):
         # default row_width is 3, so here we can omit it actually
         # kept for clearness
 
-        btns_text = tuple(["/info " + item for item in ENABLE_COIN + ["/start"]])
+        btns_text = tuple(["/info " + item for item in ENABLE_COIN])
+
+        more_btns_text = (
+            "/start",
+        )
+        keyboard_markup.add(*(types.KeyboardButton(text) for text in more_btns_text))
         keyboard_markup.row(*(types.KeyboardButton(text) for text in btns_text))
 
         await message.reply("Select coin to display information", reply_markup=keyboard_markup)
@@ -128,6 +133,10 @@ async def start_cmd_handler(message: types.Message):
         # kept for clearness
 
         btns_text = tuple(["/coininfo " + item for item in ENABLE_COIN])
+        more_btns_text = (
+            "/start",
+        )
+        keyboard_markup.add(*(types.KeyboardButton(text) for text in more_btns_text))
         keyboard_markup.row(*(types.KeyboardButton(text) for text in btns_text))
 
         await message.reply("Select coin to display information", reply_markup=keyboard_markup)
@@ -183,6 +192,11 @@ async def start_cmd_handler(message: types.Message):
         # kept for clearness
 
         btns_text = tuple(["/bal " + item for item in ENABLE_COIN + ["list"]])
+
+        more_btns_text = (
+            "/start",
+        )
+        keyboard_markup.add(*(types.KeyboardButton(text) for text in more_btns_text))
         keyboard_markup.row(*(types.KeyboardButton(text) for text in btns_text))
 
         await message.reply("Select coin to display information", reply_markup=keyboard_markup)

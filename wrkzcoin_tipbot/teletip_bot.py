@@ -82,7 +82,7 @@ async def start_cmd_handler(message: types.Message):
 
 @dp.message_handler(commands='info')
 async def start_cmd_handler(message: types.Message):
-    content = message.text
+    content = ' '.join(message.text.split())
     args = content.split(" ")
     if message.chat.type != "private":
         return
@@ -134,7 +134,7 @@ async def start_cmd_handler(message: types.Message):
 
 @dp.message_handler(commands='coininfo')
 async def start_cmd_handler(message: types.Message):
-    content = message.text
+    content = ' '.join(message.text.split())
     args = content.split(" ")
 
     if len(args) == 1:
@@ -192,7 +192,7 @@ async def start_cmd_handler(message: types.Message):
 
 @dp.message_handler(commands='bal')
 async def start_cmd_handler(message: types.Message):
-    content = message.text
+    content = ' '.join(message.text.split())
     args = content.split(" ")
     if message.chat.type != "private":
         return
@@ -266,7 +266,7 @@ async def start_cmd_handler(message: types.Message):
 
 @dp.message_handler(commands='register')
 async def start_cmd_handler(message: types.Message):
-    content = message.text
+    content = ' '.join(message.text.split())
     args = content.split(" ")
     if message.chat.type != "private":
         return
@@ -345,7 +345,7 @@ async def start_cmd_handler(message: types.Message):
         await message.reply(reply_text, reply_markup=types.ReplyKeyboardRemove())
         return
 
-    content = message.text
+    content = ' '.join(message.text.split())
     args = content.split(" ")
     if len(args) != 4:
         reply_text = "Please use /tip amount coin_name @telegramuser"
@@ -462,7 +462,7 @@ async def start_cmd_handler(message: types.Message):
         await message.reply(reply_text, reply_markup=types.ReplyKeyboardRemove())
         return
 
-    content = message.text
+    content = ' '.join(message.text.split())
     args = content.split(" ")
     if len(args) != 4:
         reply_text = "Please use /send amount coin_name address"
@@ -629,7 +629,7 @@ async def start_cmd_handler(message: types.Message):
         await message.reply(reply_text, reply_markup=types.ReplyKeyboardRemove())
         return
 
-    content = message.text
+    content = ' '.join(message.text.split())
     args = content.split(" ")
     if len(args) != 3:
         reply_text = "Please use /donate amount coin_name"

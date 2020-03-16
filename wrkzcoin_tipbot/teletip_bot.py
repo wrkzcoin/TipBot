@@ -347,7 +347,12 @@ async def start_cmd_handler(message: types.Message):
 
     content = ' '.join(message.text.split())
     args = content.split(" ")
-    if len(args) != 4:
+
+    if len(args) != 4 and len(args) != 3:
+        reply_text = "Please use /tip amount coin_name @telegramuser"
+        await message.reply(reply_text, reply_markup=types.ReplyKeyboardRemove())
+        return
+    elif len(args) == 3 and message.reply_to_message is None:
         reply_text = "Please use /tip amount coin_name @telegramuser"
         await message.reply(reply_text, reply_markup=types.ReplyKeyboardRemove())
         return
@@ -377,8 +382,23 @@ async def start_cmd_handler(message: types.Message):
         return
 
     # Find user if exist
-    if args[3].startswith("@"):
+    user_to = None
+    if len(args) == 4 and args[3].startswith("@"):
         user_to = (args[3])[1:]
+    elif len(args) == 3 and message.reply_to_message:
+        user_to = message.reply_to_message.from_user.username
+        
+    if user_to is None:
+        reply_text = "I can not get username to tip to."
+        await message.reply(reply_text, reply_markup=types.ReplyKeyboardRemove())
+        return
+    else:
+        # if tip to himself
+        if user_to == message.from_user.username:
+            reply_text = "You can not tip to yourself."
+            await message.reply(reply_text, reply_markup=types.ReplyKeyboardRemove())
+            return
+            
         to_teleuser = await store.sql_get_userwallet(user_to, COIN_NAME, 'TELEGRAM')
         if to_teleuser is None:
             message_text = text(bold(f"Can not find user {user_to} in our DB."))
@@ -449,10 +469,6 @@ async def start_cmd_handler(message: types.Message):
                 if message.from_user.username in WITHDRAW_IN_PROCESS:
                     WITHDRAW_IN_PROCESS.remove(message.from_user.username)
                 return
-    else:
-        reply_text = "Invalid telegram user."
-        await message.reply(reply_text, reply_markup=types.ReplyKeyboardRemove())
-        return
 
 
 @dp.message_handler(commands='send')

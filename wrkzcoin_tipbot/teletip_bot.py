@@ -86,6 +86,10 @@ async def start_cmd_handler(message: types.Message):
     args = content.split(" ")
     if message.chat.type != "private":
         return
+    if message.from_user.username is None:
+        reply_text = "I can not get your username."
+        await message.reply(reply_text, reply_markup=types.ReplyKeyboardRemove())
+        return
     if len(args) == 1:
         keyboard_markup = types.ReplyKeyboardMarkup(row_width=3)
         # default row_width is 3, so here we can omit it actually
@@ -192,6 +196,10 @@ async def start_cmd_handler(message: types.Message):
     args = content.split(" ")
     if message.chat.type != "private":
         return
+    if message.from_user.username is None:
+        reply_text = "I can not get your username."
+        await message.reply(reply_text, reply_markup=types.ReplyKeyboardRemove())
+        return
     if len(args) == 1:
         keyboard_markup = types.ReplyKeyboardMarkup(row_width=3)
         # default row_width is 3, so here we can omit it actually
@@ -262,6 +270,10 @@ async def start_cmd_handler(message: types.Message):
     args = content.split(" ")
     if message.chat.type != "private":
         return
+    if message.from_user.username is None:
+        reply_text = "I can not get your username."
+        await message.reply(reply_text, reply_markup=types.ReplyKeyboardRemove())
+        return
     if len(args) == 1:
         reply_text = "Please use /register YOUR_WALLET_ADDRESS"
         await message.reply(reply_text, reply_markup=types.ReplyKeyboardRemove())
@@ -328,6 +340,11 @@ async def start_cmd_handler(message: types.Message):
 
 @dp.message_handler(commands='tip')
 async def start_cmd_handler(message: types.Message):
+    if message.from_user.username is None:
+        reply_text = "I can not get your username."
+        await message.reply(reply_text, reply_markup=types.ReplyKeyboardRemove())
+        return
+
     content = message.text
     args = content.split(" ")
     if len(args) != 4:
@@ -440,6 +457,10 @@ async def start_cmd_handler(message: types.Message):
 
 @dp.message_handler(commands='send')
 async def start_cmd_handler(message: types.Message):
+    if message.from_user.username is None:
+        reply_text = "I can not get your username."
+        await message.reply(reply_text, reply_markup=types.ReplyKeyboardRemove())
+        return
 
     content = message.text
     args = content.split(" ")
@@ -603,6 +624,10 @@ async def start_cmd_handler(message: types.Message):
 
 @dp.message_handler(commands='donate')
 async def start_cmd_handler(message: types.Message):
+    if message.from_user.username is None:
+        reply_text = "I can not get your username."
+        await message.reply(reply_text, reply_markup=types.ReplyKeyboardRemove())
+        return
 
     content = message.text
     args = content.split(" ")

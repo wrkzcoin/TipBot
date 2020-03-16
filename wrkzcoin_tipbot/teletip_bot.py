@@ -109,6 +109,12 @@ async def start_cmd_handler(message: types.Message):
                                 parse_mode=ParseMode.MARKDOWN)
             return
         else:
+            if not is_coin_depositable(COIN_NAME):
+                message_text = text(bold(f"DEPOSITING is currently disable for {COIN_NAME}."))
+                await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
+                                    parse_mode=ParseMode.MARKDOWN)
+                return
+
             user_addr = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
             if user_addr is None:
                 userregister = await store.sql_register_user(message.from_user.username, COIN_NAME, 'TELEGRAM', message.chat.id)
@@ -337,6 +343,13 @@ async def start_cmd_handler(message: types.Message):
                             parse_mode=ParseMode.MARKDOWN)
         return
 
+    if not is_coin_tipable(COIN_NAME):
+        message_text = text(bold(f"TIPPING is currently disable for {COIN_NAME}."))
+        await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
+                            parse_mode=ParseMode.MARKDOWN)
+        return
+
+
     amount = args[1].replace(",", "")
     try:
         amount = float(amount)
@@ -439,6 +452,12 @@ async def start_cmd_handler(message: types.Message):
     if COIN_NAME not in ENABLE_COIN:
         message_text = text(bold(f"Invalid {COIN_NAME}\n\n"), 
                             "Supported coins: ", code(", ".join(ENABLE_COIN)))
+        await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
+                            parse_mode=ParseMode.MARKDOWN)
+        return
+
+    if not is_coin_txable(COIN_NAME):
+        message_text = text(bold(f"TX is currently disable for {COIN_NAME}."))
         await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
                             parse_mode=ParseMode.MARKDOWN)
         return

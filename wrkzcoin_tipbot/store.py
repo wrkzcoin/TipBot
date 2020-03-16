@@ -240,6 +240,7 @@ async def sql_update_balances(coin: str = None):
                             else:
                                 # print('{} has some tx but not yet meet confirmation depth.'.format(COIN_NAME))
                                 pass
+            print("cnoff_get_transfers: {}".format(COIN_NAME))
             if list_balance_user and len(list_balance_user) > 0:
                 openConnection()
                 with conn.cursor() as cur:
@@ -442,10 +443,13 @@ async def sql_get_alluser_balance(coin: str, filename: str):
         return None
 
 
-async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD'):
+async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD', chat_id: int = 0):
     user_server = user_server.upper()
     if user_server not in ['DISCORD', 'TELEGRAM']:
         return
+    if user_server == "TELEGRAM" and chat_id == 0:
+        return
+        
     global conn
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
@@ -465,7 +469,7 @@ async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD'):
                 cur.execute(sql, (userID, COIN_NAME, user_server))
                 result = cur.fetchone()
             elif coin_family == "XMR":
-                sql = """ SELECT * FROM """+coin.lower()+"""_user_paymentid, user_server 
+                sql = """ SELECT * FROM """+coin.lower()+"""_user_paymentid 
                           WHERE `user_id`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """
                 cur.execute(sql, (str(userID), COIN_NAME, user_server))
                 result = cur.fetchone()
@@ -513,10 +517,10 @@ async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD'):
                         conn.commit()
                     elif coin_family == "TRTL" and (COIN_NAME in ENABLE_COIN_OFFCHAIN):
                         sql = """ INSERT INTO cnoff_user_paymentid (`coin_name`, `user_id`, `main_address`, `paymentid`, 
-                              `int_address`, `paymentid_ts`, `user_server`) 
-                              VALUES (%s, %s, %s, %s, %s, %s, %s) """
+                              `int_address`, `paymentid_ts`, `user_server`, `chat_id`) 
+                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
                         cur.execute(sql, (COIN_NAME, str(userID), main_address, balance_address['payment_id'], 
-                                          balance_address['integrated_address'], int(time.time()), user_server))
+                                          balance_address['integrated_address'], int(time.time()), user_server, chat_id))
                         conn.commit()
                     elif coin_family == "XMR":
                         sql = """ INSERT INTO """+coin.lower()+"""_user_paymentid (`coin_name`, `user_id`, `main_address`, `paymentid`, 
@@ -712,9 +716,9 @@ async def sql_send_tip(user_from: str, user_to: str, amount: int, tiptype: str, 
     address_to = None
     #print('sql_send_tip')
     if coin_family == "TRTL" or coin_family == "XMR":
-        user_from_wallet = await sql_get_userwallet(user_from, COIN_NAME)
-        user_to_wallet = await sql_get_userwallet(user_to, COIN_NAME)
-        if user_to_wallet['forwardtip'] == "ON" and user_to_wallet['user_wallet_address']:
+        user_from_wallet = await sql_get_userwallet(user_from, COIN_NAME, user_server)
+        user_to_wallet = await sql_get_userwallet(user_to, COIN_NAME, user_server)
+        if user_to_wallet and user_to_wallet['forwardtip'] == "ON" and user_to_wallet['user_wallet_address']:
             address_to = user_to_wallet['user_wallet_address']
         else:
             address_to = user_to_wallet['balance_wallet_address']
@@ -764,7 +768,7 @@ async def sql_send_tip(user_from: str, user_to: str, amount: int, tiptype: str, 
         return None
 
 
-async def sql_send_tipall(user_from: str, user_tos, amount: int, amount_div: int, user_ids, tiptype: str, coin: str):
+async def sql_send_tipall(user_from: str, user_tos, amount: int, amount_div: int, user_ids, tiptype: str, coin: str, user_server: str = 'DISCORD'):
     global conn
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
@@ -774,7 +778,7 @@ async def sql_send_tipall(user_from: str, user_tos, amount: int, amount_div: int
 
     user_from_wallet = None
     if coin_family == "TRTL" or coin_family == "XMR":
-        user_from_wallet = await sql_get_userwallet(user_from, COIN_NAME)
+        user_from_wallet = await sql_get_userwallet(user_from, COIN_NAME, user_server)
     if user_from_wallet['balance_wallet_address']:
         tx_hash = None
         if coin_family == "TRTL" and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
@@ -831,13 +835,13 @@ async def sql_send_tipall(user_from: str, user_tos, amount: int, amount_div: int
         return None
 
 
-async def sql_send_tip_Ex(user_from: str, address_to: str, amount: int, coin: str):
+async def sql_send_tip_Ex(user_from: str, address_to: str, amount: int, coin: str, user_server: str = 'DISCORD'):
     global conn
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     user_from_wallet = None
     if coin_family == "TRTL" or coin_family == "XMR":
-        user_from_wallet = await sql_get_userwallet(user_from, COIN_NAME)
+        user_from_wallet = await sql_get_userwallet(user_from, COIN_NAME, user_server)
     if user_from_wallet['balance_wallet_address']:
         tx_hash = None
         if coin_family == "TRTL" and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
@@ -891,8 +895,9 @@ async def sql_send_tip_Ex(user_from: str, address_to: str, amount: int, coin: st
                         else:
                             fee = tx_hash['fee']
                         sql = """ INSERT INTO cnoff_external_tx (`coin_name`, `user_id`, `to_address`, `amount`, `decimal`, `date`, 
-                                  `tx_hash`, `fee`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
-                        cur.execute(sql, (COIN_NAME, user_from, address_to, amount, wallet.get_decimal(COIN_NAME), timestamp, tx_hash['transactionHash'], fee))
+                                  `tx_hash`, `fee`, `user_server`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                        cur.execute(sql, (COIN_NAME, user_from, address_to, amount, wallet.get_decimal(COIN_NAME), timestamp, 
+                                    tx_hash['transactionHash'], fee, user_server))
                         conn.commit()
                     if updateBalance:
                         if coin_family == "TRTL":
@@ -909,11 +914,11 @@ async def sql_send_tip_Ex(user_from: str, address_to: str, amount: int, coin: st
         return None
 
 
-async def sql_send_tip_Ex_id(user_from: str, address_to: str, amount: int, paymentid, coin: str = None):
+async def sql_send_tip_Ex_id(user_from: str, address_to: str, amount: int, paymentid, coin: str, user_server: str = 'DISCORD'):
     global conn
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-    user_from_wallet = await sql_get_userwallet(user_from, COIN_NAME)
+    user_from_wallet = await sql_get_userwallet(user_from, COIN_NAME, user_server)
     if 'balance_wallet_address' in user_from_wallet:
         tx_hash = None
         if coin_family == "TRTL" and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
@@ -960,8 +965,10 @@ async def sql_send_tip_Ex_id(user_from: str, address_to: str, amount: int, payme
                         else:
                             fee = tx_hash['fee']
                         sql = """ INSERT INTO cnoff_external_tx (`coin_name`, `user_id`, `to_address`, `amount`, `decimal`, `date`, 
-                                  `tx_hash`, `paymentid`, `fee`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                        cur.execute(sql, (COIN_NAME, user_from, address_to, amount, wallet.get_decimal(COIN_NAME), timestamp, tx_hash['transactionHash'], paymentid, fee))
+                                  `tx_hash`, `paymentid`, `fee`, `user_server`) 
+                                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                        cur.execute(sql, (COIN_NAME, user_from, address_to, amount, wallet.get_decimal(COIN_NAME), 
+                                    timestamp, tx_hash['transactionHash'], paymentid, fee, user_server))
                         conn.commit()
                     if updateBalance:
                         if COIN_NAME in ENABLE_COIN:
@@ -978,12 +985,12 @@ async def sql_send_tip_Ex_id(user_from: str, address_to: str, amount: int, payme
         return None
 
 
-async def sql_withdraw(user_from: str, amount: int, coin: str):
+async def sql_withdraw(user_from: str, amount: int, coin: str, user_server: str = 'DISCORD'):
     global conn
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     tx_hash = None
-    user_from_wallet = await sql_get_userwallet(user_from, COIN_NAME)
+    user_from_wallet = await sql_get_userwallet(user_from, COIN_NAME, user_server)
     if all(v is not None for v in [user_from_wallet['balance_wallet_address'], user_from_wallet['user_wallet_address']]):
         if coin_family == "TRTL" and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
             if COIN_NAME in WALLET_API_COIN:
@@ -1057,12 +1064,13 @@ async def sql_withdraw(user_from: str, amount: int, coin: str):
         return None
 
 
-async def sql_donate(user_from: str, address_to: str, amount: int, coin: str) -> str:
+async def sql_donate(user_from: str, address_to: str, amount: int, coin: str, user_server: str = 'DISCORD') -> str:
     global conn
+    user_server = user_server.upper()
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
 
-    user_from_wallet = await sql_get_userwallet(user_from, COIN_NAME)
+    user_from_wallet = await sql_get_userwallet(user_from, COIN_NAME, user_server)
     if all(v is not None for v in [user_from_wallet['balance_wallet_address'], address_to]):
         tx_hash = None
         if coin_family == "TRTL" and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
@@ -1075,9 +1083,10 @@ async def sql_donate(user_from: str, address_to: str, amount: int, coin: str) ->
             try:
                 openConnection()
                 with conn.cursor() as cur: 
-                    sql = """ INSERT INTO cnoff_mv_tx (`coin_name`, `from_userid`, `to_userid`, `amount`, `decimal`, `type`, `date`) 
-                              VALUES (%s, %s, %s, %s, %s, %s, %s) """
-                    cur.execute(sql, (COIN_NAME, user_from, wallet.get_donate_address(COIN_NAME), amount, wallet.get_decimal(COIN_NAME), 'DONATE', int(time.time()),))
+                    sql = """ INSERT INTO cnoff_mv_tx (`coin_name`, `from_userid`, `to_userid`, `amount`, `decimal`, `type`, `date`, `user_server`) 
+                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                    cur.execute(sql, (COIN_NAME, user_from, wallet.get_donate_address(COIN_NAME), amount, 
+                                wallet.get_decimal(COIN_NAME), 'DONATE', int(time.time()), user_server))
                     conn.commit()
                 return {'transactionHash': 'NONE', 'fee': 0}
             except Exception as e:
@@ -2152,8 +2161,11 @@ async def sql_external_xmr_single(user_from: str, amount: float, to_address: str
     return False
 
 
-async def sql_cnoff_balance(userID: str, coin: str, redis_reset: bool = True):
+async def sql_cnoff_balance(userID: str, coin: str, user_server: str = 'DISCORD'):
     global conn, redis_conn, redis_expired
+    user_server = user_server.upper()
+    if user_server not in ['DISCORD', 'TELEGRAM']:
+        return
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     if coin_family != "TRTL":
@@ -2162,32 +2174,32 @@ async def sql_cnoff_balance(userID: str, coin: str, redis_reset: bool = True):
     try:
         openConnection()
         with conn.cursor() as cur: 
-            sql = """ SELECT SUM(amount) AS Expense FROM cnoff_mv_tx WHERE `from_userid`=%s AND `coin_name` = %s """
-            cur.execute(sql, (userID, COIN_NAME))
+            sql = """ SELECT SUM(amount) AS Expense FROM cnoff_mv_tx WHERE `from_userid`=%s AND `coin_name` = %s AND `user_server` = %s """
+            cur.execute(sql, (userID, COIN_NAME, user_server))
             result = cur.fetchone()
             if result:
                 Expense = result['Expense']
             else:
                 Expense = 0
 
-            sql = """ SELECT SUM(amount) AS Income FROM cnoff_mv_tx WHERE `to_userid`=%s AND `coin_name` = %s """
-            cur.execute(sql, (userID, COIN_NAME))
+            sql = """ SELECT SUM(amount) AS Income FROM cnoff_mv_tx WHERE `to_userid`=%s AND `coin_name` = %s AND `user_server` = %s """
+            cur.execute(sql, (userID, COIN_NAME, user_server))
             result = cur.fetchone()
             if result:
                 Income = result['Income']
             else:
                 Income = 0
 
-            sql = """ SELECT SUM(amount) AS TxExpense FROM cnoff_external_tx WHERE `user_id`=%s AND `coin_name` = %s """
-            cur.execute(sql, (userID, COIN_NAME))
+            sql = """ SELECT SUM(amount) AS TxExpense FROM cnoff_external_tx WHERE `user_id`=%s AND `coin_name` = %s AND `user_server` = %s """
+            cur.execute(sql, (userID, COIN_NAME, user_server))
             result = cur.fetchone()
             if result:
                 TxExpense = result['TxExpense']
             else:
                 TxExpense = 0
 
-            sql = """ SELECT SUM(fee) AS FeeExpense FROM cnoff_external_tx WHERE `user_id`=%s AND `coin_name` = %s """
-            cur.execute(sql, (userID, COIN_NAME))
+            sql = """ SELECT SUM(fee) AS FeeExpense FROM cnoff_external_tx WHERE `user_id`=%s AND `coin_name` = %s AND `user_server` = %s """
+            cur.execute(sql, (userID, COIN_NAME, user_server))
             result = cur.fetchone()
             if result:
                 FeeExpense = result['FeeExpense']
@@ -2337,8 +2349,10 @@ async def sql_xmr_balance(userID: str, coin: str, redis_reset: bool = True):
 
 
 
-async def sql_get_userwallet_by_paymentid(paymentid: str, coin: str):
+async def sql_get_userwallet_by_paymentid(paymentid: str, coin: str, user_server: str = 'DISCORD'):
     global conn
+    if user_server not in ['DISCORD', 'TELEGRAM']:
+        return
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     try:
@@ -2346,14 +2360,14 @@ async def sql_get_userwallet_by_paymentid(paymentid: str, coin: str):
         with conn.cursor() as cur:
             result = None
             if coin_family == "TRTL":
-                sql = """ SELECT * FROM cnoff_user_paymentid WHERE `paymentid`=%s AND `coin_name` = %s LIMIT 1 """
-                cur.execute(sql, (paymentid, COIN_NAME,))
+                sql = """ SELECT * FROM cnoff_user_paymentid WHERE `paymentid`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """
+                cur.execute(sql, (paymentid, COIN_NAME, user_server))
                 result = cur.fetchone()
             # TODO: XMR family to be in one table
             elif coin_family == "DOGE":
                 # if doge family, address is paymentid
-                sql = """ SELECT * FROM doge_user WHERE `balance_wallet_address`=%s AND `coin_name` = %s LIMIT 1 """
-                cur.execute(sql, (paymentid, COIN_NAME,))
+                sql = """ SELECT * FROM doge_user WHERE `balance_wallet_address`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """
+                cur.execute(sql, (paymentid, COIN_NAME, user_server))
                 result = cur.fetchone()
             return result
     except Exception as e:

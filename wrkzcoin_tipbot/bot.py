@@ -448,7 +448,7 @@ async def on_reaction_add(reaction, user):
             if COIN_NAME in (ENABLE_COIN + ENABLE_XMR):
                 user_addr = await store.sql_get_userwallet(str(user.id), COIN_NAME)
                 if user_addr is None:
-                    userregister = await store.sql_register_user(str(user.id), COIN_NAME)
+                    userregister = await store.sql_register_user(str(user.id), COIN_NAME, 'DISCORD')
                     user_addr = await store.sql_get_userwallet(str(user.id), COIN_NAME)
                 address = user_addr['balance_wallet_address'] or "NONE"
                 # this one to public channel
@@ -487,7 +487,7 @@ async def on_reaction_add(reaction, user):
                     return
                 user_to = await store.sql_get_userwallet(str(reaction.message.author.id), COIN_NAME)
                 if user_to is None:
-                    userregister = await store.sql_register_user(str(reaction.message.author.id), COIN_NAME)
+                    userregister = await store.sql_register_user(str(reaction.message.author.id), COIN_NAME, 'DISCORD')
                     user_to = await store.sql_get_userwallet(str(reaction.message.author.id), COIN_NAME)
                 if COIN_NAME in ENABLE_COIN_OFFCHAIN:
                     userdata_balance = await store.sql_cnoff_balance(str(user.id), COIN_NAME)
@@ -571,7 +571,7 @@ async def on_reaction_add(reaction, user):
                     user_from['actual_balance'] = user_from['actual_balance'] + int(userdata_balance['Adjust'])
                 user_to = await store.sql_get_userwallet(str(reaction.message.author.id), COIN_NAME)
                 if user_to is None:
-                    userregister = await store.sql_register_user(str(reaction.message.author.id), COIN_NAME)
+                    userregister = await store.sql_register_user(str(reaction.message.author.id), COIN_NAME, 'DISCORD')
                     user_to = await store.sql_get_userwallet(str(reaction.message.author.id), COIN_NAME)
                 if user_to['forwardtip'] == "ON" and COIN_NAME in ENABLE_COIN_OFFCHAIN:
                     has_forwardtip = True
@@ -1029,7 +1029,7 @@ async def credit(ctx, amount: str, coin: str, to_userid: str):
     if (coin_family == "XMR" or coin_family == "DOGE") or (COIN_NAME in ENABLE_COIN_OFFCHAIN):
         wallet = await store.sql_get_userwallet(to_userid, COIN_NAME)
         if wallet is None:
-            userregister = await store.sql_register_user(to_userid, COIN_NAME)
+            userregister = await store.sql_register_user(to_userid, COIN_NAME, 'DISCORD')
             wallet = await store.sql_get_userwallet(to_userid, COIN_NAME)
     else:
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} not support ticker **{COIN_NAME}**')
@@ -1203,7 +1203,7 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
             COIN_DEC = get_decimal(COIN_NAME)
             wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
             if wallet is None and create_acc:
-                userregister = await store.sql_register_user(str(user_id), COIN_NAME)
+                userregister = await store.sql_register_user(str(user_id), COIN_NAME, 'DISCORD')
                 wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
             if wallet:
                 if COIN_NAME in ENABLE_COIN_OFFCHAIN:
@@ -1227,7 +1227,7 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
         if not is_maintenance_coin(COIN_NAME):
             wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
             if wallet is None and create_acc:
-                wallet = await store.sql_register_user(str(user_id), COIN_NAME)
+                wallet = await store.sql_register_user(str(user_id), COIN_NAME, 'DISCORD')
                 wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
             if wallet:
                 actual = wallet['actual_balance']
@@ -1253,7 +1253,7 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
         if not is_maintenance_coin(COIN_NAME):
             wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
             if wallet is None and create_acc:
-                userregister = await store.sql_register_user(str(user_id), COIN_NAME)
+                userregister = await store.sql_register_user(str(user_id), COIN_NAME, 'DISCORD')
                 wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
             if wallet:
                 actual = wallet['actual_balance']
@@ -1623,17 +1623,17 @@ async def info(ctx, coin: str = None):
     if coin_family == "TRTL":
         wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if wallet is None:
-            userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
             wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
     elif coin_family == "XMR":
         wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if wallet is None:
-            userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
             wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
     elif coin_family == "DOGE":
         wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if wallet is None:
-            wallet = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            wallet = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
             wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
     else:
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**')
@@ -1791,7 +1791,7 @@ async def balance(ctx, coin: str = None):
                 COIN_DEC = get_decimal(COIN_NAME)
                 wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
                 if wallet is None:
-                    userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+                    userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
                     wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
                 if wallet is None:
                     if coin: table_data.append([COIN_NAME, "N/A", "N/A", "N/A"])
@@ -1821,7 +1821,7 @@ async def balance(ctx, coin: str = None):
             if not is_maintenance_coin(COIN_NAME):
                 userwallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
                 if userwallet is None:
-                    userwallet = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+                    userwallet = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
                     userwallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
                 depositAddress = userwallet['balance_wallet_address']
                 actual = userwallet['actual_balance']
@@ -1849,7 +1849,7 @@ async def balance(ctx, coin: str = None):
             if not is_maintenance_coin(COIN_NAME):
                 wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
                 if wallet is None:
-                    userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+                    userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
                     wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
                 if wallet:
                     actual = wallet['actual_balance']
@@ -1924,7 +1924,7 @@ async def balance(ctx, coin: str = None):
     elif coin_family == "XMR":
         wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if wallet is None:
-            userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
             wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if wallet:
             actual = wallet['actual_balance']
@@ -1954,7 +1954,7 @@ async def balance(ctx, coin: str = None):
     elif coin_family == "DOGE":
         userwallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if userwallet is None:
-            userwallet = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            userwallet = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
             userwallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
 
         depositAddress = userwallet['balance_wallet_address']
@@ -2028,7 +2028,7 @@ async def balance(ctx, coin: str = None):
 
     wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
     if wallet is None:
-        userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+        userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
         wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
     if wallet is None:
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Internal Error for `.balance`')
@@ -2150,7 +2150,7 @@ async def botbalance(ctx, member: discord.Member, coin: str):
         try:
             userwallet = await store.sql_get_userwallet(str(member.id), COIN_NAME)
             if userwallet is None:
-                userwallet = await store.sql_register_user(str(member.id), COIN_NAME)
+                userwallet = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD')
                 userwallet = await store.sql_get_userwallet(str(member.id), COIN_NAME)
             depositAddress = userwallet['balance_wallet_address']
         except Exception as e:
@@ -2181,7 +2181,7 @@ async def botbalance(ctx, member: discord.Member, coin: str):
     elif COIN_NAME in ENABLE_XMR:
         wallet = await store.sql_get_userwallet(str(member.id), COIN_NAME)
         if wallet is None:
-            userregister = await store.sql_register_user(str(member.id), COIN_NAME)
+            userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD')
             wallet = await store.sql_get_userwallet(str(member.id), COIN_NAME)
         if wallet:
             actual = wallet['actual_balance'] if 'actual_balance' in wallet else 0
@@ -2209,7 +2209,7 @@ async def botbalance(ctx, member: discord.Member, coin: str):
     elif COIN_NAME in ENABLE_COIN:
         wallet = await store.sql_get_userwallet(str(member.id), COIN_NAME)
         if wallet is None:
-            botregister = await store.sql_register_user(str(member.id), COIN_NAME)
+            botregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD')
             wallet = await store.sql_get_userwallet(str(member.id), COIN_NAME)
         if COIN_NAME in ENABLE_COIN_OFFCHAIN:
             userdata_balance = await store.sql_cnoff_balance(str(ctx.message.author.id), COIN_NAME)
@@ -2272,7 +2272,7 @@ async def forwardtip(ctx, coin: str, option: str):
 
     userwallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
     if userwallet is None:
-        userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+        userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
         userwallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
 
     # Do not allow to ON if 'user_wallet_address' is None
@@ -2367,7 +2367,7 @@ async def register(ctx, wallet_address: str):
 
     user = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
     if user is None:
-        userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+        userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
         user = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
 
     existing_user = user
@@ -2376,7 +2376,7 @@ async def register(ctx, wallet_address: str):
     if COIN_NAME in ENABLE_COIN_DOGE:
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if user_from is None:
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
             user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         user_from['address'] = user_from['balance_wallet_address']
         if COIN_NAME in ENABLE_COIN_DOGE:
@@ -2565,7 +2565,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
         real_amount = int(amount * COIN_DEC)
         user = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if user is None:
-            user = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
             user = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         MinTx = get_min_tx_amount(COIN_NAME)
         MaxTX = get_max_tx_amount(COIN_NAME)
@@ -2656,7 +2656,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
         real_amount = int(amount * COIN_DEC)
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if user_from is None:
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
             user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         MinTx = get_min_tx_amount(COIN_NAME)
         MaxTX = get_max_tx_amount(COIN_NAME)
@@ -2740,7 +2740,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
 
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if user_from is None:
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
             user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         user_from['address'] = user_from['balance_wallet_address']
 
@@ -2767,7 +2767,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
             return
         wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if wallet is None:
-            wallet = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            wallet = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
             wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         withdrawTx = None
         if ctx.message.author.id not in WITHDRAW_IN_PROCESS:
@@ -2893,7 +2893,7 @@ async def donate(ctx, amount: str, coin: str = None):
         real_amount = int(amount * COIN_DEC)
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if user_from is None:
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
             user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         MinTx = get_min_mv_amount(COIN_NAME)
         MaxTX = get_max_mv_amount(COIN_NAME)
@@ -2981,7 +2981,7 @@ async def donate(ctx, amount: str, coin: str = None):
         real_amount = int(amount * COIN_DEC)
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if user_from is None:
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
             user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         MinTx = get_min_mv_amount(COIN_NAME)
         MaxTX = get_max_mv_amount(COIN_NAME)
@@ -3027,7 +3027,7 @@ async def donate(ctx, amount: str, coin: str = None):
 
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if user_from is None:
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
             user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         user_from['address'] = user_from['balance_wallet_address']
 
@@ -3166,7 +3166,7 @@ async def swap(ctx, amount: str, coin: str, to: str):
 
     user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
     if user_from is None:
-        user_reg = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+        user_reg = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
     COIN_DEC = get_decimal(COIN_NAME)
     real_amount = int(amount * COIN_DEC) if coin_family in ["TRTL", "XMR"] else amount
@@ -3319,7 +3319,7 @@ async def take(ctx):
         user_to = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         NetFee = get_tx_fee(coin = COIN_NAME)
         if user_to is None:
-            userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
             user_to = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if user_to['forwardtip'] == "ON":
             has_forwardtip = True
@@ -3362,7 +3362,7 @@ async def take(ctx):
         real_amount = int(amount * COIN_DEC)
         user_from = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
         if user_from is None:
-            user_from = await store.sql_register_user(str(bot.user.id), COIN_NAME)
+            user_from = await store.sql_register_user(str(bot.user.id), COIN_NAME, 'DISCORD')
             user_from = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
         real_amount = int(amount * COIN_DEC)
         userdata_balance = await store.sql_xmr_balance(str(bot.user.id), COIN_NAME)
@@ -3372,7 +3372,7 @@ async def take(ctx):
             return
         user_to = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if user_to is None:
-            userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
             user_to = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         tip = store.sql_mv_xmr_single(str(bot.user.id), str(ctx.message.author.id), real_amount, COIN_NAME, "FAUCET")
         if tip:
@@ -3391,7 +3391,7 @@ async def take(ctx):
 
         user_from = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
         if user_from is None:
-            user_from = await store.sql_register_user(str(bot.user.id), COIN_NAME)
+            user_from = await store.sql_register_user(str(bot.user.id), COIN_NAME, 'DISCORD')
             user_from = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
         user_from['address'] = user_from['balance_wallet_address']
 
@@ -3608,7 +3608,7 @@ async def tip(ctx, amount: str, *args):
             userdata_balance = await store.sql_cnoff_balance(str(ctx.message.author.id), COIN_NAME)
             user_from['actual_balance'] = user_from['actual_balance'] + int(userdata_balance['Adjust'])
         if user_to is None:
-            userregister = await store.sql_register_user(str(member.id), COIN_NAME)
+            userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD')
             user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
         if user_to['forwardtip'] == "ON":
             has_forwardtip = True
@@ -3710,7 +3710,7 @@ async def tip(ctx, amount: str, *args):
         MaxTX = get_max_mv_amount(COIN_NAME)
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if user_from is None:
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
             user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         real_amount = int(amount * COIN_DEC)
         userdata_balance = await store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
@@ -3764,13 +3764,13 @@ async def tip(ctx, amount: str, *args):
 
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if user_from is None:
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
             user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         user_from['address'] = user_from['balance_wallet_address']
 
         user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
         if user_to is None:
-            user_to = await store.sql_register_user(str(member.id), COIN_NAME)
+            user_to = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD')
             user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
 
         user_to['address'] = user_to['balance_wallet_address']
@@ -3958,7 +3958,7 @@ async def tipall(ctx, amount: str, *args):
             if ctx.message.author.id != member.id:
                 user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
                 if user_to is None:
-                    userregister = await store.sql_register_user(str(member.id), COIN_NAME)
+                    userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD')
                     user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
                 if str(member.status) != 'offline':
                     if member.bot == False:
@@ -3975,7 +3975,7 @@ async def tipall(ctx, amount: str, *args):
 
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if user_from is None:
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
             user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
 
         if COIN_NAME in ENABLE_COIN_OFFCHAIN:
@@ -4106,7 +4106,7 @@ async def tipall(ctx, amount: str, *args):
         MaxTX = get_max_mv_amount(COIN_NAME)
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if user_from is None:
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
             user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         userdata_balance = await store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
         if real_amount > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
@@ -4199,7 +4199,7 @@ async def tipall(ctx, amount: str, *args):
 
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if user_from is None:
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
             user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         user_from['address'] = user_from['balance_wallet_address']
 
@@ -4510,7 +4510,7 @@ async def send(ctx, amount: str, CoinAddress: str):
 
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if user_from is None:
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
             user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if user_from['balance_wallet_address'] == CoinAddress:
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -4567,6 +4567,12 @@ async def send(ctx, amount: str, CoinAddress: str):
                 pass
         # End of wallet status
 
+        main_address = getattr(getattr(config,"daemon"+COIN_NAME),"MainAddress")
+        if CoinAddress == main_address:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention}, Can not send to this address:\n```{CoinAddress}``` ')
+            return
+        
         if len(valid_address) == 2:
             tip = None
             try:
@@ -4634,7 +4640,7 @@ async def send(ctx, amount: str, CoinAddress: str):
         # OK valid address
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if user_from is None:
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
             user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         userdata_balance = await store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
         # If balance 0, no need to check anything
@@ -4715,7 +4721,7 @@ async def send(ctx, amount: str, CoinAddress: str):
 
             user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
             if user_from is None:
-                user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+                user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
                 user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
             user_from['address'] = user_from['balance_wallet_address']
 
@@ -6406,7 +6412,7 @@ async def notify_new_tx_user():
         if pending_tx and len(pending_tx) > 0:
             # let's notify_new_tx_user
             for eachTx in pending_tx:
-                user_tx = await store.sql_get_userwallet_by_paymentid(eachTx['payment_id'], eachTx['coin_name'])
+                user_tx = await store.sql_get_userwallet_by_paymentid(eachTx['payment_id'], eachTx['coin_name'], 'DISCORD')
                 if user_tx:
                     user_found = bot.get_user(id=int(user_tx['user_id']))
                     if user_found:
@@ -6501,7 +6507,7 @@ async def _tip(ctx, amount, coin: str):
         NetFee = get_tx_fee(coin = COIN_NAME)
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if user_from is None:
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
             user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if COIN_NAME in ENABLE_COIN_OFFCHAIN:
             userdata_balance = await store.sql_cnoff_balance(str(ctx.message.author.id), COIN_NAME)
@@ -6531,7 +6537,7 @@ async def _tip(ctx, amount, coin: str):
             if ctx.message.author.id != member.id:
                 user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
                 if user_to is None:
-                    userregister = await store.sql_register_user(str(member.id), COIN_NAME)
+                    userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD')
                     user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
                 address_to = None
                 if user_to['forwardtip'] == "ON":
@@ -6650,7 +6656,7 @@ async def _tip(ctx, amount, coin: str):
         MaxTX = get_max_mv_amount(COIN_NAME)
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if user_from is None:
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
             user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         real_amount = int(round(float(amount) * COIN_DEC))
         userdata_balance = await store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
@@ -6733,7 +6739,7 @@ async def _tip(ctx, amount, coin: str):
 
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if user_from is None:
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
             user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         user_from['address'] = user_from['balance_wallet_address']
 
@@ -6843,7 +6849,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
         MaxTX = get_max_mv_amount(COIN_NAME)
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if user_from is None:
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
             user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if COIN_NAME in ENABLE_COIN_OFFCHAIN:
             userdata_balance = await store.sql_cnoff_balance(str(ctx.message.author.id), COIN_NAME)
@@ -6871,7 +6877,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
             if member_id != ctx.message.author.id:
                 user_to = await store.sql_get_userwallet(str(member_id), COIN_NAME)
                 if user_to is None:
-                    userregister = await store.sql_register_user(str(member_id), COIN_NAME)
+                    userregister = await store.sql_register_user(str(member_id), COIN_NAME, 'DISCORD')
                     user_to = await store.sql_get_userwallet(str(member_id), COIN_NAME)
                 address_to = None
                 if user_to['forwardtip'] == "ON":
@@ -7008,7 +7014,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
         MaxTX = get_max_mv_amount(COIN_NAME)
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if user_from is None:
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
             user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         real_amount = int(round(float(amount) * COIN_DEC))
         userdata_balance = await store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
@@ -7094,7 +7100,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
 
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if user_from is None:
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
             user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         user_from['address'] = user_from['balance_wallet_address']
         real_amount = float(amount)
@@ -7202,7 +7208,7 @@ async def _tip_react(reaction, user, amount, coin: str):
         NetFee = get_tx_fee(coin = COIN_NAME)
         user_from = await store.sql_get_userwallet(str(user.id), COIN_NAME)
         if user_from is None:
-            user_from = await store.sql_register_user(str(user.id), COIN_NAME)
+            user_from = await store.sql_register_user(str(user.id), COIN_NAME, 'DISCORD')
             user_from = await store.sql_get_userwallet(str(user.id), COIN_NAME)
         if COIN_NAME in ENABLE_COIN_OFFCHAIN:
             userdata_balance = await store.sql_cnoff_balance(str(user.id), COIN_NAME)
@@ -7219,7 +7225,7 @@ async def _tip_react(reaction, user, amount, coin: str):
             if user.id != member.id and reaction.message.author.id != member.id:
                 user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
                 if user_to is None:
-                    userregister = await store.sql_register_user(str(member.id), COIN_NAME)
+                    userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD')
                     user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
                 address_to = None
                 if user_to['forwardtip'] == "ON":
@@ -7330,7 +7336,7 @@ async def _tip_react(reaction, user, amount, coin: str):
         MaxTX = get_max_mv_amount(COIN_NAME)
         user_from = await store.sql_get_userwallet(str(user.id), COIN_NAME)
         if user_from is None:
-            user_from = await store.sql_register_user(str(user.id), COIN_NAME)
+            user_from = await store.sql_register_user(str(user.id), COIN_NAME, 'DISCORD')
             user_from = await store.sql_get_userwallet(str(user.id), COIN_NAME)
         real_amount = int(round(float(amount) * COIN_DEC))
         userdata_balance = await store.sql_xmr_balance(str(user.id), COIN_NAME)
@@ -7391,7 +7397,7 @@ async def _tip_react(reaction, user, amount, coin: str):
 
         user_from = await store.sql_get_userwallet(str(user.id), COIN_NAME)
         if user_from is None:
-            user_from = await store.sql_register_user(str(user.id), COIN_NAME)
+            user_from = await store.sql_register_user(str(user.id), COIN_NAME, 'DISCORD')
             user_from = await store.sql_get_userwallet(str(user.id), COIN_NAME)
         user_from['address'] = user_from['balance_wallet_address']
         real_amount = float(amount)
@@ -7633,7 +7639,7 @@ async def bot_faucet(ctx):
         COIN_NAME = "TRTL"
         wallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
         if wallet is None:
-            wallet = await store.sql_register_user(str(bot.user.id), COIN_NAME)
+            wallet = await store.sql_register_user(str(bot.user.id), COIN_NAME, 'DISCORD')
             wallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
         if COIN_NAME in ENABLE_COIN_OFFCHAIN:
             userdata_balance = await store.sql_cnoff_balance(str(bot.user.id), COIN_NAME)
@@ -7656,7 +7662,7 @@ async def bot_faucet(ctx):
             COIN_DEC = get_decimal(COIN_NAME)
             wallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
             if wallet is None:
-                wallet = await store.sql_register_user(str(bot.user.id), COIN_NAME)
+                wallet = await store.sql_register_user(str(bot.user.id), COIN_NAME, 'DISCORD')
                 wallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
             if COIN_NAME in ENABLE_COIN_OFFCHAIN:
                 userdata_balance = await store.sql_cnoff_balance(str(bot.user.id), COIN_NAME)
@@ -7673,7 +7679,7 @@ async def bot_faucet(ctx):
     if (not is_maintenance_coin(COIN_NAME)) and (COIN_NAME in FAUCET_COINS):
         userwallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
         if userwallet is None:
-            userwallet = await store.sql_register_user(str(bot.user.id), COIN_NAME)
+            userwallet = await store.sql_register_user(str(bot.user.id), COIN_NAME, 'DISCORD')
             userwallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
         actual = userwallet['actual_balance']
         locked = userwallet['locked_balance']

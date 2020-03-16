@@ -182,14 +182,32 @@ async def start_cmd_handler(message: types.Message):
         # default row_width is 3, so here we can omit it actually
         # kept for clearness
 
-        btns_text = tuple(["/bal " + item for item in ENABLE_COIN])
+        btns_text = tuple(["/bal " + item for item in ENABLE_COIN + ["list"]])
         keyboard_markup.row(*(types.KeyboardButton(text) for text in btns_text))
 
         await message.reply("Select coin to display information", reply_markup=keyboard_markup)
     else:
         # /bal WRKZ
         COIN_NAME = args[1].upper()
-        if COIN_NAME not in ENABLE_COIN:
+        if COIN_NAME == "LIST":
+            message_text = ""
+            coin_str = "\n"
+            for COIN_ITEM in [coinItem.upper() for coinItem in ENABLE_COIN]:
+                COIN_DEC = get_decimal(COIN_ITEM)
+                wallet = await store.sql_get_userwallet(message.from_user.username, COIN_ITEM, 'TELEGRAM')
+                if wallet is None:
+                    userregister = await store.sql_register_user(message.from_user.username, COIN_ITEM, 'TELEGRAM', message.chat.id)
+                    wallet = await store.sql_get_userwallet(message.from_user.username, COIN_ITEM, 'TELEGRAM')
+                    userdata_balance = await store.sql_cnoff_balance(message.from_user.username, COIN_ITEM, 'TELEGRAM')
+                    wallet['actual_balance'] = wallet['actual_balance'] + int(userdata_balance['Adjust'])
+                balance_actual = num_format_coin(wallet['actual_balance'], COIN_ITEM)
+                coin_str += COIN_ITEM + ": " + balance_actual + COIN_ITEM + "\n"
+            message_text = text(bold(f'[YOUR {COIN_NAME} BALANCE]:\n'),
+                                code(coin_str))
+            await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
+                                parse_mode=ParseMode.MARKDOWN)
+            return
+        elif COIN_NAME not in ENABLE_COIN:
             message_text = text(bold(f"Invalid coin /bal {COIN_NAME}"))
             await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
                                 parse_mode=ParseMode.MARKDOWN)

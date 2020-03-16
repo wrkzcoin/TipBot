@@ -987,6 +987,9 @@ async def sql_send_tip_Ex_id(user_from: str, address_to: str, amount: int, payme
 
 async def sql_withdraw(user_from: str, amount: int, coin: str, user_server: str = 'DISCORD'):
     global conn
+    user_server = user_server.upper()
+    if user_server not in ['DISCORD', 'TELEGRAM']:
+        return
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     tx_hash = None
@@ -1036,13 +1039,13 @@ async def sql_withdraw(user_from: str, amount: int, coin: str, user_server: str 
                             updateBalance = await wallet.get_balance_address(user_from_wallet['balance_wallet_address'], COIN_NAME)
                     if coin_family == "TRTL" and (COIN_NAME in ENABLE_COIN_OFFCHAIN):
                         sql = """ INSERT INTO cnoff_external_tx (`coin_name`, `user_id`, `to_address`, `amount`, 
-                                  `decimal`, `date`, `tx_hash`, `fee`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                                  `decimal`, `date`, `tx_hash`, `fee`, `user_server`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
                         fee = 0
                         if COIN_NAME not in FEE_PER_BYTE_COIN:
                             fee = wallet.get_tx_fee(COIN_NAME)
                         else:
                             fee = tx_hash['fee']
-                        cur.execute(sql, (COIN_NAME, user_from, user_from_wallet['user_wallet_address'], amount, wallet.get_decimal(COIN_NAME), timestamp, tx_hash['transactionHash'], fee))
+                        cur.execute(sql, (COIN_NAME, user_from, user_from_wallet['user_wallet_address'], amount, wallet.get_decimal(COIN_NAME), timestamp, tx_hash['transactionHash'], fee, user_server))
                         conn.commit()
                     if coin_family == "XMR":
                         sql = """ INSERT INTO """+coin.lower()+"""_withdraw (`coin_name`, `user_id`, `to_address`, `amount`, 

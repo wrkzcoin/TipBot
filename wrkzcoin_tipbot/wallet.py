@@ -507,7 +507,7 @@ def get_coin_fullname(coin: str = None):
 
 
 def get_reserved_fee(coin: str = None):
-    return getattr(config,"daemon"+coin,config.daemonWRKZ).voucher_reserved_fee
+    return getattr(config,"daemon"+coin,config.daemonWRKZ).reserved_fee
 
 
 def get_min_mv_amount(coin: str = None):

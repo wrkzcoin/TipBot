@@ -545,11 +545,11 @@ async def start_cmd_handler(message: types.Message):
         real_amount = int(amount * COIN_DEC) if coin_family == "TRTL" else amount
         MinTx = get_min_tx_amount(COIN_NAME)
         MaxTX = get_max_tx_amount(COIN_NAME)
-
+        NetFee = get_reserved_fee(coin = COIN_NAME)
         message_text = ''
         valid_amount = True
-        if real_amount > user_from['actual_balance']:
-            message_text = 'Insufficient balance to send ' + num_format_coin(real_amount, COIN_NAME) + COIN_NAME + ' to ' + wallet_address
+        if real_amount + NetFee > user_from['actual_balance']:
+            message_text = 'Not enough reserved fee / Insufficient balance to send ' + num_format_coin(real_amount, COIN_NAME) + COIN_NAME + ' to ' + wallet_address
             valid_amount = False
         elif real_amount > MaxTX:
             message_text = 'Transactions cannot be bigger than ' + num_format_coin(MaxTX, COIN_NAME) + COIN_NAME
@@ -627,6 +627,123 @@ async def start_cmd_handler(message: types.Message):
                 tip_tx_tipper += "\nTx Fee: {}{}".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
                 
                 message_text = text(bold(f"You have sent {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}:\n"),
+                                    code(tip_tx_tipper))
+                await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
+                                    parse_mode=ParseMode.MARKDOWN)
+                return
+            else:
+                message_text = text(bold(f"Internal error for sending {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}"))
+                await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
+                                    parse_mode=ParseMode.MARKDOWN)
+                return
+
+
+@dp.message_handler(commands='withdraw')
+async def start_cmd_handler(message: types.Message):
+    if message.from_user.username is None:
+        reply_text = "I can not get your username."
+        await message.reply(reply_text, reply_markup=types.ReplyKeyboardRemove())
+        return
+
+    content = ' '.join(message.text.split())
+    args = content.split(" ")
+    if len(args) != 3:
+        reply_text = "Please use /withdraw amount coin_name"
+        await message.reply(reply_text, reply_markup=types.ReplyKeyboardRemove())
+        return
+   
+    COIN_NAME = args[2].upper()
+    if COIN_NAME not in ENABLE_COIN:
+        message_text = text(bold(f"Invalid {COIN_NAME}\n\n"), 
+                            "Supported coins: ", code(", ".join(ENABLE_COIN)))
+        await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
+                            parse_mode=ParseMode.MARKDOWN)
+        return
+
+    if not is_coin_txable(COIN_NAME):
+        message_text = text(bold(f"TX is currently disable for {COIN_NAME}."))
+        await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
+                            parse_mode=ParseMode.MARKDOWN)
+        return
+
+    amount = args[1].replace(",", "")
+    try:
+        amount = float(amount)
+    except ValueError:
+        message_text = text(bold("Invalid amount."))
+        await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
+                            parse_mode=ParseMode.MARKDOWN)
+        return
+
+    # get coin family
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    user_from = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
+    if coin_family == "TRTL":
+        userdata_balance = await store.sql_cnoff_balance(message.from_user.username, COIN_NAME, 'TELEGRAM')
+        user_from['actual_balance'] = user_from['actual_balance'] + int(userdata_balance['Adjust'])
+    if user_from is None:
+        message_text = text(bold(f"You have not registered {COIN_NAME}"))
+        await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
+                            parse_mode=ParseMode.MARKDOWN)
+        return
+    elif user_from and user_from['user_wallet_address'] is None:
+        message_text = text(bold(f"You have not registered {COIN_NAME}"))
+        await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
+                            parse_mode=ParseMode.MARKDOWN)
+        return
+    elif user_from['user_wallet_address']:
+        wallet_address = user_from['user_wallet_address']
+        COIN_DEC = get_decimal(COIN_NAME)
+        real_amount = int(amount * COIN_DEC) if coin_family == "TRTL" else amount
+        MinTx = get_min_tx_amount(COIN_NAME)
+        MaxTX = get_max_tx_amount(COIN_NAME)
+        NetFee = get_reserved_fee(coin = COIN_NAME)
+        message_text = ''
+        valid_amount = True
+        if real_amount + NetFee > user_from['actual_balance']:
+            message_text = 'Not enough reserved fee / Insufficient balance to withdraw ' + num_format_coin(real_amount, COIN_NAME) + COIN_NAME + ' to ' + wallet_address
+            valid_amount = False
+        elif real_amount > MaxTX:
+            message_text = 'Transactions cannot be bigger than ' + num_format_coin(MaxTX, COIN_NAME) + COIN_NAME
+            valid_amount = False
+        elif real_amount < MinTx:
+            message_text = 'Transactions cannot be bigger than ' + num_format_coin(MinTx, COIN_NAME) + COIN_NAME
+            valid_amount = False
+        if valid_amount == False:
+            await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
+                                parse_mode=ParseMode.MARKDOWN)
+            return
+
+        main_address = getattr(getattr(config,"daemon"+COIN_NAME),"MainAddress")
+        if wallet_address and wallet_address == main_address:
+            # Not allow to send to own main address
+            message_text = text(bold("Can not send to:\n"),
+                                code(wallet_address))
+            await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
+                                parse_mode=ParseMode.MARKDOWN)
+            return
+        else:
+            tip = None
+            if message.from_user.username not in WITHDRAW_IN_PROCESS:
+                WITHDRAW_IN_PROCESS.append(message.from_user.username)
+            else:
+                message_text = text(bold("You have another tx in progress.\n"))
+                await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
+                                    parse_mode=ParseMode.MARKDOWN)
+                return
+
+            try:
+                tip = await store.sql_withdraw(message.from_user.username, real_amount, COIN_NAME, 'TELEGRAM')
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+
+            if message.from_user.username in WITHDRAW_IN_PROCESS:
+                WITHDRAW_IN_PROCESS.remove(message.from_user.username)
+            if tip:
+                tip_tx_tipper = "Transaction hash: {}".format(tip['transactionHash'])
+                tip_tx_tipper += "\nTx Fee: {}{}".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
+                
+                message_text = text(bold(f"You have withdrawn {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}:\n"),
                                     code(tip_tx_tipper))
                 await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
                                     parse_mode=ParseMode.MARKDOWN)

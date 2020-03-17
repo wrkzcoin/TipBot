@@ -2233,9 +2233,9 @@ async def sql_cnoff_balance(userID: str, coin: str, user_server: str = 'DISCORD'
                 SwapOut = 0
 
             # Credit by admin is positive (Positive)
-            sql = """ SELECT SUM(amount) AS Credited FROM credit_balance WHERE `coin_name`=%s AND `to_userid`=%s  
-                  """
-            cur.execute(sql, (COIN_NAME, userID))
+            sql = """ SELECT SUM(amount) AS Credited FROM credit_balance WHERE `coin_name`=%s AND `to_userid`=%s 
+                  AND `user_server`=%s """
+            cur.execute(sql, (COIN_NAME, userID, user_server))
             result = cur.fetchone()
             if result:
                 Credited = result['Credited']

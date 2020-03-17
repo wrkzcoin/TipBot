@@ -491,7 +491,11 @@ async def start_cmd_handler(message: types.Message):
                         await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
                                             parse_mode=ParseMode.MARKDOWN)
                         return
-                    tip = await store.sql_mv_doge_single(message.from_user.username, user_to, real_amount, COIN_NAME, 'TIP', 'TELEGRAM')
+                    if coin_family == "TRTL":
+                        tip = await store.sql_send_tip(message.from_user.username, user_to, real_amount, 'TIP', COIN_NAME, 'TELEGRAM')
+                    elif coin_family == "DOGE":
+                        tip = await store.sql_mv_doge_single(message.from_user.username, user_to, real_amount, COIN_NAME, 'TIP', 'TELEGRAM')
+
                     message_text = text(bold(f"You sent a new tip to {user_to}:\n\n"), code("Amount: {}{}".format(num_format_coin(real_amount, COIN_NAME), COIN_NAME)))
                     to_message_text = text(bold(f"You got a new tip from {message.from_user.username}:\n\n"), code("Amount: {}{}".format(num_format_coin(real_amount, COIN_NAME), COIN_NAME)))
                     try:

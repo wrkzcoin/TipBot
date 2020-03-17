@@ -3053,7 +3053,13 @@ async def notifytip(ctx, onoff: str):
 
 @bot.command(pass_context=True, help=bot_help_swap)
 async def swap(ctx, amount: str, coin: str, to: str):
-    global IS_RESTARTING
+    global IS_RESTARTING, TRTL_DISCORD
+
+    # disable swap for TRTL discord
+    if ctx.guild.id == TRTL_DISCORD:
+        await ctx.message.add_reaction(EMOJI_LOCKED)
+        return
+
     botLogChan = bot.get_channel(id=LOG_CHAN)
     
     to = to.upper()

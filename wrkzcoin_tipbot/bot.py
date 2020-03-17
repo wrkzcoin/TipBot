@@ -3056,7 +3056,7 @@ async def swap(ctx, amount: str, coin: str, to: str):
     global IS_RESTARTING, TRTL_DISCORD
 
     # disable swap for TRTL discord
-    if ctx.guild.id == TRTL_DISCORD:
+    if ctx.guild and ctx.guild.id == TRTL_DISCORD:
         await ctx.message.add_reaction(EMOJI_LOCKED)
         return
 

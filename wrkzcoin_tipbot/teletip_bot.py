@@ -88,7 +88,7 @@ async def start_cmd_handler(message: types.Message):
         "/info",
         "/coininfo",
         "/donate",
-        "/start",
+        "/about",
     )
     keyboard_markup.add(*(types.KeyboardButton(text) for text in more_btns_text))
     # adds buttons. New rows are formed according to row_width parameter
@@ -975,8 +975,8 @@ async def start_cmd_handler(message: types.Message):
         reply_text = "I can not get your username."
         await message.reply(reply_text, reply_markup=types.ReplyKeyboardRemove())
         return
-    if message.chat.type == "private":
-        reply_text = "Can not do via private."
+    if message.chat.type != "private":
+        reply_text = "Can not do here. Please do it privately with my direct message."
         await message.reply(reply_text, reply_markup=types.ReplyKeyboardRemove())
         return
 
@@ -995,7 +995,7 @@ async def start_cmd_handler(message: types.Message):
                          code(f'Waiting time {time_waiting} for next'), bold('/take'), code(f'.\nFaucet balance:\n{remaining}\n'),
                          code(f'Total user claims: {total_claimed} times. '),
                          code(f'You have claimed: {number_user_claimed} time(s). '),
-                         code(f'Tip me if you want to feed these faucets.'))
+                         code(f'Tip me if you want to feed these faucets.\n Any support, join https://t.me/wrkzcoinchat'))
             await message.reply(reply_text, parse_mode=ParseMode.MARKDOWN)
             return
 
@@ -1032,7 +1032,7 @@ async def start_cmd_handler(message: types.Message):
         user_from['actual_balance'] = user_from['actual_balance'] + float(userdata_balance['Adjust'])
     user_to = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
     if user_to is None:
-        reply_text = "I can not get you in DB."
+        reply_text = f"You get random coin {COIN_NAME}. But I can not get you in DB. Please create your account with /bal list"
         await message.reply(reply_text, reply_markup=types.ReplyKeyboardRemove())
         return
     else:
@@ -1139,6 +1139,18 @@ async def start_cmd_handler(message: types.Message):
         await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
                             parse_mode=ParseMode.MARKDOWN)
         return
+
+
+@dp.message_handler(commands='about')
+async def start_cmd_handler(message: types.Message):
+    reply_text = text(bold("Thank you for checking:\n"),
+                      code("Twitter dev: https://twitter.com/wrkzdev\n"),
+                      code("Discord: https://chat.wrkz.work\n"),
+                      code("Telegram: https://t.me/wrkzcoinchat\n"),
+                      code("Donation: via /donate amount coin_name\n"),
+                      code("Run by WrkzCoin team\n"))
+    await message.reply(reply_text, parse_mode=ParseMode.MARKDOWN)
+    return
 
 
 @dp.message_handler()

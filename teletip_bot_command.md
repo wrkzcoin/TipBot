@@ -6,3 +6,4 @@ tip - Tip to Telegram user their username
 info - Get deposit address of a supported coin
 coininfo - Get coin information such as confirmation depth, mix/max tipping, etc
 donate - Donate some of your available balance to Bot Owner
+botbal - Show Bot's balances

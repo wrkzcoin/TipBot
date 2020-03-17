@@ -268,6 +268,67 @@ async def start_cmd_handler(message: types.Message):
             return
 
 
+@dp.message_handler(commands='botbal')
+async def start_cmd_handler(message: types.Message):
+    content = ' '.join(message.text.split())
+    args = content.split(" ")
+    # If private, return
+    if message.chat.type == "private":
+        return
+    if message.from_user.username is None:
+        reply_text = "I can not get your username."
+        await message.reply(reply_text, reply_markup=types.ReplyKeyboardRemove())
+        return
+    if len(args) == 1:
+        reply_text = "Please mention a bot username starting with @."
+        await message.reply(reply_text, reply_markup=types.ReplyKeyboardRemove())
+        return
+    if len(args) == 2:
+        # /botbal @botusername
+        # Find user if exist
+        user_to = None
+        if len(args) == 2 and args[1].startswith("@"):
+            user_to = (args[1])[1:]
+        else:
+            reply_text = "Please mention a bot username starting with @."
+            await message.reply(reply_text, reply_markup=types.ReplyKeyboardRemove())
+            return
+            
+        if user_to is None:
+            reply_text = "I can not get bot username."
+            await message.reply(reply_text, reply_markup=types.ReplyKeyboardRemove())
+            return
+        else:
+            if user_to != "teletip_bot":
+                reply_text = f"Unavailable for this bot {user_to}."
+                await message.reply(reply_text, reply_markup=types.ReplyKeyboardRemove())
+                return
+            else:
+                message_text = ""
+                coin_str = "\n"
+                for COIN_ITEM in [coinItem.upper() for coinItem in ENABLE_COIN + ENABLE_COIN_DOGE]:
+                    COIN_DEC = get_decimal(COIN_ITEM)
+                    wallet = await store.sql_get_userwallet(user_to, COIN_ITEM, 'TELEGRAM')
+                    if wallet is None:
+                        # this will be public
+                        userregister = await store.sql_register_user(user_to, COIN_ITEM, 'TELEGRAM', message.chat.id)
+                        wallet = await store.sql_get_userwallet(user_to, COIN_ITEM, 'TELEGRAM')
+                    coin_family = getattr(getattr(config,"daemon"+COIN_ITEM),"coin_family","TRTL")
+                    if coin_family == "TRTL":
+                        userdata_balance = await store.sql_cnoff_balance(user_to, COIN_ITEM, 'TELEGRAM')
+                        wallet['actual_balance'] = wallet['actual_balance'] + int(userdata_balance['Adjust'])
+                    elif coin_family == "DOGE":
+                        userdata_balance = await store.sql_doge_balance(user_to, COIN_ITEM, 'TELEGRAM')
+                        wallet['actual_balance'] = wallet['actual_balance'] + float(userdata_balance['Adjust'])
+                    balance_actual = num_format_coin(wallet['actual_balance'], COIN_ITEM)
+                    coin_str += COIN_ITEM + ": " + balance_actual + COIN_ITEM + "\n"
+                message_text = text(bold(f'[@{user_to} BALANCE SHEET]:\n'),
+                                    code(coin_str))
+                await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
+                                    parse_mode=ParseMode.MARKDOWN)
+                return
+
+
 @dp.message_handler(commands='register')
 async def start_cmd_handler(message: types.Message):
     content = ' '.join(message.text.split())
@@ -478,8 +539,7 @@ async def start_cmd_handler(message: types.Message):
                 message_text = 'Transactions cannot be bigger than ' + num_format_coin(MinTx, COIN_NAME) + COIN_NAME
                 valid_amount = False
             if valid_amount == False:
-                await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
-                                    parse_mode=ParseMode.MARKDOWN)
+                await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
                 return
             else:
                 tip = None
@@ -498,6 +558,8 @@ async def start_cmd_handler(message: types.Message):
 
                     message_text = text(bold(f"You sent a new tip to {user_to}:\n\n"), code("Amount: {}{}".format(num_format_coin(real_amount, COIN_NAME), COIN_NAME)))
                     to_message_text = text(bold(f"You got a new tip from {message.from_user.username}:\n\n"), code("Amount: {}{}".format(num_format_coin(real_amount, COIN_NAME), COIN_NAME)))
+                    if user_to in ["teletip_bot"]:
+                        to_message_text = to_message_text.replace("You ", f"@{user_to} ")
                     try:
                         await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
                                                             parse_mode=ParseMode.MARKDOWN)

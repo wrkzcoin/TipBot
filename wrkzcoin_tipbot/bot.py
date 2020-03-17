@@ -3222,13 +3222,13 @@ async def take(ctx):
 
     # check user claim:
     claim_interval = 24
-    check_claimed = store.sql_faucet_checkuser(str(ctx.message.author.id))
+    check_claimed = store.sql_faucet_checkuser(str(ctx.message.author.id), 'DISCORD')
     if check_claimed:
         # limit 12 hours
         if int(time.time()) - check_claimed['claimed_at'] <= claim_interval*3600:
             remaining = await bot_faucet(ctx) or ''
             time_waiting = seconds_str(claim_interval*3600 - int(time.time()) + check_claimed['claimed_at'])
-            number_user_claimed = '{:,.0f}'.format(store.sql_faucet_count_user(str(ctx.message.author.id)))
+            number_user_claimed = '{:,.0f}'.format(store.sql_faucet_count_user(str(ctx.message.author.id), 'DISCORD'))
             total_claimed = '{:,.0f}'.format(store.sql_faucet_count_all())
             await ctx.message.add_reaction(EMOJI_ERROR)
             msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You just claimed within last {claim_interval}h. '
@@ -3292,7 +3292,7 @@ async def take(ctx):
             await msg.add_reaction(EMOJI_OK_BOX)
             return
         if tip:
-            faucet_add = store.sql_faucet_add(str(ctx.message.author.id), str(ctx.guild.id), COIN_NAME, real_amount, COIN_DEC, tip)
+            faucet_add = store.sql_faucet_add(str(ctx.message.author.id), str(ctx.guild.id), COIN_NAME, real_amount, COIN_DEC, tip, 'DISCORD')
             if has_forwardtip:
                 await ctx.message.add_reaction(EMOJI_FORWARD)
             else:
@@ -3324,7 +3324,7 @@ async def take(ctx):
             user_to = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         tip = store.sql_mv_xmr_single(str(bot.user.id), str(ctx.message.author.id), real_amount, COIN_NAME, "FAUCET")
         if tip:
-            faucet_add = store.sql_faucet_add(str(ctx.message.author.id), str(ctx.guild.id), COIN_NAME, real_amount, COIN_DEC)
+            faucet_add = store.sql_faucet_add(str(ctx.message.author.id), str(ctx.guild.id), COIN_NAME, real_amount, COIN_DEC, None, 'DISCORD')
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
             msg = await ctx.send(f'{EMOJI_MONEYFACE} {ctx.author.mention} You got a random faucet {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
             await msg.add_reaction(EMOJI_OK_BOX)
@@ -3350,7 +3350,7 @@ async def take(ctx):
             return
         tip = await store.sql_mv_doge_single(str(bot.user.id), str(ctx.message.author.id), real_amount, COIN_NAME, "FAUCET")
         if tip:
-            faucet_add = store.sql_faucet_add(str(ctx.message.author.id), str(ctx.guild.id), COIN_NAME, real_amount, COIN_DEC)
+            faucet_add = store.sql_faucet_add(str(ctx.message.author.id), str(ctx.guild.id), COIN_NAME, real_amount, COIN_DEC, None, 'DISCORD')
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
             msg = await ctx.send(f'{EMOJI_MONEYFACE} {ctx.author.mention} You got a random faucet {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
             await msg.add_reaction(EMOJI_OK_BOX)

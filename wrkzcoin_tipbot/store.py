@@ -1286,48 +1286,60 @@ async def sql_send_to_voucher(user_id: str, user_name: str, message_creating: st
         return None
 
 
-def sql_faucet_add(claimed_user: str, claimed_server: str, coin_name: str, claimed_amount: float, decimal: int, tx_hash: str = None):
+def sql_faucet_add(claimed_user: str, claimed_server: str, coin_name: str, claimed_amount: float, decimal: int, tx_hash: str, user_server: str = 'DISCORD'):
     global conn
-    tx_hash = tx_hash or 'NULL'
+    user_server = user_server.upper()
+    if user_server not in ['DISCORD', 'TELEGRAM']:
+        return
+    tx_hash = tx_hash if tx_hash else 'NULL'
     try:
         openConnection()
         with conn.cursor() as cur:
             sql = """ INSERT INTO discord_faucet (`claimed_user`, `coin_name`, `claimed_amount`, 
-                      `decimal`, `tx_hash`, `claimed_at`, `claimed_server`) 
-                      VALUES (%s, %s, %s, %s, %s, %s, %s) """
-            cur.execute(sql, (claimed_user, coin_name, claimed_amount, decimal, tx_hash['transactionHash'], int(time.time()), claimed_server,))
+                      `decimal`, `tx_hash`, `claimed_at`, `claimed_server`, `user_server`) 
+                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+            cur.execute(sql, (claimed_user, coin_name, claimed_amount, decimal, tx_hash['transactionHash'], 
+                        int(time.time()), claimed_server, user_server))
             conn.commit()
             return True
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
 
 
-def sql_faucet_checkuser(userID: str):
+def sql_faucet_checkuser(userID: str, user_server: str = 'DISCORD'):
     global conn
-    list_roach = sql_roach_get_by_id(userID)
+    user_server = user_server.upper()
+    if user_server not in ['DISCORD', 'TELEGRAM']:
+        return
+    list_roach = sql_roach_get_by_id(userID, user_server)
     try:
         openConnection()
         with conn.cursor() as cur:
             if list_roach:
                 roach_sql = "(" + ",".join(list_roach) + ")"
-                sql = """ SELECT * FROM discord_faucet WHERE claimed_user IN """+roach_sql+""" ORDER BY claimed_at DESC LIMIT 1"""
-                cur.execute(sql,)
+                sql = """ SELECT * FROM discord_faucet WHERE claimed_user IN """+roach_sql+""" AND `user_server`=%s 
+                          ORDER BY claimed_at DESC LIMIT 1"""
+                cur.execute(sql, (user_server,))
             else:
-                sql = """ SELECT * FROM discord_faucet WHERE claimed_user = %s ORDER BY claimed_at DESC LIMIT 1"""
-                cur.execute(sql, (userID,))
+                sql = """ SELECT * FROM discord_faucet WHERE `claimed_user` = %s AND `user_server`=%s 
+                          ORDER BY claimed_at DESC LIMIT 1"""
+                cur.execute(sql, (userID, (user_server,)))
             result = cur.fetchone()
             return result
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
 
 
-def sql_faucet_count_user(userID: str):
+def sql_faucet_count_user(userID: str, user_server: str = 'DISCORD'):
     global conn
+    user_server = user_server.upper()
+    if user_server not in ['DISCORD', 'TELEGRAM']:
+        return
     try:
         openConnection()
         with conn.cursor() as cur:
-            sql = """ SELECT COUNT(*) FROM discord_faucet WHERE claimed_user = %s """
-            cur.execute(sql, (userID,))
+            sql = """ SELECT COUNT(*) FROM discord_faucet WHERE claimed_user = %s AND `user_server`=%s """
+            cur.execute(sql, (userID, user_server))
             result = cur.fetchone()
             return int(result['COUNT(*)']) if 'COUNT(*)' in result else 0
     except Exception as e:
@@ -1683,14 +1695,17 @@ def sql_roach_add(main_id: str, roach_id: str, roach_name: str, main_name: str):
         traceback.print_exc(file=sys.stdout)
 
 
-def sql_roach_get_by_id(roach_id: str):
+def sql_roach_get_by_id(roach_id: str, user_server: str = 'DISCORD'):
+    user_server = user_server.upper()
+    if user_server not in ['DISCORD', 'TELEGRAM']:
+        return
     try:
         openConnection()
         with conn.cursor() as cur:
             # select first
             sql = """ SELECT `roach_id`, `main_id`, `date` FROM discord_faucetroach 
-                      WHERE `roach_id` = %s OR `main_id` = %s """
-            cur.execute(sql, (roach_id, roach_id,))
+                      WHERE (`roach_id` = %s OR `main_id` = %s) AND `user_server`=%s """
+            cur.execute(sql, (roach_id, roach_id, user_server))
             result = cur.fetchall()
             if result is None:
                 return None

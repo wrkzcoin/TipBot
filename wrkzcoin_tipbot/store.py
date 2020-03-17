@@ -186,7 +186,7 @@ async def sql_update_balances(coin: str = None):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
     elif coin_family == "TRTL" and (COIN_NAME in ENABLE_COIN_OFFCHAIN):
-        # print('SQL: Updating get_transfers '+COIN_NAME)
+        print('SQL: Updating get_transfers '+COIN_NAME)
         get_transfers = await wallet.getTransactions(COIN_NAME, int(height)-100000, 100000)
         try:
             if len(get_transfers) >= 1:
@@ -240,7 +240,6 @@ async def sql_update_balances(coin: str = None):
                             else:
                                 # print('{} has some tx but not yet meet confirmation depth.'.format(COIN_NAME))
                                 pass
-            print("cnoff_get_transfers: {}".format(COIN_NAME))
             if list_balance_user and len(list_balance_user) > 0:
                 openConnection()
                 with conn.cursor() as cur:
@@ -260,7 +259,7 @@ async def sql_update_balances(coin: str = None):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
     elif coin_family == "XMR":
-        # print('SQL: Updating get_transfers '+COIN_NAME)
+        print('SQL: Updating get_transfers '+COIN_NAME)
         get_transfers = await wallet.get_transfers_xmr(COIN_NAME)
         if len(get_transfers) >= 1:
             try:
@@ -308,7 +307,7 @@ async def sql_update_balances(coin: str = None):
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
     elif coin_family == "DOGE":
-        # print('SQL: Updating get_transfers '+COIN_NAME)
+        print('SQL: Updating get_transfers '+COIN_NAME)
         get_transfers = await wallet.doge_listtransactions(COIN_NAME)
         if get_transfers and len(get_transfers) >= 1:
             try:
@@ -531,10 +530,10 @@ async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD', cha
                         conn.commit()
                     elif coin_family == "DOGE":
                         sql = """ INSERT INTO doge_user (`coin_name`, `user_id`, `balance_wallet_address`, `address_ts`, 
-                                  `privateKey`, `user_server`) 
-                                  VALUES (%s, %s, %s, %s, %s, %s) """
+                                  `privateKey`, `user_server`, `chat_id`) 
+                                  VALUES (%s, %s, %s, %s, %s, %s, %s) """
                         cur.execute(sql, (COIN_NAME, str(userID), balance_address['address'], int(time.time()), 
-                                         encrypt_string(balance_address['privateKey']), user_server))
+                                         encrypt_string(balance_address['privateKey']), user_server, chat_id))
                         balance_address['address'] = balance_address['address']
                         conn.commit()
                     return balance_address
@@ -619,7 +618,7 @@ async def sql_get_userwallet(userID, coin: str, user_server: str = 'DISCORD'):
                 cur.execute(sql, (str(userID), COIN_NAME, user_server))
                 result = cur.fetchone()
             elif coin_family == "DOGE":
-                sql = """ SELECT user_id, balance_wallet_address, user_wallet_address, address_ts, lastUpdate 
+                sql = """ SELECT user_id, balance_wallet_address, user_wallet_address, address_ts, lastUpdate, chat_id 
                           FROM doge_user WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s LIMIT 1 """
                 cur.execute(sql, (str(userID), COIN_NAME, user_server))
                 result = cur.fetchone()

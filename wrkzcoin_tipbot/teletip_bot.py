@@ -716,7 +716,7 @@ async def start_cmd_handler(message: types.Message):
                         if message.from_user.username in WITHDRAW_IN_PROCESS:
                             WITHDRAW_IN_PROCESS.remove(message.from_user.username)
                         if sendTx:
-                            tx_text = "Transaction hash: {}".format(SendTx)
+                            tx_text = "Transaction hash: {}".format(sendTx)
                             tx_text += "\nNetwork fee deducted from the amount."
                             
                             message_text = text(bold(f"You have sent {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}:\n"),

@@ -13,7 +13,9 @@ import store, daemonrpc_client, addressvalidation, walletapi
 import sys, traceback
 # redis
 import redis
-
+import math, random
+# ascii table
+from terminaltables import AsciiTable
 
 from aiogram.types import InlineQuery, \
     InputTextMessageContent, InlineQueryResultArticle
@@ -26,6 +28,19 @@ logger.setLevel(logging.DEBUG)
 ENABLE_COIN = config.telegram.Enabe_Telegram_Coin.split(",")
 ENABLE_COIN_DOGE = config.telegram.Enable_Coin_Doge.split(",")
 MAINTENANCE_COIN = config.Maintenance_Coin.split(",")
+
+# faucet enabled coin. The faucet balance is taken from TipBot's own balance
+FAUCET_COINS = config.Enable_Faucet_Coin.split(",")
+FAUCET_COINS_ROUND_NUMBERS = config.Enable_Faucet_Coin_round_number.split(",")
+# DOGE will divide by 10 after random
+FAUCET_MINMAX = {
+    "WRKZ": [1000, 2000],
+    "DEGO": [2500, 10000],
+    "MTIP": [15, 25],
+    "TRTL": [15, 25],
+    "DOGE": [1, 3],
+    "BTCMZ": [2500, 5000]
+    }
 
 WITHDRAW_IN_PROCESS = []
 redis_pool = None
@@ -954,6 +969,94 @@ async def start_cmd_handler(message: types.Message):
                 return
 
 
+@dp.message_handler(commands='take')
+async def start_cmd_handler(message: types.Message):
+    if message.from_user.username is None:
+        reply_text = "I can not get your username."
+        await message.reply(reply_text, reply_markup=types.ReplyKeyboardRemove())
+        return
+    if message.chat.type == "private":
+        reply_text = "Can not do via private."
+        await message.reply(reply_text, reply_markup=types.ReplyKeyboardRemove())
+        return
+
+    # check user claim:
+    claim_interval = 24
+    check_claimed = store.sql_faucet_checkuser(message.from_user.username, 'TELEGRAM')
+    if check_claimed:
+        # limit 12 hours
+        if int(time.time()) - check_claimed['claimed_at'] <= claim_interval*3600:
+            remaining = await bot_faucet() or ''
+            time_waiting = seconds_str(claim_interval*3600 - int(time.time()) + check_claimed['claimed_at'])
+            number_user_claimed = '{:,.0f}'.format(store.sql_faucet_count_user(message.from_user.username, 'TELEGRAM'))
+            total_claimed = '{:,.0f}'.format(store.sql_faucet_count_all())
+
+            reply_text = text(code(f'You just claimed within last {claim_interval}h. '),
+                         code(f'Waiting time {time_waiting} for next'), bold('/take'), code(f'.\nFaucet balance:\n{remaining}\n'),
+                         code(f'Total user claims: {total_claimed} times. '),
+                         code(f'You have claimed: {number_user_claimed} time(s). '),
+                         code(f'Tip me if you want to feed these faucets.'))
+            await message.reply(reply_text, parse_mode=ParseMode.MARKDOWN)
+            return
+
+
+    COIN_NAME = random.choice(FAUCET_COINS)
+    loop = 0
+    while is_maintenance_coin(COIN_NAME):
+        COIN_NAME = random.choice(FAUCET_COINS)
+        loop += 1
+        # stop loop if more than 3 times
+        if loop > 3:
+            break
+    amount = random.randint(FAUCET_MINMAX[COIN_NAME][0], FAUCET_MINMAX[COIN_NAME][1])
+
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    if coin_family == "DOGE":
+        amount = float(amount / 10)
+
+    def myround_number(x, base=5):
+        return base * round(x/base)
+
+    if COIN_NAME in FAUCET_COINS_ROUND_NUMBERS:
+        amount = myround_number(amount)
+        if amount == 0: amount = 5 
+
+    COIN_DEC = get_decimal(COIN_NAME)
+    real_amount = int(amount * COIN_DEC) if (coin_family == "TRTL" or coin_family == "XMR") else amount
+    user_from = await store.sql_get_userwallet('teletip_bot', COIN_NAME, 'TELEGRAM')
+    if coin_family == "TRTL":
+        userdata_balance = await store.sql_cnoff_balance('teletip_bot', COIN_NAME, 'TELEGRAM')
+        user_from['actual_balance'] = user_from['actual_balance'] + int(userdata_balance['Adjust'])
+    elif coin_family == "DOGE":
+        userdata_balance = await store.sql_doge_balance('teletip_bot', COIN_NAME, 'TELEGRAM')
+        user_from['actual_balance'] = user_from['actual_balance'] + float(userdata_balance['Adjust'])
+    user_to = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
+    if user_to is None:
+        reply_text = "I can not get you in DB."
+        await message.reply(reply_text, reply_markup=types.ReplyKeyboardRemove())
+        return
+    else:
+        try:
+            if real_amount > user_from['actual_balance']:
+                reply_text = f"Bot runs out of {COIN_NAME}."
+                await message.reply(reply_text)
+                return
+
+            tip = None
+            if coin_family == "TRTL":
+                tip = await store.sql_send_tip('teletip_bot', message.from_user.username, real_amount, 'FAUCET', COIN_NAME, 'TELEGRAM')
+            elif coin_family == "DOGE":
+                tip = await store.sql_mv_doge_single('teletip_bot', message.from_user.username, real_amount, COIN_NAME, 'FAUCET', 'TELEGRAM')
+            if tip:
+                faucet_add = store.sql_faucet_add(message.from_user.username, message.chat.id, COIN_NAME, real_amount, COIN_DEC, tip, 'TELEGRAM')
+                message_text = text(bold("You received free coin:"), code("\nAmount: {}{}".format(num_format_coin(real_amount, COIN_NAME), COIN_NAME)), "\nConsider tipping me if you like this :).")
+                await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
+                                    parse_mode=ParseMode.MARKDOWN)
+                return
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+
+
 @dp.message_handler(commands='donate')
 async def start_cmd_handler(message: types.Message):
     if message.from_user.username is None:
@@ -1203,6 +1306,29 @@ async def notify_new_tx_user():
         await asyncio.sleep(INTERVAL_EACH)
 
 
+async def bot_faucet():
+    table_data = [
+        ['TICKER', 'Available']
+    ]
+
+    for COIN_NAME in [coinItem.upper() for coinItem in FAUCET_COINS]:
+        coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+        if (not is_maintenance_coin(COIN_NAME)) and coin_family in ["TRTL"]:
+            COIN_DEC = get_decimal(COIN_NAME)
+            wallet = await store.sql_get_userwallet('teletip_bot', COIN_NAME, 'TELEGRAM')
+            userdata_balance = await store.sql_cnoff_balance('teletip_bot', COIN_NAME, 'TELEGRAM')
+            wallet['actual_balance'] = wallet['actual_balance'] + int(userdata_balance['Adjust'])
+            balance_actual = num_format_coin(wallet['actual_balance'], COIN_NAME)
+            if wallet['actual_balance'] + wallet['locked_balance'] != 0:
+                table_data.append([COIN_NAME, balance_actual])
+            else:
+                table_data.append([COIN_NAME, '0'])
+    table = AsciiTable(table_data)
+    table.padding_left = 0
+    table.padding_right = 0
+    return table.table
+
+
 def is_maintenance_coin(coin: str):
     global redis_conn, redis_expired
     COIN_NAME = coin.upper()
@@ -1267,6 +1393,17 @@ def is_coin_tipable(coin: str):
             return True
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
+
+
+def seconds_str(time: float):
+    # day = time // (24 * 3600)
+    # time = time % (24 * 3600)
+    hour = time // 3600
+    time %= 3600
+    minutes = time // 60
+    time %= 60
+    seconds = time
+    return "{:02d}:{:02d}:{:02d}".format(hour, minutes, seconds)
 
 
 if __name__ == '__main__':

@@ -40,6 +40,9 @@ TODO
 
 * Bot invitation link: https://discordapp.com/oauth2/authorize?client_id=474841349968101386&scope=bot
 
+### Short Video
+
+[![Tipping in Action in WrkzCoin Discord](https://img.youtube.com/vi/qg9CURyD7uc/0.jpg)](https://www.youtube.com/watch?v=qg9CURyD7uc)
   
 
 ### Credit and thanks to:

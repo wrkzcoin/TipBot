@@ -265,7 +265,7 @@ async def sql_update_balances(coin: str = None):
             try:
                 openConnection()
                 with conn.cursor() as cur:
-                    sql = """ SELECT * FROM """+coin.lower()+"""_get_transfers WHERE `coin_name` = %s """
+                    sql = """ SELECT * FROM xmroff_get_transfers WHERE `coin_name` = %s """
                     cur.execute(sql, (COIN_NAME,))
                     result = cur.fetchall()
                     d = [i['txid'] for i in result]
@@ -282,7 +282,7 @@ async def sql_update_balances(coin: str = None):
                                 list_balance_user[tx['payment_id']] = tx['amount']
                             try:
                                 if tx['txid'] not in d:
-                                    sql = """ INSERT IGNORE INTO """+coin.lower()+"""_get_transfers (`coin_name`, `in_out`, `txid`, 
+                                    sql = """ INSERT IGNORE INTO xmroff_get_transfers (`coin_name`, `in_out`, `txid`, 
                                     `payment_id`, `height`, `timestamp`, `amount`, `fee`, `decimal`, `address`, time_insert) 
                                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
                                     cur.execute(sql, (COIN_NAME, tx['type'].upper(), tx['txid'], tx['payment_id'], tx['height'], tx['timestamp'],
@@ -301,7 +301,7 @@ async def sql_update_balances(coin: str = None):
                         timestamp = int(time.time())
                         for key, value in list_balance_user.items():
                             list_update.append((value, timestamp, key))
-                        cur.executemany(""" UPDATE """+coin.lower()+"""_user_paymentid SET `actual_balance` = %s, `lastUpdate` = %s 
+                        cur.executemany(""" UPDATE xmroff_user_paymentid SET `actual_balance` = %s, `lastUpdate` = %s 
                                         WHERE paymentid = %s """, list_update)
                         conn.commit()
             except Exception as e:
@@ -468,7 +468,7 @@ async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD', cha
                 cur.execute(sql, (userID, COIN_NAME, user_server))
                 result = cur.fetchone()
             elif coin_family == "XMR":
-                sql = """ SELECT * FROM """+coin.lower()+"""_user_paymentid 
+                sql = """ SELECT * FROM xmroff_user_paymentid 
                           WHERE `user_id`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """
                 cur.execute(sql, (str(userID), COIN_NAME, user_server))
                 result = cur.fetchone()
@@ -522,7 +522,7 @@ async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD', cha
                                           balance_address['integrated_address'], int(time.time()), user_server, chat_id))
                         conn.commit()
                     elif coin_family == "XMR":
-                        sql = """ INSERT INTO """+coin.lower()+"""_user_paymentid (`coin_name`, `user_id`, `main_address`, `paymentid`, 
+                        sql = """ INSERT INTO xmroff_user_paymentid (`coin_name`, `user_id`, `main_address`, `paymentid`, 
                                   `int_address`, `paymentid_ts`, `user_server`) 
                                   VALUES (%s, %s, %s, %s, %s, %s, %s) """
                         cur.execute(sql, (COIN_NAME, str(userID), main_address, balance_address['payment_id'], 
@@ -571,7 +571,7 @@ async def sql_update_user(userID, user_wallet_address, coin: str, user_server: s
                 cur.execute(sql, (user_wallet_address, str(userID), COIN_NAME, user_server))
                 conn.commit()
             elif coin_family == "XMR":
-                sql = """ UPDATE """+coin.lower()+"""_user_paymentid SET user_wallet_address=%s WHERE `user_id`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """               
+                sql = """ UPDATE xmroff_user_paymentid SET user_wallet_address=%s WHERE `user_id`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """               
                 cur.execute(sql, (user_wallet_address, str(userID), COIN_NAME, user_server))
                 conn.commit()
             elif coin_family == "DOGE":
@@ -614,7 +614,7 @@ async def sql_get_userwallet(userID, coin: str, user_server: str = 'DISCORD'):
                 cur.execute(sql, (str(userID), COIN_NAME, user_server))
                 result = cur.fetchone()
             elif coin_family == "XMR":
-                sql = """ SELECT * FROM """+coin.lower()+"""_user_paymentid WHERE `user_id`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """
+                sql = """ SELECT * FROM xmroff_user_paymentid WHERE `user_id`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """
                 cur.execute(sql, (str(userID), COIN_NAME, user_server))
                 result = cur.fetchone()
             elif coin_family == "DOGE":
@@ -1046,7 +1046,7 @@ async def sql_withdraw(user_from: str, amount: int, coin: str, user_server: str 
                         cur.execute(sql, (COIN_NAME, user_from, user_from_wallet['user_wallet_address'], amount, wallet.get_decimal(COIN_NAME), timestamp, tx_hash['transactionHash'], fee, user_server))
                         conn.commit()
                     if coin_family == "XMR":
-                        sql = """ INSERT INTO """+coin.lower()+"""_withdraw (`coin_name`, `user_id`, `to_address`, `amount`, 
+                        sql = """ INSERT INTO xmroff_withdraw (`coin_name`, `user_id`, `to_address`, `amount`, 
                                   `fee`, `date`, `tx_hash`, `tx_key`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
                         cur.execute(sql, (COIN_NAME, user_from, user_from_wallet['user_wallet_address'], amount, tx_hash['fee'], timestamp, tx_hash['tx_hash'], tx_hash['tx_key'],))
                         conn.commit()
@@ -1155,7 +1155,7 @@ def sql_get_donate_list():
                    donate_list.update({coin: float(result['donate'])})
             # XTOR
             coin = "XTOR"
-            sql = """ SELECT SUM(amount) AS donate FROM """+coin.lower()+"""_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
+            sql = """ SELECT SUM(amount) AS donate FROM xmroff_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
             cur.execute(sql, (wallet.get_donate_address(coin)))
             result = cur.fetchone()
             if result['donate'] is None:
@@ -1164,7 +1164,7 @@ def sql_get_donate_list():
                 donate_list.update({coin: float(result['donate'])})
             # LOKI
             coin = "LOKI"
-            sql = """ SELECT SUM(amount) AS donate FROM """+coin.lower()+"""_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
+            sql = """ SELECT SUM(amount) AS donate FROM xmroff_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
             cur.execute(sql, (wallet.get_donate_address(coin)))
             result = cur.fetchone()
             if result['donate'] is None:
@@ -1173,7 +1173,7 @@ def sql_get_donate_list():
                 donate_list.update({coin: float(result['donate'])})
             # XMR
             coin = "XMR"
-            sql = """ SELECT SUM(amount) AS donate FROM """+coin.lower()+"""_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
+            sql = """ SELECT SUM(amount) AS donate FROM xmroff_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
             cur.execute(sql, (wallet.get_donate_address(coin)))
             result = cur.fetchone()
             if result['donate'] is None:
@@ -1182,7 +1182,7 @@ def sql_get_donate_list():
                 donate_list.update({coin: float(result['donate'])})
             # ARQ
             coin = "ARQ"
-            sql = """ SELECT SUM(amount) AS donate FROM """+coin.lower()+"""_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
+            sql = """ SELECT SUM(amount) AS donate FROM xmroff_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
             cur.execute(sql, (wallet.get_donate_address(coin)))
             result = cur.fetchone()
             if result['donate'] is None:
@@ -1191,7 +1191,7 @@ def sql_get_donate_list():
                 donate_list.update({coin: float(result['donate'])})
             # MSR
             coin = "MSR"
-            sql = """ SELECT SUM(amount) AS donate FROM """+coin.lower()+"""_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
+            sql = """ SELECT SUM(amount) AS donate FROM xmroff_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
             cur.execute(sql, (wallet.get_donate_address(coin)))
             result = cur.fetchone()
             if result['donate'] is None:
@@ -1200,7 +1200,7 @@ def sql_get_donate_list():
                 donate_list.update({coin: float(result['donate'])})
             # XAM
             coin = "XAM"
-            sql = """ SELECT SUM(amount) AS donate FROM """+coin.lower()+"""_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
+            sql = """ SELECT SUM(amount) AS donate FROM xmroff_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
             cur.execute(sql, (wallet.get_donate_address(coin)))
             result = cur.fetchone()
             if result['donate'] is None:
@@ -1209,7 +1209,7 @@ def sql_get_donate_list():
                 donate_list.update({coin: float(result['donate'])})
             # BLOG
             coin = "BLOG"
-            sql = """ SELECT SUM(amount) AS donate FROM """+coin.lower()+"""_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
+            sql = """ SELECT SUM(amount) AS donate FROM xmroff_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
             cur.execute(sql, (wallet.get_donate_address(coin)))
             result = cur.fetchone()
             if result['donate'] is None:
@@ -1218,7 +1218,7 @@ def sql_get_donate_list():
                 donate_list.update({coin: float(result['donate'])})
             # UPX
             coin = "UPX"
-            sql = """ SELECT SUM(amount) AS donate FROM """+coin.lower()+"""_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
+            sql = """ SELECT SUM(amount) AS donate FROM xmroff_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
             cur.execute(sql, (wallet.get_donate_address(coin)))
             result = cur.fetchone()
             if result['donate'] is None:
@@ -1227,7 +1227,7 @@ def sql_get_donate_list():
                 donate_list.update({coin: float(result['donate'])})
             # XWP
             coin = "XWP"
-            sql = """ SELECT SUM(amount) AS donate FROM """+coin.lower()+"""_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
+            sql = """ SELECT SUM(amount) AS donate FROM xmroff_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
             cur.execute(sql, (wallet.get_donate_address(coin)))
             result = cur.fetchone()
             if result['donate'] is None:
@@ -2121,7 +2121,7 @@ def sql_mv_xmr_single(user_from: str, to_user: str, amount: float, coin: str, ti
     try:
         openConnection()
         with conn.cursor() as cur: 
-            sql = """ INSERT INTO """+coin.lower()+"""_mv_tx (`coin_name`, `from_userid`, `to_userid`, `amount`, `decimal`, `type`, `date`) 
+            sql = """ INSERT INTO xmroff_mv_tx (`coin_name`, `from_userid`, `to_userid`, `amount`, `decimal`, `type`, `date`) 
                       VALUES (%s, %s, %s, %s, %s, %s, %s) """
             cur.execute(sql, (COIN_NAME, user_from, to_user, amount, wallet.get_decimal(COIN_NAME), tiptype.upper(), int(time.time()),))
             conn.commit()
@@ -2148,7 +2148,7 @@ def sql_mv_xmr_multiple(user_from: str, user_tos, amount_each: float, coin: str,
     try:
         openConnection()
         with conn.cursor() as cur: 
-            sql = """ INSERT INTO """+coin.lower()+"""_mv_tx (`coin_name`, `from_userid`, `to_userid`, `amount`, `decimal`, `type`, `date`) 
+            sql = """ INSERT INTO xmroff_mv_tx (`coin_name`, `from_userid`, `to_userid`, `amount`, `decimal`, `type`, `date`) 
                       """+values_sql+""" """
             cur.execute(sql,)
             conn.commit()
@@ -2175,7 +2175,7 @@ async def sql_external_xmr_single(user_from: str, amount: float, to_address: str
             if tx_hash:
                 updateTime = int(time.time())
                 with conn.cursor() as cur: 
-                    sql = """ INSERT INTO """+coin.lower()+"""_external_tx (`coin_name`, `user_id`, `amount`, `fee`, `decimal`, `to_address`, 
+                    sql = """ INSERT INTO xmroff_external_tx (`coin_name`, `user_id`, `amount`, `fee`, `decimal`, `to_address`, 
                               `type`, `date`, `tx_hash`, `tx_key`) 
                               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
                     cur.execute(sql, (COIN_NAME, user_from, amount, tx_hash['fee'], wallet.get_decimal(COIN_NAME), to_address, tiptype.upper(), int(time.time()), tx_hash['tx_hash'], tx_hash['tx_key'],))
@@ -2294,7 +2294,7 @@ async def sql_xmr_balance(userID: str, coin: str, redis_reset: bool = True):
     try:
         openConnection()
         with conn.cursor() as cur: 
-            sql = """ SELECT SUM(amount) AS Expense FROM """+coin.lower()+"""_mv_tx WHERE `from_userid`=%s AND `coin_name` = %s """
+            sql = """ SELECT SUM(amount) AS Expense FROM xmroff_mv_tx WHERE `from_userid`=%s AND `coin_name` = %s """
             cur.execute(sql, (userID, COIN_NAME))
             result = cur.fetchone()
             if result:
@@ -2302,7 +2302,7 @@ async def sql_xmr_balance(userID: str, coin: str, redis_reset: bool = True):
             else:
                 Expense = 0
 
-            sql = """ SELECT SUM(amount) AS Income FROM """+coin.lower()+"""_mv_tx WHERE `to_userid`=%s AND `coin_name` = %s """
+            sql = """ SELECT SUM(amount) AS Income FROM xmroff_mv_tx WHERE `to_userid`=%s AND `coin_name` = %s """
             cur.execute(sql, (userID, COIN_NAME))
             result = cur.fetchone()
             if result:
@@ -2310,7 +2310,7 @@ async def sql_xmr_balance(userID: str, coin: str, redis_reset: bool = True):
             else:
                 Income = 0
 
-            sql = """ SELECT SUM(amount) AS TxExpense FROM """+coin.lower()+"""_external_tx WHERE `user_id`=%s AND `coin_name` = %s """
+            sql = """ SELECT SUM(amount) AS TxExpense FROM xmroff_external_tx WHERE `user_id`=%s AND `coin_name` = %s """
             cur.execute(sql, (userID, COIN_NAME))
             result = cur.fetchone()
             if result:
@@ -2318,7 +2318,7 @@ async def sql_xmr_balance(userID: str, coin: str, redis_reset: bool = True):
             else:
                 TxExpense = 0
 
-            sql = """ SELECT SUM(fee) AS FeeExpense FROM """+coin.lower()+"""_external_tx WHERE `user_id`=%s AND `coin_name` = %s """
+            sql = """ SELECT SUM(fee) AS FeeExpense FROM xmroff_external_tx WHERE `user_id`=%s AND `coin_name` = %s """
             cur.execute(sql, (userID, COIN_NAME))
             result = cur.fetchone()
             if result:

@@ -2511,7 +2511,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
             user = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         MinTx = get_min_tx_amount(COIN_NAME)
         MaxTX = get_max_tx_amount(COIN_NAME)
-        NetFee = get_tx_fee(coin = COIN_NAME)
+        NetFee = get_reserved_fee(coin = COIN_NAME)
         if user['user_wallet_address'] is None:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You do not have a withdrawal address, please use '
@@ -4332,7 +4332,7 @@ async def send(ctx, amount: str, CoinAddress: str):
         real_amount = int(amount * COIN_DEC)
         addressLength = get_addrlen(COIN_NAME)
         IntaddressLength = get_intaddrlen(COIN_NAME)
-        NetFee = get_tx_fee(coin = COIN_NAME)
+        NetFee = get_reserved_fee(coin = COIN_NAME)
         if is_maintenance_coin(COIN_NAME):
             await ctx.message.add_reaction(EMOJI_MAINTENANCE)
             try:

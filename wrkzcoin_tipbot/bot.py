@@ -87,6 +87,9 @@ FAUCET_COINS_ROUND_NUMBERS = config.Enable_Faucet_Coin_round_number.split(",")
 # Coin using wallet-api
 WALLET_API_COIN = config.Enable_Coin_WalletApi.split(",")
 
+# Fee per byte coin
+FEE_PER_BYTE_COIN = config.Fee_Per_Byte_Coin.split(",")
+
 # DOGE will divide by 10 after random
 FAUCET_MINMAX = {
     "WRKZ": [1000, 2000],
@@ -1716,6 +1719,12 @@ async def coininfo(ctx, coin: str = None):
                     response_text += "Withdraw: ON\n"
                 else:
                     response_text += "Withdraw: OFF\n"
+                if COIN_NAME in FEE_PER_BYTE_COIN + ENABLE_COIN_DOGE:
+                    response_text += "Reserved Fee: {}{}\n".format(num_format_coin(get_reserved_fee(COIN_NAME), COIN_NAME), COIN_NAME)
+                elif COIN_NAME in ENABLE_XMR:
+                    response_text += "Tx Fee: Dynamic\n"
+                else:
+                    response_text += "Tx Fee: {}{}\n".format(num_format_coin(get_tx_fee(COIN_NAME), COIN_NAME), COIN_NAME)
                 get_tip_min_max = "Tip Min/Max:\n   " + num_format_coin(get_min_mv_amount(COIN_NAME), COIN_NAME) + " / " + num_format_coin(get_max_mv_amount(COIN_NAME), COIN_NAME) + COIN_NAME
                 response_text += get_tip_min_max + "\n"
                 get_tx_min_max = "Withdraw Min/Max:\n   " + num_format_coin(get_min_tx_amount(COIN_NAME), COIN_NAME) + " / " + num_format_coin(get_max_tx_amount(COIN_NAME), COIN_NAME) + COIN_NAME

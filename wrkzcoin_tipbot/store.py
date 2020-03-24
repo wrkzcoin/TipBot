@@ -1843,6 +1843,23 @@ def sql_listignorechan():
     return None
 
 
+def sql_add_logs_tx(list_tx):
+    if len(list_tx) == 0:
+        return 0
+    global conn
+    try:
+        openConnection()
+        with conn.cursor() as cur:
+            sql = """ INSERT IGNORE INTO `action_tx_logs` (`uuid`, `action`, `user_id`, `user_name`, 
+                      `event_date`, `msg_content`, `user_server`, `end_point`)
+                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+            cur.executemany(sql, list_tx)
+            conn.commit()
+            return cur.rowcount
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
 def sql_add_failed_tx(coin: str, user_id: str, user_author: str, amount: int, tx_type: str):
     global conn
     if tx_type.upper() not in ['TIP','TIPS','TIPALL','DONATE','WITHDRAW','SEND', 'REACTTIP']:

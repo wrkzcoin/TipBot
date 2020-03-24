@@ -2449,6 +2449,10 @@ async def withdraw(ctx, amount: str, coin: str = None):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
         return
 
+    # add redis action
+    random_string = str(uuid.uuid4())
+    await add_tx_action_redis(json.dumps([random_string, "WITHDRAW", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, "DISCORD", "START"]), False)
+
     if coin_family == "TRTL":
         COIN_DEC = get_decimal(COIN_NAME)
         real_amount = int(amount * COIN_DEC)
@@ -2520,6 +2524,8 @@ async def withdraw(ctx, amount: str, coin: str = None):
             withdrawal = await store.sql_withdraw(str(ctx.message.author.id), real_amount, COIN_NAME)
             tip_tx_tipper = "Transaction hash: `{}`".format(withdrawal['transactionHash'])
             tip_tx_tipper += "\nTx Fee: `{}{}`".format(num_format_coin(withdrawal['fee'], COIN_NAME), COIN_NAME)
+            # add redis action
+            await add_tx_action_redis(json.dumps([random_string, "WITHDRAW", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, "DISCORD", "COMPLETE"]), False)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
@@ -2596,6 +2602,8 @@ async def withdraw(ctx, amount: str, coin: str = None):
                     withdrawTx = await store.sql_external_xmr_single(str(ctx.message.author.id), real_amount,
                                                                      user_from['user_wallet_address'],
                                                                      COIN_NAME, "WITHDRAW")
+                    # add redis action
+                    await add_tx_action_redis(json.dumps([random_string, "WITHDRAW", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, "DISCORD", "COMPLETE"]), False)
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
                 WITHDRAW_IN_PROCESS.remove(ctx.message.author.id)
@@ -2666,6 +2674,8 @@ async def withdraw(ctx, amount: str, coin: str = None):
                     withdrawTx = await store.sql_external_doge_single(str(ctx.message.author.id), real_amount,
                                                                       NetFee, wallet['user_wallet_address'],
                                                                       COIN_NAME, "WITHDRAW")
+                    # add redis action
+                    await add_tx_action_redis(json.dumps([random_string, "WITHDRAW", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, "DISCORD", "COMPLETE"]), False)
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
             WITHDRAW_IN_PROCESS.remove(ctx.message.author.id)
@@ -4272,6 +4282,10 @@ async def send(ctx, amount: str, CoinAddress: str):
                 return
         return
 
+    # add redis action
+    random_string = str(uuid.uuid4())
+    await add_tx_action_redis(json.dumps([random_string, "SEND", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, "DISCORD", "START"]), False)
+
     if coin_family == "TRTL":
         COIN_DEC = get_decimal(COIN_NAME)
         MinTx = get_min_tx_amount(COIN_NAME)
@@ -4499,6 +4513,8 @@ async def send(ctx, amount: str, CoinAddress: str):
                 tip = await store.sql_send_tip_Ex(str(ctx.message.author.id), CoinAddress, real_amount, COIN_NAME)
                 tip_tx_tipper = "Transaction hash: `{}`".format(tip['transactionHash'])
                 tip_tx_tipper += "\nTx Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
+                # add redis
+                await add_tx_action_redis(json.dumps([random_string, "SEND", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, "DISCORD", "COMPLETE"]), False)
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
             if tip:
@@ -4575,6 +4591,8 @@ async def send(ctx, amount: str, CoinAddress: str):
             try:
                 SendTx = await store.sql_external_xmr_single(str(ctx.message.author.id), real_amount,
                                                              CoinAddress, COIN_NAME, "SEND")
+                # add redis
+                await add_tx_action_redis(json.dumps([random_string, "SEND", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, "DISCORD", "COMPLETE"]), False)
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
             WITHDRAW_IN_PROCESS.remove(ctx.message.author.id)
@@ -4646,6 +4664,8 @@ async def send(ctx, amount: str, CoinAddress: str):
                 try:
                     SendTx = await store.sql_external_doge_single(str(ctx.message.author.id), real_amount, NetFee,
                                                                   CoinAddress, COIN_NAME, "SEND")
+                    # add redis
+                    await add_tx_action_redis(json.dumps([random_string, "SEND", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, "DISCORD", "COMPLETE"]), False)
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
                 WITHDRAW_IN_PROCESS.remove(ctx.message.author.id)
@@ -6176,11 +6196,6 @@ async def botbalance_error(ctx, error):
     return
 
 
-@forwardtip.error
-async def forwardtip_error(ctx, error):
-    pass
-
-
 @withdraw.error
 async def withdraw_error(ctx, error):
     if isinstance(error, commands.MissingRequiredArgument):
@@ -7584,6 +7599,39 @@ async def bot_faucet(ctx):
     return table.table
 
 
+async def store_action_list():
+    while True:
+        interval_action_list = 60
+        try:
+            openRedis()
+            key = "TIPBOT:ACTIONTX"
+            if redis_conn and redis_conn.llen(key) > 0 :
+                temp_action_list = []
+                for each in redis_conn.lrange(key, 0, -1):
+                    temp_action_list.append(tuple(json.loads(each)))
+                num_add = store.sql_add_logs_tx(temp_action_list)
+                if num_add > 0:
+                    redis_conn.delete(key)
+                else:
+                    print(f"Failed delete {key}")
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        await asyncio.sleep(interval_action_list)
+
+
+async def add_tx_action_redis(action: str, delete_temp: bool = False):
+    try:
+        openRedis()
+        key = "TIPBOT:ACTIONTX"
+        if redis_conn:
+            if delete_temp:
+                redis_conn.delete(key)
+            else:
+                redis_conn.lpush(key, action)
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
 @click.command()
 def main():
     bot.loop.create_task(saving_wallet())
@@ -7591,6 +7639,7 @@ def main():
     bot.loop.create_task(update_balance())
     bot.loop.create_task(notify_new_tx_user())
     bot.loop.create_task(notify_new_swap_user())
+    bot.loop.create_task(store_action_list())
     bot.run(config.discord.token, reconnect=True)
 
 

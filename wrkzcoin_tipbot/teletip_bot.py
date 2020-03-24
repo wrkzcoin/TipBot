@@ -12,7 +12,9 @@ from wallet import *
 import store, daemonrpc_client, addressvalidation, walletapi
 import sys, traceback
 # redis
-import redis
+import redis, json
+import uuid
+
 import math, random
 # ascii table
 from terminaltables import AsciiTable
@@ -637,6 +639,10 @@ async def start_cmd_handler(message: types.Message):
                             parse_mode=ParseMode.MARKDOWN)
         return
 
+    # add redis action
+    random_string = str(uuid.uuid4())
+    await add_tx_action_redis(json.dumps([random_string, "SEND", message.from_user.username, message.from_user.username, float("%.3f" % time.time()), message.text, "TELEGRAM", "START"]), False)
+
     wallet_address = args[3]
     if wallet_address.isalnum() == False:
         message_text = text(bold("Invalid address:\n"),
@@ -758,7 +764,7 @@ async def start_cmd_handler(message: types.Message):
                     if tip:
                         tip_tx_tipper = "Transaction hash: {}".format(tip['transactionHash'])
                         tip_tx_tipper += "\nTx Fee: {}{}".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
-                        
+                        await add_tx_action_redis(json.dumps([random_string, "SEND", message.from_user.username, message.from_user.username, float("%.3f" % time.time()), message.text, "TELEGRAM", "COMPLETE"]), False)
                         message_text = text(bold(f"You have sent {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}:\n"),
                                             code(tip_tx_tipper))
                         await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
@@ -850,6 +856,10 @@ async def start_cmd_handler(message: types.Message):
                             parse_mode=ParseMode.MARKDOWN)
         return
 
+    # add redis action
+    random_string = str(uuid.uuid4())
+    await add_tx_action_redis(json.dumps([random_string, "WITHDRAW", message.from_user.username, message.from_user.username, float("%.3f" % time.time()), message.text, "TELEGRAM", "START"]), False)
+
     # get coin family
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     user_from = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
@@ -922,7 +932,7 @@ async def start_cmd_handler(message: types.Message):
                 if tip:
                     tip_tx_tipper = "Transaction hash: {}".format(tip['transactionHash'])
                     tip_tx_tipper += "\nTx Fee: {}{}".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
-                    
+                    await add_tx_action_redis(json.dumps([random_string, "WITHDRAW", message.from_user.username, message.from_user.username, float("%.3f" % time.time()), message.text, "TELEGRAM", "COMPLETE"]), False)
                     message_text = text(bold(f"You have withdrawn {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}:\n"),
                                         code(tip_tx_tipper))
                     await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
@@ -934,7 +944,7 @@ async def start_cmd_handler(message: types.Message):
                                         parse_mode=ParseMode.MARKDOWN)
                     return
         elif coin_family == "DOGE":
-            tip = None
+            withdrawTx = None
             if message.from_user.username not in WITHDRAW_IN_PROCESS:
                 WITHDRAW_IN_PROCESS.append(message.from_user.username)
             else:
@@ -956,7 +966,8 @@ async def start_cmd_handler(message: types.Message):
             if withdrawTx:
                 tx_text = "Transaction hash: {}\n".format(withdrawTx)
                 tx_text += "To: {}".format(wallet_address)
-                tx_text += "Network fee deducted from the amount." 
+                tx_text += "Network fee deducted from the amount."
+                await add_tx_action_redis(json.dumps([random_string, "WITHDRAW", message.from_user.username, message.from_user.username, float("%.3f" % time.time()), message.text, "TELEGRAM", "COMPLETE"]), False)
                 message_text = text(bold(f"You have withdrawn {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}:\n"),
                                     code(tx_text))
                 await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
@@ -1403,6 +1414,19 @@ def is_coin_tipable(coin: str):
             return False
         else:
             return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
+async def add_tx_action_redis(action: str, delete_temp: bool = False):
+    try:
+        openRedis()
+        key = "TIPBOT:ACTIONTX"
+        if redis_conn:
+            if delete_temp:
+                redis_conn.delete(key)
+            else:
+                redis_conn.lpush(key, action)
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
 

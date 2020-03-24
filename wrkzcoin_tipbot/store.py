@@ -2463,22 +2463,6 @@ async def sql_get_deposit_alluser(user: str = 'ALL', coin: str = 'ANY'):
     return False
 
 
-def sql_set_forwardtip(userID: str, coin: str, option: str):
-    global conn
-    if option.upper() not in ["ON", "OFF"]:
-        return None
-    if coin.upper() in ENABLE_COIN:
-        try:
-            openConnection()
-            with conn.cursor() as cur: 
-                sql = """ UPDATE cn_user SET `forwardtip`='"""+option.upper()+"""' 
-                          WHERE `user_id` = %s AND `coin_name` = %s LIMIT 1 """
-                cur.execute(sql, (str(userID), coin.upper()))
-                conn.commit()
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-
-
 async def sql_swap_balance(coin: str, owner_id: str, owner_name: str, from_: str, to_: str, amount: float):
     global conn, ENABLE_SWAP
     COIN_NAME = coin.upper()

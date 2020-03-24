@@ -2180,68 +2180,6 @@ async def botbalance(ctx, member: discord.Member, coin: str):
         return
 
 
-@bot.command(pass_context=True, name='forwardtip', aliases=['redirecttip'],
-             help=bot_help_forwardtip)
-async def forwardtip(ctx, coin: str, option: str):
-    # check if account locked
-    account_lock = await alert_if_userlock(ctx, 'forwardtip')
-    if account_lock:
-        await ctx.message.add_reaction(EMOJI_LOCKED) 
-        await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
-        return
-    # end of check if account locked
-
-    # Check to test
-    # if ctx.message.author.id not in MAINTENANCE_OWNER:
-        # await ctx.message.add_reaction(EMOJI_WARNING)
-        # await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Still under testing. Try again in the future.')
-        # return
-    # End Check
-    COIN_NAME = coin.upper()
-    coin_family = None
-    try:
-        coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-    except Exception as e:
-        traceback.print_exc(file=sys.stdout)
-    if coin_family is None:
-        await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} We don\'t know that {COIN_NAME}')
-        return
-
-    if coin_family == "XMR" or coin_family == "DOGE" or COIN_NAME in ENABLE_COIN_OFFCHAIN:
-        await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} this {COIN_NAME} is not supported with **forwardtip**.')
-        return
-    elif coin_family not in ["TRTL", "CCX"]:
-        await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{ctx.author.mention} Please use supported ticker: '+ ', '.join(ENABLE_COIN).lower())
-        return
-    elif option.upper() not in ["ON", "OFF"]:
-        await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{ctx.author.mention} Parameter must be: **ON** or **OFF**')
-        return
-
-    userwallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-    if userwallet is None:
-        userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
-        userwallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-
-    # Do not allow to ON if 'user_wallet_address' is None
-    if (userwallet['user_wallet_address'] is None) and option.upper() == "ON":
-        await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{ctx.author.mention} You have\'t registered an address for **{COIN_NAME}**')
-        return
-    if userwallet['forwardtip'].upper() == option.upper():
-        await ctx.message.add_reaction(EMOJI_WARNING)
-        await ctx.send(f'{ctx.author.mention} You have this forwardtip already: **{option.upper()}**')
-        return
-    else:
-        setforward = store.sql_set_forwardtip(str(ctx.message.author.id), COIN_NAME, option.upper())
-        await ctx.message.add_reaction(EMOJI_OK_HAND)
-        await ctx.send(f'{ctx.author.mention} You set forwardtip of {COIN_NAME} to: **{option.upper()}**')
-        return
-
-
 @bot.command(pass_context=True, name='register', aliases=['registerwallet', 'reg', 'updatewallet'],
              help=bot_help_register)
 async def register(ctx, wallet_address: str):

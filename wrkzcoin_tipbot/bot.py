@@ -1493,7 +1493,7 @@ async def cal(ctx, eval_string: str = None):
             return
 
 
-@bot.command(pass_context=True, name='info', aliases=['wallet'], help=bot_help_info)
+@bot.command(pass_context=True, name='info', help=bot_help_info)
 async def info(ctx, coin: str = None):
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'info')

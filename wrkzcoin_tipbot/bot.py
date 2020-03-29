@@ -728,7 +728,6 @@ async def on_message(message):
                     await message.author.send('Maintenance OFF, `maintenance on` to turn it off.')
                     return
     # Do not remove this, otherwise, command not working.
-    # await bot.process_commands(message)
     ctx = await bot.get_context(message)
     await bot.invoke(ctx)
 
@@ -6390,9 +6389,9 @@ async def saving_wallet():
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
                 if duration:
-                    if duration > 5:
+                    if duration > 30:
                         await botLogChan.send(f'INFO: AUTOSAVE FOR **{COIN_NAME}** TOOK **{round(duration, 3)}s**.')
-                    else:
+                    elif duration > 5:
                         print(f'INFO: AUTOSAVE FOR **{COIN_NAME}** TOOK **{round(duration, 3)}s**.')
                 else:
                     await botLogChan.send(f'WARNING: AUTOSAVE FOR **{COIN_NAME}** FAILED.')

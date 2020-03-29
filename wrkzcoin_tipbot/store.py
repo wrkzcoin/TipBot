@@ -170,7 +170,7 @@ async def sql_update_balances(coin: str = None):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
     elif coin_family == "TRTL" and (COIN_NAME in ENABLE_COIN_OFFCHAIN):
-        print('SQL: Updating get_transfers '+COIN_NAME)
+        #print('SQL: Updating get_transfers '+COIN_NAME)
         get_transfers = await wallet.getTransactions(COIN_NAME, int(height)-100000, 100000)
         try:
             if len(get_transfers) >= 1:
@@ -243,7 +243,7 @@ async def sql_update_balances(coin: str = None):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
     elif coin_family == "XMR":
-        print('SQL: Updating get_transfers '+COIN_NAME)
+        #print('SQL: Updating get_transfers '+COIN_NAME)
         get_transfers = await wallet.get_transfers_xmr(COIN_NAME)
         if len(get_transfers) >= 1:
             try:
@@ -291,7 +291,7 @@ async def sql_update_balances(coin: str = None):
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
     elif coin_family == "DOGE":
-        print('SQL: Updating get_transfers '+COIN_NAME)
+        #print('SQL: Updating get_transfers '+COIN_NAME)
         get_transfers = await wallet.doge_listtransactions(COIN_NAME)
         if get_transfers and len(get_transfers) >= 1:
             try:

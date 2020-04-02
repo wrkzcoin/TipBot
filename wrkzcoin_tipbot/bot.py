@@ -2162,7 +2162,7 @@ async def botbalance(ctx, member: discord.Member, coin: str):
             botregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD')
             wallet = await store.sql_get_userwallet(str(member.id), COIN_NAME)
         if COIN_NAME in ENABLE_COIN_OFFCHAIN:
-            userdata_balance = await store.sql_cnoff_balance(str(ctx.message.author.id), COIN_NAME)
+            userdata_balance = await store.sql_cnoff_balance(str(member.id), COIN_NAME)
             wallet['actual_balance'] = wallet['actual_balance'] + int(userdata_balance['Adjust'])
         balance_actual = num_format_coin(wallet['actual_balance'] , COIN_NAME)
         balance_locked = num_format_coin(wallet['locked_balance'] , COIN_NAME)

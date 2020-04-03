@@ -232,7 +232,7 @@ ROUND_AMOUNT_COIN = {
 TRTL_DISCORD = 388915017187328002
 
 NOTIFICATION_OFF_CMD = 'Type: `.notifytip off` to turn off this DM notification.'
-MSG_LOCKED_ACCOUNT = "Your account is locked. Please contact CapEtn#4425 in WrkzCoin discord. Check `.about` for more info."
+MSG_LOCKED_ACCOUNT = "Your account is locked. Please contact Pluton#4425 in WrkzCoin discord. Check `.about` for more info."
 
 bot_description = f"Tip {COIN_REPR} to other users on your server."
 bot_help_about = "About TipBot"
@@ -736,7 +736,7 @@ async def on_message(message):
 async def about(ctx):
     invite_link = "https://discordapp.com/oauth2/authorize?client_id="+str(bot.user.id)+"&scope=bot&permissions=3072"
     botdetails = discord.Embed(title='About Me', description='', colour=7047495)
-    botdetails.add_field(name='Creator\'s Discord Name:', value='CapEtn#4425', inline=True)
+    botdetails.add_field(name='Creator\'s Discord Name:', value='Pluton#4425', inline=True)
     botdetails.add_field(name='My Github:', value='https://github.com/wrkzcoin/TipBot', inline=True)
     botdetails.add_field(name='Invite Me:', value=f'{invite_link}', inline=True)
     botdetails.add_field(name='Servers I am in:', value=len(bot.guilds), inline=True)

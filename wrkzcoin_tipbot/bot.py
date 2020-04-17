@@ -6225,6 +6225,7 @@ async def botbalance_error(ctx, error):
 @withdraw.error
 async def withdraw_error(ctx, error):
     if isinstance(error, commands.MissingRequiredArgument):
+        await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Missing amount and/or ticker. '
                        'You need to tell me **AMOUNT** and/or **TICKER**.')
     return
@@ -6233,8 +6234,17 @@ async def withdraw_error(ctx, error):
 @tip.error
 async def tip_error(ctx, error):
     if isinstance(error, commands.MissingRequiredArgument):
+        await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Missing arguments. '
                        'You need to tell me **amount** and who you want to tip to.')
+    return
+
+
+@deposit.error
+async def deposit_error(ctx, error):
+    if isinstance(error, commands.MissingRequiredArgument):
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Missing argument **ticker/coin_name**.')
     return
 
 

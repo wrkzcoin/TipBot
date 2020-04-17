@@ -237,7 +237,8 @@ MSG_LOCKED_ACCOUNT = "Your account is locked. Please contact Pluton#4425 in Wrkz
 bot_description = f"Tip {COIN_REPR} to other users on your server."
 bot_help_about = "About TipBot"
 bot_help_register = "Register or change your deposit address."
-bot_help_info = "Get your account's info."
+bot_help_info = "Get discord server's info for TipBot."
+bot_help_deposit = "Get your wallet's deposit address."
 bot_help_userinfo = "Get user info in discord server."
 bot_help_withdraw = f"Withdraw {COIN_REPR} from your balance."
 bot_help_balance = f"Check your {COIN_REPR} balance."
@@ -1492,10 +1493,10 @@ async def cal(ctx, eval_string: str = None):
             return
 
 
-@bot.command(pass_context=True, name='info', help=bot_help_info)
-async def info(ctx, coin: str = None):
+@bot.command(pass_context=True, name='deposit', help=bot_help_deposit)
+async def deposit(ctx, coin_name: str):
     # check if account locked
-    account_lock = await alert_if_userlock(ctx, 'info')
+    account_lock = await alert_if_userlock(ctx, 'deposit')
     if account_lock:
         await ctx.message.add_reaction(EMOJI_LOCKED) 
         await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
@@ -1515,75 +1516,7 @@ async def info(ctx, coin: str = None):
         pass
     # End Check if maintenance
 
-    global LIST_IGNORECHAN
-    wallet = None
-    COIN_NAME = None
-    if coin is None:
-        if len(ctx.message.mentions) == 0:
-            cmdName = ctx.message.content
-        else:
-            cmdName = ctx.message.content.split(" ")[0]
-        cmdName = cmdName[1:]
-
-        if cmdName.lower() not in ['wallet', 'info']:
-            cmdName = ctx.message.content.split(" ")[1]
-        if isinstance(ctx.channel, discord.DMChannel):
-            prefixChar = '.'
-            tickers = '|'.join(ENABLE_COIN).lower()
-            await ctx.send(
-                f'Please add ticker after **{cmdName.lower()}**. Example: `{prefixChar}{cmdName.lower()} {tickers}`')
-            return
-        else:
-            serverinfo = store.sql_info_by_server(str(ctx.guild.id))
-            if serverinfo is None:
-                # Let's add some info if server return None
-                add_server_info = store.sql_addinfo_by_server(str(ctx.guild.id),
-                                                              ctx.message.guild.name, config.discord.prefixCmd,
-                                                              "WRKZ")
-                servername = ctx.message.guild.name
-                server_id = str(ctx.guild.id)
-                server_prefix = config.discord.prefixCmd
-                server_coin = DEFAULT_TICKER
-                server_tiponly = "ALLCOIN"
-            else:
-                servername = serverinfo['servername']
-                server_id = str(ctx.guild.id)
-                server_prefix = serverinfo['prefix']
-                server_coin = serverinfo['default_coin'].upper()
-                server_tiponly = serverinfo['tiponly'].upper()
-                if serverinfo['react_tip'].upper() == "ON":
-                    COIN_NAME = serverinfo['default_coin'].upper()
-                    # COIN_DEC = get_decimal(COIN_NAME)
-                    # real_amount = int(amount * COIN_DEC)
-                    react_tip_value = str(serverinfo['react_tip_100']) + COIN_NAME
-                else:
-                    react_tip_value = "N/A"
-            chanel_ignore_list = ''
-            if LIST_IGNORECHAN:
-                if str(ctx.guild.id) in LIST_IGNORECHAN:
-                    for item in LIST_IGNORECHAN[str(ctx.guild.id)]:
-                        chanel_ignore = bot.get_channel(id=int(item))
-                        chanel_ignore_list = chanel_ignore_list + '#'  + chanel_ignore.name + ' '
-
-            tickers = '|'.join(ENABLE_COIN).lower()
-            extra_text = f'Please add ticker after **{cmdName.lower()}**. Example: `{server_prefix}{cmdName.lower()} {server_coin}`, if you want to get your address(es).\n\n'\
-                         f'Type: `{server_prefix}setting` if you want to change `prefix` or `default_coin` or `ignorechan` or `del_ignorechan` or `tiponly`. (Required permission)'
-            msg = await ctx.send(
-                '\n```'
-                f'Server ID:      {ctx.guild.id}\n'
-                f'Server Name:    {ctx.message.guild.name}\n'
-                f'Default ticker: {server_coin}\n'
-                f'Default prefix: {server_prefix}\n'
-                f'TipOnly Coins:  {server_tiponly}\n'
-                f'Re-act Tip:     {react_tip_value}\n'
-                f'Ignored Tip in: {chanel_ignore_list}\n'
-                f'```\n{extra_text}')
-            await msg.add_reaction(EMOJI_OK_BOX)
-            return
-    else:
-        COIN_NAME = coin.upper()
-        pass
-
+    COIN_NAME = coin_name.upper()
     if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR:
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**!')
         return
@@ -1604,7 +1537,7 @@ async def info(ctx, coin: str = None):
         await ctx.message.add_reaction(EMOJI_MAINTENANCE)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
         return
-    
+
     if coin_family == "TRTL":
         wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if wallet is None:
@@ -1660,6 +1593,100 @@ async def info(ctx, coin: str = None):
                                f'{EMOJI_SCALE} Registered Wallet: `NONE, Please register.`\n'
                                f'{get_notice_txt(COIN_NAME)}')
     return
+
+
+@bot.command(pass_context=True, name='info', help=bot_help_info)
+async def info(ctx, coin: str = None):
+    # check if account locked
+    account_lock = await alert_if_userlock(ctx, 'info')
+    if account_lock:
+        await ctx.message.add_reaction(EMOJI_LOCKED) 
+        await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
+        return
+    # end of check if account locked
+
+    # Check if maintenance
+    if IS_MAINTENANCE == 1:
+        if int(ctx.message.author.id) in MAINTENANCE_OWNER:
+            await ctx.message.add_reaction(EMOJI_MAINTENANCE)
+            pass
+        else:
+            await ctx.message.add_reaction(EMOJI_WARNING)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {config.maintenance_msg}')
+            return
+    else:
+        pass
+    # End Check if maintenance
+
+    global LIST_IGNORECHAN
+    wallet = None
+    COIN_NAME = None
+    if coin is None:
+        if len(ctx.message.mentions) == 0:
+            cmdName = ctx.message.content
+        else:
+            cmdName = ctx.message.content.split(" ")[0]
+        cmdName = cmdName[1:]
+
+        if cmdName.lower() not in ['wallet', 'info']:
+            cmdName = ctx.message.content.split(" ")[1]
+        if isinstance(ctx.channel, discord.DMChannel):
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} This command can not be in DM. If you want to deposit, use **DEPOSIT** command instead.')
+            return
+        else:
+            serverinfo = store.sql_info_by_server(str(ctx.guild.id))
+            if serverinfo is None:
+                # Let's add some info if server return None
+                add_server_info = store.sql_addinfo_by_server(str(ctx.guild.id),
+                                                              ctx.message.guild.name, config.discord.prefixCmd,
+                                                              "WRKZ")
+                servername = ctx.message.guild.name
+                server_id = str(ctx.guild.id)
+                server_prefix = config.discord.prefixCmd
+                server_coin = DEFAULT_TICKER
+                server_tiponly = "ALLCOIN"
+            else:
+                servername = serverinfo['servername']
+                server_id = str(ctx.guild.id)
+                server_prefix = serverinfo['prefix']
+                server_coin = serverinfo['default_coin'].upper()
+                server_tiponly = serverinfo['tiponly'].upper()
+                if serverinfo['react_tip'].upper() == "ON":
+                    COIN_NAME = serverinfo['default_coin'].upper()
+                    # COIN_DEC = get_decimal(COIN_NAME)
+                    # real_amount = int(amount * COIN_DEC)
+                    react_tip_value = str(serverinfo['react_tip_100']) + COIN_NAME
+                else:
+                    react_tip_value = "N/A"
+            chanel_ignore_list = ''
+            if LIST_IGNORECHAN:
+                if str(ctx.guild.id) in LIST_IGNORECHAN:
+                    for item in LIST_IGNORECHAN[str(ctx.guild.id)]:
+                        chanel_ignore = bot.get_channel(id=int(item))
+                        chanel_ignore_list = chanel_ignore_list + '#'  + chanel_ignore.name + ' '
+
+            tickers = '|'.join(ENABLE_COIN).lower()
+            extra_text = f'Please add ticker after **{cmdName.lower()}**. Example: `{server_prefix}{cmdName.lower()} {server_coin}`, if you want to get your address(es).\n\n'\
+                         f'Type: `{server_prefix}setting` if you want to change `prefix` or `default_coin` or `ignorechan` or `del_ignorechan` or `tiponly`. (Required permission)'
+            msg = await ctx.send(
+                '\n```'
+                f'Server ID:      {ctx.guild.id}\n'
+                f'Server Name:    {ctx.message.guild.name}\n'
+                f'Default ticker: {server_coin}\n'
+                f'Default prefix: {server_prefix}\n'
+                f'TipOnly Coins:  {server_tiponly}\n'
+                f'Re-act Tip:     {react_tip_value}\n'
+                f'Ignored Tip in: {chanel_ignore_list}\n'
+                f'```\n{extra_text}')
+            await msg.add_reaction(EMOJI_OK_BOX)
+            return
+    else:
+        COIN_NAME = coin.upper()
+        pass
+
+    if COIN_NAME:
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Please use **DEPOSIT** command instead.')
+        return
 
 
 @bot.command(pass_context=True, name='coininfo', aliases=['coinf_info', 'coin'], help=bot_help_coininfo)

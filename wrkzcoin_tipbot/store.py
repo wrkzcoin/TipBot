@@ -785,6 +785,7 @@ async def sql_send_tipall(user_from: str, user_tos, amount: int, amount_div: int
                 return {'transactionHash': 'NONE', 'fee': 0}
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
+                print(f"SQL:\n{sql}\n")
         if tx_hash:
             tx_hash_hash = tx_hash['transactionHash']
             try:
@@ -812,6 +813,7 @@ async def sql_send_tipall(user_from: str, user_tos, amount: int, amount_div: int
                         conn.commit()
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
+                print(f"SQL:\n{sql}\n")
         return tx_hash
     else:
         return None

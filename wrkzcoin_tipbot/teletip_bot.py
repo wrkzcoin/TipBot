@@ -87,7 +87,7 @@ async def start_cmd_handler(message: types.Message):
     more_btns_text = (
         "/send",
         "/tip",
-        "/info",
+        "/deposit",
         "/coininfo",
         "/donate",
         "/about",
@@ -98,7 +98,7 @@ async def start_cmd_handler(message: types.Message):
     await message.reply("Hello, Welcome to TipBot by WrkzCoin team!", reply_markup=keyboard_markup)
 
 
-@dp.message_handler(commands='info')
+@dp.message_handler(commands='deposit')
 async def start_cmd_handler(message: types.Message):
     content = ' '.join(message.text.split())
     args = content.split(" ")
@@ -113,7 +113,7 @@ async def start_cmd_handler(message: types.Message):
         # default row_width is 3, so here we can omit it actually
         # kept for clearness
 
-        btns_text = tuple(["/info " + item for item in ENABLE_COIN + ENABLE_COIN_DOGE])
+        btns_text = tuple(["/deposit " + item for item in ENABLE_COIN + ENABLE_COIN_DOGE])
 
         more_btns_text = (
             "/start",
@@ -121,12 +121,12 @@ async def start_cmd_handler(message: types.Message):
         keyboard_markup.add(*(types.KeyboardButton(text) for text in more_btns_text))
         keyboard_markup.row(*(types.KeyboardButton(text) for text in btns_text))
 
-        await message.reply("Select coin to display information", reply_markup=keyboard_markup)
+        await message.reply("Select coin to display information or type /deposit coin_name", reply_markup=keyboard_markup)
     else:
-        # /info WRKZ
+        # /deposit WRKZ
         COIN_NAME = args[1].upper()
         if COIN_NAME not in ENABLE_COIN + ENABLE_COIN_DOGE:
-            message_text = text(bold("Invalid command /info"))
+            message_text = text(bold("Invalid command /deposit"))
             await message.reply(message_text, reply_markup=types.ReplyKeyboardRemove(),
                                 parse_mode=ParseMode.MARKDOWN)
             return

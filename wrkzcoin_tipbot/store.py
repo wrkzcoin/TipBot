@@ -1536,16 +1536,23 @@ def sql_info_by_server(server_id: str):
         traceback.print_exc(file=sys.stdout)
 
 
-def sql_addinfo_by_server(server_id: str, servername: str, prefix: str, default_coin: str):
+def sql_addinfo_by_server(server_id: str, servername: str, prefix: str, default_coin: str, rejoin: bool = True):
     global conn
     try:
         openConnection()
         with conn.cursor() as cur:
-            sql = """ INSERT INTO `discord_server` (`serverid`, `servername`, `prefix`, `default_coin`)
-                      VALUES (%s, %s, %s, %s) ON DUPLICATE KEY UPDATE 
-                      servername = %s, prefix = %s, default_coin = %s"""
-            cur.execute(sql, (server_id, servername[:28], prefix, default_coin, servername[:28], prefix, default_coin,))
-            conn.commit()
+            if rejoin:
+                sql = """ INSERT INTO `discord_server` (`serverid`, `servername`, `prefix`, `default_coin`)
+                          VALUES (%s, %s, %s, %s) ON DUPLICATE KEY UPDATE 
+                          `servername` = %s, `prefix` = %s, `default_coin` = %s, `status` = %s """
+                cur.execute(sql, (server_id, servername[:28], prefix, default_coin, servername[:28], prefix, default_coin, "REJOINED", ))
+                conn.commit()
+            else:
+                sql = """ INSERT INTO `discord_server` (`serverid`, `servername`, `prefix`, `default_coin`)
+                          VALUES (%s, %s, %s, %s) ON DUPLICATE KEY UPDATE 
+                          `servername` = %s, `prefix` = %s, `default_coin` = %s"""
+                cur.execute(sql, (server_id, servername[:28], prefix, default_coin, servername[:28], prefix, default_coin,))
+                conn.commit()
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
 
@@ -1924,7 +1931,6 @@ def sql_toggle_tipnotify(user_id: str, onoff: str):
             traceback.print_exc(file=sys.stdout)
 
 
-# not use anywhere
 def sql_updateinfo_by_server(server_id: str, what: str, value: str):
     global conn
     try:
@@ -1937,7 +1943,7 @@ def sql_updateinfo_by_server(server_id: str, what: str, value: str):
             if result is None:
                 return None
             else:
-                if what in ["servername", "prefix", "default_coin", "tiponly"]:
+                if what in ["servername", "prefix", "default_coin", "tiponly", "status"]:
                     sql = """ UPDATE discord_server SET """+what+"""=%s WHERE serverid=%s """
                     cur.execute(sql, (what, value, server_id,))
                     conn.commit()
@@ -1945,6 +1951,7 @@ def sql_updateinfo_by_server(server_id: str, what: str, value: str):
                     return None
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
+
 
 # DOGE
 async def sql_mv_doge_single(user_from: str, to_user: str, amount: float, coin: str, tiptype: str, user_server: str = 'DISCORD'):

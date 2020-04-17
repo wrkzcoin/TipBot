@@ -384,8 +384,16 @@ async def on_shard_ready(shard_id):
 async def on_guild_join(guild):
     botLogChan = bot.get_channel(id=LOG_CHAN)
     add_server_info = store.sql_addinfo_by_server(str(guild.id), guild.name,
-                                                  config.discord.prefixCmd, "WRKZ")
-    await botLogChan.send(f'Bot joins a new guild {guild.name} / {guild.id}')
+                                                  config.discord.prefixCmd, "WRKZ", True)
+    await botLogChan.send(f'Bot joins a new guild {guild.name} / {guild.id}. Total guilds: {len(bot.guilds)}.')
+    return
+
+
+@bot.event
+async def on_guild_remove(guild):
+    botLogChan = bot.get_channel(id=LOG_CHAN)
+    add_server_info = store.sql_updateinfo_by_server(str(guild.id), "status", "REMOVED")
+    await botLogChan.send(f'Bot was removed from guild {guild.name} / {guild.id}. Total guilds: {len(bot.guilds)}')
     return
 
 

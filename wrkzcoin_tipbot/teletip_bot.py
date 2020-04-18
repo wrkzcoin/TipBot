@@ -113,13 +113,15 @@ async def start_cmd_handler(message: types.Message):
         # default row_width is 3, so here we can omit it actually
         # kept for clearness
 
-        btns_text = tuple(["/deposit " + item for item in ENABLE_COIN + ENABLE_COIN_DOGE])
+        btns_text1 = tuple(["/deposit " + item for item in ENABLE_COIN])
+        btns_text2 = tuple(["/deposit " + item for item in ENABLE_COIN_DOGE])
 
         more_btns_text = (
             "/start",
         )
         keyboard_markup.add(*(types.KeyboardButton(text) for text in more_btns_text))
-        keyboard_markup.row(*(types.KeyboardButton(text) for text in btns_text))
+        keyboard_markup.row(*(types.KeyboardButton(text) for text in btns_text1))
+        keyboard_markup.row(*(types.KeyboardButton(text) for text in btns_text2))
 
         await message.reply("Select coin to display information or type /deposit coin_name", reply_markup=keyboard_markup)
     else:
@@ -160,12 +162,14 @@ async def start_cmd_handler(message: types.Message):
         # default row_width is 3, so here we can omit it actually
         # kept for clearness
 
-        btns_text = tuple(["/coininfo " + item for item in ENABLE_COIN + ENABLE_COIN_DOGE])
+        btns_text1 = tuple(["/coininfo " + item for item in ENABLE_COIN])
+        btns_text2 = tuple(["/coininfo " + item for item in ENABLE_COIN_DOGE])
         more_btns_text = (
             "/start",
         )
         keyboard_markup.add(*(types.KeyboardButton(text) for text in more_btns_text))
-        keyboard_markup.row(*(types.KeyboardButton(text) for text in btns_text))
+        keyboard_markup.row(*(types.KeyboardButton(text) for text in btns_text1))
+        keyboard_markup.row(*(types.KeyboardButton(text) for text in btns_text2))
 
         await message.reply("Select coin to display information", reply_markup=keyboard_markup)
     else:
@@ -223,13 +227,15 @@ async def start_cmd_handler(message: types.Message):
         # default row_width is 3, so here we can omit it actually
         # kept for clearness
 
-        btns_text = tuple(["/bal " + item for item in ENABLE_COIN + ENABLE_COIN_DOGE + ["list"]])
+        btns_text1 = tuple(["/bal " + item for item in ENABLE_COIN])
+        btns_text2 = tuple(["/bal " + item for item in ENABLE_COIN_DOGE + ["list"]])
 
         more_btns_text = (
             "/start",
         )
         keyboard_markup.add(*(types.KeyboardButton(text) for text in more_btns_text))
-        keyboard_markup.row(*(types.KeyboardButton(text) for text in btns_text))
+        keyboard_markup.row(*(types.KeyboardButton(text) for text in btns_text1))
+        keyboard_markup.row(*(types.KeyboardButton(text) for text in btns_text2))
 
         await message.reply("Select coin to display information", reply_markup=keyboard_markup)
     else:

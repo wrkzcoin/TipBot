@@ -1502,7 +1502,7 @@ async def cal(ctx, eval_string: str = None):
 
 
 @bot.command(pass_context=True, name='deposit', help=bot_help_deposit)
-async def deposit(ctx, coin_name: str):
+async def deposit(ctx, coin_name: str, pub: str = None):
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'deposit')
     if account_lock:
@@ -1584,22 +1584,38 @@ async def deposit(ctx, coin_name: str):
         img.save(config.qrsettings.path + wallet['balance_wallet_address'] + ".png")
 
     if wallet['user_wallet_address']:
-        await ctx.message.add_reaction(EMOJI_OK_HAND)
-        await ctx.message.author.send("**QR for your Deposit**", 
-                                    file=discord.File(config.qrsettings.path + wallet['balance_wallet_address'] + ".png"))
-        await ctx.message.author.send(f'**[ACCOUNT INFO]**\n\n'
-                                    f'{EMOJI_MONEYBAG} Deposit Address: `' + wallet['balance_wallet_address'] + '`\n'
-                                    f'{EMOJI_SCALE} Registered Wallet: `'
-                                    ''+ wallet['user_wallet_address'] + '`\n'
-                                    f'{get_notice_txt(COIN_NAME)}')
+        if pub:
+            await ctx.message.add_reaction(EMOJI_OK_HAND)
+            msg = await ctx.send(f'**[ACCOUNT INFO {COIN_NAME}]**\n\n'
+                                 f'{EMOJI_MONEYBAG} Deposit Address: `' + wallet['balance_wallet_address'] + '`\n'
+                                 f'Please re-act {EMOJI_OK_BOX} to delete this.')
+            await msg.add_reaction(EMOJI_OK_BOX)
+        else:
+            await ctx.message.add_reaction(EMOJI_OK_HAND)
+            await ctx.message.author.send("**QR for your Deposit**", 
+                                        file=discord.File(config.qrsettings.path + wallet['balance_wallet_address'] + ".png"))
+            msg = await ctx.message.author.send(f'**[ACCOUNT INFO {COIN_NAME}]**\n\n'
+                                        f'{EMOJI_MONEYBAG} Deposit Address: `' + wallet['balance_wallet_address'] + '`\n'
+                                        f'{EMOJI_SCALE} Registered Wallet: `'
+                                        ''+ wallet['user_wallet_address'] + '`\n'
+                                        f'{get_notice_txt(COIN_NAME)}')
+            await msg.add_reaction(EMOJI_OK_BOX)
     else:
-        await ctx.message.add_reaction(EMOJI_WARNING)
-        await ctx.message.author.send("**QR for your Deposit**", 
-                                    file=discord.File(config.qrsettings.path + wallet['balance_wallet_address'] + ".png"))
-        await ctx.message.author.send(f'**[ACCOUNT INFO]**\n\n'
-                               f'{EMOJI_MONEYBAG} Deposit Address: `' + wallet['balance_wallet_address'] + '`\n'
-                               f'{EMOJI_SCALE} Registered Wallet: `NONE, Please register.`\n'
-                               f'{get_notice_txt(COIN_NAME)}')
+        if pub:
+            await ctx.message.add_reaction(EMOJI_WARNING)
+            msg = await ctx.send(f'**[ACCOUNT INFO {COIN_NAME}]**\n\n'
+                                 f'{EMOJI_MONEYBAG} Deposit Address: `' + wallet['balance_wallet_address'] + '`\n'
+                                 f'Please re-act {EMOJI_OK_BOX} to delete this.')
+            await msg.add_reaction(EMOJI_OK_BOX)
+        else:
+            await ctx.message.add_reaction(EMOJI_WARNING)
+            await ctx.message.author.send("**QR for your Deposit**", 
+                                        file=discord.File(config.qrsettings.path + wallet['balance_wallet_address'] + ".png"))
+            msg = await ctx.message.author.send(f'**[ACCOUNT INFO {COIN_NAME}]**\n\n'
+                                   f'{EMOJI_MONEYBAG} Deposit Address: `' + wallet['balance_wallet_address'] + '`\n'
+                                   f'{EMOJI_SCALE} Registered Wallet: `NONE, Please register.`\n'
+                                   f'{get_notice_txt(COIN_NAME)}')
+            await msg.add_reaction(EMOJI_OK_BOX)
     return
 
 

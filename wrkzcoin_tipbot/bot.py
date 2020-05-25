@@ -5690,7 +5690,7 @@ async def setting(ctx, *args):
                 return
     elif len(args) == 2:
         if args[0].upper() == "TIPONLY":
-            if (args[1].upper() not in (ENABLE_COIN+ENABLE_COIN_DOGE)) and (args[1].upper() != "ALLCOIN"):
+            if (args[1].upper() not in (ENABLE_COIN+ENABLE_COIN_DOGE)) and (args[1].upper() not in ["ALLCOIN", "*", "ALL", "TIPALL", "ANY"]):
                 await ctx.send(f'{ctx.author.mention} {args[1].upper()} is not in any known coin we set.')
                 return
             else:
@@ -5700,7 +5700,10 @@ async def setting(ctx, *args):
                     await ctx.send(f'{ctx.author.mention} {args[1].upper()} is allowed here.')
                 else:
                     await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} changed tiponly in {ctx.guild.name} / {ctx.guild.id} to `{args[1].upper()}`')
-                    await ctx.send(f'{ctx.author.mention} {args[1].upper()} will be the only tip here.')
+                    set_coin = args[1].upper()
+                    if set_coin in ["ALLCOIN", "*", "ALL", "TIPALL", "ANY"]:
+                        set_coin = "ALLCOIN"
+                    await ctx.send(f'{ctx.author.mention} {set_coin} will be the only tip here.')
                 return
         elif args[0].upper() == "PREFIX":
             if args[1] not in [".", "?", "*", "!", "$", "~"]:
@@ -5760,8 +5763,8 @@ async def setting(ctx, *args):
             if len(args) == 1:
                 await ctx.send(f'{ctx.author.mention} Please tell what coins to be allowed here. Separated by space.')
                 return
-            if args[1].upper() == "ALLCOIN":
-                changeinfo = store.sql_changeinfo_by_server(str(ctx.guild.id), 'tiponly', args[1].upper())
+            if args[1].upper() == "ALLCOIN" or args[1].upper() == "ALL" or args[1].upper() == "TIPALL" or args[1].upper() == "ANY" or args[1].upper() == "*":
+                changeinfo = store.sql_changeinfo_by_server(str(ctx.guild.id), 'tiponly', "ALLCOIN")
                 await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} changed tiponly in {ctx.guild.name} / {ctx.guild.id} to `ALLCOIN`')
                 await ctx.send(f'{ctx.author.mention} all coins will be allowed in here.')
                 return

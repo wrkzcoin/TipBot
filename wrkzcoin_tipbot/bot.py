@@ -5694,15 +5694,15 @@ async def setting(ctx, *args):
                 await ctx.send(f'{ctx.author.mention} {args[1].upper()} is not in any known coin we set.')
                 return
             else:
-                changeinfo = store.sql_changeinfo_by_server(str(ctx.guild.id), 'tiponly', args[1].upper())
-                if args[1].upper() == "ALLCOIN":
-                    await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} changed tiponly in {ctx.guild.name} / {ctx.guild.id} to `{args[1].upper()}`')
-                    await ctx.send(f'{ctx.author.mention} {args[1].upper()} is allowed here.')
+                set_coin = args[1].upper()
+                if set_coin in ["ALLCOIN", "*", "ALL", "TIPALL", "ANY"]:
+                    set_coin = "ALLCOIN"
+                changeinfo = store.sql_changeinfo_by_server(str(ctx.guild.id), 'tiponly', set_coin)
+                if set_coin == "ALLCOIN":
+                    await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} changed tiponly in {ctx.guild.name} / {ctx.guild.id} to `ALLCOIN`')
+                    await ctx.send(f'{ctx.author.mention} Any coin is **allowed** here.')
                 else:
                     await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} changed tiponly in {ctx.guild.name} / {ctx.guild.id} to `{args[1].upper()}`')
-                    set_coin = args[1].upper()
-                    if set_coin in ["ALLCOIN", "*", "ALL", "TIPALL", "ANY"]:
-                        set_coin = "ALLCOIN"
                     await ctx.send(f'{ctx.author.mention} {set_coin} will be the only tip here.')
                 return
         elif args[0].upper() == "PREFIX":

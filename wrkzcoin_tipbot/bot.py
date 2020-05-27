@@ -251,7 +251,7 @@ bot_help_send = f"Send {COIN_REPR} to a {COIN_REPR} address from your balance (s
 bot_help_address = f"Check {COIN_REPR} address | Generate {COIN_REPR} integrated address."
 bot_help_paymentid = "Make a random payment ID with 64 chars length."
 bot_help_tag = "Display a description or a link about what it is. (-add|-del) requires permission manage_channels"
-bot_help_itag = "Upload image (gif|png|jpeg) and add tag."
+bot_help_itag = "Upload image (gif|png|jpeg|mp4) and add tag."
 bot_help_stats = f"Show summary {COIN_REPR}: height, difficulty, etc."
 bot_help_height = f"Show {COIN_REPR}'s current height"
 bot_help_notifytip = "Toggle notify tip notification from bot ON|OFF"
@@ -5856,7 +5856,7 @@ async def itag(ctx, *, itag_text: str = None):
                 pass
     # we passed of no attachment
     attachment = ctx.message.attachments[0]
-    if not (attachment.filename.lower()).endswith(('.gif', '.jpeg', '.jpg', '.png')):
+    if not (attachment.filename.lower()).endswith(('.gif', '.jpeg', '.jpg', '.png', '.mp4')):
         await ctx.send(f'{EMOJI_RED_NO} Attachment type rejected.')
         return
     else:
@@ -5868,7 +5868,7 @@ async def itag(ctx, *, itag_text: str = None):
         print('Size: {}'.format(attachment.size))
     print("iTag: {}".format(itag_text))
     if re.match(r'^[a-zA-Z0-9_-]*$', itag_text):
-        if len(itag_text) >= 16:
+        if len(itag_text) >= 32:
             await ctx.send(f'itag **{itag_text}** is too long.')
             return
     else:
@@ -5881,7 +5881,7 @@ async def itag(ctx, *, itag_text: str = None):
             async with aiohttp.ClientSession() as session:
                 async with session.get(link) as resp:
                     if resp.status == 200:
-                        if resp.headers["Content-Type"] not in ["image/gif", "image/png", "image/jpeg", "image/jpg"]:
+                        if resp.headers["Content-Type"] not in ["image/gif", "image/png", "image/jpeg", "image/jpg", "video/mp4"]:
                             await ctx.send(f'{EMOJI_RED_NO} Unsupported format file.')
                             return
                         else: 

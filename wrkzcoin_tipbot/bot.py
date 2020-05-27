@@ -5907,7 +5907,7 @@ async def tag(ctx, *args):
         await ctx.send(f'{ctx.author.mention} {EMOJI_RED_NO} This command can not be in private.')
         return
 
-    ListTag = store.sql_tag_by_server(str(ctx.guild.id))
+    ListTag = store.sql_tag_by_server(str(ctx.guild.id), None)
 
     if len(args) == 0:
         if len(ListTag) > 0:

@@ -1346,7 +1346,7 @@ def sql_faucet_count_all():
 
 
 def sql_tag_by_server(server_id: str, tag_id: str = None):
-    global conn, redis_pool, redis_conn
+    global conn, redis_pool, redis_conn, redis_expired
     try:
         openConnection()
         with conn.cursor() as cur:
@@ -1371,7 +1371,7 @@ def sql_tag_by_server(server_id: str, tag_id: str = None):
                         cur.execute(sql, (server_id, tag_id,))
                         result = cur.fetchone()
                         if result:
-                            redis_conn.set(f'TIPBOT:TAG_{str(server_id)}_{tag_id}', json.dumps(result))
+                            redis_conn.set(f'TIPBOT:TAG_{str(server_id)}_{tag_id}', json.dumps(result), ex=redis_expired)
                             return json.loads(redis_conn.get(f'TIPBOT:TAG_{str(server_id)}_{tag_id}'))
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)

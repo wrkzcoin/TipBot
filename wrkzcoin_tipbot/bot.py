@@ -3444,6 +3444,36 @@ async def tip(ctx, amount: str, *args):
         if len(args) >= 2:
             time_given = None
             if args[0].upper() == "LAST" or args[1].upper() == "LAST":
+                # try if the param is 1111u
+                num_user = None
+                if args[0].upper() == "LAST":
+                    num_user = args[1].lower()
+                elif args[1].upper() == "LAST":
+                    num_user = args[2].lower()
+                if 'u' in num_user or 'user' in num_user or 'users' in num_user or 'person' in num_user or 'people' in num_user:
+                    num_user = num_user.replace("people", "")
+                    num_user = num_user.replace("person", "")
+                    num_user = num_user.replace("users", "")
+                    num_user = num_user.replace("user", "")
+                    num_user = num_user.replace("u", "")
+                    try:
+                        num_user = int(num_user)
+                        if num_user > 0:
+                            message_talker = store.sql_get_messages(str(ctx.message.guild.id), str(ctx.message.channel.id), 0, num_user)
+                            if len(message_talker) == 0:
+                                await ctx.message.add_reaction(EMOJI_ERROR)
+                                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is not sufficient user to count.')
+                            elif len(message_talker) != num_user:
+                                await ctx.message.add_reaction(EMOJI_ERROR)
+                                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} I could not find sufficient talkers up to **{num_user}**.')
+                            else:
+                                await _tip_talker(ctx, amount, message_talker, COIN_NAME)
+                                return
+                            return
+                    except ValueError:
+                        await ctx.message.add_reaction(EMOJI_ERROR)
+                        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid param after **LAST**.')
+                    return
                 time_string = ctx.message.content.lower().split("last", 1)[1].strip()
                 time_second = None
                 try:
@@ -3489,7 +3519,7 @@ async def tip(ctx, amount: str, *args):
                         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Please try time inteval between 5minutes to 24hours.')
                         return
                     else:
-                        message_talker = store.sql_get_messages(str(ctx.message.guild.id), str(ctx.message.channel.id), time_given)
+                        message_talker = store.sql_get_messages(str(ctx.message.guild.id), str(ctx.message.channel.id), time_given, None)
                         if len(message_talker) == 0:
                             await ctx.message.add_reaction(EMOJI_ERROR)
                             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is no active talker in such period.')

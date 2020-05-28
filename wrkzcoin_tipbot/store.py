@@ -1574,21 +1574,31 @@ def sql_add_messages(list_messages):
         traceback.print_exc(file=sys.stdout)
 
 
-def sql_get_messages(server_id: str, channel_id: str, time_int: int):
+def sql_get_messages(server_id: str, channel_id: str, time_int: int, num_user: int=None):
     global conn
     lapDuration = int(time.time()) - time_int
     try:
         openConnection()
         with conn.cursor() as cur:
-            sql = """ SELECT DISTINCT `user_id` FROM discord_messages 
-                      WHERE `serverid` = %s AND `channel_id` = %s AND `message_time`>%s """
-            cur.execute(sql, (server_id, channel_id, lapDuration,))
-            result = cur.fetchall()
             list_talker = []
-            if result:
-                for item in result:
-                    if int(item['user_id']) not in list_talker:
-                        list_talker.append(int(item['user_id']))
+            if num_user is None:
+                sql = """ SELECT DISTINCT `user_id` FROM discord_messages 
+                          WHERE `serverid` = %s AND `channel_id` = %s AND `message_time`>%s """
+                cur.execute(sql, (server_id, channel_id, lapDuration,))
+                result = cur.fetchall()
+                if result:
+                    for item in result:
+                        if int(item['user_id']) not in list_talker:
+                            list_talker.append(int(item['user_id']))
+            else:
+                sql = """ SELECT DISTINCT `user_id` FROM discord_messages 
+                          WHERE `serverid` = %s AND `channel_id` = %s ORDER BY `message_time` DESC LIMIT %s """
+                cur.execute(sql, (server_id, channel_id, num_user,))
+                result = cur.fetchall()
+                if result:
+                    for item in result:
+                        if int(item['user_id']) not in list_talker:
+                            list_talker.append(int(item['user_id']))
             return list_talker
     except Exception as e:
         traceback.print_exc(file=sys.stdout)

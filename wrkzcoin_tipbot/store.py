@@ -1591,8 +1591,8 @@ def sql_get_messages(server_id: str, channel_id: str, time_int: int, num_user: i
                         if int(item['user_id']) not in list_talker:
                             list_talker.append(int(item['user_id']))
             else:
-                sql = """ SELECT DISTINCT `user_id` FROM discord_messages 
-                          WHERE `serverid` = %s AND `channel_id` = %s ORDER BY `message_time` DESC LIMIT %s """
+                sql = """ SELECT `user_id` FROM discord_messages WHERE `serverid` = %s AND `channel_id` = %s 
+                          GROUP BY `user_id` ORDER BY max(`message_time`) DESC LIMIT %s """
                 cur.execute(sql, (server_id, channel_id, num_user,))
                 result = cur.fetchall()
                 if result:

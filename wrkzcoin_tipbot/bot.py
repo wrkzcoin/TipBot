@@ -3459,7 +3459,12 @@ async def tip(ctx, amount: str, *args):
                     try:
                         num_user = int(num_user)
                         if num_user > 0:
-                            message_talker = store.sql_get_messages(str(ctx.message.guild.id), str(ctx.message.channel.id), 0, num_user)
+                            message_talker = store.sql_get_messages(str(ctx.message.guild.id), str(ctx.message.channel.id), 0, num_user + 1)
+                            if ctx.message.author.id in message_talker:
+                                message_talker.remove(ctx.message.author.id)
+                            else:
+                                # remove the last one
+                                message_talker.pop()
                             if len(message_talker) == 0:
                                 await ctx.message.add_reaction(EMOJI_ERROR)
                                 await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is not sufficient user to count.')

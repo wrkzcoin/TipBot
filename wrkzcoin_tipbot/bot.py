@@ -6235,9 +6235,10 @@ async def setting_error(ctx, error):
 
 @register.error
 async def register_error(ctx, error):
+    prefix = await get_guild_prefix(ctx)
     if isinstance(error, commands.MissingRequiredArgument):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Missing your wallet address. '
-                       'You need to have a supported coin **address** after `register` command')
+                       f'You need to have a supported coin **address** after `register` command. Example: {prefix}register coin_address')
     return
 
 
@@ -6269,61 +6270,68 @@ async def balance_error(ctx, error):
 
 @botbalance.error
 async def botbalance_error(ctx, error):
+    prefix = await get_guild_prefix(ctx)
     if isinstance(error, commands.MissingRequiredArgument):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Missing Bot and/or ticker. '
-                       'You need to @mention_bot COIN.')
+                       f'You need to @mention_bot COIN.\nExample: {prefix}botbalance <@{bot.user.id}> **coin_name**')
     return
 
 
 @withdraw.error
 async def withdraw_error(ctx, error):
+    prefix = await get_guild_prefix(ctx)
     if isinstance(error, commands.MissingRequiredArgument):
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Missing amount and/or ticker. '
-                       'You need to tell me **AMOUNT** and/or **TICKER**.')
+                       f'You need to tell me **AMOUNT** and/or **TICKER**.\nExample: {prefix}withdraw **1,000 coin_name**')
     return
 
 
 @tip.error
 async def tip_error(ctx, error):
+    prefix = await get_guild_prefix(ctx)
     if isinstance(error, commands.MissingRequiredArgument):
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Missing arguments. '
-                       'You need to tell me **amount** and who you want to tip to.')
+                       f'You need to tell me **amount** and who you want to tip to.\nExample: {prefix}tip **1,000 coin_name** <@{bot.user.id}>')
     return
 
 
 @deposit.error
 async def deposit_error(ctx, error):
+    prefix = await get_guild_prefix(ctx)
     if isinstance(error, commands.MissingRequiredArgument):
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Missing argument **ticker/coin_name**.')
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Missing argument **ticker/coin_name**.\nExample: {prefix}deposit **coin_name**')
     return
 
 
 @donate.error
 async def donate_error(ctx, error):
+    prefix = await get_guild_prefix(ctx)
     if isinstance(error, commands.MissingRequiredArgument):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Missing arguments. '
                        'You need to tell me **amount** and ticker.\n'
-                       f'Example: <@{bot.user.id}> `donate 1,000 [ticker]`\n'
-                       f'Get donation list we received: <@{bot.user.id}> `donate list`')
+                       f'Example: {prefix}donate **1,000 coin_name**\n'
+                       f'Get donation list we received: {prefix}donate list')
     return
 
 
 @tipall.error
 async def tipall_error(ctx, error):
+    prefix = await get_guild_prefix(ctx)
     if isinstance(error, commands.MissingRequiredArgument):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Missing argument. '
-                       'You need to tell me **amount**')
+                       f'You need to tell me **amount**.\nExample: {prefix}tipall **1,000 coin_name**')
     return
 
 
 @send.error
 async def send_error(ctx, error):
+    prefix = await get_guild_prefix(ctx)
     if isinstance(error, commands.MissingRequiredArgument):
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Missing arguments. '
-                       'SEND **amount** **address**')
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Missing arguments. \n'
+                       f'Example: {prefix}send **amount coin_address**')
     return
 
 
@@ -7719,6 +7727,15 @@ async def add_tx_action_redis(action: str, delete_temp: bool = False):
                 redis_conn.lpush(key, action)
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
+
+
+async def get_guild_prefix(ctx):
+    if isinstance(ctx.channel, discord.DMChannel) == True: return "."
+    serverinfo = store.sql_info_by_server(str(ctx.guild.id))
+    if serverinfo is None:
+        return "."
+    else:
+        return serverinfo['prefix']
 
 
 @click.command()

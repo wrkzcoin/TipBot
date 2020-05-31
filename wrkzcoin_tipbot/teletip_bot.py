@@ -1203,8 +1203,6 @@ async def get_cn_coin_from_address(CoinAddress: str):
         COIN_NAME = "BTCMZ"
     elif CoinAddress.startswith("PLe"):
         COIN_NAME = "PLE"
-    elif CoinAddress.startswith("Nib1"):
-        COIN_NAME = "NBXC"
     elif CoinAddress.startswith("guns"):
         COIN_NAME = "ARMS"
     elif CoinAddress.startswith("ir"):

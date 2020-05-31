@@ -155,7 +155,6 @@ EMOJI_COIN = {
     "BTCMZ" : "\U0001F4A9",
     "PLE" : "\U0001F388",
     "ANX" : "\U0001F3E6",
-    "NBXC" : "\U0001F5A4",
     "NACA" : "\U0001F355",
     "XTOR" : "\U0001F315",
     "LOKI" : "\u2600",
@@ -200,7 +199,6 @@ NOTICE_COIN = {
     "CX" : getattr(getattr(config,"daemonCX"),"coin_notice", None),
     "BTCMZ" : getattr(getattr(config,"daemonBTCMZ"),"coin_notice", None),
     "PLE" : getattr(getattr(config,"daemonPLE"),"coin_notice", None),
-    "NBXC" : getattr(getattr(config,"daemonNBXC"),"coin_notice", None),
     "NACA" : getattr(getattr(config,"daemonNACA"),"coin_notice", None),
     "XTOR" : getattr(getattr(config,"daemonXTOR"),"coin_notice", None),
     "LOKI" : getattr(getattr(config,"daemonLOKI"),"coin_notice", None),
@@ -6132,8 +6130,6 @@ def get_cn_coin_from_address(CoinAddress: str):
         COIN_NAME = "BTCMZ"
     elif CoinAddress.startswith("PLe"):
         COIN_NAME = "PLE"
-    elif CoinAddress.startswith("Nib1"):
-        COIN_NAME = "NBXC"
     elif CoinAddress.startswith("guns"):
         COIN_NAME = "ARMS"
     elif CoinAddress.startswith("ir"):

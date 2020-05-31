@@ -94,7 +94,6 @@ FEE_PER_BYTE_COIN = config.Fee_Per_Byte_Coin.split(",")
 FAUCET_MINMAX = {
     "WRKZ": [1000, 2000],
     "DEGO": [2500, 10000],
-    "MTIP": [15, 25],
     "TRTL": [15, 25],
     "DOGE": [1, 3],
     "BTCMZ": [2500, 5000]
@@ -154,7 +153,6 @@ EMOJI_COIN = {
     "DEGO" : "\U0001F49B",
     "CX" : "\U0001F64F",
     "BTCMZ" : "\U0001F4A9",
-    "MTIP" : "\U0001F595",
     "PLE" : "\U0001F388",
     "ANX" : "\U0001F3E6",
     "NBXC" : "\U0001F5A4",
@@ -201,7 +199,6 @@ NOTICE_COIN = {
     "DEGO" : getattr(getattr(config,"daemonDEGO"),"coin_notice", None),
     "CX" : getattr(getattr(config,"daemonCX"),"coin_notice", None),
     "BTCMZ" : getattr(getattr(config,"daemonBTCMZ"),"coin_notice", None),
-    "MTIP" : getattr(getattr(config,"daemonMTIP"),"coin_notice", None),
     "PLE" : getattr(getattr(config,"daemonPLE"),"coin_notice", None),
     "NBXC" : getattr(getattr(config,"daemonNBXC"),"coin_notice", None),
     "NACA" : getattr(getattr(config,"daemonNACA"),"coin_notice", None),
@@ -6133,8 +6130,6 @@ def get_cn_coin_from_address(CoinAddress: str):
         COIN_NAME = "CX"
     elif CoinAddress.startswith("btcm"):
         COIN_NAME = "BTCMZ"
-    elif CoinAddress.startswith("dicKTiPZ"):
-        COIN_NAME = "MTIP"
     elif CoinAddress.startswith("PLe"):
         COIN_NAME = "PLE"
     elif CoinAddress.startswith("Nib1"):

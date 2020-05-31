@@ -500,14 +500,6 @@ async def get_tx_fee_xmr(coin: str, amount: int = None, to_address: str = None):
                     return result['fee']
 
 
-def get_coin_fullname(coin: str = None):
-    qr_address_pref = {"TRTL":"turtlecoin","DEGO":"derogold","CX":"catalyst","WRKZ":"wrkzcoin",\
-    "BTCMZ":"bitcoinmono","MTIP":"monkeytips","PLE":"plenteum","NBXC":"nibbleclassic",\
-    "ARMS":"2acoin","NACA":"nashcash","XTOR":"bittoro","BLOG":"blogcoin","LOKI":"loki","XMR":"monero","ARQ":"arqma",\
-    "MSR":"masari", "XAM":"amity", "UPX":"Uplexa", "XWP":"Swap"}
-    return getattr(qr_address_pref,coin,"wrkzcoin")
-
-
 def get_reserved_fee(coin: str = None):
     return getattr(config,"daemon"+coin,config.daemonWRKZ).reserved_fee
 

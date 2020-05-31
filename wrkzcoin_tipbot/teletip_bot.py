@@ -38,7 +38,6 @@ FAUCET_COINS_ROUND_NUMBERS = config.Enable_Faucet_Coin_round_number.split(",")
 FAUCET_MINMAX = {
     "WRKZ": [1000, 2000],
     "DEGO": [2500, 10000],
-    "MTIP": [15, 25],
     "TRTL": [15, 25],
     "DOGE": [1, 3],
     "BTCMZ": [2500, 5000]
@@ -1202,8 +1201,6 @@ async def get_cn_coin_from_address(CoinAddress: str):
         COIN_NAME = "CX"
     elif CoinAddress.startswith("btcm"):
         COIN_NAME = "BTCMZ"
-    elif CoinAddress.startswith("dicKTiPZ"):
-        COIN_NAME = "MTIP"
     elif CoinAddress.startswith("PLe"):
         COIN_NAME = "PLE"
     elif CoinAddress.startswith("Nib1"):

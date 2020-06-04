@@ -1027,7 +1027,7 @@ async def start_cmd_handler(message: types.Message):
     amount = random.randint(FAUCET_MINMAX[COIN_NAME][0], FAUCET_MINMAX[COIN_NAME][1])
 
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-    if coin_family == "DOGE":
+    if COIN_NAME == "DOGE":
         amount = float(amount / 10)
 
     def myround_number(x, base=5):
@@ -1342,6 +1342,16 @@ async def bot_faucet():
             wallet = await store.sql_get_userwallet('teletip_bot', COIN_NAME, 'TELEGRAM')
             userdata_balance = await store.sql_cnoff_balance('teletip_bot', COIN_NAME, 'TELEGRAM')
             wallet['actual_balance'] = wallet['actual_balance'] + int(userdata_balance['Adjust'])
+            balance_actual = num_format_coin(wallet['actual_balance'], COIN_NAME)
+            if wallet['actual_balance'] + wallet['locked_balance'] != 0:
+                table_data.append([COIN_NAME, balance_actual])
+            else:
+                table_data.append([COIN_NAME, '0'])
+        elif (not is_maintenance_coin(COIN_NAME)) and COIN_NAME == "DOGE":
+            COIN_DEC = get_decimal(COIN_NAME)
+            wallet = await store.sql_get_userwallet('teletip_bot', COIN_NAME, 'TELEGRAM')
+            userdata_balance = await store.sql_doge_balance('teletip_bot', COIN_NAME, 'TELEGRAM')
+            wallet['actual_balance'] = wallet['actual_balance'] + float(userdata_balance['Adjust'])
             balance_actual = num_format_coin(wallet['actual_balance'], COIN_NAME)
             if wallet['actual_balance'] + wallet['locked_balance'] != 0:
                 table_data.append([COIN_NAME, balance_actual])

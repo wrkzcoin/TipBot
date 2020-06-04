@@ -3250,7 +3250,7 @@ async def take(ctx):
 
     wallet = None
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-    if coin_family == "DOGE":
+    if COIN_NAME == "DOGE":
         amount = float(amount / 10)
 
     def myround_number(x, base=5):

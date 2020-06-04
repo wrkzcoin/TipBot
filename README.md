@@ -43,7 +43,10 @@ TODO
 ### Short Video
 
 [![Tipping in Action in WrkzCoin Discord](https://img.youtube.com/vi/qg9CURyD7uc/0.jpg)](https://www.youtube.com/watch?v=qg9CURyD7uc)
-  
+
+### Basic Guide Video
+
+[![Guide of using Discord TipBot](https://img.youtube.com/vi/Qp_qe3RxGJk/0.jpg)](https://www.youtube.com/watch?v=Qp_qe3RxGJk)
 
 ### Credit and thanks to:
 

@@ -5816,7 +5816,7 @@ async def setting(ctx, *args):
 
 
 @bot.command(pass_context=True, help=bot_help_disclaimer)
-async def disclaimer(ctx, *args):
+async def disclaimer(ctx):
     global DISCLAIM_MSG
     await ctx.send(f'{EMOJI_INFORMATION} **THANK YOU FOR USING** {DISCLAIM_MSG_LONG}')
     return

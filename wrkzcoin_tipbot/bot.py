@@ -5297,10 +5297,10 @@ async def stats(ctx, coin: str = None):
     global TRTL_DISCORD, NOTICE_COIN
     COIN_NAME = None
     serverinfo = None
-    if (coin is None) and isinstance(ctx.message.channel, discord.DMChannel) == False:
+    if coin is None and isinstance(ctx.message.channel, discord.DMChannel) == False:
         serverinfo = get_info_pref_coin(ctx)
         COIN_NAME = serverinfo['default_coin'].upper()
-    elif (coin is None) and isinstance(ctx.message.channel, discord.DMChannel):
+    elif coin is None and isinstance(ctx.message.channel, discord.DMChannel):
         COIN_NAME = "BOT"
     elif coin and isinstance(ctx.message.channel, discord.DMChannel) == False:
         serverinfo = get_info_pref_coin(ctx)
@@ -5308,19 +5308,7 @@ async def stats(ctx, coin: str = None):
     elif coin:
         COIN_NAME = coin.upper()
 
-    # check if bot channel is set:
-    if serverinfo and serverinfo['botchan']:
-        try: 
-            if ctx.channel.id != int(serverinfo['botchan']):
-                await ctx.message.add_reaction(EMOJI_ERROR)
-                botChan = bot.get_channel(id=int(serverinfo['botchan']))
-                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} is the bot channel!!!')
-                return
-        except ValueError:
-            pass
-    # end of bot channel check
-
-    if (COIN_NAME not in (ENABLE_COIN+ENABLE_XMR)) and COIN_NAME != "BOT":
+    if COIN_NAME not in (ENABLE_COIN+ENABLE_XMR) and COIN_NAME != "BOT":
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{ctx.author.mention} Please put available ticker: '+ ', '.join(ENABLE_COIN).lower())
         return

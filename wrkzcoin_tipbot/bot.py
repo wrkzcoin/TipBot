@@ -756,9 +756,14 @@ async def about(ctx):
 
 @bot.group(hidden = True, aliases=['acc'], help=bot_help_account)
 async def account(ctx):
+    prefix = await get_guild_prefix(ctx)
+    if isinstance(ctx.channel, discord.DMChannel) == False:
+        await ctx.message.add_reaction(EMOJI_ERROR) 
+        await ctx.send(f'{ctx.author.mention} This command can not be in public.')
+        return
     if ctx.invoked_subcommand is None:
-        await ctx.send('Invalid `account` command passed...')
-    return
+        await ctx.send(f'{ctx.author.mention} Invalid {prefix}account command')
+        return
 
 
 @account.command(aliases=['emojitip'], help=bot_help_account_tipemoji, hidden = True)
@@ -770,6 +775,11 @@ async def tipemoji(ctx):
 
 @account.command(aliases=['2fa'], help=bot_help_account_twofa, hidden = True)
 async def twofa(ctx):
+    if isinstance(ctx.channel, discord.DMChannel) == False:
+        await ctx.message.add_reaction(EMOJI_ERROR) 
+        await ctx.send(f'{ctx.author.mention} This command can not be in public.')
+        return
+
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'account twofa')
     if account_lock:
@@ -881,6 +891,11 @@ async def twofa(ctx):
 
 @account.command(help=bot_help_account_verify, hidden = True)
 async def verify(ctx, codes: str):
+    if isinstance(ctx.channel, discord.DMChannel) == False:
+        await ctx.message.add_reaction(EMOJI_ERROR) 
+        await ctx.send(f'{ctx.author.mention} This command can not be in public.')
+        return
+
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'account verify')
     if account_lock:
@@ -935,6 +950,11 @@ async def verify(ctx, codes: str):
 
 @account.command(help=bot_help_account_unverify, hidden = True)
 async def unverify(ctx, codes: str):
+    if isinstance(ctx.channel, discord.DMChannel) == False:
+        await ctx.message.add_reaction(EMOJI_ERROR) 
+        await ctx.send(f'{ctx.author.mention} This command can not be in public.')
+        return
+
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'account verify')
     if account_lock:
@@ -996,14 +1016,25 @@ async def set(ctx, param: str, value: str):
 @bot.group(hidden = True, help=bot_help_admin)
 @commands.is_owner()
 async def admin(ctx):
+    prefix = await get_guild_prefix(ctx)
+    if isinstance(ctx.channel, discord.DMChannel) == False:
+        await ctx.message.add_reaction(EMOJI_ERROR) 
+        await ctx.send(f'{ctx.author.mention} This command can not be in public.')
+        return
+
     if ctx.invoked_subcommand is None:
-        await ctx.send('Invalid `admin` command passed...')
+        await ctx.send(f'{ctx.author.mention} Invalid {prefix}admin command')
     return
 
 
 @commands.is_owner()
 @admin.command(aliases=['addbalance'])
 async def credit(ctx, amount: str, coin: str, to_userid: str):
+    if isinstance(ctx.channel, discord.DMChannel) == False:
+        await ctx.message.add_reaction(EMOJI_ERROR) 
+        await ctx.send(f'{ctx.author.mention} This command can not be in public.')
+        return
+
     COIN_NAME = coin.upper()
     if COIN_NAME not in (ENABLE_COIN + ENABLE_XMR + ENABLE_COIN_DOGE):
         await ctx.send(f'{EMOJI_ERROR} **{COIN_NAME}** is not in our list.')
@@ -1053,6 +1084,11 @@ async def credit(ctx, amount: str, coin: str, to_userid: str):
 @commands.is_owner()
 @admin.command(aliases=['maintenance'])
 async def maint(ctx, coin: str):
+    if isinstance(ctx.channel, discord.DMChannel) == False:
+        await ctx.message.add_reaction(EMOJI_ERROR) 
+        await ctx.send(f'{ctx.author.mention} This command can not be in public.')
+        return
+
     COIN_NAME = coin.upper()
     if is_maintenance_coin(COIN_NAME):
         await ctx.send(f'{EMOJI_OK_BOX} Set **{COIN_NAME}** to maintenance **OFF**.')
@@ -1066,6 +1102,11 @@ async def maint(ctx, coin: str):
 @commands.is_owner()
 @admin.command(aliases=['tx'])
 async def txable(ctx, coin: str):
+    if isinstance(ctx.channel, discord.DMChannel) == False:
+        await ctx.message.add_reaction(EMOJI_ERROR) 
+        await ctx.send(f'{ctx.author.mention} This command can not be in public.')
+        return
+
     COIN_NAME = coin.upper()
     if is_coin_txable(COIN_NAME):
         await ctx.send(f'{EMOJI_OK_BOX} Set **{COIN_NAME}** **DISABLE** TX.')
@@ -1079,6 +1120,11 @@ async def txable(ctx, coin: str):
 @commands.is_owner()
 @admin.command(aliases=['tip'])
 async def tipable(ctx, coin: str):
+    if isinstance(ctx.channel, discord.DMChannel) == False:
+        await ctx.message.add_reaction(EMOJI_ERROR) 
+        await ctx.send(f'{ctx.author.mention} This command can not be in public.')
+        return
+
     COIN_NAME = coin.upper()
     if is_coin_tipable(COIN_NAME):
         await ctx.send(f'{EMOJI_OK_BOX} Set **{COIN_NAME}** **DISABLE** TIP.')
@@ -1092,6 +1138,11 @@ async def tipable(ctx, coin: str):
 @commands.is_owner()
 @admin.command(aliases=['deposit'])
 async def depositable(ctx, coin: str):
+    if isinstance(ctx.channel, discord.DMChannel) == False:
+        await ctx.message.add_reaction(EMOJI_ERROR) 
+        await ctx.send(f'{ctx.author.mention} This command can not be in public.')
+        return
+
     COIN_NAME = coin.upper()
     if is_coin_depositable(COIN_NAME):
         await ctx.send(f'{EMOJI_OK_BOX} Set **{COIN_NAME}** **DISABLE** DEPOSIT.')
@@ -1105,6 +1156,11 @@ async def depositable(ctx, coin: str):
 @commands.is_owner()
 @admin.command(help=bot_help_admin_save)
 async def save(ctx, coin: str):
+    if isinstance(ctx.channel, discord.DMChannel) == False:
+        await ctx.message.add_reaction(EMOJI_ERROR) 
+        await ctx.send(f'{ctx.author.mention} This command can not be in public.')
+        return
+
     global SAVING_ALL
     botLogChan = bot.get_channel(id=LOG_CHAN)
     COIN_NAME = coin.upper()
@@ -1171,6 +1227,11 @@ async def save(ctx, coin: str):
 @admin.command(pass_context=True, name='shutdown', aliases=['restart'], help=bot_help_admin_shutdown)
 async def shutdown(ctx):
     global IS_RESTARTING
+    if isinstance(ctx.channel, discord.DMChannel) == False:
+        await ctx.message.add_reaction(EMOJI_ERROR) 
+        await ctx.send(f'{ctx.author.mention} This command can not be in public.')
+        return
+
     botLogChan = bot.get_channel(id=LOG_CHAN)
     if IS_RESTARTING:
         await ctx.send(f'{EMOJI_REFRESH} {ctx.author.mention} I already got this command earlier.')
@@ -1186,6 +1247,11 @@ async def shutdown(ctx):
 @commands.is_owner()
 @admin.command(help=bot_help_admin_baluser)
 async def baluser(ctx, user_id: str, create_wallet: str = None):
+    if isinstance(ctx.channel, discord.DMChannel) == False:
+        await ctx.message.add_reaction(EMOJI_ERROR) 
+        await ctx.send(f'{ctx.author.mention} This command can not be in public.')
+        return
+
     create_acc = None
     # check if there is that user
     try:
@@ -1275,6 +1341,11 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
 @commands.is_owner()
 @admin.command(help=bot_help_admin_lockuser)
 async def lockuser(ctx, user_id: str, *, reason: str):
+    if isinstance(ctx.channel, discord.DMChannel) == False:
+        await ctx.message.add_reaction(EMOJI_ERROR) 
+        await ctx.send(f'{ctx.author.mention} This command can not be in public.')
+        return
+
     get_discord_userinfo = store.sql_discord_userinfo_get(user_id)
     if get_discord_userinfo is None:
         store.sql_userinfo_locked(user_id, 'YES', reason, str(ctx.message.author.id))
@@ -1294,6 +1365,11 @@ async def lockuser(ctx, user_id: str, *, reason: str):
 @commands.is_owner()
 @admin.command(help=bot_help_admin_unlockuser)
 async def unlockuser(ctx, user_id: str):
+    if isinstance(ctx.channel, discord.DMChannel) == False:
+        await ctx.message.add_reaction(EMOJI_ERROR) 
+        await ctx.send(f'{ctx.author.mention} This command can not be in public.')
+        return
+
     get_discord_userinfo = store.sql_discord_userinfo_get(user_id)
     if get_discord_userinfo:
         if get_discord_userinfo['locked'].upper() == "NO":
@@ -1310,6 +1386,11 @@ async def unlockuser(ctx, user_id: str):
 @commands.is_owner()
 @admin.command()
 async def roachadd(ctx, main_id: str, user_id: str):
+    if isinstance(ctx.channel, discord.DMChannel) == False:
+        await ctx.message.add_reaction(EMOJI_ERROR) 
+        await ctx.send(f'{ctx.author.mention} This command can not be in public.')
+        return
+
     if main_id == user_id:
         await ctx.message.author.send(f'{main_id} and {user_id} can not be the same.')
         await ctx.message.add_reaction(EMOJI_ERROR)
@@ -1335,6 +1416,11 @@ async def roachadd(ctx, main_id: str, user_id: str):
 @commands.is_owner()
 @admin.command(help=bot_help_admin_cleartx)
 async def cleartx(ctx):
+    if isinstance(ctx.channel, discord.DMChannel) == False:
+        await ctx.message.add_reaction(EMOJI_ERROR) 
+        await ctx.send(f'{ctx.author.mention} This command can not be in public.')
+        return
+
     global WITHDRAW_IN_PROCESS
     if len(WITHDRAW_IN_PROCESS) == 0:
         await ctx.message.author.send(f'{ctx.author.mention} Nothing in tx pending to clear.')
@@ -1349,6 +1435,11 @@ async def cleartx(ctx):
 @commands.is_owner()
 @admin.command()
 async def checkcoin(ctx, coin: str):
+    if isinstance(ctx.channel, discord.DMChannel) == False:
+        await ctx.message.add_reaction(EMOJI_ERROR) 
+        await ctx.send(f'{ctx.author.mention} This command can not be in public.')
+        return
+
     # Check of wallet in SQL consistence to wallet-service
     botLogChan = bot.get_channel(id=LOG_CHAN)
     COIN_NAME = coin.upper()
@@ -1395,6 +1486,11 @@ async def guild(ctx):
 @commands.is_owner()
 @admin.command(hidden = True)
 async def dumpinfo(ctx, coin: str):
+    if isinstance(ctx.channel, discord.DMChannel) == False:
+        await ctx.message.add_reaction(EMOJI_ERROR) 
+        await ctx.send(f'{ctx.author.mention} This command can not be in public.')
+        return
+
     COIN_NAME = coin.upper()
     if COIN_NAME not in ENABLE_COIN:
         await ctx.message.author.send('COIN **{}** NOT SUPPORTED.'.format(COIN_NAME))
@@ -1439,6 +1535,11 @@ async def dumpinfo(ctx, coin: str):
 @commands.is_owner()
 @admin.command(hidden = True)
 async def test(ctx):
+    if isinstance(ctx.channel, discord.DMChannel) == False:
+        await ctx.message.add_reaction(EMOJI_ERROR) 
+        await ctx.send(f'{ctx.author.mention} This command can not be in public.')
+        return
+
     # where i always test something. Nothing to do here.
     test_str = "WrkzRNDQDwFCBynKPc459v3LDa1gEGzG3j962tMUBko1fw9xgdaS9mNiGMgA9s1q7hS1Z8SGRVWzcGc8Sh8xsvfZ6u2wJEtoZB"
     encrypted = store.encrypt_string(test_str)

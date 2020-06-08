@@ -768,7 +768,7 @@ async def sql_send_tipall(user_from: str, user_tos, amount: int, amount_div: int
                 tx_hash = await walletapi.walletapi_send_transactionall(user_from_wallet['balance_wallet_address'], user_tos, COIN_NAME)
             else:
                 tx_hash = await wallet.send_transactionall(user_from_wallet['balance_wallet_address'], user_tos, COIN_NAME)
-        elif coin_family == "TRTL" and (COIN_NAME in ENABLE_COIN_OFFCHAIN):
+        elif coin_family == "TRTL" and COIN_NAME in ENABLE_COIN_OFFCHAIN:
             # Move offchain
             values_str = []
             currentTs = int(time.time())

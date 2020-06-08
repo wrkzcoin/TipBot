@@ -4124,6 +4124,10 @@ async def tipall(ctx, amount: str, *args):
                     return
             # End of wallet status
 
+        if len(list_receivers) < 1:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is no one to tip to.')
+            return
         tip = None
         try:
             tip = await store.sql_send_tipall(str(ctx.message.author.id), destinations, real_amount, amountDiv, list_receivers, 'TIPALL', COIN_NAME)
@@ -6695,6 +6699,10 @@ async def _tip(ctx, amount, coin: str):
                     return
             # End of wallet status
         tip = None
+        if len(list_receivers) < 1:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is no one to tip to.')
+            return
         try:
             tip = await store.sql_send_tipall(str(ctx.message.author.id), destinations, real_amount, real_amount, list_receivers, 'TIPS', COIN_NAME)
             tip_tx_tipper = "Transaction hash: `{}`".format(tip['transactionHash'])
@@ -7047,6 +7055,10 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
                     return
             # End of wallet status
 
+        if len(list_receivers) < 1:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is no active talker in such period. Please increase more duration or tip directly!')
+            return
         tip = None
         try:
             tip = await store.sql_send_tipall(str(ctx.message.author.id), destinations, real_amount, real_amount, list_receivers, 'TIPS', COIN_NAME)
@@ -7378,6 +7390,9 @@ async def _tip_react(reaction, user, amount, coin: str):
                     return
             # End of wallet status
         tip = None
+        if len(list_receivers) < 1:
+            await reaction.message.add_reaction(EMOJI_ERROR)
+            return
         try:
             tip = await store.sql_send_tipall(str(user.id), destinations, real_amount, real_amount, list_receivers, 'TIPS', COIN_NAME)
             tip_tx_tipper = "Transaction hash: `{}`".format(tip['transactionHash'])

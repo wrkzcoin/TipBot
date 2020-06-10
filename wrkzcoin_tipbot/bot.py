@@ -5433,6 +5433,8 @@ async def stats(ctx, coin: str = None):
     if COIN_NAME == "BOT":
         await bot.wait_until_ready()
         get_all_m = bot.get_all_members()
+        total_claimed = '{:,.0f}'.format(store.sql_faucet_count_all())
+        total_tx = store.sql_count_tx_all()
         embed = discord.Embed(title="[ TIPBOT ]", description="Bot Stats", color=0xDEADBF)
         embed.set_author(name=bot.user.name, icon_url=bot.user.avatar_url)
         embed.add_field(name="Bot ID", value=str(bot.user.id), inline=True)
@@ -5441,6 +5443,8 @@ async def stats(ctx, coin: str = None):
         embed.add_field(name="Total Online", value='{:,.0f}'.format(sum(1 for m in get_all_m if str(m.status) != 'offline')), inline=True)
         embed.add_field(name="Unique user", value='{:,.0f}'.format(len(bot.users)), inline=True)
         embed.add_field(name="Channels", value='{:,.0f}'.format(sum(1 for g in bot.guilds for _ in g.channels)), inline=True)
+        embed.add_field(name="Total faucet claims", value=total_claimed, inline=True)
+        embed.add_field(name="Total tip operations", value='{:,.0f} off-chain, {:,.0f} on-chain'.format(total_tx['off_chain'], total_tx['on_chain']), inline=True)
         embed.set_footer(text='Please add ticker: '+ ', '.join(ENABLE_COIN).lower() + ' to get stats about coin instead.')
         await ctx.send(embed=embed)
         return

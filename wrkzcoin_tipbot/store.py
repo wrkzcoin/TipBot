@@ -1345,6 +1345,62 @@ def sql_faucet_count_all():
         traceback.print_exc(file=sys.stdout)
 
 
+def sql_count_tx_all():
+    global conn
+    try:
+        openConnection()
+        with conn.cursor() as cur:
+            sql = """ SELECT COUNT(*) FROM cnoff_external_tx """
+            cur.execute(sql,)
+            result = cur.fetchone()
+            cnoff_external_tx = int(result['COUNT(*)']) if 'COUNT(*)' in result else 0
+
+            sql = """ SELECT COUNT(*) FROM cnoff_mv_tx """
+            cur.execute(sql,)
+            result = cur.fetchone()
+            cnoff_mv_tx = int(result['COUNT(*)']) if 'COUNT(*)' in result else 0
+
+            sql = """ SELECT COUNT(*) FROM cn_tip """
+            cur.execute(sql,)
+            result = cur.fetchone()
+            cn_tip = int(result['COUNT(*)']) if 'COUNT(*)' in result else 0
+
+            sql = """ SELECT COUNT(*) FROM cn_send """
+            cur.execute(sql,)
+            result = cur.fetchone()
+            cn_send = int(result['COUNT(*)']) if 'COUNT(*)' in result else 0
+
+            sql = """ SELECT COUNT(*) FROM cn_withdraw """
+            cur.execute(sql,)
+            result = cur.fetchone()
+            cn_withdraw = int(result['COUNT(*)']) if 'COUNT(*)' in result else 0
+
+            sql = """ SELECT COUNT(*) FROM doge_external_tx """
+            cur.execute(sql,)
+            result = cur.fetchone()
+            doge_external_tx = int(result['COUNT(*)']) if 'COUNT(*)' in result else 0
+
+            sql = """ SELECT COUNT(*) FROM doge_mv_tx """
+            cur.execute(sql,)
+            result = cur.fetchone()
+            doge_mv_tx = int(result['COUNT(*)']) if 'COUNT(*)' in result else 0
+
+            sql = """ SELECT COUNT(*) FROM xmroff_external_tx """
+            cur.execute(sql,)
+            result = cur.fetchone()
+            xmroff_external_tx = int(result['COUNT(*)']) if 'COUNT(*)' in result else 0
+
+            sql = """ SELECT COUNT(*) FROM xmroff_mv_tx """
+            cur.execute(sql,)
+            result = cur.fetchone()
+            xmroff_mv_tx = int(result['COUNT(*)']) if 'COUNT(*)' in result else 0
+            
+            on_chain = cnoff_external_tx + cn_tip + cn_send + cn_withdraw + doge_external_tx + xmroff_external_tx
+            off_chain = cnoff_mv_tx + doge_mv_tx + xmroff_mv_tx
+            return {'on_chain': on_chain, 'off_chain': off_chain, 'total': on_chain+off_chain}
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
 def sql_tag_by_server(server_id: str, tag_id: str = None):
     global conn, redis_pool, redis_conn, redis_expired
     try:

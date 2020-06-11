@@ -74,6 +74,7 @@ def openConnection():
     try:
         if conn is None:
             conn = connPool.get_connection(timeout=5, retry_num=2)
+        conn.ping(reconnect=True)  # reconnecting mysql
     except:
         print("ERROR: Unexpected error: Could not connect to MySql instance.")
         sys.exit()

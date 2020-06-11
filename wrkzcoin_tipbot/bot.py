@@ -3298,7 +3298,7 @@ async def take(ctx):
 
     # Check if user guild member less than 15 online
     num_online = sum(member.status != "offline" and not member.bot for member in ctx.message.guild.members)
-    if num_online <= 15:
+    if num_online <= 5:
         await ctx.message.add_reaction(EMOJI_ERROR)
         msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} This command isn\'t available with this guild.')
         return

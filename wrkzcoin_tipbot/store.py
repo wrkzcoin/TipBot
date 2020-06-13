@@ -2602,6 +2602,64 @@ async def sql_update_notify_swap_table(id: int, notified: str = 'YES', failed_no
     return False
 
 
+def sql_feedback_add(user_id: str, user_name:str, feedback_id: str, text_in: str, feedback_text: str, howto_contact_back: str):
+    try:
+        openConnection()
+        with conn.cursor() as cur:
+            sql = """ INSERT INTO `discord_feedback` (`user_id`, `user_name`, `feedback_id`, `text_in`, `feedback_text`, `feedback_date`, `howto_contact_back`)
+                      VALUES (%s, %s, %s, %s, %s, %s, %s) """
+            cur.execute(sql, (user_id, user_name, feedback_id, text_in, feedback_text, int(time.time()), howto_contact_back))
+            conn.commit()
+            return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return False
+
+
+def sql_get_feedback_count_last(userID, lastDuration: int):
+    global conn
+    lapDuration = int(time.time()) - lastDuration
+    try:
+        openConnection()
+        with conn.cursor() as cur:
+            sql = """ SELECT * FROM discord_feedback WHERE `user_id` = %s AND `feedback_date`>%s 
+                      ORDER BY `feedback_date` DESC LIMIT 100 """
+            cur.execute(sql, (userID, lapDuration,))
+            result = cur.fetchall()
+            if result is None:
+                return 0
+            return len(result) if result else 0
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
+def sql_feedback_by_ref(ref: str):
+    try:
+        openConnection()
+        with conn.cursor() as cur:
+            sql = """ SELECT * FROM discord_feedback WHERE `feedback_id`=%s """
+            cur.execute(sql, (ref,))
+            result = cur.fetchone()
+            return result if result else None
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return False
+
+
+def sql_feedback_list_by_user(userid: str, last: int):
+    try:
+        openConnection()
+        with conn.cursor() as cur:
+            sql = """ SELECT * FROM discord_feedback WHERE `user_id`=%s 
+                      ORDER BY `feedback_date` DESC LIMIT """+str(last)
+            cur.execute(sql, (userid,))
+            result = cur.fetchall()
+            return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return False
+
+
 # Steal from https://nitratine.net/blog/post/encryption-and-decryption-in-python/
 def encrypt_string(to_encrypt: str):
     key = (config.encrypt.key).encode()

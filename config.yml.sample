@@ -440,13 +440,35 @@ daemonDOGE:
   max_tx_amount: 5000
   name: "DOGE"
   coin_family: "DOGE"
+daemonVIZX:
+  host: "127.0.0.1"
+  port: 3997
+  # VIZX is 2-digit, 100
+  wallethost: "127.0.0.1"
+  walletport: "9999"
+  mixin: 3
+  tx_fee: 10
+  min_tx_amount: 10
+  max_tx_amount: 1000000000
+  # other settings
+  DonateAddress: "VZXZcDfcQ3tFrL52r5X7Tv2hY5t6xFGjyHDbqYMCr5aARxpKwq7hKgP832SSQY91Q94uK9kHfinBKdx632qs7KxK626TspYMaS"
+  prefix: 24746
+  prefixChar: "VZX"
+  decimal: 100
+  AddrLen: 98
+  IntAddrLen: 186
+  name: "VIZX"
+  DiffTarget: 10
+  MinToOptimize: 1000
+  IntervalOptimize: 600
+  coin_family: "TRTL"
 # How many seconds between balance refresh with wallet-api
 wallet_balance_update_interval: 60
 # Flood tip limit per 10 seconds
 floodTip: 6
 floodTipDuration: 10
 # Enable Coin
-Enable_Coin: "TRTL,DEGO,WRKZ,LCX,CX,OSL,BTCM,MTIP,XCY,PLE,ELPH,ANX,NBX,ARMS,IRD,HITC,NACA"
+Enable_Coin: "TRTL,DEGO,WRKZ,LCX,CX,OSL,BTCM,MTIP,XCY,PLE,ELPH,ANX,NBX,ARMS,IRD,HITC,NACA,VIZX"
 # maintenance
 maintenance: 0
 maintenance_msg: "Bot under maintance."

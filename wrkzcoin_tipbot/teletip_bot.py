@@ -1213,6 +1213,8 @@ async def get_cn_coin_from_address(CoinAddress: str):
         COIN_NAME = "TRTL"
     elif CoinAddress.startswith("bit") and (len(CoinAddress) == 98 or len(CoinAddress) == 109):
         COIN_NAME = "XTOR"
+    elif CoinAddress.startswith("VZX");
+        COIN_NAME = "VIZX"
     elif (CoinAddress.startswith("4") or CoinAddress.startswith("8") or CoinAddress.startswith("5") or CoinAddress.startswith("9")) \
         and (len(CoinAddress) == 95 or len(CoinAddress) == 106):
         # XMR / MSR

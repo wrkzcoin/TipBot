@@ -3428,7 +3428,20 @@ async def take(ctx):
         if user_to is None:
             userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
             user_to = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-        tip = store.sql_mv_xmr_single(str(bot.user.id), str(ctx.message.author.id), real_amount, COIN_NAME, "FAUCET")
+
+        tip = None
+        if ctx.message.author.id not in WITHDRAW_IN_PROCESS:
+            WITHDRAW_IN_PROCESS.append(ctx.message.author.id)
+            try:
+                tip = store.sql_mv_xmr_single(str(bot.user.id), str(ctx.message.author.id), real_amount, COIN_NAME, "FAUCET")
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            WITHDRAW_IN_PROCESS.remove(ctx.message.author.id)
+        else:
+            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+            await msg.add_reaction(EMOJI_OK_BOX)
+            return
+
         if tip:
             faucet_add = store.sql_faucet_add(str(ctx.message.author.id), str(ctx.guild.id), COIN_NAME, real_amount, COIN_DEC, None, 'DISCORD')
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
@@ -3454,7 +3467,20 @@ async def take(ctx):
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{ctx.author.mention} Please try again later. Bot runs out of **{COIN_NAME}**')
             return
-        tip = await store.sql_mv_doge_single(str(bot.user.id), str(ctx.message.author.id), real_amount, COIN_NAME, "FAUCET")
+        
+        tip = None
+        if ctx.message.author.id not in WITHDRAW_IN_PROCESS:
+            WITHDRAW_IN_PROCESS.append(ctx.message.author.id)
+            try:
+                tip = await store.sql_mv_doge_single(str(bot.user.id), str(ctx.message.author.id), real_amount, COIN_NAME, "FAUCET")
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            WITHDRAW_IN_PROCESS.remove(ctx.message.author.id)
+        else:
+            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+            await msg.add_reaction(EMOJI_OK_BOX)
+            return
+        
         if tip:
             faucet_add = store.sql_faucet_add(str(ctx.message.author.id), str(ctx.guild.id), COIN_NAME, real_amount, COIN_DEC, None, 'DISCORD')
             await ctx.message.add_reaction(get_emoji(COIN_NAME))

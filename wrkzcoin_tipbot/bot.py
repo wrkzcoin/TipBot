@@ -6818,7 +6818,7 @@ async def _tip(ctx, amount, coin: str):
         addresses = []
         for member in listMembers:
             # print(member.name) # you'll just print out Member objects your way.
-            if ctx.message.author.id != member.id:
+            if ctx.message.author.id != member.id and member in ctx.guild.members:
                 user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
                 if user_to is None:
                     userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD')
@@ -6970,7 +6970,7 @@ async def _tip(ctx, amount, coin: str):
         listMembers = ctx.message.mentions
         memids = []  # list of member ID
         for member in listMembers:
-            if ctx.message.author.id != member.id:
+            if ctx.message.author.id != member.id and member in ctx.guild.members:
                 memids.append(str(member.id))
         TotalAmount = real_amount * len(memids)
 
@@ -7055,7 +7055,7 @@ async def _tip(ctx, amount, coin: str):
         listMembers = ctx.message.mentions
         memids = []  # list of member ID
         for member in listMembers:
-            if ctx.message.author.id != member.id:
+            if ctx.message.author.id != member.id and member in ctx.guild.members:
                 memids.append(str(member.id))
         TotalAmount = real_amount * len(memids)
 
@@ -7163,20 +7163,23 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
         addresses = []
         for member_id in list_talker:
             if member_id != ctx.message.author.id:
-                user_to = await store.sql_get_userwallet(str(member_id), COIN_NAME)
-                if user_to is None:
-                    userregister = await store.sql_register_user(str(member_id), COIN_NAME, 'DISCORD')
+                # If user in the guild
+                member = bot.get_user(id=member_id)
+                if member in ctx.guild.members and member.bot == False:
                     user_to = await store.sql_get_userwallet(str(member_id), COIN_NAME)
-                address_to = None
-                if user_to['forwardtip'] == "ON":
-                    has_forwardtip = True
-                    address_to = user_to['user_wallet_address']
-                else:
-                    address_to = user_to['balance_wallet_address']
-                    addresses.append(address_to)
-                if address_to:
-                    list_receivers.append(str(member_id))
-                    memids.append(address_to)
+                    if user_to is None:
+                        userregister = await store.sql_register_user(str(member_id), COIN_NAME, 'DISCORD')
+                        user_to = await store.sql_get_userwallet(str(member_id), COIN_NAME)
+                    address_to = None
+                    if user_to['forwardtip'] == "ON":
+                        has_forwardtip = True
+                        address_to = user_to['user_wallet_address']
+                    else:
+                        address_to = user_to['balance_wallet_address']
+                        addresses.append(address_to)
+                    if address_to:
+                        list_receivers.append(str(member_id))
+                        memids.append(address_to)
 
 
         # Check number of receivers.
@@ -7275,8 +7278,8 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
             for member_id in list_talker:
                 if ctx.message.author.id != int(member_id):
                     member = bot.get_user(id=int(member_id))
-                    if member.bot == False:
-                        mention_list_name = mention_list_name + member.name + '#' + member.discriminator + ' '
+                    if member and member.bot == False:
+                        mention_list_name += '{}#{} '.format(member.name, member.discriminator)
                         if str(member_id) not in notifyList:
                             try:
                                 await member.send(f'{EMOJI_MONEYFACE} You got a tip of {num_format_coin(real_amount, COIN_NAME)} '
@@ -7332,7 +7335,10 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
         memids = []  # list of member ID
         for member_id in list_talker:
             if member_id != ctx.message.author.id:
-                memids.append(str(member_id))
+                # If user in the guild
+                member = bot.get_user(id=member_id)
+                if member in ctx.guild.members and member.bot == False:
+                    memids.append(str(member_id))
         TotalAmount = real_amount * len(memids)
 
         if TotalAmount > MaxTX:
@@ -7366,8 +7372,8 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
                 # print(member.name) # you'll just print out Member objects your way.
                 if ctx.message.author.id != int(member_id):
                     member = bot.get_user(id=int(member_id))
-                    if member.bot == False:
-                        mention_list_name = mention_list_name + member.name + '#' + member.discriminator + ' '
+                    if member and member.bot == False:
+                        mention_list_name += '{}#{} '.format(member.name, member.discriminator)
                         if str(member_id) not in notifyList:
                             try:
                                 await member.send(
@@ -7419,7 +7425,10 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
         memids = []  # list of member ID
         for member_id in list_talker:
             if member_id != ctx.message.author.id:
-                memids.append(str(member_id))
+                # If user in the guild
+                member = bot.get_user(id=member_id)
+                if member in ctx.guild.members and member.bot == False:
+                    memids.append(str(member_id))
         TotalAmount = real_amount * len(memids)
 
         if TotalAmount > MaxTX:
@@ -7453,8 +7462,8 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
                 # print(member.name) # you'll just print out Member objects your way.
                 if ctx.message.author.id != int(member_id):
                     member = bot.get_user(id=int(member_id))
-                    if member.bot == False:
-                        mention_list_name = mention_list_name + member.name + '#' + member.discriminator + ' '
+                    if member and member.bot == False:
+                        mention_list_name += '{}#{} '.format(member.name, member.discriminator)
                         if str(member_id) not in notifyList:
                             try:
                                 await member.send(

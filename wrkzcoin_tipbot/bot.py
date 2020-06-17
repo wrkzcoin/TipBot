@@ -69,11 +69,6 @@ LOG_CHAN = 572686071771430922
 WALLET_SERVICE = None
 LIST_IGNORECHAN = None
 
-MESSAGE_HISTORY_MAX = 20 # message history to store
-MESSAGE_HISTORY_TIME = 60 # duration max to put to DB
-MESSAGE_HISTORY_LIST = []
-MESSAGE_HISTORY_LAST = 0
-
 # param introduce by @bobbieltd
 WITHDRAW_IN_PROCESS = []
 
@@ -686,29 +681,20 @@ async def on_reaction_add(reaction, user):
 
 @bot.event
 async def on_message(message):
-    global MESSAGE_HISTORY_LIST, MESSAGE_HISTORY_TIME, MESSAGE_HISTORY_MAX, MESSAGE_HISTORY_LAST, LIST_IGNORECHAN
-    # record message for .tip XXX ticker -m last 5mn (example)
-    if len(MESSAGE_HISTORY_LIST) > 0:
-        if len(MESSAGE_HISTORY_LIST) > MESSAGE_HISTORY_MAX or time.time() - MESSAGE_HISTORY_LAST > MESSAGE_HISTORY_TIME:
-            # add to DB
-            numb_message = store.sql_add_messages(MESSAGE_HISTORY_LIST)
-            MESSAGE_HISTORY_LIST = []
-            MESSAGE_HISTORY_LAST == 0
+    global LIST_IGNORECHAN
     if isinstance(message.channel, discord.DMChannel) == False and message.author.bot == False and len(message.content) > 0 and message.author != bot.user:
         if config.Enable_Message_Logging == 1:
-            MESSAGE_HISTORY_LIST.append((str(message.guild.id), message.guild.name, str(message.channel.id), message.channel.name, 
-                str(message.author.id), message.author.name, str(message.id), message.content, int(time.time())))
+            await add_msg_redis(json.dumps([str(message.guild.id), message.guild.name, str(message.channel.id), message.channel.name, 
+                                             str(message.author.id), message.author.name, str(message.id), message.content, int(time.time())]), False)
         else:
-            MESSAGE_HISTORY_LIST.append((str(message.guild.id), message.guild.name, str(message.channel.id), message.channel.name, 
-                str(message.author.id), message.author.name, str(message.id), '', int(time.time())))
-        if MESSAGE_HISTORY_LAST == 0:
-            MESSAGE_HISTORY_LAST = int(time.time())
+            await add_msg_redis(json.dumps([str(message.guild.id), message.guild.name, str(message.channel.id), message.channel.name, 
+                                             str(message.author.id), message.author.name, str(message.id), '', int(time.time())]), False)
     # filter ignorechan
     commandList = ('TIP', 'TIPALL', 'DONATE', 'HELP', 'STATS', 'DONATE', 'SEND', 'WITHDRAW', 'BOTBAL', 'BAL PUB')
     try:
         # remove first char
         if LIST_IGNORECHAN:
-            if (isinstance(message.channel, discord.DMChannel) == False) and str(message.guild.id) in LIST_IGNORECHAN:
+            if isinstance(message.channel, discord.DMChannel) == False and str(message.guild.id) in LIST_IGNORECHAN:
                 if message.content[1:].upper().startswith(commandList) \
                     and (str(message.channel.id) in LIST_IGNORECHAN[str(message.guild.id)]):
                     await message.add_reaction(EMOJI_ERROR)
@@ -8035,6 +8021,39 @@ async def get_guild_prefix(ctx):
         return serverinfo['prefix']
 
 
+async def add_msg_redis(msg: str, delete_temp: bool = False):
+    try:
+        openRedis()
+        key = "TIPBOT:MSG"
+        if redis_conn:
+            if delete_temp:
+                redis_conn.delete(key)
+            else:
+                redis_conn.lpush(key, msg)
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
+async def store_message_list():
+    while True:
+        interval_msg_list = 10 # in second
+        try:
+            openRedis()
+            key = "TIPBOT:MSG"
+            if redis_conn and redis_conn.llen(key) > 0 :
+                temp_msg_list = []
+                for each in redis_conn.lrange(key, 0, -1):
+                    temp_msg_list.append(tuple(json.loads(each)))
+                num_add = store.sql_add_messages(temp_msg_list)
+                if num_add > 0:
+                    redis_conn.delete(key)
+                else:
+                    print(f"Failed delete {key}")
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        await asyncio.sleep(interval_msg_list)
+
+
 @click.command()
 def main():
     bot.loop.create_task(saving_wallet())
@@ -8043,6 +8062,7 @@ def main():
     bot.loop.create_task(notify_new_tx_user())
     bot.loop.create_task(notify_new_swap_user())
     bot.loop.create_task(store_action_list())
+    bot.loop.create_task(store_message_list())
     bot.run(config.discord.token, reconnect=True)
 
 

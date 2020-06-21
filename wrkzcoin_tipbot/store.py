@@ -1276,6 +1276,51 @@ async def sql_send_to_voucher(user_id: str, user_name: str, message_creating: st
     return None
 
 
+async def sql_voucher_sync_from_remote(numb: int=100):
+    global conn, conn_voucher
+    list_sec = None
+    result_local = None
+    tx_hash = {}
+    address = {}
+    claimed_date = {}
+    paymentid = {}
+    try:
+        openConnection_Voucher()
+        with conn_voucher.cursor() as cur:
+            sql = """ SELECT * FROM cn_voucher WHERE `already_claimed`=%s ORDER BY `claimed_date` DESC LIMIT """+str(numb)+""" """
+            cur.execute(sql, ('YES'))
+            result_remote = cur.fetchall()
+            if result_remote and len(result_remote) > 0:
+                list_sec = ["'{}'".format(item['secret_string']) for item in result_remote]
+                for each in result_remote:
+                    tx_hash[each['secret_string']] = each['tx_hash']
+                    address[each['secret_string']] = each['claimed_address']
+                    claimed_date[each['secret_string']] = each['claimed_date']
+                    paymentid[each['secret_string']] = each['claimed_paymentid'] if len(str(each['claimed_paymentid'])) > 0 else ''
+        if list_sec and len(list_sec) > 0:
+            try:
+                openConnection()
+                with conn.cursor() as cur:
+                    sql = """ SELECT * FROM cn_voucher WHERE `already_claimed`=%s AND `secret_string` IN ("""+','.join(list_sec)+""") 
+                              ORDER BY `claimed_date` DESC LIMIT """+str(numb)+""" """
+                    cur.execute(sql, ('NO'))
+                    result_local = cur.fetchall()
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+        if result_local and len(result_local) > 0:
+            try:
+                openConnection()
+                with conn.cursor() as cur:
+                    for each in result_local:
+                        sql = """ UPDATE cn_voucher SET `already_claimed`=%s, `claimed_address`=%s, `claimed_date`=%s, `tx_hash`=%s, `claimed_paymentid`=%s WHERE `secret_string`=%s """
+                        cur.execute(sql, ('YES', address[each['secret_string']], claimed_date[each['secret_string']], tx_hash[each['secret_string']], paymentid[each['secret_string']], each['secret_string']))
+                        conn.commit()
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
 async def sql_voucher_get_user(user_id: str, user_server: str='DISCORD', last: int=10):
     global conn
     user_server = user_server.upper()

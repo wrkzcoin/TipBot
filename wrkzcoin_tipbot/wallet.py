@@ -504,6 +504,10 @@ def get_reserved_fee(coin: str = None):
     return getattr(config,"daemon"+coin,config.daemonWRKZ).reserved_fee
 
 
+def get_voucher_fee(coin: str = None):
+    return getattr(config,"daemon"+coin,config.daemonWRKZ).voucher_fee
+
+
 def get_min_mv_amount(coin: str = None):
     return getattr(config,"daemon"+coin,config.daemonWRKZ).min_mv_amount
 

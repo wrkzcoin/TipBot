@@ -38,6 +38,18 @@ myconfig = {
 connPool = pymysqlpool.ConnectionPool(size=5, name='connPool', **myconfig)
 conn = connPool.get_connection(timeout=5, retry_num=2)
 
+myconfig_voucher = {
+    'host': config.mysql_voucher.host,
+    'user':config.mysql_voucher.user,
+    'password':config.mysql_voucher.password,
+    'database':config.mysql_voucher.db,
+    'charset':'utf8mb4',
+    'cursorclass': pymysql.cursors.DictCursor,
+    'autocommit':True
+    }
+
+connPool_Voucher = pymysqlpool.ConnectionPool(size=2, name='connPool_Voucher', **myconfig_voucher)
+conn_voucher = connPool_Voucher.get_connection(timeout=5, retry_num=2)
 
 #conn = None
 sys.path.append("..")
@@ -68,13 +80,25 @@ def openRedis():
             traceback.print_exc(file=sys.stdout)
 
 
-# openConnection_cursors 
+# openConnection
 def openConnection():
     global conn, connPool
     try:
         if conn is None:
             conn = connPool.get_connection(timeout=5, retry_num=2)
         conn.ping(reconnect=True)  # reconnecting mysql
+    except:
+        print("ERROR: Unexpected error: Could not connect to MySql instance.")
+        sys.exit()
+
+
+# openConnection Voucher
+def openConnection_Voucher():
+    global conn_voucher, connPool_Voucher
+    try:
+        if conn_voucher is None:
+            conn_voucher = connPool_Voucher.get_connection(timeout=5, retry_num=2)
+        conn_voucher.ping(reconnect=True)  # reconnecting mysql
     except:
         print("ERROR: Unexpected error: Could not connect to MySql instance.")
         sys.exit()
@@ -1226,51 +1250,46 @@ def sql_get_donate_list():
         traceback.print_exc(file=sys.stdout)
 
 
-async def sql_send_to_voucher(user_id: str, user_name: str, message_creating: str, amount: int, reserved_fee: int, secret_string: str, voucher_image_name: str, coin: str = None):
-    # TODO: rewrite tx_hash
+async def sql_send_to_voucher(user_id: str, user_name: str, message_creating: str, amount: int, reserved_fee: int, comment: str, secret_string: str, voucher_image_name: str, coin: str, user_server: str='DISCORD'):
+    global conn, conn_voucher
+    COIN_NAME = coin.upper()
+    try:
+        openConnection()
+        with conn.cursor() as cur:
+            sql = """ INSERT INTO cn_voucher (`coin_name`, `user_id`, `user_name`, `message_creating`, `amount`, 
+                      `decimal`, `reserved_fee`, `date_create`, `comment`, `secret_string`, `voucher_image_name`, `user_server`) 
+                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+            cur.execute(sql, (COIN_NAME, user_id, user_name, message_creating, amount, wallet.get_decimal(COIN_NAME), reserved_fee, 
+                              int(time.time()), comment, secret_string, voucher_image_name, user_server))
+            conn.commit()
+        openConnection_Voucher()
+        with conn_voucher.cursor() as cur:
+            sql = """ INSERT INTO cn_voucher (`coin_name`, `user_id`, `user_name`, `message_creating`, `amount`, 
+                      `decimal`, `reserved_fee`, `date_create`, `comment`, `secret_string`, `voucher_image_name`, `user_server`) 
+                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+            cur.execute(sql, (COIN_NAME, user_id, user_name, message_creating, amount, wallet.get_decimal(COIN_NAME), reserved_fee, 
+                              int(time.time()), comment, secret_string, voucher_image_name, user_server))
+            conn_voucher.commit()
+            return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+
+async def sql_voucher_get_user(user_id: str, user_server: str='DISCORD', last: int=10):
     global conn
-    if coin is None:
-        COIN_NAME = "WRKZ"
-    else:
-        COIN_NAME = coin.upper()
-    user_from_wallet = None
-    if COIN_NAME in ENABLE_COIN:
-        user_from_wallet = await sql_get_userwallet(user_id, COIN_NAME)
-    if user_from_wallet['balance_wallet_address']:
-        tx_hash = None
-        if COIN_NAME in ENABLE_COIN:
-            # TODO: with walletapi
-            tx_hash = await wallet.send_transaction(user_from_wallet['balance_wallet_address'], wallet.get_voucher_address(COIN_NAME), 
-                                                    amount + reserved_fee, COIN_NAME)
-        if tx_hash:
-            try:
-                openConnection()
-                with conn.cursor() as cur:
-                    timestamp = int(time.time())
-                    updateBalance = None
-                    if COIN_NAME in ENABLE_COIN:
-                        sql = """ INSERT INTO cn_voucher (`coin_name`, `user_id`, `user_name`, `message_creating`, `amount`, 
-                                  `decimal`, `reserved_fee`, `date_create`, `secret_string`, `voucher_image_name`, `tx_hash_deposit`) 
-                                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                        cur.execute(sql, (COIN_NAME, user_id, user_name, message_creating, amount, wallet.get_decimal(COIN_NAME), reserved_fee, int(time.time()), secret_string, voucher_image_name, tx_hash,))
-                        conn.commit()
-                        # TODO with walletapi also
-                        updateBalance = await wallet.get_balance_address(user_from_wallet['balance_wallet_address'], 
-                                                                         COIN_NAME)
-                    if updateBalance:
-                        if COIN_NAME in ENABLE_COIN:
-                            sql = """ UPDATE cn_walletapi SET `actual_balance`=%s, 
-                                      `locked_balance`=%s, `decimal` = %s, `lastUpdate`=%s 
-                                      WHERE `balance_wallet_address`=%s AND `coin_name` = %s LIMIT 1"""
-                            cur.execute(sql, (updateBalance['unlocked'], updateBalance['locked'],
-                                        wallet.get_decimal(COIN_NAME), int(time.time()), 
-                                        user_from_wallet['balance_wallet_address'], COIN_NAME))
-                            conn.commit()
-            except Exception as e:
-                traceback.print_exc(file=sys.stdout)
-        return tx_hash
-    else:
-        return None
+    user_server = user_server.upper()
+    try:
+        openConnection()
+        with conn.cursor() as cur:
+            sql = """ SELECT * FROM cn_voucher WHERE `user_id`=%s AND `user_server`=%s 
+                      ORDER BY `date_create` DESC LIMIT """ + str(last)+ """ """
+            cur.execute(sql, (user_id, user_server,))
+            result = cur.fetchall()
+            return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return None
 
 
 def sql_faucet_add(claimed_user: str, claimed_server: str, coin_name: str, claimed_amount: float, decimal: int, tx_hash: str, user_server: str = 'DISCORD'):
@@ -1290,6 +1309,8 @@ def sql_faucet_add(claimed_user: str, claimed_server: str, coin_name: str, claim
             conn.commit()
             return True
     except Exception as e:
+        print((claimed_user, coin_name, claimed_amount, decimal, tx_hash['transactionHash'], 
+                        int(time.time()), claimed_server, user_server))
         traceback.print_exc(file=sys.stdout)
 
 
@@ -2167,6 +2188,16 @@ async def sql_doge_balance(userID: str, coin: str, user_server: str = 'DISCORD')
             else:
                 Credited = 0
 
+            # Voucher create (Negative)
+            sql = """ SELECT SUM(amount+reserved_fee) AS Expended_Voucher FROM cn_voucher 
+                      WHERE `coin_name`=%s AND `user_id`=%s AND `user_server`=%s """
+            cur.execute(sql, (COIN_NAME, userID, user_server))
+            result = cur.fetchone()
+            if result:
+                Expended_Voucher = result['Expended_Voucher']
+            else:
+                Expended_Voucher = 0
+
             balance = {}
             balance['Expense'] = Expense or 0
             balance['Expense'] = round(balance['Expense'], 4)
@@ -2176,11 +2207,9 @@ async def sql_doge_balance(userID: str, coin: str, user_server: str = 'DISCORD')
             balance['SwapIn'] = SwapIn or 0
             balance['SwapOut'] = SwapOut or 0
             balance['Credited'] = Credited if Credited else 0
-            #print('balance: ')
-            #print(balance)
-            balance['Adjust'] = float(balance['Credited']) + float(balance['Income']) + balance['SwapIn'] - float(balance['Expense']) \
-            - float(balance['TxExpense']) - float(balance['FeeExpense']) - balance['SwapOut']
-            #print(balance['Adjust'])
+            balance['Expended_Voucher'] = Expended_Voucher if Expended_Voucher else 0
+            balance['Adjust'] = float(balance['Credited']) + float(balance['Income']) + float(balance['SwapIn']) - float(balance['Expense']) \
+            - float(balance['TxExpense']) - float(balance['FeeExpense']) - float(balance['SwapOut']) - float(balance['Expended_Voucher'])
             return balance
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
@@ -2334,6 +2363,16 @@ async def sql_cnoff_balance(userID: str, coin: str, user_server: str = 'DISCORD'
             else:
                 Credited = 0
 
+            # Voucher create (Negative)
+            sql = """ SELECT SUM(amount+reserved_fee) AS Expended_Voucher FROM cn_voucher 
+                      WHERE `coin_name`=%s AND `user_id`=%s AND `user_server`=%s """
+            cur.execute(sql, (COIN_NAME, userID, user_server))
+            result = cur.fetchone()
+            if result:
+                Expended_Voucher = result['Expended_Voucher']
+            else:
+                Expended_Voucher = 0
+
             balance = {}
             balance['Expense'] = float(Expense) if Expense else 0
             balance['Expense'] = float(round(balance['Expense'], 4))
@@ -2343,8 +2382,9 @@ async def sql_cnoff_balance(userID: str, coin: str, user_server: str = 'DISCORD'
             balance['SwapIn'] = float(SwapIn) if SwapIn else 0
             balance['SwapOut'] = float(SwapOut) if SwapOut else 0
             balance['Credited'] = float(Credited) if Credited else 0
+            balance['Expended_Voucher'] = float(Expended_Voucher) if Expended_Voucher else 0
             balance['Adjust'] = balance['Credited'] + balance['Income'] + balance['SwapIn'] - balance['Expense'] \
-            - balance['TxExpense'] - balance['FeeExpense'] - balance['SwapOut']
+            - balance['TxExpense'] - balance['FeeExpense'] - balance['SwapOut'] - balance['Expended_Voucher']
 
             return balance
     except Exception as e:
@@ -2429,6 +2469,16 @@ async def sql_xmr_balance(userID: str, coin: str, redis_reset: bool = True):
             else:
                 Credited = 0
 
+            # Voucher create (Negative)
+            sql = """ SELECT SUM(amount+reserved_fee) AS Expended_Voucher FROM cn_voucher 
+                      WHERE `coin_name`=%s AND `user_id`=%s """
+            cur.execute(sql, (COIN_NAME, userID))
+            result = cur.fetchone()
+            if result:
+                Expended_Voucher = result['Expended_Voucher']
+            else:
+                Expended_Voucher = 0
+
             balance = {}
             balance['Expense'] = float(Expense) if Expense else 0
             balance['Expense'] = float(round(balance['Expense'], 4))
@@ -2438,7 +2488,9 @@ async def sql_xmr_balance(userID: str, coin: str, redis_reset: bool = True):
             balance['Credited'] = float(Credited) if Credited else 0
             balance['SwapIn'] = float(SwapIn) if SwapIn else 0
             balance['SwapOut'] = float(SwapOut) if SwapOut else 0
-            balance['Adjust'] = balance['Credited'] + balance['Income'] + balance['SwapIn'] - balance['Expense'] - balance['TxExpense'] - balance['FeeExpense'] - balance['SwapOut']
+            balance['Expended_Voucher'] = float(Expended_Voucher) if Expended_Voucher else 0
+            balance['Adjust'] = balance['Credited'] + balance['Income'] + balance['SwapIn'] - balance['Expense'] - balance['TxExpense'] \
+            - balance['FeeExpense'] - balance['SwapOut'] - balance['Expended_Voucher']
             # add to redis
             try:
                 if redis_conn:

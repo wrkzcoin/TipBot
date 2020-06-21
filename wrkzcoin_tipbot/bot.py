@@ -258,6 +258,9 @@ bot_help_feedback = "Share your feedback or inquiry about TipBot to dev team"
 bot_help_view_feedback = "View feedback submit by you"
 bot_help_view_feedback_list = "List of your recent feedback."
 
+bot_help_voucher_make = "Make a voucher and you share to other friends."
+bot_help_voucher_view = "View recent made voucher in a list"
+
 # admin commands
 bot_help_admin = "Various admin commands."
 bot_help_admin_save = "Save wallet file..."
@@ -1062,7 +1065,7 @@ async def credit(ctx, amount: str, coin: str, to_userid: str):
         return
 
     COIN_DEC = get_decimal(COIN_NAME)
-    real_amount = int(amount * COIN_DEC) if coin_family in ["XMR", "TRTL"] else amount * COIN_DEC
+    real_amount = int(amount * COIN_DEC) if coin_family in ["XMR", "TRTL"] else float(amount * COIN_DEC)
     credit_to = await store.sql_credit(str(ctx.message.author.id), to_userid, real_amount, COIN_NAME, ctx.message.content)
     if credit_to:
         msg = await ctx.send(f'{ctx.author.mention} amount **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** has been credited to userid **{to_userid}**.')
@@ -5254,22 +5257,22 @@ async def address(ctx, *args):
         return
 
 
-@bot.command(pass_context=True, name='voucher', aliases=['redeem'], help=bot_help_voucher, hidden = True)
-async def voucher(ctx, command: str, amount: str, coin: str = None):
-    global IS_RESTARTING
+@bot.group(pass_context=True, name='voucher', aliases=['redeem'], help=bot_help_voucher, hidden = True)
+async def voucher(ctx):
+    prefix = await get_guild_prefix(ctx)
+    if ctx.invoked_subcommand is None:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{ctx.author.mention} Required some command. Please use {prefix}help voucher')
+        return
+
+
+@voucher.command(aliases=['gen'], help=bot_help_voucher_make, hidden = True)
+async def make(ctx, amount: str, coin: str, *, comment):
+    global IS_RESTARTING, TRTL_DISCORD
     # check if bot is going to restart
     if IS_RESTARTING:
         await ctx.message.add_reaction(EMOJI_REFRESH)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is going to restart soon. Wait until it is back for using this.')
-        return
-
-    # This is still ongoing work
-    botLogChan = bot.get_channel(id=LOG_CHAN)
-    amount = amount.replace(",", "")
-
-    # Turn this off when public
-    if int(ctx.message.author.id) not in MAINTENANCE_OWNER:
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Currently under testing.')
         return
 
     # Check if maintenance
@@ -5284,44 +5287,81 @@ async def voucher(ctx, command: str, amount: str, coin: str = None):
         pass
     # End Check if maintenance
 
-    if command.upper() not in ["MAKE", "GEN"]:
-        await ctx.message.author.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid command, please use `.voucher make|gen amount TICKER`')
-        return
-
+    amount = amount.replace(",", "")
     try:
         amount = float(amount)
     except ValueError:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid amount.')
         return
-
-    if coin is None:
-        # If private
-        if isinstance(ctx.channel, discord.DMChannel):
-            await ctx.send(f'{EMOJI_RED_NO} You need to specify ticker if in DM or private.')
-            return
-        # If public
-        serverinfo = store.sql_info_by_server(str(ctx.guild.id))
-        if 'default_coin' in serverinfo:
-            if serverinfo['default_coin'].upper() in ENABLE_COIN:
-                coin = serverinfo['default_coin'].upper()
-            else:
-                coin = "WRKZ"
-        else:
-            coin = "WRKZ"
     
-    COIN_NAME = coin.upper() or "WRKZ"
+    COIN_NAME = coin.upper()
     if is_maintenance_coin(COIN_NAME):
         await ctx.message.add_reaction(EMOJI_MAINTENANCE)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
         return
-    print('VOUCHER: '+COIN_NAME)
+    if COIN_NAME not in ENABLE_COIN_VOUCHER:
+        await ctx.message.add_reaction(EMOJI_INFORMATION)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} we do not have voucher feature for **{COIN_NAME}** yet. Try with **{config.Enable_Coin_Voucher}**.')
+        return
 
+    if isinstance(ctx.channel, discord.DMChannel) == False:
+        if COIN_NAME != "TRTL" and ctx.guild.id == TRTL_DISCORD:
+            # TRTL discord not allowed
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            return
+
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     COIN_DEC = get_decimal(COIN_NAME)
-    real_amount = int(amount * COIN_DEC)
+    real_amount = int(amount * COIN_DEC) if coin_family in ["XMR", "TRTL"] else float(amount * COIN_DEC)
     secret_string = str(uuid.uuid4())
     unique_filename = str(uuid.uuid4())
 
+    user = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+    if user is None:
+        user = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
+        user = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+
+    if coin_family == "TRTL" and COIN_NAME in ENABLE_COIN_OFFCHAIN:
+        userdata_balance = await store.sql_cnoff_balance(str(ctx.message.author.id), COIN_NAME)
+        user['actual_balance'] = user['actual_balance'] + int(userdata_balance['Adjust'])
+    elif coin_family == "XMR":
+        userdata_balance = await store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
+        user['actual_balance'] = user['actual_balance'] + int(userdata_balance['Adjust'])
+    elif coin_family == "DOGE":
+        userdata_balance = await store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
+        user['actual_balance'] = user['actual_balance'] + float(userdata_balance['Adjust'])
+    else:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Voucher not supported.')
+        return
+
+    if real_amount < get_min_tx_amount(COIN_NAME) or real_amount > get_max_tx_amount(COIN_NAME):
+        min_amount = num_format_coin(get_min_tx_amount(COIN_NAME), COIN_NAME) + COIN_NAME
+        max_amount = num_format_coin(get_max_tx_amount(COIN_NAME), COIN_NAME) + COIN_NAME
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Voucher amount must between {min_amount} and {max_amount}.')
+        return
+
+    if user['actual_balance'] < real_amount + get_voucher_fee(COIN_NAME):
+        having_amount = num_format_coin(user['actual_balance'], COIN_NAME)
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to create voucher.\n'
+                       f'Needed amount + fee: {num_format_coin(real_amount + get_voucher_fee(COIN_NAME), COIN_NAME)}{COIN_NAME}\n'
+                       f'Having: {having_amount}{COIN_NAME}.')
+        return
+    
+    comment = comment.strip().replace('\n', ' ').replace('\r', '')
+    if len(comment) > config.voucher.max_comment:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Please limit your comment to max. **{config.voucher.max_comment}** chars.')
+        return
+    if not is_ascii(comment):
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Unsupported char(s) detected in comment.')
+        return
+        
+    print('VOUCHER: ' + COIN_NAME)        
     # do some QR code
     qr = qrcode.QRCode(
         version=1,
@@ -5329,28 +5369,27 @@ async def voucher(ctx, command: str, amount: str, coin: str = None):
         box_size=10,
         border=2,
     )
-    qrstring = "https://redeem.wrkz.work/" + secret_string
-    print(qrstring)
+    qrstring = config.voucher.voucher_url + "/claim/" + secret_string
     qr.add_data(qrstring)
     qr.make(fit=True)
     qr_img = qr.make_image(fill_color="black", back_color="white")
     qr_img = qr_img.resize((280, 280))
     qr_img = qr_img.convert("RGBA")
-    # qr_img.save(config.qrsettings.path_voucher_create + unique_filename + "_1.png")
+    # qr_img.save(config.voucher.path_voucher_create + unique_filename + "_1.png")
 
     #Logo
     try:
-        logo = Image.open(get_coinlogo_path(COIN_NAME))
+        logo = Image.open(config.voucher.coin_logo_path + COIN_NAME.lower() + ".png")
         box = (115,115,165,165)
         qr_img.crop(box)
         region = logo
         region = region.resize((box[2] - box[0], box[3] - box[1]))
         qr_img.paste(region,box)
-        # qr_img.save(config.qrsettings.path_voucher_create + unique_filename + "_2.png")
+        # qr_img.save(config.voucher.path_voucher_create + unique_filename + "_2.png")
     except Exception as e: 
         traceback.print_exc(file=sys.stdout)
     # Image Frame on which we want to paste 
-    img_frame = Image.open(config.qrsettings.path_voucher_defaultimg)  
+    img_frame = Image.open(config.voucher.path_voucher_defaultimg)  
     img_frame.paste(qr_img, (150, 150)) 
 
     # amount font
@@ -5364,39 +5403,76 @@ async def voucher(ctx, command: str, amount: str, coin: str = None):
         # draw.text(((W-w)/2,(H-h)/2), msg, fill="black",font=myFont)
         draw.text((280-w/2,275+125+h), msg, fill="black",font=myFont)
 
+        # Instruction to claim
         myFont = ImageFont.truetype(config.font.digital7, 36)
         msg_claim = "SCAN TO CLAIM IT!"
         w, h = myFont.getsize(msg_claim)
         draw.text((280-w/2,275+125+h+60), msg_claim, fill="black",font=myFont)
+
+        # comment part
+        comment_txt = "COMMENT: " + comment.upper()
+        myFont = ImageFont.truetype(config.font.digital7, 24)
+        w, h = myFont.getsize(comment_txt)
+        draw.text((561-w/2,275+125+h+120), comment_txt, fill="black",font=myFont)
     except Exception as e: 
         traceback.print_exc(file=sys.stdout)
     # Saved in the same relative location 
-    img_frame.save(config.qrsettings.path_voucher_create + unique_filename + ".png") 
-
-    voucher_make = None
-    voucher_make = await store.sql_send_to_voucher(str(ctx.message.author.id), str(ctx.message.author.name), 
-                                                   ctx.message.content, real_amount, get_reserved_fee(COIN_NAME), 
-                                                   secret_string, unique_filename + ".png", COIN_NAME)
+    img_frame.save(config.voucher.path_voucher_create + unique_filename + ".png") 
+    voucher_make = await store.sql_send_to_voucher(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), 
+                                                   ctx.message.content, real_amount, get_voucher_fee(COIN_NAME), comment, 
+                                                   secret_string, unique_filename + ".png", COIN_NAME, 'DISCORD')
     if voucher_make:
         await ctx.message.add_reaction(EMOJI_OK_HAND)
-        if isinstance(ctx.channel, discord.DMChannel):
-            await ctx.message.author.send(f"New Voucher Link (TEST):\n```{qrstring}\n"
-                                f"Amount: {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}\n"
-                                f"Reserved Fee: {num_format_coin(get_reserved_fee(COIN_NAME), COIN_NAME)} {COIN_NAME}\n"
-                                f"Tx Deposit: {voucher_make}```",
-                                file=discord.File(config.qrsettings.path_voucher_create + unique_filename + ".png"))
-        #os.remove(config.qrsettings.path_voucher_create + unique_filename + ".png")
-        else:
-            await ctx.message.channel.send(f"New Voucher Link (TEST):\n```{qrstring}\n"
-                                f"Amount: {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}\n"
-                                f"Reserved Fee: {num_format_coin(get_reserved_fee(COIN_NAME), COIN_NAME)} {COIN_NAME}\n"
-                                f"Tx Deposit: {voucher_make}```",
-                                file=discord.File(config.qrsettings.path_voucher_create + unique_filename + ".png"))
-        #os.remove(config.qrsettings.path_voucher_create + unique_filename + ".png")
+        if isinstance(ctx.channel, discord.DMChannel) == False:
+            try:
+                await ctx.send(f'{EMOJI_INFORMATION} {ctx.author.mention} You should do this in Direct Message.')
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                pass                
+        try:
+            msg = await ctx.send(f'New Voucher:\n```Link: {qrstring}\n'
+                                f'Amount: {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}\n'
+                                f'Voucher Fee (Incl. network fee): {num_format_coin(get_voucher_fee(COIN_NAME), COIN_NAME)} {COIN_NAME}```'
+                                f'Voucher comment: {comment}',
+                                file=discord.File(config.voucher.path_voucher_create + unique_filename + ".png"))
+            await msg.add_reaction(EMOJI_OK_BOX)
+        except (discord.Forbidden, discord.errors.Forbidden) as e:
+            traceback.print_exc(file=sys.stdout)
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{ctx.author.mention} Sorry, I failed to DM you.')
     else:
         await ctx.message.add_reaction(EMOJI_ERROR)
     return
 
+
+@voucher.command(help=bot_help_voucher_view, hidden = True)
+async def view(ctx):
+    # TODO, view list of generated vouchered ordered by date
+    get_vouchers = await store.sql_voucher_get_user(str(ctx.message.author.id), 'DISCORD', 10)
+    if get_vouchers and len(get_vouchers) > 0:
+        table_data = [
+            ['Ref Link', 'Amount', 'Claimed?', 'Created']
+        ]
+        for each in get_vouchers:
+            table_data.append([each['secret_string'], num_format_coin(each['amount'], each['coin_name'])+each['coin_name'], 
+                               'YES' if each['already_claimed'] == 'YES' else 'NO', 
+                               datetime.fromtimestamp(each['date_create']).strftime('%Y-%m-%d')])
+        table = AsciiTable(table_data)
+        table.padding_left = 1
+        table.padding_right = 1
+        if isinstance(ctx.channel, discord.DMChannel) == False:
+            try:
+                await ctx.send(f'{EMOJI_INFORMATION} {ctx.author.mention} You should do this in Direct Message.')
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                pass
+        await ctx.message.add_reaction(EMOJI_OK_HAND)
+        msg = await ctx.send(f'**[ YOUR VOUCHER LIST ]**\n'
+                             f'```{table.table}```\n')
+        await msg.add_reaction(EMOJI_OK_BOX)
+        return
+    else:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{ctx.author.mention} You did not create any voucher yet.')
+    return
 
 
 @bot.command(pass_context=True, name='paymentid', aliases=['payid'], help=bot_help_paymentid)
@@ -5650,6 +5726,7 @@ async def stats(ctx, coin: str = None):
             msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME}\'s status unavailable.')
             await msg.add_reaction(EMOJI_OK_BOX)
             return
+
 
 @bot.group(pass_context=True, aliases=['fb'], help=bot_help_feedback)
 async def feedback(ctx):
@@ -6600,7 +6677,21 @@ async def send_error(ctx, error):
 
 @voucher.error
 async def voucher_error(ctx, error):
-    pass
+    prefix = await get_guild_prefix(ctx)
+    if isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Missing arguments. \n'
+                       f'Example: {prefix}voucher **make amount coin_name some comments**')
+    return
+
+
+@voucher.error
+@make.error
+async def voucher_make_error(ctx, error):
+    prefix = await get_guild_prefix(ctx)
+    if isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Missing arguments. \n'
+                       f'Example: {prefix}voucher **make amount coin_name some comments**')
+    return
 
 
 @address.error
@@ -8052,6 +8143,11 @@ async def store_message_list():
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         await asyncio.sleep(interval_msg_list)
+
+
+# function to return if input string is ascii
+def is_ascii(s):
+    return all(ord(c) < 128 for c in s)
 
 
 @click.command()

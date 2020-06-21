@@ -249,7 +249,7 @@ bot_help_settings = "settings view and set for prefix, default coin. Requires pe
 bot_help_invite = "Invite link of bot to your server."
 bot_help_random_number = "Get random number. Example .rand 1-100"
 bot_help_disclaimer = "Show disclaimer."
-bot_help_voucher = "(Testing) make a voucher image and your friend can claim via QR code."
+bot_help_voucher = "Make a voucher image and your friend can claim via QR code."
 bot_help_take = "Get random faucet tip."
 bot_help_cal = "Use built-in calculator."
 bot_help_coininfo = "List of coin status."
@@ -5257,7 +5257,7 @@ async def address(ctx, *args):
         return
 
 
-@bot.group(pass_context=True, name='voucher', aliases=['redeem'], help=bot_help_voucher, hidden = True)
+@bot.group(pass_context=True, name='voucher', aliases=['redeem'], help=bot_help_voucher)
 async def voucher(ctx):
     prefix = await get_guild_prefix(ctx)
     if ctx.invoked_subcommand is None:
@@ -5266,7 +5266,7 @@ async def voucher(ctx):
         return
 
 
-@voucher.command(aliases=['gen'], help=bot_help_voucher_make, hidden = True)
+@voucher.command(aliases=['gen'], help=bot_help_voucher_make)
 async def make(ctx, amount: str, coin: str, *, comment):
     global IS_RESTARTING, TRTL_DISCORD
     # check if bot is going to restart
@@ -5444,7 +5444,7 @@ async def make(ctx, amount: str, coin: str, *, comment):
     return
 
 
-@voucher.command(help=bot_help_voucher_view, hidden = True)
+@voucher.command(help=bot_help_voucher_view)
 async def view(ctx):
     # TODO, view list of generated vouchered ordered by date
     get_vouchers = await store.sql_voucher_get_user(str(ctx.message.author.id), 'DISCORD', 10)

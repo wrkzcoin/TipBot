@@ -5429,10 +5429,11 @@ async def make(ctx, amount: str, coin: str, *, comment):
             except (discord.Forbidden, discord.errors.Forbidden) as e:
                 pass                
         try:
-            msg = await ctx.send(f'New Voucher:\n```Link: {qrstring}\n'
+            msg = await ctx.send(f'New Voucher Link: {qrstring}\n'
+                                '```'
                                 f'Amount: {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}\n'
-                                f'Voucher Fee (Incl. network fee): {num_format_coin(get_voucher_fee(COIN_NAME), COIN_NAME)} {COIN_NAME}```'
-                                f'Voucher comment: {comment}',
+                                f'Voucher Fee (Incl. network fee): {num_format_coin(get_voucher_fee(COIN_NAME), COIN_NAME)} {COIN_NAME}\n'
+                                f'Voucher comment: {comment}```',
                                 file=discord.File(config.voucher.path_voucher_create + unique_filename + ".png"))
             await msg.add_reaction(EMOJI_OK_BOX)
         except (discord.Forbidden, discord.errors.Forbidden) as e:

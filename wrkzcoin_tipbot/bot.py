@@ -1541,9 +1541,12 @@ async def test(ctx):
 
 
 @bot.command(pass_context=True, name='userinfo', aliases=['user'], help=bot_help_userinfo)
-async def userinfo(ctx, member: discord.Member):
+async def userinfo(ctx, member: discord.Member = None):
     if isinstance(ctx.channel, discord.DMChannel) == True:
+        await ctx.send(f'{ctx.author.mention} This command can not be in Direct Message.')
         return
+    if member is None:
+        member = ctx.message.author
     try:
         embed = discord.Embed(title="{}'s info".format(member.name), description="Here's what I could find.", color=0x00ff00)
         embed.add_field(name="Name", value=member.name, inline=True)
@@ -6664,6 +6667,15 @@ async def tipall_error(ctx, error):
     if isinstance(error, commands.MissingRequiredArgument):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Missing argument. '
                        f'You need to tell me **amount**.\nExample: {prefix}tipall **1,000 coin_name**')
+    return
+
+
+@userinfo.error
+async def userinfo_error(ctx, error):
+    prefix = await get_guild_prefix(ctx)
+    if isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Missing arguments. \n'
+                       f'Example: `{prefix}userinfo @mention`')
     return
 
 

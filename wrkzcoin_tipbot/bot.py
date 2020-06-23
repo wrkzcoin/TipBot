@@ -12,7 +12,6 @@ import pyotp
 import store, daemonrpc_client, addressvalidation, walletapi
 from generic_xmr.address_msr import address_msr as address_msr
 from generic_xmr.address_xmr import address_xmr as address_xmr
-from generic_xmr.address_upx import address_upx as address_upx
 from generic_xmr.address_xam import address_xam as address_xam
 
 from config import config
@@ -2418,12 +2417,6 @@ async def register(ctx, wallet_address: str):
             else:
                 if COIN_NAME == "MSR":
                     valid_address = address_msr(wallet_address)
-                    if type(valid_address).__name__ != "Address":
-                        await ctx.message.add_reaction(EMOJI_ERROR)
-                        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Please use {COIN_NAME} main address.')
-                        return
-                elif COIN_NAME == "UPX":
-                    valid_address = address_upx(wallet_address)
                     if type(valid_address).__name__ != "Address":
                         await ctx.message.add_reaction(EMOJI_ERROR)
                         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Please use {COIN_NAME} main address.')
@@ -5053,46 +5046,6 @@ async def address(ctx, *args):
                     await ctx.send(f'{EMOJI_RED_NO} Address: `{CoinAddress}`\n'
                                     'Checked: Invalid.')
                     return
-            elif COIN_NAME == "UPX":
-                addr = None
-                if len(CoinAddress) == 98 or len(CoinAddress) == 97:
-                    try:
-                        addr = address_upx(CoinAddress)
-                    except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
-                        pass
-                elif len(CoinAddress) == 109:
-                    addr = None
-                    try:
-                        addr = address_upx(CoinAddress)
-                    except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
-                        pass
-                print(addr)
-                print(type(addr))
-                if addr == CoinAddress:
-                    address_result = 'Valid: `{}`\n'.format(addr)                    
-                    if type(addr).__name__ == "Address":
-                        address_result += 'Main Address: `{}`\n'.format('True')
-                    else:
-                        address_result += 'Main Address: `{}`\n'.format('False')
-                    if type(addr).__name__ == "IntegratedAddress":
-                        address_result += 'Integrated: `{}`\n'.format('True')
-                    else:
-                        address_result += 'Integrated: `{}`\n'.format('False')
-                    if type(addr).__name__ == "SubAddress":
-                        address_result += 'Subaddress: `{}`\n'.format('True')
-                    else:
-                        address_result += 'Subaddress: `{}`\n'.format('False')
-                    print(address_result)
-                    await ctx.message.add_reaction(EMOJI_CHECK)
-                    await ctx.send(f'{EMOJI_CHECK} Address: `{CoinAddress}`\n{address_result}')
-                    return
-                else:
-                    await ctx.message.add_reaction(EMOJI_ERROR)
-                    await ctx.send(f'{EMOJI_RED_NO} Address: `{CoinAddress}`\n'
-                                    'Checked: Invalid.')
-                    return
             elif COIN_NAME == "XAM":
                 addr = None
                 if len(CoinAddress) == 98 or len(CoinAddress) == 99:
@@ -6455,10 +6408,6 @@ def get_cn_coin_from_address(CoinAddress: str):
         COIN_NAME = "BTCMZ"
     elif CoinAddress.startswith("PLe"):
         COIN_NAME = "PLE"
-    elif CoinAddress.startswith("guns"):
-        COIN_NAME = "ARMS"
-    elif CoinAddress.startswith("ir"):
-        COIN_NAME = "IRD"
     elif CoinAddress.startswith("NaCa"):
         COIN_NAME = "NACA"
     elif CoinAddress.startswith("TRTL"):
@@ -6475,14 +6424,6 @@ def get_cn_coin_from_address(CoinAddress: str):
         try:
             addr = address_msr(CoinAddress)
             COIN_NAME = "MSR"
-            return COIN_NAME
-        except Exception as e:
-            # traceback.print_exc(file=sys.stdout)
-            pass
-        # Try UPX
-        try:
-            addr = address_upx(CoinAddress)
-            COIN_NAME = "UPX"
             return COIN_NAME
         except Exception as e:
             # traceback.print_exc(file=sys.stdout)

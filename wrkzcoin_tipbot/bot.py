@@ -1879,7 +1879,7 @@ async def coininfo(ctx, coin: str = None):
 
 @bot.command(pass_context=True, name='balance', aliases=['bal'], help=bot_help_balance)
 async def balance(ctx, coin: str = None):
-    serverinfo = None
+    prefix = await get_guild_prefix(ctx)
     botLogChan = bot.get_channel(id=LOG_CHAN)
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'balance')
@@ -1890,26 +1890,6 @@ async def balance(ctx, coin: str = None):
     # end of check if account locked
 
     PUBMSG = ctx.message.content.strip().split(" ")[-1].upper()
-    prefixChar = '.'
-    if isinstance(ctx.channel, discord.DMChannel):
-        prefixChar = '.'
-    else:
-        serverinfo = store.sql_info_by_server(str(ctx.guild.id))
-        if serverinfo is None:
-            # Let's add some info if server return None
-            add_server_info = store.sql_addinfo_by_server(str(ctx.guild.id),
-                                                          ctx.message.guild.name, config.discord.prefixCmd,
-                                                          "WRKZ")
-            servername = ctx.message.guild.name
-            server_id = str(ctx.guild.id)
-            server_prefix = config.discord.prefixCmd
-            server_coin = DEFAULT_TICKER
-        else:
-            servername = serverinfo['servername']
-            server_id = str(ctx.guild.id)
-            server_prefix = serverinfo['prefix']
-            server_coin = serverinfo['default_coin'].upper()
-        prefixChar = server_prefix
 
     # Get wallet status
     walletStatus = None
@@ -1928,7 +1908,7 @@ async def balance(ctx, coin: str = None):
                     wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
                 if wallet is None:
                     if coin: table_data.append([COIN_NAME, "N/A", "N/A"])
-                    await botLogChan.send(f'A user call `{prefixChar}balance` failed with {COIN_NAME}')
+                    await botLogChan.send(f'A user call `{prefix}balance` failed with {COIN_NAME}')
                 else:
                     if COIN_NAME in ENABLE_COIN_OFFCHAIN:
                         userdata_balance = await store.sql_cnoff_balance(str(ctx.message.author.id), COIN_NAME)
@@ -1997,16 +1977,16 @@ async def balance(ctx, coin: str = None):
             table_data_str = ", ".join(table_data_str)
             msg = await ctx.message.author.send('**[ BALANCE LIST ]**\n'
                             f'```{table_data_str}```'
-                            f'Related command: `{prefixChar}balance TICKER` or `{prefixChar}info TICKER` or `{prefixChar}balance LIST`\n')
+                            f'Related command: `{prefix}balance TICKER` or `{prefix}deposit TICKER` or `{prefix}balance LIST`\n')
         else:
             if PUBMSG.upper() == "PUB" or PUBMSG.upper() == "PUBLIC":
                 msg = await ctx.send('**[ BALANCE LIST ]**\n'
                                 f'```{table.table}```'
-                                f'Related command: `{prefixChar}balance TICKER` or `{prefixChar}info TICKER`\n`***`: On Maintenance\n')
+                                f'Related command: `{prefix}balance TICKER` or `{prefix}deposit TICKER`\n`***`: On Maintenance\n')
             else:
                 msg = await ctx.message.author.send('**[ BALANCE LIST ]**\n'
                                 f'```{table.table}```'
-                                f'Related command: `{prefixChar}balance TICKER` or `{prefixChar}info TICKER`\n`***`: On Maintenance\n'
+                                f'Related command: `{prefix}balance TICKER` or `{prefix}deposit TICKER`\n`***`: On Maintenance\n'
                                 f'{get_notice_txt(COIN_NAME)}')
         await msg.add_reaction(EMOJI_OK_BOX)
         return
@@ -4901,6 +4881,7 @@ async def send(ctx, amount: str, CoinAddress: str):
 
 @bot.command(pass_context=True, name='address', aliases=['addr'], help=bot_help_address)
 async def address(ctx, *args):
+    prefix = await get_guild_prefix(ctx)
     global TRTL_DISCORD
     # TRTL discord
     if (isinstance(ctx.message.channel, discord.DMChannel) == False) and ctx.guild.id == TRTL_DISCORD:
@@ -4948,7 +4929,7 @@ async def address(ctx, *args):
                        'If integrated address is input, bot will tell you the result of :address + paymentid\n\n'
                        '`.address <coin_address> <paymentid>`\n'
                        'This will generate an integrate address.\n\n'
-                       f'If you would like to get your address, please use **info {COIN_NAME}** or **info TICKER** instead.')
+                       f'If you would like to get your address, please use **{prefix}deposit {COIN_NAME}** instead.')
         return
 
     # Check if a user request address coin of another user

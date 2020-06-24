@@ -5225,13 +5225,49 @@ async def make(ctx, amount: str, coin: str, *, comment):
     # End Check if maintenance
 
     amount = amount.replace(",", "")
-    try:
-        amount = float(amount)
-    except ValueError:
-        await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid amount.')
-        return
     
+    voucher_numb = 1
+    if 'x' in amount.lower():
+        # This is a batch
+        voucher_numb = amount.lower().split("x")[0]
+        voucher_each = amount.lower().split("x")[1]
+        try:
+            voucher_numb = int(voucher_numb)
+            voucher_each = float(voucher_each)
+            if voucher_numb > config.voucher.max_batch:
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Too many. Maximum allowed: **{config.voucher.max_batch}**')
+                return
+        except ValueError:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid number or amount to create vouchers.')
+            return
+    elif '*' in amount.lower():
+        # This is a batch
+        voucher_numb = amount.lower().split("*")[0]
+        voucher_each = amount.lower().split("*")[1]
+        try:
+            voucher_numb = int(voucher_numb)
+            voucher_each = float(voucher_each)
+            if voucher_numb > config.voucher.max_batch:
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Too many. Maximum allowed: **{config.voucher.max_batch}**')
+                return
+        except ValueError:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid number or amount to create vouchers.')
+            return
+    else:
+        try:
+            amount = float(amount)
+            voucher_each = amount
+        except ValueError:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid amount to create a voucher.')
+            return
+
+    total_amount = voucher_numb * voucher_each
+
     COIN_NAME = coin.upper()
     if is_maintenance_coin(COIN_NAME):
         await ctx.message.add_reaction(EMOJI_MAINTENANCE)
@@ -5250,7 +5286,8 @@ async def make(ctx, amount: str, coin: str, *, comment):
 
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     COIN_DEC = get_decimal(COIN_NAME)
-    real_amount = int(amount * COIN_DEC) if coin_family in ["XMR", "TRTL"] else float(amount * COIN_DEC)
+    real_amount = int(voucher_each * COIN_DEC) if coin_family in ["XMR", "TRTL"] else float(voucher_each * COIN_DEC)
+    total_real_amount = int(total_amount * COIN_DEC) if coin_family in ["XMR", "TRTL"] else float(total_amount * COIN_DEC)
     secret_string = str(uuid.uuid4())
     unique_filename = str(uuid.uuid4())
 
@@ -5284,10 +5321,10 @@ async def make(ctx, amount: str, coin: str, *, comment):
         having_amount = num_format_coin(user['actual_balance'], COIN_NAME)
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to create voucher.\n'
-                       f'Needed amount + fee: {num_format_coin(real_amount + get_voucher_fee(COIN_NAME), COIN_NAME)}{COIN_NAME}\n'
+                       f'A voucher needed amount + fee: {num_format_coin(real_amount + get_voucher_fee(COIN_NAME), COIN_NAME)}{COIN_NAME}\n'
                        f'Having: {having_amount}{COIN_NAME}.')
         return
-    
+
     comment = comment.strip().replace('\n', ' ').replace('\r', '')
     if len(comment) > config.voucher.max_comment:
         await ctx.message.add_reaction(EMOJI_ERROR)
@@ -5298,88 +5335,192 @@ async def make(ctx, amount: str, coin: str, *, comment):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Unsupported char(s) detected in comment.')
         return
         
-    print('VOUCHER: ' + COIN_NAME)        
-    # do some QR code
-    qr = qrcode.QRCode(
-        version=1,
-        error_correction=qrcode.constants.ERROR_CORRECT_L,
-        box_size=10,
-        border=2,
-    )
-    qrstring = config.voucher.voucher_url + "/claim/" + secret_string
-    qr.add_data(qrstring)
-    qr.make(fit=True)
-    qr_img = qr.make_image(fill_color="black", back_color="white")
-    qr_img = qr_img.resize((280, 280))
-    qr_img = qr_img.convert("RGBA")
-    # qr_img.save(config.voucher.path_voucher_create + unique_filename + "_1.png")
+    print('VOUCHER: ' + COIN_NAME) 
+    # If it is a batch oir not
+    if voucher_numb > 1:
+        # Check if sufficient balance
+        if user['actual_balance'] < (real_amount + get_voucher_fee(COIN_NAME)) * voucher_numb:
+            having_amount = num_format_coin(user['actual_balance'], COIN_NAME)
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to create **{voucher_numb}** vouchers.\n'
+                           f'**{voucher_numb}** vouchers needed amount + fee: {num_format_coin((real_amount + get_voucher_fee(COIN_NAME)*voucher_numb), COIN_NAME)}{COIN_NAME}\n'
+                           f'Having: {having_amount}{COIN_NAME}.')
+            return
 
-    #Logo
-    try:
-        logo = Image.open(config.voucher.coin_logo_path + COIN_NAME.lower() + ".png")
-        box = (115,115,165,165)
-        qr_img.crop(box)
-        region = logo
-        region = region.resize((box[2] - box[0], box[3] - box[1]))
-        qr_img.paste(region,box)
-        # qr_img.save(config.voucher.path_voucher_create + unique_filename + "_2.png")
-    except Exception as e: 
-        traceback.print_exc(file=sys.stdout)
-    # Image Frame on which we want to paste 
-    img_frame = Image.open(config.voucher.path_voucher_defaultimg)  
-    img_frame.paste(qr_img, (150, 150)) 
-
-    # amount font
-    try:
-        msg = str(num_format_coin(real_amount, COIN_NAME)) + COIN_NAME
-        W, H = (1123,644)
-        draw =  ImageDraw.Draw(img_frame)
-        myFont = ImageFont.truetype(config.font.digital7, 44)
-        # w, h = draw.textsize(msg, font=myFont)
-        w, h = myFont.getsize(msg)
-        # draw.text(((W-w)/2,(H-h)/2), msg, fill="black",font=myFont)
-        draw.text((280-w/2,275+125+h), msg, fill="black",font=myFont)
-
-        # Instruction to claim
-        myFont = ImageFont.truetype(config.font.digital7, 36)
-        msg_claim = "SCAN TO CLAIM IT!"
-        w, h = myFont.getsize(msg_claim)
-        draw.text((280-w/2,275+125+h+60), msg_claim, fill="black",font=myFont)
-
-        # comment part
-        comment_txt = "COMMENT: " + comment.upper()
-        myFont = ImageFont.truetype(config.font.digital7, 24)
-        w, h = myFont.getsize(comment_txt)
-        draw.text((561-w/2,275+125+h+120), comment_txt, fill="black",font=myFont)
-    except Exception as e: 
-        traceback.print_exc(file=sys.stdout)
-    # Saved in the same relative location 
-    img_frame.save(config.voucher.path_voucher_create + unique_filename + ".png") 
-    voucher_make = await store.sql_send_to_voucher(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), 
-                                                   ctx.message.content, real_amount, get_voucher_fee(COIN_NAME), comment, 
-                                                   secret_string, unique_filename + ".png", COIN_NAME, 'DISCORD')
-    if voucher_make:
+        # Check if bot can DM him first. If failed reject
+        try:
+            await ctx.message.author.send(f'{ctx.author.mention} I am creating a voucher for you and will direct message to you the pack of vouchers.')
+        except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+            # If failed to DM, message we stop
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Voucher batch will not work if you disable DM or I failed to DM you.')
+            return
         await ctx.message.add_reaction(EMOJI_OK_HAND)
         if isinstance(ctx.channel, discord.DMChannel) == False:
             try:
                 await ctx.send(f'{EMOJI_INFORMATION} {ctx.author.mention} You should do this in Direct Message.')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
-                pass                
+                pass   
+        for i in range(voucher_numb):
+            secret_string = str(uuid.uuid4())
+            unique_filename = str(uuid.uuid4())
+            # loop voucher_numb times
+            # do some QR code
+            qr = qrcode.QRCode(
+                version=1,
+                error_correction=qrcode.constants.ERROR_CORRECT_L,
+                box_size=10,
+                border=2,
+            )
+            qrstring = config.voucher.voucher_url + "/claim/" + secret_string
+            qr.add_data(qrstring)
+            qr.make(fit=True)
+            qr_img = qr.make_image(fill_color="black", back_color="white")
+            qr_img = qr_img.resize((280, 280))
+            qr_img = qr_img.convert("RGBA")
+            # qr_img.save(config.voucher.path_voucher_create + unique_filename + "_1.png")
+
+            #Logo
+            try:
+                logo = Image.open(config.voucher.coin_logo_path + COIN_NAME.lower() + ".png")
+                box = (115,115,165,165)
+                qr_img.crop(box)
+                region = logo
+                region = region.resize((box[2] - box[0], box[3] - box[1]))
+                qr_img.paste(region,box)
+                # qr_img.save(config.voucher.path_voucher_create + unique_filename + "_2.png")
+            except Exception as e: 
+                traceback.print_exc(file=sys.stdout)
+            # Image Frame on which we want to paste 
+            img_frame = Image.open(config.voucher.path_voucher_defaultimg)  
+            img_frame.paste(qr_img, (150, 150)) 
+
+            # amount font
+            try:
+                msg = str(num_format_coin(real_amount, COIN_NAME)) + COIN_NAME
+                W, H = (1123,644)
+                draw =  ImageDraw.Draw(img_frame)
+                myFont = ImageFont.truetype(config.font.digital7, 44)
+                # w, h = draw.textsize(msg, font=myFont)
+                w, h = myFont.getsize(msg)
+                # draw.text(((W-w)/2,(H-h)/2), msg, fill="black",font=myFont)
+                draw.text((280-w/2,275+125+h), msg, fill="black",font=myFont)
+
+                # Instruction to claim
+                myFont = ImageFont.truetype(config.font.digital7, 36)
+                msg_claim = "SCAN TO CLAIM IT!"
+                w, h = myFont.getsize(msg_claim)
+                draw.text((280-w/2,275+125+h+60), msg_claim, fill="black",font=myFont)
+
+                # comment part
+                comment_txt = "COMMENT: " + comment.upper()
+                myFont = ImageFont.truetype(config.font.digital7, 24)
+                w, h = myFont.getsize(comment_txt)
+                draw.text((561-w/2,275+125+h+120), comment_txt, fill="black",font=myFont)
+            except Exception as e: 
+                traceback.print_exc(file=sys.stdout)
+            # Saved in the same relative location 
+            img_frame.save(config.voucher.path_voucher_create + unique_filename + ".png") 
+            voucher_make = await store.sql_send_to_voucher(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), 
+                                                           ctx.message.content, real_amount, get_voucher_fee(COIN_NAME), comment, 
+                                                           secret_string, unique_filename + ".png", COIN_NAME, 'DISCORD')
+            if voucher_make:             
+                try:
+                    msg = await ctx.message.author.send(f'New Voucher Link ({i+1} of {voucher_numb}): {qrstring}\n'
+                                        '```'
+                                        f'Amount: {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}\n'
+                                        f'Voucher Fee (Incl. network fee): {num_format_coin(get_voucher_fee(COIN_NAME), COIN_NAME)} {COIN_NAME}\n'
+                                        f'Voucher comment: {comment}```',
+                                        file=discord.File(config.voucher.path_voucher_create + unique_filename + ".png"))
+                    await msg.add_reaction(EMOJI_OK_BOX)
+                except (discord.Forbidden, discord.errors.Forbidden) as e:
+                    traceback.print_exc(file=sys.stdout)
+                    await ctx.message.add_reaction(EMOJI_ERROR)
+                    await ctx.send(f'{ctx.author.mention} Sorry, I failed to DM you.')
+            else:
+                await ctx.message.add_reaction(EMOJI_ERROR)
+        return
+    elif voucher_numb == 1:
+        # do some QR code
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=2,
+        )
+        qrstring = config.voucher.voucher_url + "/claim/" + secret_string
+        qr.add_data(qrstring)
+        qr.make(fit=True)
+        qr_img = qr.make_image(fill_color="black", back_color="white")
+        qr_img = qr_img.resize((280, 280))
+        qr_img = qr_img.convert("RGBA")
+        # qr_img.save(config.voucher.path_voucher_create + unique_filename + "_1.png")
+
+        #Logo
         try:
-            msg = await ctx.send(f'New Voucher Link: {qrstring}\n'
-                                '```'
-                                f'Amount: {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}\n'
-                                f'Voucher Fee (Incl. network fee): {num_format_coin(get_voucher_fee(COIN_NAME), COIN_NAME)} {COIN_NAME}\n'
-                                f'Voucher comment: {comment}```',
-                                file=discord.File(config.voucher.path_voucher_create + unique_filename + ".png"))
-            await msg.add_reaction(EMOJI_OK_BOX)
-        except (discord.Forbidden, discord.errors.Forbidden) as e:
+            logo = Image.open(config.voucher.coin_logo_path + COIN_NAME.lower() + ".png")
+            box = (115,115,165,165)
+            qr_img.crop(box)
+            region = logo
+            region = region.resize((box[2] - box[0], box[3] - box[1]))
+            qr_img.paste(region,box)
+            # qr_img.save(config.voucher.path_voucher_create + unique_filename + "_2.png")
+        except Exception as e: 
             traceback.print_exc(file=sys.stdout)
+        # Image Frame on which we want to paste 
+        img_frame = Image.open(config.voucher.path_voucher_defaultimg)  
+        img_frame.paste(qr_img, (150, 150)) 
+
+        # amount font
+        try:
+            msg = str(num_format_coin(real_amount, COIN_NAME)) + COIN_NAME
+            W, H = (1123,644)
+            draw =  ImageDraw.Draw(img_frame)
+            myFont = ImageFont.truetype(config.font.digital7, 44)
+            # w, h = draw.textsize(msg, font=myFont)
+            w, h = myFont.getsize(msg)
+            # draw.text(((W-w)/2,(H-h)/2), msg, fill="black",font=myFont)
+            draw.text((280-w/2,275+125+h), msg, fill="black",font=myFont)
+
+            # Instruction to claim
+            myFont = ImageFont.truetype(config.font.digital7, 36)
+            msg_claim = "SCAN TO CLAIM IT!"
+            w, h = myFont.getsize(msg_claim)
+            draw.text((280-w/2,275+125+h+60), msg_claim, fill="black",font=myFont)
+
+            # comment part
+            comment_txt = "COMMENT: " + comment.upper()
+            myFont = ImageFont.truetype(config.font.digital7, 24)
+            w, h = myFont.getsize(comment_txt)
+            draw.text((561-w/2,275+125+h+120), comment_txt, fill="black",font=myFont)
+        except Exception as e: 
+            traceback.print_exc(file=sys.stdout)
+        # Saved in the same relative location 
+        img_frame.save(config.voucher.path_voucher_create + unique_filename + ".png") 
+        voucher_make = await store.sql_send_to_voucher(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), 
+                                                       ctx.message.content, real_amount, get_voucher_fee(COIN_NAME), comment, 
+                                                       secret_string, unique_filename + ".png", COIN_NAME, 'DISCORD')
+        if voucher_make:
+            await ctx.message.add_reaction(EMOJI_OK_HAND)
+            if isinstance(ctx.channel, discord.DMChannel) == False:
+                try:
+                    await ctx.send(f'{EMOJI_INFORMATION} {ctx.author.mention} You should do this in Direct Message.')
+                except (discord.Forbidden, discord.errors.Forbidden) as e:
+                    pass                
+            try:
+                msg = await ctx.send(f'New Voucher Link: {qrstring}\n'
+                                    '```'
+                                    f'Amount: {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}\n'
+                                    f'Voucher Fee (Incl. network fee): {num_format_coin(get_voucher_fee(COIN_NAME), COIN_NAME)} {COIN_NAME}\n'
+                                    f'Voucher comment: {comment}```',
+                                    file=discord.File(config.voucher.path_voucher_create + unique_filename + ".png"))
+                await msg.add_reaction(EMOJI_OK_BOX)
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                traceback.print_exc(file=sys.stdout)
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                await ctx.send(f'{ctx.author.mention} Sorry, I failed to DM you.')
+        else:
             await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{ctx.author.mention} Sorry, I failed to DM you.')
-    else:
-        await ctx.message.add_reaction(EMOJI_ERROR)
-    return
+        return
 
 
 @voucher.command(help=bot_help_voucher_view)

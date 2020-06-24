@@ -259,6 +259,10 @@ bot_help_view_feedback_list = "List of your recent feedback."
 
 bot_help_voucher_make = "Make a voucher and you share to other friends."
 bot_help_voucher_view = "View recent made voucher in a list"
+bot_help_voucher_unclaim = "View list of unclaimed vouchers"
+bot_help_voucher_claim = "View list of claimed vouchers"
+bot_help_voucher_getunclaim = "Get a list of unclaimed vouchers as a file."
+bot_help_voucher_getclaim = "Get a list of claimed vouchers as a file."
 
 # admin commands
 bot_help_admin = "Various admin commands."
@@ -5525,8 +5529,7 @@ async def make(ctx, amount: str, coin: str, *, comment):
 
 @voucher.command(help=bot_help_voucher_view)
 async def view(ctx):
-    # TODO, view list of generated vouchered ordered by date
-    get_vouchers = await store.sql_voucher_get_user(str(ctx.message.author.id), 'DISCORD', 10)
+    get_vouchers = await store.sql_voucher_get_user(str(ctx.message.author.id), 'DISCORD', 15, 'YESNO')
     if get_vouchers and len(get_vouchers) > 0:
         table_data = [
             ['Ref Link', 'Amount', 'Claimed?', 'Created']
@@ -5548,6 +5551,148 @@ async def view(ctx):
                              f'```{table.table}```\n')
         await msg.add_reaction(EMOJI_OK_BOX)
         return
+    else:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{ctx.author.mention} You did not create any voucher yet.')
+    return
+
+
+@voucher.command(help=bot_help_voucher_unclaim)
+async def unclaim(ctx):
+    if isinstance(ctx.channel, discord.DMChannel) == False:
+        await ctx.message.add_reaction(EMOJI_ERROR) 
+        await ctx.send(f'{ctx.author.mention} This command can not be in public.')
+        return
+    get_vouchers = await store.sql_voucher_get_user(str(ctx.message.author.id), 'DISCORD', 50, 'NO')
+    if get_vouchers and len(get_vouchers) >= 25:
+        # list them in text
+        unclaim = ', '.join([each['secret_string'] for each in get_vouchers])
+        await ctx.message.add_reaction(EMOJI_OK_HAND)
+        await ctx.send(f'{ctx.author.mention} You have many unclaimed vouchers: {unclaim}')
+        return
+    elif get_vouchers and len(get_vouchers) > 0:
+        table_data = [
+            ['Ref Link', 'Amount', 'Claimed?', 'Created']
+        ]
+        for each in get_vouchers:
+            table_data.append([each['secret_string'], num_format_coin(each['amount'], each['coin_name'])+each['coin_name'], 
+                               'YES' if each['already_claimed'] == 'YES' else 'NO', 
+                               datetime.fromtimestamp(each['date_create']).strftime('%Y-%m-%d')])
+        table = AsciiTable(table_data)
+        table.padding_left = 1
+        table.padding_right = 1
+        if isinstance(ctx.channel, discord.DMChannel) == False:
+            try:
+                await ctx.send(f'{EMOJI_INFORMATION} {ctx.author.mention} You should do this in Direct Message.')
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                pass
+        await ctx.message.add_reaction(EMOJI_OK_HAND)
+        msg = await ctx.send(f'**[ YOUR VOUCHER LIST ]**\n'
+                             f'```{table.table}```\n')
+        await msg.add_reaction(EMOJI_OK_BOX)
+        return
+    else:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{ctx.author.mention} You did not create any voucher yet.')
+    return
+
+
+@voucher.command(help=bot_help_voucher_claim)
+async def claim(ctx):
+    if isinstance(ctx.channel, discord.DMChannel) == False:
+        await ctx.message.add_reaction(EMOJI_ERROR) 
+        await ctx.send(f'{ctx.author.mention} This command can not be in public.')
+        return
+    get_vouchers = await store.sql_voucher_get_user(str(ctx.message.author.id), 'DISCORD', 50, 'YES')
+    if get_vouchers and len(get_vouchers) >= 25:
+        # list them in text
+        unclaim = ', '.join([each['secret_string'] for each in get_vouchers])
+        await ctx.message.add_reaction(EMOJI_OK_HAND)
+        await ctx.send(f'{ctx.author.mention} You have many claimed vouchers: {unclaim}')
+        return
+    elif get_vouchers and len(get_vouchers) > 0:
+        table_data = [
+            ['Ref Link', 'Amount', 'Claimed?', 'Created']
+        ]
+        for each in get_vouchers:
+            table_data.append([each['secret_string'], num_format_coin(each['amount'], each['coin_name'])+each['coin_name'], 
+                               'YES' if each['already_claimed'] == 'YES' else 'NO', 
+                               datetime.fromtimestamp(each['date_create']).strftime('%Y-%m-%d')])
+        table = AsciiTable(table_data)
+        table.padding_left = 1
+        table.padding_right = 1
+        if isinstance(ctx.channel, discord.DMChannel) == False:
+            try:
+                await ctx.send(f'{EMOJI_INFORMATION} {ctx.author.mention} You should do this in Direct Message.')
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                pass
+        await ctx.message.add_reaction(EMOJI_OK_HAND)
+        msg = await ctx.send(f'**[ YOUR VOUCHER LIST ]**\n'
+                             f'```{table.table}```\n')
+        await msg.add_reaction(EMOJI_OK_BOX)
+        return
+    else:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{ctx.author.mention} You did not create any voucher yet.')
+    return
+
+
+@voucher.command(help=bot_help_voucher_getunclaim)
+async def getunclaim(ctx):
+    if isinstance(ctx.channel, discord.DMChannel) == False:
+        await ctx.message.add_reaction(EMOJI_ERROR) 
+        await ctx.send(f'{ctx.author.mention} This command can not be in public.')
+        return
+    get_vouchers = await store.sql_voucher_get_user(str(ctx.message.author.id), 'DISCORD', 10000, 'NO')
+    if get_vouchers and len(get_vouchers) > 0:
+        try:
+            filename = config.voucher.claim_csv_tmp + str(uuid.uuid4()) + '_unclaimed.csv'
+            write_csv_dumpinfo = open(filename, "w")
+            for item in get_vouchers:
+                write_csv_dumpinfo.write(config.voucher.voucher_url + '/claim/' + item['secret_string'] + '\n')
+            write_csv_dumpinfo.close()
+            if os.path.exists(filename):
+                try:
+                    await ctx.message.author.send(f"YOUR UNCLAIMED VOUCHER LIST IN CSV FILE:",
+                                                  file=discord.File(filename))
+                except Exception as e:
+                    await ctx.message.add_reaction(EMOJI_ERROR) 
+                    await ctx.send(f'{ctx.author.mention} I failed to send CSV file to you.')
+                    traceback.print_exc(file=sys.stdout)
+                os.remove(filename)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+    else:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{ctx.author.mention} You did not create any voucher yet.')
+    return
+
+
+@voucher.command(help=bot_help_voucher_getclaim)
+async def getclaim(ctx):
+    if isinstance(ctx.channel, discord.DMChannel) == False:
+        await ctx.message.add_reaction(EMOJI_ERROR) 
+        await ctx.send(f'{ctx.author.mention} This command can not be in public.')
+        return
+    get_vouchers = await store.sql_voucher_get_user(str(ctx.message.author.id), 'DISCORD', 10000, 'YES')
+    if get_vouchers and len(get_vouchers) > 0:
+        try:
+            filename = config.voucher.claim_csv_tmp + str(uuid.uuid4()) + '_claimed.csv'
+            write_csv_dumpinfo = open(filename, "w")
+            for item in get_vouchers:
+                write_csv_dumpinfo.write(config.voucher.voucher_url + '/claim/' + item['secret_string'] + '\n')
+            write_csv_dumpinfo.close()
+            if os.path.exists(filename):
+                try:
+                    await ctx.message.author.send(f"YOUR CLAIMED VOUCHER LIST IN CSV FILE:",
+                                                  file=discord.File(filename))
+                except Exception as e:
+                    await ctx.message.add_reaction(EMOJI_ERROR) 
+                    await ctx.send(f'{ctx.author.mention} I failed to send CSV file to you.')
+                    traceback.print_exc(file=sys.stdout)
+                os.remove(filename)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
     else:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{ctx.author.mention} You did not create any voucher yet.')

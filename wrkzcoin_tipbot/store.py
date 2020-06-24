@@ -1321,17 +1321,25 @@ async def sql_voucher_sync_from_remote(numb: int=100):
         traceback.print_exc(file=sys.stdout)
 
 
-async def sql_voucher_get_user(user_id: str, user_server: str='DISCORD', last: int=10):
+async def sql_voucher_get_user(user_id: str, user_server: str='DISCORD', last: int=10, already_claimed: str='YESNO'):
     global conn
     user_server = user_server.upper()
+    already_claimed = already_claimed.upper()
     try:
         openConnection()
         with conn.cursor() as cur:
-            sql = """ SELECT * FROM cn_voucher WHERE `user_id`=%s AND `user_server`=%s 
-                      ORDER BY `date_create` DESC LIMIT """ + str(last)+ """ """
-            cur.execute(sql, (user_id, user_server,))
-            result = cur.fetchall()
-            return result
+            if already_claimed == 'YESNO':
+                sql = """ SELECT * FROM cn_voucher WHERE `user_id`=%s AND `user_server`=%s 
+                          ORDER BY `date_create` DESC LIMIT """ + str(last)+ """ """
+                cur.execute(sql, (user_id, user_server,))
+                result = cur.fetchall()
+                return result
+            elif already_claimed == 'YES' or already_claimed == 'NO':
+                sql = """ SELECT * FROM cn_voucher WHERE `user_id`=%s AND `user_server`=%s AND `already_claimed`=%s
+                          ORDER BY `date_create` DESC LIMIT """ + str(last)+ """ """
+                cur.execute(sql, (user_id, user_server, already_claimed))
+                result = cur.fetchall()
+                return result
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     return None

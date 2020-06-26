@@ -1203,12 +1203,6 @@ async def get_cn_coin_from_address(CoinAddress: str):
         COIN_NAME = "BTCMZ"
     elif CoinAddress.startswith("PLe"):
         COIN_NAME = "PLE"
-    elif CoinAddress.startswith("guns"):
-        COIN_NAME = "ARMS"
-    elif CoinAddress.startswith("ir"):
-        COIN_NAME = "IRD"
-    elif CoinAddress.startswith("NaCa"):
-        COIN_NAME = "NACA"
     elif CoinAddress.startswith("TRTL"):
         COIN_NAME = "TRTL"
     elif CoinAddress.startswith("bit") and (len(CoinAddress) == 98 or len(CoinAddress) == 109):
@@ -1223,14 +1217,6 @@ async def get_cn_coin_from_address(CoinAddress: str):
         try:
             addr = address_msr(CoinAddress)
             COIN_NAME = "MSR"
-            return COIN_NAME
-        except Exception as e:
-            # traceback.print_exc(file=sys.stdout)
-            pass
-        # Try UPX
-        try:
-            addr = address_upx(CoinAddress)
-            COIN_NAME = "UPX"
             return COIN_NAME
         except Exception as e:
             # traceback.print_exc(file=sys.stdout)
@@ -1260,14 +1246,8 @@ async def get_cn_coin_from_address(CoinAddress: str):
         COIN_NAME = "BLOG"
     elif (CoinAddress.startswith("ar") or CoinAddress.startswith("aR")) and (len(CoinAddress) == 97 or len(CoinAddress) == 98 or len(CoinAddress) == 109):
         COIN_NAME = "ARQ"
-    elif ((CoinAddress.startswith("UPX") and len(CoinAddress) == 98) or (CoinAddress.startswith("UPi") and len(CoinAddress) == 109) or (CoinAddress.startswith("Um") and len(CoinAddress) == 97)):
-        COIN_NAME = "UPX"
     elif (CoinAddress.startswith("5") or CoinAddress.startswith("9")) and (len(CoinAddress) == 95 or len(CoinAddress) == 106):
         COIN_NAME = "MSR"
-    elif (CoinAddress.startswith("fh") and len(CoinAddress) == 97) or \
-    (CoinAddress.startswith("fi") and len(CoinAddress) == 108) or \
-    (CoinAddress.startswith("fs") and len(CoinAddress) == 97):
-        COIN_NAME = "XWP"
     elif CoinAddress.startswith("D") and len(CoinAddress) == 34:
         COIN_NAME = "DOGE"
     elif (CoinAddress[0] in ["M", "L"]) and len(CoinAddress) == 34:

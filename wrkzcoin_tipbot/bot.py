@@ -261,6 +261,7 @@ bot_help_voucher_unclaim = "View list of unclaimed vouchers"
 bot_help_voucher_claim = "View list of claimed vouchers"
 bot_help_voucher_getunclaim = "Get a list of unclaimed vouchers as a file."
 bot_help_voucher_getclaim = "Get a list of claimed vouchers as a file."
+bot_help_voucher_fee = "List of fee for making voucher and including network fee."
 
 # admin commands
 bot_help_admin = "Various admin commands."
@@ -5530,6 +5531,20 @@ async def make(ctx, amount: str, coin: str, *, comment):
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
         return
+
+
+@voucher.command(help=bot_help_voucher_fee)
+async def fee(ctx):
+    fee_str = "VOUCHER FEE FOR COINS:\n"
+    for each_coin in ENABLE_COIN_VOUCHER:
+        fee = num_format_coin(get_voucher_fee(each_coin), each_coin) + each_coin
+        fee_str += "    + {}: {}\n".format(each_coin, fee)
+    fee_str += "* Fee also includes network fee."
+    await ctx.message.add_reaction(EMOJI_OK_HAND)
+    msg = await ctx.send(f'{ctx.author.mention}'
+                         f'```{fee_str}```\n')
+    await msg.add_reaction(EMOJI_OK_BOX)
+    return
 
 
 @voucher.command(help=bot_help_voucher_view)

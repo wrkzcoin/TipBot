@@ -335,13 +335,13 @@ async def get_prefix(bot, message):
         extras = [pre_cmd, 'tb!', 'tipbot!', '?', '.', '+', '!', '-']
         return when_mentioned_or(*extras)(bot, message)
 
-    serverinfo = store.sql_info_by_server(str(message.guild.id))
+    serverinfo = await store.sql_info_by_server(str(message.guild.id))
     if serverinfo is None:
         # Let's add some info if guild return None
-        add_server_info = store.sql_addinfo_by_server(str(message.guild.id), message.guild.name,
-                                                      config.discord.prefixCmd, "WRKZ")
+        add_server_info = await store.sql_addinfo_by_server(str(message.guild.id), message.guild.name,
+                                                            config.discord.prefixCmd, "WRKZ")
         pre_cmd = config.discord.prefixCmd
-        serverinfo = store.sql_info_by_server(str(message.guild.id))
+        serverinfo = await store.sql_info_by_server(str(message.guild.id))
     if serverinfo and ('prefix' in serverinfo):
         pre_cmd = serverinfo['prefix']
     else:
@@ -357,7 +357,7 @@ async def on_ready():
     global LIST_IGNORECHAN, IS_RESTARTING
     print('Ready!')
     print("Hello, I am TipBot Bot!")
-    LIST_IGNORECHAN = store.sql_listignorechan()
+    LIST_IGNORECHAN = await store.sql_listignorechan()
     print(bot.user.name)
     print(bot.user.id)
     print('------')
@@ -380,8 +380,8 @@ async def on_shard_ready(shard_id):
 @bot.event
 async def on_guild_join(guild):
     botLogChan = bot.get_channel(id=LOG_CHAN)
-    add_server_info = store.sql_addinfo_by_server(str(guild.id), guild.name,
-                                                  config.discord.prefixCmd, "WRKZ", True)
+    add_server_info = await store.sql_addinfo_by_server(str(guild.id), guild.name,
+                                                        config.discord.prefixCmd, "WRKZ", True)
     await botLogChan.send(f'Bot joins a new guild {guild.name} / {guild.id}. Total guilds: {len(bot.guilds)}.')
     return
 
@@ -389,7 +389,7 @@ async def on_guild_join(guild):
 @bot.event
 async def on_guild_remove(guild):
     botLogChan = bot.get_channel(id=LOG_CHAN)
-    add_server_info = store.sql_updateinfo_by_server(str(guild.id), "status", "REMOVED")
+    add_server_info = await store.sql_updateinfo_by_server(str(guild.id), "status", "REMOVED")
     await botLogChan.send(f'Bot was removed from guild {guild.name} / {guild.id}. Total guilds: {len(bot.guilds)}')
     return
 
@@ -475,7 +475,7 @@ async def on_reaction_add(reaction, user):
         elif reaction.emoji == EMOJI_100 \
             and user.bot == False and reaction.message.author != user and reaction.message.author.bot == False:
             # check if react_tip_100 is ON in the server
-            serverinfo = store.sql_info_by_server(str(reaction.message.guild.id))
+            serverinfo = await store.sql_info_by_server(str(reaction.message.guild.id))
             if serverinfo['react_tip'] == "ON":
                 if (str(reaction.message.id) + '.' + str(user.id)) not in REACT_TIP_STORE:
                     # OK add new message to array                  
@@ -516,7 +516,7 @@ async def on_reaction_add(reaction, user):
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
                     if tip:
-                        notifyList = store.sql_get_tipnotify()
+                        notifyList = await store.sql_get_tipnotify()
                         REACT_TIP_STORE.append((str(reaction.message.id) + '.' + str(user.id)))
                         servername = serverinfo['servername']
                         if has_forwardtip:
@@ -533,7 +533,7 @@ async def on_reaction_add(reaction, user):
                                 f'was sent to {reaction.message.author.name}#{reaction.message.author.discriminator} in server `{servername}` by your re-acting {EMOJI_100}\n'
                                 f'{tip_tx_tipper}')
                         except (discord.Forbidden, discord.errors.Forbidden) as e:
-                            store.sql_toggle_tipnotify(str(user.id), "OFF")
+                            await store.sql_toggle_tipnotify(str(user.id), "OFF")
                         if str(reaction.message.author.id) not in notifyList:
                             try:
                                 await reaction.message.author.send(
@@ -542,21 +542,21 @@ async def on_reaction_add(reaction, user):
                                     f'{tip_tx_tipper}\n'
                                     f'{NOTIFICATION_OFF_CMD}')
                             except (discord.Forbidden, discord.errors.Forbidden) as e:
-                                store.sql_toggle_tipnotify(str(reaction.message.author.id), "OFF")
+                                await store.sql_toggle_tipnotify(str(reaction.message.author.id), "OFF")
                         return
                     else:
                         try:
                             await user.send(f'{user.mention} Can not deliver TX for {COIN_NAME} right now with {EMOJI_100}.')
                         except (discord.Forbidden, discord.errors.Forbidden) as e:
-                            store.sql_toggle_tipnotify(str(user.id), "OFF")
+                            await store.sql_toggle_tipnotify(str(user.id), "OFF")
                         # add to failed tx table
-                        store.sql_add_failed_tx(COIN_NAME, str(user.id), user.name, real_amount, "REACTTIP")
+                        await store.sql_add_failed_tx(COIN_NAME, str(user.id), user.name, real_amount, "REACTTIP")
                         return
         # EMOJI_99 TRTL_DISCORD Only
         elif str(reaction.emoji) == EMOJI_99 and reaction.message.guild.id == TRTL_DISCORD \
             and user.bot == False and reaction.message.author != user and reaction.message.author.bot == False:
             # check if react_tip_100 is ON in the server
-            serverinfo = store.sql_info_by_server(str(reaction.message.guild.id))
+            serverinfo = await store.sql_info_by_server(str(reaction.message.guild.id))
             if serverinfo['react_tip'] == "ON":
                 if (str(reaction.message.id) + '.' + str(user.id)) not in REACT_TIP_STORE:
                     # OK add new message to array                  
@@ -597,7 +597,7 @@ async def on_reaction_add(reaction, user):
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
                     if tip:
-                        notifyList = store.sql_get_tipnotify()
+                        notifyList = await store.sql_get_tipnotify()
                         REACT_TIP_STORE.append((str(reaction.message.id) + '.' + str(user.id)))
                         servername = serverinfo['servername']
                         if has_forwardtip:
@@ -614,7 +614,7 @@ async def on_reaction_add(reaction, user):
                                 f'was sent to {reaction.message.author.name}#{reaction.message.author.discriminator} in server `{servername}` by your re-acting {EMOJI_99}\n'
                                 f'{tip_tx_tipper}')
                         except (discord.Forbidden, discord.errors.Forbidden) as e:
-                            store.sql_toggle_tipnotify(str(user.id), "OFF")
+                            await store.sql_toggle_tipnotify(str(user.id), "OFF")
                         if str(reaction.message.author.id) not in notifyList:
                             try:
                                 await reaction.message.author.send(
@@ -623,15 +623,15 @@ async def on_reaction_add(reaction, user):
                                     f'{tip_tx_tipper}\n'
                                     f'{NOTIFICATION_OFF_CMD}')
                             except (discord.Forbidden, discord.errors.Forbidden) as e:
-                                store.sql_toggle_tipnotify(str(reaction.message.author.id), "OFF")
+                                await store.sql_toggle_tipnotify(str(reaction.message.author.id), "OFF")
                         return
                     else:
                         try:
                             await user.send(f'{user.mention} Can not deliver TX for {COIN_NAME} right now with {EMOJI_99}.')
                         except (discord.Forbidden, discord.errors.Forbidden) as e:
-                            store.sql_toggle_tipnotify(str(user.id), "OFF")
+                            await store.sql_toggle_tipnotify(str(user.id), "OFF")
                         # add to failed tx table
-                        store.sql_add_failed_tx(COIN_NAME, str(user.id), user.name, real_amount, "REACTTIP")
+                        await store.sql_add_failed_tx(COIN_NAME, str(user.id), user.name, real_amount, "REACTTIP")
                         return
             else:
                 return
@@ -640,7 +640,7 @@ async def on_reaction_add(reaction, user):
             and user.bot == False and reaction.message.author != user and reaction.message.author.bot == False:
             # They re-act TIP emoji
             # check if react_tip_100 is ON in the server
-            serverinfo = store.sql_info_by_server(str(reaction.message.guild.id))
+            serverinfo = await store.sql_info_by_server(str(reaction.message.guild.id))
             if serverinfo['react_tip'] == "ON":
                 if (str(reaction.message.id) + '.' + str(user.id)) not in REACT_TIP_STORE:
                     # OK add new message to array                  
@@ -783,11 +783,11 @@ async def twofa(ctx):
 
     # return message 2FA already ON if 2FA already validated
     # show QR for 2FA if not yet ON
-    userinfo = store.sql_discord_userinfo_get(str(ctx.message.author.id))
+    userinfo = await store.sql_discord_userinfo_get(str(ctx.message.author.id))
     if userinfo is None:
         # Create userinfo
         random_secret32 = pyotp.random_base32()
-        create_userinfo = store.sql_userinfo_2fa_insert(str(ctx.message.author.id), random_secret32)
+        create_userinfo = await store.sql_userinfo_2fa_insert(str(ctx.message.author.id), random_secret32)
         totp = pyotp.TOTP(random_secret32, interval=30)
         google_str = pyotp.TOTP(random_secret32, interval=30).provisioning_uri(f"{ctx.message.author.id}@tipbot.wrkz.work", issuer_name="Discord TipBot")
         if create_userinfo:
@@ -854,7 +854,7 @@ async def twofa(ctx):
         else:
             # Create userinfo
             random_secret32 = pyotp.random_base32()
-            update_userinfo = store.sql_userinfo_2fa_update(str(ctx.message.author.id), random_secret32)
+            update_userinfo = await store.sql_userinfo_2fa_update(str(ctx.message.author.id), random_secret32)
             totp = pyotp.TOTP(random_secret32, interval=30)
             google_str = pyotp.TOTP(random_secret32, interval=30).provisioning_uri(f"{ctx.message.author.id}@tipbot.wrkz.work", issuer_name="Discord TipBot")
             if update_userinfo:
@@ -901,7 +901,7 @@ async def verify(ctx, codes: str):
         await ctx.send(f'{ctx.author.mention} Incorrect code length.')
         return
 
-    userinfo = store.sql_discord_userinfo_get(str(ctx.message.author.id))
+    userinfo = await store.sql_discord_userinfo_get(str(ctx.message.author.id))
     if userinfo is None:
         await ctx.send(f'{ctx.author.mention} You have not created 2FA code to scan yet.\n'
                        'Please execute **account twofa** to generate 2FA scan code.')
@@ -925,7 +925,7 @@ async def verify(ctx, codes: str):
         if secret_code and len(secret_code) > 0:
             totp = pyotp.TOTP(secret_code, interval=30)
             if codes in [totp.now(), totp.at(for_time=int(time.time()-15)), totp.at(for_time=int(time.time()+15))]:
-                update_userinfo = store.sql_userinfo_2fa_verify(str(ctx.message.author.id), 'YES')
+                update_userinfo = await store.sql_userinfo_2fa_verify(str(ctx.message.author.id), 'YES')
                 if update_userinfo:
                     await ctx.send(f'{ctx.author.mention} Thanks for verification with 2FA.')
                     return
@@ -960,7 +960,7 @@ async def unverify(ctx, codes: str):
         await ctx.send(f'{ctx.author.mention} Incorrect code length.')
         return
 
-    userinfo = store.sql_discord_userinfo_get(str(ctx.message.author.id))
+    userinfo = await store.sql_discord_userinfo_get(str(ctx.message.author.id))
     if userinfo is None:
         await ctx.send(f'{ctx.author.mention} You have not created 2FA code to scan yet.\n'
                        'Nothing to **unverify**.')
@@ -984,7 +984,7 @@ async def unverify(ctx, codes: str):
         if secret_code and len(secret_code) > 0:
             totp = pyotp.TOTP(secret_code, interval=30)
             if codes in [totp.now(), totp.at(for_time=int(time.time()-15)), totp.at(for_time=int(time.time()+15))]:
-                update_userinfo = store.sql_userinfo_2fa_verify(str(ctx.message.author.id), 'NO')
+                update_userinfo = await store.sql_userinfo_2fa_verify(str(ctx.message.author.id), 'NO')
                 if update_userinfo:
                     await ctx.send(f'{ctx.author.mention} You clear verification 2FA. You will need to add to your authentication program again later.')
                     return
@@ -1339,9 +1339,9 @@ async def lockuser(ctx, user_id: str, *, reason: str):
         await ctx.send(f'{ctx.author.mention} This command can not be in public.')
         return
 
-    get_discord_userinfo = store.sql_discord_userinfo_get(user_id)
+    get_discord_userinfo = await store.sql_discord_userinfo_get(user_id)
     if get_discord_userinfo is None:
-        store.sql_userinfo_locked(user_id, 'YES', reason, str(ctx.message.author.id))
+        await store.sql_userinfo_locked(user_id, 'YES', reason, str(ctx.message.author.id))
         await ctx.message.add_reaction(EMOJI_OK_HAND)
         await ctx.message.author.send(f'{user_id} is locked.')
         return
@@ -1349,7 +1349,7 @@ async def lockuser(ctx, user_id: str, *, reason: str):
         if get_discord_userinfo['locked'].upper() == "YES":
             await ctx.message.author.send(f'{user_id} was already locked.')
         else:
-            store.sql_userinfo_locked(user_id, 'YES', reason, str(ctx.message.author.id))
+            await store.sql_userinfo_locked(user_id, 'YES', reason, str(ctx.message.author.id))
             await ctx.message.add_reaction(EMOJI_OK_HAND)
             await ctx.message.author.send(f'Turn {user_id} to locked.')
         return
@@ -1363,12 +1363,12 @@ async def unlockuser(ctx, user_id: str):
         await ctx.send(f'{ctx.author.mention} This command can not be in public.')
         return
 
-    get_discord_userinfo = store.sql_discord_userinfo_get(user_id)
+    get_discord_userinfo = await store.sql_discord_userinfo_get(user_id)
     if get_discord_userinfo:
         if get_discord_userinfo['locked'].upper() == "NO":
             await ctx.message.author.send(f'**{user_id}** was already unlocked. Nothing to do.')
         else:
-            store.sql_change_userinfo_single(user_id, 'locked', 'NO')
+            await store.sql_change_userinfo_single(user_id, 'locked', 'NO')
             await ctx.message.author.send(f'Unlocked {user_id} done.')
         return      
     else:
@@ -1392,7 +1392,7 @@ async def roachadd(ctx, main_id: str, user_id: str):
         main_member = bot.get_user(id=int(main_id))
         roach_user = bot.get_user(id=int(user_id))
         if main_member and roach_user:
-            add_roach = store.sql_roach_add(main_id, user_id, roach_user.name+"#"+roach_user.discriminator, main_member.name+"#"+main_member.discriminator)
+            add_roach = await store.sql_roach_add(main_id, user_id, roach_user.name+"#"+roach_user.discriminator, main_member.name+"#"+main_member.discriminator)
             if add_roach:
                 await ctx.message.author.send(f'Succesfully add new roach **{user_id}** / {roach_user.name}#{roach_user.discriminator} to Main ID: **{main_id}** / {main_member.name}#{main_member.discriminator}.')
                 await ctx.message.add_reaction(EMOJI_OK_BOX)
@@ -1750,12 +1750,11 @@ async def info(ctx, coin: str = None):
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} This command can not be in DM. If you want to deposit, use **DEPOSIT** command instead.')
             return
         else:
-            serverinfo = store.sql_info_by_server(str(ctx.guild.id))
+            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
             if serverinfo is None:
                 # Let's add some info if server return None
-                add_server_info = store.sql_addinfo_by_server(str(ctx.guild.id),
-                                                              ctx.message.guild.name, config.discord.prefixCmd,
-                                                              "WRKZ")
+                add_server_info = await store.sql_addinfo_by_server(str(ctx.guild.id),
+                                                                    ctx.message.guild.name, config.discord.prefixCmd, "WRKZ")
                 servername = ctx.message.guild.name
                 server_id = str(ctx.guild.id)
                 server_prefix = config.discord.prefixCmd
@@ -2137,7 +2136,7 @@ async def botbalance(ctx, member: discord.Member, coin: str):
 
     # if public and there is a bot channel
     if isinstance(ctx.channel, discord.DMChannel) == False:
-        serverinfo = get_info_pref_coin(ctx)
+        serverinfo = await get_info_pref_coin(ctx)
         server_prefix = serverinfo['server_prefix']
         # check if bot channel is set:
         if serverinfo and serverinfo['botchan']:
@@ -2334,7 +2333,7 @@ async def register(ctx, wallet_address: str):
 
     # if public and there is a bot channel
     if isinstance(ctx.channel, discord.DMChannel) == False:
-        serverinfo = get_info_pref_coin(ctx)
+        serverinfo = await get_info_pref_coin(ctx)
         server_prefix = serverinfo['server_prefix']
         # check if bot channel is set:
         if serverinfo and serverinfo['botchan']:
@@ -2455,7 +2454,7 @@ async def register(ctx, wallet_address: str):
         print('Error during register user address:' + str(e))
         return
 
-    serverinfo = get_info_pref_coin(ctx)
+    serverinfo = await get_info_pref_coin(ctx)
     server_prefix = serverinfo['server_prefix']
     if existing_user['user_wallet_address']:
         prev_address = existing_user['user_wallet_address']
@@ -2499,7 +2498,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
     amount = amount.replace(",", "")
 
     # Check flood of tip
-    floodTip = store.sql_get_countLastTip(str(ctx.message.author.id), config.floodTipDuration)
+    floodTip = await store.sql_get_countLastTip(str(ctx.message.author.id), config.floodTipDuration)
     if floodTip >= config.floodTip:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Cool down your tip or TX. or increase your amount next time.')
@@ -2522,7 +2521,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
     if isinstance(ctx.channel, discord.DMChannel):
         server_prefix = '.'
     else:
-        serverinfo = get_info_pref_coin(ctx)
+        serverinfo = await get_info_pref_coin(ctx)
         server_prefix = serverinfo['server_prefix']
         # check if bot channel is set:
         if serverinfo and serverinfo['botchan']:
@@ -2659,7 +2658,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
             msg = await ctx.send(f'{ctx.author.mention} Please try again or report.')
             await msg.add_reaction(EMOJI_OK_BOX)
             # add to failed tx table
-            store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "WITHDRAW")
+            await store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "WITHDRAW")
             return
 
     elif coin_family == "XMR":
@@ -2838,8 +2837,7 @@ async def donate(ctx, amount: str, coin: str = None):
     donate_msg = ''
     if amount.upper() == "LIST":
         # if .donate list
-        donate_list = store.sql_get_donate_list()
-        #print(donate_list)
+        donate_list = await store.sql_get_donate_list()
         item_list = []
         for key, value in donate_list.items():
             if value:
@@ -2853,7 +2851,7 @@ async def donate(ctx, amount: str, coin: str = None):
     amount = amount.replace(",", "")
 
     # Check flood of tip
-    floodTip = store.sql_get_countLastTip(str(ctx.message.author.id), config.floodTipDuration)
+    floodTip = await store.sql_get_countLastTip(str(ctx.message.author.id), config.floodTipDuration)
     if floodTip >= config.floodTip:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Cool down your tip or TX. or increase your amount next time.')
@@ -2887,7 +2885,7 @@ async def donate(ctx, amount: str, coin: str = None):
             await ctx.send(f'{EMOJI_RED_NO} You need to specify ticker if in DM or private.')
             return
         # If public
-        serverinfo = store.sql_info_by_server(str(ctx.guild.id))
+        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if 'default_coin' in serverinfo:
             if serverinfo['default_coin'].upper() in ENABLE_COIN:
                 coin = serverinfo['default_coin'].upper()
@@ -2988,7 +2986,7 @@ async def donate(ctx, amount: str, coin: str = None):
             await botLogChan.send(f'A user failed to donate `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`.')
             await msg.add_reaction(EMOJI_OK_BOX)
             # add to failed tx table
-            store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "DONATE")
+            await store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "DONATE")
             return
 
     elif coin_family == "XMR":
@@ -3020,9 +3018,9 @@ async def donate(ctx, amount: str, coin: str = None):
                            f'{COIN_NAME}.')
             return
 
-        donateTx = store.sql_mv_xmr_single(str(ctx.message.author.id), 
-                                           get_donate_account_name(COIN_NAME), 
-                                           real_amount, COIN_NAME, "DONATE")
+        donateTx = await store.sql_mv_xmr_single(str(ctx.message.author.id), 
+                                                get_donate_account_name(COIN_NAME), 
+                                                real_amount, COIN_NAME, "DONATE")
         if donateTx:
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
             await botLogChan.send(f'{EMOJI_MONEYFACE} TipBot got donation: {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
@@ -3105,10 +3103,10 @@ async def notifytip(ctx, onoff: str):
         return
 
     onoff = onoff.upper()
-    notifyList = store.sql_get_tipnotify()
+    notifyList = await store.sql_get_tipnotify()
     if onoff == "ON":
         if str(ctx.message.author.id) in notifyList:
-            store.sql_toggle_tipnotify(str(ctx.message.author.id), "ON")
+            await store.sql_toggle_tipnotify(str(ctx.message.author.id), "ON")
             await ctx.send('OK, you will get all notification when tip.')
             return
         else:
@@ -3119,7 +3117,7 @@ async def notifytip(ctx, onoff: str):
             await ctx.send('You already have notification OFF.')
             return
         else:
-            store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
+            await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
             await ctx.send('OK, you will not get any notification when anyone tips.')
             return
 
@@ -3274,14 +3272,17 @@ async def take(ctx):
         return
 
     # check if user create account less than 3 days
-    account_created = ctx.message.author.created_at
-    if (datetime.utcnow() - account_created).total_seconds() <= 3*24*3600:
-        await ctx.message.add_reaction(EMOJI_ERROR)
-        msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using .take')
-        return
+    try:
+        account_created = ctx.message.author.created_at
+        if (datetime.utcnow() - account_created).total_seconds() <= 3*24*3600:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using .take')
+            return
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
 
     # check if bot channel is set:
-    serverinfo = store.sql_info_by_server(str(ctx.guild.id))
+    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
     if serverinfo['botchan']:
         try: 
             if ctx.channel.id != int(serverinfo['botchan']):
@@ -3295,14 +3296,15 @@ async def take(ctx):
 
     # check user claim:
     claim_interval = 24
-    check_claimed = store.sql_faucet_checkuser(str(ctx.message.author.id), 'DISCORD')
+    check_claimed = await store.sql_faucet_checkuser(str(ctx.message.author.id), 'DISCORD')
     if check_claimed:
         # limit 12 hours
         if int(time.time()) - check_claimed['claimed_at'] <= claim_interval*3600:
             remaining = await bot_faucet(ctx) or ''
             time_waiting = seconds_str(claim_interval*3600 - int(time.time()) + check_claimed['claimed_at'])
-            number_user_claimed = '{:,.0f}'.format(store.sql_faucet_count_user(str(ctx.message.author.id), 'DISCORD'))
-            total_claimed = '{:,.0f}'.format(store.sql_faucet_count_all())
+            user_claims = await store.sql_faucet_count_user(str(ctx.message.author.id))
+            number_user_claimed = '{:,.0f}'.format(user_claims, 'DISCORD')
+            total_claimed = '{:,.0f}'.format(await store.sql_faucet_count_all())
             await ctx.message.add_reaction(EMOJI_ERROR)
             msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You just claimed within last {claim_interval}h. '
                                  f'Waiting time {time_waiting} for next **take**. Faucet balance:\n```{remaining}```'
@@ -3365,7 +3367,7 @@ async def take(ctx):
             await msg.add_reaction(EMOJI_OK_BOX)
             return
         if tip:
-            faucet_add = store.sql_faucet_add(str(ctx.message.author.id), str(ctx.guild.id), COIN_NAME, real_amount, COIN_DEC, tip, 'DISCORD')
+            faucet_add = await store.sql_faucet_add(str(ctx.message.author.id), str(ctx.guild.id), COIN_NAME, real_amount, COIN_DEC, tip, 'DISCORD')
             if has_forwardtip:
                 await ctx.message.add_reaction(EMOJI_FORWARD)
             else:
@@ -3400,7 +3402,7 @@ async def take(ctx):
         if ctx.message.author.id not in WITHDRAW_IN_PROCESS:
             WITHDRAW_IN_PROCESS.append(ctx.message.author.id)
             try:
-                tip = store.sql_mv_xmr_single(str(bot.user.id), str(ctx.message.author.id), real_amount, COIN_NAME, "FAUCET")
+                tip = await store.sql_mv_xmr_single(str(bot.user.id), str(ctx.message.author.id), real_amount, COIN_NAME, "FAUCET")
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
             WITHDRAW_IN_PROCESS.remove(ctx.message.author.id)
@@ -3410,7 +3412,7 @@ async def take(ctx):
             return
 
         if tip:
-            faucet_add = store.sql_faucet_add(str(ctx.message.author.id), str(ctx.guild.id), COIN_NAME, real_amount, COIN_DEC, None, 'DISCORD')
+            faucet_add = await store.sql_faucet_add(str(ctx.message.author.id), str(ctx.guild.id), COIN_NAME, real_amount, COIN_DEC, None, 'DISCORD')
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
             msg = await ctx.send(f'{EMOJI_MONEYFACE} {ctx.author.mention} You got a random faucet {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
             await msg.add_reaction(EMOJI_OK_BOX)
@@ -3434,7 +3436,12 @@ async def take(ctx):
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{ctx.author.mention} Please try again later. Bot runs out of **{COIN_NAME}**')
             return
-        
+
+        user_to = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        if user_to is None:
+            userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
+            user_to = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+
         tip = None
         if ctx.message.author.id not in WITHDRAW_IN_PROCESS:
             WITHDRAW_IN_PROCESS.append(ctx.message.author.id)
@@ -3449,7 +3456,7 @@ async def take(ctx):
             return
         
         if tip:
-            faucet_add = store.sql_faucet_add(str(ctx.message.author.id), str(ctx.guild.id), COIN_NAME, real_amount, COIN_DEC, None, 'DISCORD')
+            faucet_add = await store.sql_faucet_add(str(ctx.message.author.id), str(ctx.guild.id), COIN_NAME, real_amount, COIN_DEC, None, 'DISCORD')
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
             msg = await ctx.send(f'{EMOJI_MONEYFACE} {ctx.author.mention} You got a random faucet {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
             await msg.add_reaction(EMOJI_OK_BOX)
@@ -3490,7 +3497,7 @@ async def tip(ctx, amount: str, *args):
         await ctx.send(f'{EMOJI_RED_NO} This command can not be in private.')
         return
 
-    serverinfo = store.sql_info_by_server(str(ctx.guild.id))
+    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
     COIN_NAME = None
     try:
         COIN_NAME = args[0].upper()
@@ -3551,7 +3558,7 @@ async def tip(ctx, amount: str, *args):
                     try:
                         num_user = int(num_user)
                         if num_user > 0:
-                            message_talker = store.sql_get_messages(str(ctx.message.guild.id), str(ctx.message.channel.id), 0, num_user + 1)
+                            message_talker = await store.sql_get_messages(str(ctx.message.guild.id), str(ctx.message.channel.id), 0, num_user + 1)
                             if ctx.message.author.id in message_talker:
                                 message_talker.remove(ctx.message.author.id)
                             else:
@@ -3616,7 +3623,7 @@ async def tip(ctx, amount: str, *args):
                         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Please try time inteval between 5minutes to 24hours.')
                         return
                     else:
-                        message_talker = store.sql_get_messages(str(ctx.message.guild.id), str(ctx.message.channel.id), time_given, None)
+                        message_talker = await store.sql_get_messages(str(ctx.message.guild.id), str(ctx.message.channel.id), time_given, None)
                         if len(message_talker) == 0:
                             await ctx.message.add_reaction(EMOJI_ERROR)
                             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is no active talker in such period.')
@@ -3661,7 +3668,7 @@ async def tip(ctx, amount: str, *args):
         return
 
     # Check flood of tip
-    floodTip = store.sql_get_countLastTip(str(ctx.message.author.id), config.floodTipDuration)
+    floodTip = await store.sql_get_countLastTip(str(ctx.message.author.id), config.floodTipDuration)
     if floodTip >= config.floodTip:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Cool down your tip or TX. or increase your amount next time.')
@@ -3679,7 +3686,7 @@ async def tip(ctx, amount: str, *args):
             return
     # End Check if maintenance
 
-    notifyList = store.sql_get_tipnotify()
+    notifyList = await store.sql_get_tipnotify()
     has_forwardtip = None
     address_to = None
 
@@ -3767,7 +3774,7 @@ async def tip(ctx, amount: str, *args):
                     f'was sent to {member.name}#{member.discriminator} in server `{servername}`\n'
                     f'{tip_tx_tipper}')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
-                store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
+                await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
             if str(member.id) not in notifyList:
                 try:
                     await member.send(
@@ -3776,13 +3783,13 @@ async def tip(ctx, amount: str, *args):
                         f'{tip_tx_tipper}\n'
                         f'{NOTIFICATION_OFF_CMD}')
                 except (discord.Forbidden, discord.errors.Forbidden) as e:
-                    store.sql_toggle_tipnotify(str(member.id), "OFF")
+                    await store.sql_toggle_tipnotify(str(member.id), "OFF")
             return
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{ctx.author.mention} Can not deliver TX for {COIN_NAME} right now. Try again soon.')
             # add to failed tx table
-            store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "TIP")
+            await store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "TIP")
             return
 
     elif coin_family == "XMR":
@@ -3814,7 +3821,7 @@ async def tip(ctx, amount: str, *args):
                            f'{num_format_coin(MaxTX, COIN_NAME)} '
                            f'{COIN_NAME}.')
             return
-        tip = store.sql_mv_xmr_single(str(ctx.message.author.id), str(member.id), real_amount, COIN_NAME, "TIP")
+        tip = await store.sql_mv_xmr_single(str(ctx.message.author.id), str(member.id), real_amount, COIN_NAME, "TIP")
         if tip:
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
             if ctx.message.author.bot == False and serverinfo['react_tip'] == "ON":
@@ -3827,7 +3834,7 @@ async def tip(ctx, amount: str, *args):
                     f'{COIN_NAME} '
                     f'was sent to {member.name}#{member.discriminator} in server `{servername}`\n')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
-                store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
+                await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
             if str(member.id) not in notifyList:
                 try:
                     await member.send(
@@ -3835,7 +3842,7 @@ async def tip(ctx, amount: str, *args):
                         f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{servername}`\n'
                         f'{NOTIFICATION_OFF_CMD}')
                 except (discord.Forbidden, discord.errors.Forbidden) as e:
-                    store.sql_toggle_tipnotify(str(member.id), "OFF")
+                    await store.sql_toggle_tipnotify(str(member.id), "OFF")
             return
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -3892,7 +3899,7 @@ async def tip(ctx, amount: str, *args):
                         f'{COIN_NAME} '
                         f'was sent to {member.name}#{member.discriminator} in server `{servername}`\n')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
-                store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
+                await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
             if str(member.id) not in notifyList:
                 try:
                     await member.send(
@@ -3900,7 +3907,7 @@ async def tip(ctx, amount: str, *args):
                         f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{servername}`\n'
                         f'{NOTIFICATION_OFF_CMD}')
                 except (discord.Forbidden, discord.errors.Forbidden) as e:
-                    store.sql_toggle_tipnotify(str(member.id), "OFF")
+                    await store.sql_toggle_tipnotify(str(member.id), "OFF")
             return
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -3937,7 +3944,7 @@ async def tipall(ctx, amount: str, *args):
         await ctx.send(f'{EMOJI_RED_NO} This command can not be in private.')
         return
 
-    serverinfo = store.sql_info_by_server(str(ctx.guild.id))
+    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
     COIN_NAME = None
     if len(args) == 0:
         if 'default_coin' in serverinfo:
@@ -3984,7 +3991,7 @@ async def tipall(ctx, amount: str, *args):
         return
 
     # Check flood of tip
-    floodTip = store.sql_get_countLastTip(str(ctx.message.author.id), config.floodTipDuration)
+    floodTip = await store.sql_get_countLastTip(str(ctx.message.author.id), config.floodTipDuration)
     if floodTip >= config.floodTip:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Cool down your tip or TX. or increase your amount next time.')
@@ -4004,7 +4011,7 @@ async def tipall(ctx, amount: str, *args):
         pass
     # End Check if maintenance
 
-    notifyList = store.sql_get_tipnotify()
+    notifyList = await store.sql_get_tipnotify()
 
     if coin_family == "TRTL":
         COIN_DEC = get_decimal(COIN_NAME)
@@ -4152,7 +4159,7 @@ async def tipall(ctx, amount: str, *args):
                     f'Each member got: `{amountDiv_str}{COIN_NAME}`\n'
                     f'Actual spending: `{ActualSpend_str}{COIN_NAME}`')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
-                store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
+                await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
             numMsg = 0
             for member in listMembers:
                 # print(member.name) # you'll just print out Member objects your way.
@@ -4172,7 +4179,7 @@ async def tipall(ctx, amount: str, *args):
                                             f'{NOTIFICATION_OFF_CMD}')
                                         numMsg += 1
                                     except (discord.Forbidden, discord.errors.Forbidden) as e:
-                                        store.sql_toggle_tipnotify(str(member.id), "OFF")
+                                        await store.sql_toggle_tipnotify(str(member.id), "OFF")
                 if numMsg >= config.tipallMax_LimitDM:
                     # stop DM if reaches
                     break
@@ -4182,7 +4189,7 @@ async def tipall(ctx, amount: str, *args):
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{ctx.author.mention} Can not deliver TX for {COIN_NAME} right now. Try again soon.')
             # add to failed tx table
-            store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "TIPALL")
+            await store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "TIPALL")
             return
 
     elif coin_family == "XMR":
@@ -4238,7 +4245,7 @@ async def tipall(ctx, amount: str, *args):
                            f'{COIN_NAME} for each member. You need at least {num_format_coin(len(memids) * MinTx, COIN_NAME)}{COIN_NAME}.')
             return
 
-        tips = store.sql_mv_xmr_multiple(str(ctx.message.author.id), memids, amountDiv, COIN_NAME, "TIPALL")
+        tips = await store.sql_mv_xmr_multiple(str(ctx.message.author.id), memids, amountDiv, COIN_NAME, "TIPALL")
         if tips:
             servername = serverinfo['servername']
             tipAmount = num_format_coin(real_amount, COIN_NAME)
@@ -4254,7 +4261,7 @@ async def tipall(ctx, amount: str, *args):
                     f'Each member got: `{amountDiv_str}{COIN_NAME}`\n'
                     f'Actual spending: `{ActualSpend_str}{COIN_NAME}`')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
-                store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
+                await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
             numMsg = 0
             for member in listMembers:
                 if ctx.message.author.id != member.id:
@@ -4271,7 +4278,7 @@ async def tipall(ctx, amount: str, *args):
                                             f'{NOTIFICATION_OFF_CMD}')
                                         numMsg += 1
                                     except (discord.Forbidden, discord.errors.Forbidden) as e:
-                                        store.sql_toggle_tipnotify(str(member.id), "OFF")
+                                        await store.sql_toggle_tipnotify(str(member.id), "OFF")
                 if numMsg >= config.tipallMax_LimitDM:
                     # stop DM if reaches
                     break
@@ -4353,7 +4360,7 @@ async def tipall(ctx, amount: str, *args):
                     f'Each member got: `{amountDiv_str}{COIN_NAME}`\n'
                     f'Actual spending: `{ActualSpend_str}{COIN_NAME}`')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
-                store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
+                await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
             numMsg = 0
             for member in listMembers:
                 if ctx.message.author.id != member.id:
@@ -4370,7 +4377,7 @@ async def tipall(ctx, amount: str, *args):
                                             f'{NOTIFICATION_OFF_CMD}')
                                         numMsg += 1
                                     except (discord.Forbidden, discord.errors.Forbidden) as e:
-                                        store.sql_toggle_tipnotify(str(member.id), "OFF")
+                                        await store.sql_toggle_tipnotify(str(member.id), "OFF")
                 if numMsg >= config.tipallMax_LimitDM:
                     # stop DM if reaches
                     break
@@ -4401,7 +4408,7 @@ async def send(ctx, amount: str, CoinAddress: str):
 
     # if public and there is a bot channel
     if isinstance(ctx.channel, discord.DMChannel) == False:
-        serverinfo = get_info_pref_coin(ctx)
+        serverinfo = await get_info_pref_coin(ctx)
         server_prefix = serverinfo['server_prefix']
         # check if bot channel is set:
         if serverinfo and serverinfo['botchan']:
@@ -4416,7 +4423,7 @@ async def send(ctx, amount: str, CoinAddress: str):
         # end of bot channel check
 
     # Check flood of tip
-    floodTip = store.sql_get_countLastTip(str(ctx.message.author.id), config.floodTipDuration)
+    floodTip = await store.sql_get_countLastTip(str(ctx.message.author.id), config.floodTipDuration)
     if floodTip >= config.floodTip:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO}{ctx.author.mention} Cool down your tip or TX. or increase your amount next time.')
@@ -4711,7 +4718,7 @@ async def send(ctx, amount: str, CoinAddress: str):
                 await botLogChan.send(f'A user failed to execute `.send {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`.')
                 await ctx.send(f'{ctx.author.mention} Can not deliver TX for {COIN_NAME} right now. Try again soon.')
                 # add to failed tx table
-                store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "SEND")
+                await store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "SEND")
                 return
     elif coin_family == "XMR":
         COIN_DEC = get_decimal(COIN_NAME)
@@ -4884,7 +4891,7 @@ async def address(ctx, *args):
 
     # if public and there is a bot channel
     if isinstance(ctx.channel, discord.DMChannel) == False:
-        serverinfo = get_info_pref_coin(ctx)
+        serverinfo = await get_info_pref_coin(ctx)
         server_prefix = serverinfo['server_prefix']
         # check if bot channel is set:
         if serverinfo and serverinfo['botchan']:
@@ -4902,7 +4909,7 @@ async def address(ctx, *args):
         if isinstance(ctx.message.channel, discord.DMChannel):
             COIN_NAME = 'WRKZ'
         else:
-            serverinfo = store.sql_info_by_server(str(ctx.guild.id))
+            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
             try:
                 COIN_NAME = args[0].upper()
                 if COIN_NAME not in ENABLE_COIN:
@@ -5716,12 +5723,12 @@ async def stats(ctx, coin: str = None):
     COIN_NAME = None
     serverinfo = None
     if coin is None and isinstance(ctx.message.channel, discord.DMChannel) == False:
-        serverinfo = get_info_pref_coin(ctx)
+        serverinfo = await get_info_pref_coin(ctx)
         COIN_NAME = serverinfo['default_coin'].upper()
     elif coin is None and isinstance(ctx.message.channel, discord.DMChannel):
         COIN_NAME = "BOT"
     elif coin and isinstance(ctx.message.channel, discord.DMChannel) == False:
-        serverinfo = get_info_pref_coin(ctx)
+        serverinfo = await get_info_pref_coin(ctx)
         COIN_NAME = coin.upper()
     elif coin:
         COIN_NAME = coin.upper()
@@ -5746,8 +5753,8 @@ async def stats(ctx, coin: str = None):
     if COIN_NAME == "BOT":
         await bot.wait_until_ready()
         get_all_m = bot.get_all_members()
-        total_claimed = '{:,.0f}'.format(store.sql_faucet_count_all())
-        total_tx = store.sql_count_tx_all()
+        total_claimed = '{:,.0f}'.format(await store.sql_faucet_count_all())
+        total_tx = await store.sql_count_tx_all()
         embed = discord.Embed(title="[ TIPBOT ]", description="Bot Stats", color=0xDEADBF)
         embed.set_author(name=bot.user.name, icon_url=bot.user.avatar_url)
         embed.add_field(name="Bot ID", value=str(bot.user.id), inline=True)
@@ -5960,13 +5967,13 @@ async def feedback(ctx):
             return
 
         # Check if user has submitted any and reach limit
-        check_feedback_user = store.sql_get_feedback_count_last(str(ctx.message.author.id), config.feedback_setting.intervial_last_10mn_s)
+        check_feedback_user = await store.sql_get_feedback_count_last(str(ctx.message.author.id), config.feedback_setting.intervial_last_10mn_s)
         if check_feedback_user and check_feedback_user >= config.feedback_setting.intervial_last_10mn:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{ctx.author.mention} You had submitted {config.feedback_setting.intervial_last_10mn} already. '
                            'Waiting a bit before next submission.')
             return
-        check_feedback_user = store.sql_get_feedback_count_last(str(ctx.message.author.id), config.feedback_setting.intervial_each_user)
+        check_feedback_user = await store.sql_get_feedback_count_last(str(ctx.message.author.id), config.feedback_setting.intervial_each_user)
         if check_feedback_user and check_feedback_user >= 1:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{ctx.author.mention} You had submitted one feedback already for the last {config.feedback_setting.intervial_each_user}s.'
@@ -6013,8 +6020,8 @@ async def feedback(ctx):
                                 pass
                             else:
                                 if len(waiting_howtoback.content.strip()) > 0: howto_contact_back = waiting_howtoback.content.strip()
-                            add = store.sql_feedback_add(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), 
-                                                         feedback_id, text_in, feedback, howto_contact_back)
+                            add = await store.sql_feedback_add(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), 
+                                                               feedback_id, text_in, feedback, howto_contact_back)
                             if add:
                                 msg = await ctx.send(f'{ctx.author.mention} Thank you for your feedback / inquiry. Your feedback ref: **{feedback_id}**')
                                 await msg.add_reaction(EMOJI_OK_BOX)
@@ -6038,7 +6045,7 @@ async def view(ctx, ref: str):
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{ctx.author.mention} Feedback is not enable right now. Check back later.')
         return
-    get_feedback = store.sql_feedback_by_ref(ref)
+    get_feedback = await store.sql_feedback_by_ref(ref)
     if get_feedback is None:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{ctx.author.mention} We can not find feedback reference **{ref}**.')
@@ -6066,7 +6073,7 @@ async def list(ctx, userid: str=None):
         await ctx.send(f'{ctx.author.mention} Feedback is not enable right now. Check back later.')
         return
     if userid is None:
-        get_feedback_list = store.sql_feedback_list_by_user(str(ctx.message.author.id), 10)
+        get_feedback_list = await store.sql_feedback_list_by_user(str(ctx.message.author.id), 10)
         if get_feedback_list and len(get_feedback_list) > 0:
             table_data = [['Ref', 'Brief']]
             for each in get_feedback_list:
@@ -6086,7 +6093,7 @@ async def list(ctx, userid: str=None):
             await ctx.send(f'{ctx.author.mention} You have no permission.')
             return
         else:
-            get_feedback_list = store.sql_feedback_list_by_user(userid, 10)
+            get_feedback_list = await store.sql_feedback_list_by_user(userid, 10)
             if get_feedback_list and len(get_feedback_list) > 0:
                 table_data = [['Ref', 'Brief']]
                 for each in get_feedback_list:
@@ -6113,7 +6120,7 @@ async def height(ctx, coin: str = None):
             await ctx.send('Please add ticker: '+ ', '.join(ENABLE_COIN).lower() + ' with this command if in DM.')
             return
         else:
-            serverinfo = store.sql_info_by_server(str(ctx.guild.id))
+            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
             try:
                 COIN_NAME = args[0].upper()
                 if COIN_NAME not in ENABLE_COIN:
@@ -6185,19 +6192,18 @@ async def height(ctx, coin: str = None):
 @commands.has_permissions(manage_channels=True)
 async def setting(ctx, *args):
     global LIST_IGNORECHAN
-    LIST_IGNORECHAN = store.sql_listignorechan()
+    LIST_IGNORECHAN = await store.sql_listignorechan()
     # Check if address is valid first
     if isinstance(ctx.channel, discord.DMChannel):
         await ctx.send('This command is not available in DM.')
         return
     botLogChan = bot.get_channel(id=LOG_CHAN)
     tickers = '|'.join(ENABLE_COIN).lower()
-    serverinfo = store.sql_info_by_server(str(ctx.guild.id))
+    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
     if serverinfo is None:
         # Let's add some info if server return None
-        add_server_info = store.sql_addinfo_by_server(str(ctx.guild.id),
-                                                    ctx.message.guild.name, config.discord.prefixCmd,
-                                                    "WRKZ")
+        add_server_info = await store.sql_addinfo_by_server(str(ctx.guild.id),
+                                                            ctx.message.guild.name, config.discord.prefixCmd, "WRKZ")
         servername = ctx.message.guild.name
         server_id = str(ctx.guild.id)
         server_prefix = config.discord.prefixCmd
@@ -6225,31 +6231,28 @@ async def setting(ctx, *args):
             return
         elif args[0].upper() == "IGNORE_CHAN" or args[0].upper() == "IGNORECHAN":
             if LIST_IGNORECHAN is None:
-                #print('ok added..')
-                store.sql_addignorechan_by_server(str(ctx.guild.id), str(ctx.channel.id), str(ctx.message.author.id), ctx.message.author.name)
-                LIST_IGNORECHAN = store.sql_listignorechan()
+                await store.sql_addignorechan_by_server(str(ctx.guild.id), str(ctx.channel.id), str(ctx.message.author.id), ctx.message.author.name)
+                LIST_IGNORECHAN = await store.sql_listignorechan()
                 await ctx.send(f'Added #{ctx.channel.name} to ignore tip action list.')
                 return
-            # print(LIST_IGNORECHAN)
             if str(ctx.guild.id) in LIST_IGNORECHAN:
                 if str(ctx.channel.id) in LIST_IGNORECHAN[str(ctx.guild.id)]:
                     await ctx.send(f'This channel #{ctx.channel.name} is already in ignore list.')
                     return
                 else:
-                    #print('ok added..222')
-                    store.sql_addignorechan_by_server(str(ctx.guild.id), str(ctx.channel.id), str(ctx.message.author.id), ctx.message.author.name)
-                    LIST_IGNORECHAN = store.sql_listignorechan()
+                    await store.sql_addignorechan_by_server(str(ctx.guild.id), str(ctx.channel.id), str(ctx.message.author.id), ctx.message.author.name)
+                    LIST_IGNORECHAN = await store.sql_listignorechan()
                     await ctx.send(f'Added #{ctx.channel.name} to ignore tip action list.')
                     return
             else:
-                store.sql_addignorechan_by_server(str(ctx.guild.id), str(ctx.channel.id), str(ctx.message.author.id), ctx.message.author.name)
+                await store.sql_addignorechan_by_server(str(ctx.guild.id), str(ctx.channel.id), str(ctx.message.author.id), ctx.message.author.name)
                 await ctx.send(f'Added #{ctx.channel.name} to ignore tip action list.')
                 return
         elif args[0].upper() == "DEL_IGNORE_CHAN" or args[0].upper() == "DEL_IGNORECHAN" or args[0].upper() == "DELIGNORECHAN":
             if str(ctx.guild.id) in LIST_IGNORECHAN:
                 if str(ctx.channel.id) in LIST_IGNORECHAN[str(ctx.guild.id)]:
-                    store.sql_delignorechan_by_server(str(ctx.guild.id), str(ctx.channel.id))
-                    LIST_IGNORECHAN = store.sql_listignorechan()
+                    await store.sql_delignorechan_by_server(str(ctx.guild.id), str(ctx.channel.id))
+                    LIST_IGNORECHAN = await store.sql_listignorechan()
                     await ctx.send(f'This channel #{ctx.channel.name} is deleted from ignore tip list.')
                     return
                 else:
@@ -6259,8 +6262,6 @@ async def setting(ctx, *args):
                 await ctx.send(f'Channel #{ctx.channel.name} is not in ignore tip action list.')
                 return
         elif args[0].upper() == "BOTCHAN" or args[0].upper() == "BOTCHANNEL" or args[0].upper() == "BOT_CHAN":
-            # botChan = ctx.channel.id
-            # check if bot channel exists,
             if serverinfo['botchan']:
                 try: 
                     if ctx.channel.id == int(serverinfo['botchan']):
@@ -6268,7 +6269,7 @@ async def setting(ctx, *args):
                         return
                     else:
                         # change channel info
-                        changeinfo = store.sql_changeinfo_by_server(str(ctx.guild.id), 'botchan', str(ctx.channel.id))
+                        changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'botchan', str(ctx.channel.id))
                         await ctx.send(f'Bot channel has set to {ctx.channel.mention}.')
                         await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} change bot channel {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.')
                         return
@@ -6276,7 +6277,7 @@ async def setting(ctx, *args):
                     return
             else:
                 # change channel info
-                changeinfo = store.sql_changeinfo_by_server(str(ctx.guild.id), 'botchan', str(ctx.channel.id))
+                changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'botchan', str(ctx.channel.id))
                 await ctx.send(f'Bot channel has set to {ctx.channel.mention}.')
                 await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} changed bot channel {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.')
                 return
@@ -6289,7 +6290,7 @@ async def setting(ctx, *args):
                 set_coin = args[1].upper()
                 if set_coin in ["ALLCOIN", "*", "ALL", "TIPALL", "ANY"]:
                     set_coin = "ALLCOIN"
-                changeinfo = store.sql_changeinfo_by_server(str(ctx.guild.id), 'tiponly', set_coin)
+                changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'tiponly', set_coin)
                 if set_coin == "ALLCOIN":
                     await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} changed tiponly in {ctx.guild.name} / {ctx.guild.id} to `ALLCOIN`')
                     await ctx.send(f'{ctx.author.mention} Any coin is **allowed** here.')
@@ -6306,7 +6307,7 @@ async def setting(ctx, *args):
                     await ctx.send(f'{ctx.author.mention} That\'s the default prefix. Nothing changed.')
                     return
                 else:
-                    changeinfo = store.sql_changeinfo_by_server(str(ctx.guild.id), 'prefix', args[1].lower())
+                    changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'prefix', args[1].lower())
                     await ctx.send(f'{ctx.author.mention} Prefix changed from `{server_prefix}` to `{args[1].lower()}`.')
                     await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} changed prefix in {ctx.guild.name} / {ctx.guild.id} to `{args[1].lower()}`')
                     return
@@ -6319,7 +6320,7 @@ async def setting(ctx, *args):
                     await ctx.send(f'{ctx.author.mention} That\'s the default coin. Nothing changed.')
                     return
                 else:
-                    changeinfo = store.sql_changeinfo_by_server(str(ctx.guild.id), 'default_coin', args[1].upper())
+                    changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'default_coin', args[1].upper())
                     await ctx.send(f'Default Coin changed from `{server_coin}` to `{args[1].upper()}`.')
                     await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} changed default coin in {ctx.guild.name} / {ctx.guild.id} to {args[1].upper()}.')
                     return
@@ -6332,7 +6333,7 @@ async def setting(ctx, *args):
                     await ctx.send(f'{ctx.author.mention} That\'s the default option already. Nothing changed.')
                     return
                 else:
-                    changeinfo = store.sql_changeinfo_by_server(str(ctx.guild.id), 'react_tip', args[1].upper())
+                    changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'react_tip', args[1].upper())
                     await ctx.send(f'React Tip changed from `{server_reacttip}` to `{args[1].upper()}`.')
                     return
         elif args[0].upper() == "REACTAMOUNT" or args[0].upper() == "REACTTIP-AMOUNT":
@@ -6343,7 +6344,7 @@ async def setting(ctx, *args):
                 await ctx.message.add_reaction(EMOJI_ERROR)
                 await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid amount.')
                 return
-            changeinfo = store.sql_changeinfo_by_server(str(ctx.guild.id), 'react_tip_100', amount)
+            changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'react_tip_100', amount)
             await ctx.send(f'React tip amount updated to to `{amount}{server_coin}`.')
             return
         else:
@@ -6356,7 +6357,7 @@ async def setting(ctx, *args):
                 await ctx.send(f'{ctx.author.mention} Please tell what coins to be allowed here. Separated by space.')
                 return
             if args[1].upper() == "ALLCOIN" or args[1].upper() == "ALL" or args[1].upper() == "TIPALL" or args[1].upper() == "ANY" or args[1].upper() == "*":
-                changeinfo = store.sql_changeinfo_by_server(str(ctx.guild.id), 'tiponly', "ALLCOIN")
+                changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'tiponly', "ALLCOIN")
                 await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} changed tiponly in {ctx.guild.name} / {ctx.guild.id} to `ALLCOIN`')
                 await ctx.send(f'{ctx.author.mention} all coins will be allowed in here.')
                 return
@@ -6371,7 +6372,7 @@ async def setting(ctx, *args):
                     tiponly_value = ','.join(contained)
                     await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} changed tiponly in {ctx.guild.name} / {ctx.guild.id} to `{tiponly_value}`')
                     await ctx.send(f'{ctx.author.mention} TIPONLY set to: {tiponly_value}.')
-                    changeinfo = store.sql_changeinfo_by_server(str(ctx.guild.id), 'tiponly', tiponly_value.upper())
+                    changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'tiponly', tiponly_value.upper())
                     return
         await ctx.send(f'{ctx.author.mention} In valid command input and parameter.')
         return
@@ -6389,7 +6390,7 @@ async def itag(ctx, *, itag_text: str = None):
     if isinstance(ctx.channel, discord.DMChannel):
         await ctx.send(f'{EMOJI_RED_NO} This command can not be in private.')
         return
-    ListiTag = store.sql_itag_by_server(str(ctx.guild.id))
+    ListiTag = await store.sql_itag_by_server(str(ctx.guild.id))
     if not ctx.message.attachments:
         # Find available tag
         if itag_text is None:
@@ -6404,7 +6405,7 @@ async def itag(ctx, *, itag_text: str = None):
             # .itag -del tagid
             command_del = itag_text.split(" ")
             if len(command_del) >= 2:
-                TagIt = store.sql_itag_by_server(str(ctx.guild.id), command_del[1].upper())
+                TagIt = await store.sql_itag_by_server(str(ctx.guild.id), command_del[1].upper())
                 if command_del[0].upper() == "-DEL" and TagIt:
                     # check permission if there is attachment with .itag
                     if ctx.author.guild_permissions.manage_guild == False:
@@ -6412,7 +6413,7 @@ async def itag(ctx, *, itag_text: str = None):
                         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **itag** Permission denied.')
                         return
                     else:
-                        DeliTag = store.sql_itag_by_server_del(str(ctx.guild.id), command_del[1].upper())
+                        DeliTag = await store.sql_itag_by_server_del(str(ctx.guild.id), command_del[1].upper())
                         if DeliTag:
                             await ctx.send(f'{ctx.author.mention} iTag **{command_del[1].upper()}** deleted.\n')
                         else:
@@ -6422,7 +6423,7 @@ async def itag(ctx, *, itag_text: str = None):
                     await ctx.send(f'{ctx.author.mention} iTag unknow operation.\n')
                     return
             elif len(command_del) == 1:
-                TagIt = store.sql_itag_by_server(str(ctx.guild.id), itag_text.upper())
+                TagIt = await store.sql_itag_by_server(str(ctx.guild.id), itag_text.upper())
                 if TagIt:
                     tagLink = config.itag.static_link + TagIt['stored_name']
                     await ctx.send(f'{tagLink}')
@@ -6480,9 +6481,9 @@ async def itag(ctx, *, itag_text: str = None):
                             with open(config.itag.path + attach_save_name, 'wb') as f:
                                 f.write(await resp.read())
                             # save to DB and inform
-                            addiTag = store.sql_itag_by_server_add(str(ctx.guild.id), itag_text.upper(),
-                                                                  str(ctx.message.author), str(ctx.message.author.id),
-                                                                  attachment.filename, attach_save_name, attachment.size)
+                            addiTag = await store.sql_itag_by_server_add(str(ctx.guild.id), itag_text.upper(),
+                                                                         str(ctx.message.author), str(ctx.message.author.id),
+                                                                         attachment.filename, attach_save_name, attachment.size)
                             if addiTag is None:
                                 await ctx.send(f'{ctx.author.mention} Failed to add itag **{itag_text}**')
                                 return
@@ -6499,7 +6500,7 @@ async def tag(ctx, *args):
         await ctx.send(f'{ctx.author.mention} {EMOJI_RED_NO} This command can not be in private.')
         return
 
-    ListTag = store.sql_tag_by_server(str(ctx.guild.id), None)
+    ListTag = await store.sql_tag_by_server(str(ctx.guild.id), None)
 
     if len(args) == 0:
         if len(ListTag) > 0:
@@ -6517,7 +6518,7 @@ async def tag(ctx, *args):
             return
     elif len(args) == 1:
         # if .tag test
-        TagIt = store.sql_tag_by_server(str(ctx.guild.id), args[0].upper())
+        TagIt = await store.sql_tag_by_server(str(ctx.guild.id), args[0].upper())
         # print(TagIt)
         if TagIt:
             tagDesc = TagIt['tag_desc']
@@ -6551,8 +6552,8 @@ async def tag(ctx, *args):
                 if tag.upper() in d:
                     await ctx.send(f'{ctx.author.mention} Tag **{args[1]}** already exists here.')
                     return
-            addTag = store.sql_tag_by_server_add(str(ctx.guild.id), tag.strip(), tagDesc.strip(),
-                                                 ctx.message.author.name, str(ctx.message.author.id))
+            addTag = await store.sql_tag_by_server_add(str(ctx.guild.id), tag.strip(), tagDesc.strip(),
+                                                       ctx.message.author.name, str(ctx.message.author.id))
             if addTag is None:
                 msg = await ctx.send(f'{ctx.author.mention} Failed to add tag **{args[1]}**')
                 await msg.add_reaction(EMOJI_OK_BOX)
@@ -6574,7 +6575,7 @@ async def tag(ctx, *args):
         #print('Has permission:' + str(ctx.message.content))
         if re.match('^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*$', args[1]):
             tag = args[1].upper()
-            delTag = store.sql_tag_by_server_del(str(ctx.guild.id), tag.strip())
+            delTag = await store.sql_tag_by_server_del(str(ctx.guild.id), tag.strip())
             if delTag is None:
                 await ctx.send(f'{ctx.author.mention} Failed to delete tag ***{args[1]}***')
                 return
@@ -6643,7 +6644,7 @@ async def alert_if_userlock(ctx, cmd: str):
     botLogChan = bot.get_channel(id=LOG_CHAN)
     get_discord_userinfo = None
     try:
-        get_discord_userinfo = store.sql_discord_userinfo_get(str(ctx.message.author.id))
+        get_discord_userinfo = await store.sql_discord_userinfo_get(str(ctx.message.author.id))
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     if get_discord_userinfo is None:
@@ -6656,17 +6657,16 @@ async def alert_if_userlock(ctx, cmd: str):
             return None
 
 
-def get_info_pref_coin(ctx):
+async def get_info_pref_coin(ctx):
     if isinstance(ctx.channel, discord.DMChannel):
         prefixChar = '.'
         return {'server_prefix': prefixChar}
     else:
-        serverinfo = store.sql_info_by_server(str(ctx.guild.id))
+        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo is None:
             # Let's add some info if server return None
-            add_server_info = store.sql_addinfo_by_server(str(ctx.guild.id),
-                                                          ctx.message.guild.name, config.discord.prefixCmd,
-                                                          "WRKZ")
+            add_server_info = await store.sql_addinfo_by_server(str(ctx.guild.id),
+                                                                ctx.message.guild.name, config.discord.prefixCmd, "WRKZ")
             servername = ctx.message.guild.name
             server_id = str(ctx.guild.id)
             server_prefix = config.discord.prefixCmd
@@ -6954,7 +6954,7 @@ async def update_user_guild():
             num_user = sum(1 for _ in g.members)
             num_bot = sum(1 for member in g.members if member.bot == True)
             num_online = sum(1 for member in g.members if member.status != "offline")
-            store.sql_updatestat_by_server(str(g.id), num_user, num_bot, num_channel, num_online)
+            await store.sql_updatestat_by_server(str(g.id), num_user, num_bot, num_channel, num_online)
         await asyncio.sleep(60)
 
 
@@ -7072,10 +7072,10 @@ async def saving_wallet():
 # Multiple tip
 async def _tip(ctx, amount, coin: str):
     botLogChan = bot.get_channel(id=LOG_CHAN)
-    serverinfo = store.sql_info_by_server(str(ctx.guild.id))
+    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
     COIN_NAME = coin.upper()
 
-    notifyList = store.sql_get_tipnotify()
+    notifyList = await store.sql_get_tipnotify()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     if coin_family == "TRTL":
         COIN_DEC = get_decimal(COIN_NAME)
@@ -7209,7 +7209,7 @@ async def _tip(ctx, amount, coin: str):
                                         f'Each: `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`'
                                         f'Total spending: `{num_format_coin(ActualSpend, COIN_NAME)} {COIN_NAME}`')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
-                store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
+                await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
             for member in ctx.message.mentions:
                 if ctx.message.author.id != member.id:
                     if member.bot == False:
@@ -7220,7 +7220,7 @@ async def _tip(ctx, amount, coin: str):
                                                 f'{tip_tx_tipper}\n'
                                                 f'{NOTIFICATION_OFF_CMD}')
                             except (discord.Forbidden, discord.errors.Forbidden) as e:
-                                store.sql_toggle_tipnotify(str(member.id), "OFF")
+                                await store.sql_toggle_tipnotify(str(member.id), "OFF")
                             pass
             return
         else:
@@ -7229,7 +7229,7 @@ async def _tip(ctx, amount, coin: str):
             await botLogChan.send(f'A user failed to _tip `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`.')
             await msg.add_reaction(EMOJI_OK_BOX)
             # add to failed tx table
-            store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "TIPS")
+            await store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "TIPS")
             return
 
     elif coin_family == "XMR":
@@ -7279,7 +7279,7 @@ async def _tip(ctx, amount, coin: str):
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You don\'t have sufficient balance. ')
             return
         try:
-            tips = store.sql_mv_xmr_multiple(str(ctx.message.author.id), memids, real_amount, COIN_NAME, "TIPS")
+            tips = await store.sql_mv_xmr_multiple(str(ctx.message.author.id), memids, real_amount, COIN_NAME, "TIPS")
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         if tips:
@@ -7297,7 +7297,7 @@ async def _tip(ctx, amount, coin: str):
                     f'was sent to ({len(memids)}) members in server `{servername}`.\n'
                     f'Each member got: `{amountDiv_str}{COIN_NAME}`\n')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
-                store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
+                await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
             for member in ctx.message.mentions:
                 # print(member.name) # you'll just print out Member objects your way.
                 if (ctx.message.author.id != member.id):
@@ -7309,7 +7309,7 @@ async def _tip(ctx, amount, coin: str):
                                     f'from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{servername}`\n'
                                     f'{NOTIFICATION_OFF_CMD}')
                             except (discord.Forbidden, discord.errors.Forbidden) as e:
-                                store.sql_toggle_tipnotify(str(member.id), "OFF")
+                                await store.sql_toggle_tipnotify(str(member.id), "OFF")
             return
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -7382,7 +7382,7 @@ async def _tip(ctx, amount, coin: str):
                     f'was sent to ({len(memids)}) members in server `{servername}`.\n'
                     f'Each member got: `{amountDiv_str}{COIN_NAME}`\n')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
-                store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
+                await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
             for member in ctx.message.mentions:
                 # print(member.name) # you'll just print out Member objects your way.
                 if (ctx.message.author.id != member.id):
@@ -7394,7 +7394,7 @@ async def _tip(ctx, amount, coin: str):
                                     f'from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{servername}`\n'
                                     f'{NOTIFICATION_OFF_CMD}')
                             except (discord.Forbidden, discord.errors.Forbidden) as e:
-                                store.sql_toggle_tipnotify(str(member.id), "OFF")
+                                await store.sql_toggle_tipnotify(str(member.id), "OFF")
             return
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -7409,7 +7409,7 @@ async def _tip(ctx, amount, coin: str):
 # Multiple tip
 async def _tip_talker(ctx, amount, list_talker, coin: str = None):
     botLogChan = bot.get_channel(id=LOG_CHAN)
-    serverinfo = store.sql_info_by_server(str(ctx.guild.id))
+    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     try:
@@ -7419,7 +7419,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid amount.')
         return
 
-    notifyList = store.sql_get_tipnotify()
+    notifyList = await store.sql_get_tipnotify()
     if coin_family not in ["TRTL", "DOGE", "XMR"]:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} is restricted with this command.')
@@ -7567,7 +7567,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
                                         f'Each: `{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}`'
                                         f'Total spending: `{num_format_coin(ActualSpend, COIN_NAME)}{COIN_NAME}`')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
-                store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
+                await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
             mention_list_name = ''
             for member_id in list_talker:
                 if ctx.message.author.id != int(member_id):
@@ -7581,7 +7581,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
                                                 f'{tip_tx_tipper}\n'
                                                 f'{NOTIFICATION_OFF_CMD}')
                             except (discord.Forbidden, discord.errors.Forbidden) as e:
-                                store.sql_toggle_tipnotify(str(member.id), "OFF")
+                                await store.sql_toggle_tipnotify(str(member.id), "OFF")
                             pass
             try:
                 await ctx.send(f'{mention_list_name}\n\nYou got tip :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
@@ -7595,7 +7595,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
             await botLogChan.send(f'A user failed to _tip_talker `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`.')
             await msg.add_reaction(EMOJI_OK_BOX)
             # add to failed tx table
-            store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "TIPS")
+            await store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "TIPS")
             return
     elif coin_family == "XMR":
         COIN_DEC = get_decimal(COIN_NAME)
@@ -7646,7 +7646,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You don\'t have sufficient balance. ')
             return
         try:
-            tips = store.sql_mv_xmr_multiple(str(ctx.message.author.id), memids, real_amount, COIN_NAME, "TIPS")
+            tips = await store.sql_mv_xmr_multiple(str(ctx.message.author.id), memids, real_amount, COIN_NAME, "TIPS")
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         if tips:
@@ -7660,7 +7660,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
                     f'was sent to ({len(memids)}) members in server `{servername}` for active talking.\n'
                     f'Each member got: `{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}`\n')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
-                store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
+                await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
             mention_list_name = ''
             for member_id in list_talker:
                 # print(member.name) # you'll just print out Member objects your way.
@@ -7675,7 +7675,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
                                     f'from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{servername}` for active talking.\n'
                                     f'{NOTIFICATION_OFF_CMD}')
                             except (discord.Forbidden, discord.errors.Forbidden) as e:
-                                store.sql_toggle_tipnotify(str(member.id), "OFF")
+                                await store.sql_toggle_tipnotify(str(member.id), "OFF")
             try:
                 await ctx.send(f'{mention_list_name}\n\nYou got tip :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
                 await ctx.message.add_reaction(EMOJI_SPEAK)
@@ -7750,7 +7750,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
                     f'was sent to ({len(memids)}) members in server `{servername}` for active talking.\n'
                     f'Each member got: `{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}`\n')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
-                store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
+                await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
             mention_list_name = ''
             for member_id in list_talker:
                 # print(member.name) # you'll just print out Member objects your way.
@@ -7765,7 +7765,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
                                     f'from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{servername}` for active talking.\n'
                                     f'{NOTIFICATION_OFF_CMD}')
                             except (discord.Forbidden, discord.errors.Forbidden) as e:
-                                store.sql_toggle_tipnotify(str(member.id), "OFF")
+                                await store.sql_toggle_tipnotify(str(member.id), "OFF")
             try:
                 await ctx.send(f'{mention_list_name}\n\nYou got tip :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
                 await ctx.message.add_reaction(EMOJI_SPEAK)
@@ -7786,14 +7786,14 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
 async def _tip_react(reaction, user, amount, coin: str):
     global REACT_TIP_STORE
     botLogChan = bot.get_channel(id=LOG_CHAN)
-    serverinfo = store.sql_info_by_server(str(reaction.message.guild.id))
+    serverinfo = await store.sql_info_by_server(str(reaction.message.guild.id))
     COIN_NAME = coin.upper()
 
     # If only one user and he re-act
     if len(reaction.message.mentions) == 1 and user in (reaction.message.mentions):
         return
         
-    notifyList = store.sql_get_tipnotify()
+    notifyList = await store.sql_get_tipnotify()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     if coin_family == "TRTL":
         COIN_DEC = get_decimal(COIN_NAME)
@@ -7906,7 +7906,7 @@ async def _tip_react(reaction, user, amount, coin: str):
                                 f'Each: `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`'
                                 f'Total spending: `{num_format_coin(ActualSpend, COIN_NAME)} {COIN_NAME}`')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
-                store.sql_toggle_tipnotify(str(user.id), "OFF")
+                await store.sql_toggle_tipnotify(str(user.id), "OFF")
             for member in reaction.message.mentions:
                 if user.id != member.id and reaction.message.author.id != member.id:
                     if member.bot == False:
@@ -7917,7 +7917,7 @@ async def _tip_react(reaction, user, amount, coin: str):
                                                 f'{tip_tx_tipper}\n'
                                                 f'{NOTIFICATION_OFF_CMD}')
                             except (discord.Forbidden, discord.errors.Forbidden) as e:
-                                store.sql_toggle_tipnotify(str(member.id), "OFF")
+                                await store.sql_toggle_tipnotify(str(member.id), "OFF")
                             pass
             return
         else:
@@ -7925,7 +7925,7 @@ async def _tip_react(reaction, user, amount, coin: str):
             await botLogChan.send(f'A user failed to _tip_react `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`.')
             await msg.add_reaction(EMOJI_OK_BOX)
             # add to failed tx table
-            store.sql_add_failed_tx(COIN_NAME, str(user.id), user.name, real_amount, "REACTTIP")
+            await store.sql_add_failed_tx(COIN_NAME, str(user.id), user.name, real_amount, "REACTTIP")
             return
 
     elif coin_family == "XMR":
@@ -7958,7 +7958,7 @@ async def _tip_react(reaction, user, amount, coin: str):
                 print(f"{COIN_NAME} _tip_reactCan not send DM to {user.id}")
             return
         try:
-            tips = store.sql_mv_xmr_multiple(str(user.id), memids, real_amount, COIN_NAME, "TIPS")
+            tips = await store.sql_mv_xmr_multiple(str(user.id), memids, real_amount, COIN_NAME, "TIPS")
             REACT_TIP_STORE.append((str(reaction.message.id) + '.' + str(user.id)))
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
@@ -7974,7 +7974,7 @@ async def _tip_react(reaction, user, amount, coin: str):
                     f'was sent to ({len(memids)}) members in server `{servername}`.\n'
                     f'Each member got: `{amountDiv_str}{COIN_NAME}`\n')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
-                store.sql_toggle_tipnotify(str(user.id), "OFF")
+                await store.sql_toggle_tipnotify(str(user.id), "OFF")
             for member in reaction.message.mentions:
                 # print(member.name) # you'll just print out Member objects your way.
                 if (user.id != member.id):
@@ -7986,7 +7986,7 @@ async def _tip_react(reaction, user, amount, coin: str):
                                     f'from {user.name}#{user.discriminator} in server `{servername}`\n'
                                     f'{NOTIFICATION_OFF_CMD}')
                             except (discord.Forbidden, discord.errors.Forbidden) as e:
-                                store.sql_toggle_tipnotify(str(member.id), "OFF")
+                                await store.sql_toggle_tipnotify(str(member.id), "OFF")
             return
         return
     elif coin_family == "DOGE":
@@ -8039,7 +8039,7 @@ async def _tip_react(reaction, user, amount, coin: str):
                     f'was sent to ({len(memids)}) members in server `{servername}`.\n'
                     f'Each member got: `{amountDiv_str}{COIN_NAME}`\n')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
-                store.sql_toggle_tipnotify(str(user.id), "OFF")
+                await store.sql_toggle_tipnotify(str(user.id), "OFF")
             for member in reaction.message.mentions:
                 # print(member.name) # you'll just print out Member objects your way.
                 if (user.id != member.id):
@@ -8051,7 +8051,7 @@ async def _tip_react(reaction, user, amount, coin: str):
                                     f'from {user.name}#{user.discriminator} in server `{servername}`\n'
                                     f'{NOTIFICATION_OFF_CMD}')
                             except (discord.Forbidden, discord.errors.Forbidden) as e:
-                                store.sql_toggle_tipnotify(str(member.id), "OFF")
+                                await store.sql_toggle_tipnotify(str(member.id), "OFF")
             return
         return
 
@@ -8297,7 +8297,7 @@ async def store_action_list():
                 temp_action_list = []
                 for each in redis_conn.lrange(key, 0, -1):
                     temp_action_list.append(tuple(json.loads(each)))
-                num_add = store.sql_add_logs_tx(temp_action_list)
+                num_add = await store.sql_add_logs_tx(temp_action_list)
                 if num_add > 0:
                     redis_conn.delete(key)
                 else:
@@ -8322,7 +8322,7 @@ async def add_tx_action_redis(action: str, delete_temp: bool = False):
 
 async def get_guild_prefix(ctx):
     if isinstance(ctx.channel, discord.DMChannel) == True: return "."
-    serverinfo = store.sql_info_by_server(str(ctx.guild.id))
+    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
     if serverinfo is None:
         return "."
     else:
@@ -8352,7 +8352,7 @@ async def store_message_list():
                 temp_msg_list = []
                 for each in redis_conn.lrange(key, 0, -1):
                     temp_msg_list.append(tuple(json.loads(each)))
-                num_add = store.sql_add_messages(temp_msg_list)
+                num_add = await store.sql_add_messages(temp_msg_list)
                 if num_add > 0:
                     redis_conn.delete(key)
                 else:

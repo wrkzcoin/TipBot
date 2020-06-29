@@ -671,7 +671,7 @@ async def sql_get_userwallet(userID, coin: str, user_server: str = 'DISCORD'):
     return None
 
 
-def sql_get_countLastTip(userID, lastDuration: int):
+async def sql_get_countLastTip(userID, lastDuration: int):
     global conn
     lapDuration = int(time.time()) - lastDuration
     try:
@@ -1139,7 +1139,7 @@ async def sql_donate(user_from: str, address_to: str, amount: int, coin: str, us
         return None
 
 
-def sql_get_donate_list():
+async def sql_get_donate_list():
     global conn
     donate_list = {}
     try:
@@ -1345,7 +1345,7 @@ async def sql_voucher_get_user(user_id: str, user_server: str='DISCORD', last: i
     return None
 
 
-def sql_faucet_add(claimed_user: str, claimed_server: str, coin_name: str, claimed_amount: float, decimal: int, tx_hash: str, user_server: str = 'DISCORD'):
+async def sql_faucet_add(claimed_user: str, claimed_server: str, coin_name: str, claimed_amount: float, decimal: int, tx_hash: str, user_server: str = 'DISCORD'):
     global conn
     user_server = user_server.upper()
     if user_server not in ['DISCORD', 'TELEGRAM']:
@@ -1367,12 +1367,12 @@ def sql_faucet_add(claimed_user: str, claimed_server: str, coin_name: str, claim
         traceback.print_exc(file=sys.stdout)
 
 
-def sql_faucet_checkuser(userID: str, user_server: str = 'DISCORD'):
+async def sql_faucet_checkuser(userID: str, user_server: str = 'DISCORD'):
     global conn
     user_server = user_server.upper()
     if user_server not in ['DISCORD', 'TELEGRAM']:
         return
-    list_roach = sql_roach_get_by_id(userID, user_server)
+    list_roach = await sql_roach_get_by_id(userID, user_server)
     try:
         openConnection()
         with conn.cursor() as cur:
@@ -1391,7 +1391,7 @@ def sql_faucet_checkuser(userID: str, user_server: str = 'DISCORD'):
         traceback.print_exc(file=sys.stdout)
 
 
-def sql_faucet_count_user(userID: str, user_server: str = 'DISCORD'):
+async def sql_faucet_count_user(userID: str, user_server: str = 'DISCORD'):
     global conn
     user_server = user_server.upper()
     if user_server not in ['DISCORD', 'TELEGRAM']:
@@ -1407,7 +1407,7 @@ def sql_faucet_count_user(userID: str, user_server: str = 'DISCORD'):
         traceback.print_exc(file=sys.stdout)
 
 
-def sql_faucet_count_all():
+async def sql_faucet_count_all():
     global conn
     try:
         openConnection()
@@ -1420,7 +1420,7 @@ def sql_faucet_count_all():
         traceback.print_exc(file=sys.stdout)
 
 
-def sql_count_tx_all():
+async def sql_count_tx_all():
     global conn
     try:
         openConnection()
@@ -1476,7 +1476,8 @@ def sql_count_tx_all():
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
 
-def sql_tag_by_server(server_id: str, tag_id: str = None):
+
+async def sql_tag_by_server(server_id: str, tag_id: str = None):
     global conn, redis_pool, redis_conn, redis_expired
     try:
         openConnection()
@@ -1511,7 +1512,7 @@ def sql_tag_by_server(server_id: str, tag_id: str = None):
         traceback.print_exc(file=sys.stdout)
 
 
-def sql_tag_by_server_add(server_id: str, tag_id: str, tag_desc: str, added_byname: str, added_byuid: str):
+async def sql_tag_by_server_add(server_id: str, tag_id: str, tag_desc: str, added_byname: str, added_byuid: str):
     global conn
     try:
         openConnection()
@@ -1540,7 +1541,7 @@ def sql_tag_by_server_add(server_id: str, tag_id: str, tag_desc: str, added_byna
         traceback.print_exc(file=sys.stdout)
 
 
-def sql_tag_by_server_del(server_id: str, tag_id: str):
+async def sql_tag_by_server_del(server_id: str, tag_id: str):
     global conn
     try:
         openConnection()
@@ -1568,7 +1569,7 @@ def sql_tag_by_server_del(server_id: str, tag_id: str):
         traceback.print_exc(file=sys.stdout)
 
 
-def sql_itag_by_server(server_id: str, tag_id: str = None):
+async def sql_itag_by_server(server_id: str, tag_id: str = None):
     global conn
     try:
         openConnection()
@@ -1593,7 +1594,7 @@ def sql_itag_by_server(server_id: str, tag_id: str = None):
         traceback.print_exc(file=sys.stdout)
 
 
-def sql_itag_by_server_add(server_id: str, tag_id: str, added_byname: str, added_byuid: str, orig_name: str, stored_name: str, fsize: int):
+async def sql_itag_by_server_add(server_id: str, tag_id: str, added_byname: str, added_byuid: str, orig_name: str, stored_name: str, fsize: int):
     global conn
     try:
         openConnection()
@@ -1620,7 +1621,7 @@ def sql_itag_by_server_add(server_id: str, tag_id: str, added_byname: str, added
         traceback.print_exc(file=sys.stdout)
 
 
-def sql_itag_by_server_del(server_id: str, tag_id: str):
+async def sql_itag_by_server_del(server_id: str, tag_id: str):
     global conn
     try:
         openConnection()
@@ -1641,7 +1642,7 @@ def sql_itag_by_server_del(server_id: str, tag_id: str):
         traceback.print_exc(file=sys.stdout)
 
 
-def sql_get_allguild():
+async def sql_get_allguild():
     global conn
     try:
         openConnection()
@@ -1654,7 +1655,7 @@ def sql_get_allguild():
         traceback.print_exc(file=sys.stdout)
 
 
-def sql_info_by_server(server_id: str):
+async def sql_info_by_server(server_id: str):
     global conn
     try:
         openConnection()
@@ -1667,7 +1668,7 @@ def sql_info_by_server(server_id: str):
         traceback.print_exc(file=sys.stdout)
 
 
-def sql_addinfo_by_server(server_id: str, servername: str, prefix: str, default_coin: str, rejoin: bool = True):
+async def sql_addinfo_by_server(server_id: str, servername: str, prefix: str, default_coin: str, rejoin: bool = True):
     global conn
     try:
         openConnection()
@@ -1688,7 +1689,7 @@ def sql_addinfo_by_server(server_id: str, servername: str, prefix: str, default_
         traceback.print_exc(file=sys.stdout)
 
 
-def sql_add_messages(list_messages):
+async def sql_add_messages(list_messages):
     if len(list_messages) == 0:
         return 0
     global conn
@@ -1705,7 +1706,7 @@ def sql_add_messages(list_messages):
         traceback.print_exc(file=sys.stdout)
 
 
-def sql_get_messages(server_id: str, channel_id: str, time_int: int, num_user: int=None):
+async def sql_get_messages(server_id: str, channel_id: str, time_int: int, num_user: int=None):
     global conn
     lapDuration = int(time.time()) - time_int
     try:
@@ -1736,7 +1737,7 @@ def sql_get_messages(server_id: str, channel_id: str, time_int: int, num_user: i
     return None
 
 
-def sql_changeinfo_by_server(server_id: str, what: str, value: str):
+async def sql_changeinfo_by_server(server_id: str, what: str, value: str):
     global conn
     if what.lower() in ["servername", "prefix", "default_coin", "tiponly", "numb_user", "numb_bot", "numb_channel", "react_tip", "react_tip_100", "lastUpdate", "botchan"]:
         try:
@@ -1751,7 +1752,7 @@ def sql_changeinfo_by_server(server_id: str, what: str, value: str):
             traceback.print_exc(file=sys.stdout)
 
 
-def sql_updatestat_by_server(server_id: str, numb_user: int, numb_bot: int, numb_channel: int, numb_online: int):
+async def sql_updatestat_by_server(server_id: str, numb_user: int, numb_bot: int, numb_channel: int, numb_online: int):
     global conn
     try:
         openConnection()
@@ -1765,7 +1766,7 @@ def sql_updatestat_by_server(server_id: str, numb_user: int, numb_bot: int, numb
         traceback.print_exc(file=sys.stdout)
 
 
-def sql_discord_userinfo_get(user_id: str):
+async def sql_discord_userinfo_get(user_id: str):
     global conn
     try:
         openConnection()
@@ -1781,7 +1782,7 @@ def sql_discord_userinfo_get(user_id: str):
     return None
 
 
-def sql_userinfo_locked(user_id: str, locked: str, locked_reason: str, locked_by: str):
+async def sql_userinfo_locked(user_id: str, locked: str, locked_reason: str, locked_by: str):
     global conn
     if locked.upper() not in ["YES", "NO"]:
         return
@@ -1808,7 +1809,7 @@ def sql_userinfo_locked(user_id: str, locked: str, locked_reason: str, locked_by
         traceback.print_exc(file=sys.stdout)
 
 
-def sql_roach_add(main_id: str, roach_id: str, roach_name: str, main_name: str):
+async def sql_roach_add(main_id: str, roach_id: str, roach_name: str, main_name: str):
     try:
         openConnection()
         with conn.cursor() as cur:
@@ -1829,7 +1830,7 @@ def sql_roach_add(main_id: str, roach_id: str, roach_name: str, main_name: str):
         traceback.print_exc(file=sys.stdout)
 
 
-def sql_roach_get_by_id(roach_id: str, user_server: str = 'DISCORD'):
+async def sql_roach_get_by_id(roach_id: str, user_server: str = 'DISCORD'):
     user_server = user_server.upper()
     if user_server not in ['DISCORD', 'TELEGRAM']:
         return
@@ -1853,7 +1854,7 @@ def sql_roach_get_by_id(roach_id: str, user_server: str = 'DISCORD'):
         traceback.print_exc(file=sys.stdout)
 
 
-def sql_userinfo_2fa_insert(user_id: str, twofa_secret: str):
+async def sql_userinfo_2fa_insert(user_id: str, twofa_secret: str):
     global conn
     try:
         openConnection()
@@ -1873,7 +1874,7 @@ def sql_userinfo_2fa_insert(user_id: str, twofa_secret: str):
         traceback.print_exc(file=sys.stdout)
 
 
-def sql_userinfo_2fa_update(user_id: str, twofa_secret: str):
+async def sql_userinfo_2fa_update(user_id: str, twofa_secret: str):
     global conn
     try:
         openConnection()
@@ -1893,7 +1894,7 @@ def sql_userinfo_2fa_update(user_id: str, twofa_secret: str):
         traceback.print_exc(file=sys.stdout)
 
 
-def sql_userinfo_2fa_verify(user_id: str, verify: str):
+async def sql_userinfo_2fa_verify(user_id: str, verify: str):
     if verify.upper() not in ["YES", "NO"]:
         return
     global conn
@@ -1923,7 +1924,7 @@ def sql_userinfo_2fa_verify(user_id: str, verify: str):
         traceback.print_exc(file=sys.stdout)
 
 
-def sql_change_userinfo_single(user_id: str, what: str, value: str):
+async def sql_change_userinfo_single(user_id: str, what: str, value: str):
     global conn
     try:
         openConnection()
@@ -1946,7 +1947,7 @@ def sql_change_userinfo_single(user_id: str, what: str, value: str):
         traceback.print_exc(file=sys.stdout)
 
 
-def sql_addignorechan_by_server(server_id: str, ignorechan: str, by_userid: str, by_name: str):
+async def sql_addignorechan_by_server(server_id: str, ignorechan: str, by_userid: str, by_name: str):
     global conn
     try:
         openConnection()
@@ -1959,7 +1960,7 @@ def sql_addignorechan_by_server(server_id: str, ignorechan: str, by_userid: str,
         traceback.print_exc(file=sys.stdout)
 
 
-def sql_delignorechan_by_server(server_id: str, ignorechan: str):
+async def sql_delignorechan_by_server(server_id: str, ignorechan: str):
     global conn
     try:
         openConnection()
@@ -1971,7 +1972,7 @@ def sql_delignorechan_by_server(server_id: str, ignorechan: str):
         traceback.print_exc(file=sys.stdout)
 
 
-def sql_listignorechan():
+async def sql_listignorechan():
     global conn
     try:
         openConnection()
@@ -1993,7 +1994,7 @@ def sql_listignorechan():
     return None
 
 
-def sql_add_logs_tx(list_tx):
+async def sql_add_logs_tx(list_tx):
     if len(list_tx) == 0:
         return 0
     global conn
@@ -2010,7 +2011,7 @@ def sql_add_logs_tx(list_tx):
         traceback.print_exc(file=sys.stdout)
 
 
-def sql_add_failed_tx(coin: str, user_id: str, user_author: str, amount: int, tx_type: str):
+async def sql_add_failed_tx(coin: str, user_id: str, user_author: str, amount: int, tx_type: str):
     global conn
     if tx_type.upper() not in ['TIP','TIPS','TIPALL','DONATE','WITHDRAW','SEND', 'REACTTIP']:
         return None
@@ -2025,7 +2026,7 @@ def sql_add_failed_tx(coin: str, user_id: str, user_author: str, amount: int, tx
         traceback.print_exc(file=sys.stdout)
 
 
-def sql_get_tipnotify():
+async def sql_get_tipnotify():
     global conn
     try:
         openConnection()
@@ -2041,7 +2042,7 @@ def sql_get_tipnotify():
         traceback.print_exc(file=sys.stdout)
 
 
-def sql_toggle_tipnotify(user_id: str, onoff: str):
+async def sql_toggle_tipnotify(user_id: str, onoff: str):
     # Bot will add user_id if it failed to DM
     global conn
     onoff = onoff.upper()
@@ -2072,7 +2073,7 @@ def sql_toggle_tipnotify(user_id: str, onoff: str):
             traceback.print_exc(file=sys.stdout)
 
 
-def sql_updateinfo_by_server(server_id: str, what: str, value: str):
+async def sql_updateinfo_by_server(server_id: str, what: str, value: str):
     global conn
     try:
         openConnection()
@@ -2269,7 +2270,7 @@ async def sql_doge_balance(userID: str, coin: str, user_server: str = 'DISCORD')
 
 
 # XMR Based
-def sql_mv_xmr_single(user_from: str, to_user: str, amount: float, coin: str, tiptype: str):
+async def sql_mv_xmr_single(user_from: str, to_user: str, amount: float, coin: str, tiptype: str):
     global conn
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
@@ -2290,7 +2291,7 @@ def sql_mv_xmr_single(user_from: str, to_user: str, amount: float, coin: str, ti
     return False
 
 
-def sql_mv_xmr_multiple(user_from: str, user_tos, amount_each: float, coin: str, tiptype: str):
+async def sql_mv_xmr_multiple(user_from: str, user_tos, amount_each: float, coin: str, tiptype: str):
     # user_tos is array "account1", "account2", ....
     global conn
     COIN_NAME = coin.upper()
@@ -2707,7 +2708,7 @@ async def sql_update_notify_swap_table(id: int, notified: str = 'YES', failed_no
     return False
 
 
-def sql_feedback_add(user_id: str, user_name:str, feedback_id: str, text_in: str, feedback_text: str, howto_contact_back: str):
+async def sql_feedback_add(user_id: str, user_name:str, feedback_id: str, text_in: str, feedback_text: str, howto_contact_back: str):
     try:
         openConnection()
         with conn.cursor() as cur:
@@ -2721,7 +2722,7 @@ def sql_feedback_add(user_id: str, user_name:str, feedback_id: str, text_in: str
     return False
 
 
-def sql_get_feedback_count_last(userID, lastDuration: int):
+async def sql_get_feedback_count_last(userID, lastDuration: int):
     global conn
     lapDuration = int(time.time()) - lastDuration
     try:
@@ -2738,7 +2739,7 @@ def sql_get_feedback_count_last(userID, lastDuration: int):
         traceback.print_exc(file=sys.stdout)
 
 
-def sql_feedback_by_ref(ref: str):
+async def sql_feedback_by_ref(ref: str):
     try:
         openConnection()
         with conn.cursor() as cur:
@@ -2751,7 +2752,7 @@ def sql_feedback_by_ref(ref: str):
     return False
 
 
-def sql_feedback_list_by_user(userid: str, last: int):
+async def sql_feedback_list_by_user(userid: str, last: int):
     try:
         openConnection()
         with conn.cursor() as cur:

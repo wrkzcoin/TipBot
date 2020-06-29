@@ -1250,7 +1250,7 @@ async def sql_get_donate_list():
         traceback.print_exc(file=sys.stdout)
 
 
-async def sql_send_to_voucher(user_id: str, user_name: str, message_creating: str, amount: int, reserved_fee: int, comment: str, secret_string: str, voucher_image_name: str, coin: str, user_server: str='DISCORD'):
+async def sql_send_to_voucher(user_id: str, user_name: str, message_creating: str, amount: float, reserved_fee: float, comment: str, secret_string: str, voucher_image_name: str, coin: str, user_server: str='DISCORD'):
     global conn, conn_voucher
     COIN_NAME = coin.upper()
     try:

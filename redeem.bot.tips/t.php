@@ -417,6 +417,10 @@ if (isset($_POST["submit"])) {
           <div class="row">
               <div class="col-md-8 col-md-offset-2">
                   <h1 class="page-header text-center">Claim Voucher <?php echo $coin_name; ?></h1>
+                  <div class="text-center">
+                      <img src="https://redeem.bot.tips/tipbot_voucher/<?php echo $image_png;?>" style="height: 250px;" class="rounded" alt="Scan with QR">
+                  </div>
+                  <h3 class="text-center"></h3>
                 <form class="form-horizontal" role="form" method="post" action="<?php echo $_SERVER['REQUEST_URI']; ?>">
                     <div class="form-group">
                         <label for="name" class="col-sm-2 control-label">Voucher Code:</label>

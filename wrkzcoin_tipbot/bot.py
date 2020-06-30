@@ -5439,8 +5439,7 @@ async def make(ctx, amount: str, coin: str, *, comment):
                                         '```'
                                         f'Amount: {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}\n'
                                         f'Voucher Fee (Incl. network fee): {num_format_coin(get_voucher_fee(COIN_NAME), COIN_NAME)} {COIN_NAME}\n'
-                                        f'Voucher comment: {comment}```',
-                                        file=discord.File(config.voucher.path_voucher_create + unique_filename + ".png"))
+                                        f'Voucher comment: {comment}```')
                     await msg.add_reaction(EMOJI_OK_BOX)
                 except (discord.Forbidden, discord.errors.Forbidden) as e:
                     traceback.print_exc(file=sys.stdout)
@@ -5521,8 +5520,7 @@ async def make(ctx, amount: str, coin: str, *, comment):
                                     '```'
                                     f'Amount: {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}\n'
                                     f'Voucher Fee (Incl. network fee): {num_format_coin(get_voucher_fee(COIN_NAME), COIN_NAME)} {COIN_NAME}\n'
-                                    f'Voucher comment: {comment}```',
-                                    file=discord.File(config.voucher.path_voucher_create + unique_filename + ".png"))
+                                    f'Voucher comment: {comment}```')
                 await msg.add_reaction(EMOJI_OK_BOX)
             except (discord.Forbidden, discord.errors.Forbidden) as e:
                 traceback.print_exc(file=sys.stdout)

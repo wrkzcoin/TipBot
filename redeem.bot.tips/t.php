@@ -129,8 +129,8 @@ function validate_address($address, $coin_name) {
     $action = '/addresses/validate';
     if (($coin_name == 'TRTL') || ($coin_name == 'WRKZ') || ($coin_name == 'DEGO') || ($coin_name == 'BTCMZ'))
     {
-        $header = $configs["walletheader_".strtolower($coin_name)];
-        $url =  $configs["walletrpc_".strtolower($coin_name)];
+        $header = $configs['walletheader_'.strtolower($coin_name)];
+        $url =  $configs['walletrpc_'.strtolower($coin_name)];
     }
 
     curl_setopt($ch, CURLOPT_URL, $url . $action);
@@ -164,12 +164,13 @@ function validate_address($address, $coin_name) {
 
 // Function for sending Coin
 function send_coin($toAddr, $amount, $coin_name) {
+    global $configs;
     $ch = curl_init();
     $send_basic = '/transactions/send/basic';
     if (($coin_name == 'TRTL') || ($coin_name == 'WRKZ') || ($coin_name == 'DEGO') || ($coin_name == 'BTCMZ'))
     {
-        $header = $configs["walletheader_".strtolower($coin_name)];
-        $url =  $configs["walletrpc_".strtolower($coin_name)];
+        $header = $configs['walletheader_'.strtolower($coin_name)];
+        $url =  $configs['walletrpc_'.strtolower($coin_name)];
     }
 
     curl_setopt($ch, CURLOPT_URL, $url . $send_basic);
@@ -404,7 +405,7 @@ if (isset($_POST["submit"])) {
     <meta name="author" content="WrkzCoin Community Team">
     <meta property="og:type" content="website">
     <meta property="og:url" content="<?php echo $actual_link;?>">
-    <meta property="og:title" content="Share Digital Voucer via TipBot">
+    <meta property="og:title" content="Share Digital Voucher via TipBot">
     <meta property="og:description" content="Tip and share crypto voucher with Discord, Telegram TipBot">
     <meta property="og:image" content="https://redeem.bot.tips/tipbot_voucher/<?php echo $image_png;?>">
     <meta name="twitter:card" content="summary_large_image">

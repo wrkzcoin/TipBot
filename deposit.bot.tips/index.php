@@ -58,18 +58,37 @@ if (isset($key)) {
         exit();
     }
 }
+$actual_link = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
+
 ?>
-<link href="//maxcdn.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css" rel="stylesheet" id="bootstrap-css">
-<script src="//maxcdn.bootstrapcdn.com/bootstrap/4.1.1/js/bootstrap.min.js"></script>
-<script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
-<!------ Include the above in your HEAD tag ---------->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Get Voucher From https://chat.wrkz.work">
+    <meta name="author" content="WrkzCoin Community Team">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="<?php echo $actual_link;?>">
+    <meta property="og:title" content="Deposit with Crypto TipBot and Start to tip people with Crypto">
+    <meta property="og:description" content="Tip and share crypto with Discord, Telegram TipBot">
+    <meta property="og:image" content="https://deposit.bot.tips/image_card.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <title>Deposit to Discord TipBot Powered by Bot.Tips and WrkzCoin</title>
 
-<link href="//maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" rel="stylesheet" id="bootstrap-css">
-<script src="//maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
-<script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
-<!------ Include the above in your HEAD tag ---------->
+    <!-- Include Font Awesome Stylesheet in Header -->
+    <link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <link href="//maxcdn.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css" rel="stylesheet" id="bootstrap-css">
+    <script src="//maxcdn.bootstrapcdn.com/bootstrap/4.1.1/js/bootstrap.min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+    <!------ Include the above in your HEAD tag ---------->
+    <link rel="stylesheet" type="text/css" href="//deposit.bot.tips/card.css">
 
-<link rel="stylesheet" type="text/css" href="//deposit.bot.tips/card.css">
+  </head>
+  <body>
+  
+
 
 <!-- Team -->
 <section id="team" class="pb-5">
@@ -129,8 +148,6 @@ if (isset($key)) {
 			}
         ?>
         </div>
-<!-- Include Font Awesome Stylesheet in Header -->
-<link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
 <!-- // -->
     <div class="row">
             <div class="text-center center-block">
@@ -144,3 +161,6 @@ if (isset($key)) {
     </div>
 </section>
 <!-- Team -->
+
+  </body>
+</html>

@@ -462,7 +462,54 @@ if (isset($_POST["submit"])) {
                 </form> 
             </div>
         </div>
-    </div>   
+<!-- Include Font Awesome Stylesheet in Header -->
+<link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
+<!-- // -->
+        <div class="row">
+            <div class="text-center center-block">
+               <a href="https://chat.wrkz.work" target="_blank"><i class="fa fa-wechat -square fa-3x social"></i></a>
+               <a href="https://t.me/wrkzcoinchat" target="_blank"><i class="fa fa-telegram -square fa-3x social"></i></a> 
+               <a href="https://twitter.com/wrkzdev" target="_blank"><i class="fa fa-twitter-square fa-3x social"></i></a>
+               <a href="https://github.com/wrkzcoin/TipBot" target="_blank"><i class="fa fa-github-square fa-3x social"></i></a>
+        </div>
+    <hr>
+        </div>
+
+<style>
+.social:hover {
+     -webkit-transform: scale(1.1);
+     -moz-transform: scale(1.1);
+     -o-transform: scale(1.1);
+ }
+ .social {
+     -webkit-transform: scale(0.8);
+     /* Browser Variations: */
+     
+     -moz-transform: scale(0.8);
+     -o-transform: scale(0.8);
+     -webkit-transition-duration: 0.5s;
+     -moz-transition-duration: 0.5s;
+     -o-transition-duration: 0.5s;
+ }
+
+/*
+    Multicoloured Hover Variations
+*/
+ 
+ #social-fb:hover {
+     color: #3B5998;
+ }
+ #social-tw:hover {
+     color: #4099FF;
+ }
+ #social-gp:hover {
+     color: #d34836;
+ }
+ #social-em:hover {
+     color: #f39c12;
+ }
+</style>
+    </div>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.1/js/bootstrap.min.js"></script>
   </body>

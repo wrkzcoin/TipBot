@@ -56,6 +56,8 @@ TODO
   * LICENSE: <https://github.com/bigreddmachine/MoneroPy/blob/master/LICENSE>
 * <https://github.com/monero-project/mininero/blob/master/ed25519.py>
   * LICENSE: <https://github.com/monero-project/mininero/blob/master/LICENSE>
-* Font used for voucher (still in progress):
+* Font used for voucher:
   * <https://www.dafont.com/digital-7.font>
+* https://bootsnipp.com/snippets/92xNm for template of deposit.bot.tips
+* https://bootsnipp.com/snippets/84kpo for footer of both redeem.bot.tips and deposit.bot.tips
 * Coin creators, testers, donors in discord servers.

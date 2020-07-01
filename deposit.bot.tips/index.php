@@ -73,7 +73,7 @@ $actual_link = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https"
     <meta property="og:url" content="<?php echo $actual_link;?>">
     <meta property="og:title" content="Deposit with Crypto TipBot and Start to tip people with Crypto">
     <meta property="og:description" content="Tip and share crypto with Discord, Telegram TipBot">
-    <meta property="og:image" content="https://deposit.bot.tips/image_card.png">
+    <meta property="og:image" content="https://deposit.bot.tips/tipbot_invite.png">
     <meta name="twitter:card" content="summary_large_image">
     <title>Deposit to Discord TipBot Powered by Bot.Tips and WrkzCoin</title>
 

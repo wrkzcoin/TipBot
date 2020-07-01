@@ -1704,6 +1704,7 @@ async def sql_add_messages(list_messages):
             return cur.rowcount
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
+    return None
 
 
 async def sql_get_messages(server_id: str, channel_id: str, time_int: int, num_user: int=None):
@@ -2761,6 +2762,157 @@ async def sql_feedback_list_by_user(userid: str, last: int):
             cur.execute(sql, (userid,))
             result = cur.fetchall()
             return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return False
+
+# Remote only
+async def sql_depositlink_user(userid: str, user_server: str = 'DISCORD'):
+    user_server = user_server.upper()
+    try:
+        openConnection_Voucher()
+        with conn_voucher.cursor() as cur:
+            sql = """ SELECT * FROM discord_depositlink WHERE `user_id`=%s 
+                      AND `user_server`=%s """
+            cur.execute(sql, (userid, user_server))
+            result = cur.fetchone()
+            return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+
+async def sql_depositlink_user_create(user_id: str, user_name:str, link_key: str, user_server: str):
+    user_server = user_server.upper()
+    try:
+        openConnection()
+        with conn.cursor() as cur:
+            sql = """ INSERT INTO `discord_depositlink` (`user_id`, `user_name`, `date_create`, `link_key`, `user_server`)
+                      VALUES (%s, %s, %s, %s, %s) """
+            cur.execute(sql, (user_id, user_name, int(time.time()), link_key, user_server))
+            conn.commit()
+        openConnection_Voucher()
+        with conn_voucher.cursor() as cur:
+            sql = """ INSERT INTO `discord_depositlink` (`user_id`, `user_name`, `date_create`, `link_key`, `user_server`)
+                      VALUES (%s, %s, %s, %s, %s) """
+            cur.execute(sql, (user_id, user_name, int(time.time()), link_key, user_server))
+            conn_voucher.commit()
+            return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return False
+
+
+async def sql_depositlink_user_update(user_id: str, what: str, value: str, user_server: str):
+    user_server = user_server.upper()
+    if what.lower() not in ["link_key", "enable"]:
+        return
+    try:
+        openConnection()
+        with conn.cursor() as cur:
+            sql = """ UPDATE `discord_depositlink` SET `"""+what+"""`=%s, `updated_date`=%s WHERE `user_id`=%s AND `user_server`=%s LIMIT 1 """
+            cur.execute(sql, (value, int(time.time()), user_id, user_server))
+            conn.commit()
+        openConnection_Voucher()
+        with conn_voucher.cursor() as cur:
+            sql = """ UPDATE `discord_depositlink` SET `"""+what+"""`=%s, `updated_date`=%s WHERE `user_id`=%s AND `user_server`=%s LIMIT 1 """
+            cur.execute(sql, (value, int(time.time()), user_id, user_server))
+            conn_voucher.commit()
+            return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return False
+
+
+async def sql_deposit_getall_address_user(userid: str, user_server: str = 'DISCORD'):
+    user_server = user_server.upper()
+    try:
+        openConnection()
+        with conn.cursor() as cur:
+            sql = """ SELECT `coin_name`, `user_id`, `int_address`, `user_server` FROM cnoff_user_paymentid WHERE `user_id`=%s 
+                      AND `user_server`=%s """
+            cur.execute(sql, (userid, user_server))
+            cnoff_user_paymentid = cur.fetchall()
+            sql = """ SELECT `coin_name`, `user_id`, `int_address`, `user_server` FROM xmroff_user_paymentid WHERE `user_id`=%s 
+                      AND `user_server`=%s """
+            cur.execute(sql, (userid, user_server))
+            xmroff_user_paymentid = cur.fetchall()
+            sql = """ SELECT `coin_name`, `user_id`, `balance_wallet_address`, `user_server` FROM doge_user WHERE `user_id`=%s 
+                      AND `user_server`=%s """
+            cur.execute(sql, (userid, user_server))
+            doge_user = cur.fetchall()
+            user_coin_list = {}
+            if cnoff_user_paymentid and len(cnoff_user_paymentid) > 0:
+                for each in cnoff_user_paymentid:
+                    user_coin_list[each['coin_name']] = each['int_address']
+            if xmroff_user_paymentid and len(xmroff_user_paymentid) > 0:
+                for each in xmroff_user_paymentid:
+                    user_coin_list[each['coin_name']] = each['int_address']
+            if doge_user and len(doge_user) > 0:
+                for each in doge_user:
+                    user_coin_list[each['coin_name']] = each['balance_wallet_address']
+            return user_coin_list
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+
+async def sql_deposit_getall_address_user_remote(userid: str, user_server: str = 'DISCORD'):
+    user_server = user_server.upper()
+    try:
+        openConnection_Voucher()
+        with conn_voucher.cursor() as cur:
+            sql = """ SELECT * FROM discord_depositlink_address WHERE `user_id`=%s 
+                      AND `user_server`=%s """
+            cur.execute(sql, (userid, user_server))
+            result = cur.fetchall()
+            user_coin_list = {}
+            if result and len(result) > 0:
+                for each in result:
+                    user_coin_list[each['coin_name']] = each['deposit_address']
+                return user_coin_list
+            else:
+                return None
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+
+async def sql_depositlink_user_insert_address(user_id: str, coin_name: str, deposit_address: str, user_server: str):
+    user_server = user_server.upper()
+    try:
+        openConnection()
+        with conn.cursor() as cur:
+            sql = """ INSERT INTO `discord_depositlink_address` (`user_id`, `coin_name`, `deposit_address`, `user_server`)
+                      VALUES (%s, %s, %s, %s) """
+            cur.execute(sql, (user_id, coin_name, deposit_address, user_server))
+            conn.commit()
+        openConnection_Voucher()
+        with conn_voucher.cursor() as cur:
+            sql = """ INSERT INTO `discord_depositlink_address` (`user_id`, `coin_name`, `deposit_address`, `user_server`)
+                      VALUES (%s, %s, %s, %s) """
+            cur.execute(sql, (user_id, coin_name, deposit_address, user_server))
+            conn_voucher.commit()
+            return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return False
+
+
+async def sql_depositlink_user_delete_address(user_id: str, coin_name: str, user_server: str):
+    user_server = user_server.upper()
+    try:
+        openConnection()
+        with conn.cursor() as cur:
+            sql = """ DELETE FROM `discord_depositlink_address` WHERE `user_id`=%s AND `user_server`=%s and `coin_name`=%s """
+            cur.execute(sql, (user_id, user_server, coin_name))
+            conn.commit()
+        openConnection_Voucher()
+        with conn_voucher.cursor() as cur:
+            sql = """ DELETE FROM `discord_depositlink_address` WHERE `user_id`=%s AND `user_server`=%s and `coin_name`=%s """
+            cur.execute(sql, (user_id, user_server, coin_name))
+            conn_voucher.commit()
+            return True
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     return False

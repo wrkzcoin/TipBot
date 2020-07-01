@@ -273,11 +273,14 @@ bot_help_admin_unlockuser = "Unlock a user by user id."
 bot_help_admin_cleartx = "Clear pending TX in case of urgent need."
 
 # account commands
-bot_help_account = "Various user account commands. (Still testing)"
+bot_help_account = "Various user account commands."
+bot_help_account_depositlink = "Get a web deposit link for all your deposit addresses."
+
 bot_help_account_twofa = "Generate a 2FA and scanned with Authenticator Program."
 bot_help_account_verify = "Verify 2FA code from QR code and your Authenticator Program."
 bot_help_account_unverify = "Unverify your account and disable 2FA code."
 bot_help_account_tipemoji = "Put additional Emoji to your successful tip."
+
 
 def init():
     global redis_pool
@@ -758,6 +761,120 @@ async def account(ctx):
     if ctx.invoked_subcommand is None:
         await ctx.send(f'{ctx.author.mention} Invalid {prefix}account command')
         return
+
+
+@account.command(name='deposit_link', aliases=['deposit'], help=bot_help_account_depositlink)
+async def deposit_link(ctx, disable: str=None):
+    if isinstance(ctx.channel, discord.DMChannel) == False:
+        await ctx.message.add_reaction(EMOJI_ERROR) 
+        await ctx.send(f'{ctx.author.mention} This command can not be in public.')
+        return
+
+    local_address = await store.sql_deposit_getall_address_user(str(ctx.message.author.id), 'DISCORD')
+    remote_address = await store.sql_deposit_getall_address_user_remote(str(ctx.message.author.id), 'DISCORD')
+    diff_address = local_address
+    get_depositlink = await store.sql_depositlink_user(str(ctx.message.author.id), 'DISCORD')
+    if remote_address and len(remote_address) > 0:
+        # https://stackoverflow.com/questions/35187165/python-how-to-subtract-2-dictionaries
+        all(map( diff_address.pop, remote_address))
+
+    if diff_address and len(diff_address) > 0:
+        for key, value in diff_address.items():
+            if key in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR and not is_maintenance_coin(key):
+                await store.sql_depositlink_user_insert_address(str(ctx.message.author.id), key, value, 'DISCORD')
+
+    if remote_address and len(remote_address) > 0:
+        diff_address = remote_address
+        removing_address = {}
+        for k, v in remote_address.items():
+             if k not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR or is_maintenance_coin(k):
+                removing_address[k] = v
+
+        if removing_address and len(removing_address) > 0:
+            for key, value in removing_address.items():
+                await store.sql_depositlink_user_delete_address(str(ctx.message.author.id), key, 'DISCORD')
+
+    if get_depositlink:
+        # if we have result, show link or disable if there id disable
+        if get_depositlink['enable'] == 'YES' and disable and disable.upper() in ["DISABLE", "OFF", "0", "FALSE", "HIDE"]:
+            # Turn it off
+            update = await store.sql_depositlink_user_update(str(ctx.message.author.id), "enable", "NO", "DISCORD")
+            if update:
+                await ctx.message.add_reaction(EMOJI_OK_HAND) 
+                msg = await ctx.send(f'{ctx.author.mention} Your deposit link status successfully and **not be accessible by public**.')
+                await msg.add_reaction(EMOJI_OK_BOX)
+                return
+            else:
+                await ctx.message.add_reaction(EMOJI_ERROR) 
+                await ctx.send(f'{ctx.author.mention} Internal error during update status from ENABLE to DISABLE. Try again later.')
+                return
+        elif get_depositlink['enable'] == 'YES' and disable and disable.upper() in ["ENABLE", "ON", "1", "TRUE", "SHOW"]:
+            await ctx.message.add_reaction(EMOJI_ERROR) 
+            await ctx.send(f'{ctx.author.mention} Your deposit link is already public. Nothing to do.')
+            return
+        elif get_depositlink['enable'] == 'NO' and disable and disable.upper() in ["ENABLE", "ON", "1", "TRUE", "SHOW"]:
+            # Turn it on
+            update = await store.sql_depositlink_user_update(str(ctx.message.author.id), "enable", "YES", "DISCORD")
+            if update:
+                await ctx.message.add_reaction(EMOJI_OK_HAND) 
+                msg = await ctx.send(f'{ctx.author.mention} Your deposit link status successfully and **will be accessible by public**.')
+                await msg.add_reaction(EMOJI_OK_BOX)
+                return
+            else:
+                await ctx.message.add_reaction(EMOJI_ERROR) 
+                await ctx.send(f'{ctx.author.mention} Internal error during update status from DISABLE to ENABLE. Try again later.')
+                return
+        elif get_depositlink['enable'] == 'NO' and disable and disable.upper() in ["DISABLE", "OFF", "0", "FALSE", "HIDE"]:
+            await ctx.message.add_reaction(EMOJI_ERROR) 
+            await ctx.send(f'{ctx.author.mention} Your deposit link is already private. Nothing to do.')
+            return
+        else:
+            # display link
+            status = "public" if get_depositlink['enable'] == 'YES' else "private"
+            link = config.deposit_qr.deposit_url + '/key/' + get_depositlink['link_key']
+            await ctx.message.add_reaction(EMOJI_OK_HAND)
+            msg = await ctx.send(f'{ctx.author.mention} Your deposit link can be accessed from (**{status}**):\n{link}')
+            await msg.add_reaction(EMOJI_OK_BOX)
+            return
+    else:
+        # generate a deposit link for him but need QR first
+        for COIN_NAME in [coinItem.upper() for coinItem in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR]:
+            if not is_maintenance_coin(COIN_NAME):
+                wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+                if wallet is None:
+                    userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
+                    wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+                try:
+                    if os.path.exists(config.deposit_qr.path_deposit_qr_create + wallet['balance_wallet_address'] + ".png"):
+                        pass
+                    else:
+                        # do some QR code
+                        qr = qrcode.QRCode(
+                            version=1,
+                            error_correction=qrcode.constants.ERROR_CORRECT_L,
+                            box_size=10,
+                            border=2,
+                        )
+                        qr.add_data(wallet['balance_wallet_address'])
+                        qr.make(fit=True)
+                        img = qr.make_image(fill_color="black", back_color="white")
+                        img = img.resize((256, 256))
+                        img.save(config.deposit_qr.path_deposit_qr_create + wallet['balance_wallet_address'] + ".png")
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+        # link stuff
+        random_string = str(uuid.uuid4())
+        create_link = await store.sql_depositlink_user_create(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), random_string, 'DISCORD')
+        if create_link:
+            link = config.deposit_qr.deposit_url + '/key/' + random_string
+            await ctx.message.add_reaction(EMOJI_OK_HAND) 
+            msg = await ctx.send(f'{ctx.author.mention} Link generate successfully.\n{link}')
+            await msg.add_reaction(EMOJI_OK_BOX)
+            return
+        else:
+            await ctx.message.add_reaction(EMOJI_ERROR) 
+            await ctx.send(f'{ctx.author.mention} Internal error during link generation. Try later.')
+            return
 
 
 @account.command(aliases=['emojitip'], help=bot_help_account_tipemoji, hidden = True)
@@ -8365,10 +8482,14 @@ async def store_message_list():
                 temp_msg_list = []
                 for each in redis_conn.lrange(key, 0, -1):
                     temp_msg_list.append(tuple(json.loads(each)))
-                num_add = await store.sql_add_messages(temp_msg_list)
-                if num_add > 0:
+                try:
+                    num_add = await store.sql_add_messages(temp_msg_list)
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                if num_add and num_add > 0:
                     redis_conn.delete(key)
                 else:
+                    redis_conn.delete(key)
                     print(f"Failed delete {key}")
         except Exception as e:
             traceback.print_exc(file=sys.stdout)

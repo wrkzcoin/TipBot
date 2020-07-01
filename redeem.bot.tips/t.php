@@ -13,8 +13,6 @@ $dbname = $configs['mysql_dbname'];
 $dbusername = $configs['mysql_user'];
 $dbpassword = $configs['mysql_password'];
 
-
-
 function checkSecret_if_pending ($sec) {
    //Connecting to Redis server on localhost 
    $redis = new Redis(); 

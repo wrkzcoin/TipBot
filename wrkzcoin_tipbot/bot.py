@@ -751,13 +751,9 @@ async def about(ctx):
         traceback.print_exc(file=sys.stdout)
 
 
-@bot.group(hidden = True, aliases=['acc'], help=bot_help_account)
+@bot.group(aliases=['acc'], help=bot_help_account)
 async def account(ctx):
     prefix = await get_guild_prefix(ctx)
-    if isinstance(ctx.channel, discord.DMChannel) == False:
-        await ctx.message.add_reaction(EMOJI_ERROR) 
-        await ctx.send(f'{ctx.author.mention} This command can not be in public.')
-        return
     if ctx.invoked_subcommand is None:
         await ctx.send(f'{ctx.author.mention} Invalid {prefix}account command')
         return
@@ -765,11 +761,7 @@ async def account(ctx):
 
 @account.command(name='deposit_link', aliases=['deposit'], help=bot_help_account_depositlink)
 async def deposit_link(ctx, disable: str=None):
-    if isinstance(ctx.channel, discord.DMChannel) == False:
-        await ctx.message.add_reaction(EMOJI_ERROR) 
-        await ctx.send(f'{ctx.author.mention} This command can not be in public.')
-        return
-
+    prefix = await get_guild_prefix(ctx)
     local_address = await store.sql_deposit_getall_address_user(str(ctx.message.author.id), 'DISCORD')
     remote_address = await store.sql_deposit_getall_address_user_remote(str(ctx.message.author.id), 'DISCORD')
     diff_address = local_address
@@ -816,7 +808,7 @@ async def deposit_link(ctx, disable: str=None):
             # Turn it on
             update = await store.sql_depositlink_user_update(str(ctx.message.author.id), "enable", "YES", "DISCORD")
             if update:
-                await ctx.message.add_reaction(EMOJI_OK_HAND) 
+                await ctx.message.add_reaction(EMOJI_OK_HAND)
                 msg = await ctx.send(f'{ctx.author.mention} Your deposit link status successfully and **will be accessible by public**.')
                 await msg.add_reaction(EMOJI_OK_BOX)
                 return
@@ -828,13 +820,26 @@ async def deposit_link(ctx, disable: str=None):
             await ctx.message.add_reaction(EMOJI_ERROR) 
             await ctx.send(f'{ctx.author.mention} Your deposit link is already private. Nothing to do.')
             return
-        else:
+        elif disable and (disable.upper() == "PUB" or disable.upper() == "PUBLIC"):
             # display link
             status = "public" if get_depositlink['enable'] == 'YES' else "private"
             link = config.deposit_qr.deposit_url + '/key/' + get_depositlink['link_key']
             await ctx.message.add_reaction(EMOJI_OK_HAND)
             msg = await ctx.send(f'{ctx.author.mention} Your deposit link can be accessed from (**{status}**):\n{link}')
             await msg.add_reaction(EMOJI_OK_BOX)
+            return
+        else:
+            # display link
+            status = "public" if get_depositlink['enable'] == 'YES' else "private"
+            link = config.deposit_qr.deposit_url + '/key/' + get_depositlink['link_key']
+            try:
+                msg = await ctx.message.author.send(f'{ctx.author.mention} Your deposit link can be accessed from (**{status}**):\n{link}')
+                await ctx.message.add_reaction(EMOJI_OK_HAND)
+                await msg.add_reaction(EMOJI_OK_BOX)
+            except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+                await msg.add_reaction(EMOJI_ERROR)
+                msg = await ctx.send(f'{ctx.author.mention} I failed to DM you. You can also use **{prefix}account deposit pub**, if you want it to be in public.')
+                await msg.add_reaction(EMOJI_OK_BOX)
             return
     else:
         # generate a deposit link for him but need QR first
@@ -867,9 +872,14 @@ async def deposit_link(ctx, disable: str=None):
         create_link = await store.sql_depositlink_user_create(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), random_string, 'DISCORD')
         if create_link:
             link = config.deposit_qr.deposit_url + '/key/' + random_string
-            await ctx.message.add_reaction(EMOJI_OK_HAND) 
-            msg = await ctx.send(f'{ctx.author.mention} Link generate successfully.\n{link}')
-            await msg.add_reaction(EMOJI_OK_BOX)
+            try:
+                msg = await ctx.message.author.send(f'{ctx.author.mention} Link generate successfully.\n{link}')
+                await msg.add_reaction(EMOJI_OK_BOX)
+                await ctx.message.add_reaction(EMOJI_OK_HAND)
+            except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                msg = await ctx.send(f'{ctx.author.mention} I failed to DM you. You can also use **{prefix}account deposit pub**, if you want it to be in public.')
+                await msg.add_reaction(EMOJI_OK_BOX)
             return
         else:
             await ctx.message.add_reaction(EMOJI_ERROR) 
@@ -879,6 +889,10 @@ async def deposit_link(ctx, disable: str=None):
 
 @account.command(aliases=['emojitip'], help=bot_help_account_tipemoji, hidden = True)
 async def tipemoji(ctx):
+    if isinstance(ctx.channel, discord.DMChannel) == False:
+        await ctx.message.add_reaction(EMOJI_ERROR) 
+        await ctx.send(f'{ctx.author.mention} This command can not be in public.')
+        return
     if ctx.invoked_subcommand is None:
         await ctx.send('Invalid `account` command passed...')
     return
@@ -1120,6 +1134,10 @@ async def unverify(ctx, codes: str):
 
 @account.command(hidden = True)
 async def set(ctx, param: str, value: str):
+    if isinstance(ctx.channel, discord.DMChannel) == False:
+        await ctx.message.add_reaction(EMOJI_ERROR) 
+        await ctx.send(f'{ctx.author.mention} This command can not be in public.')
+        return
     await ctx.send('On progress.')
     return
 

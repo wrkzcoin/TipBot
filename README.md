@@ -46,7 +46,7 @@ TODO
 
 ### Basic Guide Video
 
-[![Guide of using Discord TipBot](https://img.youtube.com/vi/Qp_qe3RxGJk/0.jpg)](https://www.youtube.com/watch?v=Qp_qe3RxGJk)
+[![Guide of using Discord TipBot](https://img.youtube.com/vi/Htg6HKLmPZ0/0.jpg)](https://www.youtube.com/watch?v=Htg6HKLmPZ0)
 
 ### Credit and thanks to:
 

@@ -710,26 +710,24 @@ async def on_message(message):
                     await message.add_reaction(EMOJI_ERROR)
                     await message.channel.send(f'Bot not respond to #{message.channel.name}. It is set to ignore list by channel manager or discord server owner.')
                     return
+        if message.content[1:].upper() == "HELP":
+            try:
+                prefix = "."
+                if isinstance(message.channel, discord.DMChannel) == False:
+                    try:
+                        serverinfo = await store.sql_info_by_server(str(message.guild.id))
+                        if serverinfo and 'prefix' in serverinfo: prefix = serverinfo['prefix']
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                await help_main(message, prefix)
+                return
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+                pass
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         pass
 
-    if message.content.upper().startswith('.HELP') or message.content.upper().startswith('.STAT'):
-        if int(message.channel.id) in BOT_IGNORECHAN:
-            return
-    if int(message.author.id) in MAINTENANCE_OWNER:
-        # It is better to set bot to MAINTENANCE mode before restart or stop
-        args = message.content.split(" ")
-        if len(args) == 2:
-            if args[0].upper() == "MAINTENANCE":
-                if args[1].upper() == "ON":
-                    IS_MAINTENANCE = 1
-                    await message.author.send('Maintenance ON, `maintenance off` to turn it off.')
-                    return
-                else:
-                    IS_MAINTENANCE = 0
-                    await message.author.send('Maintenance OFF, `maintenance on` to turn it off.')
-                    return
     # Do not remove this, otherwise, command not working.
     ctx = await bot.get_context(message)
     await bot.invoke(ctx)
@@ -1849,6 +1847,43 @@ async def deposit(ctx, coin_name: str, pub: str = None):
     return
 
 
+async def help_main(message, prefix):
+    embed = discord.Embed(title="List of commands", description="To avoid spamming other, you can do in Direct Message or Bot Channel", color=0xDEADBF)
+    if isinstance(message.channel, discord.DMChannel) == False:
+        cmd_setting = ["setting prefix <.>", "setting default_coin <coin_name>", "setting tiponly <coin1> [coin2] [coin3] ..", "setting ignorechan", "setting del_ignorechan"]
+        embed.add_field(name="SERVER", value="`{}`".format(", ".join(cmd_setting)), inline=False)
+
+    cmd_tip = ["tip <amount> [coin_name] @mention1 @mention2", "tipall <amount> [coin_name]", "tip <amount> [coin_name] [last 2h]"]
+    embed.add_field(name="TIP COMMAND", value="`{}`".format(", ".join(cmd_tip)), inline=False)
+
+    cmd_user = ["balance [list]", "botbalance @mention_bot <coin_name>", "deposit <coin_name>", "notifytip", "reg <coin_address>", "send <amount> <coin_address>", "withdraw <amount> <coin_name>", "swap <amount> <coin_name> <MARKETBOT>", "account deposit"]
+    embed.add_field(name="USER", value="`{}`".format(", ".join(cmd_user)), inline=False)
+
+    cmd_voucher = ["voucher claim", "voucher fee", "voucher getclaim", "voucher getunclaim", "voucher make <amount> <coin_name> <comment>"]
+    embed.add_field(name="VOUCHER", value="`{}`".format(", ".join(cmd_voucher)), inline=False)
+
+    cmd_other = ["disclaimer", "cal <1+2+3>", "donate <amount> <coin_name>", "donate list", "feedback", "paymentid", "rand <1-100>", "stats", "userinfo @mention", "take"]
+    embed.add_field(name="OTHER COMMAND", value="`{}`".format(", ".join(cmd_other)), inline=False)
+
+    if isinstance(message.channel, discord.DMChannel) == False:
+        serverinfo = await store.sql_info_by_server(str(message.guild.id))
+        coin_name = serverinfo['default_coin'].upper() if serverinfo else "WRKZ"
+        embed.add_field(name="GUILD INFO", value="`ID: {}, Name: {}, Default Coin: {}, Prefix: {}`".format(message.guild.id, message.guild.name, coin_name, prefix), inline=False)
+
+    embed.add_field(name="OTHER LINKS", value="{} / {} / {}".format("[Invite TipBot](http://invite.discord.bot.tips)", "[Support Server](https://chat.wrkz.work)", "[TipBot Github](https://github.com/wrkzcoin/TipBot)"), inline=False)
+    embed.set_footer(text="Required - <>, Optional - []")
+    try:
+        if isinstance(message.channel, discord.DMChannel) == False:
+            msg = await message.channel.send(embed=embed)
+            await msg.add_reaction(EMOJI_OK_BOX)
+        else:
+            msg = await message.author.send(embed=embed)
+            await msg.add_reaction(EMOJI_OK_BOX)
+    except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+        await message.add_reaction(EMOJI_ERROR)
+    return
+
+
 @bot.command(pass_context=True, name='info', help=bot_help_info)
 async def info(ctx, coin: str = None):
     # check if account locked
@@ -1919,8 +1954,7 @@ async def info(ctx, coin: str = None):
                         chanel_ignore_list = chanel_ignore_list + '#'  + chanel_ignore.name + ' '
 
             tickers = '|'.join(ENABLE_COIN).lower()
-            extra_text = f'Please add ticker after **{cmdName.lower()}**. Example: `{server_prefix}{cmdName.lower()} {server_coin}`, if you want to get your address(es).\n\n'\
-                         f'Type: `{server_prefix}setting` if you want to change `prefix` or `default_coin` or `ignorechan` or `del_ignorechan` or `tiponly`. (Required permission)'
+            extra_text = f'Type: `{server_prefix}setting` if you want to change `prefix` or `default_coin` or `ignorechan` or `del_ignorechan` or `tiponly`. (Required permission)'
             msg = await ctx.send(
                 '\n```'
                 f'Server ID:      {ctx.guild.id}\n'

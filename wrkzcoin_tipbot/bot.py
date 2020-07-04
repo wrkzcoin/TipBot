@@ -84,6 +84,9 @@ WALLET_API_COIN = config.Enable_Coin_WalletApi.split(",")
 # Fee per byte coin
 FEE_PER_BYTE_COIN = config.Fee_Per_Byte_Coin.split(",")
 
+# Bot invitation link
+BOT_INVITELINK = "[Invite TipBot](http://invite.discord.bot.tips)"
+    
 # DOGE will divide by 10 after random
 FAUCET_MINMAX = {
     "WRKZ": [1000, 2000],
@@ -358,7 +361,7 @@ bot = AutoShardedBot(command_prefix = get_prefix, case_insensitive=True, owner_i
 
 @bot.event
 async def on_ready():
-    global LIST_IGNORECHAN, IS_RESTARTING
+    global LIST_IGNORECHAN, IS_RESTARTING, BOT_INVITELINK
     print('Ready!')
     print("Hello, I am TipBot Bot!")
     LIST_IGNORECHAN = await store.sql_listignorechan()
@@ -367,7 +370,6 @@ async def on_ready():
     print('------')
     print("Guilds: {}".format(len(bot.guilds)))
     print("Users: {}".format(sum([x.member_count for x in bot.guilds])))
-    BOT_INVITELINK = "https://discordapp.com/oauth2/authorize?client_id="+str(bot.user.id)+"&scope=bot&permissions=3072"
     print("Bot invitation link: " + BOT_INVITELINK)
     game = discord.Game(name="Tip Forever!")
     await bot.change_presence(status=discord.Status.online, activity=game)
@@ -735,14 +737,14 @@ async def on_message(message):
 
 @bot.command(pass_context=True, name='about', help=bot_help_about, hidden = True)
 async def about(ctx):
-    invite_link = "https://discordapp.com/oauth2/authorize?client_id="+str(bot.user.id)+"&scope=bot&permissions=3072"
+    global BOT_INVITELINK
     botdetails = discord.Embed(title='About Me', description='', colour=7047495)
-    botdetails.add_field(name='Creator\'s Discord Name:', value='Pluton#4425', inline=True)
-    botdetails.add_field(name='My Github:', value='https://github.com/wrkzcoin/TipBot', inline=True)
-    botdetails.add_field(name='Invite Me:', value=f'{invite_link}', inline=True)
+    botdetails.add_field(name='Creator\'s Discord Name:', value='pluton#8888', inline=True)
+    botdetails.add_field(name='My Github:', value="[TipBot Github](https://github.com/wrkzcoin/TipBot)", inline=True)
+    botdetails.add_field(name='Invite Me:', value=f'{BOT_INVITELINK}', inline=True)
     botdetails.add_field(name='Servers I am in:', value=len(bot.guilds), inline=True)
     botdetails.add_field(name='Support Me:', value=f'<@{bot.user.id}> donate AMOUNT ticker', inline=True)
-    botdetails.set_footer(text='Made in Python3.6+ with discord.py library!', icon_url='http://findicons.com/files/icons/2804/plex/512/python.png')
+    botdetails.set_footer(text='Made in Python3.8+ with discord.py library!', icon_url='http://findicons.com/files/icons/2804/plex/512/python.png')
     botdetails.set_author(name=bot.user.name, icon_url=bot.user.avatar_url)
     try:
         await ctx.send(embed=botdetails)
@@ -6741,9 +6743,9 @@ async def tag(ctx, *args):
 
 @bot.command(pass_context=True, name='invite', aliases=['inviteme'], help=bot_help_invite)
 async def invite(ctx):
-    invite_link = "https://discordapp.com/oauth2/authorize?client_id="+str(bot.user.id)+"&scope=bot&permissions=3072"
+    global BOT_INVITELINK
     await ctx.send('**[INVITE LINK]**\n\n'
-                f'{invite_link}')
+                f'{BOT_INVITELINK}')
 
 
 @bot.command(pass_context=True, help=bot_help_random_number)

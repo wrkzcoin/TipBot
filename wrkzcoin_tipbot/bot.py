@@ -1852,6 +1852,9 @@ async def help_main(message, prefix):
     if isinstance(message.channel, discord.DMChannel) == False:
         cmd_setting = ["setting prefix <.>", "setting default_coin <coin_name>", "setting tiponly <coin1> [coin2] [coin3] ..", "setting ignorechan", "setting del_ignorechan"]
         embed.add_field(name="SERVER", value="`{}`".format(", ".join(cmd_setting)), inline=False)
+        
+        cmd_tag = ["tag", "tag <-add> <tag_name> <tag description>", "tag <-del> <tag_name>", "itag", "itag <itag_name> (need attachement)", "itag -del <tag_name>"]
+        embed.add_field(name="TAG / ITAG", value="`{}`".format(", ".join(cmd_tag)), inline=False)
 
     cmd_tip = ["tip <amount> [coin_name] @mention1 @mention2", "tipall <amount> [coin_name]", "tip <amount> [coin_name] [last 2h]"]
     embed.add_field(name="TIP COMMAND", value="`{}`".format(", ".join(cmd_tip)), inline=False)
@@ -1862,7 +1865,7 @@ async def help_main(message, prefix):
     cmd_voucher = ["voucher claim", "voucher fee", "voucher getclaim", "voucher getunclaim", "voucher make <amount> <coin_name> <comment>"]
     embed.add_field(name="VOUCHER", value="`{}`".format(", ".join(cmd_voucher)), inline=False)
 
-    cmd_other = ["disclaimer", "cal <1+2+3>", "donate <amount> <coin_name>", "donate list", "feedback", "paymentid", "rand <1-100>", "stats", "userinfo @mention", "take"]
+    cmd_other = ["disclaimer", "cal <1+2+3>", "donate <amount> <coin_name>", "donate list", "coininfo <coin_name>", "feedback", "paymentid", "rand <1-100>", "stats", "userinfo @mention", "take"]
     embed.add_field(name="OTHER COMMAND", value="`{}`".format(", ".join(cmd_other)), inline=False)
 
     if isinstance(message.channel, discord.DMChannel) == False:
@@ -1978,7 +1981,10 @@ async def info(ctx, coin: str = None):
 
 @bot.command(pass_context=True, name='coininfo', aliases=['coinf_info', 'coin'], help=bot_help_coininfo)
 async def coininfo(ctx, coin: str = None):
+    global TRTL_DISCORD
     if coin is None:
+        if ctx.guild.id == TRTL_DISCORD:
+            return
         table_data = [
             ["TICKER", "Height", "Tip", "Wdraw", "Depth"]
             ]
@@ -1998,12 +2004,10 @@ async def coininfo(ctx, coin: str = None):
                 traceback.print_exc(file=sys.stdout)
 
         table = AsciiTable(table_data)
-        # table.inner_column_border = False
-        # table.outer_border = False
         table.padding_left = 0
         table.padding_right = 0
         msg = await ctx.send('**[ TIPBOT COIN LIST ]**\n'
-                                            f'```{table.table}```')
+                             f'```{table.table}```')
         
         return
     else:

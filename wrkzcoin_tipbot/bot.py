@@ -1679,6 +1679,7 @@ async def test(ctx):
 
 @bot.command(pass_context=True, name='userinfo', aliases=['user'], help=bot_help_userinfo)
 async def userinfo(ctx, member: discord.Member = None):
+    global TRTL_DISCORD
     if isinstance(ctx.channel, discord.DMChannel) == True:
         await ctx.send(f'{ctx.author.mention} This command can not be in Direct Message.')
         return
@@ -1686,11 +1687,16 @@ async def userinfo(ctx, member: discord.Member = None):
         member = ctx.message.author
     try:
         embed = discord.Embed(title="{}'s info".format(member.name), description="Here's what I could find.", color=0x00ff00)
-        embed.add_field(name="Name", value=member.name, inline=True)
+        embed.add_field(name="Name", value="{}#{}".format(member.name, member.discriminator), inline=True)
         embed.add_field(name="Display Name", value=member.display_name, inline=True)
         embed.add_field(name="ID", value=member.id, inline=True)
         embed.add_field(name="Status", value=member.status, inline=True)
         embed.add_field(name="Highest role", value=member.top_role)
+        if ctx.guild.id != TRTL_DISCORD:
+            user_claims = await store.sql_faucet_count_user(str(ctx.message.author.id))
+            if user_claims and user_claims > 0:
+                take_level = get_roach_level(user_claims)
+                embed.add_field(name="Faucet Taking Level", value=take_level)
         embed.add_field(name="Joined", value=str(member.joined_at.strftime("%d-%b-%Y") + ': ' + timeago.format(member.joined_at, datetime.utcnow())))
         embed.add_field(name="Created", value=str(member.created_at.strftime("%d-%b-%Y") + ': ' + timeago.format(member.created_at, datetime.utcnow())))
         embed.set_thumbnail(url=member.avatar_url)
@@ -8567,6 +8573,33 @@ async def sync_claimed_list():
 # function to return if input string is ascii
 def is_ascii(s):
     return all(ord(c) < 128 for c in s)
+
+
+def get_roach_level(takes: int):
+    if takes > 2000:
+        return "Great Ultimate Master"
+    elif takes > 1500:
+        return "Great Supreme Master"
+    elif takes > 1000:
+        return "Great Grand Master"
+    elif takes > 750:
+        return "Great Master"
+    elif takes > 500:
+        return "Ultimate Master"
+    elif takes > 250:
+        return "Grand Master"
+    elif takes > 100:
+        return "Master"
+    elif takes > 50:
+        return "Specialist"
+    elif takes > 25:
+        return "Licensed"
+    elif takes > 10:
+        return "Learning"
+    elif takes > 0:
+        return "Baby"
+    else:
+        return None
 
 
 @click.command()

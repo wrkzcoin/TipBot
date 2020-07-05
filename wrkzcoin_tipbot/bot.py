@@ -94,8 +94,17 @@ FAUCET_MINMAX = {
     "TRTL": [15, 25],
     "DOGE": [1, 3],
     "BTCMZ": [2500, 5000]
-    }
+}
 
+
+GAME_COIN = config.game.coin_game.split(",")
+# This will multiplied in result
+GAME_SLOT_REWARD = {
+    "WRKZ": 10,
+    "DEGO": 100,
+    "TRTL": 2,
+    "BTCMZ": 50
+}
 
 # save all temporary
 SAVING_ALL = None
@@ -274,6 +283,10 @@ bot_help_admin_baluser = "Check a specific user's balance for verification purpo
 bot_help_admin_lockuser = "Lock a user from any tx (tip, withdraw, info, etc) by user id"
 bot_help_admin_unlockuser = "Unlock a user by user id."
 bot_help_admin_cleartx = "Clear pending TX in case of urgent need."
+
+# game command
+bot_help_game = "Various game commands"
+bot_help_game_slot = "Play slot game"
 
 # account commands
 bot_help_account = "Various user account commands."
@@ -749,6 +762,86 @@ async def about(ctx):
     except Exception as e:
         await ctx.message.author.send(embed=botdetails)
         traceback.print_exc(file=sys.stdout)
+
+
+@bot.group(hidden = True, name='game', help=bot_help_game)
+async def game(ctx):
+    prefix = await get_guild_prefix(ctx)
+    # Only WrkzCoin testing. Return if DM or other guild
+    if isinstance(ctx.channel, discord.DMChannel) == True or ctx.guild.id != 460755304863498250:
+        return
+    if ctx.invoked_subcommand is None:
+        await ctx.send(f'{ctx.author.mention} Invalid {prefix}game command')
+        return
+
+@game.command(name='slot', alais=['slots'], help=bot_help_game_slot)
+async def slot(ctx):
+    global GAME_SLOT_REWARD, GAME_COIN
+    game_servers = config.game.guild_games.split(",")
+    # Only WrkzCoin testing. Return if DM or other guild
+    if isinstance(ctx.channel, discord.DMChannel) == True or str(ctx.guild.id) not in game_servers:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        return
+
+    count_played = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD')
+    if count_played and count_played >= config.game.max_daily_play:
+        await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
+        msg = await ctx.send(f'{ctx.author.mention} You have played **{count_played}** for the last 24h. Wait and try again later.')
+        await msg.add_reaction(EMOJI_OK_BOX)
+        return
+
+    # Portion from https://github.com/MitchellAW/Discord-Bot/blob/master/features/rng.py
+    slots = ['chocolate_bar', 'bell', 'tangerine', 'apple', 'cherries', 'seven']
+    slot1 = slots[random.randint(0, 5)]
+    slot2 = slots[random.randint(0, 5)]
+    slot3 = slots[random.randint(0, 5)]
+    slot4 = slots[random.randint(0, 5)]
+    slotOutput = '|\t:{}:\t|\t:{}:\t|\t:{}:\t|\t:{}:\t|'.format(slot1, slot2, slot3, slot4)
+
+    won = False
+    won_x = 1
+    slotOutput_2 = '$ TRY AGAIN! $'
+    result = 'You lose! Good luck later!'
+    if slot1 == slot2 and slot2 == slot3 and slot3 == slot4 and slot4 != 'seven':
+        slotOutput_2 = '$$ GREAT $$\n'
+        won = True
+        won_x = 5
+    elif slot1 == 'seven' and slot2 == 'seven' and slot3 == 'seven' and slot4 == 'seven':
+        slotOutput_2 = '$$ JACKPOT $$'
+        won = True
+        won_x = 20
+    elif slot1 == slot2 and slot3 == slot4 or slot1 == slot3 and slot2 == slot4 or slot1 == slot4 and slot2 == slot3:
+        slotOutput_2 = '$ NICE $'
+        won = True
+        won_x = 10
+    try:
+        if won:
+            COIN_NAME = random.choice(GAME_COIN)
+            amount = GAME_SLOT_REWARD[COIN_NAME] * won_x
+            coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+            COIN_DEC = get_decimal(COIN_NAME)
+            real_amount = int(amount * COIN_DEC) if coin_family in ["XMR", "TRTL"] else float(amount * COIN_DEC)
+            reward = await store.sql_game_add(str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, COIN_DEC, str(ctx.guild.id), 'SLOT', 'DISCORD')
+            result = f'You won! You got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}**!'
+        else:
+            reward = await store.sql_game_add(str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'SLOT', 'DISCORD')
+
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    await ctx.message.add_reaction(EMOJI_OK_HAND)
+    embed = discord.Embed(title="TIPBOT FREE SLOT", description="Anyone can freely play!", color=0x00ff00)
+    embed.add_field(name="Player", value="{}#{}".format(ctx.message.author.name, ctx.message.author.discriminator), inline=False)
+    embed.add_field(name="Last 24h you played", value=str(count_played+1), inline=False)
+    embed.add_field(name="Result", value=slotOutput, inline=False)
+    embed.add_field(name="Comment", value=slotOutput_2, inline=False)
+    embed.add_field(name="Reward", value=result, inline=False)
+    try:
+        msg = await ctx.send(embed=embed)
+        await msg.add_reaction(EMOJI_OK_BOX)
+    except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        traceback.print_exc(file=sys.stdout)
+    return
 
 
 @bot.group(aliases=['acc'], help=bot_help_account)
@@ -3549,7 +3642,7 @@ async def take(ctx):
             await msg.add_reaction(EMOJI_OK_BOX)
             return
         if tip:
-            faucet_add = await store.sql_faucet_add(str(ctx.message.author.id), str(ctx.guild.id), COIN_NAME, real_amount, COIN_DEC, tip, 'DISCORD')
+            faucet_add = await store.sql_faucet_add(str(ctx.message.author.id), str(ctx.guild.id), COIN_NAME, real_amount, COIN_DEC, 'DISCORD')
             if has_forwardtip:
                 await ctx.message.add_reaction(EMOJI_FORWARD)
             else:
@@ -3594,7 +3687,7 @@ async def take(ctx):
             return
 
         if tip:
-            faucet_add = await store.sql_faucet_add(str(ctx.message.author.id), str(ctx.guild.id), COIN_NAME, real_amount, COIN_DEC, None, 'DISCORD')
+            faucet_add = await store.sql_faucet_add(str(ctx.message.author.id), str(ctx.guild.id), COIN_NAME, real_amount, COIN_DEC, 'DISCORD')
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
             msg = await ctx.send(f'{EMOJI_MONEYFACE} {ctx.author.mention} You got a random faucet {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
             await msg.add_reaction(EMOJI_OK_BOX)
@@ -3638,7 +3731,7 @@ async def take(ctx):
             return
         
         if tip:
-            faucet_add = await store.sql_faucet_add(str(ctx.message.author.id), str(ctx.guild.id), COIN_NAME, real_amount, COIN_DEC, None, 'DISCORD')
+            faucet_add = await store.sql_faucet_add(str(ctx.message.author.id), str(ctx.guild.id), COIN_NAME, real_amount, COIN_DEC, 'DISCORD')
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
             msg = await ctx.send(f'{EMOJI_MONEYFACE} {ctx.author.mention} You got a random faucet {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
             await msg.add_reaction(EMOJI_OK_BOX)

@@ -100,10 +100,10 @@ FAUCET_MINMAX = {
 GAME_COIN = config.game.coin_game.split(",")
 # This will multiplied in result
 GAME_SLOT_REWARD = {
-    "WRKZ": 10,
-    "DEGO": 100,
-    "TRTL": 2,
-    "BTCMZ": 50
+    "WRKZ": 1000,
+    "DEGO": 10000,
+    "TRTL": 10,
+    "BTCMZ": 1000
 }
 
 # save all temporary
@@ -783,10 +783,20 @@ async def slot(ctx):
         await ctx.message.add_reaction(EMOJI_ERROR)
         return
 
+    # check if user create account less than 3 days
+    try:
+        account_created = ctx.message.author.created_at
+        if (datetime.utcnow() - account_created).total_seconds() <= 3*24*3600:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using this.')
+            return
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
     count_played = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD')
     if count_played and count_played >= config.game.max_daily_play:
         await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
-        msg = await ctx.send(f'{ctx.author.mention} You have played **{count_played}** for the last 24h. Wait and try again later.')
+        msg = await ctx.send(f'{ctx.author.mention} You have played **{count_played} times** for the last 24h. Wait and try again later.')
         await msg.add_reaction(EMOJI_OK_BOX)
         return
 
@@ -805,11 +815,11 @@ async def slot(ctx):
     if slot1 == slot2 and slot2 == slot3 and slot3 == slot4 and slot4 != 'seven':
         slotOutput_2 = '$$ GREAT $$\n'
         won = True
-        won_x = 5
+        won_x = 20
     elif slot1 == 'seven' and slot2 == 'seven' and slot3 == 'seven' and slot4 == 'seven':
         slotOutput_2 = '$$ JACKPOT $$'
         won = True
-        won_x = 20
+        won_x = 50
     elif slot1 == slot2 and slot3 == slot4 or slot1 == slot3 and slot2 == slot4 or slot1 == slot4 and slot2 == slot3:
         slotOutput_2 = '$ NICE $'
         won = True

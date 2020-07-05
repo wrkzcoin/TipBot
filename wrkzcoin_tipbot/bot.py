@@ -846,7 +846,7 @@ async def slot(ctx):
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     await ctx.message.add_reaction(EMOJI_OK_HAND)
-    embed = discord.Embed(title="TIPBOT FREE SLOT ({} REWARD)".format("WITH" if won else "WITHOUT"), description="Anyone can freely play!", color=0x00ff00)
+    embed = discord.Embed(title="TIPBOT FREE SLOT ({} REWARD)".format("WITHOUT" if free_game else "WITH"), description="Anyone can freely play!", color=0x00ff00)
     embed.add_field(name="Player", value="{}#{}".format(ctx.message.author.name, ctx.message.author.discriminator), inline=False)
     embed.add_field(name="Last 24h you played", value=str(count_played_free+count_played+1), inline=False)
     embed.add_field(name="Result", value=slotOutput, inline=False)

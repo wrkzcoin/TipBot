@@ -778,6 +778,7 @@ async def game(ctx):
 async def slot(ctx):
     global GAME_SLOT_REWARD, GAME_COIN
     game_servers = config.game.guild_games.split(",")
+    free_game = False
     # Only WrkzCoin testing. Return if DM or other guild
     if isinstance(ctx.channel, discord.DMChannel) == True or str(ctx.guild.id) not in game_servers:
         await ctx.message.add_reaction(EMOJI_ERROR)
@@ -793,12 +794,11 @@ async def slot(ctx):
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
 
-    count_played = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD')
+    count_played = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', False)
+    count_played_free = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', True)
     if count_played and count_played >= config.game.max_daily_play:
+        free_game = True
         await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
-        msg = await ctx.send(f'{ctx.author.mention} You have played **{count_played} times** for the last 24h. Wait and try again later.')
-        await msg.add_reaction(EMOJI_OK_BOX)
-        return
 
     # Portion from https://github.com/MitchellAW/Discord-Bot/blob/master/features/rng.py
     slots = ['chocolate_bar', 'bell', 'tangerine', 'apple', 'cherries', 'seven']
@@ -825,26 +825,34 @@ async def slot(ctx):
         won = True
         won_x = 10
     try:
-        if won:
-            COIN_NAME = random.choice(GAME_COIN)
-            amount = GAME_SLOT_REWARD[COIN_NAME] * won_x
-            coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-            COIN_DEC = get_decimal(COIN_NAME)
-            real_amount = int(amount * COIN_DEC) if coin_family in ["XMR", "TRTL"] else float(amount * COIN_DEC)
-            reward = await store.sql_game_add(str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, COIN_DEC, str(ctx.guild.id), 'SLOT', 'DISCORD')
-            result = f'You won! You got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}**!'
+        if free_game == False:
+            if won:
+                COIN_NAME = random.choice(GAME_COIN)
+                amount = GAME_SLOT_REWARD[COIN_NAME] * won_x
+                coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+                COIN_DEC = get_decimal(COIN_NAME)
+                real_amount = int(amount * COIN_DEC) if coin_family in ["XMR", "TRTL"] else float(amount * COIN_DEC)
+                reward = await store.sql_game_add(str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, COIN_DEC, str(ctx.guild.id), 'SLOT', 'DISCORD')
+                result = f'You won! You got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}**!'
+            else:
+                reward = await store.sql_game_add(str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'SLOT', 'DISCORD')
         else:
-            reward = await store.sql_game_add(str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'SLOT', 'DISCORD')
-
+            if won:
+                result = f'You won! but this is a free game without **reward**!'
+            try:
+                await store.sql_game_free_add(str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'SLOT', 'DISCORD')
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     await ctx.message.add_reaction(EMOJI_OK_HAND)
-    embed = discord.Embed(title="TIPBOT FREE SLOT", description="Anyone can freely play!", color=0x00ff00)
+    embed = discord.Embed(title="TIPBOT FREE SLOT ({} REWARD)".format("WITH" if won else "WITHOUT"), description="Anyone can freely play!", color=0x00ff00)
     embed.add_field(name="Player", value="{}#{}".format(ctx.message.author.name, ctx.message.author.discriminator), inline=False)
-    embed.add_field(name="Last 24h you played", value=str(count_played+1), inline=False)
+    embed.add_field(name="Last 24h you played", value=str(count_played_free+count_played+1), inline=False)
     embed.add_field(name="Result", value=slotOutput, inline=False)
     embed.add_field(name="Comment", value=slotOutput_2, inline=False)
     embed.add_field(name="Reward", value=result, inline=False)
+    embed.set_footer(text="Randomed Coin: {}".format(config.game.coin_game))
     try:
         msg = await ctx.send(embed=embed)
         await msg.add_reaction(EMOJI_OK_BOX)

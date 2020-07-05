@@ -1417,7 +1417,7 @@ async def sql_faucet_count_all():
         traceback.print_exc(file=sys.stdout)
 
 
-async def sql_game_count_user(userID: str, lastDuration: int, user_server: str = 'DISCORD'):
+async def sql_game_count_user(userID: str, lastDuration: int, user_server: str = 'DISCORD', free: bool=False):
     global conn
     lapDuration = int(time.time()) - lastDuration
     user_server = user_server.upper()
@@ -1426,8 +1426,12 @@ async def sql_game_count_user(userID: str, lastDuration: int, user_server: str =
     try:
         openConnection()
         with conn.cursor() as cur:
-            sql = """ SELECT COUNT(*) FROM discord_game WHERE `played_user` = %s AND `user_server`=%s 
-                      AND `played_at`>%s """
+            if free == False:
+                sql = """ SELECT COUNT(*) FROM discord_game WHERE `played_user` = %s AND `user_server`=%s 
+                          AND `played_at`>%s """
+            else:
+                sql = """ SELECT COUNT(*) FROM discord_game_free WHERE `played_user` = %s AND `user_server`=%s 
+                          AND `played_at`>%s """
             cur.execute(sql, (userID, user_server, lapDuration))
             result = cur.fetchone()
             return int(result['COUNT(*)']) if 'COUNT(*)' in result else 0
@@ -1444,10 +1448,27 @@ async def sql_game_add(played_user: str, coin_name: str, win_lose: str, won_amou
         openConnection()
         with conn.cursor() as cur:
             sql = """ INSERT INTO discord_game (`played_user`, `coin_name`, `win_lose`, 
-                      `won_amount`, `decimal`, `played_at`, `game_type`, `user_server`) 
-                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
-            cur.execute(sql, (played_user, coin_name, win_lose, won_amount, decimal,  
+                      `won_amount`, `decimal`, `played_server`, `played_at`, `game_type`, `user_server`) 
+                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
+            cur.execute(sql, (played_user, coin_name, win_lose, won_amount, decimal, played_server, 
                         int(time.time()), game_type, user_server))
+            conn.commit()
+            return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
+async def sql_game_free_add(played_user: str, win_lose: str, played_server: str, game_type: str, user_server: str = 'DISCORD'):
+    global conn
+    user_server = user_server.upper()
+    if user_server not in ['DISCORD', 'TELEGRAM']:
+        return
+    try:
+        openConnection()
+        with conn.cursor() as cur:
+            sql = """ INSERT INTO discord_game_free (`played_user`, `win_lose`, `played_server`, `played_at`, `game_type`, `user_server`) 
+                      VALUES (%s, %s, %s, %s, %s, %s) """
+            cur.execute(sql, (played_user, win_lose, played_server, int(time.time()), game_type, user_server))
             conn.commit()
             return True
     except Exception as e:

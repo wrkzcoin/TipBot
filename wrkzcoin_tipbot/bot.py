@@ -832,15 +832,15 @@ async def slot(ctx):
                 coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                 COIN_DEC = get_decimal(COIN_NAME)
                 real_amount = int(amount * COIN_DEC) if coin_family in ["XMR", "TRTL"] else float(amount * COIN_DEC)
-                reward = await store.sql_game_add(str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, COIN_DEC, str(ctx.guild.id), 'SLOT', 'DISCORD')
+                reward = await store.sql_game_add(slotOutput, str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, COIN_DEC, str(ctx.guild.id), 'SLOT', 'DISCORD')
                 result = f'You won! You got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}**!'
             else:
-                reward = await store.sql_game_add(str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'SLOT', 'DISCORD')
+                reward = await store.sql_game_add(slotOutput, str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'SLOT', 'DISCORD')
         else:
             if won:
                 result = f'You won! but this is a free game without **reward**!'
             try:
-                await store.sql_game_free_add(str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'SLOT', 'DISCORD')
+                await store.sql_game_free_add(slotOutput, str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'SLOT', 'DISCORD')
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
     except Exception as e:

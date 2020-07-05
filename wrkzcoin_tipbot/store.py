@@ -1439,8 +1439,9 @@ async def sql_game_count_user(userID: str, lastDuration: int, user_server: str =
         traceback.print_exc(file=sys.stdout)
 
 
-async def sql_game_add(played_user: str, coin_name: str, win_lose: str, won_amount: float, decimal: int, played_server: str, game_type: str, user_server: str = 'DISCORD'):
+async def sql_game_add(game_result: str, played_user: str, coin_name: str, win_lose: str, won_amount: float, decimal: int, played_server: str, game_type: str, user_server: str = 'DISCORD'):
     global conn
+    game_result = game_result.replace("\t", "")
     user_server = user_server.upper()
     if user_server not in ['DISCORD', 'TELEGRAM']:
         return
@@ -1448,27 +1449,28 @@ async def sql_game_add(played_user: str, coin_name: str, win_lose: str, won_amou
         openConnection()
         with conn.cursor() as cur:
             sql = """ INSERT INTO discord_game (`played_user`, `coin_name`, `win_lose`, 
-                      `won_amount`, `decimal`, `played_server`, `played_at`, `game_type`, `user_server`) 
-                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                      `won_amount`, `decimal`, `played_server`, `played_at`, `game_type`, `user_server`, `game_result`) 
+                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
             cur.execute(sql, (played_user, coin_name, win_lose, won_amount, decimal, played_server, 
-                        int(time.time()), game_type, user_server))
+                        int(time.time()), game_type, user_server, game_result))
             conn.commit()
             return True
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
 
 
-async def sql_game_free_add(played_user: str, win_lose: str, played_server: str, game_type: str, user_server: str = 'DISCORD'):
+async def sql_game_free_add(game_result: str, played_user: str, win_lose: str, played_server: str, game_type: str, user_server: str = 'DISCORD'):
     global conn
+    game_result = game_result.replace("\t", "")
     user_server = user_server.upper()
     if user_server not in ['DISCORD', 'TELEGRAM']:
         return
     try:
         openConnection()
         with conn.cursor() as cur:
-            sql = """ INSERT INTO discord_game_free (`played_user`, `win_lose`, `played_server`, `played_at`, `game_type`, `user_server`) 
-                      VALUES (%s, %s, %s, %s, %s, %s) """
-            cur.execute(sql, (played_user, win_lose, played_server, int(time.time()), game_type, user_server))
+            sql = """ INSERT INTO discord_game_free (`played_user`, `win_lose`, `played_server`, `played_at`, `game_type`, `user_server`, `game_result`) 
+                      VALUES (%s, %s, %s, %s, %s, %s, %s) """
+            cur.execute(sql, (played_user, win_lose, played_server, int(time.time()), game_type, user_server, game_result))
             conn.commit()
             return True
     except Exception as e:

@@ -17,6 +17,8 @@ from generic_xmr.address_xam import address_xam as address_xam
 # games.bagels
 from games.bagels import getSecretNum as bagels_getSecretNum
 from games.bagels import getClues as bagels_getClues
+from games.hangman import drawHangman as hm_drawHangman
+from games.hangman import load_words as hm_load_words
 
 from config import config
 from wallet import *
@@ -41,8 +43,6 @@ import aiohttp
 
 # numexpr
 import numexpr
-
-
 
 # add logging
 # CRITICAL, ERROR, WARNING, INFO, and DEBUG and if not specified defaults to WARNING.
@@ -110,7 +110,7 @@ GAME_SLOT_REWARD = {
     "BTCMZ": 1000
 }
 
-GAME_BAGEL_PRGORESS = []
+GAME_INTERACTIVE_PRGORESS = []
 
 # save all temporary
 SAVING_ALL = None
@@ -294,6 +294,7 @@ bot_help_admin_cleartx = "Clear pending TX in case of urgent need."
 bot_help_game = "Various game commands"
 bot_help_game_slot = "Play slot game"
 bot_help_game_bagel = "Bagels, a deductive logic game. By Al Sweigart al@inventwithpython.com"
+bot_help_game_hangman = "Old hangman game."
 
 # account commands
 bot_help_account = "Various user account commands."
@@ -381,7 +382,8 @@ bot = AutoShardedBot(command_prefix = get_prefix, case_insensitive=True, owner_i
 
 @bot.event
 async def on_ready():
-    global LIST_IGNORECHAN, IS_RESTARTING, BOT_INVITELINK
+    global LIST_IGNORECHAN, IS_RESTARTING, BOT_INVITELINK, HANGMAN_WORDS
+    HANGMAN_WORDS = hm_load_words()
     print('Ready!')
     print("Hello, I am TipBot Bot!")
     LIST_IGNORECHAN = await store.sql_listignorechan()
@@ -391,6 +393,7 @@ async def on_ready():
     print("Guilds: {}".format(len(bot.guilds)))
     print("Users: {}".format(sum([x.member_count for x in bot.guilds])))
     print("Bot invitation link: " + BOT_INVITELINK)
+    if HANGMAN_WORDS and len(HANGMAN_WORDS) > 0: print('Loaded {} words for hangman.'.format(len(HANGMAN_WORDS)))
     game = discord.Game(name="Tip Forever!")
     await bot.change_presence(status=discord.Status.online, activity=game)
     botLogChan = bot.get_channel(id=LOG_CHAN)
@@ -840,7 +843,7 @@ async def slot(ctx):
                 COIN_DEC = get_decimal(COIN_NAME)
                 real_amount = int(amount * COIN_DEC) if coin_family in ["XMR", "TRTL"] else float(amount * COIN_DEC)
                 reward = await store.sql_game_add(slotOutput, str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, COIN_DEC, str(ctx.guild.id), 'SLOT', 'DISCORD')
-                result = f'You won! You got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}**!'
+                result = f'You won! {ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
             else:
                 reward = await store.sql_game_add(slotOutput, str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'SLOT', 'DISCORD')
         else:
@@ -871,21 +874,40 @@ async def slot(ctx):
 
 @game.command(name='bagel', alais=['bagels'], help=bot_help_game_bagel)
 async def bagel(ctx):
-    global GAME_BAGEL_PRGORESS
+    global GAME_INTERACTIVE_PRGORESS, GAME_COIN, GAME_SLOT_REWARD
     # Credit: https://github.com/asweigart/PythonStdioGames
     game_servers = config.game.guild_games.split(",")
+    free_game = False
     # Only WrkzCoin testing. Return if DM or other guild
     if isinstance(ctx.channel, discord.DMChannel) == True or str(ctx.guild.id) not in game_servers:
         await ctx.message.add_reaction(EMOJI_ERROR)
         return
 
-    if ctx.message.author.id not in GAME_BAGEL_PRGORESS:
-        GAME_BAGEL_PRGORESS.append(ctx.message.author.id)
+    # check if user create account less than 3 days
+    try:
+        account_created = ctx.message.author.created_at
+        if (datetime.utcnow() - account_created).total_seconds() <= 3*24*3600:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using this.')
+            return
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
+    if ctx.message.author.id not in GAME_INTERACTIVE_PRGORESS:
+        GAME_INTERACTIVE_PRGORESS.append(ctx.message.author.id)
     else:
-        await ctx.send(f'{ctx.author.mention} You are ongoing with one **bagel** play.')
+        await ctx.send(f'{ctx.author.mention} You are ongoing with one **game** play.')
         await ctx.message.add_reaction(EMOJI_ERROR)
         return
 
+    count_played = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', False)
+    count_played_free = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', True)
+    if count_played and count_played >= config.game.max_daily_play:
+        free_game = True
+        await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
+
+    won = False
     NUM_DIGITS = 3  # (!) Try setting this to 1 or 10.
     MAX_GUESSES = 10  # (!) Try setting this to 1 or 100.
     game_text = '''Bagels, a deductive logic game.
@@ -909,19 +931,41 @@ clues would be Fermi Pico.'''.format(NUM_DIGITS)
         numGuesses = 0
         while guess is None:
             waiting_numbmsg = None
+            def check(m):
+                return m.author == ctx.author and m.guild.id == ctx.guild.id
             try:
-                waiting_numbmsg = await bot.wait_for('message', timeout=60, check=lambda msg: msg.author == ctx.author)
+                waiting_numbmsg = await bot.wait_for('message', timeout=60, check=check)
             except asyncio.TimeoutError:
                 await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
                 await ctx.send(f'{ctx.author.mention} **Bagel Timeout**. The answer was **{secretNum}**.')
-                if ctx.message.author.id in GAME_BAGEL_PRGORESS:
-                    GAME_BAGEL_PRGORESS.remove(ctx.message.author.id)
+                if free_game == True:
+                    try:
+                        await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', 'DISCORD')
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                else:
+                    try:
+                        reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', 'DISCORD')
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+                    GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
                 return
             if waiting_numbmsg is None:
                 await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
                 await ctx.send(f'{ctx.author.mention} **Bagel Timeout**. The answer was **{secretNum}**.')
-                if ctx.message.author.id in GAME_BAGEL_PRGORESS:
-                    GAME_BAGEL_PRGORESS.remove(ctx.message.author.id)
+                if free_game == True:
+                    try:
+                        await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', 'DISCORD')
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                else:
+                    try:
+                        reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', 'DISCORD')
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+                    GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
                 return
             else:
                 guess = waiting_numbmsg.content.strip()
@@ -930,9 +974,26 @@ clues would be Fermi Pico.'''.format(NUM_DIGITS)
                     await ctx.send(f'{ctx.author.mention} **Bagel: ** Please use number!')
                 else:
                     if guess == secretNum:
-                        await ctx.send(f'{ctx.author.mention} **Bagel: ** You won! The answer was **{secretNum}**. You had guessed **{numGuesses+1}** times only.')
-                        if ctx.message.author.id in GAME_BAGEL_PRGORESS:
-                            GAME_BAGEL_PRGORESS.remove(ctx.message.author.id)
+                        result = 'But this is a free game without **reward**!'
+                        won = True
+                        if won and free_game == False:
+                            COIN_NAME = random.choice(GAME_COIN)
+                            amount = GAME_SLOT_REWARD[COIN_NAME]
+                            coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+                            COIN_DEC = get_decimal(COIN_NAME)
+                            real_amount = int(amount * COIN_DEC) if coin_family in ["XMR", "TRTL"] else float(amount * COIN_DEC)
+                            reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, COIN_DEC, str(ctx.guild.id), 'BAGEL', 'DISCORD')
+                            result = f'{ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
+                        elif won == False and free_game == True:
+                            reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', 'DISCORD')
+                        elif free_game == True:
+                            try:
+                                await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', 'DISCORD')
+                            except Exception as e:
+                                traceback.print_exc(file=sys.stdout)
+                        if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+                            GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+                        await ctx.send(f'{ctx.author.mention} **Bagel: ** You won! The answer was **{secretNum}**. You had guessed **{numGuesses+1}** times only. {result}')
                         return
                     else:
                         clues = bagels_getClues(guess, secretNum)
@@ -941,14 +1002,180 @@ clues would be Fermi Pico.'''.format(NUM_DIGITS)
                         numGuesses += 1
             if numGuesses >= MAX_GUESSES:
                 await ctx.send(f'{ctx.author.mention} **Bagel: ** You run out of guesses and you did it **{numGuesses}** times. Game over! The answer was **{secretNum}**')
-                if ctx.message.author.id in GAME_BAGEL_PRGORESS:
-                    GAME_BAGEL_PRGORESS.remove(ctx.message.author.id)
+                if free_game == True:
+                    try:
+                        await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', 'DISCORD')
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                else:
+                    try:
+                        reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', 'DISCORD')
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+                    GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
                 return
     except (discord.Forbidden, discord.errors.Forbidden) as e:
         await ctx.message.add_reaction(EMOJI_ERROR)
         return
-    if ctx.message.author.id in GAME_BAGEL_PRGORESS:
-        GAME_BAGEL_PRGORESS.remove(ctx.message.author.id)
+    if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+        GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+
+
+@game.command(name='hangman', alais=['hm'], help=bot_help_game_hangman)
+async def hangman(ctx):
+    global GAME_INTERACTIVE_PRGORESS, GAME_COIN, GAME_SLOT_REWARD, HANGMAN_WORDS
+    # Credit: https://github.com/asweigart/PythonStdioGames
+    game_servers = config.game.guild_games.split(",")
+    free_game = False
+    # Only WrkzCoin testing. Return if DM or other guild
+    if isinstance(ctx.channel, discord.DMChannel) == True or str(ctx.guild.id) not in game_servers:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        return
+
+    # check if user create account less than 3 days
+    try:
+        account_created = ctx.message.author.created_at
+        if (datetime.utcnow() - account_created).total_seconds() <= 3*24*3600:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using this.')
+            return
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
+    if ctx.message.author.id not in GAME_INTERACTIVE_PRGORESS:
+        GAME_INTERACTIVE_PRGORESS.append(ctx.message.author.id)
+    else:
+        await ctx.send(f'{ctx.author.mention} You are ongoing with one **game** play.')
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        return
+
+    count_played = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', False)
+    count_played_free = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', True)
+    if count_played and count_played >= config.game.max_daily_play:
+        free_game = True
+        await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
+
+    won = False
+
+    # Setup variables for a new game:
+    missedLetters = []  # List of incorrect letter guesses.
+    correctLetters = []  # List of correct letter guesses.
+    secretWord = random.choice(HANGMAN_WORDS).upper()  # The word the player must guess.
+    game_text = '''Hangman, original code / idea by Al Sweigart al@inventwithpython.com.'''
+    hm_draw = hm_drawHangman(missedLetters, correctLetters, secretWord)
+    hm_picture = hm_draw['picture']
+    hm_word_line = hm_draw['word_line']
+    await ctx.send(f'{ctx.author.mention} ```{game_text}\n{hm_picture}\n\n{hm_word_line}```')
+    try:
+        await ctx.send(f'{ctx.author.mention} **HANGMAN** Please enter a single letter:')
+        guess = None
+        while guess is None:
+            waiting_numbmsg = None
+            def check(m):
+                return m.author == ctx.author and m.guild.id == ctx.guild.id
+            try:
+                waiting_numbmsg = await bot.wait_for('message', timeout=60, check=check)
+            except asyncio.TimeoutError:
+                await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
+                await ctx.send(f'{ctx.author.mention} **HANGMAN Timeout**. The answer was **{secretWord}**.')
+                if free_game == True:
+                    try:
+                        await store.sql_game_free_add(secretWord, str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'HANGMAN', 'DISCORD')
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                else:
+                    try:
+                        reward = await store.sql_game_add(secretWord, str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'HANGMAN', 'DISCORD')
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+                    GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+                return
+            if waiting_numbmsg is None:
+                await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
+                await ctx.send(f'{ctx.author.mention} **HANGMAN Timeout**. The answer was **{secretWord}**.')
+                if free_game == True:
+                    try:
+                        await store.sql_game_free_add(secretWord, str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'HANGMAN', 'DISCORD')
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                else:
+                    try:
+                        reward = await store.sql_game_add(secretWord, str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'HANGMAN', 'DISCORD')
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+                    GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+                return
+            else:
+                guess = waiting_numbmsg.content.strip().upper()
+                if guess in missedLetters + correctLetters:
+                    await ctx.send(f'{ctx.author.mention} **HANGMAN**. You already guessed **{guess}**.')
+                    guess = None
+                elif not guess.isalpha():
+                    guess = None
+                    await ctx.send(f'{ctx.author.mention} **HANGMAN**. Please use letter.')
+                elif guess in secretWord:
+                    # Add the correct guess to correctLetters:
+                    correctLetters.append(guess)
+                    # Check if the player has won:
+                    foundAllLetters = True  # Start off assuming they've won.
+                    result = 'But this is a free game without **reward**!'
+                    for secretWordLetter in secretWord:
+                        if secretWordLetter not in correctLetters:
+                            # There's a letter in the secret word that isn't
+                            # yet in correctLetters, so the player hasn't won:
+                            foundAllLetters = False
+                    if foundAllLetters and free_game == False:
+                        COIN_NAME = random.choice(GAME_COIN)
+                        amount = GAME_SLOT_REWARD[COIN_NAME]
+                        coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+                        COIN_DEC = get_decimal(COIN_NAME)
+                        real_amount = int(amount * COIN_DEC) if coin_family in ["XMR", "TRTL"] else float(amount * COIN_DEC)
+                        reward = await store.sql_game_add(secretWord, str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, COIN_DEC, str(ctx.guild.id), 'HANGMAN', 'DISCORD')
+                        result = f'{ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
+                    elif foundAllLetters and free_game == True:
+                        reward = await store.sql_game_free_add(secretWord, str(ctx.message.author.id), 'WIN', str(ctx.guild.id), 'HANGMAN', 'DISCORD')
+                    if foundAllLetters:
+                        await ctx.send(f'{ctx.author.mention} **HANGMAN**: You won! The answer was **{secretNum}**. {result}')
+                        return
+                    else:
+                        hm_draw = hm_drawHangman(missedLetters, correctLetters, secretWord)
+                        hm_picture = hm_draw['picture']
+                        hm_missed = hm_draw['missed_letter']
+                        await ctx.send(f'{ctx.author.mention} **HANGMAN: **```{hm_picture}\n\n{hm_word_line}\n{hm_missed}```')
+                    guess = None
+                else:
+                    # The player has guessed incorrectly:
+                    missedLetters.append(guess)
+                    guess = None
+                    # Check if player has guessed too many times and lost. (The
+                    # "- 1" is because we don't count the empty gallows in
+                    # HANGMAN_PICS.)
+                    hm_draw = hm_drawHangman(missedLetters, correctLetters, secretWord)
+                    if len(missedLetters) == 6: # len(HANGMAN_PICS) = 7
+                        hm_picture = hm_draw['picture']
+                        hm_missed = hm_draw['missed_letter']
+                        if free_game:
+                            await store.sql_game_free_add(secretWord, str(ctx.message.author.id), 'LOSE', str(ctx.guild.id), 'HANGMAN', 'DISCORD')
+                        else:
+                            await store.sql_game_add(secretWord, str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'HANGMAN', 'DISCORD')
+                        await ctx.send(f'{ctx.author.mention} **HANGMAN: ** You run out of guesses. Game over! The answer was **{secretWord}**```{hm_picture}```')
+                        if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+                            GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+                        return
+                    else:
+                        hm_picture = hm_draw['picture']
+                        hm_missed = hm_draw['missed_letter']
+                        hm_word_line = hm_draw['word_line']
+                        await ctx.send(f'{ctx.author.mention} ```{hm_picture}\n\n{hm_word_line}\n{hm_missed}```')
+    except (discord.Forbidden, discord.errors.Forbidden) as e:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        return
+    if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+        GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
 
 
 @bot.group(aliases=['acc'], help=bot_help_account)

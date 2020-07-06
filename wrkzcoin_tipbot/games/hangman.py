@@ -71,12 +71,20 @@ r"""
 
 def load_words():
     wordList = []
-    with open('games/google-10000-english-usa-no-swears-medium.txt') as word_file:
+    with open('games/wordlist.10000') as word_file:
         valid_words = set(word_file.read().split())
     for item in valid_words:
         if 5 <= len(item) <= 12 and re.match('[a-zA-Z]+', item):
             wordList.append(item)
-    return wordList
+
+    badword_list = []
+    with open('games/profane-words.raw') as word_file:
+        badword_list = set(word_file.read().split())
+
+    print('Word from dict: '+str(len(wordList)))
+    newWordList = [x for x in wordList if x not in badword_list]
+    print('Word after bad word:'+str(len(newWordList))) 
+    return newWordList
 
 
 def drawHangman(missedLetters, correctLetters, secretWord):

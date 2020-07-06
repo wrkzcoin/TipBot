@@ -14,6 +14,10 @@ from generic_xmr.address_msr import address_msr as address_msr
 from generic_xmr.address_xmr import address_xmr as address_xmr
 from generic_xmr.address_xam import address_xam as address_xam
 
+# games.bagels
+from games.bagels import getSecretNum as bagels_getSecretNum
+from games.bagels import getClues as bagels_getClues
+
 from config import config
 from wallet import *
 
@@ -105,6 +109,8 @@ GAME_SLOT_REWARD = {
     "TRTL": 10,
     "BTCMZ": 1000
 }
+
+GAME_BAGEL_PRGORESS = []
 
 # save all temporary
 SAVING_ALL = None
@@ -287,6 +293,7 @@ bot_help_admin_cleartx = "Clear pending TX in case of urgent need."
 # game command
 bot_help_game = "Various game commands"
 bot_help_game_slot = "Play slot game"
+bot_help_game_bagel = "Bagels, a deductive logic game. By Al Sweigart al@inventwithpython.com"
 
 # account commands
 bot_help_account = "Various user account commands."
@@ -860,6 +867,88 @@ async def slot(ctx):
         await ctx.message.add_reaction(EMOJI_ERROR)
         traceback.print_exc(file=sys.stdout)
     return
+
+
+@game.command(name='bagel', alais=['bagels'], help=bot_help_game_bagel)
+async def bagel(ctx):
+    global GAME_BAGEL_PRGORESS
+    # Credit: https://github.com/asweigart/PythonStdioGames
+    game_servers = config.game.guild_games.split(",")
+    # Only WrkzCoin testing. Return if DM or other guild
+    if isinstance(ctx.channel, discord.DMChannel) == True or str(ctx.guild.id) not in game_servers:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        return
+
+    if ctx.message.author.id not in GAME_BAGEL_PRGORESS:
+        GAME_BAGEL_PRGORESS.append(ctx.message.author.id)
+    else:
+        await ctx.send(f'{ctx.author.mention} You are ongoing with one **bagel** play.')
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        return
+
+    NUM_DIGITS = 3  # (!) Try setting this to 1 or 10.
+    MAX_GUESSES = 10  # (!) Try setting this to 1 or 100.
+    game_text = '''Bagels, a deductive logic game.
+By Al Sweigart al@inventwithpython.com
+
+I am thinking of a {}-digit number with no repeated digits.
+Try to guess what it is. Here are some clues:
+When I say:    That means:
+  Pico         One digit is correct but in the wrong position.
+  Fermi        One digit is correct and in the right position.
+  Bagels       No digit is correct.
+
+For example, if the secret number was 248 and your guess was 843, the
+clues would be Fermi Pico.'''.format(NUM_DIGITS)
+    await ctx.send(f'{ctx.author.mention} ```{game_text}```')
+    secretNum = bagels_getSecretNum()
+
+    try:
+        await ctx.send(f'{ctx.author.mention} I have thought up a number. You have {MAX_GUESSES} guesses to get it.')
+        guess = None
+        numGuesses = 0
+        while guess is None:
+            waiting_numbmsg = None
+            try:
+                waiting_numbmsg = await bot.wait_for('message', timeout=60, check=lambda msg: msg.author == ctx.author)
+            except asyncio.TimeoutError:
+                await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
+                await ctx.send(f'{ctx.author.mention} **Bagel Timeout**. The answer was **{secretNum}**.')
+                if ctx.message.author.id in GAME_BAGEL_PRGORESS:
+                    GAME_BAGEL_PRGORESS.remove(ctx.message.author.id)
+                return
+            if waiting_numbmsg is None:
+                await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
+                await ctx.send(f'{ctx.author.mention} **Bagel Timeout**. The answer was **{secretNum}**.')
+                if ctx.message.author.id in GAME_BAGEL_PRGORESS:
+                    GAME_BAGEL_PRGORESS.remove(ctx.message.author.id)
+                return
+            else:
+                guess = waiting_numbmsg.content.strip()
+                if len(guess) != NUM_DIGITS or not guess.isdecimal():
+                    guess = None
+                    await ctx.send(f'{ctx.author.mention} **Bagel: ** Please use number!')
+                else:
+                    if guess == secretNum:
+                        await ctx.send(f'{ctx.author.mention} **Bagel: ** You won! The answer was **{secretNum}**. You had guessed **{numGuesses+1}** times only.')
+                        if ctx.message.author.id in GAME_BAGEL_PRGORESS:
+                            GAME_BAGEL_PRGORESS.remove(ctx.message.author.id)
+                        return
+                    else:
+                        clues = bagels_getClues(guess, secretNum)
+                        await ctx.send(f'{ctx.author.mention} **Bagel: ** {clues}')
+                        guess = None
+                        numGuesses += 1
+            if numGuesses >= MAX_GUESSES:
+                await ctx.send(f'{ctx.author.mention} **Bagel: ** You run out of guesses and you did it **{numGuesses}** times. Game over! The answer was **{secretNum}**')
+                if ctx.message.author.id in GAME_BAGEL_PRGORESS:
+                    GAME_BAGEL_PRGORESS.remove(ctx.message.author.id)
+                return
+    except (discord.Forbidden, discord.errors.Forbidden) as e:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        return
+    if ctx.message.author.id in GAME_BAGEL_PRGORESS:
+        GAME_BAGEL_PRGORESS.remove(ctx.message.author.id)
 
 
 @bot.group(aliases=['acc'], help=bot_help_account)

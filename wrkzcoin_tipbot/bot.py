@@ -776,7 +776,13 @@ async def about(ctx):
 
 @bot.group(hidden = True, name='game', help=bot_help_game)
 async def game(ctx):
+    global IS_RESTARTING
     prefix = await get_guild_prefix(ctx)
+    # check if bot is going to restart
+    if IS_RESTARTING:
+        await ctx.message.add_reaction(EMOJI_REFRESH)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is going to restart soon. Wait until it is back for using this.')
+        return
     # Only WrkzCoin testing. Return if DM or other guild
     if isinstance(ctx.channel, discord.DMChannel) == True or ctx.guild.id != 460755304863498250:
         return
@@ -977,8 +983,9 @@ clues would be Fermi Pico.'''.format(NUM_DIGITS)
                         result = 'But this is a free game without **reward**!'
                         won = True
                         if won and free_game == False:
+                            won_x = 5
                             COIN_NAME = random.choice(GAME_COIN)
-                            amount = GAME_SLOT_REWARD[COIN_NAME]
+                            amount = GAME_SLOT_REWARD[COIN_NAME] * won_x
                             coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                             COIN_DEC = get_decimal(COIN_NAME)
                             real_amount = int(amount * COIN_DEC) if coin_family in ["XMR", "TRTL"] else float(amount * COIN_DEC)
@@ -1139,12 +1146,15 @@ async def hangman(ctx):
                     elif foundAllLetters and free_game == True:
                         reward = await store.sql_game_free_add(secretWord, str(ctx.message.author.id), 'WIN', str(ctx.guild.id), 'HANGMAN', 'DISCORD')
                     if foundAllLetters:
-                        await ctx.send(f'{ctx.author.mention} **HANGMAN**: You won! The answer was **{secretNum}**. {result}')
+                        if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+                            GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+                        await ctx.send(f'{ctx.author.mention} **HANGMAN**: You won! The answer was **{secretWord}**. {result}')
                         return
                     else:
                         hm_draw = hm_drawHangman(missedLetters, correctLetters, secretWord)
                         hm_picture = hm_draw['picture']
                         hm_missed = hm_draw['missed_letter']
+                        hm_word_line = hm_draw['word_line']
                         await ctx.send(f'{ctx.author.mention} **HANGMAN: **```{hm_picture}\n\n{hm_word_line}\n{hm_missed}```')
                     guess = None
                 else:

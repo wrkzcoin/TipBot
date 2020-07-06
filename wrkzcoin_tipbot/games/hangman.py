@@ -94,7 +94,7 @@ def drawHangman(missedLetters, correctLetters, secretWord):
 
     # Replace blanks with correctly guessed letters:
     for i in range(len(secretWord)):
-        if secretWord[i] in correctLetters:
+        if len(correctLetters) > 0 and secretWord[i] in correctLetters:
             blanks[i] = secretWord[i]
 
     # Show the secret word with spaces in between each letter:

@@ -71,10 +71,10 @@ r"""
 
 def load_words():
     wordList = []
-    with open('games/wordlist.10000') as word_file:
+    with open('games/oxford.txt') as word_file:
         valid_words = set(word_file.read().split())
     for item in valid_words:
-        if 5 <= len(item) <= 12 and re.match('[a-zA-Z]+', item):
+        if 6 <= len(item) <= 15 and re.match('[a-zA-Z]+', item):
             wordList.append(item)
 
     badword_list = []

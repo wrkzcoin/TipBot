@@ -2428,6 +2428,8 @@ async def deposit(ctx, coin_name: str, pub: str = None):
 
 
 async def help_main(message, prefix):
+    global LOG_CHAN
+    botLogChan = bot.get_channel(id=LOG_CHAN)
     embed = discord.Embed(title="List of commands", description="To avoid spamming other, you can do in Direct Message or Bot Channel", color=0xDEADBF)
     if isinstance(message.channel, discord.DMChannel) == False:
         cmd_setting = ["setting prefix <.>", "setting default_coin <coin_name>", "setting tiponly <coin1> [coin2] [coin3] ..", "setting ignorechan", "setting del_ignorechan"]
@@ -2463,6 +2465,7 @@ async def help_main(message, prefix):
             msg = await message.author.send(embed=embed)
             await msg.add_reaction(EMOJI_OK_BOX)
     except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+        await botLogChan.send(f'**Failed** Missing Permissions for sending help_main in guild {message.guild.id} / {message.guild.name} / # {message.channel.name}')
         await message.add_reaction(EMOJI_ERROR)
     return
 

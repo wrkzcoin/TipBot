@@ -821,23 +821,18 @@ async def slot(ctx):
     slot1 = slots[random.randint(0, 5)]
     slot2 = slots[random.randint(0, 5)]
     slot3 = slots[random.randint(0, 5)]
-    slot4 = slots[random.randint(0, 5)]
-    slotOutput = '|\t:{}:\t|\t:{}:\t|\t:{}:\t|\t:{}:\t|'.format(slot1, slot2, slot3, slot4)
+    slotOutput = '|\t:{}:\t|\t:{}:\t|\t:{}:\t|'.format(slot1, slot2, slot3)
 
     won = False
     won_x = 1
     slotOutput_2 = '$ TRY AGAIN! $'
     result = 'You lose! Good luck later!'
-    if slot1 == slot2 and slot2 == slot3 and slot3 == slot4 and slot4 != 'seven':
-        slotOutput_2 = '$$ GREAT $$\n'
+    if slot1 == slot2 == slot3 == 'seven':
+        slotOutput_2 = '$$ JACKPOT $$\n'
         won = True
-        won_x = 20
-    elif slot1 == 'seven' and slot2 == 'seven' and slot3 == 'seven' and slot4 == 'seven':
-        slotOutput_2 = '$$ JACKPOT $$'
-        won = True
-        won_x = 50
-    elif slot1 == slot2 and slot3 == slot4 or slot1 == slot3 and slot2 == slot4 or slot1 == slot4 and slot2 == slot3:
-        slotOutput_2 = '$ NICE $'
+        won_x = 25
+    elif slot1 == slot2 == slot3:
+        slotOutput_2 = '$$ GREAT $$'
         won = True
         won_x = 10
     try:

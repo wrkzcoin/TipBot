@@ -20,6 +20,9 @@ from games.bagels import getClues as bagels_getClues
 from games.hangman import drawHangman as hm_drawHangman
 from games.hangman import load_words as hm_load_words
 
+from games.maze2d import displayMaze as maze_displayMaze
+from games.maze2d import createMazeDump as maze_createMazeDump
+
 from config import config
 from wallet import *
 
@@ -111,6 +114,7 @@ GAME_SLOT_REWARD = {
 }
 
 GAME_INTERACTIVE_PRGORESS = []
+GAME_MAZE_IN_PROCESS = []
 
 # save all temporary
 SAVING_ALL = None
@@ -158,6 +162,11 @@ EMOJI_99 = "<:almost100:405478443028054036>"
 EMOJI_TIP = "<:tip:424333592102043649>"
 EMOJI_MAINTENANCE = "\U0001F527"
 EMOJI_QUESTEXCLAIM = "\u2049"
+
+EMOJI_UP = "\u2B06"
+EMOJI_LEFT = "\u2B05"
+EMOJI_RIGHT = "\u27A1"
+EMOJI_DOWN = "\u2B07"
 
 EMOJI_COIN = {
     "WRKZ" : "\U0001F477",
@@ -294,7 +303,8 @@ bot_help_admin_cleartx = "Clear pending TX in case of urgent need."
 bot_help_game = "Various game commands"
 bot_help_game_slot = "Play slot game"
 bot_help_game_bagel = "Bagels, a deductive logic game. By Al Sweigart al@inventwithpython.com"
-bot_help_game_hangman = "Old hangman game."
+bot_help_game_hangman = "Old hangman game"
+bot_help_game_maze = "Interactive 2D ascii maze game"
 
 # account commands
 bot_help_account = "Various user account commands."
@@ -790,9 +800,10 @@ async def game(ctx):
         await ctx.send(f'{ctx.author.mention} Invalid {prefix}game command')
         return
 
+
 @game.command(name='slot', alais=['slots'], help=bot_help_game_slot)
 async def slot(ctx):
-    global GAME_SLOT_REWARD, GAME_COIN
+    global GAME_SLOT_REWARD, GAME_COIN, BOT_INVITELINK
     game_servers = config.game.guild_games.split(",")
     free_game = False
     # Only WrkzCoin testing. Return if DM or other guild
@@ -863,6 +874,7 @@ async def slot(ctx):
     embed.add_field(name="Result", value=slotOutput, inline=False)
     embed.add_field(name="Comment", value=slotOutput_2, inline=False)
     embed.add_field(name="Reward", value=result, inline=False)
+    embed.add_field(name='More', value=f'[TipBot Github](https://github.com/wrkzcoin/TipBot) | {BOT_INVITELINK} ', inline=False)
     embed.set_footer(text="Randomed Coin: {}".format(config.game.coin_game))
     try:
         msg = await ctx.send(embed=embed)
@@ -875,7 +887,7 @@ async def slot(ctx):
 
 @game.command(name='bagel', alais=['bagels'], help=bot_help_game_bagel)
 async def bagel(ctx):
-    global GAME_INTERACTIVE_PRGORESS, GAME_COIN, GAME_SLOT_REWARD
+    global GAME_INTERACTIVE_PRGORESS, GAME_COIN, GAME_SLOT_REWARD, BOT_INVITELINK
     # Credit: https://github.com/asweigart/PythonStdioGames
     game_servers = config.game.guild_games.split(",")
     free_game = False
@@ -1022,6 +1034,136 @@ clues would be Fermi Pico.'''.format(NUM_DIGITS)
         return
     if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
         GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+
+
+@game.command(name='maze', alais=['mazes'], help=bot_help_game_maze)
+async def maze(ctx):
+    global GAME_INTERACTIVE_PRGORESS, GAME_COIN, GAME_SLOT_REWARD, BOT_INVITELINK, GAME_MAZE_IN_PROCESS
+    # Credit: https://github.com/asweigart/PythonStdioGames
+    game_servers = config.game.guild_games.split(",")
+    free_game = False
+    # Only WrkzCoin testing. Return if DM or other guild
+    if isinstance(ctx.channel, discord.DMChannel) == True or str(ctx.guild.id) not in game_servers:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        return
+
+    if ctx.message.author.id not in GAME_INTERACTIVE_PRGORESS:
+        GAME_INTERACTIVE_PRGORESS.append(ctx.message.author.id)
+    else:
+        await ctx.send(f'{ctx.author.mention} You are ongoing with one **game** play.')
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        return
+
+    # Make random height and width
+    try:
+        WALL = '#'
+        WIDTH = random.choice([25, 27, 29, 31, 33, 35])
+        HEIGHT = random.choice([15, 17, 19, 21, 23, 25])
+        SEED = random.randint(25, 50)
+        EMPTY = ' '
+        maze_data = await maze_createMazeDump(WIDTH, HEIGHT, SEED)
+        playerx, playery = 1, 1
+        exitx, exity = WIDTH - 2, HEIGHT - 2
+        maze_created = maze_displayMaze(maze_data, WIDTH, HEIGHT, playerx, playery, exitx, exity)
+        msg = await ctx.send(f'{ctx.author.mention} New Maze:\n```{maze_created}```')
+        await msg.add_reaction(EMOJI_UP)
+        await msg.add_reaction(EMOJI_DOWN)
+        await msg.add_reaction(EMOJI_LEFT)
+        await msg.add_reaction(EMOJI_RIGHT)
+        await msg.add_reaction(EMOJI_OK_BOX)
+        if ctx.guild.id not in GAME_MAZE_IN_PROCESS:
+            GAME_MAZE_IN_PROCESS.append(ctx.guild.id)
+        else:
+            await ctx.send(f'{ctx.author.mention} There is one **MAZE** started by a user in this guild already.')
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            return
+        time_start = int(time.time())
+        while (playerx, playery) != (exitx, exity):
+            def check(reaction, user):
+                return user == ctx.message.author and reaction.message.author == bot.user and reaction.message.id == msg.id and str(reaction.emoji) \
+                in (EMOJI_UP, EMOJI_DOWN, EMOJI_LEFT, EMOJI_RIGHT, EMOJI_OK_BOX)
+            try:
+                reaction, user = await bot.wait_for('reaction_add', timeout=60, check=check)
+            except asyncio.TimeoutError:
+                if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+                    GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+                if ctx.guild.id in GAME_MAZE_IN_PROCESS:
+                    GAME_MAZE_IN_PROCESS.remove(ctx.guild.id)
+                await ctx.send(f'{ctx.author.mention} too long. Game exit.')
+                return
+                
+            if str(reaction.emoji) == EMOJI_OK_BOX:
+                await ctx.send(f'{ctx.author.mention} You gave up the current game.')
+                if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+                    GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+                if ctx.guild.id in GAME_MAZE_IN_PROCESS:
+                    GAME_MAZE_IN_PROCESS.remove(ctx.guild.id)
+                break
+                return
+            
+            if (str(reaction.emoji) == EMOJI_UP and maze_data[(playerx, playery - 1)] == EMPTY) \
+            or (str(reaction.emoji) == EMOJI_DOWN and maze_data[(playerx, playery + 1)] == EMPTY) \
+            or (str(reaction.emoji) == EMOJI_LEFT and maze_data[(playerx - 1, playery)] == EMPTY) \
+            or (str(reaction.emoji) == EMOJI_RIGHT and maze_data[(playerx + 1, playery)] == EMPTY):
+                if str(reaction.emoji) == EMOJI_UP:
+                    while True:
+                        playery -= 1
+                        if (playerx, playery) == (exitx, exity):
+                            break
+                        if maze_data[(playerx, playery - 1)] == WALL:
+                            break  # Break if we've hit a wall.
+                        if (maze_data[(playerx - 1, playery)] == EMPTY
+                            or maze_data[(playerx + 1, playery)] == EMPTY):
+                            break  # Break if we've reached a branch point.
+                elif str(reaction.emoji) == EMOJI_DOWN:
+                    while True:
+                        playery += 1
+                        if (playerx, playery) == (exitx, exity):
+                            break
+                        if maze_data[(playerx, playery + 1)] == WALL:
+                            break  # Break if we've hit a wall.
+                        if (maze_data[(playerx - 1, playery)] == EMPTY
+                            or maze_data[(playerx + 1, playery)] == EMPTY):
+                            break  # Break if we've reached a branch point.
+                elif str(reaction.emoji) == EMOJI_LEFT:
+                    while True:
+                        playerx -= 1
+                        if (playerx, playery) == (exitx, exity):
+                            break
+                        if maze_data[(playerx - 1, playery)] == WALL:
+                            break  # Break if we've hit a wall.
+                        if (maze_data[(playerx, playery - 1)] == EMPTY
+                            or maze_data[(playerx, playery + 1)] == EMPTY):
+                            break  # Break if we've reached a branch point.
+                elif str(reaction.emoji) == EMOJI_RIGHT:
+                    while True:
+                        playerx += 1
+                        if (playerx, playery) == (exitx, exity):
+                            break
+                        if maze_data[(playerx + 1, playery)] == WALL:
+                            break  # Break if we've hit a wall.
+                        if (maze_data[(playerx, playery - 1)] == EMPTY
+                            or maze_data[(playerx, playery + 1)] == EMPTY):
+                            break  # Break if we've reached a branch point.
+            try:
+                maze_edit = maze_displayMaze(maze_data, WIDTH, HEIGHT, playerx, playery, exitx, exity)
+                await msg.edit(content=f'{ctx.author.mention} Maze:\n```{maze_edit}```')
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+        if (playerx, playery) == (exitx, exity):
+            duration = seconds_str(int(time.time()) - time_start)
+            if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+                GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+            if ctx.guild.id in GAME_MAZE_IN_PROCESS:
+                GAME_MAZE_IN_PROCESS.remove(ctx.guild.id)
+            await ctx.send(f'{ctx.author.mention} **MAZE** Grats! You completed! You completed in: **{duration}**')
+            return
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+        GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+    if ctx.guild.id in GAME_MAZE_IN_PROCESS:
+        GAME_MAZE_IN_PROCESS.remove(ctx.guild.id)
 
 
 @game.command(name='hangman', alais=['hm'], help=bot_help_game_hangman)

@@ -467,6 +467,9 @@ async def on_raw_reaction_add(payload):
             and author != member and message:
             # Delete message
             try:
+                # do not delete maze message
+                if 'MAZE' in message.content.upper():
+                    return
                 await message.delete()
                 return
             except discord.errors.NotFound as e:
@@ -485,10 +488,15 @@ async def on_reaction_add(reaction, user):
         # If re-action is OK box and message author is bot itself
         if reaction.emoji == EMOJI_OK_BOX and reaction.message.author.id == bot.user.id \
             and (not reaction.message.content.startswith("**ADDRESS REQ")):
+            # do not delete maze message
+            if 'MAZE' in reaction.message.content.upper():
+                return
             await reaction.message.delete()
         elif reaction.emoji == EMOJI_OK_BOX and reaction.message.author.id == bot.user.id \
             and reaction.message.content.startswith("**ADDRESS REQ") and \
             (user in reaction.message.mentions):
+            if 'MAZE' in reaction.message.content.upper():
+                return
             # OK he confirm
             COIN_NAME = reaction.message.content.split()[2].upper()
             name_to_give = reaction.message.content.split()[5]
@@ -1056,6 +1064,12 @@ async def maze(ctx):
 
     # Make random height and width
     try:
+        if ctx.guild.id not in GAME_MAZE_IN_PROCESS:
+            GAME_MAZE_IN_PROCESS.append(ctx.guild.id)
+        else:
+            await ctx.send(f'{ctx.author.mention} There is one **MAZE** started by a user in this guild already.')
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            return
         WALL = '#'
         WIDTH = random.choice([25, 27, 29, 31, 33, 35])
         HEIGHT = random.choice([15, 17, 19, 21, 23, 25])
@@ -1071,12 +1085,7 @@ async def maze(ctx):
         await msg.add_reaction(EMOJI_LEFT)
         await msg.add_reaction(EMOJI_RIGHT)
         await msg.add_reaction(EMOJI_OK_BOX)
-        if ctx.guild.id not in GAME_MAZE_IN_PROCESS:
-            GAME_MAZE_IN_PROCESS.append(ctx.guild.id)
-        else:
-            await ctx.send(f'{ctx.author.mention} There is one **MAZE** started by a user in this guild already.')
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            return
+
         time_start = int(time.time())
         while (playerx, playery) != (exitx, exity):
             def check(reaction, user):

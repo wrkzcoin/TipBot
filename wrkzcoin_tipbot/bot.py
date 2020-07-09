@@ -4349,6 +4349,10 @@ async def tip(ctx, amount: str, *args):
                                 await _tip_talker(ctx, amount, message_talker, COIN_NAME)
                                 return
                             return
+                        else:
+                            await ctx.message.add_reaction(EMOJI_ERROR)
+                            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} What is this **{num_user}** number? Please give a number bigger than 0 :) ')
+                            return
                     except ValueError:
                         await ctx.message.add_reaction(EMOJI_ERROR)
                         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid param after **LAST**.')

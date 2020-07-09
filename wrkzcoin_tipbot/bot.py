@@ -167,6 +167,8 @@ EMOJI_UP = "\u2B06"
 EMOJI_LEFT = "\u2B05"
 EMOJI_RIGHT = "\u27A1"
 EMOJI_DOWN = "\u2B07"
+EMOJI_FIRE = "\U0001F525"
+EMOJI_BOMB = "\U0001F4A3"
 
 EMOJI_COIN = {
     "WRKZ" : "\U0001F477",
@@ -1084,6 +1086,8 @@ async def maze(ctx):
         await msg.add_reaction(EMOJI_DOWN)
         await msg.add_reaction(EMOJI_LEFT)
         await msg.add_reaction(EMOJI_RIGHT)
+        await msg.add_reaction(EMOJI_FIRE)
+        await msg.add_reaction(EMOJI_BOMB)
         await msg.add_reaction(EMOJI_OK_BOX)
 
         time_start = int(time.time())
@@ -1098,11 +1102,14 @@ async def maze(ctx):
                     GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
                 if ctx.guild.id in GAME_MAZE_IN_PROCESS:
                     GAME_MAZE_IN_PROCESS.remove(ctx.guild.id)
-                await ctx.send(f'{ctx.author.mention} too long. Game exit.')
+                await ctx.send(f'{ctx.author.mention} too long. Game exits.')
+                await msg.delete()
                 return
                 
             if str(reaction.emoji) == EMOJI_OK_BOX:
                 await ctx.send(f'{ctx.author.mention} You gave up the current game.')
+                await asyncio.sleep(1000)
+                await msg.delete()
                 if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
                     GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
                 if ctx.guild.id in GAME_MAZE_IN_PROCESS:

@@ -3874,7 +3874,7 @@ async def notifytip(ctx, onoff: str):
 
     if onoff.upper() not in ["ON", "OFF"]:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send('You need to use only `ON` or `OFF`.')
+        await ctx.send(f'{ctx.author.mention} You need to use only `ON` or `OFF`.')
         return
 
     onoff = onoff.upper()
@@ -3882,18 +3882,18 @@ async def notifytip(ctx, onoff: str):
     if onoff == "ON":
         if str(ctx.message.author.id) in notifyList:
             await store.sql_toggle_tipnotify(str(ctx.message.author.id), "ON")
-            await ctx.send('OK, you will get all notification when tip.')
+            await ctx.send(f'{ctx.author.mention} OK, you will get all notification when tip.')
             return
         else:
-            await ctx.send('You already have notification ON by default.')
+            await ctx.send(f'{ctx.author.mention} You already have notification ON by default.')
             return
     elif onoff == "OFF":
         if str(ctx.message.author.id) in notifyList:
-            await ctx.send('You already have notification OFF.')
+            await ctx.send(f'{ctx.author.mention} You already have notification OFF.')
             return
         else:
             await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
-            await ctx.send('OK, you will not get any notification when anyone tips.')
+            await ctx.send(f'{ctx.author.mention} OK, you will not get any notification when anyone tips.')
             return
 
 
@@ -7623,6 +7623,15 @@ async def withdraw_error(ctx, error):
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Missing amount and/or ticker. '
                        f'You need to tell me **AMOUNT** and/or **TICKER**.\nExample: {prefix}withdraw **1,000 coin_name**')
+    return
+
+
+@notifytip.error
+async def notifytip_error(ctx, error):
+    prefix = await get_guild_prefix(ctx)
+    if isinstance(error, commands.MissingRequiredArgument):
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Use {prefix}notifytip **on** or {prefix}notifytip **off**')
     return
 
 

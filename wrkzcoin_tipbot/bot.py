@@ -885,10 +885,17 @@ async def slot(ctx):
     embed.add_field(name="Comment", value=slotOutput_2, inline=False)
     embed.add_field(name="Reward", value=result, inline=False)
     embed.add_field(name='More', value=f'[TipBot Github](https://github.com/wrkzcoin/TipBot) | {BOT_INVITELINK} ', inline=False)
-    embed.set_footer(text="Randomed Coin: {}".format(config.game.coin_game))
+    if won == False:
+        embed.set_footer(text="Randomed Coin: {} | Message shall be deleted after 5s.".format(config.game.coin_game))
+    else:
+        embed.set_footer(text="Randomed Coin: {}".format(config.game.coin_game))
     try:
         msg = await ctx.send(embed=embed)
         await msg.add_reaction(EMOJI_OK_BOX)
+        if won == False:
+            # Delete lose game after 5s
+            await asyncio.sleep(5)
+            await msg.delete()
     except (discord.errors.NotFound, discord.errors.Forbidden) as e:
         await ctx.message.add_reaction(EMOJI_ERROR)
         traceback.print_exc(file=sys.stdout)

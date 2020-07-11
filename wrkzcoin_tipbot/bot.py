@@ -23,6 +23,10 @@ from games.hangman import load_words as hm_load_words
 from games.maze2d import displayMaze as maze_displayMaze
 from games.maze2d import createMazeDump as maze_createMazeDump
 
+from games.blackjack import getDeck as blackjack_getDeck
+from games.blackjack import displayHands as blackjack_displayHands
+from games.blackjack import getCardValue as blackjack_getCardValue
+
 from config import config
 from wallet import *
 
@@ -170,6 +174,9 @@ EMOJI_DOWN = "\u2B07"
 EMOJI_FIRE = "\U0001F525"
 EMOJI_BOMB = "\U0001F4A3"
 
+EMOJI_LETTER_S = "\U0001F1F8"
+EMOJI_LETTER_H = "\U0001F1ED"
+
 EMOJI_COIN = {
     "WRKZ" : "\U0001F477",
     "TRTL" : "\U0001F422",
@@ -307,6 +314,7 @@ bot_help_game_slot = "Play slot game"
 bot_help_game_bagel = "Bagels, a deductive logic game. By Al Sweigart al@inventwithpython.com"
 bot_help_game_hangman = "Old hangman game"
 bot_help_game_maze = "Interactive 2D ascii maze game"
+bot_help_game_blackjack = "Blackjack, original code by Al Sweigart al@inventwithpython.com"
 
 # account commands
 bot_help_account = "Various user account commands."
@@ -754,19 +762,15 @@ async def on_message(message):
                     await message.channel.send(f'Bot not respond to #{message.channel.name}. It is set to ignore list by channel manager or discord server owner.')
                     return
         if message.content[1:].upper() == "HELP":
-            try:
-                prefix = "."
-                if isinstance(message.channel, discord.DMChannel) == False:
-                    try:
-                        serverinfo = await store.sql_info_by_server(str(message.guild.id))
-                        if serverinfo and 'prefix' in serverinfo: prefix = serverinfo['prefix']
-                    except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+            prefix = await get_guild_prefix_msg(message)
+            if prefix == message.content[0] and isinstance(message.channel, discord.DMChannel) == False:
+                try:
+                    serverinfo = await store.sql_info_by_server(str(message.guild.id))
+                    if serverinfo and 'prefix' in serverinfo: prefix = serverinfo['prefix']
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
                 await help_main(message, prefix)
                 return
-            except Exception as e:
-                traceback.print_exc(file=sys.stdout)
-                pass
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         pass
@@ -811,7 +815,153 @@ async def game(ctx):
         return
 
 
-@game.command(name='slot', alais=['slots'], help=bot_help_game_slot)
+@game.command(name='blackjack', alias=['bj'], help=bot_help_game_blackjack)
+async def blackjack(ctx):
+    global GAME_SLOT_REWARD, GAME_COIN, BOT_INVITELINK, GAME_INTERACTIVE_PRGORESS
+    game_servers = config.game.guild_games.split(",")
+    free_game = False
+    # Only WrkzCoin testing. Return if DM or other guild
+    if isinstance(ctx.channel, discord.DMChannel) == True or str(ctx.guild.id) not in game_servers:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        return
+
+    # check if user create account less than 3 days
+    try:
+        account_created = ctx.message.author.created_at
+        if (datetime.utcnow() - account_created).total_seconds() <= 3*24*3600:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using this.')
+            return
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+    count_played = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', False)
+    count_played_free = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', True)
+    if count_played and count_played >= config.game.max_daily_play:
+        free_game = True
+        await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
+
+    game_text = '''Blackjack, by Al Sweigart al@inventwithpython.com
+Rules:
+    Try to get as close to 21 without going over.
+    Kings, Queens, and Jacks are worth 10 points.
+    Aces are worth 1 or 11 points.
+    Cards 2 through 10 are worth their face value.
+    (H)it to take another card.
+    (S)tand to stop taking cards.
+    The dealer stops hitting at 17.'''
+    await ctx.send(f'{ctx.author.mention} ```{game_text}```')
+
+    if ctx.message.author.id not in GAME_INTERACTIVE_PRGORESS:
+        GAME_INTERACTIVE_PRGORESS.append(ctx.message.author.id)
+    else:
+        await ctx.send(f'{ctx.author.mention} You are ongoing with one **game** play.')
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        return
+    
+    game_over = False
+    player_over = False
+
+    deck = blackjack_getDeck()
+    dealerHand = [deck.pop(), deck.pop()]
+    playerHand = [deck.pop(), deck.pop()]
+
+    while not game_over:
+        while not player_over:  # Keep looping until player stands or busts.
+            get_display = blackjack_displayHands(playerHand, dealerHand, False)
+            msg = await ctx.send('{} **BLACKJACK**\n'
+                                 '```DEALDER: {}\n'
+                                 '{}\n'
+                                 'PLAYER:  {}\n'
+                                 '{}```Please re-act {}: Stand, {}: Hit'.format(ctx.author.mention, get_display['dealer_header'], 
+                                 get_display['dealer'], get_display['player_header'], get_display['player'], EMOJI_LETTER_S, EMOJI_LETTER_H))
+            await msg.add_reaction(EMOJI_LETTER_S)
+            await msg.add_reaction(EMOJI_LETTER_H)
+            # Check if the player has bust:
+            if blackjack_getCardValue(playerHand) >= 21:
+                player_over = True
+                break
+            
+            def check(reaction, user):
+                return user == ctx.message.author and reaction.message.author == bot.user and reaction.message.id == msg.id and str(reaction.emoji) \
+                in (EMOJI_LETTER_S, EMOJI_LETTER_H, EMOJI_OK_BOX)
+            try:
+                reaction, user = await bot.wait_for('reaction_add', timeout=60, check=check)
+            except asyncio.TimeoutError:
+                if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+                    GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+                await ctx.send(f'{ctx.author.mention} **BLACKJACK** too long. Game exits.')
+                await msg.delete()
+                return
+            if str(reaction.emoji) == EMOJI_LETTER_H:
+                # Hit/doubling down takes another card.
+                newCard = deck.pop()
+                rank, suit = newCard
+                await ctx.send('{} **BLACKJACK**\n'
+                                 'You drew a {} of {}'.format(ctx.author.mention, rank, suit))
+                playerHand.append(newCard)
+
+                if blackjack_getCardValue(playerHand) >= 21:
+                    # The player has busted:
+                    player_over = True
+                    break
+            elif str(reaction.emoji) == EMOJI_LETTER_S:
+                player_over = True
+                break
+
+        # Handle the dealer's actions:
+        if blackjack_getCardValue(playerHand) <= 21:
+            if blackjack_getCardValue(dealerHand) >= 17:
+                game_over = True
+                break
+            else:
+                while blackjack_getCardValue(dealerHand) < 17:
+                    # The dealer hits:
+                    dealer_msg = await ctx.send('{} **BLACKJACK**\n'
+                                                '```Dealer hits...```'.format(ctx.author.mention))
+                    newCard = deck.pop()
+                    rank, suit = newCard
+                    dealerHand.append(newCard)
+                    await asyncio.sleep(2)
+                    await dealer_msg.edit(content='{} **BLACKJACK**\n'
+                                          '```Deader drew a {} of {}```'.format(ctx.author.mention, rank, suit))
+                    if blackjack_getCardValue(dealerHand) > 21:
+                        game_over = True  # The dealer has busted.
+                        break
+                    else:
+                        await asyncio.sleep(2)
+        else:
+            game_over = True
+            break
+
+    dealer_get_display = blackjack_displayHands(playerHand, dealerHand, True)
+    await ctx.send('{} **BLACKJACK**\n'
+                   '```DEALDER: {}\n'
+                   '{}\n'
+                   'PLAYER:  {}\n'
+                   '{}```'.format(ctx.author.mention, dealer_get_display['dealer_header'], 
+                   dealer_get_display['dealer'], dealer_get_display['player_header'], dealer_get_display['player']))
+                                 
+    playerValue = blackjack_getCardValue(playerHand)
+    dealerValue = blackjack_getCardValue(dealerHand)
+    # Handle whether the player won, lost, or tied:
+    if dealerValue > 21:
+        await ctx.send('{} **BLACKJACK**\n'
+                       '```Dealer busts! You win!```'.format(ctx.author.mention))
+    elif (playerValue > 21) or (playerValue < dealerValue):
+        await ctx.send('{} **BLACKJACK**\n'
+                       '```You lost!```'.format(ctx.author.mention))
+    elif playerValue > dealerValue:
+        await ctx.send('{} **BLACKJACK**\n'
+                       '```You won!```'.format(ctx.author.mention))
+    elif playerValue == dealerValue:
+        await ctx.send('{} **BLACKJACK**\n'
+                       '```It\'s a tie!```'.format(ctx.author.mention))
+    if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+        GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+
+
+@game.command(name='slot', alias=['slots'], help=bot_help_game_slot)
 async def slot(ctx):
     global GAME_SLOT_REWARD, GAME_COIN, BOT_INVITELINK
     game_servers = config.game.guild_games.split(",")
@@ -902,7 +1052,7 @@ async def slot(ctx):
     return
 
 
-@game.command(name='bagel', alais=['bagels'], help=bot_help_game_bagel)
+@game.command(name='bagel', alias=['bagels'], help=bot_help_game_bagel)
 async def bagel(ctx):
     global GAME_INTERACTIVE_PRGORESS, GAME_COIN, GAME_SLOT_REWARD, BOT_INVITELINK
     # Credit: https://github.com/asweigart/PythonStdioGames
@@ -1053,7 +1203,7 @@ clues would be Fermi Pico.'''.format(NUM_DIGITS)
         GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
 
 
-@game.command(name='maze', alais=['mazes'], help=bot_help_game_maze)
+@game.command(name='maze', alias=['mazes'], help=bot_help_game_maze)
 async def maze(ctx):
     global GAME_INTERACTIVE_PRGORESS, GAME_COIN, GAME_SLOT_REWARD, BOT_INVITELINK, GAME_MAZE_IN_PROCESS
     # Credit: https://github.com/asweigart/PythonStdioGames
@@ -1189,7 +1339,7 @@ async def maze(ctx):
         GAME_MAZE_IN_PROCESS.remove(ctx.guild.id)
 
 
-@game.command(name='hangman', alais=['hm'], help=bot_help_game_hangman)
+@game.command(name='hangman', alias=['hm'], help=bot_help_game_hangman)
 async def hangman(ctx):
     global GAME_INTERACTIVE_PRGORESS, GAME_COIN, GAME_SLOT_REWARD, HANGMAN_WORDS
     # Credit: https://github.com/asweigart/PythonStdioGames
@@ -9130,6 +9280,15 @@ async def add_tx_action_redis(action: str, delete_temp: bool = False):
 async def get_guild_prefix(ctx):
     if isinstance(ctx.channel, discord.DMChannel) == True: return "."
     serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+    if serverinfo is None:
+        return "."
+    else:
+        return serverinfo['prefix']
+
+
+async def get_guild_prefix_msg(message):
+    if isinstance(message.channel, discord.DMChannel) == True: return "."
+    serverinfo = await store.sql_info_by_server(str(message.guild.id))
     if serverinfo is None:
         return "."
     else:

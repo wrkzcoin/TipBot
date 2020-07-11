@@ -807,7 +807,7 @@ async def game(ctx):
     if isinstance(ctx.channel, discord.DMChannel) == True or ctx.guild.id != 460755304863498250:
         return
     if ctx.invoked_subcommand is None:
-        await ctx.send(f'{ctx.author.mention} Invalid {prefix}game command')
+        await ctx.send(f'{ctx.author.mention} Invalid {prefix}game command.\n Please use {prefix}help game')
         return
 
 

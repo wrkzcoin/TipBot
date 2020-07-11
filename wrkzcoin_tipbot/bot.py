@@ -817,7 +817,7 @@ async def game(ctx):
 
 @game.command(name='blackjack', alias=['bj'], help=bot_help_game_blackjack)
 async def blackjack(ctx):
-    global GAME_SLOT_REWARD, GAME_COIN, BOT_INVITELINK, GAME_INTERACTIVE_PRGORESS
+    global GAME_SLOT_REWARD, GAME_COIN, BOT_INVITELINK, GAME_INTERACTIVE_PRGORESS, IS_RESTARTING
     game_servers = config.game.guild_games.split(",")
     free_game = False
     # Only WrkzCoin testing. Return if DM or other guild
@@ -867,7 +867,17 @@ Rules:
     playerHand = [deck.pop(), deck.pop()]
 
     while not game_over:
+        # check if bot is going to restart
+        if IS_RESTARTING:
+            await ctx.message.add_reaction(EMOJI_REFRESH)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is going to restart soon. Wait until it is back for using this.')
+            return
         while not player_over:  # Keep looping until player stands or busts.
+            # check if bot is going to restart
+            if IS_RESTARTING:
+                await ctx.message.add_reaction(EMOJI_REFRESH)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is going to restart soon. Wait until it is back for using this.')
+                return
             get_display = blackjack_displayHands(playerHand, dealerHand, False)
             msg = await ctx.send('{} **BLACKJACK**\n'
                                  '```DEALER: {}\n'
@@ -1052,7 +1062,7 @@ async def slot(ctx):
 
 @game.command(name='bagel', alias=['bagels'], help=bot_help_game_bagel)
 async def bagel(ctx):
-    global GAME_INTERACTIVE_PRGORESS, GAME_COIN, GAME_SLOT_REWARD, BOT_INVITELINK
+    global GAME_INTERACTIVE_PRGORESS, GAME_COIN, GAME_SLOT_REWARD, BOT_INVITELINK, IS_RESTARTING
     # Credit: https://github.com/asweigart/PythonStdioGames
     game_servers = config.game.guild_games.split(",")
     free_game = False
@@ -1108,6 +1118,11 @@ clues would be Fermi Pico.'''.format(NUM_DIGITS)
         guess = None
         numGuesses = 0
         while guess is None:
+            # check if bot is going to restart
+            if IS_RESTARTING:
+                await ctx.message.add_reaction(EMOJI_REFRESH)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is going to restart soon. Wait until it is back for using this.')
+                return
             waiting_numbmsg = None
             def check(m):
                 return m.author == ctx.author and m.guild.id == ctx.guild.id
@@ -1203,7 +1218,7 @@ clues would be Fermi Pico.'''.format(NUM_DIGITS)
 
 @game.command(name='maze', alias=['mazes'], help=bot_help_game_maze)
 async def maze(ctx):
-    global GAME_INTERACTIVE_PRGORESS, GAME_COIN, GAME_SLOT_REWARD, BOT_INVITELINK, GAME_MAZE_IN_PROCESS
+    global GAME_INTERACTIVE_PRGORESS, GAME_COIN, GAME_SLOT_REWARD, BOT_INVITELINK, GAME_MAZE_IN_PROCESS, IS_RESTARTING
     # Credit: https://github.com/asweigart/PythonStdioGames
     game_servers = config.game.guild_games.split(",")
     free_game = False
@@ -1247,6 +1262,11 @@ async def maze(ctx):
 
         time_start = int(time.time())
         while (playerx, playery) != (exitx, exity):
+            # check if bot is going to restart
+            if IS_RESTARTING:
+                await ctx.message.add_reaction(EMOJI_REFRESH)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is going to restart soon. Wait until it is back for using this.')
+                return
             def check(reaction, user):
                 return user == ctx.message.author and reaction.message.author == bot.user and reaction.message.id == msg.id and str(reaction.emoji) \
                 in (EMOJI_UP, EMOJI_DOWN, EMOJI_LEFT, EMOJI_RIGHT, EMOJI_OK_BOX)
@@ -1339,7 +1359,7 @@ async def maze(ctx):
 
 @game.command(name='hangman', alias=['hm'], help=bot_help_game_hangman)
 async def hangman(ctx):
-    global GAME_INTERACTIVE_PRGORESS, GAME_COIN, GAME_SLOT_REWARD, HANGMAN_WORDS
+    global GAME_INTERACTIVE_PRGORESS, GAME_COIN, GAME_SLOT_REWARD, HANGMAN_WORDS, IS_RESTARTING
     # Credit: https://github.com/asweigart/PythonStdioGames
     game_servers = config.game.guild_games.split(",")
     free_game = False
@@ -1387,6 +1407,11 @@ async def hangman(ctx):
         await ctx.send(f'{ctx.author.mention} **HANGMAN** Please enter a single letter:')
         guess = None
         while guess is None:
+            # check if bot is going to restart
+            if IS_RESTARTING:
+                await ctx.message.add_reaction(EMOJI_REFRESH)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is going to restart soon. Wait until it is back for using this.')
+                return
             waiting_numbmsg = None
             def check(m):
                 return m.author == ctx.author and m.guild.id == ctx.guild.id

@@ -841,6 +841,13 @@ async def blackjack(ctx):
         free_game = True
         await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
 
+    if ctx.message.author.id not in GAME_INTERACTIVE_PRGORESS:
+        GAME_INTERACTIVE_PRGORESS.append(ctx.message.author.id)
+    else:
+        await ctx.send(f'{ctx.author.mention} You are ongoing with one **game** play.')
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        return
+
     game_text = '''Blackjack, by Al Sweigart al@inventwithpython.com
 Rules:
     Try to get as close to 21 without going over.
@@ -852,13 +859,6 @@ Rules:
     The dealer stops hitting at 17.'''
     await ctx.send(f'{ctx.author.mention} ```{game_text}```')
 
-    if ctx.message.author.id not in GAME_INTERACTIVE_PRGORESS:
-        GAME_INTERACTIVE_PRGORESS.append(ctx.message.author.id)
-    else:
-        await ctx.send(f'{ctx.author.mention} You are ongoing with one **game** play.')
-        await ctx.message.add_reaction(EMOJI_ERROR)
-        return
-    
     game_over = False
     player_over = False
 
@@ -870,7 +870,7 @@ Rules:
         while not player_over:  # Keep looping until player stands or busts.
             get_display = blackjack_displayHands(playerHand, dealerHand, False)
             msg = await ctx.send('{} **BLACKJACK**\n'
-                                 '```DEALDER: {}\n'
+                                 '```DEALER: {}\n'
                                  '{}\n'
                                  'PLAYER:  {}\n'
                                  '{}```Please re-act {}: Stand, {}: Hit'.format(ctx.author.mention, get_display['dealer_header'], 
@@ -897,8 +897,7 @@ Rules:
                 # Hit/doubling down takes another card.
                 newCard = deck.pop()
                 rank, suit = newCard
-                await ctx.send('{} **BLACKJACK**\n'
-                                 'You drew a {} of {}'.format(ctx.author.mention, rank, suit))
+                await ctx.send('{} **BLACKJACK** You drew a {} of {}'.format(ctx.author.mention, rank, suit))
                 playerHand.append(newCard)
 
                 if blackjack_getCardValue(playerHand) >= 21:
@@ -923,8 +922,7 @@ Rules:
                     rank, suit = newCard
                     dealerHand.append(newCard)
                     await asyncio.sleep(2)
-                    await dealer_msg.edit(content='{} **BLACKJACK**\n'
-                                          '```Deader drew a {} of {}```'.format(ctx.author.mention, rank, suit))
+                    await dealer_msg.edit(content='{} **BLACKJACK** Dealer drew a {} of {}'.format(ctx.author.mention, rank, suit))
                     if blackjack_getCardValue(dealerHand) > 21:
                         game_over = True  # The dealer has busted.
                         break
@@ -936,7 +934,7 @@ Rules:
 
     dealer_get_display = blackjack_displayHands(playerHand, dealerHand, True)
     await ctx.send('{} **BLACKJACK**\n'
-                   '```DEALDER: {}\n'
+                   '```DEALER: {}\n'
                    '{}\n'
                    'PLAYER:  {}\n'
                    '{}```'.format(ctx.author.mention, dealer_get_display['dealer_header'], 

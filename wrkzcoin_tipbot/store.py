@@ -2258,21 +2258,13 @@ async def sql_doge_balance(userID: str, coin: str, user_server: str = 'DISCORD')
             else:
                 Income = 0
 
-            sql = """ SELECT SUM(amount) AS TxExpense FROM doge_external_tx WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s """
+            sql = """ SELECT SUM(amount+fee) AS TxExpense FROM doge_external_tx WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s """
             cur.execute(sql, (userID, COIN_NAME, user_server))
             result = cur.fetchone()
             if result:
                 TxExpense = result['TxExpense']
             else:
                 TxExpense = 0
-
-            sql = """ SELECT SUM(fee) AS FeeExpense FROM doge_external_tx WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s """
-            cur.execute(sql, (userID, COIN_NAME, user_server))
-            result = cur.fetchone()
-            if result:
-                FeeExpense = result['FeeExpense']
-            else:
-                FeeExpense = 0
 
             sql = """ SELECT SUM(amount) AS SwapIn FROM discord_swap_balance WHERE `owner_id`=%s AND `coin_name` = %s AND `to` = %s AND `user_server`=%s """
             cur.execute(sql, (userID, COIN_NAME, 'TIPBOT', user_server))
@@ -2325,14 +2317,13 @@ async def sql_doge_balance(userID: str, coin: str, user_server: str = 'DISCORD')
             balance['Expense'] = round(balance['Expense'], 4)
             balance['Income'] = Income or 0
             balance['TxExpense'] = TxExpense or 0
-            balance['FeeExpense'] = FeeExpense or 0
             balance['SwapIn'] = SwapIn or 0
             balance['SwapOut'] = SwapOut or 0
             balance['Credited'] = Credited if Credited else 0
             balance['GameCredit'] = GameCredit if GameCredit else 0
             balance['Expended_Voucher'] = Expended_Voucher if Expended_Voucher else 0
             balance['Adjust'] = float(balance['Credited']) + float(balance['GameCredit']) + float(balance['Income']) + float(balance['SwapIn']) - float(balance['Expense']) \
-            - float(balance['TxExpense']) - float(balance['FeeExpense']) - float(balance['SwapOut']) - float(balance['Expended_Voucher'])
+            - float(balance['TxExpense']) - float(balance['SwapOut']) - float(balance['Expended_Voucher'])
             return balance
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
@@ -2444,21 +2435,13 @@ async def sql_cnoff_balance(userID: str, coin: str, user_server: str = 'DISCORD'
             else:
                 Income = 0
 
-            sql = """ SELECT SUM(amount) AS TxExpense FROM cnoff_external_tx WHERE `user_id`=%s AND `coin_name` = %s AND `user_server` = %s """
+            sql = """ SELECT SUM(amount+fee) AS TxExpense FROM cnoff_external_tx WHERE `user_id`=%s AND `coin_name` = %s AND `user_server` = %s """
             cur.execute(sql, (userID, COIN_NAME, user_server))
             result = cur.fetchone()
             if result:
                 TxExpense = result['TxExpense']
             else:
                 TxExpense = 0
-
-            sql = """ SELECT SUM(fee) AS FeeExpense FROM cnoff_external_tx WHERE `user_id`=%s AND `coin_name` = %s AND `user_server` = %s """
-            cur.execute(sql, (userID, COIN_NAME, user_server))
-            result = cur.fetchone()
-            if result:
-                FeeExpense = result['FeeExpense']
-            else:
-                FeeExpense = 0
 
             sql = """ SELECT SUM(amount) AS SwapIn FROM discord_swap_balance WHERE `owner_id`=%s AND `coin_name` = %s and `to` = %s """
             cur.execute(sql, (userID, COIN_NAME, 'TIPBOT'))
@@ -2511,14 +2494,13 @@ async def sql_cnoff_balance(userID: str, coin: str, user_server: str = 'DISCORD'
             balance['Expense'] = float(round(balance['Expense'], 4))
             balance['Income'] = float(Income) if Income else 0
             balance['TxExpense'] = float(TxExpense) if TxExpense else 0
-            balance['FeeExpense'] = float(FeeExpense) if FeeExpense else 0
             balance['SwapIn'] = float(SwapIn) if SwapIn else 0
             balance['SwapOut'] = float(SwapOut) if SwapOut else 0
             balance['Credited'] = float(Credited) if Credited else 0
             balance['GameCredit'] = float(GameCredit) if GameCredit else 0
             balance['Expended_Voucher'] = float(Expended_Voucher) if Expended_Voucher else 0
             balance['Adjust'] = balance['Credited'] + balance['GameCredit'] + balance['Income'] + balance['SwapIn'] - balance['Expense'] \
-            - balance['TxExpense'] - balance['FeeExpense'] - balance['SwapOut'] - balance['Expended_Voucher']
+            - balance['TxExpense'] - balance['SwapOut'] - balance['Expended_Voucher']
 
             return balance
     except Exception as e:
@@ -2561,21 +2543,13 @@ async def sql_xmr_balance(userID: str, coin: str, redis_reset: bool = True):
             else:
                 Income = 0
 
-            sql = """ SELECT SUM(amount) AS TxExpense FROM xmroff_external_tx WHERE `user_id`=%s AND `coin_name` = %s """
+            sql = """ SELECT SUM(amount+fee) AS TxExpense FROM xmroff_external_tx WHERE `user_id`=%s AND `coin_name` = %s """
             cur.execute(sql, (userID, COIN_NAME))
             result = cur.fetchone()
             if result:
                 TxExpense = result['TxExpense']
             else:
                 TxExpense = 0
-
-            sql = """ SELECT SUM(fee) AS FeeExpense FROM xmroff_external_tx WHERE `user_id`=%s AND `coin_name` = %s """
-            cur.execute(sql, (userID, COIN_NAME))
-            result = cur.fetchone()
-            if result:
-                FeeExpense = result['FeeExpense']
-            else:
-                FeeExpense = 0
 
             sql = """ SELECT SUM(amount) AS SwapIn FROM discord_swap_balance WHERE `owner_id`=%s AND `coin_name` = %s and `to` = %s """
             cur.execute(sql, (userID, COIN_NAME, 'TIPBOT'))
@@ -2627,14 +2601,13 @@ async def sql_xmr_balance(userID: str, coin: str, redis_reset: bool = True):
             balance['Expense'] = float(round(balance['Expense'], 4))
             balance['Income'] = float(Income) if Income else 0
             balance['TxExpense'] = float(TxExpense) if TxExpense else 0
-            balance['FeeExpense'] = float(FeeExpense) if FeeExpense else 0
             balance['Credited'] = float(Credited) if Credited else 0
             balance['GameCredit'] = float(GameCredit) if GameCredit else 0
             balance['SwapIn'] = float(SwapIn) if SwapIn else 0
             balance['SwapOut'] = float(SwapOut) if SwapOut else 0
             balance['Expended_Voucher'] = float(Expended_Voucher) if Expended_Voucher else 0
             balance['Adjust'] = balance['Credited'] + balance['GameCredit'] + balance['Income'] + balance['SwapIn'] - balance['Expense'] - balance['TxExpense'] \
-            - balance['FeeExpense'] - balance['SwapOut'] - balance['Expended_Voucher']
+            - balance['SwapOut'] - balance['Expended_Voucher']
             # add to redis
             try:
                 if redis_conn:

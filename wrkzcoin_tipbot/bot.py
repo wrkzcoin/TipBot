@@ -166,6 +166,7 @@ EMOJI_99 = "<:almost100:405478443028054036>"
 EMOJI_TIP = "<:tip:424333592102043649>"
 EMOJI_MAINTENANCE = "\U0001F527"
 EMOJI_QUESTEXCLAIM = "\u2049"
+EMOJI_CHECKMARK = "\u2714"
 
 EMOJI_UP = "\u2B06"
 EMOJI_LEFT = "\u2B05"
@@ -496,38 +497,11 @@ async def on_reaction_add(reaction, user):
     # If other people beside bot react.
     else:
         # If re-action is OK box and message author is bot itself
-        if reaction.emoji == EMOJI_OK_BOX and reaction.message.author.id == bot.user.id \
-            and (not reaction.message.content.startswith("**ADDRESS REQ")):
+        if reaction.emoji == EMOJI_OK_BOX and reaction.message.author.id == bot.user.id:
             # do not delete maze message
             if 'MAZE' in reaction.message.content.upper():
                 return
             await reaction.message.delete()
-        elif reaction.emoji == EMOJI_OK_BOX and reaction.message.author.id == bot.user.id \
-            and reaction.message.content.startswith("**ADDRESS REQ") and \
-            (user in reaction.message.mentions):
-            if 'MAZE' in reaction.message.content.upper():
-                return
-            # OK he confirm
-            COIN_NAME = reaction.message.content.split()[2].upper()
-            name_to_give = reaction.message.content.split()[5]
-            to_send = reaction.message.guild.get_member_named(name_to_give)
-            if COIN_NAME in (ENABLE_COIN + ENABLE_XMR):
-                user_addr = await store.sql_get_userwallet(str(user.id), COIN_NAME)
-                if user_addr is None:
-                    userregister = await store.sql_register_user(str(user.id), COIN_NAME, 'DISCORD')
-                    user_addr = await store.sql_get_userwallet(str(user.id), COIN_NAME)
-                address = user_addr['balance_wallet_address'] or "NONE"
-                # this one to public channel
-                # msg = await reaction.message.channel.send(f'{user.mention}\'s {COIN_NAME} deposit address:\n```{address}```')
-                try:
-                    msg = await to_send.send(f'{str(user)}\'s {COIN_NAME} deposit address:\n```{address}```')
-                    # delete message afterward to avoid loop.
-                    await reaction.message.delete()
-                except (discord.Forbidden, discord.errors.Forbidden) as e:
-                    # If DM is failed, popup to channel.
-                    await reaction.message.channel.send(f'{to_send.mention} I failed DM you for the address.')
-                return
-                # await msg.add_reaction(EMOJI_OK_BOX)
         # EMOJI_100
         elif reaction.emoji == EMOJI_100 \
             and user.bot == False and reaction.message.author != user and reaction.message.author.bot == False:
@@ -798,7 +772,7 @@ async def about(ctx):
         traceback.print_exc(file=sys.stdout)
 
 
-@bot.group(hidden = True, name='game', help=bot_help_game)
+@bot.group(name='game', help=bot_help_game)
 async def game(ctx):
     global IS_RESTARTING
     prefix = await get_guild_prefix(ctx)
@@ -5843,10 +5817,6 @@ async def send(ctx, amount: str, CoinAddress: str):
 @bot.command(pass_context=True, name='address', aliases=['addr'], help=bot_help_address)
 async def address(ctx, *args):
     prefix = await get_guild_prefix(ctx)
-    global TRTL_DISCORD
-    # TRTL discord
-    if (isinstance(ctx.message.channel, discord.DMChannel) == False) and ctx.guild.id == TRTL_DISCORD:
-        return
 
     # if public and there is a bot channel
     if isinstance(ctx.channel, discord.DMChannel) == False:
@@ -5883,19 +5853,19 @@ async def address(ctx, *args):
                     COIN_NAME = serverinfo['default_coin'].upper()
             print("COIN_NAME: " + COIN_NAME)
         # TODO: change this.
-        donateAddress = get_donate_address(COIN_NAME) or 'WrkzRNDQDwFCBynKPc459v3LDa1gEGzG3j962tMUBko1fw9xgdaS9mNiGMgA9s1q7hS1Z8SGRVWzcGc8Sh8xsvfZ6u2wJEtoZB'
+        main_address = getattr(getattr(config,"daemon"+COIN_NAME),"MainAddress")
         await ctx.send('**[ ADDRESS CHECKING EXAMPLES ]**\n\n'
-                       f'`.address {donateAddress}`\n'
+                       f'```.address {main_address}\n'
                        'That will check if the address is valid. Integrated address is also supported. '
                        'If integrated address is input, bot will tell you the result of :address + paymentid\n\n'
-                       '`.address <coin_address> <paymentid>`\n'
+                       f'{prefix}address <coin_address> <paymentid>\n'
                        'This will generate an integrate address.\n\n'
-                       f'If you would like to get your address, please use **{prefix}deposit {COIN_NAME}** instead.')
+                       f'If you would like to get your address, please use {prefix}deposit {COIN_NAME} instead.```')
         return
 
     # Check if a user request address coin of another user
     # .addr COIN @mention
-    if len(args) == 2:
+    if len(args) == 2 and len(ctx.message.mentions) == 1:
         COIN_NAME = None
         member = None
         try:
@@ -5905,14 +5875,48 @@ async def address(ctx, *args):
                 COIN_NAME = None
         except Exception as e:
             pass
-        if COIN_NAME and member:
+
+        if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR:
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**!')
+            return
+
+        if not is_coin_depositable(COIN_NAME):
+            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} DEPOSITING is currently disable for {COIN_NAME}.')
+            await msg.add_reaction(EMOJI_OK_BOX)
+            return
+
+        if COIN_NAME and member and isinstance(ctx.channel, discord.DMChannel) == False and member.bot == False:
             # OK there is COIN_NAME and member
             if member.id == ctx.message.author.id:
                 await ctx.message.add_reaction(EMOJI_ERROR)
                 return
             msg = await ctx.send(f'**ADDRESS REQ {COIN_NAME} **: {member.mention}, {str(ctx.author)} would like to get your address.')
-            await msg.add_reaction(EMOJI_OK_BOX)
-            return
+            await msg.add_reaction(EMOJI_CHECKMARK)
+            await msg.add_reaction(EMOJI_ZIPPED_MOUTH)
+            def check(reaction, user):
+                return user == member and reaction.message.author == bot.user and reaction.message.id == msg.id and str(reaction.emoji) \
+                in (EMOJI_CHECKMARK, EMOJI_ZIPPED_MOUTH)
+            try:
+                reaction, user = await bot.wait_for('reaction_add', timeout=120, check=check)
+            except asyncio.TimeoutError:
+                await ctx.send(f'{ctx.author.mention} address requested timeout (120s).')
+                await msg.delete()
+                return
+                
+            if str(reaction.emoji) == EMOJI_CHECKMARK:
+                await ctx.message.add_reaction(EMOJI_OK_HAND)
+                wallet = await store.sql_get_userwallet(str(member.id), COIN_NAME)
+                if wallet is None:
+                    userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD')
+                    wallet = await store.sql_get_userwallet(str(member.id), COIN_NAME)
+                user_address = wallet['balance_wallet_address']
+                msg = await ctx.send(f'{ctx.author.mention} Here is the deposit **{COIN_NAME}** of {member.mention}:```{user_address}```')
+                await msg.add_reaction(EMOJI_OK_BOX)
+                return
+            elif str(reaction.emoji) == EMOJI_ZIPPED_MOUTH:
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                await ctx.send(f'{ctx.author.mention} your address request is rejected.')
+                return
 
     CoinAddress = args[0]
     COIN_NAME = None

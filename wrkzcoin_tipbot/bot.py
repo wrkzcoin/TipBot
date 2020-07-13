@@ -1136,38 +1136,45 @@ clues would be Fermi Pico.'''.format(NUM_DIGITS)
                 return
             else:
                 guess = waiting_numbmsg.content.strip()
-                if len(guess) != NUM_DIGITS or not guess.isdecimal():
-                    guess = None
-                    await ctx.send(f'{ctx.author.mention} **Bagel: ** Please use number!')
-                else:
-                    if guess == secretNum:
-                        result = 'But this is a free game without **reward**!'
-                        won = True
-                        if won and free_game == False:
-                            won_x = 5
-                            COIN_NAME = random.choice(GAME_COIN)
-                            amount = GAME_SLOT_REWARD[COIN_NAME] * won_x
-                            coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-                            COIN_DEC = get_decimal(COIN_NAME)
-                            real_amount = int(amount * COIN_DEC) if coin_family in ["XMR", "TRTL"] else float(amount * COIN_DEC)
-                            reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, COIN_DEC, str(ctx.guild.id), 'BAGEL', 'DISCORD')
-                            result = f'{ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
-                        elif won == False and free_game == True:
-                            reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', 'DISCORD')
-                        elif free_game == True:
-                            try:
-                                await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', 'DISCORD')
-                            except Exception as e:
-                                traceback.print_exc(file=sys.stdout)
-                        if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
-                            GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
-                        await ctx.send(f'{ctx.author.mention} **Bagel: ** You won! The answer was **{secretNum}**. You had guessed **{numGuesses+1}** times only. {result}')
-                        return
-                    else:
-                        clues = bagels_getClues(guess, secretNum)
-                        await ctx.send(f'{ctx.author.mention} **Bagel: ** {clues}')
+                try:
+                    guess_chars = [str(char) for char in str(guess)]
+                    if len(guess) != NUM_DIGITS or not guess.isdecimal():
                         guess = None
-                        numGuesses += 1
+                        await ctx.send(f'{ctx.author.mention} **Bagel: ** Please use {NUM_DIGITS} numbers!')
+                    elif len([x for x in guess_chars if guess_chars.count(x) >= 2]) > 0:
+                        guess = None
+                        await ctx.send(f'{ctx.author.mention} **Bagel: ** Please do not use repeated numbers!')
+                    else:
+                        if guess == secretNum:
+                            result = 'But this is a free game without **reward**!'
+                            won = True
+                            if won and free_game == False:
+                                won_x = 5
+                                COIN_NAME = random.choice(GAME_COIN)
+                                amount = GAME_SLOT_REWARD[COIN_NAME] * won_x
+                                coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+                                COIN_DEC = get_decimal(COIN_NAME)
+                                real_amount = int(amount * COIN_DEC) if coin_family in ["XMR", "TRTL"] else float(amount * COIN_DEC)
+                                reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, COIN_DEC, str(ctx.guild.id), 'BAGEL', 'DISCORD')
+                                result = f'{ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
+                            elif won == False and free_game == True:
+                                reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', 'DISCORD')
+                            elif free_game == True:
+                                try:
+                                    await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', 'DISCORD')
+                                except Exception as e:
+                                    traceback.print_exc(file=sys.stdout)
+                            if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+                                GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+                            await ctx.send(f'{ctx.author.mention} **Bagel: ** You won! The answer was **{secretNum}**. You had guessed **{numGuesses+1}** times only. {result}')
+                            return
+                        else:
+                            clues = bagels_getClues(guess, secretNum)
+                            await ctx.send(f'{ctx.author.mention} **Bagel: ** {clues}')
+                            guess = None
+                            numGuesses += 1
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
             if numGuesses >= MAX_GUESSES:
                 await ctx.send(f'{ctx.author.mention} **Bagel: ** You run out of guesses and you did it **{numGuesses}** times. Game over! The answer was **{secretNum}**')
                 if free_game == True:
@@ -5899,7 +5906,7 @@ async def address(ctx, *args):
             try:
                 reaction, user = await bot.wait_for('reaction_add', timeout=120, check=check)
             except asyncio.TimeoutError:
-                await ctx.send(f'{ctx.author.mention} address requested timeout (120s).')
+                await ctx.send(f'{ctx.author.mention} address requested timeout (120s) from {str(member.mention)}.')
                 await msg.delete()
                 return
                 

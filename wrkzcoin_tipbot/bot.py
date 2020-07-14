@@ -51,6 +51,8 @@ import aiohttp
 # numexpr
 import numexpr
 
+import binascii
+
 # add logging
 # CRITICAL, ERROR, WARNING, INFO, and DEBUG and if not specified defaults to WARNING.
 import logging
@@ -772,6 +774,62 @@ async def about(ctx):
         traceback.print_exc(file=sys.stdout)
 
 
+@bot.group(hidden = True, name='tool', alias=['tools'], help=bot_help_game)
+async def tool(ctx):
+    prefix = await get_guild_prefix(ctx)
+    # Only WrkzCoin testing. Return if DM or other guild
+    if isinstance(ctx.channel, discord.DMChannel) == True or ctx.guild.id != 460755304863498250:
+        return
+    if ctx.invoked_subcommand is None:
+        await ctx.send(f'{ctx.author.mention} Invalid {prefix}game command.\n Please use {prefix}help tool')
+        return
+
+
+@tool.command(name='hex2str', alias=['hex2ascii'])
+async def hex2str(ctx, hex_string: str):
+    if len(hex_string) >= 1000:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{ctx.author.mention} **{hex_string}** too long.')
+        return
+    try:
+        value = int(hex_string, 16)
+    except ValueError:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{ctx.author.mention} **{hex_string}** is an invalid hex.')
+        return
+    try:
+        str_value = str(bytes.fromhex(hex_string).decode())
+        print(str_value)
+        await ctx.message.add_reaction(EMOJI_OK_HAND)
+        msg = await ctx.send(f'{ctx.author.mention} hex of **{hex_string}** in ascii is:```{str_value}```')
+        await msg.add_reaction(EMOJI_OK_BOX)
+    except Exception as e:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{ctx.author.mention} **{hex_string}** I can not decode.')
+        traceback.print_exc(file=sys.stdout)
+    return
+
+
+@tool.command(name='str2hex', alias=['ascii2hex'])
+async def str2hex(ctx, str2hex: str):
+    if len(str2hex) >= 1000:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{ctx.author.mention} **{str2hex}** too long.')
+        return
+    if not is_ascii(str2hex):
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{ctx.author.mention} **{str2hex}** is not valid ascii.')
+        return
+    try:
+        hex_value = str(binascii.hexlify(str2hex.encode('utf_8')).decode('utf_8'))
+        await ctx.message.add_reaction(EMOJI_OK_HAND)
+        msg = await ctx.send(f'{ctx.author.mention} ascii of **{str2hex}** in hex is:```{hex_value}```')
+        await msg.add_reaction(EMOJI_OK_BOX)
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return
+
+
 @bot.group(name='game', help=bot_help_game)
 async def game(ctx):
     global IS_RESTARTING
@@ -781,8 +839,9 @@ async def game(ctx):
         await ctx.message.add_reaction(EMOJI_REFRESH)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is going to restart soon. Wait until it is back for using this.')
         return
+    game_servers = config.game.guild_games.split(",")
     # Only WrkzCoin testing. Return if DM or other guild
-    if isinstance(ctx.channel, discord.DMChannel) == True or ctx.guild.id != 460755304863498250:
+    if isinstance(ctx.channel, discord.DMChannel) == True or str(ctx.guild.id) not in game_servers:
         return
     if ctx.invoked_subcommand is None:
         await ctx.send(f'{ctx.author.mention} Invalid {prefix}game command.\n Please use {prefix}help game')

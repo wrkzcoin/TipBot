@@ -4718,18 +4718,17 @@ async def tip(ctx, amount: str, *args):
         MaxTX = get_max_mv_amount(COIN_NAME)
         NetFee = get_tx_fee(coin = COIN_NAME) if (COIN_NAME not in ENABLE_COIN_OFFCHAIN) else 0
 
-        if real_amount + NetFee > user_from['actual_balance']:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
-                            f'{num_format_coin(real_amount, COIN_NAME)} '
-                            f'{COIN_NAME} to {member.name}#{member.discriminator}.')
-            return
-
         if real_amount > MaxTX:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
                            f'{num_format_coin(MaxTX, COIN_NAME)} '
                            f'{COIN_NAME}.')
+            return
+        elif real_amount + NetFee > user_from['actual_balance']:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
+                            f'{num_format_coin(real_amount, COIN_NAME)} '
+                            f'{COIN_NAME} to {member.name}#{member.discriminator}.')
             return
         elif real_amount < MinTx:
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -4814,23 +4813,23 @@ async def tip(ctx, amount: str, *args):
             user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         real_amount = int(amount * COIN_DEC)
         userdata_balance = await store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
-        if real_amount > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
-                            f'{num_format_coin(real_amount, COIN_NAME)} '
-                            f'{COIN_NAME} to {member.name}#{member.discriminator}.')
-            return
         if real_amount < MinTx:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} Transactions cannot be smaller than '
                            f'{num_format_coin(MinTx, COIN_NAME)} '
                            f'{COIN_NAME}.')
             return
-        if real_amount > MaxTX:
+        elif real_amount > MaxTX:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} Transactions cannot be bigger than '
                            f'{num_format_coin(MaxTX, COIN_NAME)} '
                            f'{COIN_NAME}.')
+            return
+        elif real_amount > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
+                            f'{num_format_coin(real_amount, COIN_NAME)} '
+                            f'{COIN_NAME} to {member.name}#{member.discriminator}.')
             return
         tip = await store.sql_mv_xmr_single(str(ctx.message.author.id), str(member.id), real_amount, COIN_NAME, "TIP")
         if tip:
@@ -4877,25 +4876,24 @@ async def tip(ctx, amount: str, *args):
 
         real_amount = float(amount)
         userdata_balance = await store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
-        if real_amount > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
-                            f'{num_format_coin(real_amount, COIN_NAME)} '
-                            f'{COIN_NAME} to {member.name}#{member.discriminator}.')
-            return
         if real_amount < MinTx:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} Transactions cannot be smaller than '
                            f'{num_format_coin(MinTx, COIN_NAME)} '
                            f'{COIN_NAME}.')
             return
-        if real_amount > MaxTX:
+        elif real_amount > MaxTX:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} Transactions cannot be bigger than '
                            f'{num_format_coin(MaxTX, COIN_NAME)} '
                            f'{COIN_NAME}.')
             return
-
+        elif real_amount > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
+                            f'{num_format_coin(real_amount, COIN_NAME)} '
+                            f'{COIN_NAME} to {member.name}#{member.discriminator}.')
+            return
         tip = await store.sql_mv_doge_single(str(ctx.message.author.id), str(member.id), real_amount, COIN_NAME, "TIP")
         if tip:
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
@@ -5082,13 +5080,6 @@ async def tipall(ctx, amount: str, *args):
             userdata_balance = await store.sql_cnoff_balance(str(ctx.message.author.id), COIN_NAME)
             user_from['actual_balance'] = user_from['actual_balance'] + int(userdata_balance['Adjust'])
 
-        if real_amount + NetFee >= user_from['actual_balance']:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to spread tip of '
-                           f'{num_format_coin(real_amount, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-
         if real_amount > MaxTX:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
@@ -5101,7 +5092,12 @@ async def tipall(ctx, amount: str, *args):
                            f'{num_format_coin(MinTx, COIN_NAME)} '
                            f'{COIN_NAME}.')
             return
-
+        elif real_amount + NetFee >= user_from['actual_balance']:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to spread tip of '
+                           f'{num_format_coin(real_amount, COIN_NAME)} '
+                           f'{COIN_NAME}.')
+            return
         elif (real_amount / len(memids)) < MinTx:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
@@ -5213,25 +5209,24 @@ async def tipall(ctx, amount: str, *args):
             user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
             user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         userdata_balance = await store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
-        if real_amount > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
-                            f'{num_format_coin(real_amount, COIN_NAME)} '
-                            f'{COIN_NAME}.')
-            return
         if real_amount < MinTx:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
                            f'{num_format_coin(MinTx, COIN_NAME)} '
                            f'{COIN_NAME}.')
             return
-        if real_amount > MaxTX:
+        elif real_amount > MaxTX:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
                            f'{num_format_coin(MaxTX, COIN_NAME)} '
                            f'{COIN_NAME}.')
             return
-
+        elif real_amount > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
+                            f'{num_format_coin(real_amount, COIN_NAME)} '
+                            f'{COIN_NAME}.')
+            return
         listMembers = [member for member in ctx.guild.members if member.status != discord.Status.offline]
         print("Number of tip-all in {}: {}".format(ctx.guild.name, len(listMembers)))
         # Check number of receivers.
@@ -5309,25 +5304,24 @@ async def tipall(ctx, amount: str, *args):
 
         real_amount = float(amount)
         userdata_balance = await store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
-        if real_amount > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
-                            f'{num_format_coin(real_amount, COIN_NAME)} '
-                            f'{COIN_NAME}.')
-            return
         if real_amount < MinTx:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
                            f'{num_format_coin(MinTx, COIN_NAME)} '
                            f'{COIN_NAME}.')
             return
-        if real_amount > MaxTX:
+        elif real_amount > MaxTX:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
                            f'{num_format_coin(MaxTX, COIN_NAME)} '
                            f'{COIN_NAME}.')
             return
-
+        elif real_amount > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
+                            f'{num_format_coin(real_amount, COIN_NAME)} '
+                            f'{COIN_NAME}.')
+            return
         listMembers = [member for member in ctx.guild.members if member.status != discord.Status.offline]
         print("Number of tip-all in {}: {}".format(ctx.guild.name, len(listMembers)))
         # Check number of receivers.
@@ -8194,13 +8188,6 @@ async def _tip(ctx, amount, coin: str):
             destinations.append({"address": desti, "amount": real_amount})
 
         ActualSpend = real_amount * len(memids)
-        if ActualSpend >= user_from['actual_balance']:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send total tip of '
-                           f'{num_format_coin(ActualSpend, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-
         if ActualSpend > MaxTX:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Total transactions cannot be bigger than '
@@ -8213,7 +8200,12 @@ async def _tip(ctx, amount, coin: str):
                            f'{num_format_coin(MinTx, COIN_NAME)} '
                            f'{COIN_NAME}.')
             return
-
+        elif ActualSpend >= user_from['actual_balance']:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send total tip of '
+                           f'{num_format_coin(ActualSpend, COIN_NAME)} '
+                           f'{COIN_NAME}.')
+            return
         # if off-chain, no need to check other status:
         if COIN_NAME not in ENABLE_COIN_OFFCHAIN:
             # Get wallet status
@@ -8304,25 +8296,24 @@ async def _tip(ctx, amount, coin: str):
             user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         real_amount = int(round(float(amount) * COIN_DEC))
         userdata_balance = await store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
-        if real_amount > user_from['actual_balance'] + userdata_balance['Adjust']:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
-                            f'{num_format_coin(real_amount, COIN_NAME)} '
-                            f'{COIN_NAME}.')
-            return
         if real_amount < MinTx:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
                            f'{num_format_coin(MinTx, COIN_NAME)} '
                            f'{COIN_NAME}.')
             return
-        if real_amount > MaxTX:
+        elif real_amount > MaxTX:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
                            f'{num_format_coin(MaxTX, COIN_NAME)} '
                            f'{COIN_NAME}.')
             return
-
+        elif real_amount > user_from['actual_balance'] + userdata_balance['Adjust']:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
+                            f'{num_format_coin(real_amount, COIN_NAME)} '
+                            f'{COIN_NAME}.')
+            return
         listMembers = ctx.message.mentions
         memids = []  # list of member ID
         for member in listMembers:
@@ -8389,25 +8380,24 @@ async def _tip(ctx, amount, coin: str):
 
         real_amount = float(amount)
         userdata_balance = await store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
-        if real_amount > user_from['actual_balance'] + userdata_balance['Adjust']:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
-                            f'{num_format_coin(real_amount, COIN_NAME)} '
-                            f'{COIN_NAME}.')
-            return
         if real_amount < MinTx:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
                            f'{num_format_coin(MinTx, COIN_NAME)} '
                            f'{COIN_NAME}.')
             return
-        if real_amount > MaxTX:
+        elif real_amount > MaxTX:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
                            f'{num_format_coin(MaxTX, COIN_NAME)} '
                            f'{COIN_NAME}.')
             return
-
+        elif real_amount > user_from['actual_balance'] + userdata_balance['Adjust']:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
+                            f'{num_format_coin(real_amount, COIN_NAME)} '
+                            f'{COIN_NAME}.')
+            return
         listMembers = ctx.message.mentions
         memids = []  # list of member ID
         for member in listMembers:
@@ -8553,13 +8543,6 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
 
         ActualSpend = real_amount * len(memids)
 
-        if ActualSpend >= user_from['actual_balance']:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send total tip of '
-                           f'{num_format_coin(ActualSpend, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-
         if ActualSpend > MaxTX:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Total transactions cannot be bigger than '
@@ -8570,6 +8553,12 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Total transactions cannot be smaller than '
                            f'{num_format_coin(MinTx, COIN_NAME)} '
+                           f'{COIN_NAME}.')
+            return
+        elif ActualSpend >= user_from['actual_balance']:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send total tip of '
+                           f'{num_format_coin(ActualSpend, COIN_NAME)} '
                            f'{COIN_NAME}.')
             return
 
@@ -8669,25 +8658,24 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
             user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         real_amount = int(round(float(amount) * COIN_DEC))
         userdata_balance = await store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
-        if real_amount > user_from['actual_balance'] + userdata_balance['Adjust']:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
-                            f'{num_format_coin(real_amount, COIN_NAME)} '
-                            f'{COIN_NAME}.')
-            return
         if real_amount < MinTx:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
                            f'{num_format_coin(MinTx, COIN_NAME)} '
                            f'{COIN_NAME}.')
             return
-        if real_amount > MaxTX:
+        elif real_amount > MaxTX:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
                            f'{num_format_coin(MaxTX, COIN_NAME)} '
                            f'{COIN_NAME}.')
             return
-
+        elif real_amount > user_from['actual_balance'] + userdata_balance['Adjust']:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
+                            f'{num_format_coin(real_amount, COIN_NAME)} '
+                            f'{COIN_NAME}.')
+            return
         memids = []  # list of member ID
         for member_id in list_talker:
             if member_id != ctx.message.author.id:
@@ -8759,25 +8747,24 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
         user_from['address'] = user_from['balance_wallet_address']
         real_amount = float(amount)
         userdata_balance = await store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
-        if real_amount > user_from['actual_balance'] + userdata_balance['Adjust']:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
-                            f'{num_format_coin(real_amount, COIN_NAME)} '
-                            f'{COIN_NAME}.')
-            return
         if real_amount < MinTx:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
                            f'{num_format_coin(MinTx, COIN_NAME)} '
                            f'{COIN_NAME}.')
             return
-        if real_amount > MaxTX:
+        elif real_amount > MaxTX:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
                            f'{num_format_coin(MaxTX, COIN_NAME)} '
                            f'{COIN_NAME}.')
             return
-
+        elif real_amount > user_from['actual_balance'] + userdata_balance['Adjust']:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
+                            f'{num_format_coin(real_amount, COIN_NAME)} '
+                            f'{COIN_NAME}.')
+            return
         memids = []  # list of member ID
         for member_id in list_talker:
             if member_id != ctx.message.author.id:

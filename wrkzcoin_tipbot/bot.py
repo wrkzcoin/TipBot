@@ -2428,6 +2428,18 @@ async def test(ctx):
     return
 
 
+@bot.command(hidden = True, pass_context=True, name='prefix')
+async def prefix(ctx):
+    prefix = await get_guild_prefix(ctx)
+    try:
+        msg = await ctx.send(f'{EMOJI_INFORMATION} {ctx.author.mention}, the prefix here is **{prefix}**')
+        await msg.add_reaction(EMOJI_OK_BOX)
+    except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+        await msg.add_reaction(EMOJI_ERROR)
+        traceback.print_exc(file=sys.stdout)
+    return
+
+
 @bot.command(pass_context=True, name='userinfo', aliases=['user'], help=bot_help_userinfo)
 async def userinfo(ctx, member: discord.Member = None):
     global TRTL_DISCORD

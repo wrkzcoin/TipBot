@@ -874,6 +874,7 @@ async def blackjack(ctx):
     global GAME_SLOT_REWARD, GAME_COIN, BOT_INVITELINK, GAME_INTERACTIVE_PRGORESS, IS_RESTARTING
     game_servers = config.game.guild_games.split(",")
     free_game = False
+    won = False
     # Only WrkzCoin testing. Return if DM or other guild
     if isinstance(ctx.channel, discord.DMChannel) == True or str(ctx.guild.id) not in game_servers:
         await ctx.message.add_reaction(EMOJI_ERROR)
@@ -1007,18 +1008,38 @@ Rules:
     playerValue = blackjack_getCardValue(playerHand)
     dealerValue = blackjack_getCardValue(dealerHand)
     # Handle whether the player won, lost, or tied:
+    COIN_NAME = random.choice(GAME_COIN)
+    amount = GAME_SLOT_REWARD[COIN_NAME]
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    COIN_DEC = get_decimal(COIN_NAME)
+    real_amount = int(amount * COIN_DEC) if coin_family in ["XMR", "TRTL"] else float(amount * COIN_DEC)
+    result = f'You got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
     if dealerValue > 21:
+        won = True
         await ctx.send('{} **BLACKJACK**\n'
-                       '```Dealer busts! You win!```'.format(ctx.author.mention))
+                       '```Dealer busts! You win! {}```'.format(ctx.author.mention, result))
     elif (playerValue > 21) or (playerValue < dealerValue):
         await ctx.send('{} **BLACKJACK**\n'
                        '```You lost!```'.format(ctx.author.mention))
     elif playerValue > dealerValue:
+        won = True
         await ctx.send('{} **BLACKJACK**\n'
-                       '```You won!```'.format(ctx.author.mention))
+                       '```You won! {}```'.format(ctx.author.mention, result))
     elif playerValue == dealerValue:
         await ctx.send('{} **BLACKJACK**\n'
                        '```It\'s a tie!```'.format(ctx.author.mention))
+
+    if free_game == True:
+        try:
+            await store.sql_game_free_add('BLACKJACK: PLAYER={}, DEALER={}'.format(playerValue, dealerValue), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BLACKJACK', 'DISCORD')
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+    else:
+        try:
+            reward = await store.sql_game_add('BLACKJACK: PLAYER={}, DEALER={}'.format(playerValue, dealerValue), str(ctx.message.author.id), 'None', 'WIN' if won else 'LOSE', real_amount if won else 0, COIN_DEC if won else 0, str(ctx.guild.id), 'BLACKJACK', 'DISCORD')
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+                        
     if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
         GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
 
@@ -1192,7 +1213,7 @@ clues would be Fermi Pico.'''.format(NUM_DIGITS)
                         traceback.print_exc(file=sys.stdout)
                 else:
                     try:
-                        reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', 'DISCORD')
+                        reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'WIN' if won else 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', 'DISCORD')
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
                 if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:

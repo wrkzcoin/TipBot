@@ -1399,6 +1399,37 @@ async def sql_game_free_add(game_result: str, played_user: str, win_lose: str, p
         traceback.print_exc(file=sys.stdout)
 
 
+async def sql_game_stat():
+    stat = {}
+    GAME_COIN = config.game.coin_game.split(",")
+    try:
+        openConnection()
+        with conn.cursor() as cur:
+            sql = """ SELECT * FROM discord_game """
+            cur.execute(sql,)
+            result_game = cur.fetchall()
+            if result_game and len(result_game) > 0:
+                stat['paid_play'] = len(result_game)
+                # https://stackoverflow.com/questions/21518271/how-to-sum-values-of-the-same-key-in-a-dictionary
+                stat['paid_hangman_play'] = sum(d.get('HANGMAN', 0) for d in result_game)
+                stat['paid_bagel_play'] = sum(d.get('BAGEL', 0) for d in result_game)
+                stat['paid_slot_play'] = sum(d.get('SLOT', 0) for d in result_game)
+                for each in GAME_COIN:
+                    stat[each] = sum(d.get('won_amount', 0) for d in result_game if d['coin_name'] == each)
+            sql = """ SELECT * FROM discord_game_free """
+            cur.execute(sql,)
+            result_game_free = cur.fetchall()
+            if result_game_free and len(result_game_free) > 0:
+                stat['free_play'] = len(result_game_free)
+                stat['free_hangman_play'] = sum(d.get('HANGMAN', 0) for d in result_game_free)
+                stat['free_bagel_play'] = sum(d.get('BAGEL', 0) for d in result_game_free)
+                stat['free_slot_play'] = sum(d.get('SLOT', 0) for d in result_game_free)
+        return stat
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+
 async def sql_count_tx_all():
     global conn
     try:

@@ -318,6 +318,7 @@ bot_help_game_bagel = "Bagels, a deductive logic game. By Al Sweigart al@inventw
 bot_help_game_hangman = "Old hangman game"
 bot_help_game_maze = "Interactive 2D ascii maze game"
 bot_help_game_blackjack = "Blackjack, original code by Al Sweigart al@inventwithpython.com"
+bot_help_game_stat = "Check overall game stat"
 
 # account commands
 bot_help_account = "Various user account commands."
@@ -846,6 +847,26 @@ async def game(ctx):
     if ctx.invoked_subcommand is None:
         await ctx.send(f'{ctx.author.mention} Invalid {prefix}game command.\n Please use {prefix}help game')
         return
+
+
+@game.command(name='stat', help=bot_help_game_stat)
+async def stat(ctx):
+    get_game_stat = await store.sql_game_stat()
+    if get_game_stat and len(get_game_stat) > 0:   
+        stat = discord.Embed(title='TipBot Game Stat', description='', colour=7047495)
+        stat.add_field(name='Total Plays', value='{}'.format(get_game_stat['paid_play']+get_game_stat['free_play']), inline=True)
+        stat.add_field(name='Total Free Plays', value='{}'.format(get_game_stat['free_play']), inline=True)
+        stat.add_field(name='Total Paid Plays', value='{}'.format(get_game_stat['paid_play']), inline=True)
+        for COIN_NAME in GAME_COIN:
+            stat.add_field(name='Paid in {}'.format(COIN_NAME), value='{}{}'.format(num_format_coin(get_game_stat[COIN_NAME], COIN_NAME), COIN_NAME), inline=True)
+        try:
+            msg = await ctx.send(embed=stat)
+            await ctx.message.add_reaction(EMOJI_OK_HAND)
+            await msg.add_reaction(EMOJI_OK_BOX)
+        except Exception as e:
+            await ctx.message.author.send(embed=stat)
+            traceback.print_exc(file=sys.stdout)
+    return
 
 
 @game.command(name='blackjack', alias=['bj'], help=bot_help_game_blackjack)

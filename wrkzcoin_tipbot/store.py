@@ -38,19 +38,6 @@ myconfig = {
 connPool = pymysqlpool.ConnectionPool(size=5, name='connPool', **myconfig)
 conn = connPool.get_connection(timeout=5, retry_num=2)
 
-myconfig_voucher = {
-    'host': config.mysql_voucher.host,
-    'user':config.mysql_voucher.user,
-    'password':config.mysql_voucher.password,
-    'database':config.mysql_voucher.db,
-    'charset':'utf8mb4',
-    'cursorclass': pymysql.cursors.DictCursor,
-    'autocommit':True
-    }
-
-connPool_Voucher = pymysqlpool.ConnectionPool(size=2, name='connPool_Voucher', **myconfig_voucher)
-conn_voucher = connPool_Voucher.get_connection(timeout=5, retry_num=2)
-
 #conn = None
 sys.path.append("..")
 
@@ -87,18 +74,6 @@ def openConnection():
         if conn is None:
             conn = connPool.get_connection(timeout=5, retry_num=2)
         conn.ping(reconnect=True)  # reconnecting mysql
-    except:
-        print("ERROR: Unexpected error: Could not connect to MySql instance.")
-        sys.exit()
-
-
-# openConnection Voucher
-def openConnection_Voucher():
-    global conn_voucher, connPool_Voucher
-    try:
-        if conn_voucher is None:
-            conn_voucher = connPool_Voucher.get_connection(timeout=5, retry_num=2)
-        conn_voucher.ping(reconnect=True)  # reconnecting mysql
     except:
         print("ERROR: Unexpected error: Could not connect to MySql instance.")
         sys.exit()
@@ -1251,7 +1226,7 @@ async def sql_get_donate_list():
 
 
 async def sql_send_to_voucher(user_id: str, user_name: str, message_creating: str, amount: float, reserved_fee: float, comment: str, secret_string: str, voucher_image_name: str, coin: str, user_server: str='DISCORD'):
-    global conn, conn_voucher
+    global conn
     COIN_NAME = coin.upper()
     try:
         openConnection()
@@ -1262,63 +1237,10 @@ async def sql_send_to_voucher(user_id: str, user_name: str, message_creating: st
             cur.execute(sql, (COIN_NAME, user_id, user_name, message_creating, amount, wallet.get_decimal(COIN_NAME), reserved_fee, 
                               int(time.time()), comment, secret_string, voucher_image_name, user_server))
             conn.commit()
-        openConnection_Voucher()
-        with conn_voucher.cursor() as cur:
-            sql = """ INSERT INTO cn_voucher (`coin_name`, `user_id`, `user_name`, `message_creating`, `amount`, 
-                      `decimal`, `reserved_fee`, `date_create`, `comment`, `secret_string`, `voucher_image_name`, `user_server`) 
-                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-            cur.execute(sql, (COIN_NAME, user_id, user_name, message_creating, amount, wallet.get_decimal(COIN_NAME), reserved_fee, 
-                              int(time.time()), comment, secret_string, voucher_image_name, user_server))
-            conn_voucher.commit()
             return True
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     return None
-
-
-async def sql_voucher_sync_from_remote(numb: int=100):
-    global conn, conn_voucher
-    list_sec = None
-    result_local = None
-    tx_hash = {}
-    address = {}
-    claimed_date = {}
-    paymentid = {}
-    try:
-        openConnection_Voucher()
-        with conn_voucher.cursor() as cur:
-            sql = """ SELECT * FROM cn_voucher WHERE `already_claimed`=%s ORDER BY `claimed_date` DESC LIMIT """+str(numb)+""" """
-            cur.execute(sql, ('YES'))
-            result_remote = cur.fetchall()
-            if result_remote and len(result_remote) > 0:
-                list_sec = ["'{}'".format(item['secret_string']) for item in result_remote]
-                for each in result_remote:
-                    tx_hash[each['secret_string']] = each['tx_hash']
-                    address[each['secret_string']] = each['claimed_address']
-                    claimed_date[each['secret_string']] = each['claimed_date']
-                    paymentid[each['secret_string']] = each['claimed_paymentid'] if len(str(each['claimed_paymentid'])) > 0 else ''
-        if list_sec and len(list_sec) > 0:
-            try:
-                openConnection()
-                with conn.cursor() as cur:
-                    sql = """ SELECT * FROM cn_voucher WHERE `already_claimed`=%s AND `secret_string` IN ("""+','.join(list_sec)+""") 
-                              ORDER BY `claimed_date` DESC LIMIT """+str(numb)+""" """
-                    cur.execute(sql, ('NO'))
-                    result_local = cur.fetchall()
-            except Exception as e:
-                traceback.print_exc(file=sys.stdout)
-        if result_local and len(result_local) > 0:
-            try:
-                openConnection()
-                with conn.cursor() as cur:
-                    for each in result_local:
-                        sql = """ UPDATE cn_voucher SET `already_claimed`=%s, `claimed_address`=%s, `claimed_date`=%s, `tx_hash`=%s, `claimed_paymentid`=%s WHERE `secret_string`=%s """
-                        cur.execute(sql, ('YES', address[each['secret_string']], claimed_date[each['secret_string']], tx_hash[each['secret_string']], paymentid[each['secret_string']], each['secret_string']))
-                        conn.commit()
-            except Exception as e:
-                traceback.print_exc(file=sys.stdout)
-    except Exception as e:
-        traceback.print_exc(file=sys.stdout)
 
 
 async def sql_voucher_get_user(user_id: str, user_server: str='DISCORD', last: int=10, already_claimed: str='YESNO'):
@@ -2832,8 +2754,8 @@ async def sql_feedback_list_by_user(userid: str, last: int):
 async def sql_depositlink_user(userid: str, user_server: str = 'DISCORD'):
     user_server = user_server.upper()
     try:
-        openConnection_Voucher()
-        with conn_voucher.cursor() as cur:
+        openConnection()
+        with conn.cursor() as cur:
             sql = """ SELECT * FROM discord_depositlink WHERE `user_id`=%s 
                       AND `user_server`=%s """
             cur.execute(sql, (userid, user_server))
@@ -2853,12 +2775,6 @@ async def sql_depositlink_user_create(user_id: str, user_name:str, link_key: str
                       VALUES (%s, %s, %s, %s, %s) """
             cur.execute(sql, (user_id, user_name, int(time.time()), link_key, user_server))
             conn.commit()
-        openConnection_Voucher()
-        with conn_voucher.cursor() as cur:
-            sql = """ INSERT INTO `discord_depositlink` (`user_id`, `user_name`, `date_create`, `link_key`, `user_server`)
-                      VALUES (%s, %s, %s, %s, %s) """
-            cur.execute(sql, (user_id, user_name, int(time.time()), link_key, user_server))
-            conn_voucher.commit()
             return True
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
@@ -2875,11 +2791,6 @@ async def sql_depositlink_user_update(user_id: str, what: str, value: str, user_
             sql = """ UPDATE `discord_depositlink` SET `"""+what+"""`=%s, `updated_date`=%s WHERE `user_id`=%s AND `user_server`=%s LIMIT 1 """
             cur.execute(sql, (value, int(time.time()), user_id, user_server))
             conn.commit()
-        openConnection_Voucher()
-        with conn_voucher.cursor() as cur:
-            sql = """ UPDATE `discord_depositlink` SET `"""+what+"""`=%s, `updated_date`=%s WHERE `user_id`=%s AND `user_server`=%s LIMIT 1 """
-            cur.execute(sql, (value, int(time.time()), user_id, user_server))
-            conn_voucher.commit()
             return True
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
@@ -2922,8 +2833,8 @@ async def sql_deposit_getall_address_user(userid: str, user_server: str = 'DISCO
 async def sql_deposit_getall_address_user_remote(userid: str, user_server: str = 'DISCORD'):
     user_server = user_server.upper()
     try:
-        openConnection_Voucher()
-        with conn_voucher.cursor() as cur:
+        openConnection()
+        with conn.cursor() as cur:
             sql = """ SELECT * FROM discord_depositlink_address WHERE `user_id`=%s 
                       AND `user_server`=%s """
             cur.execute(sql, (userid, user_server))
@@ -2949,12 +2860,6 @@ async def sql_depositlink_user_insert_address(user_id: str, coin_name: str, depo
                       VALUES (%s, %s, %s, %s) """
             cur.execute(sql, (user_id, coin_name, deposit_address, user_server))
             conn.commit()
-        openConnection_Voucher()
-        with conn_voucher.cursor() as cur:
-            sql = """ INSERT INTO `discord_depositlink_address` (`user_id`, `coin_name`, `deposit_address`, `user_server`)
-                      VALUES (%s, %s, %s, %s) """
-            cur.execute(sql, (user_id, coin_name, deposit_address, user_server))
-            conn_voucher.commit()
             return True
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
@@ -2969,11 +2874,6 @@ async def sql_depositlink_user_delete_address(user_id: str, coin_name: str, user
             sql = """ DELETE FROM `discord_depositlink_address` WHERE `user_id`=%s AND `user_server`=%s and `coin_name`=%s """
             cur.execute(sql, (user_id, user_server, coin_name))
             conn.commit()
-        openConnection_Voucher()
-        with conn_voucher.cursor() as cur:
-            sql = """ DELETE FROM `discord_depositlink_address` WHERE `user_id`=%s AND `user_server`=%s and `coin_name`=%s """
-            cur.execute(sql, (user_id, user_server, coin_name))
-            conn_voucher.commit()
             return True
     except Exception as e:
         traceback.print_exc(file=sys.stdout)

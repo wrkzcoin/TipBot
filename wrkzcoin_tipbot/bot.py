@@ -9424,16 +9424,6 @@ async def store_message_list():
         await asyncio.sleep(interval_msg_list)
 
 
-async def sync_claimed_list():
-    while True:
-        interval_claimed_list = 30 # in second
-        try:
-            await store.sql_voucher_sync_from_remote(25) # sync with remote
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-        await asyncio.sleep(interval_claimed_list)
-
-
 # function to return if input string is ascii
 def is_ascii(s):
     return all(ord(c) < 128 for c in s)
@@ -9475,7 +9465,6 @@ def main():
     bot.loop.create_task(notify_new_swap_user())
     bot.loop.create_task(store_action_list())
     bot.loop.create_task(store_message_list())
-    bot.loop.create_task(sync_claimed_list())
     bot.run(config.discord.token, reconnect=True)
 
 

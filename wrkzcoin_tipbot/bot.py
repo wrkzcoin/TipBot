@@ -1187,7 +1187,7 @@ When I say:    That means:
 For example, if the secret number was 248 and your guess was 843, the
 clues would be Fermi Pico.'''.format(NUM_DIGITS)
     await ctx.send(f'{ctx.author.mention} ```{game_text}```')
-    secretNum = bagels_getSecretNum()
+    secretNum = bagels_getSecretNum(NUM_DIGITS)
 
     try:
         await ctx.send(f'{ctx.author.mention} I have thought up a number. You have {MAX_GUESSES} guesses to get it.')
@@ -1272,7 +1272,401 @@ clues would be Fermi Pico.'''.format(NUM_DIGITS)
                             return
                         else:
                             clues = bagels_getClues(guess, secretNum)
-                            await ctx.send(f'{ctx.author.mention} **Bagel: ** {clues}')
+                            await ctx.send(f'{ctx.author.mention} **Bagel: #{numGuesses+1} ** {clues}')
+                            guess = None
+                            numGuesses += 1
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+            if numGuesses >= MAX_GUESSES:
+                await ctx.send(f'{ctx.author.mention} **Bagel: ** You run out of guesses and you did it **{numGuesses}** times. Game over! The answer was **{secretNum}**')
+                if free_game == True:
+                    try:
+                        await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', 'DISCORD')
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                else:
+                    try:
+                        reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', 'DISCORD')
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+                    GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+                return
+    except (discord.Forbidden, discord.errors.Forbidden) as e:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        return
+    if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+        GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+
+
+@game.command(name='bagel2', alias=['bagels2'], help=bot_help_game_bagel)
+async def bagel2(ctx):
+    global GAME_INTERACTIVE_PRGORESS, GAME_COIN, GAME_SLOT_REWARD, BOT_INVITELINK, IS_RESTARTING
+    # Credit: https://github.com/asweigart/PythonStdioGames
+    game_servers = config.game.guild_games.split(",")
+    free_game = False
+    # Only WrkzCoin testing. Return if DM or other guild
+    if isinstance(ctx.channel, discord.DMChannel) == True or str(ctx.guild.id) not in game_servers:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        return
+
+    # check if user create account less than 3 days
+    try:
+        account_created = ctx.message.author.created_at
+        if (datetime.utcnow() - account_created).total_seconds() <= 3*24*3600:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using this.')
+            return
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
+    if ctx.message.author.id not in GAME_INTERACTIVE_PRGORESS:
+        GAME_INTERACTIVE_PRGORESS.append(ctx.message.author.id)
+    else:
+        await ctx.send(f'{ctx.author.mention} You are ongoing with one **game** play.')
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        return
+
+    count_played = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', False)
+    count_played_free = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', True)
+    if count_played and count_played >= config.game.max_daily_play:
+        free_game = True
+        await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
+
+    won = False
+    NUM_DIGITS = 4  # (!) Try setting this to 1 or 10.
+    MAX_GUESSES = 15  # (!) Try setting this to 1 or 100.
+    secretNum = bagels_getSecretNum(NUM_DIGITS)
+    split_number = [int(d) for d in str(secretNum)]
+    hint = []
+    hint.append('First number + Second number = {}'.format(split_number[0] + split_number[1]))
+    hint.append('First number + Third number = {}'.format(split_number[0] + split_number[2]))
+    hint.append('First number + Forth number = {}'.format(split_number[0] + split_number[3]))
+    hint.append('Second number + Third number = {}'.format(split_number[1] + split_number[2]))
+    hint.append('Second number + Forth number = {}'.format(split_number[1] + split_number[3]))
+    hint.append('Third number + Forth number = {}'.format(split_number[2] + split_number[3]))
+
+    hint.append('First number * Second number = {}'.format(split_number[0] * split_number[1]))
+    hint.append('First number * Third number = {}'.format(split_number[0] * split_number[2]))
+    hint.append('First number * Forth number = {}'.format(split_number[0] * split_number[3]))
+    hint.append('Second number * Third number = {}'.format(split_number[1] * split_number[2]))
+    hint.append('Second number * Forth number = {}'.format(split_number[1] * split_number[3]))
+    hint.append('Third number * Forth number = {}'.format(split_number[2] * split_number[3]))
+    numb_hint = 2
+    random.shuffle(hint)
+    if numb_hint > 0:
+        i = 0
+        hint_string = ''
+        while i < numb_hint:
+            hint_string += hint[i] + '\n'
+            i += 1
+
+    game_text = '''Bagels, a deductive logic game.
+By Al Sweigart al@inventwithpython.com
+
+I am thinking of a {}-digit number with no repeated digits.
+Try to guess what it is. Here are some clues:
+When I say:    That means:
+  Pico         One digit is correct but in the wrong position.
+  Fermi        One digit is correct and in the right position.
+  Bagels       No digit is correct.
+
+For example, if the secret number was 248 and your guess was 843, the
+clues would be Fermi Pico.
+
+Hints:
+{}
+'''.format(NUM_DIGITS, hint_string)
+    await ctx.send(f'{ctx.author.mention} ```{game_text}```')
+
+
+
+    try:
+        await ctx.send(f'{ctx.author.mention} I have thought up a number. You have {MAX_GUESSES} guesses to get it.')
+        guess = None
+        numGuesses = 0
+        while guess is None:
+            # check if bot is going to restart
+            if IS_RESTARTING:
+                await ctx.message.add_reaction(EMOJI_REFRESH)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is going to restart soon. Wait until it is back for using this.')
+                return
+            waiting_numbmsg = None
+            def check(m):
+                return m.author == ctx.author and m.guild.id == ctx.guild.id
+            try:
+                waiting_numbmsg = await bot.wait_for('message', timeout=60, check=check)
+            except asyncio.TimeoutError:
+                await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
+                await ctx.send(f'{ctx.author.mention} **Bagel Timeout**. The answer was **{secretNum}**.')
+                if free_game == True:
+                    try:
+                        await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', 'DISCORD')
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                else:
+                    try:
+                        reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'WIN' if won else 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', 'DISCORD')
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+                    GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+                return
+            if waiting_numbmsg is None:
+                await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
+                await ctx.send(f'{ctx.author.mention} **Bagel Timeout**. The answer was **{secretNum}**.')
+                if free_game == True:
+                    try:
+                        await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', 'DISCORD')
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                else:
+                    try:
+                        reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', 'DISCORD')
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+                    GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+                return
+            else:
+                guess = waiting_numbmsg.content.strip()
+                try:
+                    guess_chars = [str(char) for char in str(guess)]
+                    if len(guess) != NUM_DIGITS or not guess.isdecimal():
+                        guess = None
+                        await ctx.send(f'{ctx.author.mention} **Bagel: ** Please use {NUM_DIGITS} numbers!')
+                    elif len([x for x in guess_chars if guess_chars.count(x) >= 2]) > 0:
+                        guess = None
+                        await ctx.send(f'{ctx.author.mention} **Bagel: ** Please do not use repeated numbers!')
+                    else:
+                        if guess == secretNum:
+                            result = 'But this is a free game without **reward**!'
+                            won = True
+                            if won and free_game == False:
+                                won_x = 5
+                                COIN_NAME = random.choice(GAME_COIN)
+                                amount = GAME_SLOT_REWARD[COIN_NAME] * won_x
+                                coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+                                COIN_DEC = get_decimal(COIN_NAME)
+                                real_amount = int(amount * COIN_DEC) if coin_family in ["XMR", "TRTL"] else float(amount * COIN_DEC)
+                                reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, COIN_DEC, str(ctx.guild.id), 'BAGEL', 'DISCORD')
+                                result = f'{ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
+                            elif won == False and free_game == True:
+                                reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', 'DISCORD')
+                            elif free_game == True:
+                                try:
+                                    await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', 'DISCORD')
+                                except Exception as e:
+                                    traceback.print_exc(file=sys.stdout)
+                            if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+                                GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+                            await ctx.send(f'{ctx.author.mention} **Bagel: ** You won! The answer was **{secretNum}**. You had guessed **{numGuesses+1}** times only. {result}')
+                            return
+                        else:
+                            clues = bagels_getClues(guess, secretNum)
+                            await ctx.send(f'{ctx.author.mention} **Bagel: #{numGuesses+1} ** {clues}')
+                            guess = None
+                            numGuesses += 1
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+            if numGuesses >= MAX_GUESSES:
+                await ctx.send(f'{ctx.author.mention} **Bagel: ** You run out of guesses and you did it **{numGuesses}** times. Game over! The answer was **{secretNum}**')
+                if free_game == True:
+                    try:
+                        await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', 'DISCORD')
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                else:
+                    try:
+                        reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', 'DISCORD')
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+                    GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+                return
+    except (discord.Forbidden, discord.errors.Forbidden) as e:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        return
+    if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+        GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+
+
+@game.command(name='bagel3', alias=['bagels3'], help=bot_help_game_bagel)
+async def bagel3(ctx):
+    global GAME_INTERACTIVE_PRGORESS, GAME_COIN, GAME_SLOT_REWARD, BOT_INVITELINK, IS_RESTARTING
+    # Credit: https://github.com/asweigart/PythonStdioGames
+    game_servers = config.game.guild_games.split(",")
+    free_game = False
+    # Only WrkzCoin testing. Return if DM or other guild
+    if isinstance(ctx.channel, discord.DMChannel) == True or str(ctx.guild.id) not in game_servers:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        return
+
+    # check if user create account less than 3 days
+    try:
+        account_created = ctx.message.author.created_at
+        if (datetime.utcnow() - account_created).total_seconds() <= 3*24*3600:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using this.')
+            return
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
+    if ctx.message.author.id not in GAME_INTERACTIVE_PRGORESS:
+        GAME_INTERACTIVE_PRGORESS.append(ctx.message.author.id)
+    else:
+        await ctx.send(f'{ctx.author.mention} You are ongoing with one **game** play.')
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        return
+
+    count_played = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', False)
+    count_played_free = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', True)
+    if count_played and count_played >= config.game.max_daily_play:
+        free_game = True
+        await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
+
+    won = False
+    NUM_DIGITS = 5  # (!) Try setting this to 1 or 10.
+    MAX_GUESSES = 15  # (!) Try setting this to 1 or 100.
+    secretNum = bagels_getSecretNum(NUM_DIGITS)
+    split_number = [int(d) for d in str(secretNum)]
+    hint = []
+    hint.append('First number + Second number = {}'.format(split_number[0] + split_number[1]))
+    hint.append('First number + Third number = {}'.format(split_number[0] + split_number[2]))
+    hint.append('First number + Forth number = {}'.format(split_number[0] + split_number[3]))
+    hint.append('First number + Fifth number = {}'.format(split_number[0] + split_number[4]))
+    hint.append('Second number + Third number = {}'.format(split_number[1] + split_number[2]))
+    hint.append('Second number + Forth number = {}'.format(split_number[1] + split_number[3]))
+    hint.append('Second number + Fifth number = {}'.format(split_number[1] + split_number[4]))
+    hint.append('Third number + Forth number = {}'.format(split_number[2] + split_number[3]))
+    hint.append('Third number + Fifth number = {}'.format(split_number[2] + split_number[4]))
+    hint.append('Forth number + Fifth number = {}'.format(split_number[3] + split_number[4]))
+    
+    hint.append('First number * Second number = {}'.format(split_number[0] * split_number[1]))
+    hint.append('First number * Third number = {}'.format(split_number[0] * split_number[2]))
+    hint.append('First number * Forth number = {}'.format(split_number[0] * split_number[3]))
+    hint.append('First number * Fifth number = {}'.format(split_number[0] * split_number[4]))
+    hint.append('Second number * Third number = {}'.format(split_number[1] * split_number[2]))
+    hint.append('Second number * Forth number = {}'.format(split_number[1] * split_number[3]))
+    hint.append('Second number * Fifth number = {}'.format(split_number[1] * split_number[4]))
+    hint.append('Third number * Forth number = {}'.format(split_number[2] * split_number[3]))
+    hint.append('Third number * Fifth number = {}'.format(split_number[2] * split_number[4]))
+    hint.append('Forth number * Fifth number = {}'.format(split_number[3] * split_number[4]))
+    numb_hint = 2
+    random.shuffle(hint)
+    if numb_hint > 0:
+        i = 0
+        hint_string = ''
+        while i < numb_hint:
+            hint_string += hint[i] + '\n'
+            i += 1
+
+    game_text = '''Bagels, a deductive logic game.
+By Al Sweigart al@inventwithpython.com
+
+I am thinking of a {}-digit number with no repeated digits.
+Try to guess what it is. Here are some clues:
+When I say:    That means:
+  Pico         One digit is correct but in the wrong position.
+  Fermi        One digit is correct and in the right position.
+  Bagels       No digit is correct.
+
+For example, if the secret number was 248 and your guess was 843, the
+clues would be Fermi Pico.
+
+Hints:
+{}
+'''.format(NUM_DIGITS, hint_string)
+    await ctx.send(f'{ctx.author.mention} ```{game_text}```')
+
+
+
+    try:
+        await ctx.send(f'{ctx.author.mention} I have thought up a number. You have {MAX_GUESSES} guesses to get it.')
+        guess = None
+        numGuesses = 0
+        while guess is None:
+            # check if bot is going to restart
+            if IS_RESTARTING:
+                await ctx.message.add_reaction(EMOJI_REFRESH)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is going to restart soon. Wait until it is back for using this.')
+                return
+            waiting_numbmsg = None
+            def check(m):
+                return m.author == ctx.author and m.guild.id == ctx.guild.id
+            try:
+                waiting_numbmsg = await bot.wait_for('message', timeout=60, check=check)
+            except asyncio.TimeoutError:
+                await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
+                await ctx.send(f'{ctx.author.mention} **Bagel Timeout**. The answer was **{secretNum}**.')
+                if free_game == True:
+                    try:
+                        await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', 'DISCORD')
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                else:
+                    try:
+                        reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'WIN' if won else 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', 'DISCORD')
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+                    GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+                return
+            if waiting_numbmsg is None:
+                await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
+                await ctx.send(f'{ctx.author.mention} **Bagel Timeout**. The answer was **{secretNum}**.')
+                if free_game == True:
+                    try:
+                        await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', 'DISCORD')
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                else:
+                    try:
+                        reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', 'DISCORD')
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+                    GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+                return
+            else:
+                guess = waiting_numbmsg.content.strip()
+                try:
+                    guess_chars = [str(char) for char in str(guess)]
+                    if len(guess) != NUM_DIGITS or not guess.isdecimal():
+                        guess = None
+                        await ctx.send(f'{ctx.author.mention} **Bagel: ** Please use {NUM_DIGITS} numbers!')
+                    elif len([x for x in guess_chars if guess_chars.count(x) >= 2]) > 0:
+                        guess = None
+                        await ctx.send(f'{ctx.author.mention} **Bagel: ** Please do not use repeated numbers!')
+                    else:
+                        if guess == secretNum:
+                            result = 'But this is a free game without **reward**!'
+                            won = True
+                            if won and free_game == False:
+                                won_x = 5
+                                COIN_NAME = random.choice(GAME_COIN)
+                                amount = GAME_SLOT_REWARD[COIN_NAME] * won_x
+                                coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+                                COIN_DEC = get_decimal(COIN_NAME)
+                                real_amount = int(amount * COIN_DEC) if coin_family in ["XMR", "TRTL"] else float(amount * COIN_DEC)
+                                reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, COIN_DEC, str(ctx.guild.id), 'BAGEL', 'DISCORD')
+                                result = f'{ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
+                            elif won == False and free_game == True:
+                                reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', 'DISCORD')
+                            elif free_game == True:
+                                try:
+                                    await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', 'DISCORD')
+                                except Exception as e:
+                                    traceback.print_exc(file=sys.stdout)
+                            if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+                                GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+                            await ctx.send(f'{ctx.author.mention} **Bagel: ** You won! The answer was **{secretNum}**. You had guessed **{numGuesses+1}** times only. {result}')
+                            return
+                        else:
+                            clues = bagels_getClues(guess, secretNum)
+                            await ctx.send(f'{ctx.author.mention} **Bagel: #{numGuesses+1} ** {clues}')
                             guess = None
                             numGuesses += 1
                 except Exception as e:

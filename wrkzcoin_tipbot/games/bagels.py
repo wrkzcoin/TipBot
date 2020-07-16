@@ -7,16 +7,14 @@ Tags: short, game, puzzle"""
 
 import random
 
-NUM_DIGITS = 3  # (!) Try setting this to 1 or 10.
-
-def getSecretNum():
-    """Returns a string made up of NUM_DIGITS unique random digits."""
+def getSecretNum(numb: int=3):
+    """Returns a string made up of numb unique random digits."""
     numbers = list('0123456789')  # Create a list of digits 0 to 9.
     random.shuffle(numbers)  # Shuffle them into random order.
 
-    # Get the first NUM_DIGITS digits in the list for the secret number:
+    # Get the first numb digits in the list for the secret number:
     secretNum = ''
-    for i in range(NUM_DIGITS):
+    for i in range(numb):
         secretNum += str(numbers[i])
     return secretNum
 

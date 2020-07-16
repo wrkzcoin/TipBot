@@ -859,6 +859,7 @@ async def stat(ctx):
         stat.add_field(name='Total Paid Plays', value='{}'.format(get_game_stat['paid_play']), inline=True)
         for COIN_NAME in GAME_COIN:
             stat.add_field(name='Paid in {}'.format(COIN_NAME), value='{}{}'.format(num_format_coin(get_game_stat[COIN_NAME], COIN_NAME), COIN_NAME), inline=True)
+        stat.add_field(name="OTHER LINKS", value="{} / {} / {}".format("[Invite TipBot](http://invite.discord.bot.tips)", "[Support Server](https://discord.com/invite/GpHzURM)", "[TipBot Github](https://github.com/wrkzcoin/TipBot)"), inline=False)
         try:
             msg = await ctx.send(embed=stat)
             await ctx.message.add_reaction(EMOJI_OK_HAND)
@@ -2745,7 +2746,7 @@ async def help_main(message, prefix):
         coin_name = serverinfo['default_coin'].upper() if serverinfo else "WRKZ"
         embed.add_field(name="GUILD INFO", value="`ID: {}, Name: {}, Default Coin: {}, Prefix: {}`".format(message.guild.id, message.guild.name, coin_name, prefix), inline=False)
 
-    embed.add_field(name="OTHER LINKS", value="{} / {} / {}".format("[Invite TipBot](http://invite.discord.bot.tips)", "[Support Server](https://chat.wrkz.work)", "[TipBot Github](https://github.com/wrkzcoin/TipBot)"), inline=False)
+    embed.add_field(name="OTHER LINKS", value="{} / {} / {}".format("[Invite TipBot](http://invite.discord.bot.tips)", "[Support Server](https://discord.com/invite/GpHzURM)", "[TipBot Github](https://github.com/wrkzcoin/TipBot)"), inline=False)
     embed.set_footer(text="Required - <>, Optional - []")
     try:
         if isinstance(message.channel, discord.DMChannel) == False:

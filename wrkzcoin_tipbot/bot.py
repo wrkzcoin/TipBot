@@ -3126,7 +3126,7 @@ async def help_main(message, prefix):
         cmd_tag = ["tag", "tag <-add> <tag_name> <tag description>", "tag <-del> <tag_name>", "itag", "itag <itag_name> (need attachement)", "itag -del <tag_name>"]
         embed.add_field(name="TAG / ITAG", value="`{}`".format(", ".join(cmd_tag)), inline=False)
 
-    cmd_tip = ["tip <amount> [coin_name] @mention1 @mention2", "tipall <amount> [coin_name]", "tip <amount> [coin_name] [last 2h]"]
+    cmd_tip = ["tip <amount> [coin_name] @mention1 @mention2", "tipall <amount> [coin_name]", "tip <amount> [coin_name] [last 2h]", "freetip <amount> <coin_name>"]
     embed.add_field(name="TIP COMMAND", value="`{}`".format(", ".join(cmd_tip)), inline=False)
 
     cmd_user = ["balance [list]", "botbalance @mention_bot <coin_name>", "deposit <coin_name>", "notifytip <on/off>", "reg <coin_address>", "send <amount> <coin_address>", "withdraw <amount> <coin_name>", "swap <amount> <coin_name> <MARKETBOT>", "account deposit"]
@@ -5039,6 +5039,7 @@ async def freetip(ctx, amount: str, coin: str):
         embed.add_field(name="Guild ID", value=msg.guild.id, inline=True)
         embed.set_footer(text=f"Free tip by {ctx.message.author.name}#{ctx.message.author.discriminator}, timeout: 60s")
         await msg.edit(embed=embed)
+        await ctx.message.add_reaction(EMOJI_OK_HAND)
     except (discord.errors.NotFound, discord.errors.Forbidden) as e:
         await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
         return
@@ -8508,6 +8509,16 @@ async def notifytip_error(ctx, error):
     if isinstance(error, commands.MissingRequiredArgument):
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Use {prefix}notifytip **on** or {prefix}notifytip **off**')
+    return
+
+
+@freetip.error
+async def freetip_error(ctx, error):
+    prefix = await get_guild_prefix(ctx)
+    if isinstance(error, commands.MissingRequiredArgument):
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Missing arguments. '
+                       f'You need to tell me **amount** and **coin name**.\nExample: {prefix}freetip **1,000 coin_name**')
     return
 
 

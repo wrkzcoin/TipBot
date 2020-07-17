@@ -755,7 +755,7 @@ async def sql_send_tipall(user_from: str, user_tos, amount: int, amount_div: int
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
 
-    if tiptype.upper() not in ["TIPS", "TIPALL"]:
+    if tiptype.upper() not in ["TIPS", "TIPALL", "FREETIP", "FREETIPS"]:
         return None
 
     user_from_wallet = None
@@ -2024,7 +2024,7 @@ async def sql_add_logs_tx(list_tx):
 
 async def sql_add_failed_tx(coin: str, user_id: str, user_author: str, amount: int, tx_type: str):
     global conn
-    if tx_type.upper() not in ['TIP','TIPS','TIPALL','DONATE','WITHDRAW','SEND', 'REACTTIP']:
+    if tx_type.upper() not in ['TIP','TIPS','TIPALL','DONATE','WITHDRAW','SEND', 'REACTTIP', 'FREETIP']:
         return None
     try:
         openConnection()
@@ -2115,7 +2115,7 @@ async def sql_mv_doge_single(user_from: str, to_user: str, amount: float, coin: 
     COIN_NAME = coin.upper()
     if COIN_NAME not in ENABLE_COIN_DOGE:
         return False
-    if tiptype.upper() not in ["TIP", "DONATE", "SECRETTIP", "FAUCET"]:
+    if tiptype.upper() not in ["TIP", "DONATE", "SECRETTIP", "FAUCET", "FREETIP", "FREETIPS"]:
         return False
     try:
         openConnection()
@@ -2136,7 +2136,7 @@ async def sql_mv_doge_multiple(user_from: str, user_tos, amount_each: float, coi
     COIN_NAME = coin.upper()
     if COIN_NAME not in ENABLE_COIN_DOGE:
         return False
-    if tiptype.upper() not in ["TIPS", "TIPALL"]:
+    if tiptype.upper() not in ["TIPS", "TIPALL", "FREETIP", "FREETIPS"]:
         return False
     values_str = []
     currentTs = int(time.time())
@@ -2289,7 +2289,7 @@ async def sql_mv_xmr_single(user_from: str, to_user: str, amount: float, coin: s
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     if coin_family != "XMR":
         return False
-    if tiptype.upper() not in ["TIP", "DONATE", "SECRETTIP", "FAUCET"]:
+    if tiptype.upper() not in ["TIP", "DONATE", "SECRETTIP", "FAUCET", "FREETIP", "FREETIPS"]:
         return False
     try:
         openConnection()
@@ -2311,7 +2311,7 @@ async def sql_mv_xmr_multiple(user_from: str, user_tos, amount_each: float, coin
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     if coin_family != "XMR":
         return False
-    if tiptype.upper() not in ["TIPS", "TIPALL"]:
+    if tiptype.upper() not in ["TIPS", "TIPALL", "FREETIP", "FREETIPS"]:
         return False
     values_str = []
     currentTs = int(time.time())

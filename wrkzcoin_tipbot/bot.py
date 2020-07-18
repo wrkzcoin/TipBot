@@ -13,6 +13,7 @@ import store, daemonrpc_client, addressvalidation, walletapi
 from generic_xmr.address_msr import address_msr as address_msr
 from generic_xmr.address_xmr import address_xmr as address_xmr
 from generic_xmr.address_xam import address_xam as address_xam
+from generic_xmr.address_wow import address_wow as address_wow
 
 # games.bagels
 from games.bagels import getSecretNum as bagels_getSecretNum
@@ -202,7 +203,8 @@ EMOJI_COIN = {
     "BTC" : "\U0001F4B2",
     "BCH" : "\U0001F4B5",
     "DASH" : "\U0001F4A8",
-    "LTC" : "\U0001F4A1"
+    "LTC" : "\U0001F4A1",
+    "WOW" : "\U0001F62E"
     }
 
 EMOJI_RED_NO = "\u26D4"
@@ -241,6 +243,7 @@ NOTICE_COIN = {
     "XAM" : getattr(getattr(config,"daemonXAM"),"coin_notice", None),
     "UPX" : getattr(getattr(config,"daemonUPX"),"coin_notice", None),
     "XWP" : getattr(getattr(config,"daemonXWP"),"coin_notice", None),
+    "WOW" : getattr(getattr(config,"daemonWOW"),"coin_notice", None),
     "DOGE" : getattr(getattr(config,"daemonDOGE"),"coin_notice", None),
     "BTC" : getattr(getattr(config,"daemonBTC"),"coin_notice", None),
     "BCH" : getattr(getattr(config,"daemonBCH"),"coin_notice", None),
@@ -3869,7 +3872,12 @@ async def register(ctx, wallet_address: str):
                         await ctx.message.add_reaction(EMOJI_ERROR)
                         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Please use {COIN_NAME} main address.')
                         return
-
+                elif COIN_NAME == "WOW":
+                    valid_address = address_wow(wallet_address)
+                    if type(valid_address).__name__ != "Address":
+                        await ctx.message.add_reaction(EMOJI_ERROR)
+                        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Please use {COIN_NAME} main address.')
+                        return
         else:
             await ctx.message.add_reaction(EMOJI_WARNING)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Unknown Ticker.')
@@ -8403,6 +8411,10 @@ def get_cn_coin_from_address(CoinAddress: str):
         COIN_NAME = "BLOG"
     elif (CoinAddress.startswith("ar") or CoinAddress.startswith("aR")) and (len(CoinAddress) == 97 or len(CoinAddress) == 98 or len(CoinAddress) == 109):
         COIN_NAME = "ARQ"
+    elif (CoinAddress.startswith("WW") and len(CoinAddress) == 97) or \
+    (CoinAddress.startswith("Wo") and len(CoinAddress) == 97) or \
+    (CoinAddress.startswith("So") and len(CoinAddress) == 108):
+        COIN_NAME = "WOW"
     elif ((CoinAddress.startswith("UPX") and len(CoinAddress) == 98) or (CoinAddress.startswith("UPi") and len(CoinAddress) == 109) or (CoinAddress.startswith("Um") and len(CoinAddress) == 97)):
         COIN_NAME = "UPX"
     elif (CoinAddress.startswith("5") or CoinAddress.startswith("9")) and (len(CoinAddress) == 95 or len(CoinAddress) == 106):

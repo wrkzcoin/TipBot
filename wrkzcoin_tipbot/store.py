@@ -1175,6 +1175,15 @@ async def sql_get_donate_list():
                 donate_list.update({coin: 0})
             else:
                 donate_list.update({coin: float(result['donate'])})
+            # WOW
+            coin = "WOW"
+            sql = """ SELECT SUM(amount) AS donate FROM xmroff_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
+            cur.execute(sql, (wallet.get_donate_address(coin)))
+            result = cur.fetchone()
+            if result['donate'] is None:
+                donate_list.update({coin: 0})
+            else:
+                donate_list.update({coin: float(result['donate'])})
             # MSR
             coin = "MSR"
             sql = """ SELECT SUM(amount) AS donate FROM xmroff_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """

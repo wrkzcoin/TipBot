@@ -7511,7 +7511,7 @@ async def stats(ctx, coin: str = None):
         embed.add_field(name="Channels", value='{:,.0f}'.format(sum(1 for g in bot.guilds for _ in g.channels)), inline=True)
         embed.add_field(name="Total faucet claims", value=total_claimed, inline=True)
         embed.add_field(name="Total tip operations", value='{:,.0f} off-chain, {:,.0f} on-chain'.format(total_tx['off_chain'], total_tx['on_chain']), inline=True)
-        embed.set_footer(text='Please add ticker: '+ ', '.join(ENABLE_COIN).lower() + ' to get stats about coin instead.')
+        embed.add_field(name="OTHER LINKS", value="{} / {} / {}".format("[Invite TipBot](http://invite.discord.bot.tips)", "[Support Server](https://discord.com/invite/GpHzURM)", "[TipBot Github](https://github.com/wrkzcoin/TipBot)"), inline=False)
         await ctx.send(embed=embed)
         return
 
@@ -8527,6 +8527,9 @@ async def admin_error(ctx, error):
 
 @setting.error
 async def setting_error(ctx, error):
+    if isinstance(ctx.channel, discord.DMChannel):
+        await ctx.send('This command is not available in DM.')
+        return
     if isinstance(error, commands.MissingPermissions):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Looks like you don\'t have the permission.')
 

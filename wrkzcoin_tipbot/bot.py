@@ -792,6 +792,41 @@ async def tool(ctx):
         return
 
 
+@tool.command(name='emoji')
+async def emoji(ctx):
+    try:
+        embed = discord.Embed(title='EMOJI INFO', description=f'{ctx.author.mention}, Re-act and getinfo', colour=7047495)
+        embed.add_field(name="EMOJI", value='None', inline=True)
+        embed.set_footer(text="Timeout: 60s")
+        msg = await ctx.send(embed=embed)
+
+        def check(reaction, user):
+            return user == ctx.message.author and reaction.message.author == bot.user and reaction.message.id == msg.id
+        while True:
+            try:
+                reaction, user = await bot.wait_for('reaction_add', timeout=60, check=check)
+            except asyncio.TimeoutError:
+                await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
+                await msg.delete()
+                break
+                return
+            if reaction.emoji and str(reaction.emoji) != EMOJI_OK_BOX:
+                try:
+                    embed = discord.Embed(title='EMOJI INFO', description=f'{ctx.author.mention}, Re-act and getinfo', colour=7047495)
+                    embed.add_field(name=f'EMOJI {reaction.emoji}', value='`{}`'.format(str(reaction.emoji) if re.findall(r'<?:\w*:\d*>', str(reaction.emoji)) else f'U+{ord(reaction.emoji):X}'), inline=True)
+                    embed.set_footer(text="Timeout: 60s")
+                    await msg.edit(embed=embed)
+                    await msg.add_reaction(EMOJI_OK_BOX)
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+            elif str(reaction.emoji) == EMOJI_OK_BOX:
+                return
+    except Exception as e:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        traceback.print_exc(file=sys.stdout)
+    return
+
+
 @tool.command(name='hex2str', alias=['hex2ascii'])
 async def hex2str(ctx, hex_string: str):
     if len(hex_string) >= 1000:

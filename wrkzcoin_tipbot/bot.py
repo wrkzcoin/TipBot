@@ -781,7 +781,7 @@ async def about(ctx):
         traceback.print_exc(file=sys.stdout)
 
 
-@bot.group(hidden = True, name='tool', alias=['tools'], help=bot_help_game)
+@bot.group(hidden = True, name='tool', alias=['tools'], help='Various tool commands')
 async def tool(ctx):
     prefix = await get_guild_prefix(ctx)
     # Only WrkzCoin testing. Return if DM or other guild
@@ -792,7 +792,7 @@ async def tool(ctx):
         return
 
 
-@tool.command(name='emoji')
+@tool.command(name='emoji', help='Get emoji value by re-acting')
 async def emoji(ctx):
     try:
         embed = discord.Embed(title='EMOJI INFO', description=f'{ctx.author.mention}, Re-act and getinfo', colour=7047495)
@@ -827,7 +827,42 @@ async def emoji(ctx):
     return
 
 
-@tool.command(name='hex2str', alias=['hex2ascii'])
+@tool.command(name='dec2hex', help='Convert decimal to hex')
+async def dec2hex(ctx, decimal: str):
+    decimal = decimal.replace(",", "")
+    if len(decimal) >= 32:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{ctx.author.mention} **{decimal}** too long.')
+        return
+    try:
+        value = hex(int(decimal))
+        await ctx.message.add_reaction(EMOJI_OK_HAND)
+        msg = await ctx.send(f'{ctx.author.mention} decimal of **{decimal}** is equal to hex:```{value}```')
+        await msg.add_reaction(EMOJI_OK_BOX)
+    except ValueError:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{ctx.author.mention} **{decimal}** is an invalid decimal / integer.')
+    return
+
+
+@tool.command(name='hex2dec', help='Convert hex to decimal')
+async def hex2dec(ctx, hex_string: str):
+    if len(hex_string) >= 100:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{ctx.author.mention} **{hex_string}** too long.')
+        return
+    try:
+        value = int(hex_string, 16)
+        await ctx.message.add_reaction(EMOJI_OK_HAND)
+        msg = await ctx.send(f'{ctx.author.mention} hex of **{hex_string}** is equal to decimal:```{str(value)}```')
+        await msg.add_reaction(EMOJI_OK_BOX)
+    except ValueError:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{ctx.author.mention} **{hex_string}** is an invalid hex.')
+    return
+
+
+@tool.command(name='hex2str', alias=['hex2ascii'], help='Convert hex to string')
 async def hex2str(ctx, hex_string: str):
     if len(hex_string) >= 1000:
         await ctx.message.add_reaction(EMOJI_ERROR)
@@ -852,7 +887,7 @@ async def hex2str(ctx, hex_string: str):
     return
 
 
-@tool.command(name='str2hex', alias=['ascii2hex'])
+@tool.command(name='str2hex', alias=['ascii2hex'], help='Convert string to hex')
 async def str2hex(ctx, str2hex: str):
     if len(str2hex) >= 1000:
         await ctx.message.add_reaction(EMOJI_ERROR)

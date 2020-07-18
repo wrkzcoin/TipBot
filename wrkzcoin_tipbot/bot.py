@@ -10,6 +10,7 @@ import time, timeago, json
 import pyotp
 
 import store, daemonrpc_client, addressvalidation, walletapi
+
 from generic_xmr.address_msr import address_msr as address_msr
 from generic_xmr.address_xmr import address_xmr as address_xmr
 from generic_xmr.address_xam import address_xam as address_xam
@@ -781,7 +782,7 @@ async def about(ctx):
         traceback.print_exc(file=sys.stdout)
 
 
-@bot.group(hidden = True, name='tool', alias=['tools'], help='Various tool commands')
+@bot.group(hidden = True, name='tool', aliases=['tools'], help='Various tool commands')
 async def tool(ctx):
     prefix = await get_guild_prefix(ctx)
     # Only WrkzCoin testing. Return if DM or other guild
@@ -862,7 +863,7 @@ async def hex2dec(ctx, hex_string: str):
     return
 
 
-@tool.command(name='hex2str', alias=['hex2ascii'], help='Convert hex to string')
+@tool.command(name='hex2str', aliases=['hex2ascii'], help='Convert hex to string')
 async def hex2str(ctx, hex_string: str):
     if len(hex_string) >= 1000:
         await ctx.message.add_reaction(EMOJI_ERROR)
@@ -887,7 +888,7 @@ async def hex2str(ctx, hex_string: str):
     return
 
 
-@tool.command(name='str2hex', alias=['ascii2hex'], help='Convert string to hex')
+@tool.command(name='str2hex', aliases=['ascii2hex'], help='Convert string to hex')
 async def str2hex(ctx, str2hex: str):
     if len(str2hex) >= 1000:
         await ctx.message.add_reaction(EMOJI_ERROR)
@@ -946,7 +947,7 @@ async def stat(ctx):
     return
 
 
-@game.command(name='blackjack', alias=['bj'], help=bot_help_game_blackjack)
+@game.command(name='blackjack', aliases=['bj'], help=bot_help_game_blackjack)
 async def blackjack(ctx):
     global GAME_SLOT_REWARD, GAME_COIN, BOT_INVITELINK, GAME_INTERACTIVE_PRGORESS, IS_RESTARTING
     game_servers = config.game.guild_games.split(",")
@@ -1121,7 +1122,7 @@ Rules:
         GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
 
 
-@game.command(name='slot', alias=['slots'], help=bot_help_game_slot)
+@game.command(name='slot', aliases=['slots'], help=bot_help_game_slot)
 async def slot(ctx):
     global GAME_SLOT_REWARD, GAME_COIN, BOT_INVITELINK
     game_servers = config.game.guild_games.split(",")
@@ -1212,7 +1213,7 @@ async def slot(ctx):
     return
 
 
-@game.command(name='bagel', alias=['bagels'], help=bot_help_game_bagel)
+@game.command(name='bagel', aliases=['bagels'], help=bot_help_game_bagel)
 async def bagel(ctx):
     global GAME_INTERACTIVE_PRGORESS, GAME_COIN, GAME_SLOT_REWARD, BOT_INVITELINK, IS_RESTARTING
     # Credit: https://github.com/asweigart/PythonStdioGames
@@ -1375,7 +1376,7 @@ clues would be Fermi Pico.'''.format(NUM_DIGITS)
         GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
 
 
-@game.command(name='bagel2', alias=['bagels2'], help=bot_help_game_bagel)
+@game.command(name='bagel2', aliases=['bagels2'], help=bot_help_game_bagel)
 async def bagel2(ctx):
     global GAME_INTERACTIVE_PRGORESS, GAME_COIN, GAME_SLOT_REWARD, BOT_INVITELINK, IS_RESTARTING
     # Credit: https://github.com/asweigart/PythonStdioGames
@@ -1568,7 +1569,7 @@ Hints:
         GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
 
 
-@game.command(name='bagel3', alias=['bagels3'], help=bot_help_game_bagel)
+@game.command(name='bagel3', aliases=['bagels3'], help=bot_help_game_bagel)
 async def bagel3(ctx):
     global GAME_INTERACTIVE_PRGORESS, GAME_COIN, GAME_SLOT_REWARD, BOT_INVITELINK, IS_RESTARTING
     # Credit: https://github.com/asweigart/PythonStdioGames
@@ -1769,7 +1770,7 @@ Hints:
         GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
 
 
-@game.command(name='maze', alias=['mazes'], help=bot_help_game_maze)
+@game.command(name='maze', aliases=['mazes'], help=bot_help_game_maze)
 async def maze(ctx):
     global GAME_INTERACTIVE_PRGORESS, GAME_COIN, GAME_SLOT_REWARD, BOT_INVITELINK, GAME_MAZE_IN_PROCESS, IS_RESTARTING
     # Credit: https://github.com/asweigart/PythonStdioGames
@@ -1910,7 +1911,7 @@ async def maze(ctx):
         GAME_MAZE_IN_PROCESS.remove(ctx.guild.id)
 
 
-@game.command(name='hangman', alias=['hm'], help=bot_help_game_hangman)
+@game.command(name='hangman', aliases=['hm'], help=bot_help_game_hangman)
 async def hangman(ctx):
     global GAME_INTERACTIVE_PRGORESS, GAME_COIN, GAME_SLOT_REWARD, HANGMAN_WORDS, IS_RESTARTING
     # Credit: https://github.com/asweigart/PythonStdioGames
@@ -3208,7 +3209,7 @@ async def help_main(message, prefix):
     cmd_voucher = ["voucher claim", "voucher fee", "voucher getclaim", "voucher getunclaim", "voucher make <amount> <coin_name> <comment>"]
     embed.add_field(name="VOUCHER", value="`{}`".format(", ".join(cmd_voucher)), inline=False)
 
-    cmd_other = ["disclaimer", "cal <1+2+3>", "donate <amount> <coin_name>", "donate list", "coininfo <coin_name>", "feedback", "paymentid", "rand <1-100>", "stats", "userinfo @mention", "take"]
+    cmd_other = ["disclaimer", "cal <1+2+3>", "donate <amount> <coin_name>", "donate list", "coininfo <coin_name>", "feedback", "paymentid", "rand <1-100>", "stats", "userinfo @mention", "take", "pools <coin_name_full>"]
     embed.add_field(name="OTHER COMMAND", value="`{}`".format(", ".join(cmd_other)), inline=False)
 
     if isinstance(message.channel, discord.DMChannel) == False:
@@ -3228,6 +3229,135 @@ async def help_main(message, prefix):
     except (discord.errors.NotFound, discord.errors.Forbidden) as e:
         await botLogChan.send(f'**Failed** Missing Permissions for sending help_main in guild {message.guild.id} / {message.guild.name} / # {message.channel.name}')
         await message.add_reaction(EMOJI_ERROR)
+    return
+
+
+@bot.command(pass_context=True, name='pools', aliases=['pool'])
+async def pools(ctx, coin: str):
+    global redis_conn, redis_expired, TRTL_DISCORD
+    COIN_NAME = coin.upper()
+    if config.miningpoolstat.enable != 1:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{ctx.author.mention} Command temporarily disable')
+        return
+    if isinstance(ctx.message.channel, discord.DMChannel) == False and ctx.guild.id == TRTL_DISCORD and COIN_NAME != "TURTLECOIN":
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        return
+    key = "TIPBOT:MININGPOOL:" + COIN_NAME
+    if redis_conn and not redis_conn.exists(key):
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{ctx.author.mention} Unknown coin **{COIN_NAME}**.')
+    elif redis_conn and redis_conn.exists(key):
+        # check if already in redis
+        key_p = key + ":POOLS" # TIPBOT:MININGPOOL:COIN_NAME:POOLS
+        if redis_conn and redis_conn.exists(key_p):
+            result = json.loads(redis_conn.get(key_p).decode())
+            try:
+                embed = discord.Embed(title='Mining Pools for {}'.format(COIN_NAME), description='', colour=7047495)
+                i = 0
+                if result and len(result) > 0:
+                    pool_links = ''
+                    hash_rate = ''
+                    for each in result:
+                        if i < 15 and i < len(result):
+                            if len(each) >= 4:
+                                hash_list = ['H/s', 'KH/s', 'MH/s', 'GH/s', 'TH/s', 'PH/s', 'EH/s']
+                                if [ele for ele in hash_list if((ele in each[2]) and ('Hashrate' not in each[2]))]:
+                                    hash_rate = each[2]
+                                elif [ele for ele in hash_list if((ele in each[3]) and ('Hashrate' not in each[3]))]:
+                                    hash_rate = each[3]
+                                else:
+                                    hash_rate = ''
+                                if hash_rate == '' and len(each) >= 5 and [ele for ele in hash_list if((ele in each[4]) and ('Hashrate' not in each[4]))]:
+                                    hash_rate = each[4]
+                                elif hash_rate == '' and len(each) >= 6 and [ele for ele in hash_list if((ele in each[5]) and ('Hashrate' not in each[5]))]:
+                                    hash_rate = each[5]
+                                elif hash_rate == '' and len(each) >= 7 and [ele for ele in hash_list if((ele in each[6]) and ('Hashrate' not in each[6]))]:
+                                    hash_rate = each[6]
+                                pool_links += each[0] + ' ' + each[1] + ' ' + hash_rate + '\n'
+                            else:
+                                pool_links += each[0] + ' ' + each[1] + '\n'
+                            i += 1
+                    try:
+                        embed.add_field(name="List", value=pool_links)
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                    embed.add_field(name="OTHER LINKS", value="{} / {} / {} / {}".format("[More pools](https://miningpoolstats.stream/{})".format(COIN_NAME.lower()), "[Invite TipBot](http://invite.discord.bot.tips)", "[Support Server](https://discord.com/invite/GpHzURM)", "[TipBot Github](https://github.com/wrkzcoin/TipBot)"), inline=False)
+                    embed.set_footer(text="Data from https://miningpoolstats.stream")
+                    msg = await ctx.send(embed=embed)
+                    await msg.add_reaction(EMOJI_OK_BOX)
+                    await ctx.message.add_reaction(EMOJI_OK_HAND)
+                return
+            except Exception as e:
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                traceback.print_exc(file=sys.stdout)
+            return
+        # if not exist, add to queue in redis
+        key_queue = "TIPBOT:MININGPOOL:QUEUE"
+        if redis_conn and redis_conn.llen(key_queue) > 0:
+            list_coin_queue = redis_conn.lrange(key_queue, 0, -1)
+            if COIN_NAME not in list_coin_queue:
+                redis_conn.lpush(key_queue, COIN_NAME)
+        elif redis_conn:
+            redis_conn.lpush(key_queue, COIN_NAME)
+        try:
+            # loop and waiting for another fetch
+            retry = 0
+            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+            while True:
+                await asyncio.sleep(10)
+                if redis_conn and redis_conn.exists(key_p):
+                    result = json.loads(redis_conn.get(key_p).decode())
+                    try:
+                        embed = discord.Embed(title='Mining Pools for {}'.format(COIN_NAME), description='', colour=7047495)
+                        i = 0
+                        if result and len(result) > 0:
+                            pool_links = ''
+                            hash_rate = ''
+                            for each in result:
+                                if i < 15 and i < len(result):
+                                    if len(each) >= 4:
+                                        hash_list = ['H/s', 'KH/s', 'MH/s', 'GH/s', 'TH/s', 'PH/s', 'EH/s']
+                                        if [ele for ele in hash_list if((ele in each[2]) and ('Hashrate' not in each[2]))]:
+                                            hash_rate = each[2]
+                                        elif [ele for ele in hash_list if((ele in each[3]) and ('Hashrate' not in each[3]))]:
+                                            hash_rate = each[3]
+                                        else:
+                                            hash_rate = ''
+                                        if hash_rate == '' and len(each) >= 5 and [ele for ele in hash_list if((ele in each[4]) and ('Hashrate' not in each[4]))]:
+                                            hash_rate = each[4]
+                                        elif hash_rate == '' and len(each) >= 6 and [ele for ele in hash_list if((ele in each[5]) and ('Hashrate' not in each[5]))]:
+                                            hash_rate = each[5]
+                                        elif hash_rate == '' and len(each) >= 7 and [ele for ele in hash_list if((ele in each[6]) and ('Hashrate' not in each[6]))]:
+                                            hash_rate = each[6]
+                                        pool_links += each[0] + ' ' + each[1] + ' ' + hash_rate + '\n'
+                                    else:
+                                        pool_links += each[0] + ' ' + each[1] + '\n'
+                                    i += 1
+                            try:
+                                embed.add_field(name="List", value=pool_links)
+                            except Exception as e:
+                                traceback.print_exc(file=sys.stdout)
+                        embed.add_field(name="OTHER LINKS", value="{} / {} / {} / {}".format("[More pools](https://miningpoolstats.stream/{})".format(COIN_NAME.lower()), "[Invite TipBot](http://invite.discord.bot.tips)", "[Support Server](https://discord.com/invite/GpHzURM)", "[TipBot Github](https://github.com/wrkzcoin/TipBot)"), inline=False)
+                        embed.set_footer(text="Data from https://miningpoolstats.stream")
+                        msg = await ctx.send(embed=embed)
+                        await msg.add_reaction(EMOJI_OK_BOX)
+                        await ctx.message.add_reaction(EMOJI_OK_HAND)
+                        return
+                    except Exception as e:
+                        await ctx.message.add_reaction(EMOJI_ERROR)
+                        traceback.print_exc(file=sys.stdout)
+                    return
+                elif redis_conn and not redis_conn.exists(key_p):
+                    retry += 1
+                if retry >= 5:
+                    redis_conn.lrem(key_queue, 0, COIN_NAME)
+                    await ctx.message.add_reaction(EMOJI_ERROR)
+                    await ctx.send(f'{ctx.author.mention} We can not fetch data for **{COIN_NAME}**.')
+                    break
+                    return
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
     return
 
 
@@ -5134,6 +5264,26 @@ async def freetip(ctx, amount: str, coin: str):
         await msg.add_reaction(EMOJI_OK_BOX)
         return
     if str(reaction.emoji) == EMOJI_PARTY:
+        # re-check balance
+        user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        if coin_family == "TRTL":
+            userdata_balance = await store.sql_cnoff_balance(str(ctx.message.author.id), COIN_NAME)
+            user_from['actual_balance'] = user_from['actual_balance'] + int(userdata_balance['Adjust'])
+        elif coin_family == "XMR":
+            userdata_balance = await store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
+            user_from['actual_balance'] = float(user_from['actual_balance']) + float(userdata_balance['Adjust'])
+        elif coin_family == "DOGE":
+            userdata_balance = await store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
+            user_from['actual_balance'] = float(user_from['actual_balance']) + float(userdata_balance['Adjust'])
+
+        if real_amount + NetFee > user_from['actual_balance']:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to do a free tip of '
+                           f'{num_format_coin(real_amount, COIN_NAME)} '
+                           f'{COIN_NAME}.')
+            return
+        # end of re-check balance
+        
         tip = None
         user_to = await store.sql_get_userwallet(str(user.id), COIN_NAME)
         if user_to is None:
@@ -8569,6 +8719,15 @@ async def balance_error(ctx, error):
     pass
 
 
+@pools.error
+async def pools_error(ctx, error):
+    prefix = await get_guild_prefix(ctx)
+    if isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Missing **full coin name**. '
+                       f'Example: {prefix}pools **coin_name**')
+    return
+
+
 @botbalance.error
 async def botbalance_error(ctx, error):
     prefix = await get_guild_prefix(ctx)
@@ -10058,7 +10217,7 @@ async def store_action_list():
         try:
             openRedis()
             key = "TIPBOT:ACTIONTX"
-            if redis_conn and redis_conn.llen(key) > 0 :
+            if redis_conn and redis_conn.llen(key) > 0:
                 temp_action_list = []
                 for each in redis_conn.lrange(key, 0, -1):
                     temp_action_list.append(tuple(json.loads(each)))
@@ -10140,6 +10299,39 @@ async def store_message_list():
         await asyncio.sleep(interval_msg_list)
 
 
+async def get_miningpool_coinlist():
+    global redis_conn, redis_expired
+    while True:
+        interval_msg_list = 1800 # in second
+        try:
+            openRedis()
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(config.miningpoolstat.coinlist_link, timeout=config.miningpoolstat.timeout) as response:
+                        if response.status == 200:
+                            res_data = await response.read()
+                            res_data = res_data.decode('utf-8')
+                            res_data = res_data.replace("var coin_list = ", "").replace(";", "")
+                            await session.close()
+                            decoded_data = json.loads(res_data)
+                            key = "TIPBOT:MININGPOOL:"
+                            if decoded_data and len(decoded_data) > 0:
+                                # print(decoded_data)
+                                for kc, cat in decoded_data.items():
+                                    if not isinstance(cat, int) and not isinstance(cat, str):
+                                        for k, v in cat.items():
+                                            # Should have no expire.
+                                            redis_conn.set((key+k).upper(), json.dumps(v))
+                                            #redis_conn.set((key+v['s']).upper(), json.dumps(v), ex=redis_expired*2)
+            except asyncio.TimeoutError:
+                print('TIMEOUT: Fetching from miningpoolstats')
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        await asyncio.sleep(interval_msg_list)
+
+
 # function to return if input string is ascii
 def is_ascii(s):
     return all(ord(c) < 128 for c in s)
@@ -10181,6 +10373,7 @@ def main():
     bot.loop.create_task(notify_new_swap_user())
     bot.loop.create_task(store_action_list())
     bot.loop.create_task(store_message_list())
+    bot.loop.create_task(get_miningpool_coinlist())
     bot.run(config.discord.token, reconnect=True)
 
 

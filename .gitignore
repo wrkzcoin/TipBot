@@ -10,3 +10,6 @@ wrkzcoin_tipbot/_DOGE_addresses_import.py
 
 redeem.bot.tips/config.php
 deposit.bot.tips/config.php
+wrkzcoin_tipbot/test.2.py
+wrkzcoin_tipbot/test.js
+wrkzcoin_tipbot/selenium_support.py

@@ -205,7 +205,8 @@ EMOJI_COIN = {
     "BCH" : "\U0001F4B5",
     "DASH" : "\U0001F4A8",
     "LTC" : "\U0001F4A1",
-    "WOW" : "\U0001F62E"
+    "WOW" : "\U0001F62E",
+    "XCR" : "\U0001F3AE"
     }
 
 EMOJI_RED_NO = "\u26D4"
@@ -250,6 +251,7 @@ NOTICE_COIN = {
     "BCH" : getattr(getattr(config,"daemonBCH"),"coin_notice", None),
     "DASH" : getattr(getattr(config,"daemonDASH"),"coin_notice", None),
     "LTC" : getattr(getattr(config,"daemonLTC"),"coin_notice", None),
+    "XCR" : getattr(getattr(config,"daemonXCR"),"coin_notice", None),
     "default": "Thank you for using."
     }
 
@@ -1090,7 +1092,7 @@ Rules:
     amount = GAME_SLOT_REWARD[COIN_NAME]
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     COIN_DEC = get_decimal(COIN_NAME)
-    real_amount = int(amount * COIN_DEC) if coin_family in ["XMR", "TRTL"] else float(amount * COIN_DEC)
+    real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL"] else float(amount * COIN_DEC)
     result = f'You got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
     if dealerValue > 21:
         won = True
@@ -1174,7 +1176,7 @@ async def slot(ctx):
                 amount = GAME_SLOT_REWARD[COIN_NAME] * won_x
                 coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                 COIN_DEC = get_decimal(COIN_NAME)
-                real_amount = int(amount * COIN_DEC) if coin_family in ["XMR", "TRTL"] else float(amount * COIN_DEC)
+                real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL"] else float(amount * COIN_DEC)
                 reward = await store.sql_game_add(slotOutput, str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, COIN_DEC, str(ctx.guild.id), 'SLOT', 'DISCORD')
                 result = f'You won! {ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
             else:
@@ -1333,7 +1335,7 @@ clues would be Fermi Pico.'''.format(NUM_DIGITS)
                                 amount = GAME_SLOT_REWARD[COIN_NAME] * won_x
                                 coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                                 COIN_DEC = get_decimal(COIN_NAME)
-                                real_amount = int(amount * COIN_DEC) if coin_family in ["XMR", "TRTL"] else float(amount * COIN_DEC)
+                                real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL"] else float(amount * COIN_DEC)
                                 reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, COIN_DEC, str(ctx.guild.id), 'BAGEL', 'DISCORD')
                                 result = f'{ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
                             elif won == False and free_game == True:
@@ -1526,7 +1528,7 @@ Hints:
                                 amount = GAME_SLOT_REWARD[COIN_NAME] * won_x
                                 coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                                 COIN_DEC = get_decimal(COIN_NAME)
-                                real_amount = int(amount * COIN_DEC) if coin_family in ["XMR", "TRTL"] else float(amount * COIN_DEC)
+                                real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL"] else float(amount * COIN_DEC)
                                 reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, COIN_DEC, str(ctx.guild.id), 'BAGEL', 'DISCORD')
                                 result = f'{ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
                             elif won == False and free_game == True:
@@ -1727,7 +1729,7 @@ Hints:
                                 amount = GAME_SLOT_REWARD[COIN_NAME] * won_x
                                 coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                                 COIN_DEC = get_decimal(COIN_NAME)
-                                real_amount = int(amount * COIN_DEC) if coin_family in ["XMR", "TRTL"] else float(amount * COIN_DEC)
+                                real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL"] else float(amount * COIN_DEC)
                                 reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, COIN_DEC, str(ctx.guild.id), 'BAGEL', 'DISCORD')
                                 result = f'{ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
                             elif won == False and free_game == True:
@@ -2027,7 +2029,7 @@ async def hangman(ctx):
                         amount = GAME_SLOT_REWARD[COIN_NAME]
                         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                         COIN_DEC = get_decimal(COIN_NAME)
-                        real_amount = int(amount * COIN_DEC) if coin_family in ["XMR", "TRTL"] else float(amount * COIN_DEC)
+                        real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL"] else float(amount * COIN_DEC)
                         reward = await store.sql_game_add(secretWord, str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, COIN_DEC, str(ctx.guild.id), 'HANGMAN', 'DISCORD')
                         result = f'{ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
                     elif foundAllLetters and free_game == True:
@@ -2526,7 +2528,7 @@ async def credit(ctx, amount: str, coin: str, to_userid: str):
         return
 
     COIN_DEC = get_decimal(COIN_NAME)
-    real_amount = int(amount * COIN_DEC) if coin_family in ["XMR", "TRTL"] else float(amount * COIN_DEC)
+    real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL"] else float(amount * COIN_DEC)
     credit_to = await store.sql_credit(str(ctx.message.author.id), to_userid, real_amount, COIN_NAME, ctx.message.content)
     if credit_to:
         msg = await ctx.send(f'{ctx.author.mention} amount **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** has been credited to userid **{to_userid}**.')
@@ -2653,7 +2655,7 @@ async def save(ctx, coin: str):
             if is_maintenance_coin(coinItem):
                 duration_msg += "{} Maintenance.\n".format(coinItem)
             else:
-                if coinItem in ["CCX"]:
+                if coinItem in ["BCN"]:
                     duration_msg += "{} Skipped.\n".format(coinItem)
                 else:
                     try:
@@ -2903,7 +2905,7 @@ async def checkcoin(ctx, coin: str):
     if is_maintenance_coin(COIN_NAME):
         await ctx.message.add_reaction(EMOJI_MAINTENANCE)
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-    if coin_family == "TRTL":
+    if coin_family in ["TRTL", "BCN"]:
         in_existing = 0
         get_addresses = await store.get_all_user_balance_address(COIN_NAME)
         if len(get_addresses) > 0:
@@ -3116,7 +3118,7 @@ async def deposit(ctx, coin_name: str, pub: str = None):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
         return
 
-    if coin_family == "TRTL":
+    if coin_family in ["TRTL", "BCN"]:
         wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if wallet is None:
             userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
@@ -3661,7 +3663,7 @@ async def balance(ctx, coin: str = None):
         msg = await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} in maintenance.')
         await msg.add_reaction(EMOJI_OK_BOX)
         return
-    if coin_family == "TRTL":
+    if coin_family in ["TRTL", "BCN"]:
         # if off-chain, no need to check other status:
         if COIN_NAME not in ENABLE_COIN_OFFCHAIN:
             walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
@@ -4018,7 +4020,7 @@ async def register(ctx, wallet_address: str):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
         return
 
-    if coin_family == "TRTL" or coin_family == "XMR":
+    if coin_family in ["TRTL", "BCN", "XMR"]:
         main_address = getattr(getattr(config,"daemon"+COIN_NAME),"MainAddress")
         if wallet_address == main_address:
             await ctx.message.add_reaction(EMOJI_QUESTEXCLAIM)
@@ -4049,7 +4051,7 @@ async def register(ctx, wallet_address: str):
                 pass
             pass
     else:
-        if coin_family == "TRTL":
+        if coin_family in ["TRTL", "BCN"]:
             valid_address = addressvalidation.validate_address_cn(wallet_address, COIN_NAME)
         elif coin_family == "XMR":
             if COIN_NAME not in ["MSR", "UPX", "XAM"]:
@@ -4223,7 +4225,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
     random_string = str(uuid.uuid4())
     await add_tx_action_redis(json.dumps([random_string, "WITHDRAW", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, "DISCORD", "START"]), False)
 
-    if coin_family == "TRTL":
+    if coin_family in ["TRTL", "BCN"]:
         COIN_DEC = get_decimal(COIN_NAME)
         real_amount = int(amount * COIN_DEC)
         user = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
@@ -4555,7 +4557,7 @@ async def donate(ctx, amount: str, coin: str = None):
         await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} in maintenance.')
         return
 
-    if coin_family == "TRTL":
+    if coin_family in ["TRTL", "BCN"]:
         CoinAddress = get_donate_address(COIN_NAME)
         COIN_DEC = get_decimal(COIN_NAME)
         real_amount = int(amount * COIN_DEC)
@@ -4846,7 +4848,7 @@ async def swap(ctx, amount: str, coin: str, to: str):
     real_amount = int(amount * COIN_DEC) if coin_family in ["TRTL", "XMR"] else amount
     MinTx = get_min_mv_amount(COIN_NAME)
     MaxTX = get_max_mv_amount(COIN_NAME)
-    if coin_family == "TRTL" and COIN_NAME in ENABLE_COIN_OFFCHAIN:
+    if coin_family in ["TRTL", "BCN"] and COIN_NAME in ENABLE_COIN_OFFCHAIN:
         userdata_balance = await store.sql_cnoff_balance(str(ctx.message.author.id), COIN_NAME)
         user_from['actual_balance'] = user_from['actual_balance'] + int(userdata_balance['Adjust'])
     elif coin_family == "XMR":
@@ -4987,7 +4989,7 @@ async def take(ctx):
     if COIN_NAME in FAUCET_COINS_ROUND_NUMBERS:
         amount = myround_number(amount)
         if amount == 0: amount = 5 
-    if coin_family == "TRTL":
+    if coin_family in ["TRTL", "BCN"]:
         COIN_DEC = get_decimal(COIN_NAME)
         real_amount = int(amount * COIN_DEC)
         user_from = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
@@ -5211,7 +5213,7 @@ async def freetip(ctx, amount: str, coin: str):
     if user_from is None:
         user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-    if coin_family == "TRTL":
+    if coin_family in ["TRTL", "BCN"]:
         userdata_balance = await store.sql_cnoff_balance(str(ctx.message.author.id), COIN_NAME)
         user_from['actual_balance'] = user_from['actual_balance'] + int(userdata_balance['Adjust'])
     elif coin_family == "XMR":
@@ -5266,7 +5268,7 @@ async def freetip(ctx, amount: str, coin: str):
     if str(reaction.emoji) == EMOJI_PARTY:
         # re-check balance
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-        if coin_family == "TRTL":
+        if coin_family in ["TRTL", "BCN"]:
             userdata_balance = await store.sql_cnoff_balance(str(ctx.message.author.id), COIN_NAME)
             user_from['actual_balance'] = user_from['actual_balance'] + int(userdata_balance['Adjust'])
         elif coin_family == "XMR":
@@ -5289,7 +5291,7 @@ async def freetip(ctx, amount: str, coin: str):
         if user_to is None:
             userregister = await store.sql_register_user(str(user.id), COIN_NAME, 'DISCORD')
             user_to = await store.sql_get_userwallet(str(user.id), COIN_NAME)
-        if coin_family == "TRTL":
+        if coin_family in ["TRTL", "BCN"]:
             tip = await store.sql_send_tip(str(ctx.message.author.id), str(user.id), real_amount, 'FREETIP', COIN_NAME)
             tip_tx_tipper = "Transaction hash: `{}`".format(tip['transactionHash'])
             tip_tx_tipper += "\nTx Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
@@ -5550,7 +5552,7 @@ async def tip(ctx, amount: str, *args):
     has_forwardtip = None
     address_to = None
 
-    if coin_family == "TRTL":
+    if coin_family in ["TRTL", "BCN"]:
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
         if COIN_NAME in ENABLE_COIN_OFFCHAIN:
@@ -5816,7 +5818,7 @@ async def tipall(ctx, amount: str, *args):
             return
 
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-        if coin_family not in ["TRTL", "XMR"]:
+        if coin_family not in ["BCN", "TRTL", "XMR"]:
             if (args[0].upper() in ENABLE_COIN_DOGE):
                 COIN_NAME = args[0].upper()
             else:
@@ -5871,7 +5873,7 @@ async def tipall(ctx, amount: str, *args):
 
     notifyList = await store.sql_get_tipnotify()
 
-    if coin_family == "TRTL":
+    if coin_family in ["TRTL", "BCN"]:
         COIN_DEC = get_decimal(COIN_NAME)
         real_amount = int(amount * COIN_DEC)
         MinTx = get_min_mv_amount(COIN_NAME)
@@ -6328,7 +6330,7 @@ async def send(ctx, amount: str, CoinAddress: str):
     random_string = str(uuid.uuid4())
     await add_tx_action_redis(json.dumps([random_string, "SEND", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, "DISCORD", "START"]), False)
 
-    if coin_family == "TRTL":
+    if coin_family in ["TRTL", "BCN"]:
         COIN_DEC = get_decimal(COIN_NAME)
         MinTx = get_min_tx_amount(COIN_NAME)
         MaxTX = get_max_tx_amount(COIN_NAME)
@@ -6858,7 +6860,7 @@ async def address(ctx, *args):
         return
 
     addressLength = get_addrlen(COIN_NAME)
-    if coin_family == "TRTL" or coin_family == "CCX" or coin_family == "XMR":
+    if coin_family in [ "BCN", "TRTL", "XMR"]:
         IntaddressLength = get_intaddrlen(COIN_NAME)
 
     if len(args) == 1:
@@ -7179,8 +7181,8 @@ async def make(ctx, amount: str, coin: str, *, comment):
 
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     COIN_DEC = get_decimal(COIN_NAME)
-    real_amount = int(voucher_each * COIN_DEC) if coin_family in ["XMR", "TRTL"] else float(voucher_each * COIN_DEC)
-    total_real_amount = int(total_amount * COIN_DEC) if coin_family in ["XMR", "TRTL"] else float(total_amount * COIN_DEC)
+    real_amount = int(voucher_each * COIN_DEC) if coin_family in ["XMR", "TRTL", "BCN"] else float(voucher_each * COIN_DEC)
+    total_real_amount = int(total_amount * COIN_DEC) if coin_family in ["XMR", "TRTL", "BCN"] else float(total_amount * COIN_DEC)
     secret_string = str(uuid.uuid4())
     unique_filename = str(uuid.uuid4())
 
@@ -7189,7 +7191,7 @@ async def make(ctx, amount: str, coin: str, *, comment):
         user = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
         user = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
 
-    if coin_family == "TRTL" and COIN_NAME in ENABLE_COIN_OFFCHAIN:
+    if coin_family in ["TRTL", "BCN"] and COIN_NAME in ENABLE_COIN_OFFCHAIN:
         userdata_balance = await store.sql_cnoff_balance(str(ctx.message.author.id), COIN_NAME)
         user['actual_balance'] = user['actual_balance'] + int(userdata_balance['Adjust'])
     elif coin_family == "XMR":
@@ -7676,7 +7678,7 @@ async def stats(ctx, coin: str = None):
         traceback.print_exc(file=sys.stdout)
     walletStatus = None
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-    if coin_family == "TRTL":
+    if coin_family in ["TRTL", "BCN"]:
         try:
             walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
         except Exception as e:
@@ -7799,7 +7801,7 @@ async def stats(ctx, coin: str = None):
                 await msg.add_reaction(EMOJI_OK_BOX)
             return
     else:
-        if gettopblock is None and coin_family == "TRTL" and walletStatus:
+        if gettopblock is None and coin_family in ["TRTL", "BCN"] and walletStatus:
             localDaemonBlockCount = int(walletStatus['blockCount'])
             networkBlockCount = int(walletStatus['knownBlockCount'])
             t_percent = '{:,.2f}'.format(truncate((localDaemonBlockCount - 1)/networkBlockCount*100,2))
@@ -8073,7 +8075,7 @@ async def height(ctx, coin: str = None):
 
     if gettopblock:
         height = ""
-        if coin_family == "TRTL" or coin_family == "CCX" or coin_family == "XMR":
+        if coin_family in [ "BCN", "TRTL", "XMR"]:
             height = "{:,}".format(gettopblock['block_header']['height'])
         msg = await ctx.send(f'**[ {COIN_NAME} HEIGHT]**: {height}\n')
         await msg.add_reaction(EMOJI_OK_BOX)
@@ -8584,6 +8586,8 @@ def get_cn_coin_from_address(CoinAddress: str):
         COIN_NAME = "DEGO"
     elif CoinAddress.startswith("cat1"):
         COIN_NAME = "CX"
+    elif CoinAddress.startswith("XCR"):
+        COIN_NAME = "XCR"
     elif CoinAddress.startswith("btcm"):
         COIN_NAME = "BTCMZ"
     elif CoinAddress.startswith("PLe"):
@@ -8976,7 +8980,7 @@ async def saving_wallet():
             await asyncio.sleep(10)
         COIN_SAVING = ENABLE_COIN + ENABLE_XMR
         for COIN_NAME in COIN_SAVING:
-            if is_maintenance_coin(COIN_NAME) or (COIN_NAME in ["CCX"]):
+            if is_maintenance_coin(COIN_NAME) or (COIN_NAME in ["BCN"]):
                 continue
             if (COIN_NAME in ENABLE_COIN + ENABLE_XMR) and saving == False:
                 duration = None
@@ -9008,7 +9012,7 @@ async def _tip(ctx, amount, coin: str):
 
     notifyList = await store.sql_get_tipnotify()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-    if coin_family == "TRTL":
+    if coin_family in ["TRTL", "BCN"]:
         COIN_DEC = get_decimal(COIN_NAME)
         real_amount = int(round(float(amount) * COIN_DEC))
         MinTx = get_min_mv_amount(COIN_NAME)
@@ -9347,11 +9351,11 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
         return
 
     notifyList = await store.sql_get_tipnotify()
-    if coin_family not in ["TRTL", "DOGE", "XMR"]:
+    if coin_family not in ["BCN", "TRTL", "DOGE", "XMR"]:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} is restricted with this command.')
         return
-    if coin_family == "TRTL":
+    if coin_family in ["TRTL", "BCN"]:
         COIN_DEC = get_decimal(COIN_NAME)
         real_amount = int(round(float(amount) * COIN_DEC))
         MinTx = get_min_mv_amount(COIN_NAME)
@@ -9719,7 +9723,7 @@ async def _tip_react(reaction, user, amount, coin: str):
         
     notifyList = await store.sql_get_tipnotify()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-    if coin_family == "TRTL":
+    if coin_family in ["TRTL", "BCN"]:
         COIN_DEC = get_decimal(COIN_NAME)
         real_amount = int(round(float(amount) * COIN_DEC))
         MinTx = get_min_mv_amount(COIN_NAME)
@@ -10179,7 +10183,7 @@ async def bot_faucet(ctx):
     # End TRTL discord
     for COIN_NAME in [coinItem.upper() for coinItem in FAUCET_COINS]:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-        if (not is_maintenance_coin(COIN_NAME)) and coin_family in ["TRTL"]:
+        if (not is_maintenance_coin(COIN_NAME)) and coin_family in ["TRTL", "BCN"]:
             COIN_DEC = get_decimal(COIN_NAME)
             wallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
             if wallet is None:

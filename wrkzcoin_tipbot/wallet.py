@@ -61,7 +61,7 @@ async def send_transaction(from_address: str, to_address: str, amount: int, coin
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     result = None
     time_out = 64
-    if coin_family == "TRTL" or coin_family == "CCX":
+    if coin_family == "TRTL" or coin_family == "BCN":
         if COIN_NAME not in FEE_PER_BYTE_COIN:
             payload = {
                 'addresses': [from_address],
@@ -148,7 +148,7 @@ async def send_transactionall(from_address: str, to_address, coin: str, acc_inde
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     result = None
-    if coin_family == "TRTL" or coin_family == "CCX":
+    if coin_family == "TRTL" or coin_family == "BCN":
         if COIN_NAME not in FEE_PER_BYTE_COIN:
             payload = {
                 'addresses': [from_address],
@@ -192,7 +192,7 @@ async def send_transaction_offchain(from_address: str, to_address: str, amount: 
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     result = None
     time_out = 64
-    if coin_family == "TRTL":
+    if coin_family == "TRTL" or coin_family == "BCN":
         if COIN_NAME not in FEE_PER_BYTE_COIN:
             payload = {
                 'addresses': [from_address],
@@ -262,7 +262,7 @@ async def get_balance_address(address: str, coin: str, acc_index: int = None) ->
         if result:
             wallet = {'address':address,'locked':(result['balance'] - result['unlocked_balance']),'unlocked':result['unlocked_balance']}
         return wallet
-    elif coin_family == "TRTL":
+    elif coin_family == "TRTL" or coin_family == "BCN":
         result = await rpc_client.call_aiohttp_wallet('getBalance', coin, payload={'address': address})
         wallet = None
         if result:
@@ -322,7 +322,7 @@ async def rpc_cn_wallet_save(coin: str):
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     start = time.time()
-    if coin_family == "TRTL" or coin_family == "CCX":
+    if coin_family == "TRTL" or coin_family == "BCN":
         result = await rpc_client.call_aiohttp_wallet('save', coin)
     elif coin_family == "XMR":
         result = await rpc_client.call_aiohttp_wallet('store', coin)
@@ -459,7 +459,7 @@ def get_diff_target(coin: str = None):
 def get_tx_fee(coin: str):
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-    if coin_family == "TRTL" or coin_family == "CCX" or coin_family == "DOGE" or coin_family == "LTC" :
+    if coin_family == "TRTL" or coin_family == "BCN" or coin_family == "DOGE" or coin_family == "LTC" :
         return getattr(config,"daemon"+coin,config.daemonWRKZ).tx_fee        
     elif coin_family == "XMR":
         return getattr(config,"daemon"+coin,config.daemonXMR).tx_fee
@@ -609,7 +609,7 @@ async def getTransactions(coin: str, firstBlockIndex: int=2000000, blockCount: i
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     result = None
     time_out = 64
-    if coin_family == "TRTL":
+    if coin_family == "TRTL" or coin_family == "BCN":
         payload = {
             'firstBlockIndex': firstBlockIndex,
             'blockCount': blockCount,

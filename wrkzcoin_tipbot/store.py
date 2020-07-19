@@ -116,7 +116,7 @@ async def sql_update_balances(coin: str = None):
 
     height = None
     if gettopblock:
-        if coin_family == "TRTL" or coin_family == "XMR":
+        if coin_family in ["TRTL", "BCN", "XMR"]:
             height = int(gettopblock['block_header']['height'])
         elif coin_family == "DOGE":
             height = int(gettopblock['blocks'])
@@ -135,7 +135,7 @@ async def sql_update_balances(coin: str = None):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
-    if coin_family == "TRTL" and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
+    if coin_family in ["TRTL", "BCN"] and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
         print('SQL: Updating all wallet balances '+COIN_NAME)
         start = time.time()
         if COIN_NAME in WALLET_API_COIN:
@@ -169,11 +169,11 @@ async def sql_update_balances(coin: str = None):
                 print('Time updated to SQL: '+str(end_sql - end))
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-    elif coin_family == "TRTL" and (COIN_NAME in ENABLE_COIN_OFFCHAIN):
+    elif coin_family in ["TRTL", "BCN"] and (COIN_NAME in ENABLE_COIN_OFFCHAIN):
         #print('SQL: Updating get_transfers '+COIN_NAME)
         get_transfers = await wallet.getTransactions(COIN_NAME, int(height)-100000, 100000)
         try:
-            if len(get_transfers) >= 1:
+            if get_transfers and len(get_transfers) >= 1:
                 openConnection()
                 with conn.cursor() as cur:
                     sql = """ SELECT * FROM cnoff_get_transfers WHERE `coin_name` = %s """
@@ -245,7 +245,7 @@ async def sql_update_balances(coin: str = None):
     elif coin_family == "XMR":
         #print('SQL: Updating get_transfers '+COIN_NAME)
         get_transfers = await wallet.get_transfers_xmr(COIN_NAME)
-        if len(get_transfers) >= 1:
+        if get_transfers and len(get_transfers) >= 1:
             try:
                 openConnection()
                 with conn.cursor() as cur:
@@ -367,7 +367,7 @@ async def sql_update_some_balances(wallet_addresses: List[str], coin: str):
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
 
     updateTime = int(time.time())
-    if coin_family == "TRTL":
+    if coin_family in ["TRTL", "BCN"]:
         print('SQL: Updating some wallet balances '+COIN_NAME)
         if COIN_NAME in WALLET_API_COIN:
             balances = await walletapi.walletapi_get_some_balances(wallet_addresses, COIN_NAME)
@@ -441,12 +441,12 @@ async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD', cha
         with conn.cursor() as cur:
             sql = None
             result = None
-            if coin_family == "TRTL" and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
+            if coin_family in ["TRTL", "BCN"] and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
                 sql = """ SELECT user_id, balance_wallet_address, user_wallet_address, user_server FROM cn_user 
                           WHERE `user_id`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """
                 cur.execute(sql, (userID, COIN_NAME, user_server))
                 result = cur.fetchone()
-            elif coin_family == "TRTL" and (COIN_NAME in ENABLE_COIN_OFFCHAIN):
+            elif coin_family in ["TRTL", "BCN"] and (COIN_NAME in ENABLE_COIN_OFFCHAIN):
                 sql = """ SELECT user_id, int_address, user_wallet_address, user_server FROM cnoff_user_paymentid 
                           WHERE `user_id`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """
                 cur.execute(sql, (userID, COIN_NAME, user_server))
@@ -463,12 +463,12 @@ async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD', cha
             if result is None:
                 balance_address = None
                 main_address = None
-                if coin_family == "TRTL" and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
+                if coin_family in ["TRTL", "BCN"] and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
                     if COIN_NAME in WALLET_API_COIN:
                         balance_address = await walletapi.walletapi_registerOTHER(COIN_NAME)
                     else:
                         balance_address = await wallet.registerOTHER(COIN_NAME)
-                elif coin_family == "TRTL" and (COIN_NAME in ENABLE_COIN_OFFCHAIN):
+                elif coin_family in ["TRTL", "BCN"] and (COIN_NAME in ENABLE_COIN_OFFCHAIN):
                     main_address = getattr(getattr(config,"daemon"+COIN_NAME),"MainAddress")
                     balance_address = {}
                     balance_address['payment_id'] = addressvalidation.paymentid()
@@ -484,12 +484,12 @@ async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD', cha
                 else:
                     chainHeight = 0
                     walletStatus = None
-                    if coin_family == "TRTL" and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
+                    if coin_family in ["TRTL", "BCN"] and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
                         walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
                     elif COIN_NAME in ENABLE_COIN_DOGE:
                         walletStatus = await daemonrpc_client.getDaemonRPCStatus(COIN_NAME)
                             
-                    if coin_family == "TRTL" and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
+                    if coin_family in ["TRTL", "BCN"] and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
                         chainHeight = int(walletStatus['blockCount'])
                         sql = """ INSERT INTO cn_user (`coin_name`, `user_id`, `balance_wallet_address`, 
                                   `balance_wallet_address_ts`, `balance_wallet_address_ch`, `privateSpendKey`,
@@ -498,7 +498,7 @@ async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD', cha
                         cur.execute(sql, (COIN_NAME, str(userID), balance_address['address'], int(time.time()), chainHeight,
                                           encrypt_string(balance_address['privateSpendKey']), user_server, ))
                         conn.commit()
-                    elif coin_family == "TRTL" and (COIN_NAME in ENABLE_COIN_OFFCHAIN):
+                    elif coin_family in ["TRTL", "BCN"] and (COIN_NAME in ENABLE_COIN_OFFCHAIN):
                         sql = """ INSERT INTO cnoff_user_paymentid (`coin_name`, `user_id`, `main_address`, `paymentid`, 
                               `int_address`, `paymentid_ts`, `user_server`, `chat_id`) 
                               VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
@@ -546,11 +546,11 @@ async def sql_update_user(userID, user_wallet_address, coin: str, user_server: s
     try:
         openConnection()
         with conn.cursor() as cur:
-            if coin_family == "TRTL" and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
+            if coin_family in ["TRTL", "BCN"] and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
                 sql = """ UPDATE cn_user SET user_wallet_address=%s WHERE user_id=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """               
                 cur.execute(sql, (user_wallet_address, str(userID), COIN_NAME, user_server))
                 conn.commit()
-            elif coin_family == "TRTL" and (COIN_NAME in ENABLE_COIN_OFFCHAIN):
+            elif coin_family in ["TRTL", "BCN"] and (COIN_NAME in ENABLE_COIN_OFFCHAIN):
                 sql = """ UPDATE cnoff_user_paymentid SET user_wallet_address=%s WHERE user_id=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """               
                 cur.execute(sql, (user_wallet_address, str(userID), COIN_NAME, user_server))
                 conn.commit()
@@ -587,13 +587,13 @@ async def sql_get_userwallet(userID, coin: str, user_server: str = 'DISCORD'):
         sql = None
         with conn.cursor() as cur:
             result = None
-            if coin_family == "TRTL" and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
+            if coin_family in ["TRTL", "BCN"] and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
                 sql = """ SELECT user_id, balance_wallet_address, user_wallet_address, balance_wallet_address_ts, 
                           balance_wallet_address_ch, forwardtip 
                           FROM cn_user WHERE `user_id`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """
                 cur.execute(sql, (str(userID), COIN_NAME, user_server))
                 result = cur.fetchone()
-            elif coin_family == "TRTL" and (COIN_NAME in ENABLE_COIN_OFFCHAIN):
+            elif coin_family in ["TRTL", "BCN"] and (COIN_NAME in ENABLE_COIN_OFFCHAIN):
                 sql = """ SELECT * FROM cnoff_user_paymentid WHERE `user_id`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """
                 cur.execute(sql, (str(userID), COIN_NAME, user_server))
                 result = cur.fetchone()
@@ -610,7 +610,7 @@ async def sql_get_userwallet(userID, coin: str, user_server: str = 'DISCORD'):
                 userwallet = result
                 if coin_family == "XMR":
                     userwallet['balance_wallet_address'] = userwallet['int_address']
-                elif coin_family == "TRTL" and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
+                elif coin_family in ["TRTL", "BCN"] and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
                     with conn.cursor() as cur:
                         sql = """ SELECT `balance_wallet_address`, `actual_balance`, `locked_balance`, `decimal`, `lastUpdate` FROM cn_walletapi 
                                   WHERE `balance_wallet_address` = %s AND `coin_name` = %s LIMIT 1 """
@@ -624,7 +624,7 @@ async def sql_get_userwallet(userID, coin: str, user_server: str = 'DISCORD'):
                             userwallet['actual_balance'] = 0
                             userwallet['locked_balance'] = 0
                             userwallet['lastUpdate'] = int(time.time())
-                elif coin_family == "TRTL" and (COIN_NAME in ENABLE_COIN_OFFCHAIN):
+                elif coin_family in ["TRTL", "BCN"] and (COIN_NAME in ENABLE_COIN_OFFCHAIN):
                     userwallet['balance_wallet_address'] = userwallet['int_address']
                     userwallet['actual_balance'] = int(result['actual_balance'])
                     userwallet['locked_balance'] = int(result['locked_balance'])
@@ -638,7 +638,7 @@ async def sql_get_userwallet(userID, coin: str, user_server: str = 'DISCORD'):
                             userwallet['actual_balance'] = result['actual_balance']
                             userwallet['locked_balance'] = 0 # There shall not be locked balance
                             userwallet['lastUpdate'] = result['lastUpdate']
-                if result['lastUpdate'] == 0 and (coin_family == "TRTL" or coin_family == "XMR"):
+                if result['lastUpdate'] == 0 and (coin_family in ["TRTL", "BCN"] or coin_family == "XMR"):
                     userwallet['lastUpdate'] = result['paymentid_ts']
                 return userwallet
     except Exception as e:
@@ -697,7 +697,7 @@ async def sql_send_tip(user_from: str, user_to: str, amount: int, tiptype: str, 
     user_from_wallet = None
     user_to_wallet = None
     address_to = None
-    if coin_family == "TRTL" or coin_family == "XMR":
+    if coin_family in ["TRTL", "BCN", "XMR"]:
         user_from_wallet = await sql_get_userwallet(user_from, COIN_NAME, user_server)
         user_to_wallet = await sql_get_userwallet(user_to, COIN_NAME, user_server)
         if user_to_wallet and user_to_wallet['forwardtip'] == "ON" and user_to_wallet['user_wallet_address']:
@@ -706,14 +706,14 @@ async def sql_send_tip(user_from: str, user_to: str, amount: int, tiptype: str, 
             address_to = user_to_wallet['balance_wallet_address']
     if all(v is not None for v in [user_from_wallet['balance_wallet_address'], address_to]):
         tx_hash = None
-        if coin_family == "TRTL" and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
+        if coin_family in ["TRTL", "BCN"] and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
             if COIN_NAME in WALLET_API_COIN:
                 tx_hash = await walletapi.walletapi_send_transaction(user_from_wallet['balance_wallet_address'],
                                                                      address_to, amount, COIN_NAME)
             else:
                 tx_hash = await wallet.send_transaction(user_from_wallet['balance_wallet_address'],
                                                         address_to, amount, COIN_NAME)
-        elif coin_family == "TRTL" and (COIN_NAME in ENABLE_COIN_OFFCHAIN):
+        elif coin_family in ["TRTL", "BCN"] and (COIN_NAME in ENABLE_COIN_OFFCHAIN):
             # Move balance
             try:
                 openConnection()
@@ -732,7 +732,7 @@ async def sql_send_tip(user_from: str, user_to: str, amount: int, tiptype: str, 
                 with conn.cursor() as cur:
                     timestamp = int(time.time())
                     sql = None
-                    if coin_family == "TRTL":
+                    if coin_family in ["TRTL", "BCN"]:
                         fee = 0
                         if COIN_NAME not in FEE_PER_BYTE_COIN:
                             fee = wallet.get_tx_fee(COIN_NAME)
@@ -759,16 +759,16 @@ async def sql_send_tipall(user_from: str, user_tos, amount: int, amount_div: int
         return None
 
     user_from_wallet = None
-    if coin_family == "TRTL" or coin_family == "XMR":
+    if coin_family in ["TRTL", "BCN", "XMR"]:
         user_from_wallet = await sql_get_userwallet(user_from, COIN_NAME, user_server)
     if user_from_wallet['balance_wallet_address']:
         tx_hash = None
-        if coin_family == "TRTL" and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
+        if coin_family in ["TRTL", "BCN"] and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
             if COIN_NAME in WALLET_API_COIN:
                 tx_hash = await walletapi.walletapi_send_transactionall(user_from_wallet['balance_wallet_address'], user_tos, COIN_NAME)
             else:
                 tx_hash = await wallet.send_transactionall(user_from_wallet['balance_wallet_address'], user_tos, COIN_NAME)
-        elif coin_family == "TRTL" and COIN_NAME in ENABLE_COIN_OFFCHAIN:
+        elif coin_family in ["TRTL", "BCN"] and COIN_NAME in ENABLE_COIN_OFFCHAIN:
             # Move offchain
             values_str = []
             currentTs = int(time.time())
@@ -792,7 +792,7 @@ async def sql_send_tipall(user_from: str, user_tos, amount: int, amount_div: int
                 openConnection()
                 with conn.cursor() as cur:
                     timestamp = int(time.time())
-                    if coin_family == "TRTL" or coin_family == "CCX":
+                    if coin_family == "TRTL" or coin_family == "BCN":
                         fee = 0
                         if COIN_NAME not in FEE_PER_BYTE_COIN:
                             fee = wallet.get_tx_fee(COIN_NAME)
@@ -824,11 +824,11 @@ async def sql_send_tip_Ex(user_from: str, address_to: str, amount: int, coin: st
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     user_from_wallet = None
-    if coin_family == "TRTL" or coin_family == "XMR":
+    if coin_family in ["TRTL", "BCN", "XMR"]:
         user_from_wallet = await sql_get_userwallet(user_from, COIN_NAME, user_server)
     if user_from_wallet['balance_wallet_address']:
         tx_hash = None
-        if coin_family == "TRTL" and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
+        if coin_family in ["TRTL", "BCN"] and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
             if COIN_NAME in WALLET_API_COIN:
                 tx_hash = await walletapi.walletapi_send_transaction(user_from_wallet['balance_wallet_address'], address_to, 
                                                                      amount, COIN_NAME)
@@ -836,7 +836,7 @@ async def sql_send_tip_Ex(user_from: str, address_to: str, amount: int, coin: st
             else:
                 tx_hash = await wallet.send_transaction(user_from_wallet['balance_wallet_address'], address_to, 
                                                         amount, COIN_NAME)
-        elif coin_family == "TRTL" and (COIN_NAME in ENABLE_COIN_OFFCHAIN):
+        elif coin_family in ["TRTL", "BCN"] and (COIN_NAME in ENABLE_COIN_OFFCHAIN):
             # send from wallet and store in cnoff_external_tx
             main_address = getattr(getattr(config,"daemon"+COIN_NAME),"MainAddress")
             if COIN_NAME in WALLET_API_COIN:
@@ -856,7 +856,7 @@ async def sql_send_tip_Ex(user_from: str, address_to: str, amount: int, coin: st
                 with conn.cursor() as cur:
                     timestamp = int(time.time())
                     updateBalance = None
-                    if coin_family == "TRTL" and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
+                    if coin_family in ["TRTL", "BCN"] and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
                         fee = 0
                         if COIN_NAME not in FEE_PER_BYTE_COIN:
                             fee = wallet.get_tx_fee(COIN_NAME)
@@ -872,7 +872,7 @@ async def sql_send_tip_Ex(user_from: str, address_to: str, amount: int, coin: st
                         else:
                             updateBalance = await wallet.get_balance_address(user_from_wallet['balance_wallet_address'], 
                                                                              COIN_NAME)
-                    elif coin_family == "TRTL" and (COIN_NAME in ENABLE_COIN_OFFCHAIN):
+                    elif coin_family in ["TRTL", "BCN"] and (COIN_NAME in ENABLE_COIN_OFFCHAIN):
                         fee = 0
                         if COIN_NAME not in FEE_PER_BYTE_COIN:
                             fee = wallet.get_tx_fee(COIN_NAME)
@@ -884,7 +884,7 @@ async def sql_send_tip_Ex(user_from: str, address_to: str, amount: int, coin: st
                                     tx_hash['transactionHash'], fee, user_server))
                         conn.commit()
                     if updateBalance:
-                        if coin_family == "TRTL":
+                        if coin_family in ["TRTL", "BCN"]:
                             sql = """ UPDATE cn_walletapi SET `actual_balance`=%s, 
                                       `locked_balance`=%s, `lastUpdate`=%s, `decimal`=%s 
                                       WHERE `balance_wallet_address`=%s AND `coin_name` = %s LIMIT 1 """
@@ -905,14 +905,14 @@ async def sql_send_tip_Ex_id(user_from: str, address_to: str, amount: int, payme
     user_from_wallet = await sql_get_userwallet(user_from, COIN_NAME, user_server)
     if 'balance_wallet_address' in user_from_wallet:
         tx_hash = None
-        if coin_family == "TRTL" and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
+        if coin_family in ["TRTL", "BCN"] and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
             if COIN_NAME in WALLET_API_COIN:
                 tx_hash = await walletapi.walletapi_send_transaction_id(user_from_wallet['balance_wallet_address'], address_to,
                                                                         amount, paymentid, COIN_NAME)
             else:
                 tx_hash = await wallet.send_transaction_id(user_from_wallet['balance_wallet_address'], address_to,
                                                            amount, paymentid, COIN_NAME)
-        elif coin_family == "TRTL" and (COIN_NAME in ENABLE_COIN_OFFCHAIN):
+        elif coin_family in ["TRTL", "BCN"] and (COIN_NAME in ENABLE_COIN_OFFCHAIN):
             # send from wallet and store in cnoff_external_tx
             main_address = getattr(getattr(config,"daemon"+COIN_NAME),"MainAddress")
             if COIN_NAME in WALLET_API_COIN:
@@ -928,7 +928,7 @@ async def sql_send_tip_Ex_id(user_from: str, address_to: str, amount: int, payme
                 updateBalance = None
                 with conn.cursor() as cur:
                     timestamp = int(time.time())
-                    if coin_family == "TRTL" and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
+                    if coin_family in ["TRTL", "BCN"] and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
                         fee = 0
                         if COIN_NAME not in FEE_PER_BYTE_COIN:
                             fee = wallet.get_tx_fee(COIN_NAME)
@@ -942,7 +942,7 @@ async def sql_send_tip_Ex_id(user_from: str, address_to: str, amount: int, payme
                             updateBalance = await walletapi.walletapi_get_balance_address(user_from_wallet['balance_wallet_address'], COIN_NAME)
                         else:
                             updateBalance = await wallet.get_balance_address(user_from_wallet['balance_wallet_address'], COIN_NAME)
-                    elif coin_family == "TRTL" and (COIN_NAME in ENABLE_COIN_OFFCHAIN):
+                    elif coin_family in ["TRTL", "BCN"] and (COIN_NAME in ENABLE_COIN_OFFCHAIN):
                         fee = 0
                         if COIN_NAME not in FEE_PER_BYTE_COIN:
                             fee = wallet.get_tx_fee(COIN_NAME)
@@ -979,7 +979,7 @@ async def sql_withdraw(user_from: str, amount: int, coin: str, user_server: str 
     tx_hash = None
     user_from_wallet = await sql_get_userwallet(user_from, COIN_NAME, user_server)
     if all(v is not None for v in [user_from_wallet['balance_wallet_address'], user_from_wallet['user_wallet_address']]):
-        if coin_family == "TRTL" and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
+        if coin_family in ["TRTL", "BCN"] and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
             if COIN_NAME in WALLET_API_COIN:
                 tx_hash = await walletapi.walletapi_send_transaction(user_from_wallet['balance_wallet_address'],
                                                                      user_from_wallet['user_wallet_address'], amount, COIN_NAME)
@@ -987,7 +987,7 @@ async def sql_withdraw(user_from: str, amount: int, coin: str, user_server: str 
             else:
                 tx_hash = await wallet.send_transaction(user_from_wallet['balance_wallet_address'],
                                                         user_from_wallet['user_wallet_address'], amount, COIN_NAME)
-        elif coin_family == "TRTL" and (COIN_NAME in ENABLE_COIN_OFFCHAIN):
+        elif coin_family in ["TRTL", "BCN"] and (COIN_NAME in ENABLE_COIN_OFFCHAIN):
             # send from wallet and store in cnoff_external_tx
             main_address = getattr(getattr(config,"daemon"+COIN_NAME),"MainAddress")
             if COIN_NAME in WALLET_API_COIN:
@@ -1007,7 +1007,7 @@ async def sql_withdraw(user_from: str, amount: int, coin: str, user_server: str 
                 with conn.cursor() as cur:
                     timestamp = int(time.time())
                     updateBalance = None
-                    if coin_family == "TRTL" and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
+                    if coin_family in ["TRTL", "BCN"] and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
                         sql = """ INSERT INTO cn_withdraw (`coin_name`, `user_id`, `to_address`, `amount`, 
                                   `decimal`, `date`, `tx_hash`, `fee`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
                         fee = 0
@@ -1021,7 +1021,7 @@ async def sql_withdraw(user_from: str, amount: int, coin: str, user_server: str 
                             updateBalance = await walletapi.walletapi_get_balance_address(user_from_wallet['balance_wallet_address'], COIN_NAME)
                         else:
                             updateBalance = await wallet.get_balance_address(user_from_wallet['balance_wallet_address'], COIN_NAME)
-                    if coin_family == "TRTL" and (COIN_NAME in ENABLE_COIN_OFFCHAIN):
+                    if coin_family in ["TRTL", "BCN"] and (COIN_NAME in ENABLE_COIN_OFFCHAIN):
                         sql = """ INSERT INTO cnoff_external_tx (`coin_name`, `user_id`, `to_address`, `amount`, 
                                   `decimal`, `date`, `tx_hash`, `fee`, `user_server`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
                         fee = 0
@@ -1037,7 +1037,7 @@ async def sql_withdraw(user_from: str, amount: int, coin: str, user_server: str 
                         cur.execute(sql, (COIN_NAME, user_from, user_from_wallet['user_wallet_address'], amount, tx_hash['fee'], timestamp, tx_hash['tx_hash'], tx_hash['tx_key'],))
                         conn.commit()
                     if updateBalance:
-                        if coin_family == "TRTL" or coin_family == "CCX":
+                        if coin_family == "TRTL" or coin_family == "BCN":
                             sql = """ UPDATE cn_walletapi SET `actual_balance`=%s, 
                                       `locked_balance`=%s, `lastUpdate`=%s, `decimal` = %s WHERE `balance_wallet_address`=%s 
                                       and `coin_name` = %s LIMIT 1 """
@@ -1060,12 +1060,12 @@ async def sql_donate(user_from: str, address_to: str, amount: int, coin: str, us
     user_from_wallet = await sql_get_userwallet(user_from, COIN_NAME, user_server)
     if all(v is not None for v in [user_from_wallet['balance_wallet_address'], address_to]):
         tx_hash = None
-        if coin_family == "TRTL" and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
+        if coin_family in ["TRTL", "BCN"] and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
             if COIN_NAME in WALLET_API_COIN:
                 tx_hash = await walletapi.walletapi_send_transaction(user_from_wallet['balance_wallet_address'], address_to, amount, COIN_NAME)
             else:
                 tx_hash = await wallet.send_transaction(user_from_wallet['balance_wallet_address'], address_to, amount, COIN_NAME)
-        elif coin_family == "TRTL" and (COIN_NAME in ENABLE_COIN_OFFCHAIN):
+        elif coin_family in ["TRTL", "BCN"] and (COIN_NAME in ENABLE_COIN_OFFCHAIN):
             # Move balance
             try:
                 openConnection()
@@ -1085,7 +1085,7 @@ async def sql_donate(user_from: str, address_to: str, amount: int, coin: str, us
                 with conn.cursor() as cur:
                     timestamp = int(time.time())
                     updateBalance = None
-                    if coin_family == "TRTL" and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
+                    if coin_family in ["TRTL", "BCN"] and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
                         sql = """ INSERT INTO cn_donate (`coin_name`, `from_user`, `to_address`, `amount`, 
                                   `decimal`, `date`, `tx_hash`, `fee`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
                         fee = 0
@@ -1100,7 +1100,7 @@ async def sql_donate(user_from: str, address_to: str, amount: int, coin: str, us
                         else:
                             updateBalance = await wallet.get_balance_address(user_from_wallet['balance_wallet_address'], COIN_NAME)
                     if updateBalance:
-                        if coin_family == "TRTL" or coin_family == "CCX":
+                        if coin_family == "TRTL" or coin_family == "BCN":
                             sql = """ UPDATE cn_walletapi SET `actual_balance`=%s, 
                                       `locked_balance`=%s, `lastUpdate`=%s, `decimal` = %s 
                                       WHERE `balance_wallet_address`=%s AND `coin_name` = %s LIMIT 1 """
@@ -2375,7 +2375,7 @@ async def sql_cnoff_balance(userID: str, coin: str, user_server: str = 'DISCORD'
         return
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-    if coin_family != "TRTL":
+    if coin_family not in ["TRTL", "BCN"]:
         return False
 
     try:
@@ -2592,7 +2592,7 @@ async def sql_get_userwallet_by_paymentid(paymentid: str, coin: str, user_server
         openConnection()
         with conn.cursor() as cur:
             result = None
-            if coin_family == "TRTL":
+            if coin_family == "TRTL" or coin_family == "BCN":
                 sql = """ SELECT * FROM cnoff_user_paymentid WHERE `paymentid`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """
                 cur.execute(sql, (paymentid, COIN_NAME, user_server))
                 result = cur.fetchone()

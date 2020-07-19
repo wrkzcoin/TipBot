@@ -60,7 +60,7 @@ async def call_aiohttp_wallet(method_name: str, coin: str, time_out: int = None,
             except Exception:
                 traceback.print_exc(file=sys.stdout)
                 return None
-        elif coin_family == "TRTL":
+        elif coin_family in ["TRTL", "BCN"]:
             try:
                 async with aiohttp.ClientSession() as session:
                     async with session.post(url, json=full_payload, timeout=timeout) as response:
@@ -117,7 +117,7 @@ async def call_doge(method_name: str, coin: str, payload: str = None) -> Dict:
 
 def get_wallet_rpc_url(coin: str = None):
     coin_family = getattr(getattr(config,"daemon"+coin),"coin_family","TRTL")
-    if coin_family == "TRTL" or coin_family == "CCX" :
+    if coin_family == "TRTL" or coin_family == "BCN" :
         return "http://"+getattr(config,"daemon"+coin,config.daemonWRKZ).wallethost + ":" + \
             str(getattr(config,"daemon"+coin,config.daemonWRKZ).walletport) \
             + '/json_rpc'

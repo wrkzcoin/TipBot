@@ -8944,7 +8944,7 @@ async def notify_new_tx_user_noconfirmation():
                                     if user_found:
                                         try:
                                             msg = None
-                                            confirmation_number_txt = "{} needs {} confirmations.".format(eachTx['coin_name'], get_confirm_depth(COIN_NAME))
+                                            confirmation_number_txt = "{} needs {} confirmations.".format(eachTx['coin_name'], get_confirm_depth(eachTx['coin_name']))
                                             if eachTx['coin_name'] not in ENABLE_COIN_DOGE:
                                                 msg = "You got a new **pending** deposit: ```" + "Coin: {}\nTx: {}\nAmount: {}\nHeight: {:,.0f}\n{}".format(eachTx['coin_name'], eachTx['txid'], num_format_coin(eachTx['amount'], eachTx['coin_name']), eachTx['height'], confirmation_number_txt) + "```"
                                             else:

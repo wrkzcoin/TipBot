@@ -611,7 +611,7 @@ async def getTransactions(coin: str, firstBlockIndex: int=2000000, blockCount: i
     time_out = 64
     if coin_family == "TRTL" or coin_family == "BCN":
         payload = {
-            'firstBlockIndex': firstBlockIndex,
+            'firstBlockIndex': firstBlockIndex if firstBlockIndex > 0 else 1,
             'blockCount': blockCount,
             }
         result = await rpc_client.call_aiohttp_wallet('getTransactions', COIN_NAME, time_out=time_out, payload=payload)

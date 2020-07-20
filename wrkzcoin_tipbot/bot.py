@@ -1212,6 +1212,8 @@ async def slot(ctx):
     except (discord.errors.NotFound, discord.errors.Forbidden) as e:
         await ctx.message.add_reaction(EMOJI_ERROR)
         traceback.print_exc(file=sys.stdout)
+    except discord.errors.NotFound as e:
+        pass
     return
 
 
@@ -8916,39 +8918,88 @@ async def update_balance():
                     print(e)
                 end = time.time()
 
+# notify_new_tx_user_noconfirmation
+async def notify_new_tx_user_noconfirmation():
+    global redis_conn
+    INTERVAL_EACH = config.interval.notify_tx
+    await bot.wait_until_ready()
+    while True:
+        if config.notify_new_tx.enable_new_no_confirm == 1:
+            key_tx_new = 'TIPBOT:NEWTX:NOCONFIRM'
+            key_tx_no_confirmed_sent = 'TIPBOT:NEWTX:NOCONFIRM:SENT'
+            try:
+                openRedis()
+                if redis_conn and redis_conn.llen(key_tx_new) > 0:
+                    list_new_tx = redis_conn.lrange(key_tx_new, 0, -1)
+                    list_new_tx_sent = redis_conn.lrange(key_tx_no_confirmed_sent, 0, -1) # byte list with b'xxx'
+                    for tx in list_new_tx:
+                        if tx not in list_new_tx_sent:
+                            tx = tx.decode() # decode byte from b'xxx to xxx
+                            key_tx_json = 'TIPBOT:NEWTX:' + tx
+                            eachTx = json.loads(redis_conn.get(key_tx_json).decode())
+                            if eachTx['coin_name'] in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR:
+                                user_tx = await store.sql_get_userwallet_by_paymentid(eachTx['payment_id'], eachTx['coin_name'], 'DISCORD')
+                                if user_tx and eachTx['coin_name'] in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR:
+                                    user_found = bot.get_user(id=int(user_tx['user_id']))
+                                    if user_found:
+                                        try:
+                                            msg = None
+                                            if eachTx['coin_name'] not in ENABLE_COIN_DOGE:
+                                                msg = "You got a new **pending** deposit: ```" + "Coin: {}\nTx: {}\nAmount: {}\nHeight: {:,.0f}".format(eachTx['coin_name'], eachTx['txid'], num_format_coin(eachTx['amount'], eachTx['coin_name']), eachTx['height']) + "```"
+                                            else:
+                                                msg = "You got a new **pending** deposit: ```" + "Coin: {}\nTx: {}\nAmount: {}\nBlock Hash: {}".format(eachTx['coin_name'], eachTx['txid'], num_format_coin(eachTx['amount'], eachTx['coin_name']), eachTx['blockhash']) + "```"
+                                            await user_found.send(msg)
+                                        except (discord.Forbidden, discord.errors.Forbidden) as e:
+                                            pass
+                                        redis_conn.lpush(key_tx_no_confirmed_sent, tx)
+                                    else:
+                                        print('Can not find user id {} to notification **pending** tx: {}'.format(user_tx['user_id'], eachTx['txid']))
+                                # TODO: if no user
+                                # elif eachTx['coin_name'] in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR:
+                                #    redis_conn.lpush(key_tx_no_confirmed_sent, tx)
+                            # if disable coin
+                            else:
+                                redis_conn.lpush(key_tx_no_confirmed_sent, tx)
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+        await asyncio.sleep(INTERVAL_EACH)
+
 
 # Notify user
 async def notify_new_tx_user():
     INTERVAL_EACH = config.interval.notify_tx
+    await bot.wait_until_ready()
     while True:
         pending_tx = await store.sql_get_new_tx_table('NO', 'NO')
         if pending_tx and len(pending_tx) > 0:
             # let's notify_new_tx_user
             for eachTx in pending_tx:
-                user_tx = await store.sql_get_userwallet_by_paymentid(eachTx['payment_id'], eachTx['coin_name'], 'DISCORD')
-                if user_tx:
-                    user_found = bot.get_user(id=int(user_tx['user_id']))
-                    if user_found:
-                        is_notify_failed = False
-                        try:
-                            msg = None
-                            if eachTx['coin_name'] not in ENABLE_COIN_DOGE:
-                                msg = "You got a new deposit: ```" + "Coin: {}\nTx: {}\nAmount: {}\nHeight: {:,.0f}".format(eachTx['coin_name'], eachTx['txid'], num_format_coin(eachTx['amount'], eachTx['coin_name']), eachTx['height']) + "```"
-                            else:
-                                msg = "You got a new deposit: ```" + "Coin: {}\nTx: {}\nAmount: {}\nBlock Hash: {}".format(eachTx['coin_name'], eachTx['txid'], num_format_coin(eachTx['amount'], eachTx['coin_name']), eachTx['blockhash']) + "```"
-                            await user_found.send(msg)
-                        except (discord.Forbidden, discord.errors.Forbidden) as e:
-                            is_notify_failed = True
-                            pass
-                        update_notify_tx = await store.sql_update_notify_tx_table(eachTx['payment_id'], user_tx['user_id'], user_found.name, 'YES', 'NO' if is_notify_failed == False else 'YES')
-                    else:
-                        print('Can not find user id {} to notification tx: {}'.format(user_tx['user_id'], eachTx['txid']))
+                if eachTx['coin_name'] in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR:
+                    user_tx = await store.sql_get_userwallet_by_paymentid(eachTx['payment_id'], eachTx['coin_name'], 'DISCORD')
+                    if user_tx:
+                        user_found = bot.get_user(id=int(user_tx['user_id']))
+                        if user_found:
+                            is_notify_failed = False
+                            try:
+                                msg = None
+                                if eachTx['coin_name'] not in ENABLE_COIN_DOGE:
+                                    msg = "You got a new deposit: ```" + "Coin: {}\nTx: {}\nAmount: {}\nHeight: {:,.0f}".format(eachTx['coin_name'], eachTx['txid'], num_format_coin(eachTx['amount'], eachTx['coin_name']), eachTx['height']) + "```"
+                                else:
+                                    msg = "You got a new deposit: ```" + "Coin: {}\nTx: {}\nAmount: {}\nBlock Hash: {}".format(eachTx['coin_name'], eachTx['txid'], num_format_coin(eachTx['amount'], eachTx['coin_name']), eachTx['blockhash']) + "```"
+                                await user_found.send(msg)
+                            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                                is_notify_failed = True
+                                pass
+                            update_notify_tx = await store.sql_update_notify_tx_table(eachTx['payment_id'], user_tx['user_id'], user_found.name, 'YES', 'NO' if is_notify_failed == False else 'YES')
+                        else:
+                            print('Can not find user id {} to notification tx: {}'.format(user_tx['user_id'], eachTx['txid']))
         await asyncio.sleep(INTERVAL_EACH)
 
 
 # Notify user
 async def notify_new_swap_user():
     INTERVAL_EACH = config.interval.swap_tx
+    await bot.wait_until_ready()
     while True:
         pending_tx = await store.sql_get_new_swap_table('NO', 'NO')
         if pending_tx and len(pending_tx) > 0:
@@ -10374,6 +10425,7 @@ def main():
     bot.loop.create_task(update_user_guild())
     bot.loop.create_task(update_balance())
     bot.loop.create_task(notify_new_tx_user())
+    bot.loop.create_task(notify_new_tx_user_noconfirmation())
     bot.loop.create_task(notify_new_swap_user())
     bot.loop.create_task(store_action_list())
     bot.loop.create_task(store_message_list())

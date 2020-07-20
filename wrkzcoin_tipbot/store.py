@@ -97,7 +97,7 @@ async def get_all_user_balance_address(coin: str):
 
 
 async def sql_update_balances(coin: str = None):
-    global conn
+    global conn, redis_conn
     updateTime = int(time.time())
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
@@ -173,6 +173,7 @@ async def sql_update_balances(coin: str = None):
         #print('SQL: Updating get_transfers '+COIN_NAME)
         get_transfers = await wallet.getTransactions(COIN_NAME, int(height)-100000, 100000)
         try:
+            list_balance_user = {}
             if get_transfers and len(get_transfers) >= 1:
                 openConnection()
                 with conn.cursor() as cur:
@@ -183,7 +184,6 @@ async def sql_update_balances(coin: str = None):
                     # print('=================='+COIN_NAME+'===========')
                     # print(d)
                     # print('=================='+COIN_NAME+'===========')
-                    list_balance_user = {}
                     for txes in get_transfers:
                         tx_in_block = txes['transactions']
                         for tx in tx_in_block:
@@ -222,8 +222,24 @@ async def sql_update_balances(coin: str = None):
                                 except Exception as e:
                                     traceback.print_exc(file=sys.stdout)
                             else:
-                                # print('{} has some tx but not yet meet confirmation depth.'.format(COIN_NAME))
-                                pass
+                                # add notify to redis and alert deposit. Can be clean later?
+                                if config.notify_new_tx.enable_new_no_confirm == 1:
+                                    key_tx_new = 'TIPBOT:NEWTX:NOCONFIRM'
+                                    key_tx_json = 'TIPBOT:NEWTX:' + tx['transactionHash']
+                                    try:
+                                        openRedis()
+                                        if redis_conn and redis_conn.llen(key_tx_new) > 0:
+                                            list_new_tx = redis_conn.lrange(key_tx_new, 0, -1)
+                                            if list_new_tx and len(list_new_tx) > 0 and tx['transactionHash'] not in list_new_tx:
+                                                redis_conn.lpush(key_tx_new, tx['transactionHash'])
+                                                redis_conn.set(key_tx_json, json.dumps({'coin_name': COIN_NAME, 'txid': tx['transactionHash'], 'payment_id': tx['paymentId'], 'height': tx['blockIndex'],
+                                                                                        'amount': tx['amount'], 'fee': tx['fee'], 'decimal': wallet.get_decimal(COIN_NAME)}), ex=86400)
+                                        elif redis_conn and redis_conn.llen(key_tx_new) == 0:
+                                            redis_conn.lpush(key_tx_new, tx['transactionHash'])
+                                            redis_conn.set(key_tx_json, json.dumps({'coin_name': COIN_NAME, 'txid': tx['transactionHash'], 'payment_id': tx['paymentId'], 'height': tx['blockIndex'],
+                                                                                    'amount': tx['amount'], 'fee': tx['fee'], 'decimal': wallet.get_decimal(COIN_NAME)}), ex=86400)
+                                    except Exception as e:
+                                        traceback.print_exc(file=sys.stdout)
             if list_balance_user and len(list_balance_user) > 0:
                 openConnection()
                 with conn.cursor() as cur:
@@ -280,6 +296,25 @@ async def sql_update_balances(coin: str = None):
                                                       tx['amount'], tx['fee'], wallet.get_decimal(COIN_NAME)))
                             except Exception as e:
                                 traceback.print_exc(file=sys.stdout)
+                        else:
+                            # add notify to redis and alert deposit. Can be clean later?
+                            if config.notify_new_tx.enable_new_no_confirm == 1:
+                                key_tx_new = 'TIPBOT:NEWTX:NOCONFIRM'
+                                key_tx_json = 'TIPBOT:NEWTX:' + tx['txid']
+                                try:
+                                    openRedis()
+                                    if redis_conn and redis_conn.llen(key_tx_new) > 0:
+                                        list_new_tx = redis_conn.lrange(key_tx_new, 0, -1)
+                                        if list_new_tx and len(list_new_tx) > 0 and tx['txid'] not in list_new_tx:
+                                            redis_conn.lpush(key_tx_new, tx['txid'])
+                                            redis_conn.set(key_tx_json, json.dumps({'coin_name': COIN_NAME, 'txid': tx['txid'], 'payment_id': tx['payment_id'], 'height': tx['height'],
+                                                                                'amount': tx['amount'], 'fee': tx['fee'], 'decimal': wallet.get_decimal(COIN_NAME)}), ex=86400)
+                                    elif redis_conn and redis_conn.llen(key_tx_new) == 0:
+                                        redis_conn.lpush(key_tx_new, tx['txid'])
+                                        redis_conn.set(key_tx_json, json.dumps({'coin_name': COIN_NAME, 'txid': tx['txid'], 'payment_id': tx['payment_id'], 'height': tx['height'],
+                                                                                'amount': tx['amount'], 'fee': tx['fee'], 'decimal': wallet.get_decimal(COIN_NAME)}), ex=86400)
+                                except Exception as e:
+                                    traceback.print_exc(file=sys.stdout)
                     if len(list_balance_user) > 0:
                         list_update = []
                         timestamp = int(time.time())
@@ -332,6 +367,25 @@ async def sql_update_balances(coin: str = None):
                                 print(e)
                             except Exception as e:
                                 traceback.print_exc(file=sys.stdout)
+                        else:
+                            # add notify to redis and alert deposit. Can be clean later?
+                            if config.notify_new_tx.enable_new_no_confirm == 1:
+                                key_tx_new = 'TIPBOT:NEWTX:NOCONFIRM'
+                                key_tx_json = 'TIPBOT:NEWTX:' + tx['txid']
+                                try:
+                                    openRedis()
+                                    if redis_conn and redis_conn.llen(key_tx_new) > 0:
+                                        list_new_tx = redis_conn.lrange(key_tx_new, 0, -1)
+                                        if list_new_tx and len(list_new_tx) > 0 and tx['txid'] not in list_new_tx:
+                                            redis_conn.lpush(key_tx_new, tx['txid'])
+                                            redis_conn.set(key_tx_json, json.dumps({'coin_name': COIN_NAME, 'txid': tx['txid'], 'payment_id': tx['address'], 'blockhash': tx['blockhash'],
+                                                                                    'amount': tx['amount'], 'decimal': wallet.get_decimal(COIN_NAME)}), ex=86400)
+                                    elif redis_conn and redis_conn.llen(key_tx_new) == 0:
+                                        redis_conn.lpush(key_tx_new, tx['txid'])
+                                        redis_conn.set(key_tx_json, json.dumps({'coin_name': COIN_NAME, 'txid': tx['txid'], 'payment_id': tx['address'], 'blockhash': tx['blockhash'],
+                                                                                'amount': tx['amount'], 'decimal': wallet.get_decimal(COIN_NAME)}), ex=86400)
+                                except Exception as e:
+                                    traceback.print_exc(file=sys.stdout)
                     if len(list_balance_user) > 0:
                         list_update = []
                         timestamp = int(time.time())

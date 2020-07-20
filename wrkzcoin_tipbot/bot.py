@@ -122,6 +122,7 @@ GAME_SLOT_REWARD = {
 }
 
 GAME_INTERACTIVE_PRGORESS = []
+GAME_SLOT_IN_PRGORESS = []
 GAME_MAZE_IN_PROCESS = []
 
 # miningpoolstat_progress
@@ -1131,7 +1132,7 @@ Rules:
 
 @game.command(name='slot', aliases=['slots'], help=bot_help_game_slot)
 async def slot(ctx):
-    global GAME_SLOT_REWARD, GAME_COIN, BOT_INVITELINK
+    global GAME_SLOT_REWARD, GAME_COIN, BOT_INVITELINK, GAME_SLOT_IN_PRGORESS
     game_servers = config.game.guild_games.split(",")
     free_game = False
     # Only WrkzCoin testing. Return if DM or other guild
@@ -1162,6 +1163,12 @@ async def slot(ctx):
     slot3 = slots[random.randint(0, 5)]
     slotOutput = '|\t:{}:\t|\t:{}:\t|\t:{}:\t|'.format(slot1, slot2, slot3)
 
+    if ctx.message.author.id not in GAME_SLOT_IN_PRGORESS:
+        GAME_SLOT_IN_PRGORESS.append(ctx.message.author.id)
+    else:
+        await ctx.send(f'{ctx.author.mention} You are ongoing with one **game** play.')
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        return
     won = False
     won_x = 1
     slotOutput_2 = '$ TRY AGAIN! $'
@@ -1195,7 +1202,6 @@ async def slot(ctx):
                 traceback.print_exc(file=sys.stdout)
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
-    await ctx.message.add_reaction(EMOJI_OK_HAND)
     embed = discord.Embed(title="TIPBOT FREE SLOT ({} REWARD)".format("WITHOUT" if free_game else "WITH"), description="Anyone can freely play!", color=0x00ff00)
     embed.add_field(name="Player", value="{}#{}".format(ctx.message.author.name, ctx.message.author.discriminator), inline=False)
     embed.add_field(name="Last 24h you played", value=str(count_played_free+count_played+1), inline=False)
@@ -1208,6 +1214,10 @@ async def slot(ctx):
     else:
         embed.set_footer(text="Randomed Coin: {}".format(config.game.coin_game))
     try:
+        await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+        await asyncio.sleep(config.game.game_slot_sleeping) # sleep 5s
+        if ctx.message.author.id in GAME_SLOT_IN_PRGORESS:
+            GAME_SLOT_IN_PRGORESS.remove(ctx.message.author.id)
         msg = await ctx.send(embed=embed)
         await msg.add_reaction(EMOJI_OK_BOX)
         if won == False:
@@ -1219,6 +1229,8 @@ async def slot(ctx):
         traceback.print_exc(file=sys.stdout)
     except discord.errors.NotFound as e:
         pass
+    if ctx.message.author.id in GAME_SLOT_IN_PRGORESS:
+        GAME_SLOT_IN_PRGORESS.remove(ctx.message.author.id)
     return
 
 

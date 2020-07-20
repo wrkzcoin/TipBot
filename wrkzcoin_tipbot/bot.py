@@ -3315,11 +3315,13 @@ async def pools(ctx, coin: str):
                                 hash_rate = hhashes(each_pool['hashrate'])
                             except Exception as e:
                                 pass
-                            pool_name = 'Unknown'
+                            pool_name = None
                             if 'pool_id' in each_pool:
                                 pool_name = each_pool['pool_id']
                             elif 'text' in each_pool:
                                 pool_name = each_pool['text']
+                            if pool_name is None:
+                                pool_name = each_pool['url'].replace("https://", "").replace("http://", "").replace("www", "")
                             pool_links += "#{}. [{}]({}) - {}\n".format(i, pool_name, each_pool['url'], hash_rate if hash_rate else '0H/s')
                             i += 1
                     try:
@@ -4898,6 +4900,10 @@ async def take(ctx):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is going to restart soon. Wait until it is back for using this.')
         return
 
+    if isinstance(ctx.channel, discord.DMChannel):
+        await ctx.send(f'{EMOJI_RED_NO} This command can not be in private.')
+        return
+
     # disable faucet for TRTL discord
     if ctx.guild.id == TRTL_DISCORD:
         await ctx.message.add_reaction(EMOJI_LOCKED)
@@ -4910,10 +4916,6 @@ async def take(ctx):
         await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
         return
     # end of check if account locked
-
-    if isinstance(ctx.channel, discord.DMChannel):
-        await ctx.send(f'{EMOJI_RED_NO} This command can not be in private.')
-        return
 
     # Check if user guild member less than 15 online
     num_online = sum(member.status != "offline" and not member.bot for member in ctx.message.guild.members)

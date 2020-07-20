@@ -2974,6 +2974,26 @@ async def sql_depositlink_user_delete_address(user_id: str, coin_name: str, user
     return False
 
 
+async def sql_miningpoolstat_fetch(coin_name: str, user_id: str, user_name: str, requested_date: int, \
+respond_date: int, response: str, guild_id: str, guild_name: str, channel_id: str, is_cache: str='NO', user_server: str='DISCORD'):
+    user_server = user_server.upper()
+    if user_server not in ['DISCORD', 'TELEGRAM']:
+        return
+    try:
+        openConnection()
+        with conn.cursor() as cur:
+            sql = """ INSERT INTO `miningpoolstat_fetch` (`coin_name`, `user_id`, `user_name`, `requested_date`, `respond_date`, 
+                      `response`, `guild_id`, `guild_name`, `channel_id`, `user_server`, `is_cache`)
+                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+            cur.execute(sql, (coin_name, user_id, user_name, requested_date, respond_date, response, guild_id, 
+                              guild_name, channel_id, user_server, is_cache))
+            conn.commit()
+            return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return False
+
+
 # Steal from https://nitratine.net/blog/post/encryption-and-decryption-in-python/
 def encrypt_string(to_encrypt: str):
     key = (config.encrypt.key).encode()

@@ -212,7 +212,7 @@ EMOJI_COIN = {
     "DASH" : "\U0001F4A8",
     "LTC" : "\U0001F4A1",
     "WOW" : "\U0001F62E",
-    "XCR" : "\U0001F3AE"
+    "NBXC" : "\U0001F3AE"
     }
 
 EMOJI_RED_NO = "\u26D4"
@@ -257,7 +257,7 @@ NOTICE_COIN = {
     "BCH" : getattr(getattr(config,"daemonBCH"),"coin_notice", None),
     "DASH" : getattr(getattr(config,"daemonDASH"),"coin_notice", None),
     "LTC" : getattr(getattr(config,"daemonLTC"),"coin_notice", None),
-    "XCR" : getattr(getattr(config,"daemonXCR"),"coin_notice", None),
+    "NBXC" : getattr(getattr(config,"daemonNBXC"),"coin_notice", None),
     "default": "Thank you for using."
     }
 
@@ -3265,13 +3265,19 @@ async def pools(ctx, coin: str):
     if isinstance(ctx.message.channel, discord.DMChannel) == False and ctx.guild.id == TRTL_DISCORD and COIN_NAME != "TURTLECOIN":
         await ctx.message.add_reaction(EMOJI_ERROR)
         return
-    #elif isinstance(ctx.channel, discord.DMChannel):
-    #    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} This command can not be in DM.')
-    #    return
+    elif isinstance(ctx.channel, discord.DMChannel):
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} This command can not be in DM.')
+        return
     key = "TIPBOT:MININGPOOL:" + COIN_NAME
+    key_hint = "TIPBOT:MININGPOOL:SHORTNAME:" + COIN_NAME
     if redis_conn and not redis_conn.exists(key):
-        await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{ctx.author.mention} Unknown coin **{COIN_NAME}**.')
+        if redis_conn.exists(key_hint):
+            await ctx.message.add_reaction(EMOJI_QUESTEXCLAIM)
+            await ctx.send(f'{ctx.author.mention} Did you mean **{redis_conn.get(key_hint).decode().lower()}**.')
+        else:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{ctx.author.mention} Unknown coin **{COIN_NAME}**.')
+        return
     elif redis_conn and redis_conn.exists(key):
         # check if already in redis
         key_p = key + ":POOLS" # TIPBOT:MININGPOOL:COIN_NAME:POOLS
@@ -8583,7 +8589,7 @@ def get_cn_coin_from_address(CoinAddress: str):
     elif CoinAddress.startswith("cat1"):
         COIN_NAME = "CX"
     elif CoinAddress.startswith("XCR"):
-        COIN_NAME = "XCR"
+        COIN_NAME = "NBXC"
     elif CoinAddress.startswith("btcm"):
         COIN_NAME = "BTCMZ"
     elif CoinAddress.startswith("PLe"):
@@ -10365,6 +10371,7 @@ async def get_miningpool_coinlist():
                             await session.close()
                             decoded_data = json.loads(res_data)
                             key = "TIPBOT:MININGPOOL:"
+                            key_hint = "TIPBOT:MININGPOOL:SHORTNAME:"
                             if decoded_data and len(decoded_data) > 0:
                                 # print(decoded_data)
                                 for kc, cat in decoded_data.items():
@@ -10372,7 +10379,7 @@ async def get_miningpool_coinlist():
                                         for k, v in cat.items():
                                             # Should have no expire.
                                             redis_conn.set((key+k).upper(), json.dumps(v))
-                                            #redis_conn.set((key+v['s']).upper(), json.dumps(v), ex=redis_expired*2)
+                                            redis_conn.set((key_hint+v['s']).upper(), k.upper())
             except asyncio.TimeoutError:
                 print('TIMEOUT: Fetching from miningpoolstats')
             except Exception:

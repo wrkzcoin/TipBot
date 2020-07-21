@@ -2106,6 +2106,31 @@ async def account(ctx):
 
 @account.command(name='deposit_link', aliases=['deposit'], help=bot_help_account_depositlink)
 async def deposit_link(ctx, disable: str=None):
+    async def create_qr_on_remote(ctx, coin):
+        COIN_NAME = coin.upper()
+        if not is_maintenance_coin(COIN_NAME):
+            wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+            if wallet is None:
+                userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
+                wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+            try:
+                if os.path.exists(config.deposit_qr.path_deposit_qr_create + wallet['balance_wallet_address'] + ".png"):
+                    pass
+                else:
+                    # do some QR code
+                    qr = qrcode.QRCode(
+                        version=1,
+                        error_correction=qrcode.constants.ERROR_CORRECT_L,
+                        box_size=10,
+                        border=2,
+                    )
+                    qr.add_data(wallet['balance_wallet_address'])
+                    qr.make(fit=True)
+                    img = qr.make_image(fill_color="black", back_color="white")
+                    img = img.resize((256, 256))
+                    img.save(config.deposit_qr.path_deposit_qr_create + wallet['balance_wallet_address'] + ".png")
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
     prefix = await get_guild_prefix(ctx)
     local_address = await store.sql_deposit_getall_address_user(str(ctx.message.author.id), 'DISCORD')
     remote_address = await store.sql_deposit_getall_address_user_remote(str(ctx.message.author.id), 'DISCORD')
@@ -2119,13 +2144,17 @@ async def deposit_link(ctx, disable: str=None):
         for key, value in diff_address.items():
             if key in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR and not is_maintenance_coin(key):
                 await store.sql_depositlink_user_insert_address(str(ctx.message.author.id), key, value, 'DISCORD')
+                await create_qr_on_remote(ctx, key)
 
     if remote_address and len(remote_address) > 0:
         diff_address = remote_address
         removing_address = {}
         for k, v in remote_address.items():
-             if k not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR or is_maintenance_coin(k):
+            if k not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR or is_maintenance_coin(k):
                 removing_address[k] = v
+            elif k in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR and not is_maintenance_coin(k):
+                # check if exist in remote, or create QR
+                await create_qr_on_remote(ctx, k)
 
         if removing_address and len(removing_address) > 0:
             for key, value in removing_address.items():
@@ -2189,29 +2218,7 @@ async def deposit_link(ctx, disable: str=None):
     else:
         # generate a deposit link for him but need QR first
         for COIN_NAME in [coinItem.upper() for coinItem in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR]:
-            if not is_maintenance_coin(COIN_NAME):
-                wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-                if wallet is None:
-                    userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
-                    wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-                try:
-                    if os.path.exists(config.deposit_qr.path_deposit_qr_create + wallet['balance_wallet_address'] + ".png"):
-                        pass
-                    else:
-                        # do some QR code
-                        qr = qrcode.QRCode(
-                            version=1,
-                            error_correction=qrcode.constants.ERROR_CORRECT_L,
-                            box_size=10,
-                            border=2,
-                        )
-                        qr.add_data(wallet['balance_wallet_address'])
-                        qr.make(fit=True)
-                        img = qr.make_image(fill_color="black", back_color="white")
-                        img = img.resize((256, 256))
-                        img.save(config.deposit_qr.path_deposit_qr_create + wallet['balance_wallet_address'] + ".png")
-                except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
+            await create_qr_on_remote(ctx, COIN_NAME)
         # link stuff
         random_string = str(uuid.uuid4())
         create_link = await store.sql_depositlink_user_create(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), random_string, 'DISCORD')
@@ -8936,8 +8943,12 @@ async def notify_new_tx_user_noconfirmation():
                         if tx not in list_new_tx_sent:
                             tx = tx.decode() # decode byte from b'xxx to xxx
                             key_tx_json = 'TIPBOT:NEWTX:' + tx
-                            eachTx = json.loads(redis_conn.get(key_tx_json).decode())
-                            if eachTx['coin_name'] in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR:
+                            eachTx = None
+                            try:
+                                if redis_conn.exists(key_tx_json): eachTx = json.loads(redis_conn.get(key_tx_json).decode())
+                            except Exception as e:
+                                traceback.print_exc(file=sys.stdout)
+                            if eachTx and eachTx['coin_name'] in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR:
                                 user_tx = await store.sql_get_userwallet_by_paymentid(eachTx['payment_id'], eachTx['coin_name'], 'DISCORD')
                                 if user_tx and eachTx['coin_name'] in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR:
                                     user_found = bot.get_user(id=int(user_tx['user_id']))

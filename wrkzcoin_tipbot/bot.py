@@ -5207,7 +5207,7 @@ async def freetip(ctx, amount: str, coin: str):
     notifyList = await store.sql_get_tipnotify()
 
     COIN_DEC = get_decimal(COIN_NAME)
-    real_amount = int(amount * COIN_DEC) if coin_family in ["XMR", "TRTL"] else float(amount)
+    real_amount = int(amount * COIN_DEC) if coin_family in ["XMR", "TRTL", "BCN"] else float(amount)
     MinTx = get_min_mv_amount(COIN_NAME)
     MaxTX = get_max_mv_amount(COIN_NAME)
     NetFee = get_tx_fee(coin = COIN_NAME) if (COIN_NAME not in ENABLE_COIN_OFFCHAIN) else 0
@@ -5256,7 +5256,7 @@ async def freetip(ctx, amount: str, coin: str):
         await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
         return
     def check(reaction, user):
-        return user != ctx.message.author and reaction.message.author == bot.user and reaction.message.id == msg.id and str(reaction.emoji) == EMOJI_PARTY
+        return user != ctx.message.author and user.bot == False and reaction.message.author == bot.user and reaction.message.id == msg.id and str(reaction.emoji) == EMOJI_PARTY
     try:
         reaction, user = await bot.wait_for('reaction_add', timeout=60, check=check)
     except asyncio.TimeoutError:

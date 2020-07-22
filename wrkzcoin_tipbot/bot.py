@@ -189,33 +189,6 @@ EMOJI_LETTER_H = "\U0001F1ED"
 
 EMOJI_FLOPPY = "\U0001F4BE"
 
-EMOJI_COIN = {
-    "WRKZ" : "\U0001F477",
-    "TRTL" : "\U0001F422",
-    "DEGO" : "\U0001F49B",
-    "CX" : "\U0001F64F",
-    "BTCMZ" : "\U0001F4A9",
-    "PLE" : "\U0001F388",
-    "ANX" : "\U0001F3E6",
-    "XTOR" : "\U0001F315",
-    "LOKI" : "\u2600",
-    "XMR" : "\u2694",
-    "ARQ" : "\U0001F578",
-    "MSR" : "\U0001F334",
-    "BLOG" : "\u270D",
-    "XAM" : "\U0001F344",
-    "UPX" : "\U0001F50B",
-    "XWP" : "\u2194",
-    "DOGE" : "\U0001F436",
-    "BTC" : "\U0001F4B2",
-    "BCH" : "\U0001F4B5",
-    "DASH" : "\U0001F4A8",
-    "LTC" : "\U0001F4A1",
-    "WOW" : "\U0001F62E",
-    "NBXC" : "\U0001F3AE",
-    "XFG" : "\U0001F468"
-    }
-
 EMOJI_RED_NO = "\u26D4"
 EMOJI_SPEAK = "\U0001F4AC"
 EMOJI_ARROW_RIGHTHOOK = "\u21AA"
@@ -236,32 +209,22 @@ ENABLE_COIN_VOUCHER = config.Enable_Coin_Voucher.split(",")
 ENABLE_SWAP = config.Enabe_Swap_Coin.split(",")
 
 # Some notice about coin that going to swap or take out.
-NOTICE_COIN = {
-    "WRKZ" : getattr(getattr(config,"daemonWRKZ"),"coin_notice", None),
-    "TRTL" : getattr(getattr(config,"daemonTRTL"),"coin_notice", None),
-    "DEGO" : getattr(getattr(config,"daemonDEGO"),"coin_notice", None),
-    "CX" : getattr(getattr(config,"daemonCX"),"coin_notice", None),
-    "BTCMZ" : getattr(getattr(config,"daemonBTCMZ"),"coin_notice", None),
-    "PLE" : getattr(getattr(config,"daemonPLE"),"coin_notice", None),
-    "XTOR" : getattr(getattr(config,"daemonXTOR"),"coin_notice", None),
-    "LOKI" : getattr(getattr(config,"daemonLOKI"),"coin_notice", None),
-    "ARQ" : getattr(getattr(config,"daemonARQ"),"coin_notice", None),
-    "XMR" : getattr(getattr(config,"daemonXMR"),"coin_notice", None),
-    "MSR" : getattr(getattr(config,"daemonMSR"),"coin_notice", None),
-    "BLOG" : getattr(getattr(config,"daemonBLOG"),"coin_notice", None),
-    "XAM" : getattr(getattr(config,"daemonXAM"),"coin_notice", None),
-    "UPX" : getattr(getattr(config,"daemonUPX"),"coin_notice", None),
-    "XWP" : getattr(getattr(config,"daemonXWP"),"coin_notice", None),
-    "WOW" : getattr(getattr(config,"daemonWOW"),"coin_notice", None),
-    "DOGE" : getattr(getattr(config,"daemonDOGE"),"coin_notice", None),
-    "BTC" : getattr(getattr(config,"daemonBTC"),"coin_notice", None),
-    "BCH" : getattr(getattr(config,"daemonBCH"),"coin_notice", None),
-    "DASH" : getattr(getattr(config,"daemonDASH"),"coin_notice", None),
-    "LTC" : getattr(getattr(config,"daemonLTC"),"coin_notice", None),
-    "NBXC" : getattr(getattr(config,"daemonNBXC"),"coin_notice", None),
-    "XFG" : getattr(getattr(config,"daemonXFG"),"coin_notice", None),
-    "default": "Thank you for using."
-    }
+NOTICE_COIN = {}
+for each in ENABLE_COIN+ENABLE_XMR+ENABLE_COIN_DOGE:
+    try:
+        NOTICE_COIN[each.upper()] = getattr(getattr(config,"daemon"+each.upper()),"coin_notice", None)
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+NOTICE_COIN['default'] = "Thank you for using."
+
+
+EMOJI_COIN = {}
+for each in ENABLE_COIN+ENABLE_XMR+ENABLE_COIN_DOGE:
+    try:
+        EMOJI_COIN[each.upper()] = getattr(getattr(config,"daemon"+each.upper()),"emoji", '\U0001F4B0')
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
 
 # atomic Amount
 ROUND_AMOUNT_COIN = {
@@ -9569,7 +9532,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
             for member_id in list_talker:
                 if ctx.message.author.id != int(member_id):
                     member = bot.get_user(id=int(member_id))
-                    if member and member.bot == False:
+                    if member and member.bot == False and member in ctx.guild.members:
                         mention_list_name += '{}#{} '.format(member.name, member.discriminator)
                         if str(member_id) not in notifyList:
                             try:
@@ -9662,7 +9625,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
                 # print(member.name) # you'll just print out Member objects your way.
                 if ctx.message.author.id != int(member_id):
                     member = bot.get_user(id=int(member_id))
-                    if member and member.bot == False:
+                    if member and member.bot == False and member in ctx.guild.members:
                         mention_list_name += '{}#{} '.format(member.name, member.discriminator)
                         if str(member_id) not in notifyList:
                             try:
@@ -9751,7 +9714,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
                 # print(member.name) # you'll just print out Member objects your way.
                 if ctx.message.author.id != int(member_id):
                     member = bot.get_user(id=int(member_id))
-                    if member and member.bot == False:
+                    if member and member.bot == False and member in ctx.guild.members:
                         mention_list_name += '{}#{} '.format(member.name, member.discriminator)
                         if str(member_id) not in notifyList:
                             try:

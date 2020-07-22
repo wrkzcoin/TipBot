@@ -212,7 +212,8 @@ EMOJI_COIN = {
     "DASH" : "\U0001F4A8",
     "LTC" : "\U0001F4A1",
     "WOW" : "\U0001F62E",
-    "NBXC" : "\U0001F3AE"
+    "NBXC" : "\U0001F3AE",
+    "XFG" : "\U0001F468"
     }
 
 EMOJI_RED_NO = "\u26D4"
@@ -258,6 +259,7 @@ NOTICE_COIN = {
     "DASH" : getattr(getattr(config,"daemonDASH"),"coin_notice", None),
     "LTC" : getattr(getattr(config,"daemonLTC"),"coin_notice", None),
     "NBXC" : getattr(getattr(config,"daemonNBXC"),"coin_notice", None),
+    "XFG" : getattr(getattr(config,"daemonXFG"),"coin_notice", None),
     "default": "Thank you for using."
     }
 
@@ -8597,6 +8599,8 @@ def get_cn_coin_from_address(CoinAddress: str):
         COIN_NAME = "CX"
     elif CoinAddress.startswith("XCR"):
         COIN_NAME = "NBXC"
+    elif CoinAddress.startswith("fango"):
+        COIN_NAME = "XFG"
     elif CoinAddress.startswith("btcm"):
         COIN_NAME = "BTCMZ"
     elif CoinAddress.startswith("PLe"):
@@ -9577,7 +9581,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
                                 await store.sql_toggle_tipnotify(str(member.id), "OFF")
                             pass
             try:
-                await ctx.send(f'{mention_list_name}\n\nYou got tip :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
+                await ctx.send(f'{discord.utils.escape_markdown(mention_list_name)}\n\nYou got tip :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
                 await ctx.message.add_reaction(EMOJI_SPEAK)
             except discord.errors.Forbidden:
                 await ctx.message.add_reaction(EMOJI_SPEAK)
@@ -9669,7 +9673,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
                             except (discord.Forbidden, discord.errors.Forbidden) as e:
                                 await store.sql_toggle_tipnotify(str(member.id), "OFF")
             try:
-                await ctx.send(f'{mention_list_name}\n\nYou got tip :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
+                await ctx.send(f'{discord.utils.escape_markdown(mention_list_name)}\n\nYou got tip :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
                 await ctx.message.add_reaction(EMOJI_SPEAK)
             except discord.errors.Forbidden:
                 await ctx.message.add_reaction(EMOJI_SPEAK)
@@ -9758,7 +9762,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
                             except (discord.Forbidden, discord.errors.Forbidden) as e:
                                 await store.sql_toggle_tipnotify(str(member.id), "OFF")
             try:
-                await ctx.send(f'{mention_list_name}\n\nYou got tip :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
+                await ctx.send(f'{discord.utils.escape_markdown(mention_list_name)}\n\nYou got tip :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
                 await ctx.message.add_reaction(EMOJI_SPEAK)
             except discord.errors.Forbidden:
                 await ctx.message.add_reaction(EMOJI_SPEAK)

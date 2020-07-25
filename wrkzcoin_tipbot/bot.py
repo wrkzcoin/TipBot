@@ -950,7 +950,7 @@ async def shoot(ctx, member: discord.Member = None):
 
     try:
         random_gif_name = config.fun.fun_img_path + str(uuid.uuid4()) + ".gif"
-        fun_image = await tb_action(user1, user2, random_gif_name, 'SHOOT')
+        fun_image = await tb_action(user1, user2, random_gif_name, 'SHOOT', config.tbfun_image.shoot_gif)
         if fun_image:
             await ctx.send(file=discord.File(random_gif_name))
             os.remove(random_gif_name)
@@ -975,7 +975,7 @@ async def kick(ctx, member: discord.Member = None):
 
     try:
         random_gif_name = config.fun.fun_img_path + str(uuid.uuid4()) + ".gif"
-        fun_image = await tb_action(user1, user2, random_gif_name, 'KICK')
+        fun_image = await tb_action(user1, user2, random_gif_name, 'KICK', config.tbfun_image.kick_gif)
         if fun_image:
             await ctx.send(file=discord.File(random_gif_name))
             os.remove(random_gif_name)
@@ -1000,7 +1000,7 @@ async def fistbump(ctx, member: discord.Member = None):
 
     try:
         random_gif_name = config.fun.fun_img_path + str(uuid.uuid4()) + ".gif"
-        fun_image = await tb_action(user1, user2, random_gif_name, 'FISTBUMP')
+        fun_image = await tb_action(user1, user2, random_gif_name, 'FISTBUMP', config.tbfun_image.fistbump_gif)
         if fun_image:
             await ctx.send(file=discord.File(random_gif_name))
             os.remove(random_gif_name)

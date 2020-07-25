@@ -33,7 +33,7 @@ MAINTENANCE_COIN = config.Maintenance_Coin.split(",")
 
 # faucet enabled coin. The faucet balance is taken from TipBot's own balance
 FAUCET_COINS = config.Enable_Faucet_Coin.split(",")
-FAUCET_COINS_ROUND_NUMBERS = config.Enable_Faucet_Coin_round_number.split(",")
+
 # DOGE will divide by 10 after random
 FAUCET_MINMAX = {
     "WRKZ": [1000, 2000],
@@ -1032,10 +1032,6 @@ async def start_cmd_handler(message: types.Message):
 
     def myround_number(x, base=5):
         return base * round(x/base)
-
-    if COIN_NAME in FAUCET_COINS_ROUND_NUMBERS:
-        amount = myround_number(amount)
-        if amount == 0: amount = 5 
 
     COIN_DEC = get_decimal(COIN_NAME)
     real_amount = int(amount * COIN_DEC) if (coin_family == "TRTL" or coin_family == "XMR") else amount

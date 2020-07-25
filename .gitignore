@@ -13,3 +13,5 @@ deposit.bot.tips/config.php
 wrkzcoin_tipbot/test.2.py
 wrkzcoin_tipbot/test.js
 wrkzcoin_tipbot/selenium_support.py
+wrkzcoin_tipbot/tb/test.py
+wrkzcoin_tipbot/tb/*.gif

@@ -29,6 +29,9 @@ from games.blackjack import getDeck as blackjack_getDeck
 from games.blackjack import displayHands as blackjack_displayHands
 from games.blackjack import getCardValue as blackjack_getCardValue
 
+# tb
+from tb.tbfun import action as tb_action
+
 from config import config
 from wallet import *
 
@@ -91,7 +94,6 @@ REACT_TIP_STORE = []
 
 # faucet enabled coin. The faucet balance is taken from TipBot's own balance
 FAUCET_COINS = config.Enable_Faucet_Coin.split(",")
-FAUCET_COINS_ROUND_NUMBERS = config.Enable_Faucet_Coin_round_number.split(",")
 
 # Coin using wallet-api
 WALLET_API_COIN = config.Enable_Coin_WalletApi.split(",")
@@ -108,7 +110,8 @@ FAUCET_MINMAX = {
     "DEGO": [2500, 10000],
     "TRTL": [15, 25],
     "DOGE": [1, 3],
-    "BTCMZ": [2500, 5000]
+    "BTCMZ": [2500, 5000],
+    "NBXC": [0.01, 0.05]
 }
 
 
@@ -755,6 +758,259 @@ async def about(ctx):
         traceback.print_exc(file=sys.stdout)
 
 
+@bot.group(hidden = True, name='reddit', aliases=['rd'], help='Reddit random images')
+async def reddit(ctx):
+    prefix = await get_guild_prefix(ctx)
+    # Only WrkzCoin testing. Return if DM or other guild
+    if isinstance(ctx.channel, discord.DMChannel) == True:
+        return
+    if ctx.invoked_subcommand is None:
+        await ctx.send(f'{ctx.author.mention} Invalid {prefix}reddit command.\n Please use {prefix}help reddit')
+        return
+
+
+@reddit.command(name='meme', aliases=['memes'], help='Get random meme')
+async def meme(ctx):
+    global redis_conn, redis_expired
+    if isinstance(ctx.channel, discord.DMChannel) == True:
+        return
+
+    get_data = []
+    key = "TIPBOT:REDDIT:MEME"
+    if redis_conn and redis_conn.exists(key):
+        await ctx.message.add_reaction(EMOJI_FLOPPY)
+        get_data = json.loads(redis_conn.get(key).decode())
+    else:
+        links = ["https://www.reddit.com/r/greentext",
+                "https://www.reddit.com/r/memes",
+                "https://www.reddit.com/r/dankmemes",
+                "https://www.reddit.com/r/cryptocurrencymemes",
+                "https://www.reddit.com/r/AnimalsBeingDerps",
+                "https://www.reddit.com/r/AnimalsBeingJerks",
+                "https://www.reddit.com/r/funny",
+                "https://www.reddit.com/r/comics",
+                "https://www.reddit.com/r/adviceanimals"]
+
+        # https://stackoverflow.com/questions/61483685/how-do-i-get-aiohttp-to-output-reddit-images
+        async with ctx.typing():
+            for each_link in links:
+                try:
+                    async with aiohttp.ClientSession() as cs:
+                        async with cs.get(each_link + "/hot/.json") as r:
+                            if r.status == 200:
+                                get_data_each = await r.json()
+                                get_data += get_data_each["data"]["children"]
+                                print(f'Fetch {each_link} and got {len(get_data_each["data"]["children"])} items.')
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+            print(f'Got total new: {len(get_data)} memes.')    
+            redis_conn.set(key, json.dumps(get_data), ex=600)
+    if get_data and len(get_data) > 0:
+        # key, value = random.choice(list(get_data["data"]["children"].items()))
+        try:
+            # get_item = random.choice(get_data["data"]["children"])["data"]
+            get_item = random.choice(get_data)['data']
+            while not (get_item['url_overridden_by_dest'].endswith('.jpg') or get_item['url_overridden_by_dest'].endswith('.png')):
+                get_item = random.choice(get_data)['data']
+            if 'url_overridden_by_dest' in get_item and 'permalink' in get_item and 'over_18' in get_item:
+                embed = discord.Embed(title = get_item['subreddit_name_prefixed'], color = 0xFF0000)
+                embed.set_image(url = get_item['url_overridden_by_dest'])
+                embed.set_footer(text = "https://www.reddit.com{}".format(get_item['permalink']))
+                msg = await ctx.send(embed=embed)
+                await msg.add_reaction(EMOJI_OK_BOX)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+    else:
+        await ctx.message.add_reaction(EMOJI_QUESTEXCLAIM)
+    return
+
+
+@bot.group(hidden = True, name='tb', aliases=['tipbot'], help='Some fun commands')
+async def tb(ctx):
+    prefix = await get_guild_prefix(ctx)
+    # Only WrkzCoin testing. Return if DM or other guild
+    if isinstance(ctx.channel, discord.DMChannel) == True:
+        return
+    if ctx.invoked_subcommand is None:
+        await ctx.send(f'{ctx.author.mention} Invalid {prefix}tb command.\n Please use {prefix}help tb')
+        return
+
+
+@tb.command(name='spank', help='Spank someone')
+async def spank(ctx, member: discord.Member = None):
+    if isinstance(ctx.channel, discord.DMChannel) == True:
+        return
+    if member is None:
+        user1 = str(bot.user.avatar_url)
+        user2 = str(ctx.message.author.avatar_url)
+    else:
+        user1 = str(ctx.message.author.avatar_url)
+        user2 = str(member.avatar_url)
+        if member == ctx.message.author: user1 = str(bot.user.avatar_url)
+
+    try:
+        random_gif_name = config.fun.fun_img_path + str(uuid.uuid4()) + ".gif"
+        fun_image = await tb_action(user1, user2, random_gif_name, 'SPANK', config.tbfun_image.spank_gif)
+        if fun_image:
+            await ctx.send(file=discord.File(random_gif_name))
+            os.remove(random_gif_name)
+        else:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return
+
+
+@tb.command(name='punch', help='Punch someone')
+async def punch(ctx, member: discord.Member = None):
+    if isinstance(ctx.channel, discord.DMChannel) == True:
+        return
+    if member is None:
+        user1 = str(bot.user.avatar_url)
+        user2 = str(ctx.message.author.avatar_url)
+    else:
+        user1 = str(ctx.message.author.avatar_url)
+        user2 = str(member.avatar_url)
+        if member == ctx.message.author: user1 = str(bot.user.avatar_url)
+
+    try:
+        random_gif_name = config.fun.fun_img_path + str(uuid.uuid4()) + ".gif"
+        fun_image = await tb_action(user1, user2, random_gif_name, 'PUNCH', config.tbfun_image.punch_gif)
+        if fun_image:
+            await ctx.send(file=discord.File(random_gif_name))
+            os.remove(random_gif_name)
+        else:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return
+
+
+@tb.command(name='slap', help='Slap someone')
+async def slap(ctx, member: discord.Member = None):
+    if isinstance(ctx.channel, discord.DMChannel) == True:
+        return
+    if member is None:
+        user1 = str(bot.user.avatar_url)
+        user2 = str(ctx.message.author.avatar_url)
+    else:
+        user1 = str(ctx.message.author.avatar_url)
+        user2 = str(member.avatar_url)
+        if member == ctx.message.author: user1 = str(bot.user.avatar_url)
+
+    try:
+        random_gif_name = config.fun.fun_img_path + str(uuid.uuid4()) + ".gif"
+        fun_image = await tb_action(user1, user2, random_gif_name, 'SLAP', config.tbfun_image.slap_gif)
+        if fun_image:
+            await ctx.send(file=discord.File(random_gif_name))
+            os.remove(random_gif_name)
+        else:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return
+
+
+@tb.command(name='praise', help='Praise someone')
+async def praise(ctx, member: discord.Member = None):
+    if isinstance(ctx.channel, discord.DMChannel) == True:
+        return
+    if member is None:
+        user1 = str(bot.user.avatar_url)
+        user2 = str(ctx.message.author.avatar_url)
+    else:
+        user1 = str(ctx.message.author.avatar_url)
+        user2 = str(member.avatar_url)
+        if member == ctx.message.author: user1 = str(bot.user.avatar_url)
+
+    try:
+        random_gif_name = config.fun.fun_img_path + str(uuid.uuid4()) + ".gif"
+        fun_image = await tb_action(user1, user2, random_gif_name, 'PRAISE', config.tbfun_image.praise_gif)
+        if fun_image:
+            await ctx.send(file=discord.File(random_gif_name))
+            os.remove(random_gif_name)
+        else:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return
+
+
+@tb.command(name='shoot', help='Shoot someone')
+async def shoot(ctx, member: discord.Member = None):
+    if isinstance(ctx.channel, discord.DMChannel) == True:
+        return
+    if member is None:
+        user1 = str(bot.user.avatar_url)
+        user2 = str(ctx.message.author.avatar_url)
+    else:
+        user1 = str(ctx.message.author.avatar_url)
+        user2 = str(member.avatar_url)
+        if member == ctx.message.author: user1 = str(bot.user.avatar_url)
+
+    try:
+        random_gif_name = config.fun.fun_img_path + str(uuid.uuid4()) + ".gif"
+        fun_image = await tb_action(user1, user2, random_gif_name, 'SHOOT')
+        if fun_image:
+            await ctx.send(file=discord.File(random_gif_name))
+            os.remove(random_gif_name)
+        else:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return
+
+
+@tb.command(name='kick', help='Fun kick someone')
+async def kick(ctx, member: discord.Member = None):
+    if isinstance(ctx.channel, discord.DMChannel) == True:
+        return
+    if member is None:
+        user1 = str(bot.user.avatar_url)
+        user2 = str(ctx.message.author.avatar_url)
+    else:
+        user1 = str(ctx.message.author.avatar_url)
+        user2 = str(member.avatar_url)
+        if member == ctx.message.author: user1 = str(bot.user.avatar_url)
+
+    try:
+        random_gif_name = config.fun.fun_img_path + str(uuid.uuid4()) + ".gif"
+        fun_image = await tb_action(user1, user2, random_gif_name, 'KICK')
+        if fun_image:
+            await ctx.send(file=discord.File(random_gif_name))
+            os.remove(random_gif_name)
+        else:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return
+
+
+@tb.command(name='fistbump', aliases=['fb'], help='Fist bump someone')
+async def fistbump(ctx, member: discord.Member = None):
+    if isinstance(ctx.channel, discord.DMChannel) == True:
+        return
+    if member is None:
+        user1 = str(bot.user.avatar_url)
+        user2 = str(ctx.message.author.avatar_url)
+    else:
+        user1 = str(ctx.message.author.avatar_url)
+        user2 = str(member.avatar_url)
+        if member == ctx.message.author: user1 = str(bot.user.avatar_url)
+
+    try:
+        random_gif_name = config.fun.fun_img_path + str(uuid.uuid4()) + ".gif"
+        fun_image = await tb_action(user1, user2, random_gif_name, 'FISTBUMP')
+        if fun_image:
+            await ctx.send(file=discord.File(random_gif_name))
+            os.remove(random_gif_name)
+        else:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return
+
+
 @bot.group(hidden = True, name='tool', aliases=['tools'], help='Various tool commands')
 async def tool(ctx):
     prefix = await get_guild_prefix(ctx)
@@ -884,6 +1140,12 @@ async def str2hex(ctx, str2hex: str):
 @bot.group(name='game', help=bot_help_game)
 async def game(ctx):
     global IS_RESTARTING
+    # bot check in the first place
+    if ctx.message.author.bot == True:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is not allowed using this.')
+        return
+
     prefix = await get_guild_prefix(ctx)
     # check if bot is going to restart
     if IS_RESTARTING:
@@ -923,6 +1185,12 @@ async def stat(ctx):
 @game.command(name='blackjack', aliases=['bj'], help=bot_help_game_blackjack)
 async def blackjack(ctx):
     global GAME_SLOT_REWARD, GAME_COIN, BOT_INVITELINK, GAME_INTERACTIVE_PRGORESS, IS_RESTARTING
+    # bot check in the first place
+    if ctx.message.author.bot == True:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is not allowed using this.')
+        return
+
     game_servers = config.game.guild_games.split(",")
     free_game = False
     won = False
@@ -1098,6 +1366,12 @@ Rules:
 @game.command(name='slot', aliases=['slots'], help=bot_help_game_slot)
 async def slot(ctx):
     global GAME_SLOT_REWARD, GAME_COIN, BOT_INVITELINK, GAME_SLOT_IN_PRGORESS
+    # bot check in the first place
+    if ctx.message.author.bot == True:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is not allowed using this.')
+        return
+
     game_servers = config.game.guild_games.split(",")
     free_game = False
     # Only WrkzCoin testing. Return if DM or other guild
@@ -1188,7 +1462,10 @@ async def slot(ctx):
         if won == False:
             # Delete lose game after 5s
             await asyncio.sleep(5)
-            await msg.delete()
+            try:
+                await msg.delete()
+            except discord.errors.NotFound as e:
+                traceback.print_exc(file=sys.stdout)
     except (discord.errors.NotFound, discord.errors.Forbidden) as e:
         await ctx.message.add_reaction(EMOJI_ERROR)
         traceback.print_exc(file=sys.stdout)
@@ -1202,6 +1479,12 @@ async def slot(ctx):
 @game.command(name='bagel', aliases=['bagels'], help=bot_help_game_bagel)
 async def bagel(ctx):
     global GAME_INTERACTIVE_PRGORESS, GAME_COIN, GAME_SLOT_REWARD, BOT_INVITELINK, IS_RESTARTING
+    # bot check in the first place
+    if ctx.message.author.bot == True:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is not allowed using this.')
+        return
+
     # Credit: https://github.com/asweigart/PythonStdioGames
     game_servers = config.game.guild_games.split(",")
     free_game = False
@@ -1365,6 +1648,12 @@ clues would be Fermi Pico.'''.format(NUM_DIGITS)
 @game.command(name='bagel2', aliases=['bagels2'], help=bot_help_game_bagel)
 async def bagel2(ctx):
     global GAME_INTERACTIVE_PRGORESS, GAME_COIN, GAME_SLOT_REWARD, BOT_INVITELINK, IS_RESTARTING
+    # bot check in the first place
+    if ctx.message.author.bot == True:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is not allowed using this.')
+        return
+
     # Credit: https://github.com/asweigart/PythonStdioGames
     game_servers = config.game.guild_games.split(",")
     free_game = False
@@ -1558,6 +1847,12 @@ Hints:
 @game.command(name='bagel3', aliases=['bagels3'], help=bot_help_game_bagel)
 async def bagel3(ctx):
     global GAME_INTERACTIVE_PRGORESS, GAME_COIN, GAME_SLOT_REWARD, BOT_INVITELINK, IS_RESTARTING
+    # bot check in the first place
+    if ctx.message.author.bot == True:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is not allowed using this.')
+        return
+
     # Credit: https://github.com/asweigart/PythonStdioGames
     game_servers = config.game.guild_games.split(",")
     free_game = False
@@ -1759,6 +2054,12 @@ Hints:
 @game.command(name='maze', aliases=['mazes'], help=bot_help_game_maze)
 async def maze(ctx):
     global GAME_INTERACTIVE_PRGORESS, GAME_COIN, GAME_SLOT_REWARD, BOT_INVITELINK, GAME_MAZE_IN_PROCESS, IS_RESTARTING
+    # bot check in the first place
+    if ctx.message.author.bot == True:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is not allowed using this.')
+        return
+
     # Credit: https://github.com/asweigart/PythonStdioGames
     game_servers = config.game.guild_games.split(",")
     free_game = False
@@ -1823,12 +2124,12 @@ async def maze(ctx):
                 
             if str(reaction.emoji) == EMOJI_OK_BOX:
                 await ctx.send(f'{ctx.author.mention} You gave up the current game.')
-                await asyncio.sleep(1000)
-                await msg.delete()
                 if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
                     GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
                 if ctx.guild.id in GAME_MAZE_IN_PROCESS:
                     GAME_MAZE_IN_PROCESS.remove(ctx.guild.id)
+                await asyncio.sleep(1)
+                await msg.delete()
                 break
                 return
             
@@ -1900,6 +2201,12 @@ async def maze(ctx):
 @game.command(name='hangman', aliases=['hm'], help=bot_help_game_hangman)
 async def hangman(ctx):
     global GAME_INTERACTIVE_PRGORESS, GAME_COIN, GAME_SLOT_REWARD, HANGMAN_WORDS, IS_RESTARTING
+    # bot check in the first place
+    if ctx.message.author.bot == True:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is not allowed using this.')
+        return
+
     # Credit: https://github.com/asweigart/PythonStdioGames
     game_servers = config.game.guild_games.split(",")
     free_game = False
@@ -3329,12 +3636,85 @@ async def pools(ctx, coin: str):
             if ctx.message.author.id in MINGPOOLSTAT_IN_PROCESS:
                 MINGPOOLSTAT_IN_PROCESS.remove(ctx.message.author.id)
         else:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{ctx.author.mention} Internal error fetching data for **{COIN_NAME}**.')
-
-        if ctx.message.author.id in MINGPOOLSTAT_IN_PROCESS:
-            MINGPOOLSTAT_IN_PROCESS.remove(ctx.message.author.id)
-        return
+            # Try old way
+            # if not exist, add to queue in redis
+            key_queue = "TIPBOT:MININGPOOL2:QUEUE"
+            if redis_conn and redis_conn.llen(key_queue) > 0:
+                list_coin_queue = redis_conn.lrange(key_queue, 0, -1)
+                if COIN_NAME not in list_coin_queue:
+                    redis_conn.lpush(key_queue, COIN_NAME)
+            elif redis_conn and redis_conn.llen(key_queue) == 0:
+                redis_conn.lpush(key_queue, COIN_NAME)
+            try:
+                # loop and waiting for another fetch
+                retry = 0
+                await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+                while True:
+                    key = "TIPBOT:MININGPOOL2:" + COIN_NAME
+                    key_p = key + ":POOLS" # TIPBOT:MININGPOOL2:COIN_NAME:POOLS
+                    await asyncio.sleep(5)
+                    if redis_conn and redis_conn.exists(key_p):
+                        result = json.loads(redis_conn.get(key_p).decode())
+                        try:
+                            embed = discord.Embed(title='Mining Pools for {}'.format(COIN_NAME), description='', colour=7047495)
+                            i = 0
+                            if result and len(result) > 0:
+                                pool_links = ''
+                                hash_rate = ''
+                                for each in result:
+                                    if i < 15 and i < len(result):
+                                        if len(each) >= 4:
+                                            hash_list = ['H/s', 'KH/s', 'MH/s', 'GH/s', 'TH/s', 'PH/s', 'EH/s']
+                                            if [ele for ele in hash_list if((ele in each[2]) and ('Hashrate' not in each[2]))]:
+                                                hash_rate = each[2]
+                                            elif [ele for ele in hash_list if((ele in each[3]) and ('Hashrate' not in each[3]))]:
+                                                hash_rate = each[3]
+                                            else:
+                                                hash_rate = ''
+                                            if hash_rate == '' and len(each) >= 5 and [ele for ele in hash_list if((ele in each[4]) and ('Hashrate' not in each[4]))]:
+                                                hash_rate = each[4]
+                                            elif hash_rate == '' and len(each) >= 6 and [ele for ele in hash_list if((ele in each[5]) and ('Hashrate' not in each[5]))]:
+                                                hash_rate = each[5]
+                                            elif hash_rate == '' and len(each) >= 7 and [ele for ele in hash_list if((ele in each[6]) and ('Hashrate' not in each[6]))]:
+                                                hash_rate = each[6]
+                                            pool_links += each[0] + ' ' + each[1] + ' ' + hash_rate + '\n'
+                                        else:
+                                            pool_links += each[0] + ' ' + each[1] + '\n'
+                                        i += 1
+                                try:
+                                    embed.add_field(name="List", value=pool_links)
+                                except Exception as e:
+                                    traceback.print_exc(file=sys.stdout)
+                            embed.add_field(name="OTHER LINKS", value="{} / {} / {} / {}".format("[More pools](https://miningpoolstats.stream/{})".format(COIN_NAME.lower()), "[Invite TipBot](http://invite.discord.bot.tips)", "[Support Server](https://discord.com/invite/GpHzURM)", "[TipBot Github](https://github.com/wrkzcoin/TipBot)"), inline=False)
+                            embed.set_footer(text="Data from https://miningpoolstats.stream")
+                            msg = await ctx.send(embed=embed)
+                            await msg.add_reaction(EMOJI_OK_BOX)
+                            await ctx.message.add_reaction(EMOJI_OK_HAND)
+                            break
+                            if ctx.message.author.id in MINGPOOLSTAT_IN_PROCESS:
+                                MINGPOOLSTAT_IN_PROCESS.remove(ctx.message.author.id)
+                            return
+                        except Exception as e:
+                            await ctx.message.add_reaction(EMOJI_ERROR)
+                            traceback.print_exc(file=sys.stdout)
+                            if ctx.message.author.id in MINGPOOLSTAT_IN_PROCESS:
+                                MINGPOOLSTAT_IN_PROCESS.remove(ctx.message.author.id)
+                            return
+                    elif redis_conn and not redis_conn.exists(key_p):
+                        retry += 1
+                    if retry >= 5:
+                        redis_conn.lrem(key_queue, 0, COIN_NAME)
+                        await ctx.message.add_reaction(EMOJI_ERROR)
+                        await ctx.send(f'{ctx.author.mention} We can not fetch data for **{COIN_NAME}**.')
+                        break
+                        if ctx.message.author.id in MINGPOOLSTAT_IN_PROCESS:
+                            MINGPOOLSTAT_IN_PROCESS.remove(ctx.message.author.id)
+                        return
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+    if ctx.message.author.id in MINGPOOLSTAT_IN_PROCESS:
+        MINGPOOLSTAT_IN_PROCESS.remove(ctx.message.author.id)
+    return
 
 
 @bot.command(pass_context=True, name='info', help=bot_help_info)
@@ -4871,7 +5251,13 @@ async def swap(ctx, amount: str, coin: str, to: str):
 
 @bot.command(pass_context=True, help=bot_help_take)
 async def take(ctx):
-    global FAUCET_COINS, FAUCET_MINMAX, TRTL_DISCORD, FAUCET_COINS_ROUND_NUMBERS, WITHDRAW_IN_PROCESS, IS_RESTARTING
+    global FAUCET_COINS, FAUCET_MINMAX, TRTL_DISCORD, WITHDRAW_IN_PROCESS, IS_RESTARTING
+    # bot check in the first place
+    if ctx.message.author.bot == True:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is not allowed using this.')
+        return
+
     # check if bot is going to restart
     if IS_RESTARTING:
         await ctx.message.add_reaction(EMOJI_REFRESH)
@@ -4950,7 +5336,7 @@ async def take(ctx):
         COIN_NAME = random.choice(FAUCET_COINS)
 
     has_forwardtip = None
-    amount = random.randint(FAUCET_MINMAX[COIN_NAME][0], FAUCET_MINMAX[COIN_NAME][1])
+    amount = random.randint(FAUCET_MINMAX[COIN_NAME][0]*get_decimal(COIN_NAME), FAUCET_MINMAX[COIN_NAME][1]*get_decimal(COIN_NAME))
 
     wallet = None
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
@@ -4960,12 +5346,9 @@ async def take(ctx):
     def myround_number(x, base=5):
         return base * round(x/base)
 
-    if COIN_NAME in FAUCET_COINS_ROUND_NUMBERS:
-        amount = myround_number(amount)
-        if amount == 0: amount = 5 
     if coin_family in ["TRTL", "BCN"]:
         COIN_DEC = get_decimal(COIN_NAME)
-        real_amount = int(amount * COIN_DEC)
+        real_amount = int(amount) # already real amount amount = random.randint( ....
         user_from = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
         if COIN_NAME in ENABLE_COIN_OFFCHAIN:
             userdata_balance = await store.sql_cnoff_balance(str(bot.user.id), COIN_NAME)
@@ -5013,12 +5396,12 @@ async def take(ctx):
 
     elif coin_family == "XMR":
         COIN_DEC = get_decimal(COIN_NAME)
-        real_amount = int(amount * COIN_DEC)
+        real_amount = int(amount) # already real amount amount = random.randint( ....
         user_from = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
         if user_from is None:
             user_from = await store.sql_register_user(str(bot.user.id), COIN_NAME, 'DISCORD')
             user_from = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
-        real_amount = int(amount * COIN_DEC)
+
         userdata_balance = await store.sql_xmr_balance(str(bot.user.id), COIN_NAME)
         if real_amount > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -8609,8 +8992,6 @@ def get_cn_coin_from_address(CoinAddress: str):
         COIN_NAME = "LOKI"
     elif CoinAddress.startswith("cms") and (len(CoinAddress) == 98 or len(CoinAddress) == 109):
         COIN_NAME = "BLOG"
-    elif (CoinAddress.startswith("ar") or CoinAddress.startswith("aR")) and (len(CoinAddress) == 97 or len(CoinAddress) == 98 or len(CoinAddress) == 109):
-        COIN_NAME = "ARQ"
     elif (CoinAddress.startswith("WW") and len(CoinAddress) == 97) or \
     (CoinAddress.startswith("Wo") and len(CoinAddress) == 97) or \
     (CoinAddress.startswith("So") and len(CoinAddress) == 108):
@@ -10393,7 +10774,7 @@ async def get_miningpoolstat_coin(coin: str):
                                 print(f'MININGPOOLSTAT: Error {link} Fetching from miningpoolstats')
                                 return None
             except asyncio.TimeoutError:
-                print('TIMEOUT: Fetching from miningpoolstats')
+                print(f'TIMEOUT: Fetching from miningpoolstats {COIN_NAME}')
             except Exception:
                 traceback.print_exc(file=sys.stdout)
         except Exception as e:

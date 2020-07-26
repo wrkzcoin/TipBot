@@ -2966,7 +2966,7 @@ async def sql_depositlink_user_delete_address(user_id: str, coin_name: str, user
 
 
 async def sql_miningpoolstat_fetch(coin_name: str, user_id: str, user_name: str, requested_date: int, \
-respond_date: int, response: str, guild_id: str, guild_name: str, channel_id: str, is_cache: str='NO', user_server: str='DISCORD'):
+respond_date: int, response: str, guild_id: str, guild_name: str, channel_id: str, is_cache: str='NO', user_server: str='DISCORD', using_browser: str='NO'):
     user_server = user_server.upper()
     if user_server not in ['DISCORD', 'TELEGRAM']:
         return
@@ -2974,10 +2974,10 @@ respond_date: int, response: str, guild_id: str, guild_name: str, channel_id: st
         openConnection()
         with conn.cursor() as cur:
             sql = """ INSERT INTO `miningpoolstat_fetch` (`coin_name`, `user_id`, `user_name`, `requested_date`, `respond_date`, 
-                      `response`, `guild_id`, `guild_name`, `channel_id`, `user_server`, `is_cache`)
-                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                      `response`, `guild_id`, `guild_name`, `channel_id`, `user_server`, `is_cache`, `using_browser`)
+                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
             cur.execute(sql, (coin_name, user_id, user_name, requested_date, respond_date, response, guild_id, 
-                              guild_name, channel_id, user_server, is_cache))
+                              guild_name, channel_id, user_server, is_cache, using_browser))
             conn.commit()
             return True
     except Exception as e:

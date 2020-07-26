@@ -3617,14 +3617,12 @@ async def pools(ctx, coin: str):
                 embed.set_footer(text="Data from https://miningpoolstats.stream")
                 try:
                     msg = await ctx.send(embed=embed)
-                    # async def sql_miningpoolstat_fetch(coin_name: str, user_id: str, user_name: str, requested_date: int, \
-                    # respond_date: int, response: str, guild_id: str, guild_name: str, channel_id: str, user_server: str='DISCORD'):
                     respond_date = int(time.time())
                     await store.sql_miningpoolstat_fetch(COIN_NAME, str(ctx.message.author.id), 
                                                         '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), 
                                                         requested_date, respond_date, json.dumps(get_pool_data), str(ctx.guild.id) if isinstance(ctx.channel, discord.DMChannel) == False else 'DM', 
                                                         ctx.guild.name if isinstance(ctx.channel, discord.DMChannel) == False else 'DM', 
-                                                        str(ctx.message.channel.id), is_cache, 'DISCORD')
+                                                        str(ctx.message.channel.id), is_cache, 'DISCORD', 'NO')
                     # sleep 3s
                     await asyncio.sleep(3)
                     await msg.add_reaction(EMOJI_OK_BOX)
@@ -3655,6 +3653,7 @@ async def pools(ctx, coin: str):
                     await asyncio.sleep(5)
                     if redis_conn and redis_conn.exists(key_p):
                         result = json.loads(redis_conn.get(key_p).decode())
+                        is_cache = 'NO'
                         try:
                             embed = discord.Embed(title='Mining Pools for {}'.format(COIN_NAME), description='', colour=7047495)
                             i = 0
@@ -3688,6 +3687,13 @@ async def pools(ctx, coin: str):
                             embed.add_field(name="OTHER LINKS", value="{} / {} / {} / {}".format("[More pools](https://miningpoolstats.stream/{})".format(COIN_NAME.lower()), "[Invite TipBot](http://invite.discord.bot.tips)", "[Support Server](https://discord.com/invite/GpHzURM)", "[TipBot Github](https://github.com/wrkzcoin/TipBot)"), inline=False)
                             embed.set_footer(text="Data from https://miningpoolstats.stream")
                             msg = await ctx.send(embed=embed)
+                            respond_date = int(time.time())
+                            await store.sql_miningpoolstat_fetch(COIN_NAME, str(ctx.message.author.id), 
+                                                                '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), 
+                                                                requested_date, respond_date, json.dumps(result), str(ctx.guild.id) if isinstance(ctx.channel, discord.DMChannel) == False else 'DM', 
+                                                                ctx.guild.name if isinstance(ctx.channel, discord.DMChannel) == False else 'DM', 
+                                                                str(ctx.message.channel.id), is_cache, 'DISCORD', 'YES')
+                            # sleep 3s
                             await msg.add_reaction(EMOJI_OK_BOX)
                             await ctx.message.add_reaction(EMOJI_OK_HAND)
                             break

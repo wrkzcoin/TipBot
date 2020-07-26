@@ -10741,14 +10741,14 @@ async def get_miningpool_coinlist():
         try:
             openRedis()
             try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(config.miningpoolstat.coinlist_link, timeout=config.miningpoolstat.timeout) as response:
-                        if response.status == 200:
-                            res_data = await response.read()
+                async with aiohttp.ClientSession() as cs:
+                    async with cs.get(config.miningpoolstat.coinlist_link, timeout=config.miningpoolstat.timeout) as r:
+                        if r.status == 200:
+                            res_data = await r.read()
                             res_data = res_data.decode('utf-8')
                             res_data = res_data.replace("var coin_list = ", "").replace(";", "")
-                            await session.close()
                             decoded_data = json.loads(res_data)
+                            await cs.close()
                             key = "TIPBOT:MININGPOOL:"
                             key_hint = "TIPBOT:MININGPOOL:SHORTNAME:"
                             if decoded_data and len(decoded_data) > 0:
@@ -10780,13 +10780,13 @@ async def get_miningpoolstat_coin(coin: str):
             try:
                 link = config.miningpoolstat.coinapi.replace("COIN_NAME", coin.lower())
                 print(f"Fetching {link}")
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(link, timeout=config.miningpoolstat.timeout) as response:
-                        if response.status == 200:
-                            res_data = await response.read()
+                async with aiohttp.ClientSession() as cs:
+                    async with cs.get(link, timeout=config.miningpoolstat.timeout) as r:
+                        if r.status == 200:
+                            res_data = await r.read()
                             res_data = res_data.decode('utf-8')
-                            await session.close()
                             decoded_data = json.loads(res_data)
+                            await cs.close()
                             if decoded_data and len(decoded_data) > 0 and 'data' in decoded_data:
                                 redis_conn.set(key, json.dumps(decoded_data), ex=config.miningpoolstat.expired)
                                 return decoded_data

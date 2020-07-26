@@ -2985,6 +2985,26 @@ respond_date: int, response: str, guild_id: str, guild_name: str, channel_id: st
     return False
 
 
+async def sql_add_tbfun(user_id: str, user_name: str, channel_id: str, guild_id: str, \
+guild_name: str, funcmd: str, msg_content: str, user_server: str='DISCORD'):
+    user_server = user_server.upper()
+    if user_server not in ['DISCORD', 'TELEGRAM']:
+        return
+    try:
+        openConnection()
+        with conn.cursor() as cur:
+            sql = """ INSERT INTO `discord_tbfun` (`user_id`, `user_name`, `channel_id`, `guild_id`, `guild_name`, 
+                      `funcmd`, `msg_content`, `time`, `user_server`)
+                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
+            cur.execute(sql, (user_id, user_name, channel_id, guild_id, guild_name, funcmd, msg_content, 
+                              int(time.time()), user_server))
+            conn.commit()
+            return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return False
+
+
 # Steal from https://nitratine.net/blog/post/encryption-and-decryption-in-python/
 def encrypt_string(to_encrypt: str):
     key = (config.encrypt.key).encode()

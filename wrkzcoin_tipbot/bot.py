@@ -882,7 +882,7 @@ async def punch(ctx, member: discord.Member = None):
             await ctx.send(file=discord.File(random_gif_name))
             os.remove(random_gif_name)
             await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
-            str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SPANK', ctx.message.content, 'DISCORD')
+            str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'PUNCH', ctx.message.content, 'DISCORD')
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
     except Exception as e:
@@ -909,7 +909,7 @@ async def slap(ctx, member: discord.Member = None):
             await ctx.send(file=discord.File(random_gif_name))
             os.remove(random_gif_name)
             await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
-            str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SPANK', ctx.message.content, 'DISCORD')
+            str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SLAP', ctx.message.content, 'DISCORD')
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
     except Exception as e:
@@ -936,7 +936,7 @@ async def praise(ctx, member: discord.Member = None):
             await ctx.send(file=discord.File(random_gif_name))
             os.remove(random_gif_name)
             await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
-            str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SPANK', ctx.message.content, 'DISCORD')
+            str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'PRAISE', ctx.message.content, 'DISCORD')
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
     except Exception as e:
@@ -963,7 +963,7 @@ async def shoot(ctx, member: discord.Member = None):
             await ctx.send(file=discord.File(random_gif_name))
             os.remove(random_gif_name)
             await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
-            str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SPANK', ctx.message.content, 'DISCORD')
+            str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SHOOT', ctx.message.content, 'DISCORD')
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
     except Exception as e:
@@ -990,7 +990,7 @@ async def kick(ctx, member: discord.Member = None):
             await ctx.send(file=discord.File(random_gif_name))
             os.remove(random_gif_name)
             await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
-            str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SPANK', ctx.message.content, 'DISCORD')
+            str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'KICK', ctx.message.content, 'DISCORD')
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
     except Exception as e:
@@ -1017,7 +1017,30 @@ async def fistbump(ctx, member: discord.Member = None):
             await ctx.send(file=discord.File(random_gif_name))
             os.remove(random_gif_name)
             await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
-            str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SPANK', ctx.message.content, 'DISCORD')
+            str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'FISTBUMP', ctx.message.content, 'DISCORD')
+        else:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return
+
+
+@tb.command(name='dance', help='Bean dance')
+async def dance(ctx):
+    if isinstance(ctx.channel, discord.DMChannel) == True:
+        return
+
+    user1 = str(ctx.message.author.avatar_url)
+    user2 = str(bot.user.avatar_url)
+
+    try:
+        random_gif_name = config.fun.fun_img_path + str(uuid.uuid4()) + ".gif"
+        fun_image = await tb_action(user1, user2, random_gif_name, 'DANCE', config.tbfun_image.single_dance_gif)
+        if fun_image:
+            await ctx.send(file=discord.File(random_gif_name))
+            os.remove(random_gif_name)
+            await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
+            str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'DANCE', ctx.message.content, 'DISCORD')
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
     except Exception as e:

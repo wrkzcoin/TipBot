@@ -37,6 +37,8 @@ async def action(url_image1: str, url_image2: str, saved_path: str, funcmd: str,
             basewidth = 65
         elif funcmd == 'FISTBUMP':
             basewidth = 80
+        elif funcmd == 'DANCE':
+            basewidth = 35
         img1 = Image.open(BytesIO(res_data1)).convert("RGBA")
         img2 = Image.open(BytesIO(res_data2)).convert("RGBA")
         wpercent = (basewidth/float(img1.size[0]))
@@ -128,9 +130,6 @@ async def action(url_image1: str, url_image2: str, saved_path: str, funcmd: str,
                 frame.paste(img1, (50, 15), mask=img1)
                 frame.paste(img2, (100, 100), mask=img2)
 
-                # size = 160, 80
-                # frame.thumbnail(size, Image.ANTIALIAS)
-
                 frames.append(frame)
             frames[0].save(saved_path, format='GIF', save_all=True, append_images=frames[1:], optimize=True, quality=75)
             return saved_path
@@ -143,8 +142,17 @@ async def action(url_image1: str, url_image2: str, saved_path: str, funcmd: str,
                 frame.paste(img1, (20, 25), mask=img1)
                 frame.paste(img2, (155, 35), mask=img2)
 
-                # size = 160, 80
-                # frame.thumbnail(size, Image.ANTIALIAS)
+                frames.append(frame)
+            frames[0].save(saved_path, format='GIF', save_all=True, append_images=frames[1:], optimize=True, quality=75)
+            return saved_path
+        elif funcmd == 'DANCE':
+            for frame in ImageSequence.Iterator(animated_gif):
+                frame = frame.convert('RGBA') # new
+                frame = frame.copy()
+                size = 480, 240
+                frame.thumbnail(size, Image.ANTIALIAS)
+                frame.paste(img1, (60, 20), mask=img1)
+                ## frame.paste(img2, (155, 35), mask=img2)
 
                 frames.append(frame)
             frames[0].save(saved_path, format='GIF', save_all=True, append_images=frames[1:], optimize=True, quality=75)

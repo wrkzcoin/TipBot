@@ -3401,9 +3401,9 @@ async def cg(ctx, ticker: str):
             return '{:,.10f}'.format(amount)
     if get_cg and len(get_cg) > 0:
         rank = ''
-        if 'name' in get_cg and 'mcap_ranking' in get_cg:
-            rank = '{} Rank {}'.format(get_cg['name'], get_cg['mcap_ranking'])
-        embed = discord.Embed(title='{} at CoinGecko'.format(ticker.upper()), description=''.format(rank), colour=7047495)
+        if 'name' in get_cg and 'mcap_ranking' in get_cg and get_cg['mcap_ranking']:
+            rank = '{} Rank #{}'.format(get_cg['name'], get_cg['mcap_ranking'])
+        embed = discord.Embed(title='{} at CoinGecko'.format(ticker.upper()), description='{}'.format(rank), timestamp=datetime.utcnow(), colour=7047495)
         if isinstance(get_cg['marketcap_USD'], float) and get_cg['marketcap_USD'] > 0:
             embed.add_field(name="MarketCap", value='{}USD'.format(format_amount(get_cg['marketcap_USD'])), inline=True)
         embed.add_field(name="High 24h", value='{}USD'.format(format_amount(get_cg['high24h_USD'])), inline=True)
@@ -3413,10 +3413,9 @@ async def cg(ctx, ticker: str):
         embed.add_field(name="Change (7d)", value='{:,.2f}%'.format(get_cg['price_change7d_percent']), inline=True)
         embed.add_field(name="Change (14d)", value='{:,.2f}%'.format(get_cg['price_change14d_percent']), inline=True)
         embed.add_field(name="Change (30d)", value='{:,.2f}%'.format(get_cg['price_change30d_percent']), inline=True)
+        embed.add_field(name="OTHER LINKS", value="{} / {} / {}".format("[Invite TipBot](http://invite.discord.bot.tips)", "[Support Server](https://discord.com/invite/GpHzURM)", "[TipBot Github](https://github.com/wrkzcoin/TipBot)"), inline=False)
         try:
-            fetch = datetime.utcfromtimestamp(int(get_cg['fetch_date'])).strftime("%Y-%m-%d %H:%M:%S")
-            ago = str(timeago.format(fetch, datetime.utcnow()))
-            embed.set_footer(text=f"Fetched from CoinGecko {ago} requested by {ctx.message.author.name}#{ctx.message.author.discriminator}")
+            embed.set_footer(text=f"Fetched from CoinGecko requested by {ctx.message.author.name}#{ctx.message.author.discriminator}")
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         try:
@@ -3424,9 +3423,9 @@ async def cg(ctx, ticker: str):
             await ctx.message.add_reaction(EMOJI_OK_HAND)
             await msg.add_reaction(EMOJI_OK_BOX)
         except (discord.Forbidden, discord.errors.Forbidden) as e:
-            message_price = '{} at CoinGecko'.format(ticker.upper())
-            if 'name' in get_cg and 'mcap_ranking' in get_cg:
-                message_price = '{} Rank {}'.format(get_cg['name'], get_cg['mcap_ranking'])
+            message_price = '{} at CoinGecko\n'.format(ticker.upper())
+            if 'name' in get_cg and 'mcap_ranking' in get_cg and get_cg['mcap_ranking']:
+                message_price += '{} Rank #{}'.format(get_cg['name'], get_cg['mcap_ranking'])
             if isinstance(get_cg['marketcap_USD'], float) and get_cg['marketcap_USD'] > 0:
                 message_price += 'MarketCap:    {}USD\n'.format(format_amount(get_cg['marketcap_USD']))
             message_price += 'High 24h:     {}USD\n'.format(format_amount(get_cg['high24h_USD']))

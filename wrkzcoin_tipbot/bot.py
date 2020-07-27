@@ -3379,6 +3379,80 @@ async def userinfo(ctx, member: discord.Member = None):
         await ctx.send(embed=error)
 
 
+@bot.command(pass_context=True, name='cg', aliases=['coingecko'], help='Get coin information from Coingecko')
+async def cg(ctx, ticker: str):
+    global TRTL_DISCORD
+    # TRTL discord
+    if isinstance(ctx.message.channel, discord.DMChannel) == False and ctx.guild.id == TRTL_DISCORD:
+        await ctx.message.add_reaction(EMOJI_ERROR) 
+        return
+
+    get_cg = await store.get_coingecko_coin(ticker)
+    def format_amount(amount: float):
+        if amount > 1:
+            return '{:,.2f}'.format(amount)
+        elif amount > 0.01:
+            return '{:,.4f}'.format(amount)
+        elif amount > 0.0001:
+            return '{:,.6f}'.format(amount)
+        elif amount > 0.000001:
+            return '{:,.8f}'.format(amount)
+        else:
+            return '{:,.10f}'.format(amount)
+    if get_cg and len(get_cg) > 0:
+        rank = ''
+        if 'name' in get_cg and 'mcap_ranking' in get_cg:
+            rank = '{} Rank {}'.format(get_cg['name'], get_cg['mcap_ranking'])
+        embed = discord.Embed(title='{} at CoinGecko'.format(ticker.upper()), description=''.format(rank), colour=7047495)
+        if isinstance(get_cg['marketcap_USD'], float) and get_cg['marketcap_USD'] > 0:
+            embed.add_field(name="MarketCap", value='{}USD'.format(format_amount(get_cg['marketcap_USD'])), inline=True)
+        embed.add_field(name="High 24h", value='{}USD'.format(format_amount(get_cg['high24h_USD'])), inline=True)
+        embed.add_field(name="Low 24h", value='{}USD'.format(format_amount(get_cg['low24h_USD'])), inline=True)
+        embed.add_field(name="Market Price", value='{}USD'.format(format_amount(get_cg['marketprice_USD'])), inline=True)
+        embed.add_field(name="Change (24h)", value='{:,.2f}%'.format(get_cg['price_change24h_percent']), inline=True)
+        embed.add_field(name="Change (7d)", value='{:,.2f}%'.format(get_cg['price_change7d_percent']), inline=True)
+        embed.add_field(name="Change (14d)", value='{:,.2f}%'.format(get_cg['price_change14d_percent']), inline=True)
+        embed.add_field(name="Change (30d)", value='{:,.2f}%'.format(get_cg['price_change30d_percent']), inline=True)
+        try:
+            fetch = datetime.utcfromtimestamp(int(get_cg['fetch_date'])).strftime("%Y-%m-%d %H:%M:%S")
+            ago = str(timeago.format(fetch, datetime.utcnow()))
+            embed.set_footer(text=f"Fetched from CoinGecko {ago} requested by {ctx.message.author.name}#{ctx.message.author.discriminator}")
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        try:
+            msg = await ctx.send(embed=embed)
+            await ctx.message.add_reaction(EMOJI_OK_HAND)
+            await msg.add_reaction(EMOJI_OK_BOX)
+        except (discord.Forbidden, discord.errors.Forbidden) as e:
+            message_price = '{} at CoinGecko'.format(ticker.upper())
+            if 'name' in get_cg and 'mcap_ranking' in get_cg:
+                message_price = '{} Rank {}'.format(get_cg['name'], get_cg['mcap_ranking'])
+            if isinstance(get_cg['marketcap_USD'], float) and get_cg['marketcap_USD'] > 0:
+                message_price += 'MarketCap:    {}USD\n'.format(format_amount(get_cg['marketcap_USD']))
+            message_price += 'High 24h:     {}USD\n'.format(format_amount(get_cg['high24h_USD']))
+            message_price += 'Low 24h:      {}USD\n'.format(format_amount(get_cg['low24h_USD']))
+            message_price += 'Market Price: {}USD\n'.format(format_amount(get_cg['marketprice_USD']))
+            message_price += 'Change 24h/7d/14d/30d:  {}%/{}%/{}%/{}%\n'.format(format_amount(get_cg['price_change24h_percent'], get_cg['price_change7d_percent'], get_cg['price_change14d_percent'], get_cg['price_change30d_percent']))
+            try:
+                fetch = datetime.utcfromtimestamp(int(get_cg['fetch_date'])).strftime("%Y-%m-%d %H:%M:%S")
+                ago = str(timeago.format(fetch, datetime.utcnow()))
+                message_price += f"Fetched from CoinGecko {ago} requested by {ctx.message.author.name}#{ctx.message.author.discriminator}"
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            try:
+                msg = await ctx.send(f'{ctx.author.mention}```{message_price}```')
+                await ctx.message.add_reaction(EMOJI_OK_HAND)
+                await msg.add_reaction(EMOJI_OK_BOX)
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                traceback.print_exc(file=sys.stdout)
+                return
+        return
+    else:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} I can not find the ticker **{ticker}** in CoinGecko.')
+    return
+
+
 @bot.command(pass_context=True, name='cal', aliases=['calcule', 'calculator', 'calc'], help=bot_help_cal)
 async def cal(ctx, eval_string: str = None):
     if isinstance(ctx.channel, discord.DMChannel) == True:

@@ -38,6 +38,19 @@ myconfig = {
 connPool = pymysqlpool.ConnectionPool(size=5, name='connPool', **myconfig)
 conn = connPool.get_connection(timeout=5, retry_num=2)
 
+myconfig_cmc = {
+    'host': config.mysql_cmc.host,
+    'user':config.mysql_cmc.user,
+    'password':config.mysql_cmc.password,
+    'database':config.mysql_cmc.db,
+    'charset':'utf8mb4',
+    'cursorclass': pymysql.cursors.DictCursor,
+    'autocommit':False
+    }
+
+connPool_cmc = pymysqlpool.ConnectionPool(size=2, name='connPool_cmc', **myconfig_cmc)
+conn_cmc = connPool_cmc.get_connection(timeout=5, retry_num=2)
+
 #conn = None
 sys.path.append("..")
 
@@ -79,6 +92,31 @@ def openConnection():
         sys.exit()
 
 
+# openConnection_cmc
+def openConnection_cmc():
+    global conn_cmc, connPool_cmc
+    try:
+        if conn_cmc is None:
+            conn_cmc = connPool_cmc.get_connection(timeout=5, retry_num=2)
+        conn_cmc.ping(reconnect=True)  # reconnecting mysql
+    except:
+        print("ERROR: Unexpected error: Could not connect to MySql for CMC instance.")
+        sys.exit()
+
+
+async def get_coingecko_coin(coin: str):
+    try:
+        openConnection_cmc()
+        with conn_cmc.cursor() as cur:
+            sql = """ SELECT * FROM coingecko_v2 WHERE `symbol`=%s ORDER BY `id` DESC LIMIT 1 """
+            cur.execute(sql, (coin.lower()))
+            result = cur.fetchone()
+            return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+
 async def get_all_user_balance_address(coin: str):
     try:
         openConnection()
@@ -91,9 +129,7 @@ async def get_all_user_balance_address(coin: str):
                 listAddr.append({'address':row['balance_wallet_address'], 'scanHeight': row['balance_wallet_address_ch'], 'privateSpendKey': decrypt_string(row['privateSpendKey'])})
             return listAddr
     except Exception as e:
-        print(e)
-    finally:
-        conn.close()
+        traceback.print_exc(file=sys.stdout)
 
 
 async def sql_update_balances(coin: str = None):

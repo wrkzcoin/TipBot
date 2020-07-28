@@ -187,6 +187,11 @@ EMOJI_DOWN = "\u2B07"
 EMOJI_FIRE = "\U0001F525"
 EMOJI_BOMB = "\U0001F4A3"
 
+EMOJI_UP_RIGHT = "\u2197"
+EMOJI_DOWN_RIGHT = "\u2198"
+EMOJI_CHART_DOWN = "\U0001F4C9"
+EMOJI_CHART_UP = "\U0001F4C8"
+
 EMOJI_LETTER_S = "\U0001F1F8"
 EMOJI_LETTER_H = "\U0001F1ED"
 
@@ -3409,10 +3414,10 @@ async def cg(ctx, ticker: str):
         embed.add_field(name="High 24h", value='{}USD'.format(format_amount(get_cg['high24h_USD'])), inline=True)
         embed.add_field(name="Low 24h", value='{}USD'.format(format_amount(get_cg['low24h_USD'])), inline=True)
         embed.add_field(name="Market Price", value='{}USD'.format(format_amount(get_cg['marketprice_USD'])), inline=True)
-        embed.add_field(name="Change (24h)", value='{:,.2f}%'.format(get_cg['price_change24h_percent']), inline=True)
-        embed.add_field(name="Change (7d)", value='{:,.2f}%'.format(get_cg['price_change7d_percent']), inline=True)
-        embed.add_field(name="Change (14d)", value='{:,.2f}%'.format(get_cg['price_change14d_percent']), inline=True)
-        embed.add_field(name="Change (30d)", value='{:,.2f}%'.format(get_cg['price_change30d_percent']), inline=True)
+        embed.add_field(name="Change (24h)", value='{:,.2f}%{}'.format(get_cg['price_change24h_percent'], EMOJI_CHART_DOWN if float(get_cg['price_change24h_percent']) < 0 else EMOJI_CHART_UP), inline=True)
+        embed.add_field(name="Change (7d)", value='{:,.2f}%{}'.format(get_cg['price_change7d_percent'], EMOJI_CHART_DOWN if float(get_cg['price_change7d_percent']) < 0 else EMOJI_CHART_UP), inline=True)
+        embed.add_field(name="Change (14d)", value='{:,.2f}%{}'.format(get_cg['price_change14d_percent'], EMOJI_CHART_DOWN if float(get_cg['price_change14d_percent']) < 0 else EMOJI_CHART_UP), inline=True)
+        embed.add_field(name="Change (30d)", value='{:,.2f}%{}'.format(get_cg['price_change30d_percent'], EMOJI_CHART_DOWN if float(get_cg['price_change30d_percent']) < 0 else EMOJI_CHART_UP), inline=True)
         embed.add_field(name="OTHER LINKS", value="{} / {} / {}".format("[Invite TipBot](http://invite.discord.bot.tips)", "[Support Server](https://discord.com/invite/GpHzURM)", "[TipBot Github](https://github.com/wrkzcoin/TipBot)"), inline=False)
         try:
             embed.set_footer(text=f"Fetched from CoinGecko requested by {ctx.message.author.name}#{ctx.message.author.discriminator}")

@@ -1207,7 +1207,7 @@ async def game(ctx):
 async def stat(ctx):
     get_game_stat = await store.sql_game_stat()
     if get_game_stat and len(get_game_stat) > 0:   
-        stat = discord.Embed(title='TipBot Game Stat', description='', colour=7047495)
+        stat = discord.Embed(title='TipBot Game Stat', description='', timestamp=datetime.utcnow(), colour=7047495)
         stat.add_field(name='Total Plays', value='{}'.format(get_game_stat['paid_play']+get_game_stat['free_play']), inline=True)
         stat.add_field(name='Total Free Plays', value='{}'.format(get_game_stat['free_play']), inline=True)
         stat.add_field(name='Total Paid Plays', value='{}'.format(get_game_stat['paid_play']), inline=True)

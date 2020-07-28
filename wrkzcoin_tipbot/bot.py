@@ -3695,7 +3695,7 @@ async def pools(ctx, coin: str):
             get_pool_data = await get_miningpoolstat_coin(COIN_NAME)
         if get_pool_data and 'data' in get_pool_data:
             try:
-                embed = discord.Embed(title='Mining Pools for {}'.format(COIN_NAME), description='', colour=7047495)
+                embed = discord.Embed(title='Mining Pools for {}'.format(COIN_NAME), description='', timestamp=datetime.utcnow(), colour=7047495)
                 if 'symbol' in get_pool_data:
                     embed.add_field(name="Ticker", value=get_pool_data['symbol'], inline=True)
                 if 'algo' in get_pool_data:
@@ -3772,7 +3772,7 @@ async def pools(ctx, coin: str):
                         result = json.loads(redis_conn.get(key_p).decode())
                         is_cache = 'NO'
                         try:
-                            embed = discord.Embed(title='Mining Pools for {}'.format(COIN_NAME), description='', colour=7047495)
+                            embed = discord.Embed(title='Mining Pools for {}'.format(COIN_NAME), description='', timestamp=datetime.utcnow(), colour=7047495)
                             i = 0
                             if result and len(result) > 0:
                                 pool_links = ''

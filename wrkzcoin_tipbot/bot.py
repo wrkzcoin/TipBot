@@ -8133,7 +8133,7 @@ async def stats(ctx, coin: str = None):
         get_all_m = bot.get_all_members()
         total_claimed = '{:,.0f}'.format(await store.sql_faucet_count_all())
         total_tx = await store.sql_count_tx_all()
-        embed = discord.Embed(title="[ TIPBOT ]", description="Bot Stats", color=0xDEADBF)
+        embed = discord.Embed(title="[ TIPBOT ]", description="TipBot Stats", timestamp=datetime.utcnow(), color=0xDEADBF)
         embed.set_author(name=bot.user.name, icon_url=bot.user.avatar_url)
         embed.add_field(name="Bot ID", value=str(bot.user.id), inline=True)
         embed.add_field(name="Guilds", value='{:,.0f}'.format(len(bot.guilds)), inline=True)

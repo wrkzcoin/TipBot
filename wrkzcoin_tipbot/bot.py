@@ -1375,6 +1375,8 @@ Rules:
     COIN_DEC = get_decimal(COIN_NAME)
     real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL"] else float(amount * COIN_DEC)
     result = f'You got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
+    if free_game == True:
+        result = f'You do not get any reward because it is a free game!'
     if dealerValue > 21:
         won = True
         await ctx.send('{} **BLACKJACK**\n'

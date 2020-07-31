@@ -4973,13 +4973,22 @@ async def donate(ctx, amount: str, coin: str = None):
         # if .donate list
         donate_list = await store.sql_get_donate_list()
         item_list = []
+        embed = discord.Embed(title='Donation List', timestamp=datetime.utcnow())
         for key, value in donate_list.items():
             if value:
                 coin_value = num_format_coin(value, key.upper())+key.upper()
                 item_list.append(coin_value)
+                embed.add_field(name=key.upper(), value=num_format_coin(value, key.upper())+key.upper(), inline=True)
+        embed.add_field(name="OTHER LINKS", value="{} / {} / {}".format("[Invite TipBot](http://invite.discord.bot.tips)", "[Support Server](https://discord.com/invite/GpHzURM)", "[TipBot Github](https://github.com/wrkzcoin/TipBot)"), inline=False)
         if len(item_list) > 0:
-            msg_coins = ', '.join(item_list)
-            await ctx.send(f'Thank you for checking. So far, we got donations:\n```{msg_coins}```')
+            try:
+                await ctx.send(embed=embed)
+            except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+                msg_coins = ', '.join(item_list)
+                try:
+                    await ctx.send(f'Thank you for checking. So far, we got donations:\n```{msg_coins}```')
+                except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+                    return
         return
 
     amount = amount.replace(",", "")

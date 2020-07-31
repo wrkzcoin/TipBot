@@ -1217,16 +1217,23 @@ async def sql_get_donate_list():
                 cur.execute(sql, (coin.upper()))
                 result = cur.fetchone()
                 if result['donate'] is None:
-                   donate_list.update({coin: 0})
+                    donate_list.update({coin: 0})
                 else:
-                   donate_list.update({coin: float(result['donate'])})
+                    donate_list.update({coin: float(result['donate'])})
+            # TRTL fam but in cnoff_mv_tx table
+            for coin in ENABLE_COIN:
+                sql = """ SELECT SUM(amount) AS donate FROM cnoff_mv_tx WHERE `coin_name`= %s AND `type`=%s """
+                cur.execute(sql, (coin.upper(), 'DONATE'))
+                result = cur.fetchone()
+                if result and result['donate'] and result['donate'] > 0:
+                    donate_list[coin] += float(result['donate'])
             # DOGE fam
             for coin in ENABLE_COIN_DOGE:
                 sql = """ SELECT SUM(amount) AS donate FROM doge_mv_tx WHERE `type`='DONATE' AND `to_userid`= %s AND `coin_name`= %s """
                 cur.execute(sql, ((wallet.get_donate_address(coin), coin.upper())))
                 result = cur.fetchone()
                 if result['donate'] is None:
-                   donate_list.update({coin: 0})
+                    donate_list.update({coin: 0})
                 else:
                    donate_list.update({coin: float(result['donate'])})
             # XTOR

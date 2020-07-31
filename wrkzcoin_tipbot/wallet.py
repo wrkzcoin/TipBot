@@ -552,17 +552,10 @@ def num_format_coin(amount, coin: str):
         coin_decimal = get_decimal(COIN_NAME)
     amount_str = 'Invalid.'
     if COIN_NAME in ["DOGE", "LTC", "BTC", "DASH", "BCH"]:
-        return '{:,.6f}'.format(amount)
-    if coin_decimal > 100000000:
-        amount_str = '{:,.8f}'.format(amount / coin_decimal)
-    elif coin_decimal > 1000000:
-        amount_str = '{:,.8f}'.format(amount / coin_decimal)
-    elif coin_decimal > 10000:
-        amount_str = '{:,.6f}'.format(amount / coin_decimal)
-    elif coin_decimal > 100:
-        amount_str = '{:,.4f}'.format(amount / coin_decimal)
+        # return '{:,.6f}'.format(amount)
+        return '{:,}'.format(float('%.12g' % (amount)))
     else:
-        amount_str = '{:,.2f}'.format(amount / coin_decimal)
+        return '{:,}'.format(float('%.12g' % (amount / coin_decimal)))
     return amount_str
 
 

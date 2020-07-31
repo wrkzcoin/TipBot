@@ -4023,6 +4023,7 @@ async def balance(ctx, coin: str = None):
     # Get wallet status
     walletStatus = None
     COIN_NAME = None
+    embed = discord.Embed(title='[ YOUR BALANCE LIST ]', timestamp=datetime.utcnow())
     if (coin is None) or (PUBMSG == "PUB") or (PUBMSG == "PUBLIC") or (PUBMSG == "LIST"):
         table_data = [
             ['TICKER', 'Available', 'TX']
@@ -4043,7 +4044,6 @@ async def balance(ctx, coin: str = None):
                         userdata_balance = await store.sql_cnoff_balance(str(ctx.message.author.id), COIN_NAME)
                         wallet['actual_balance'] = wallet['actual_balance'] + int(userdata_balance['Adjust'])
                     balance_actual = num_format_coin(wallet['actual_balance'], COIN_NAME)
-                    balance_total = num_format_coin((wallet['actual_balance'] + wallet['locked_balance']), COIN_NAME)
                     coinName = COIN_NAME
                     if COIN_NAME not in ENABLE_COIN_OFFCHAIN:
                         if wallet['user_wallet_address'] is None:
@@ -4054,7 +4054,9 @@ async def balance(ctx, coin: str = None):
                         if coin:
                             table_data.append([coinName, balance_actual, "YES" if is_coin_txable(COIN_NAME) else "NO"])
                         else:
-                            table_data_str.append("{}{}".format(balance_actual, coinName))
+                            if wallet['actual_balance'] > 0:
+                                table_data_str.append("{}{}".format(balance_actual, coinName))
+                                embed.add_field(name=COIN_NAME, value=balance_actual+COIN_NAME, inline=True)
                     pass
             else:
                 if coin: table_data.append([COIN_NAME, "***", "***"])
@@ -4065,16 +4067,18 @@ async def balance(ctx, coin: str = None):
                     userwallet = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
                     userwallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
                 depositAddress = userwallet['balance_wallet_address']
-                actual = userwallet['actual_balance']
                 userdata_balance = await store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
-                balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
+                actual = userwallet['actual_balance'] + float(userdata_balance['Adjust'])
+                balance_actual = num_format_coin(actual, COIN_NAME)
                 wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
                 if wallet['user_wallet_address'] is None:
                     COIN_NAME += '*'
                 if coin:
                     table_data.append([COIN_NAME, balance_actual, "YES" if is_coin_txable(COIN_NAME) else "NO"])
                 else:
-                    table_data_str.append("{}{}".format(balance_actual, COIN_NAME))
+                    if actual != 0:
+                        table_data_str.append("{}{}".format(balance_actual, COIN_NAME))
+                        embed.add_field(name=COIN_NAME, value=balance_actual+COIN_NAME, inline=True)
             else:
                 table_data.append([COIN_NAME, "***", "***"])
         for COIN_NAME in [coinItem.upper() for coinItem in ENABLE_XMR]:
@@ -4084,16 +4088,19 @@ async def balance(ctx, coin: str = None):
                     userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
                     wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
                 if wallet:
-                    actual = wallet['actual_balance']
+                    
                     userdata_balance = await store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
-                    balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
+                    actual = wallet['actual_balance'] + float(userdata_balance['Adjust'])
+                    balance_actual = num_format_coin(actual, COIN_NAME)
                     if wallet['user_wallet_address'] is None:
                         COIN_NAME += '*'
-                    if actual + float(userdata_balance['Adjust']) != 0:
+                    if actual != 0:
                         if coin:
                             table_data.append([COIN_NAME, balance_actual, "YES" if is_coin_txable(COIN_NAME) else "NO"])
                         else:
-                            table_data_str.append("{}{}".format(balance_actual, COIN_NAME))
+                            if actual != 0:
+                                table_data_str.append("{}{}".format(balance_actual, COIN_NAME))
+                                embed.add_field(name=COIN_NAME, value=balance_actual+COIN_NAME, inline=True)
             else:
                 table_data.append([COIN_NAME, "***", "***"])
         table = AsciiTable(table_data)
@@ -4103,10 +4110,13 @@ async def balance(ctx, coin: str = None):
         table.padding_right = 0
         await ctx.message.add_reaction(EMOJI_OK_HAND)
         if coin is None:
-            table_data_str = ", ".join(table_data_str)
-            msg = await ctx.message.author.send('**[ BALANCE LIST ]**\n'
-                            f'```{table_data_str}```'
-                            f'Related command: `{prefix}balance TICKER` or `{prefix}deposit TICKER` or `{prefix}balance LIST`\n')
+            # table_data_str = ", ".join(table_data_str)
+            embed.add_field(name='Related commands', value=f'`{prefix}balance TICKER` or `{prefix}deposit TICKER` or `{prefix}balance LIST`', inline=False)
+            try:
+                msg = await ctx.send(embed=embed)
+            except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+                await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
+                return
         else:
             if PUBMSG.upper() == "PUB" or PUBMSG.upper() == "PUBLIC":
                 msg = await ctx.send('**[ BALANCE LIST ]**\n'
@@ -10714,7 +10724,6 @@ async def bot_faucet(ctx):
             userdata_balance = await store.sql_cnoff_balance(str(bot.user.id), COIN_NAME)
             wallet['actual_balance'] = wallet['actual_balance'] + int(userdata_balance['Adjust'])
         balance_actual = num_format_coin(wallet['actual_balance'], COIN_NAME)
-        balance_total = num_format_coin((wallet['actual_balance'] + wallet['locked_balance']), COIN_NAME)
         if wallet['actual_balance'] + wallet['locked_balance'] != 0:
             table_data.append([COIN_NAME, balance_actual])
         else:
@@ -10736,7 +10745,6 @@ async def bot_faucet(ctx):
                 userdata_balance = await store.sql_cnoff_balance(str(bot.user.id), COIN_NAME)
                 wallet['actual_balance'] = wallet['actual_balance'] + int(userdata_balance['Adjust'])
             balance_actual = num_format_coin(wallet['actual_balance'], COIN_NAME)
-            balance_total = num_format_coin((wallet['actual_balance'] + wallet['locked_balance']), COIN_NAME)
             if wallet['actual_balance'] + wallet['locked_balance'] != 0:
                 table_data.append([COIN_NAME, balance_actual])
             else:

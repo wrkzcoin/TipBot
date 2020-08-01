@@ -4113,7 +4113,7 @@ async def balance(ctx, coin: str = None):
             # table_data_str = ", ".join(table_data_str)
             embed.add_field(name='Related commands', value=f'`{prefix}balance TICKER` or `{prefix}deposit TICKER` or `{prefix}balance LIST`', inline=False)
             try:
-                msg = await ctx.send(embed=embed)
+                msg = await ctx.message.author.send(embed=embed)
             except (discord.errors.NotFound, discord.errors.Forbidden) as e:
                 await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
                 return

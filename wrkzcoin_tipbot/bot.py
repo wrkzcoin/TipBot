@@ -5392,12 +5392,22 @@ async def swap(ctx, amount: str, coin: str, to: str):
 
 
 @bot.command(pass_context=True, help=bot_help_take)
-async def take(ctx):
+async def take(ctx, info: str=None):
     global FAUCET_COINS, FAUCET_MINMAX, TRTL_DISCORD, WITHDRAW_IN_PROCESS, IS_RESTARTING
     # bot check in the first place
     if ctx.message.author.bot == True:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is not allowed using this.')
+        return
+
+    remaining = await bot_faucet(ctx) or ''
+    total_claimed = '{:,.0f}'.format(await store.sql_faucet_count_all())
+    if info:
+        await ctx.message.add_reaction(EMOJI_OK_HAND)
+        msg = await ctx.send(f'{ctx.author.mention} Faucet balance:\n```{remaining}```'
+                             f'Total user claims: **{total_claimed}** times. '
+                             f'Tip me if you want to feed these faucets.')
+        await msg.add_reaction(EMOJI_OK_BOX)
         return
 
     # check if bot is going to restart
@@ -5459,11 +5469,9 @@ async def take(ctx):
     if check_claimed:
         # limit 12 hours
         if int(time.time()) - check_claimed['claimed_at'] <= claim_interval*3600:
-            remaining = await bot_faucet(ctx) or ''
             time_waiting = seconds_str(claim_interval*3600 - int(time.time()) + check_claimed['claimed_at'])
             user_claims = await store.sql_faucet_count_user(str(ctx.message.author.id))
             number_user_claimed = '{:,.0f}'.format(user_claims, 'DISCORD')
-            total_claimed = '{:,.0f}'.format(await store.sql_faucet_count_all())
             await ctx.message.add_reaction(EMOJI_ERROR)
             msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You just claimed within last {claim_interval}h. '
                                  f'Waiting time {time_waiting} for next **take**. Faucet balance:\n```{remaining}```'
@@ -5918,7 +5926,7 @@ async def tip(ctx, amount: str, *args):
                             await ctx.message.add_reaction(EMOJI_ERROR)
                             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Please use normal tip command. There are only few users.')
                             return
-                        # Check if we really have that many user in the guild 50%
+                        # Check if we really have that many user in the guild 20%
                         elif num_user > 0.2 * len(ctx.guild.members):
                             await ctx.message.add_reaction(EMOJI_ERROR)
                             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} We allowed to seek not more than 20% of total guild members. Current max is **{int(0.2*len(ctx.guild.members))}**.')
@@ -10683,28 +10691,8 @@ def set_coin_tipable(coin: str, set_tipable: bool = True):
 async def bot_faucet(ctx):
     global TRTL_DISCORD
     table_data = [
-        ['TICKER', 'Available']
+        ['TICKER', 'Available', 'Claimed']
     ]
-    # TRTL discord
-    if ctx.guild.id == TRTL_DISCORD:
-        COIN_NAME = "TRTL"
-        wallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
-        if wallet is None:
-            wallet = await store.sql_register_user(str(bot.user.id), COIN_NAME, 'DISCORD')
-            wallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
-        if COIN_NAME in ENABLE_COIN_OFFCHAIN:
-            userdata_balance = await store.sql_cnoff_balance(str(bot.user.id), COIN_NAME)
-            wallet['actual_balance'] = wallet['actual_balance'] + int(userdata_balance['Adjust'])
-        balance_actual = num_format_coin(wallet['actual_balance'], COIN_NAME)
-        if wallet['actual_balance'] + wallet['locked_balance'] != 0:
-            table_data.append([COIN_NAME, balance_actual])
-        else:
-            table_data.append([COIN_NAME, '0'])
-        table = AsciiTable(table_data)
-        table.padding_left = 0
-        table.padding_right = 0
-        return table.table
-    # End TRTL discord
     for COIN_NAME in [coinItem.upper() for coinItem in FAUCET_COINS]:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
         if (not is_maintenance_coin(COIN_NAME)) and coin_family in ["TRTL", "BCN"]:
@@ -10717,10 +10705,12 @@ async def bot_faucet(ctx):
                 userdata_balance = await store.sql_cnoff_balance(str(bot.user.id), COIN_NAME)
                 wallet['actual_balance'] = wallet['actual_balance'] + int(userdata_balance['Adjust'])
             balance_actual = num_format_coin(wallet['actual_balance'], COIN_NAME)
+            get_claimed_count = await store.sql_faucet_sum_count_claimed(COIN_NAME)
+            sub_claim = num_format_coin(float(get_claimed_count['claimed']), COIN_NAME) if get_claimed_count['count'] > 0 else f"0.00{COIN_NAME}"
             if wallet['actual_balance'] + wallet['locked_balance'] != 0:
-                table_data.append([COIN_NAME, balance_actual])
+                table_data.append([COIN_NAME, balance_actual, sub_claim])
             else:
-                table_data.append([COIN_NAME, '0'])
+                table_data.append([COIN_NAME, '0', sub_claim])
     # Add DOGE
     COIN_NAME = "DOGE"
     if (not is_maintenance_coin(COIN_NAME)) and (COIN_NAME in FAUCET_COINS):
@@ -10731,7 +10721,9 @@ async def bot_faucet(ctx):
         actual = userwallet['actual_balance']
         userdata_balance = await store.sql_doge_balance(str(bot.user.id), COIN_NAME)
         balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
-        table_data.append([COIN_NAME, balance_actual])
+        get_claimed_count = await store.sql_faucet_sum_count_claimed(COIN_NAME)
+        sub_claim = num_format_coin(float(get_claimed_count['claimed']), COIN_NAME) if get_claimed_count['count'] > 0 else f"0.00{COIN_NAME}"
+        table_data.append([COIN_NAME, balance_actual, sub_claim])
     table = AsciiTable(table_data)
     table.padding_left = 0
     table.padding_right = 0

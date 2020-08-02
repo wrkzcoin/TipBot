@@ -1436,6 +1436,24 @@ async def sql_faucet_count_all():
         traceback.print_exc(file=sys.stdout)
 
 
+async def sql_faucet_sum_count_claimed(coin: str):
+    COIN_NAME = coin.upper()
+    global conn
+    try:
+        openConnection()
+        with conn.cursor() as cur:
+            sql = """ SELECT SUM(claimed_amount) as claimed, COUNT(claimed_amount) as count FROM discord_faucet
+                      WHERE `coin_name`=%s """
+            cur.execute(sql, (COIN_NAME))
+            result = cur.fetchone()
+            # {'claimed_amount': xxx, 'count': xxx}
+            # print(result)
+            return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+
 async def sql_game_count_user(userID: str, lastDuration: int, user_server: str = 'DISCORD', free: bool=False):
     global conn
     lapDuration = int(time.time()) - lastDuration

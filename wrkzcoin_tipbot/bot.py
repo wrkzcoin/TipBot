@@ -5914,7 +5914,16 @@ async def tip(ctx, amount: str, *args):
                     num_user = num_user.replace("u", "")
                     try:
                         num_user = int(num_user)
-                        if num_user > 0:
+                        if len(ctx.guild.members) <= 10:
+                            await ctx.message.add_reaction(EMOJI_ERROR)
+                            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Please use normal tip command. There are only few users.')
+                            return
+                        # Check if we really have that many user in the guild 50%
+                        elif num_user > 0.2 * len(ctx.guild.members):
+                            await ctx.message.add_reaction(EMOJI_ERROR)
+                            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} We allowed to seek not more than 20% of total guild members. Current max is **{int(0.2*len(ctx.guild.members))}**.')
+                            return
+                        elif num_user > 0:
                             message_talker = await store.sql_get_messages(str(ctx.message.guild.id), str(ctx.message.channel.id), 0, num_user + 1)
                             if ctx.message.author.id in message_talker:
                                 message_talker.remove(ctx.message.author.id)
@@ -6378,7 +6387,7 @@ async def tipall(ctx, amount: str, *args):
         MinTx = get_min_mv_amount(COIN_NAME)
         MaxTX = get_max_mv_amount(COIN_NAME)
         NetFee = get_tx_fee(coin = COIN_NAME) if (COIN_NAME not in ENABLE_COIN_OFFCHAIN) else 0
-        listMembers = [member for member in ctx.guild.members if member.status != discord.Status.offline]
+        listMembers = [member for member in ctx.guild.members if member.status != discord.Status.offline and member.bot == False]
         print("Number of tip-all in {}: {}".format(ctx.guild.name, len(listMembers)))
         # Check number of receivers.
         if (len(listMembers) > config.tipallMax) and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
@@ -6403,23 +6412,13 @@ async def tipall(ctx, amount: str, *args):
         addresses = []
         for member in listMembers:
             # print(member.name) # you'll just print out Member objects your way.
-            if ctx.message.author.id != member.id:
+            if ctx.message.author.id != member.id and member.id != bot.user.id:
                 user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
                 if user_to is None:
                     userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD')
                     user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
-                if str(member.status) != 'offline':
-                    if member.bot == False:
-                        address_to = None
-                        if user_to['forwardtip'] == "ON" and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
-                            has_forwardtip = True
-                            address_to = user_to['user_wallet_address']
-                        else:
-                            address_to = user_to['balance_wallet_address']
-                            addresses.append(address_to)
-                        if address_to:
-                            list_receivers.append(str(member.id))
-                            memids.append(address_to)
+                list_receivers.append(str(member.id))
+                memids.append(user_to['balance_wallet_address'])
 
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if user_from is None:
@@ -6520,23 +6519,21 @@ async def tipall(ctx, amount: str, *args):
             numMsg = 0
             for member in listMembers:
                 # print(member.name) # you'll just print out Member objects your way.
-                if ctx.message.author.id != member.id:
-                    if str(member.status) != 'offline':
-                        if member.bot == False:
-                            if str(member.id) not in notifyList:
-                                # random user to DM
-                                dm_user = bool(random.getrandbits(1)) if len(listMembers) > config.tipallMax_LimitDM else True
-                                if dm_user:
-                                    try:
-                                        user = bot.get_user(id=member.id)
-                                        await user.send(
-                                            f'{EMOJI_MONEYFACE} You got a tip of {amountDiv_str} '
-                                            f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} `.tipall` in server `{servername}`\n'
-                                            f'{tip_tx_tipper}\n'
-                                            f'{NOTIFICATION_OFF_CMD}')
-                                        numMsg += 1
-                                    except (discord.Forbidden, discord.errors.Forbidden) as e:
-                                        await store.sql_toggle_tipnotify(str(member.id), "OFF")
+                if ctx.message.author.id != member.id and member.id != bot.user.id:
+                    if str(member.id) not in notifyList:
+                        # random user to DM
+                        dm_user = bool(random.getrandbits(1)) if len(listMembers) > config.tipallMax_LimitDM else True
+                        if dm_user:
+                            try:
+                                user = bot.get_user(id=member.id)
+                                await user.send(
+                                    f'{EMOJI_MONEYFACE} You got a tip of {amountDiv_str} '
+                                    f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} `.tipall` in server `{servername}`\n'
+                                    f'{tip_tx_tipper}\n'
+                                    f'{NOTIFICATION_OFF_CMD}')
+                                numMsg += 1
+                            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                                await store.sql_toggle_tipnotify(str(member.id), "OFF")
                 if numMsg >= config.tipallMax_LimitDM:
                     # stop DM if reaches
                     break
@@ -6577,7 +6574,7 @@ async def tipall(ctx, amount: str, *args):
                             f'{num_format_coin(real_amount, COIN_NAME)} '
                             f'{COIN_NAME}.')
             return
-        listMembers = [member for member in ctx.guild.members if member.status != discord.Status.offline]
+        listMembers = [member for member in ctx.guild.members if member.status != discord.Status.offline and member.bot == False]
         print("Number of tip-all in {}: {}".format(ctx.guild.name, len(listMembers)))
         # Check number of receivers.
         if len(listMembers) > config.tipallMax_Offchain:
@@ -6620,21 +6617,19 @@ async def tipall(ctx, amount: str, *args):
                 await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
             numMsg = 0
             for member in listMembers:
-                if ctx.message.author.id != member.id:
-                    if str(member.status) != 'offline':
-                        if member.bot == False:
-                            if str(member.id) not in notifyList:
-                                # random user to DM
-                                dm_user = bool(random.getrandbits(1)) if len(listMembers) > config.tipallMax_LimitDM else True
-                                if dm_user:
-                                    try:
-                                        await member.send(
-                                            f'{EMOJI_MONEYFACE} You got a tip of {amountDiv_str} '
-                                            f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} `.tipall` in server `{servername}`\n'
-                                            f'{NOTIFICATION_OFF_CMD}')
-                                        numMsg += 1
-                                    except (discord.Forbidden, discord.errors.Forbidden) as e:
-                                        await store.sql_toggle_tipnotify(str(member.id), "OFF")
+                if ctx.message.author.id != member.id and member.id != bot.user.id:
+                    if str(member.id) not in notifyList:
+                        # random user to DM
+                        dm_user = bool(random.getrandbits(1)) if len(listMembers) > config.tipallMax_LimitDM else True
+                        if dm_user:
+                            try:
+                                await member.send(
+                                    f'{EMOJI_MONEYFACE} You got a tip of {amountDiv_str} '
+                                    f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} `.tipall` in server `{servername}`\n'
+                                    f'{NOTIFICATION_OFF_CMD}')
+                                numMsg += 1
+                            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                                await store.sql_toggle_tipnotify(str(member.id), "OFF")
                 if numMsg >= config.tipallMax_LimitDM:
                     # stop DM if reaches
                     break
@@ -6672,7 +6667,7 @@ async def tipall(ctx, amount: str, *args):
                             f'{num_format_coin(real_amount, COIN_NAME)} '
                             f'{COIN_NAME}.')
             return
-        listMembers = [member for member in ctx.guild.members if member.status != discord.Status.offline]
+        listMembers = [member for member in ctx.guild.members if member.status != discord.Status.offline and member.bot == False]
         print("Number of tip-all in {}: {}".format(ctx.guild.name, len(listMembers)))
         # Check number of receivers.
         if len(listMembers) > config.tipallMax_Offchain:
@@ -6718,21 +6713,19 @@ async def tipall(ctx, amount: str, *args):
                 await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
             numMsg = 0
             for member in listMembers:
-                if ctx.message.author.id != member.id:
-                    if str(member.status) != 'offline':
-                        if member.bot == False:
-                            if str(member.id) not in notifyList:
-                                # random user to DM
-                                dm_user = bool(random.getrandbits(1)) if len(listMembers) > config.tipallMax_LimitDM else True
-                                if dm_user:
-                                    try:
-                                        await member.send(
-                                            f'{EMOJI_MONEYFACE} You got a tip of {amountDiv_str} '
-                                            f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} `.tipall` in server `{servername}`\n'
-                                            f'{NOTIFICATION_OFF_CMD}')
-                                        numMsg += 1
-                                    except (discord.Forbidden, discord.errors.Forbidden) as e:
-                                        await store.sql_toggle_tipnotify(str(member.id), "OFF")
+                if ctx.message.author.id != member.id and member.id != bot.user.id:
+                    if str(member.id) not in notifyList:
+                        # random user to DM
+                        dm_user = bool(random.getrandbits(1)) if len(listMembers) > config.tipallMax_LimitDM else True
+                        if dm_user:
+                            try:
+                                await member.send(
+                                    f'{EMOJI_MONEYFACE} You got a tip of {amountDiv_str} '
+                                    f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} `.tipall` in server `{servername}`\n'
+                                    f'{NOTIFICATION_OFF_CMD}')
+                                numMsg += 1
+                            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                                await store.sql_toggle_tipnotify(str(member.id), "OFF")
                 if numMsg >= config.tipallMax_LimitDM:
                     # stop DM if reaches
                     break
@@ -9605,16 +9598,9 @@ async def _tip(ctx, amount, coin: str):
                 if user_to is None:
                     userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD')
                     user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
-                address_to = None
-                if user_to['forwardtip'] == "ON":
-                    address_to = user_to['user_wallet_address']
-                    has_forwardtip = True
-                else:
-                    address_to = user_to['balance_wallet_address']
-                    addresses.append(address_to)
-                if address_to:
-                    list_receivers.append(str(member.id))
-                    memids.append(address_to)
+
+                list_receivers.append(str(member.id))
+                memids.append(user_to['balance_wallet_address'])
 
         for desti in memids:
             destinations.append({"address": desti, "amount": real_amount})
@@ -9948,16 +9934,9 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
                     if user_to is None:
                         userregister = await store.sql_register_user(str(member_id), COIN_NAME, 'DISCORD')
                         user_to = await store.sql_get_userwallet(str(member_id), COIN_NAME)
-                    address_to = None
-                    if user_to['forwardtip'] == "ON":
-                        has_forwardtip = True
-                        address_to = user_to['user_wallet_address']
-                    else:
-                        address_to = user_to['balance_wallet_address']
-                        addresses.append(address_to)
-                    if address_to:
-                        list_receivers.append(str(member_id))
-                        memids.append(address_to)
+
+                    list_receivers.append(str(member_id))
+                    memids.append(user_to['balance_wallet_address'])
 
 
         # Check number of receivers.
@@ -10303,16 +10282,9 @@ async def _tip_react(reaction, user, amount, coin: str):
                 if user_to is None:
                     userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD')
                     user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
-                address_to = None
-                if user_to['forwardtip'] == "ON":
-                    address_to = user_to['user_wallet_address']
-                    has_forwardtip = True
-                else:
-                    address_to = user_to['balance_wallet_address']
-                    addresses.append(address_to)
-                if address_to:
-                    list_receivers.append(str(member.id))
-                    memids.append(address_to)
+
+                list_receivers.append(str(member.id))
+                memids.append(user_to['balance_wallet_address'])
 
         for desti in memids:
             destinations.append({"address": desti, "amount": real_amount})

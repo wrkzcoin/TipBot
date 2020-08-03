@@ -5669,6 +5669,11 @@ async def freetip(ctx, amount: str, coin: str):
     if ctx.guild.id == TRTL_DISCORD and COIN_NAME != "TRTL":
         return
 
+    if COIN_NAME not in (ENABLE_COIN + ENABLE_XMR + ENABLE_COIN_DOGE):
+        msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} **{COIN_NAME}** is not in our supported coins.')
+        await msg.add_reaction(EMOJI_OK_BOX)
+        return
+
     if not is_coin_tipable(COIN_NAME):
         msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} TIPPING is currently disable for {COIN_NAME}.')
         await msg.add_reaction(EMOJI_OK_BOX)

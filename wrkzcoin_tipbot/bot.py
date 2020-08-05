@@ -4568,6 +4568,13 @@ async def withdraw(ctx, amount: str, coin: str = None):
         return
     # end of check if account locked
 
+    # Check if tx in progress
+    if ctx.message.author.id in TX_IN_PROCESS:
+        await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+        msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+        await msg.add_reaction(EMOJI_OK_BOX)
+        return
+
     botLogChan = bot.get_channel(id=LOG_CHAN)
     amount = amount.replace(",", "")
 
@@ -4710,14 +4717,25 @@ async def withdraw(ctx, amount: str, coin: str = None):
 
         withdrawal = None
         try:
-            withdrawal = await store.sql_withdraw(str(ctx.message.author.id), real_amount, COIN_NAME)
-            tip_tx_tipper = "Transaction hash: `{}`".format(withdrawal['transactionHash'])
-            tip_tx_tipper += "\nTx Fee: `{}{}`".format(num_format_coin(withdrawal['fee'], COIN_NAME), COIN_NAME)
-            # add redis action
-            await add_tx_action_redis(json.dumps([random_string, "WITHDRAW", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, "DISCORD", "COMPLETE"]), False)
+            if ctx.message.author.id not in TX_IN_PROCESS:
+                TX_IN_PROCESS.append(ctx.message.author.id)
+                try:
+                    withdrawal = await store.sql_withdraw(str(ctx.message.author.id), real_amount, COIN_NAME)
+                    tip_tx_tipper = "Transaction hash: `{}`".format(withdrawal['transactionHash'])
+                    tip_tx_tipper += "\nTx Fee: `{}{}`".format(num_format_coin(withdrawal['fee'], COIN_NAME), COIN_NAME)
+                    # add redis action
+                    await add_tx_action_redis(json.dumps([random_string, "WITHDRAW", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, "DISCORD", "COMPLETE"]), False)
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                await asyncio.sleep(config.interval.tx_lap_each)
+                TX_IN_PROCESS.remove(ctx.message.author.id)
+            else:
+                await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+                msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+                await msg.add_reaction(EMOJI_OK_BOX)
+                return
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-
         if withdrawal:
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
             await botLogChan.send(f'A user successfully executed `.withdraw {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`')
@@ -4795,6 +4813,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
                     await add_tx_action_redis(json.dumps([random_string, "WITHDRAW", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, "DISCORD", "COMPLETE"]), False)
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
+                await asyncio.sleep(config.interval.tx_lap_each)
                 TX_IN_PROCESS.remove(ctx.message.author.id)
             else:
                 # reject and tell to wait
@@ -4867,8 +4886,10 @@ async def withdraw(ctx, amount: str, coin: str = None):
                     await add_tx_action_redis(json.dumps([random_string, "WITHDRAW", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, "DISCORD", "COMPLETE"]), False)
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
+            await asyncio.sleep(config.interval.tx_lap_each)
             TX_IN_PROCESS.remove(ctx.message.author.id)
         else:
+            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
             msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
             await msg.add_reaction(EMOJI_OK_BOX)
             return
@@ -4893,7 +4914,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
 
 @bot.command(pass_context=True, help=bot_help_donate)
 async def donate(ctx, amount: str, coin: str = None):
-    global IS_RESTARTING
+    global IS_RESTARTING, TX_IN_PROCESS
     # check if bot is going to restart
     if IS_RESTARTING:
         await ctx.message.add_reaction(EMOJI_REFRESH)
@@ -4906,6 +4927,13 @@ async def donate(ctx, amount: str, coin: str = None):
         await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
         return
     # end of check if account locked
+
+    # Check if tx in progress
+    if ctx.message.author.id in TX_IN_PROCESS:
+        await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+        msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+        await msg.add_reaction(EMOJI_OK_BOX)
+        return
 
     botLogChan = bot.get_channel(id=LOG_CHAN)
     donate_msg = ''
@@ -5207,7 +5235,7 @@ async def notifytip(ctx, onoff: str):
 
 @bot.command(pass_context=True, help=bot_help_swap)
 async def swap(ctx, amount: str, coin: str, to: str):
-    global IS_RESTARTING, TRTL_DISCORD
+    global IS_RESTARTING, TRTL_DISCORD, TX_IN_PROCESS
 
     # disable swap for TRTL discord
     if ctx.guild and ctx.guild.id == TRTL_DISCORD:
@@ -5233,6 +5261,13 @@ async def swap(ctx, amount: str, coin: str, to: str):
         await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
         return
     # end of check if account locked
+
+    # Check if tx in progress
+    if ctx.message.author.id in TX_IN_PROCESS:
+        await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+        msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+        await msg.add_reaction(EMOJI_OK_BOX)
+        return
 
     amount = amount.replace(",", "")
     try:
@@ -5305,7 +5340,16 @@ async def swap(ctx, amount: str, coin: str, to: str):
         return
     swapit = None
     try:
-        swapit = await store.sql_swap_balance(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, 'TIPBOT', to.upper(), real_amount)
+        if ctx.message.author.id not in TX_IN_PROCESS:
+            TX_IN_PROCESS.append(ctx.message.author.id)
+            swapit = await store.sql_swap_balance(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, 'TIPBOT', to.upper(), real_amount)
+            await asyncio.sleep(config.interval.tx_lap_each)
+            TX_IN_PROCESS.remove(ctx.message.author.id)
+        else:
+            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+            await msg.add_reaction(EMOJI_OK_BOX)
+            return
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     if swapit:
@@ -5328,6 +5372,13 @@ async def take(ctx, info: str=None):
     if ctx.message.author.bot == True:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is not allowed using this.')
+        return
+
+    # Check if tx in progress
+    if ctx.message.author.id in TX_IN_PROCESS:
+        await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+        msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+        await msg.add_reaction(EMOJI_OK_BOX)
         return
 
     remaining = await bot_faucet(ctx) or ''
@@ -5455,8 +5506,10 @@ async def take(ctx, info: str=None):
                 tip_tx_tipper += "\nTx Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
+            await asyncio.sleep(config.interval.tx_lap_each)
             TX_IN_PROCESS.remove(ctx.message.author.id)
         else:
+            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
             msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
             await msg.add_reaction(EMOJI_OK_BOX)
             return
@@ -5499,8 +5552,10 @@ async def take(ctx, info: str=None):
                 tip = await store.sql_mv_xmr_single(str(bot.user.id), str(ctx.message.author.id), real_amount, COIN_NAME, "FAUCET")
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
+            await asyncio.sleep(config.interval.tx_lap_each)
             TX_IN_PROCESS.remove(ctx.message.author.id)
         else:
+            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
             msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
             await msg.add_reaction(EMOJI_OK_BOX)
             return
@@ -5543,8 +5598,10 @@ async def take(ctx, info: str=None):
                 tip = await store.sql_mv_doge_single(str(bot.user.id), str(ctx.message.author.id), real_amount, COIN_NAME, "FAUCET")
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
+            await asyncio.sleep(config.interval.tx_lap_each)
             TX_IN_PROCESS.remove(ctx.message.author.id)
         else:
+            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
             msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
             await msg.add_reaction(EMOJI_OK_BOX)
             return
@@ -5576,6 +5633,13 @@ async def freetip(ctx, amount: str, coin: str):
         await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
         return
     # end of check if account locked
+
+    # Check if tx in progress
+    if ctx.message.author.id in TX_IN_PROCESS:
+        await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+        msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+        await msg.add_reaction(EMOJI_OK_BOX)
+        return
 
     botLogChan = bot.get_channel(id=LOG_CHAN)
     amount = amount.replace(",", "")
@@ -5769,7 +5833,7 @@ async def freetip(ctx, amount: str, coin: str):
 
 @bot.command(pass_context=True, help=bot_help_tip)
 async def tip(ctx, amount: str, *args):
-    global TRTL_DISCORD, IS_RESTARTING
+    global TRTL_DISCORD, IS_RESTARTING, TX_IN_PROCESS
     # check if bot is going to restart
     if IS_RESTARTING:
         await ctx.message.add_reaction(EMOJI_REFRESH)
@@ -5782,6 +5846,13 @@ async def tip(ctx, amount: str, *args):
         await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
         return
     # end of check if account locked
+
+    # Check if tx in progress
+    if ctx.message.author.id in TX_IN_PROCESS:
+        await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+        msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+        await msg.add_reaction(EMOJI_OK_BOX)
+        return
 
     botLogChan = bot.get_channel(id=LOG_CHAN)
     amount = amount.replace(",", "")
@@ -6227,7 +6298,7 @@ async def tip(ctx, amount: str, *args):
 
 @bot.command(pass_context=True, help=bot_help_tipall, hidden = True)
 async def tipall(ctx, amount: str, *args):
-    global IS_RESTARTING
+    global IS_RESTARTING, TX_IN_PROCESS
     # check if bot is going to restart
     if IS_RESTARTING:
         await ctx.message.add_reaction(EMOJI_REFRESH)
@@ -6240,6 +6311,13 @@ async def tipall(ctx, amount: str, *args):
         await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
         return
     # end of check if account locked
+
+    # Check if tx in progress
+    if ctx.message.author.id in TX_IN_PROCESS:
+        await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+        msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+        await msg.add_reaction(EMOJI_OK_BOX)
+        return
 
     botLogChan = bot.get_channel(id=LOG_CHAN)
     amount = amount.replace(",", "")
@@ -6402,44 +6480,30 @@ async def tipall(ctx, amount: str, *args):
         for desti in memids:
             destinations.append({"address": desti, "amount": amountDiv})
 
-        # if off-chain, no need to check other status:
-        if COIN_NAME not in ENABLE_COIN_OFFCHAIN:
-            # Get wallet status
-            walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
-            if walletStatus is None:
-                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} I can not connect to wallet service or daemon.')
-                return
-            else:
-                localDaemonBlockCount = int(walletStatus['blockCount'])
-                networkBlockCount = int(walletStatus['knownBlockCount'])
-                if networkBlockCount - localDaemonBlockCount >= 20:
-                    # if height is different by 20
-                    t_percent = '{:,.2f}'.format(truncate(localDaemonBlockCount / networkBlockCount * 100, 2))
-                    t_localDaemonBlockCount = '{:,}'.format(localDaemonBlockCount)
-                    t_networkBlockCount = '{:,}'.format(networkBlockCount)
-                    await ctx.message.add_reaction(EMOJI_WARNING)
-                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Wallet service hasn\'t sync fully with network or being re-sync. More info:\n```'
-                                   f'networkBlockCount:     {t_networkBlockCount}\n'
-                                   f'localDaemonBlockCount: {t_localDaemonBlockCount}\n'
-                                   f'Progress %:            {t_percent}\n```'
-                                   )
-                    return
-            # End of wallet status
-
         if len(list_receivers) < 1:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is no one to tip to.')
             return
         tip = None
-        try:
-            tip = await store.sql_send_tipall(str(ctx.message.author.id), destinations, real_amount, amountDiv, list_receivers, 'TIPALL', COIN_NAME)
-            tip_tx_tipper = "Transaction hash: `{}`".format(tip['transactionHash'])
-            tip_tx_tipper += "\nTx Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
-            if COIN_NAME not in ENABLE_COIN_OFFCHAIN:
-                await store.sql_update_some_balances(addresses, COIN_NAME)
-            ActualSpend = int(amountDiv * len(destinations) + NetFee)
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+        
+        if ctx.message.author.id not in TX_IN_PROCESS:
+            TX_IN_PROCESS.append(ctx.message.author.id)
+            try:
+                tip = await store.sql_send_tipall(str(ctx.message.author.id), destinations, real_amount, amountDiv, list_receivers, 'TIPALL', COIN_NAME)
+                tip_tx_tipper = "Transaction hash: `{}`".format(tip['transactionHash'])
+                tip_tx_tipper += "\nTx Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
+                if COIN_NAME not in ENABLE_COIN_OFFCHAIN:
+                    await store.sql_update_some_balances(addresses, COIN_NAME)
+                ActualSpend = int(amountDiv * len(destinations) + NetFee)
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            await asyncio.sleep(config.interval.tx_lap_each)
+            TX_IN_PROCESS.remove(ctx.message.author.id)
+        else:
+            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+            await msg.add_reaction(EMOJI_OK_BOX)
+            return
         if tip:
             servername = serverinfo['servername']
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
@@ -6541,7 +6605,19 @@ async def tipall(ctx, amount: str, *args):
                            f'{COIN_NAME} for each member. You need at least {num_format_coin(len(memids) * MinTx, COIN_NAME)}{COIN_NAME}.')
             return
 
-        tips = await store.sql_mv_xmr_multiple(str(ctx.message.author.id), memids, amountDiv, COIN_NAME, "TIPALL")
+        if ctx.message.author.id not in TX_IN_PROCESS:
+            TX_IN_PROCESS.append(ctx.message.author.id)
+            try:
+                tips = await store.sql_mv_xmr_multiple(str(ctx.message.author.id), memids, amountDiv, COIN_NAME, "TIPALL")
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            await asyncio.sleep(config.interval.tx_lap_each)
+            TX_IN_PROCESS.remove(ctx.message.author.id)
+        else:
+            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+            await msg.add_reaction(EMOJI_OK_BOX)
+            return
         if tips:
             servername = serverinfo['servername']
             tipAmount = num_format_coin(real_amount, COIN_NAME)
@@ -6637,7 +6713,19 @@ async def tipall(ctx, amount: str, *args):
                            f'{COIN_NAME} for each member. You need at least {num_format_coin(len(memids) * MinTx, COIN_NAME)}{COIN_NAME}.')
             return
 
-        tips = await store.sql_mv_doge_multiple(str(ctx.message.author.id), memids, amountDiv, COIN_NAME, "TIPALL")
+        if ctx.message.author.id not in TX_IN_PROCESS:
+            TX_IN_PROCESS.append(ctx.message.author.id)
+            try:
+                tips = await store.sql_mv_doge_multiple(str(ctx.message.author.id), memids, amountDiv, COIN_NAME, "TIPALL")
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            await asyncio.sleep(config.interval.tx_lap_each)
+            TX_IN_PROCESS.remove(ctx.message.author.id)
+        else:
+            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+            await msg.add_reaction(EMOJI_OK_BOX)
+            return
         if tips:
             servername = serverinfo['servername']
             tipAmount = num_format_coin(real_amount, COIN_NAME)
@@ -6696,6 +6784,13 @@ async def send(ctx, amount: str, CoinAddress: str):
 
     botLogChan = bot.get_channel(id=LOG_CHAN)
     amount = amount.replace(",", "")
+
+    # Check if tx in progress
+    if ctx.message.author.id in TX_IN_PROCESS:
+        await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+        msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+        await msg.add_reaction(EMOJI_OK_BOX)
+        return
 
     # if public and there is a bot channel
     if isinstance(ctx.channel, discord.DMChannel) == False:
@@ -6964,9 +7059,21 @@ async def send(ctx, amount: str, CoinAddress: str):
         if len(valid_address) == 2:
             tip = None
             try:
-                tip = await store.sql_send_tip_Ex_id(str(ctx.message.author.id), CoinAddress, real_amount, paymentid, COIN_NAME)
-                tip_tx_tipper = "Transaction hash: `{}`".format(tip['transactionHash'])
-                tip_tx_tipper += "\nTx Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
+                if ctx.message.author.id not in TX_IN_PROCESS:
+                    TX_IN_PROCESS.append(ctx.message.author.id)
+                    try:
+                        tip = await store.sql_send_tip_Ex_id(str(ctx.message.author.id), CoinAddress, real_amount, paymentid, COIN_NAME)
+                        tip_tx_tipper = "Transaction hash: `{}`".format(tip['transactionHash'])
+                        tip_tx_tipper += "\nTx Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                    await asyncio.sleep(config.interval.tx_lap_each)
+                    TX_IN_PROCESS.remove(ctx.message.author.id)
+                else:
+                    await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+                    msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+                    await msg.add_reaction(EMOJI_OK_BOX)
+                    return                    
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
             if tip:
@@ -6989,11 +7096,23 @@ async def send(ctx, amount: str, CoinAddress: str):
         else:
             tip = None
             try:
-                tip = await store.sql_send_tip_Ex(str(ctx.message.author.id), CoinAddress, real_amount, COIN_NAME)
-                tip_tx_tipper = "Transaction hash: `{}`".format(tip['transactionHash'])
-                tip_tx_tipper += "\nTx Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
-                # add redis
-                await add_tx_action_redis(json.dumps([random_string, "SEND", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, "DISCORD", "COMPLETE"]), False)
+                if ctx.message.author.id not in TX_IN_PROCESS:
+                    TX_IN_PROCESS.append(ctx.message.author.id)
+                    try:
+                        tip = await store.sql_send_tip_Ex(str(ctx.message.author.id), CoinAddress, real_amount, COIN_NAME)
+                        tip_tx_tipper = "Transaction hash: `{}`".format(tip['transactionHash'])
+                        tip_tx_tipper += "\nTx Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                    await asyncio.sleep(config.interval.tx_lap_each)
+                    TX_IN_PROCESS.remove(ctx.message.author.id)
+                    # add redis
+                    await add_tx_action_redis(json.dumps([random_string, "SEND", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, "DISCORD", "COMPLETE"]), False)
+                else:
+                    await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+                    msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+                    await msg.add_reaction(EMOJI_OK_BOX)
+                    return
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
             if tip:
@@ -7074,13 +7193,13 @@ async def send(ctx, amount: str, CoinAddress: str):
                 await add_tx_action_redis(json.dumps([random_string, "SEND", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, "DISCORD", "COMPLETE"]), False)
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
+            await asyncio.sleep(config.interval.tx_lap_each)
             TX_IN_PROCESS.remove(ctx.message.author.id)
         else:
             # reject and tell to wait
             msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You have another tx in process. Please wait it to finish. ')
             await msg.add_reaction(EMOJI_OK_BOX)
             return
-            
         if SendTx:
             SendTx_hash = SendTx['tx_hash']
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
@@ -7147,8 +7266,10 @@ async def send(ctx, amount: str, CoinAddress: str):
                     await add_tx_action_redis(json.dumps([random_string, "SEND", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, "DISCORD", "COMPLETE"]), False)
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
+                await asyncio.sleep(config.interval.tx_lap_each)
                 TX_IN_PROCESS.remove(ctx.message.author.id)
             else:
+                await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
                 msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
                 await msg.add_reaction(EMOJI_OK_BOX)
                 return
@@ -7535,7 +7656,7 @@ async def voucher(ctx):
 
 @voucher.command(aliases=['gen'], help=bot_help_voucher_make)
 async def make(ctx, amount: str, coin: str, *, comment):
-    global IS_RESTARTING, TRTL_DISCORD
+    global IS_RESTARTING, TRTL_DISCORD, TX_IN_PROCESS
     # check if bot is going to restart
     if IS_RESTARTING:
         await ctx.message.add_reaction(EMOJI_REFRESH)
@@ -7553,6 +7674,13 @@ async def make(ctx, amount: str, coin: str, *, comment):
     else:
         pass
     # End Check if maintenance
+
+    # Check if tx in progress
+    if ctx.message.author.id in TX_IN_PROCESS:
+        await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+        msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+        await msg.add_reaction(EMOJI_OK_BOX)
+        return
 
     amount = amount.replace(",", "")
     
@@ -7749,10 +7877,23 @@ async def make(ctx, amount: str, coin: str, *, comment):
             except Exception as e: 
                 traceback.print_exc(file=sys.stdout)
             # Saved in the same relative location 
-            img_frame.save(config.voucher.path_voucher_create + unique_filename + ".png") 
-            voucher_make = await store.sql_send_to_voucher(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), 
-                                                           ctx.message.content, real_amount, get_voucher_fee(COIN_NAME), comment, 
-                                                           secret_string, unique_filename + ".png", COIN_NAME, 'DISCORD')
+            img_frame.save(config.voucher.path_voucher_create + unique_filename + ".png")
+            if ctx.message.author.id not in TX_IN_PROCESS:
+                TX_IN_PROCESS.append(ctx.message.author.id)
+                try:
+                    voucher_make = await store.sql_send_to_voucher(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), 
+                                                                   ctx.message.content, real_amount, get_voucher_fee(COIN_NAME), comment, 
+                                                                   secret_string, unique_filename + ".png", COIN_NAME, 'DISCORD')
+                except Exception as e: 
+                    traceback.print_exc(file=sys.stdout)
+                await asyncio.sleep(config.interval.tx_lap_each)
+                TX_IN_PROCESS.remove(ctx.message.author.id)
+            else:
+                # reject and tell to wait
+                msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You have another tx in process. Please wait it to finish. ')
+                await msg.add_reaction(EMOJI_OK_BOX)
+                return
+                
             if voucher_make:             
                 try:
                     msg = await ctx.message.author.send(f'New Voucher Link ({i+1} of {voucher_numb}): {qrstring}\n'
@@ -7824,10 +7965,23 @@ async def make(ctx, amount: str, coin: str, *, comment):
         except Exception as e: 
             traceback.print_exc(file=sys.stdout)
         # Saved in the same relative location 
-        img_frame.save(config.voucher.path_voucher_create + unique_filename + ".png") 
-        voucher_make = await store.sql_send_to_voucher(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), 
-                                                       ctx.message.content, real_amount, get_voucher_fee(COIN_NAME), comment, 
-                                                       secret_string, unique_filename + ".png", COIN_NAME, 'DISCORD')
+        img_frame.save(config.voucher.path_voucher_create + unique_filename + ".png")
+        if ctx.message.author.id not in TX_IN_PROCESS:
+            TX_IN_PROCESS.append(ctx.message.author.id)
+            try:
+                voucher_make = await store.sql_send_to_voucher(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), 
+                                                               ctx.message.content, real_amount, get_voucher_fee(COIN_NAME), comment, 
+                                                               secret_string, unique_filename + ".png", COIN_NAME, 'DISCORD')
+            except Exception as e: 
+                traceback.print_exc(file=sys.stdout)
+            await asyncio.sleep(config.interval.tx_lap_each)
+            TX_IN_PROCESS.remove(ctx.message.author.id)
+        else:
+            # reject and tell to wait
+            msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You have another tx in process. Please wait it to finish. ')
+            await msg.add_reaction(EMOJI_OK_BOX)
+            return
+
         if voucher_make:
             await ctx.message.add_reaction(EMOJI_OK_HAND)
             if isinstance(ctx.channel, discord.DMChannel) == False:

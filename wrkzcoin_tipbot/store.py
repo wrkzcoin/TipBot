@@ -695,7 +695,7 @@ async def sql_get_userwallet(userID, coin: str, user_server: str = 'DISCORD'):
                     if coin_family == "XMR":
                         userwallet['balance_wallet_address'] = userwallet['int_address']
                     elif coin_family in ["TRTL", "BCN"] and (COIN_NAME not in ENABLE_COIN_OFFCHAIN):
-                        with conn.cursor() as cur:
+                        async with conn.cursor() as cur:
                             sql = """ SELECT `balance_wallet_address`, `actual_balance`, `locked_balance`, `decimal`, `lastUpdate` FROM cn_walletapi 
                                       WHERE `balance_wallet_address` = %s AND `coin_name` = %s LIMIT 1 """
                             await cur.execute(sql, (userwallet['balance_wallet_address'], COIN_NAME,))
@@ -2524,7 +2524,7 @@ async def sql_external_xmr_single(user_from: str, amount: float, to_address: str
                                                             amount, COIN_NAME, 0)
                     if tx_hash:
                         updateTime = int(time.time())
-                        with conn.cursor() as cur: 
+                        async with conn.cursor() as cur: 
                             sql = """ INSERT INTO xmroff_external_tx (`coin_name`, `user_id`, `amount`, `fee`, `decimal`, `to_address`, 
                                       `type`, `date`, `tx_hash`, `tx_key`) 
                                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """

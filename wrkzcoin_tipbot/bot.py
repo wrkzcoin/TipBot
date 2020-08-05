@@ -3936,7 +3936,7 @@ async def info(ctx, coin: str = None):
 async def coininfo(ctx, coin: str = None):
     global TRTL_DISCORD
     if coin is None:
-        if ctx.guild.id == TRTL_DISCORD:
+        if isinstance(ctx.channel, discord.DMChannel) == False and ctx.guild.id == TRTL_DISCORD:
             return
         table_data = [
             ["TICKER", "Height", "Tip", "Wdraw", "Depth"]

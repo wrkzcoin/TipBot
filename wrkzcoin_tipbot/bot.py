@@ -359,11 +359,11 @@ def get_notice_txt(coin: str):
     COIN_NAME = coin.upper()
     if COIN_NAME in NOTICE_COIN:
         if NOTICE_COIN[COIN_NAME] is None:
-            return "*Any support for this TipBot, please join* `https://chat.wrkz.work`"
+            return ""
         else:
-            return NOTICE_COIN[COIN_NAME]
+            return "`" + NOTICE_COIN[COIN_NAME] + "`"
     else:
-        return "*Any support for this TipBot, please join* `https://chat.wrkz.work`"
+        return "Any support for this TipBot, please join https://chat.wrkz.work"
 
 
 # Steal from https://github.com/cree-py/RemixBot/blob/master/bot.py#L49
@@ -3489,7 +3489,7 @@ async def cal(ctx, eval_string: str = None):
 
 
 @bot.command(pass_context=True, name='deposit', help=bot_help_deposit)
-async def deposit(ctx, coin_name: str, pub: str = None):
+async def deposit(ctx, coin_name: str):
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'deposit')
     if account_lock:
@@ -3554,56 +3554,61 @@ async def deposit(ctx, coin_name: str, pub: str = None):
     if wallet is None:
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Internal Error for `.info`')
         return
-    if os.path.exists(config.qrsettings.path + wallet['balance_wallet_address'] + ".png"):
-        pass
-    else:
-        # do some QR code
-        qr = qrcode.QRCode(
-            version=1,
-            error_correction=qrcode.constants.ERROR_CORRECT_L,
-            box_size=10,
-            border=2,
-        )
-        qr.add_data(wallet['balance_wallet_address'])
-        qr.make(fit=True)
-        img = qr.make_image(fill_color="black", back_color="white")
-        img = img.resize((256, 256))
-        img.save(config.qrsettings.path + wallet['balance_wallet_address'] + ".png")
-
-    if wallet['user_wallet_address']:
-        if pub:
+    if not os.path.exists(config.deposit_qr.path_deposit_qr_create + wallet['balance_wallet_address'] + ".png"):
+        try:
+            # do some QR code
+            qr = qrcode.QRCode(
+                version=1,
+                error_correction=qrcode.constants.ERROR_CORRECT_L,
+                box_size=10,
+                border=2,
+            )
+            qr.add_data(wallet['balance_wallet_address'])
+            qr.make(fit=True)
+            img = qr.make_image(fill_color="black", back_color="white")
+            img = img.resize((256, 256))
+            img.save(config.deposit_qr.path_deposit_qr_create + wallet['balance_wallet_address'] + ".png")
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        # https://deposit.bot.tips/
+    if not os.path.exists(config.qrsettings.path + wallet['balance_wallet_address'] + ".png"):
+        try:
+            # do some QR code
+            qr = qrcode.QRCode(
+                version=1,
+                error_correction=qrcode.constants.ERROR_CORRECT_L,
+                box_size=10,
+                border=2,
+            )
+            qr.add_data(wallet['balance_wallet_address'])
+            qr.make(fit=True)
+            img = qr.make_image(fill_color="black", back_color="white")
+            img = img.resize((256, 256))
+            img.save(config.qrsettings.path + wallet['balance_wallet_address'] + ".png")
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+    embed = discord.Embed(title=f'Your Deposit {ctx.message.author.name}#{ctx.message.author.discriminator} / **{COIN_NAME}**', description='{}'.format(get_notice_txt(COIN_NAME)), timestamp=datetime.utcnow(), colour=7047495)
+    embed.set_author(name=ctx.message.author.name, icon_url=ctx.message.author.avatar_url)
+    embed.add_field(name="Deposit Address", value="`{}`".format(wallet['balance_wallet_address']), inline=False)
+    if 'user_wallet_address' in wallet and wallet['user_wallet_address'] and isinstance(ctx.channel, discord.DMChannel) == True:
+        embed.add_field(name="Withdraw Address", value="`{}`".format(wallet['user_wallet_address']), inline=False)
+    elif 'user_wallet_address' in wallet and wallet['user_wallet_address'] and isinstance(ctx.channel, discord.DMChannel) == False:
+        embed.add_field(name="Withdraw Address", value="`(Only in DM)`", inline=False)
+    embed.set_thumbnail(url=config.deposit_qr.deposit_url + "/tipbot_deposit_qr/" + wallet['balance_wallet_address'] + ".png")
+    try:
+        msg = await ctx.send(embed=embed)
+        await msg.add_reaction(EMOJI_OK_BOX)
+        await ctx.message.add_reaction(EMOJI_OK_HAND)
+        return
+    except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+        try:
+            msg = await ctx.send(embed=embed)
+            await msg.add_reaction(EMOJI_OK_BOX)
             await ctx.message.add_reaction(EMOJI_OK_HAND)
-            msg = await ctx.send(f'**[ACCOUNT INFO {COIN_NAME}]**\n\n'
-                                 f'{EMOJI_MONEYBAG} Deposit Address: `' + wallet['balance_wallet_address'] + '`\n'
-                                 f'Please re-act {EMOJI_OK_BOX} to delete this.')
-            await msg.add_reaction(EMOJI_OK_BOX)
-        else:
-            await ctx.message.add_reaction(EMOJI_OK_HAND)
-            await ctx.message.author.send("**QR for your Deposit**", 
-                                        file=discord.File(config.qrsettings.path + wallet['balance_wallet_address'] + ".png"))
-            msg = await ctx.message.author.send(f'**[ACCOUNT INFO {COIN_NAME}]**\n\n'
-                                        f'{EMOJI_MONEYBAG} Deposit Address: `' + wallet['balance_wallet_address'] + '`\n'
-                                        f'{EMOJI_SCALE} Registered Wallet: `'
-                                        ''+ wallet['user_wallet_address'] + '`\n'
-                                        f'{get_notice_txt(COIN_NAME)}')
-            await msg.add_reaction(EMOJI_OK_BOX)
-    else:
-        if pub:
-            await ctx.message.add_reaction(EMOJI_WARNING)
-            msg = await ctx.send(f'**[ACCOUNT INFO {COIN_NAME}]**\n\n'
-                                 f'{EMOJI_MONEYBAG} Deposit Address: `' + wallet['balance_wallet_address'] + '`\n'
-                                 f'Please re-act {EMOJI_OK_BOX} to delete this.')
-            await msg.add_reaction(EMOJI_OK_BOX)
-        else:
-            await ctx.message.add_reaction(EMOJI_WARNING)
-            await ctx.message.author.send("**QR for your Deposit**", 
-                                        file=discord.File(config.qrsettings.path + wallet['balance_wallet_address'] + ".png"))
-            msg = await ctx.message.author.send(f'**[ACCOUNT INFO {COIN_NAME}]**\n\n'
-                                   f'{EMOJI_MONEYBAG} Deposit Address: `' + wallet['balance_wallet_address'] + '`\n'
-                                   f'{EMOJI_SCALE} Registered Wallet: `NONE, Please register.`\n'
-                                   f'{get_notice_txt(COIN_NAME)}')
-            await msg.add_reaction(EMOJI_OK_BOX)
-    return
+            return
+        except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+            await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
+            return
 
 
 async def help_main(message, prefix):

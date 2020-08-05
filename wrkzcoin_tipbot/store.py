@@ -64,7 +64,7 @@ async def openConnection():
         if pool is None:
             pool = await aiomysql.create_pool(host=config.mysql.host, port=3306, minsize=6, maxsize=12, 
                                                    user=config.mysql.user, password=config.mysql.password,
-                                                   db=config.mysql.db, cursorclass=DictCursor)
+                                                   db=config.mysql.db, autocommit=True, cursorclass=DictCursor)
     except:
         print("ERROR: Unexpected error: Could not connect to MySql instance.")
         sys.exit()

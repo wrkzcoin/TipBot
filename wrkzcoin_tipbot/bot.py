@@ -87,7 +87,7 @@ WALLET_SERVICE = None
 LIST_IGNORECHAN = None
 
 # param introduce by @bobbieltd
-WITHDRAW_IN_PROCESS = []
+TX_IN_PROCESS = []
 
 # tip-react temp storage
 REACT_TIP_STORE = []
@@ -3218,14 +3218,14 @@ async def cleartx(ctx):
         await ctx.send(f'{ctx.author.mention} This command can not be in public.')
         return
 
-    global WITHDRAW_IN_PROCESS
-    if len(WITHDRAW_IN_PROCESS) == 0:
+    global TX_IN_PROCESS
+    if len(TX_IN_PROCESS) == 0:
         await ctx.message.author.send(f'{ctx.author.mention} Nothing in tx pending to clear.')
     else:
-        list_pending = '{' + ', '.join(WITHDRAW_IN_PROCESS) + '}'
+        list_pending = '{' + ', '.join(TX_IN_PROCESS) + '}'
         await ctx.message.add_reaction(EMOJI_WARNING)
-        await ctx.message.author.send(f'{ctx.author.mention} Clearing {len(WITHDRAW_IN_PROCESS)} {list_pending} in pending...')
-        WITHDRAW_IN_PROCESS = [] 
+        await ctx.message.author.send(f'{ctx.author.mention} Clearing {len(TX_IN_PROCESS)} {list_pending} in pending...')
+        TX_IN_PROCESS = [] 
     return
 
 
@@ -4553,7 +4553,7 @@ async def register(ctx, wallet_address: str):
 
 @bot.command(pass_context=True, help=bot_help_withdraw)
 async def withdraw(ctx, amount: str, coin: str = None):
-    global WITHDRAW_IN_PROCESS, IS_RESTARTING
+    global TX_IN_PROCESS, IS_RESTARTING
     # check if bot is going to restart
     if IS_RESTARTING:
         await ctx.message.add_reaction(EMOJI_REFRESH)
@@ -4785,8 +4785,8 @@ async def withdraw(ctx, amount: str, coin: str = None):
 
         withdrawTx = None
         if user_from['user_wallet_address']:
-            if ctx.message.author.id not in WITHDRAW_IN_PROCESS:
-                WITHDRAW_IN_PROCESS.append(ctx.message.author.id)
+            if ctx.message.author.id not in TX_IN_PROCESS:
+                TX_IN_PROCESS.append(ctx.message.author.id)
                 try:
                     withdrawTx = await store.sql_external_xmr_single(str(ctx.message.author.id), real_amount,
                                                                      user_from['user_wallet_address'],
@@ -4795,7 +4795,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
                     await add_tx_action_redis(json.dumps([random_string, "WITHDRAW", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, "DISCORD", "COMPLETE"]), False)
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
-                WITHDRAW_IN_PROCESS.remove(ctx.message.author.id)
+                TX_IN_PROCESS.remove(ctx.message.author.id)
             else:
                 # reject and tell to wait
                 msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You have another tx in process. Please wait it to finish. ')
@@ -4856,8 +4856,8 @@ async def withdraw(ctx, amount: str, coin: str = None):
             wallet = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
             wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         withdrawTx = None
-        if ctx.message.author.id not in WITHDRAW_IN_PROCESS:
-            WITHDRAW_IN_PROCESS.append(ctx.message.author.id)
+        if ctx.message.author.id not in TX_IN_PROCESS:
+            TX_IN_PROCESS.append(ctx.message.author.id)
             try:
                 if wallet['user_wallet_address']:
                     withdrawTx = await store.sql_external_doge_single(str(ctx.message.author.id), real_amount,
@@ -4867,7 +4867,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
                     await add_tx_action_redis(json.dumps([random_string, "WITHDRAW", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, "DISCORD", "COMPLETE"]), False)
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
-            WITHDRAW_IN_PROCESS.remove(ctx.message.author.id)
+            TX_IN_PROCESS.remove(ctx.message.author.id)
         else:
             msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
             await msg.add_reaction(EMOJI_OK_BOX)
@@ -5323,7 +5323,7 @@ async def swap(ctx, amount: str, coin: str, to: str):
 
 @bot.command(pass_context=True, help=bot_help_take)
 async def take(ctx, info: str=None):
-    global FAUCET_COINS, FAUCET_MINMAX, TRTL_DISCORD, WITHDRAW_IN_PROCESS, IS_RESTARTING
+    global FAUCET_COINS, FAUCET_MINMAX, TRTL_DISCORD, TX_IN_PROCESS, IS_RESTARTING
     # bot check in the first place
     if ctx.message.author.bot == True:
         await ctx.message.add_reaction(EMOJI_ERROR)
@@ -5447,15 +5447,15 @@ async def take(ctx, info: str=None):
             return
         
         tip = None
-        if ctx.message.author.id not in WITHDRAW_IN_PROCESS:
-            WITHDRAW_IN_PROCESS.append(ctx.message.author.id)
+        if ctx.message.author.id not in TX_IN_PROCESS:
+            TX_IN_PROCESS.append(ctx.message.author.id)
             try:
                 tip = await store.sql_send_tip(str(bot.user.id), str(ctx.message.author.id), real_amount, 'FAUCET', COIN_NAME)
                 tip_tx_tipper = "Transaction hash: `{}`".format(tip['transactionHash'])
                 tip_tx_tipper += "\nTx Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
-            WITHDRAW_IN_PROCESS.remove(ctx.message.author.id)
+            TX_IN_PROCESS.remove(ctx.message.author.id)
         else:
             msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
             await msg.add_reaction(EMOJI_OK_BOX)
@@ -5493,13 +5493,13 @@ async def take(ctx, info: str=None):
             user_to = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
 
         tip = None
-        if ctx.message.author.id not in WITHDRAW_IN_PROCESS:
-            WITHDRAW_IN_PROCESS.append(ctx.message.author.id)
+        if ctx.message.author.id not in TX_IN_PROCESS:
+            TX_IN_PROCESS.append(ctx.message.author.id)
             try:
                 tip = await store.sql_mv_xmr_single(str(bot.user.id), str(ctx.message.author.id), real_amount, COIN_NAME, "FAUCET")
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
-            WITHDRAW_IN_PROCESS.remove(ctx.message.author.id)
+            TX_IN_PROCESS.remove(ctx.message.author.id)
         else:
             msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
             await msg.add_reaction(EMOJI_OK_BOX)
@@ -5537,13 +5537,13 @@ async def take(ctx, info: str=None):
             user_to = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
 
         tip = None
-        if ctx.message.author.id not in WITHDRAW_IN_PROCESS:
-            WITHDRAW_IN_PROCESS.append(ctx.message.author.id)
+        if ctx.message.author.id not in TX_IN_PROCESS:
+            TX_IN_PROCESS.append(ctx.message.author.id)
             try:
                 tip = await store.sql_mv_doge_single(str(bot.user.id), str(ctx.message.author.id), real_amount, COIN_NAME, "FAUCET")
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
-            WITHDRAW_IN_PROCESS.remove(ctx.message.author.id)
+            TX_IN_PROCESS.remove(ctx.message.author.id)
         else:
             msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
             await msg.add_reaction(EMOJI_OK_BOX)
@@ -6680,7 +6680,7 @@ async def tipall(ctx, amount: str, *args):
 
 @bot.command(pass_context=True, help=bot_help_send)
 async def send(ctx, amount: str, CoinAddress: str):
-    global WITHDRAW_IN_PROCESS, IS_RESTARTING
+    global TX_IN_PROCESS, IS_RESTARTING
     # check if bot is going to restart
     if IS_RESTARTING:
         await ctx.message.add_reaction(EMOJI_REFRESH)
@@ -7065,8 +7065,8 @@ async def send(ctx, amount: str, CoinAddress: str):
             return
 
         SendTx = None
-        if ctx.message.author.id not in WITHDRAW_IN_PROCESS:
-            WITHDRAW_IN_PROCESS.append(ctx.message.author.id)
+        if ctx.message.author.id not in TX_IN_PROCESS:
+            TX_IN_PROCESS.append(ctx.message.author.id)
             try:
                 SendTx = await store.sql_external_xmr_single(str(ctx.message.author.id), real_amount,
                                                              CoinAddress, COIN_NAME, "SEND")
@@ -7074,7 +7074,7 @@ async def send(ctx, amount: str, CoinAddress: str):
                 await add_tx_action_redis(json.dumps([random_string, "SEND", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, "DISCORD", "COMPLETE"]), False)
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
-            WITHDRAW_IN_PROCESS.remove(ctx.message.author.id)
+            TX_IN_PROCESS.remove(ctx.message.author.id)
         else:
             # reject and tell to wait
             msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You have another tx in process. Please wait it to finish. ')
@@ -7138,8 +7138,8 @@ async def send(ctx, amount: str, CoinAddress: str):
                                f'{COIN_NAME}.')
                 return
             SendTx = None
-            if ctx.message.author.id not in WITHDRAW_IN_PROCESS:
-                WITHDRAW_IN_PROCESS.append(ctx.message.author.id)
+            if ctx.message.author.id not in TX_IN_PROCESS:
+                TX_IN_PROCESS.append(ctx.message.author.id)
                 try:
                     SendTx = await store.sql_external_doge_single(str(ctx.message.author.id), real_amount, NetFee,
                                                                   CoinAddress, COIN_NAME, "SEND")
@@ -7147,7 +7147,7 @@ async def send(ctx, amount: str, CoinAddress: str):
                     await add_tx_action_redis(json.dumps([random_string, "SEND", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, "DISCORD", "COMPLETE"]), False)
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
-                WITHDRAW_IN_PROCESS.remove(ctx.message.author.id)
+                TX_IN_PROCESS.remove(ctx.message.author.id)
             else:
                 msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
                 await msg.add_reaction(EMOJI_OK_BOX)

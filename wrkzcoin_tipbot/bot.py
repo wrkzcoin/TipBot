@@ -5903,7 +5903,6 @@ async def tip(ctx, amount: str, *args):
                     return
                 try:
                     time_given = int(time_second)
-                    print('time_given: {}s'.format(time_given))
                 except ValueError:
                     await ctx.message.add_reaction(EMOJI_ERROR)
                     await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid time given check.')
@@ -5920,7 +5919,6 @@ async def tip(ctx, amount: str, *args):
                             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is no active talker in such period.')
                             return
                         else:
-                            print(message_talker)
                             try:
                                 await _tip_talker(ctx, amount, message_talker, COIN_NAME)
                             except Exception as e:
@@ -9597,6 +9595,20 @@ async def _tip(ctx, amount, coin: str):
             traceback.print_exc(file=sys.stdout)
         if tip:
             servername = serverinfo['servername']
+            try:
+                for member in ctx.message.mentions:
+                    if ctx.message.author.id != member.id and str(member.id) not in notifyList:
+                        try:
+                            await member.send(f'{EMOJI_MONEYFACE} You got a tip of  {num_format_coin(real_amount, COIN_NAME)} '
+                                              f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{servername}`\n'
+                                              f'{tip_tx_tipper}\n'
+                                              f'{NOTIFICATION_OFF_CMD}')
+                        except (discord.Forbidden, discord.errors.Forbidden) as e:
+                            traceback.print_exc(file=sys.stdout)
+                            await store.sql_toggle_tipnotify(str(member.id), "OFF")
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            await ctx.message.add_reaction(get_emoji(COIN_NAME))
             # tipper shall always get DM. Ignore notifyList
             try:
                 await ctx.message.author.send(f'{EMOJI_ARROW_RIGHTHOOK} Total tip of {num_format_coin(ActualSpend, COIN_NAME)} '
@@ -9606,20 +9618,7 @@ async def _tip(ctx, amount, coin: str):
                                         f'Each: `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`'
                                         f'Total spending: `{num_format_coin(ActualSpend, COIN_NAME)} {COIN_NAME}`')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
-                await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
-            for member in ctx.message.mentions:
-                if ctx.message.author.id != member.id:
-                    if member.bot == False:
-                        if str(member.id) not in notifyList:
-                            try:
-                                await member.send(f'{EMOJI_MONEYFACE} You got a tip of  {num_format_coin(real_amount, COIN_NAME)} '
-                                                f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{servername}`\n'
-                                                f'{tip_tx_tipper}\n'
-                                                f'{NOTIFICATION_OFF_CMD}')
-                            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                                await store.sql_toggle_tipnotify(str(member.id), "OFF")
-                            pass
-            await ctx.message.add_reaction(get_emoji(COIN_NAME))
+                traceback.print_exc(file=sys.stdout)
             return
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -9685,6 +9684,20 @@ async def _tip(ctx, amount, coin: str):
             amountDiv_str = num_format_coin(real_amount, COIN_NAME)
             if ctx.message.author.bot == False and serverinfo['react_tip'] == "ON":
                 await ctx.message.add_reaction(EMOJI_TIP)
+            try:
+                for member in ctx.message.mentions:
+                    # print(member.name) # you'll just print out Member objects your way.
+                    if ctx.message.author.id != member.id and str(member.id) not in notifyList:
+                        try:
+                            await member.send(f'{EMOJI_MONEYFACE} You got a tip of `{amountDiv_str}{COIN_NAME}` '
+                                              f'from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{servername}`\n'
+                                              f'{NOTIFICATION_OFF_CMD}')
+                        except (discord.Forbidden, discord.errors.Forbidden) as e:
+                            traceback.print_exc(file=sys.stdout)
+                            await store.sql_toggle_tipnotify(str(member.id), "OFF")
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            await ctx.message.add_reaction(get_emoji(COIN_NAME))
             # tipper shall always get DM. Ignore notifyList
             try:
                 await ctx.message.author.send(
@@ -9694,19 +9707,6 @@ async def _tip(ctx, amount, coin: str):
                     f'Each member got: `{amountDiv_str}{COIN_NAME}`\n')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
                 await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
-            for member in ctx.message.mentions:
-                # print(member.name) # you'll just print out Member objects your way.
-                if (ctx.message.author.id != member.id):
-                    if member.bot == False:
-                        if str(member.id) not in notifyList:
-                            try:
-                                await member.send(
-                                    f'{EMOJI_MONEYFACE} You got a tip of `{amountDiv_str}{COIN_NAME}` '
-                                    f'from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{servername}`\n'
-                                    f'{NOTIFICATION_OFF_CMD}')
-                            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                                await store.sql_toggle_tipnotify(str(member.id), "OFF")
-            await ctx.message.add_reaction(get_emoji(COIN_NAME))
             return
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -9769,6 +9769,20 @@ async def _tip(ctx, amount, coin: str):
             servername = serverinfo['servername']
             tipAmount = num_format_coin(TotalAmount, COIN_NAME)
             amountDiv_str = num_format_coin(real_amount, COIN_NAME)
+            try:
+                for member in ctx.message.mentions:
+                    # print(member.name) # you'll just print out Member objects your way.
+                    if ctx.message.author.id != member.id and str(member.id) not in notifyList:
+                        try:
+                            await member.send(f'{EMOJI_MONEYFACE} You got a tip of `{amountDiv_str}{COIN_NAME}` '
+                                              f'from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{servername}`\n'
+                                              f'{NOTIFICATION_OFF_CMD}')
+                        except (discord.Forbidden, discord.errors.Forbidden) as e:
+                            traceback.print_exc(file=sys.stdout)
+                            await store.sql_toggle_tipnotify(str(member.id), "OFF")
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            await ctx.message.add_reaction(get_emoji(COIN_NAME))
             # tipper shall always get DM. Ignore notifyList
             try:
                 await ctx.message.author.send(
@@ -9777,20 +9791,7 @@ async def _tip(ctx, amount, coin: str):
                     f'was sent to ({len(memids)}) members in server `{servername}`.\n'
                     f'Each member got: `{amountDiv_str}{COIN_NAME}`\n')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
-                await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
-            for member in ctx.message.mentions:
-                # print(member.name) # you'll just print out Member objects your way.
-                if (ctx.message.author.id != member.id):
-                    if member.bot == False:
-                        if str(member.id) not in notifyList:
-                            try:
-                                await member.send(
-                                    f'{EMOJI_MONEYFACE} You got a tip of `{amountDiv_str}{COIN_NAME}` '
-                                    f'from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{servername}`\n'
-                                    f'{NOTIFICATION_OFF_CMD}')
-                            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                                await store.sql_toggle_tipnotify(str(member.id), "OFF")
-            await ctx.message.add_reaction(get_emoji(COIN_NAME))
+                traceback.print_exc(file=sys.stdout)
             return
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)

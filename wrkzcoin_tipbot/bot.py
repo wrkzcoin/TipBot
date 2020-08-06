@@ -106,22 +106,22 @@ BOT_INVITELINK = "[Invite TipBot](http://invite.discord.bot.tips)"
     
 # DOGE will divide by 10 after random
 FAUCET_MINMAX = {
-    "WRKZ": [1000, 2000],
-    "DEGO": [2500, 10000],
-    "TRTL": [15, 25],
-    "DOGE": [1, 3],
-    "BTCMZ": [2500, 5000],
-    "NBXC": [0.01, 0.05]
+    "WRKZ": [config.Faucet_min_max.wrkz_min, config.Faucet_min_max.wrkz_max],
+    "DEGO": [config.Faucet_min_max.dego_min, config.Faucet_min_max.dego_max],
+    "TRTL": [config.Faucet_min_max.trtl_min, config.Faucet_min_max.trtl_max],
+    "DOGE": [config.Faucet_min_max.doge_min, config.Faucet_min_max.doge_max],
+    "BTCMZ": [config.Faucet_min_max.btcmz_min, config.Faucet_min_max.btcmz_max],
+    "NBXC": [config.Faucet_min_max.nbxc_min, config.Faucet_min_max.nbxc_max]
 }
 
 
 GAME_COIN = config.game.coin_game.split(",")
 # This will multiplied in result
 GAME_SLOT_REWARD = {
-    "WRKZ": 1000,
-    "DEGO": 10000,
-    "TRTL": 10,
-    "BTCMZ": 1000
+    "WRKZ": config.game_reward.wrkz,
+    "DEGO": config.game_reward.dego,
+    "TRTL": config.game_reward.trtl,
+    "BTCMZ": config.game_reward.btcmz
 }
 
 GAME_INTERACTIVE_PRGORESS = []

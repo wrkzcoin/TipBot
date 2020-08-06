@@ -528,7 +528,7 @@ async def on_reaction_add(reaction, user):
                     tip = None
                     try:
                         tip = await store.sql_send_tip(str(user.id), str(reaction.message.author.id), real_amount, 'REACTTIP', COIN_NAME)
-                        tip_tx_tipper = "\nFee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
+                        tip_tx_tipper = "Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
                     if tip:
@@ -600,7 +600,7 @@ async def on_reaction_add(reaction, user):
                     tip = None
                     try:
                         tip = await store.sql_send_tip(str(user.id), str(reaction.message.author.id), real_amount, 'REACTTIP', COIN_NAME)
-                        tip_tx_tipper = "\nFee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
+                        tip_tx_tipper = "Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
                     if tip:
@@ -4991,7 +4991,7 @@ async def donate(ctx, amount: str, coin: str = None):
         tip = None
         try:
             tip = await store.sql_donate(str(ctx.message.author.id), CoinAddress, real_amount, COIN_NAME)
-            tip_tx_tipper = "\nFee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
+            tip_tx_tipper = "Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
@@ -5411,7 +5411,7 @@ async def take(ctx, info: str=None):
             TX_IN_PROCESS.append(ctx.message.author.id)
             try:
                 tip = await store.sql_send_tip(str(bot.user.id), str(ctx.message.author.id), real_amount, 'FAUCET', COIN_NAME)
-                tip_tx_tipper = "\nFee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
+                tip_tx_tipper = "Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
             await asyncio.sleep(config.interval.tx_lap_each)
@@ -6019,7 +6019,7 @@ async def tip(ctx, amount: str, *args):
         tip = None
         try:
             tip = await store.sql_send_tip(str(ctx.message.author.id), str(member.id), real_amount, 'TIP', COIN_NAME)
-            tip_tx_tipper = "\nFee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
+            tip_tx_tipper = "Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
             if ctx.message.author.bot == False and serverinfo['react_tip'] == "ON":
                 await ctx.message.add_reaction(EMOJI_TIP)
         except Exception as e:
@@ -6359,7 +6359,7 @@ async def tipall(ctx, amount: str, *args):
             TX_IN_PROCESS.append(ctx.message.author.id)
             try:
                 tip = await store.sql_send_tipall(str(ctx.message.author.id), destinations, real_amount, amountDiv, list_receivers, 'TIPALL', COIN_NAME)
-                tip_tx_tipper = "\nFee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
+                tip_tx_tipper = "Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
                 ActualSpend = int(amountDiv * len(destinations))
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
@@ -9589,7 +9589,7 @@ async def _tip(ctx, amount, coin: str):
             return
         try:
             tip = await store.sql_send_tipall(str(ctx.message.author.id), destinations, real_amount, real_amount, list_receivers, 'TIPS', COIN_NAME)
-            tip_tx_tipper = "\nFee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
+            tip_tx_tipper = "Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
             ActualSpend += int(tip['fee'])
             if ctx.message.author.bot == False and serverinfo['react_tip'] == "ON":
                 await ctx.message.add_reaction(EMOJI_TIP)
@@ -9907,7 +9907,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
         tip = None
         try:
             tip = await store.sql_send_tipall(str(ctx.message.author.id), destinations, real_amount, real_amount, list_receivers, 'TIPS', COIN_NAME)
-            tip_tx_tipper = "\nFee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
+            tip_tx_tipper = "Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
             ActualSpend += int(tip['fee'])
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
@@ -10198,7 +10198,7 @@ async def _tip_react(reaction, user, amount, coin: str):
             return
         try:
             tip = await store.sql_send_tipall(str(user.id), destinations, real_amount, real_amount, list_receivers, 'TIPS', COIN_NAME)
-            tip_tx_tipper = "\nFee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
+            tip_tx_tipper = "Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
             ActualSpend += int(tip['fee'])
             REACT_TIP_STORE.append((str(reaction.message.id) + '.' + str(user.id)))
         except Exception as e:

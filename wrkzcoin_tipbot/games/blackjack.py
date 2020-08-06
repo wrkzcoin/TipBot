@@ -31,7 +31,6 @@ def getDeck():
 def displayHands(playerHand, dealerHand, showDealerHand):
     """Show the player's and dealer's cards. Hide the dealer's first
     card if showDealerHand is False."""
-    print()
     result = {}
     if showDealerHand:
         result['dealer'] = displayCards(dealerHand)
@@ -44,7 +43,6 @@ def displayHands(playerHand, dealerHand, showDealerHand):
     # Show the player's cards:
     result['player'] = displayCards(playerHand)
     result['player_header'] = getCardValue(playerHand)
-    print(result)
     return result
 
 

@@ -422,7 +422,7 @@ async def on_guild_join(guild):
     botLogChan = bot.get_channel(id=LOG_CHAN)
     add_server_info = await store.sql_addinfo_by_server(str(guild.id), guild.name,
                                                         config.discord.prefixCmd, "WRKZ", True)
-    await botLogChan.send(f'Bot joins a new guild {guild.name} / {guild.id}. Total guilds: {len(bot.guilds)}.')
+    await botLogChan.send(f'Bot joins a new guild {guild.name} / {guild.id} / Users: {len(guild.members)}. Total guilds: {len(bot.guilds)}.')
     return
 
 
@@ -707,7 +707,17 @@ async def on_message(message):
                     await message.add_reaction(EMOJI_ERROR)
                     await message.channel.send(f'Bot not respond to #{message.channel.name}. It is set to ignore list by channel manager or discord server owner.')
                     return
-        if message.content[1:].upper() == "HELP":
+        if message.content[1:].upper() == "HELP SETTING":
+            prefix = await get_guild_prefix_msg(message)
+            if prefix == message.content[0] and isinstance(message.channel, discord.DMChannel) == False:
+                try:
+                    serverinfo = await store.sql_info_by_server(str(message.guild.id))
+                    if serverinfo and 'prefix' in serverinfo: prefix = serverinfo['prefix']
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                await help_setting(message, prefix)
+                return
+        elif message.content[1:].upper() == "HELP":
             prefix = await get_guild_prefix_msg(message)
             if prefix == message.content[0] and isinstance(message.channel, discord.DMChannel) == False:
                 try:
@@ -1163,10 +1173,17 @@ async def str2hex(ctx, str2hex: str):
 @bot.group(name='game', help=bot_help_game)
 async def game(ctx):
     global IS_RESTARTING
+    # disable game for TRTL discord
+    if ctx.guild and ctx.guild.id == TRTL_DISCORD:
+        await ctx.message.add_reaction(EMOJI_LOCKED)
+        return
+
+    botLogChan = bot.get_channel(id=LOG_CHAN)
     # bot check in the first place
     if ctx.message.author.bot == True:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is not allowed using this.')
+        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} (Bot) using **game** {ctx.guild.name} / {ctx.guild.id}')
         return
 
     prefix = await get_guild_prefix(ctx)
@@ -1175,10 +1192,7 @@ async def game(ctx):
         await ctx.message.add_reaction(EMOJI_REFRESH)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is going to restart soon. Wait until it is back for using this.')
         return
-    game_servers = config.game.guild_games.split(",")
-    # Only WrkzCoin testing. Return if DM or other guild
-    if isinstance(ctx.channel, discord.DMChannel) == True or str(ctx.guild.id) not in game_servers:
-        return
+
     if ctx.invoked_subcommand is None:
         await ctx.send(f'{ctx.author.mention} Invalid {prefix}game command.\n Please use {prefix}help game')
         return
@@ -1186,6 +1200,11 @@ async def game(ctx):
 
 @game.command(name='stat', help=bot_help_game_stat)
 async def stat(ctx):
+    # disable game for TRTL discord
+    if ctx.guild and ctx.guild.id == TRTL_DISCORD:
+        await ctx.message.add_reaction(EMOJI_LOCKED)
+        return
+
     get_game_stat = await store.sql_game_stat()
     if get_game_stat and len(get_game_stat) > 0:   
         stat = discord.Embed(title='TipBot Game Stat', description='', timestamp=datetime.utcnow(), colour=7047495)
@@ -1214,13 +1233,13 @@ async def blackjack(ctx):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is not allowed using this.')
         return
 
-    game_servers = config.game.guild_games.split(",")
+    # disable game for TRTL discord
+    if ctx.guild and ctx.guild.id == TRTL_DISCORD:
+        await ctx.message.add_reaction(EMOJI_LOCKED)
+        return
+
     free_game = False
     won = False
-    # Only WrkzCoin testing. Return if DM or other guild
-    if isinstance(ctx.channel, discord.DMChannel) == True or str(ctx.guild.id) not in game_servers:
-        await ctx.message.add_reaction(EMOJI_ERROR)
-        return
 
     # check if user create account less than 3 days
     try:
@@ -1391,18 +1410,21 @@ Rules:
 @game.command(name='slot', aliases=['slots'], help=bot_help_game_slot)
 async def slot(ctx):
     global GAME_SLOT_REWARD, GAME_COIN, BOT_INVITELINK, GAME_SLOT_IN_PRGORESS
+    botLogChan = bot.get_channel(id=LOG_CHAN)
     # bot check in the first place
     if ctx.message.author.bot == True:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is not allowed using this.')
+        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} (Bot) using **take** {ctx.guild.name} / {ctx.guild.id}')
         return
 
-    game_servers = config.game.guild_games.split(",")
+    # disable game for TRTL discord
+    if ctx.guild and ctx.guild.id == TRTL_DISCORD:
+        await ctx.message.add_reaction(EMOJI_LOCKED)
+        return
+
     free_game = False
     # Only WrkzCoin testing. Return if DM or other guild
-    if isinstance(ctx.channel, discord.DMChannel) == True or str(ctx.guild.id) not in game_servers:
-        await ctx.message.add_reaction(EMOJI_ERROR)
-        return
 
     # check if user create account less than 3 days
     try:
@@ -1501,7 +1523,7 @@ async def slot(ctx):
     return
 
 
-@game.command(name='bagel', aliases=['bagels'], help=bot_help_game_bagel)
+@game.command(name='bagel', aliases=['bagel1'], help=bot_help_game_bagel)
 async def bagel(ctx):
     global GAME_INTERACTIVE_PRGORESS, GAME_COIN, GAME_SLOT_REWARD, BOT_INVITELINK, IS_RESTARTING
     # bot check in the first place
@@ -1510,13 +1532,13 @@ async def bagel(ctx):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is not allowed using this.')
         return
 
-    # Credit: https://github.com/asweigart/PythonStdioGames
-    game_servers = config.game.guild_games.split(",")
-    free_game = False
-    # Only WrkzCoin testing. Return if DM or other guild
-    if isinstance(ctx.channel, discord.DMChannel) == True or str(ctx.guild.id) not in game_servers:
-        await ctx.message.add_reaction(EMOJI_ERROR)
+    # disable game for TRTL discord
+    if ctx.guild and ctx.guild.id == TRTL_DISCORD:
+        await ctx.message.add_reaction(EMOJI_LOCKED)
         return
+
+    # Credit: https://github.com/asweigart/PythonStdioGames
+    free_game = False
 
     # check if user create account less than 3 days
     try:
@@ -1679,13 +1701,13 @@ async def bagel2(ctx):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is not allowed using this.')
         return
 
-    # Credit: https://github.com/asweigart/PythonStdioGames
-    game_servers = config.game.guild_games.split(",")
-    free_game = False
-    # Only WrkzCoin testing. Return if DM or other guild
-    if isinstance(ctx.channel, discord.DMChannel) == True or str(ctx.guild.id) not in game_servers:
-        await ctx.message.add_reaction(EMOJI_ERROR)
+    # disable game for TRTL discord
+    if ctx.guild and ctx.guild.id == TRTL_DISCORD:
+        await ctx.message.add_reaction(EMOJI_LOCKED)
         return
+
+    # Credit: https://github.com/asweigart/PythonStdioGames
+    free_game = False
 
     # check if user create account less than 3 days
     try:
@@ -1878,13 +1900,13 @@ async def bagel3(ctx):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is not allowed using this.')
         return
 
-    # Credit: https://github.com/asweigart/PythonStdioGames
-    game_servers = config.game.guild_games.split(",")
-    free_game = False
-    # Only WrkzCoin testing. Return if DM or other guild
-    if isinstance(ctx.channel, discord.DMChannel) == True or str(ctx.guild.id) not in game_servers:
-        await ctx.message.add_reaction(EMOJI_ERROR)
+    # disable game for TRTL discord
+    if ctx.guild and ctx.guild.id == TRTL_DISCORD:
+        await ctx.message.add_reaction(EMOJI_LOCKED)
         return
+
+    # Credit: https://github.com/asweigart/PythonStdioGames
+    free_game = False
 
     # check if user create account less than 3 days
     try:
@@ -2085,13 +2107,13 @@ async def maze(ctx):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is not allowed using this.')
         return
 
-    # Credit: https://github.com/asweigart/PythonStdioGames
-    game_servers = config.game.guild_games.split(",")
-    free_game = False
-    # Only WrkzCoin testing. Return if DM or other guild
-    if isinstance(ctx.channel, discord.DMChannel) == True or str(ctx.guild.id) not in game_servers:
-        await ctx.message.add_reaction(EMOJI_ERROR)
+    # disable game for TRTL discord
+    if ctx.guild and ctx.guild.id == TRTL_DISCORD:
+        await ctx.message.add_reaction(EMOJI_LOCKED)
         return
+
+    # Credit: https://github.com/asweigart/PythonStdioGames
+    free_game = False
 
     if ctx.message.author.id not in GAME_INTERACTIVE_PRGORESS:
         GAME_INTERACTIVE_PRGORESS.append(ctx.message.author.id)
@@ -2232,13 +2254,13 @@ async def hangman(ctx):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is not allowed using this.')
         return
 
-    # Credit: https://github.com/asweigart/PythonStdioGames
-    game_servers = config.game.guild_games.split(",")
-    free_game = False
-    # Only WrkzCoin testing. Return if DM or other guild
-    if isinstance(ctx.channel, discord.DMChannel) == True or str(ctx.guild.id) not in game_servers:
-        await ctx.message.add_reaction(EMOJI_ERROR)
+    # disable game for TRTL discord
+    if ctx.guild and ctx.guild.id == TRTL_DISCORD:
+        await ctx.message.add_reaction(EMOJI_LOCKED)
         return
+
+    # Credit: https://github.com/asweigart/PythonStdioGames
+    free_game = False
 
     # check if user create account less than 3 days
     try:
@@ -3629,6 +3651,31 @@ async def help_main(message, prefix):
     return
 
 
+async def help_setting(message, prefix):
+    global LOG_CHAN
+    botLogChan = bot.get_channel(id=LOG_CHAN)
+    embed = discord.Embed(title=f"List of SETTING command {message.guild.name}", description="Required Managed Channel Permission", timestamp=datetime.utcnow())
+    if isinstance(message.channel, discord.DMChannel) == True:
+        await message.add_reaction(EMOJI_ERROR) 
+        await message.author.send('This command can not be in private.')
+        return
+    else:
+        embed.add_field(name=f"{prefix}setting prefix <prefix>", value="`Change bot prefix. Supported prefix: . ? * !`", inline=False)
+        embed.add_field(name=f"{prefix}setting tiponly <coin1> [coin2] [coin3] ..", value="`Set tip-only to these coins`", inline=False)
+        embed.add_field(name=f"{prefix}setting ignorechan", value="`Ignore this channel from tipping`", inline=False)
+        embed.add_field(name=f"{prefix}setting del_ignorechan", value="`Delete this channel from ignored tipping channel`", inline=False)
+        embed.add_field(name=f"{prefix}setting botchan #channel_name", value="`Restrict most bot command in #channel_name`", inline=False)
+        embed.add_field(name="OTHER LINKS", value="{} / {} / {}".format("[Invite TipBot](http://invite.discord.bot.tips)", "[Support Server](https://discord.com/invite/GpHzURM)", "[TipBot Github](https://github.com/wrkzcoin/TipBot)"), inline=False)
+        embed.set_footer(text="Required - <>, Optional - []")
+    try:
+        msg = await message.channel.send(embed=embed)
+        await msg.add_reaction(EMOJI_OK_BOX)
+    except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+        await botLogChan.send(f'**Failed** Missing Permissions for sending help_setting in guild {message.guild.id} / {message.guild.name} / # {message.channel.name}')
+        await message.add_reaction(EMOJI_ERROR)
+    return
+
+
 @bot.command(pass_context=True, name='pools', aliases=['pool'])
 async def pools(ctx, coin: str):
     global redis_conn, redis_expired, TRTL_DISCORD, MINGPOOLSTAT_IN_PROCESS
@@ -3640,9 +3687,6 @@ async def pools(ctx, coin: str):
         return
     if isinstance(ctx.message.channel, discord.DMChannel) == False and ctx.guild.id == TRTL_DISCORD and COIN_NAME != "TURTLECOIN":
         await ctx.message.add_reaction(EMOJI_ERROR)
-        return
-    elif isinstance(ctx.channel, discord.DMChannel):
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} This command can not be in DM.')
         return
     key = "TIPBOT:MININGPOOL:" + COIN_NAME
     key_hint = "TIPBOT:MININGPOOL:SHORTNAME:" + COIN_NAME
@@ -5281,10 +5325,12 @@ async def swap(ctx, amount: str, coin: str, to: str):
 @bot.command(pass_context=True, help=bot_help_take)
 async def take(ctx, info: str=None):
     global FAUCET_COINS, FAUCET_MINMAX, TRTL_DISCORD, TX_IN_PROCESS, IS_RESTARTING
+    botLogChan = bot.get_channel(id=LOG_CHAN)
     # bot check in the first place
     if ctx.message.author.bot == True:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is not allowed using this.')
+        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} (Bot) using **take** {ctx.guild.name} / {ctx.guild.id}')
         return
 
     # Check if tx in progress
@@ -8548,13 +8594,13 @@ async def setting(ctx, *args):
     botLogChan = bot.get_channel(id=LOG_CHAN)
     tickers = '|'.join(ENABLE_COIN).lower()
     serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+    server_prefix = config.discord.prefixCmd
     if serverinfo is None:
         # Let's add some info if server return None
         add_server_info = await store.sql_addinfo_by_server(str(ctx.guild.id),
                                                             ctx.message.guild.name, config.discord.prefixCmd, "WRKZ")
         servername = ctx.message.guild.name
         server_id = str(ctx.guild.id)
-        server_prefix = config.discord.prefixCmd
         server_coin = DEFAULT_TICKER
         server_reacttip = "OFF"
     else:
@@ -8563,15 +8609,21 @@ async def setting(ctx, *args):
         server_prefix = serverinfo['prefix']
         server_coin = serverinfo['default_coin'].upper()
         server_reacttip = serverinfo['react_tip'].upper()
+    
     if len(args) == 0:
-        msg = await ctx.send('**Available param:** to change prefix, default coin, others in your server:\n```'
-                       f'{server_prefix}setting prefix .|?|*|!\n\n'
-                       f'{server_prefix}setting default_coin {tickers}\n\n'
-                       f'{server_prefix}setting tiponly coin1 coin2 .. \n\n'
-                       f'{server_prefix}setting ignorechan (no param, ignore tipping function in said channel)\n\n'
-                       f'{server_prefix}setting del_ignorechan (no param, delete ignored tipping function in said channel)\n\n'
-                       '```\n\n')
-        await msg.add_reaction(EMOJI_OK_BOX)
+        embed = discord.Embed(title = "CHANGE {} SETTING".format(ctx.guild.name), timestamp=datetime.utcnow())
+        embed.add_field(name="Change Prefix", value=f'`{server_prefix}setting prefix .|?|*|!`', inline=False)
+        embed.add_field(name="Change Default Coin", value=f'`{server_prefix}setting default_coin <coin_name> Use allcoin for every supported coin`', inline=False)
+        embed.add_field(name="Tip Only", value=f'`{server_prefix}setting tiponly <coin1> [coin2] ..`', inline=False)
+        embed.add_field(name="Bot Channel", value=f'`{server_prefix}setting botchan #channel_name`', inline=False)
+        embed.add_field(name="Ignore Tipping this Channel", value=f'`{server_prefix}setting ignorechan`', inline=False)
+        embed.add_field(name="Delete Ignored Channel", value=f'`{server_prefix}setting del_ignorechan`', inline=False)
+        try:
+            msg = await ctx.send(embed=embed)
+            await msg.add_reaction(EMOJI_OK_BOX)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
         return
     elif len(args) == 1:
         if args[0].upper() == "TIPONLY":

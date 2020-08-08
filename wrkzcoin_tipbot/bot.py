@@ -1186,7 +1186,14 @@ async def game(ctx):
         await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} (Bot) using **game** {ctx.guild.name} / {ctx.guild.id}')
         return
 
-    prefix = await get_guild_prefix(ctx)
+    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+    if serverinfo and 'enable_game' in serverinfo and serverinfo['enable_game'] == "NO":
+        prefix = serverinfo['prefix']
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. Please request Guild owner to enable by `{prefix}SETTING GAME`')
+        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}game** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+        return
+
     # check if bot is going to restart
     if IS_RESTARTING:
         await ctx.message.add_reaction(EMOJI_REFRESH)
@@ -1236,6 +1243,14 @@ async def blackjack(ctx):
     # disable game for TRTL discord
     if ctx.guild and ctx.guild.id == TRTL_DISCORD:
         await ctx.message.add_reaction(EMOJI_LOCKED)
+        return
+
+    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+    if serverinfo and 'enable_game' in serverinfo and serverinfo['enable_game'] == "NO":
+        prefix = serverinfo['prefix']
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. Please request Guild owner to enable by `{prefix}SETTING GAME`')
+        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}game** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
         return
 
     free_game = False
@@ -1423,6 +1438,14 @@ async def slot(ctx):
         await ctx.message.add_reaction(EMOJI_LOCKED)
         return
 
+    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+    if serverinfo and 'enable_game' in serverinfo and serverinfo['enable_game'] == "NO":
+        prefix = serverinfo['prefix']
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. Please request Guild owner to enable by `{prefix}SETTING GAME`')
+        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}game** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+        return
+
     free_game = False
     # Only WrkzCoin testing. Return if DM or other guild
 
@@ -1535,6 +1558,14 @@ async def bagel(ctx):
     # disable game for TRTL discord
     if ctx.guild and ctx.guild.id == TRTL_DISCORD:
         await ctx.message.add_reaction(EMOJI_LOCKED)
+        return
+
+    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+    if serverinfo and 'enable_game' in serverinfo and serverinfo['enable_game'] == "NO":
+        prefix = serverinfo['prefix']
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. Please request Guild owner to enable by `{prefix}SETTING GAME`')
+        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}game** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
         return
 
     # Credit: https://github.com/asweigart/PythonStdioGames
@@ -1704,6 +1735,14 @@ async def bagel2(ctx):
     # disable game for TRTL discord
     if ctx.guild and ctx.guild.id == TRTL_DISCORD:
         await ctx.message.add_reaction(EMOJI_LOCKED)
+        return
+
+    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+    if serverinfo and 'enable_game' in serverinfo and serverinfo['enable_game'] == "NO":
+        prefix = serverinfo['prefix']
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. Please request Guild owner to enable by `{prefix}SETTING GAME`')
+        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}game** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
         return
 
     # Credit: https://github.com/asweigart/PythonStdioGames
@@ -1903,6 +1942,14 @@ async def bagel3(ctx):
     # disable game for TRTL discord
     if ctx.guild and ctx.guild.id == TRTL_DISCORD:
         await ctx.message.add_reaction(EMOJI_LOCKED)
+        return
+
+    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+    if serverinfo and 'enable_game' in serverinfo and serverinfo['enable_game'] == "NO":
+        prefix = serverinfo['prefix']
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. Please request Guild owner to enable by `{prefix}SETTING GAME`')
+        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}game** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
         return
 
     # Credit: https://github.com/asweigart/PythonStdioGames
@@ -2112,6 +2159,14 @@ async def maze(ctx):
         await ctx.message.add_reaction(EMOJI_LOCKED)
         return
 
+    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+    if serverinfo and 'enable_game' in serverinfo and serverinfo['enable_game'] == "NO":
+        prefix = serverinfo['prefix']
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. Please request Guild owner to enable by `{prefix}SETTING GAME`')
+        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}game** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+        return
+
     # Credit: https://github.com/asweigart/PythonStdioGames
     free_game = False
 
@@ -2257,6 +2312,14 @@ async def hangman(ctx):
     # disable game for TRTL discord
     if ctx.guild and ctx.guild.id == TRTL_DISCORD:
         await ctx.message.add_reaction(EMOJI_LOCKED)
+        return
+
+    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+    if serverinfo and 'enable_game' in serverinfo and serverinfo['enable_game'] == "NO":
+        prefix = serverinfo['prefix']
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. Please request Guild owner to enable by `{prefix}SETTING GAME`')
+        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}game** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
         return
 
     # Credit: https://github.com/asweigart/PythonStdioGames
@@ -3636,7 +3699,7 @@ async def help_main(message, prefix):
     botLogChan = bot.get_channel(id=LOG_CHAN)
     embed = discord.Embed(title="List of commands", description="To avoid spamming other, you can do in Direct Message or Bot Channel", color=0xDEADBF)
     if isinstance(message.channel, discord.DMChannel) == False:
-        cmd_setting = ["setting prefix <.>", "setting default_coin <coin_name>", "setting tiponly <coin1> [coin2] [coin3] ..", "setting ignorechan", "setting del_ignorechan"]
+        cmd_setting = ["setting prefix <.>", "setting default_coin <coin_name>", "setting tiponly <coin1> [coin2] [coin3] ..", "setting ignorechan", "setting del_ignorechan", "setting game"]
         embed.add_field(name="SERVER", value="`{}`".format(", ".join(cmd_setting)), inline=False)
         
         cmd_tag = ["tag", "tag <-add> <tag_name> <tag description>", "tag <-del> <tag_name>", "itag", "itag <itag_name> (need attachement)", "itag -del <tag_name>"]
@@ -3688,6 +3751,7 @@ async def help_setting(message, prefix):
         embed.add_field(name=f"{prefix}setting ignorechan", value="`Ignore this channel from tipping`", inline=False)
         embed.add_field(name=f"{prefix}setting del_ignorechan", value="`Delete this channel from ignored tipping channel`", inline=False)
         embed.add_field(name=f"{prefix}setting botchan #channel_name", value="`Restrict most bot command in #channel_name`", inline=False)
+        embed.add_field(name=f"{prefix}setting game", value="`Enable / Disable game feature / command`", inline=False)
         embed.add_field(name="OTHER LINKS", value="{} / {} / {}".format("[Invite TipBot](http://invite.discord.bot.tips)", "[Support Server](https://discord.com/invite/GpHzURM)", "[TipBot Github](https://github.com/wrkzcoin/TipBot)"), inline=False)
         embed.set_footer(text="Required - <>, Optional - []")
     try:
@@ -8652,6 +8716,18 @@ async def setting(ctx, *args):
         if args[0].upper() == "TIPONLY":
             await ctx.send(f'{ctx.author.mention} Please tell what coins to be allowed here. Separated by space.')
             return
+        # enable / disable game
+        elif args[0].upper() == "GAME":
+            if serverinfo['enable_game'] == "YES":
+                changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_game', 'NO')
+                await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} DISABLE game in their guild {ctx.guild.name} / {ctx.guild.id}')
+                await ctx.send(f'{ctx.author.mention} DISABLE GAME feature in this guild **{ctx.guild.name}**.')
+                return
+            elif serverinfo['enable_game'] == "NO":
+                changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_game', 'YES')
+                await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} ENABLE game in their guild {ctx.guild.name} / {ctx.guild.id}')
+                await ctx.send(f'{ctx.author.mention} ENABLE GAME feature in this guild **{ctx.guild.name}**.')
+            return
         elif args[0].upper() == "IGNORE_CHAN" or args[0].upper() == "IGNORECHAN":
             if LIST_IGNORECHAN is None:
                 await store.sql_addignorechan_by_server(str(ctx.guild.id), str(ctx.channel.id), str(ctx.message.author.id), ctx.message.author.name)
@@ -9415,7 +9491,7 @@ async def update_user_guild():
             num_bot = sum(1 for member in g.members if member.bot == True)
             num_online = sum(1 for member in g.members if member.status != "offline")
             await store.sql_updatestat_by_server(str(g.id), num_user, num_bot, num_channel, num_online)
-        await asyncio.sleep(60)
+        await asyncio.sleep(300)
 
 
 

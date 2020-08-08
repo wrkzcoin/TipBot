@@ -523,6 +523,9 @@ def get_min_tx_amount(coin: str = None):
 def get_max_tx_amount(coin: str = None):
     return getattr(config,"daemon"+coin,config.daemonWRKZ).max_tx_amount
 
+def get_min_deposit_amount(coin: str = None):
+    return getattr(config,"daemon"+coin,config.daemonWRKZ).min_deposit
+
 
 def get_interval_opt(coin: str = None):
     return getattr(config,"daemon"+coin,config.daemonWRKZ).IntervalOptimize

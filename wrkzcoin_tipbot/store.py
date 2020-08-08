@@ -17,10 +17,9 @@ from cryptography.fernet import Fernet
 # MySQL
 import pymysql
 
-import logging
-
 # redis
 import redis
+
 redis_pool = None
 redis_conn = None
 redis_expired = 120
@@ -177,7 +176,7 @@ async def sql_update_balances(coin: str = None):
                             for tx in tx_in_block:
                                 # Could be one block has two or more tx with different payment ID
                                 # add to balance only confirmation depth meet
-                                if height > int(tx['blockIndex']) + wallet.get_confirm_depth(COIN_NAME):
+                                if height >= int(tx['blockIndex']) + wallet.get_confirm_depth(COIN_NAME) and tx['amount'] >= wallet.get_min_deposit_amount(COIN_NAME):
                                     if ('paymentId' in tx) and (tx['paymentId'] in list_balance_user):
                                         if tx['amount'] > 0:
                                             list_balance_user[tx['paymentId']] += tx['amount']
@@ -209,7 +208,7 @@ async def sql_update_balances(coin: str = None):
                                         traceback.print_exc(file=sys.stdout)
                                     except Exception as e:
                                         traceback.print_exc(file=sys.stdout)
-                                else:
+                                elif height < int(tx['blockIndex']) + wallet.get_confirm_depth(COIN_NAME) and tx['amount'] >= wallet.get_min_deposit_amount(COIN_NAME):
                                     # add notify to redis and alert deposit. Can be clean later?
                                     if config.notify_new_tx.enable_new_no_confirm == 1:
                                         key_tx_new = 'TIPBOT:NEWTX:NOCONFIRM'
@@ -265,7 +264,7 @@ async def sql_update_balances(coin: str = None):
                         list_balance_user = {}
                         for tx in get_transfers['in']:
                             # add to balance only confirmation depth meet
-                            if height > int(tx['height']) + wallet.get_confirm_depth(COIN_NAME):
+                            if height >= int(tx['height']) + wallet.get_confirm_depth(COIN_NAME) and tx['amount'] >= wallet.get_min_deposit_amount(COIN_NAME):
                                 if ('payment_id' in tx) and (tx['payment_id'] in list_balance_user):
                                     list_balance_user[tx['payment_id']] += tx['amount']
                                 elif ('payment_id' in tx) and (tx['payment_id'] not in list_balance_user):
@@ -287,7 +286,7 @@ async def sql_update_balances(coin: str = None):
                                         await conn.commit()
                                 except Exception as e:
                                     traceback.print_exc(file=sys.stdout)
-                            else:
+                            elif height < int(tx['height']) + wallet.get_confirm_depth(COIN_NAME) and tx['amount'] >= wallet.get_min_deposit_amount(COIN_NAME):
                                 # add notify to redis and alert deposit. Can be clean later?
                                 if config.notify_new_tx.enable_new_no_confirm == 1:
                                     key_tx_new = 'TIPBOT:NEWTX:NOCONFIRM'
@@ -334,7 +333,7 @@ async def sql_update_balances(coin: str = None):
                         list_balance_user = {}
                         for tx in get_transfers:
                             # add to balance only confirmation depth meet
-                            if wallet.get_confirm_depth(COIN_NAME) < int(tx['confirmations']):
+                            if wallet.get_confirm_depth(COIN_NAME) <= int(tx['confirmations']) and tx['amount'] >= wallet.get_min_deposit_amount(COIN_NAME):
                                 if ('address' in tx) and (tx['address'] in list_balance_user) and (tx['amount'] > 0):
                                     list_balance_user[tx['address']] += tx['amount']
                                 elif ('address' in tx) and (tx['address'] not in list_balance_user) and (tx['amount'] > 0):
@@ -360,7 +359,7 @@ async def sql_update_balances(coin: str = None):
                                     traceback.print_exc(file=sys.stdout)
                                 except Exception as e:
                                     traceback.print_exc(file=sys.stdout)
-                            else:
+                            if wallet.get_confirm_depth(COIN_NAME) > int(tx['confirmations']) and tx['amount'] >= wallet.get_min_deposit_amount(COIN_NAME):
                                 # add notify to redis and alert deposit. Can be clean later?
                                 if config.notify_new_tx.enable_new_no_confirm == 1:
                                     key_tx_new = 'TIPBOT:NEWTX:NOCONFIRM'
@@ -1612,7 +1611,7 @@ async def sql_get_messages(server_id: str, channel_id: str, time_int: int, num_u
 
 async def sql_changeinfo_by_server(server_id: str, what: str, value: str):
     global pool
-    if what.lower() in ["servername", "prefix", "default_coin", "tiponly", "numb_user", "numb_bot", "numb_channel", "react_tip", "react_tip_100", "lastUpdate", "botchan"]:
+    if what.lower() in ["servername", "prefix", "default_coin", "tiponly", "numb_user", "numb_bot", "numb_channel", "react_tip", "react_tip_100", "lastUpdate", "botchan", "enable_faucet", "enable_game"]:
         try:
             #print(f"ok try to change {what} to {value}")
             await openConnection()

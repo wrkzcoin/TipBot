@@ -3486,7 +3486,7 @@ async def cal(ctx, eval_string: str = None):
 
 
 @bot.command(pass_context=True, name='deposit', help=bot_help_deposit)
-async def deposit(ctx, coin_name: str):
+async def deposit(ctx, coin_name: str, option: str=None):
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'deposit')
     if account_lock:
@@ -3584,6 +3584,27 @@ async def deposit(ctx, coin_name: str):
             img.save(config.qrsettings.path + wallet['balance_wallet_address'] + ".png")
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
+    if option and option.upper() in ["PLAIN", "TEXT", "NOEMBED"]:
+        deposit = wallet['balance_wallet_address']
+        try:
+            msg = await ctx.send(f'{ctx.author.mention} Your **{COIN_NAME}**\'s deposit address: ```{deposit}```')
+            await msg.add_reaction(EMOJI_OK_BOX)
+            await ctx.message.add_reaction(EMOJI_OK_HAND)
+            return
+        except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+            if isinstance(ctx.channel, discord.DMChannel) == False:
+                try:
+                    msg = await ctx.message.author.send(f'{ctx.author.mention} Your **{COIN_NAME}**\'s deposit address: ```{deposit}```')
+                    await msg.add_reaction(EMOJI_OK_BOX)
+                    await ctx.message.add_reaction(EMOJI_OK_HAND)
+                    return
+                except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+                    await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
+                    return
+            else:
+                await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
+                return
+
     embed = discord.Embed(title=f'Your Deposit {ctx.message.author.name}#{ctx.message.author.discriminator} / **{COIN_NAME}**', description='{}'.format(get_notice_txt(COIN_NAME)), timestamp=datetime.utcnow(), colour=7047495)
     embed.set_author(name=ctx.message.author.name, icon_url=ctx.message.author.avatar_url)
     embed.add_field(name="Deposit Address", value="`{}`".format(wallet['balance_wallet_address']), inline=False)
@@ -3592,6 +3613,8 @@ async def deposit(ctx, coin_name: str):
     elif 'user_wallet_address' in wallet and wallet['user_wallet_address'] and isinstance(ctx.channel, discord.DMChannel) == False:
         embed.add_field(name="Withdraw Address", value="`(Only in DM)`", inline=False)
     embed.set_thumbnail(url=config.deposit_qr.deposit_url + "/tipbot_deposit_qr/" + wallet['balance_wallet_address'] + ".png")
+    prefix = await get_guild_prefix(ctx)
+    embed.set_footer(text=f"Use:{prefix}deposit {COIN_NAME} plain (for plain text)")
     try:
         msg = await ctx.send(embed=embed)
         await msg.add_reaction(EMOJI_OK_BOX)

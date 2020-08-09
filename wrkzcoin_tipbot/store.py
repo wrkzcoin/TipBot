@@ -67,7 +67,7 @@ async def openConnection():
                                                    db=config.mysql.db, autocommit=True, cursorclass=DictCursor)
     except:
         print("ERROR: Unexpected error: Could not connect to MySql instance.")
-        sys.exit()
+        traceback.print_exc(file=sys.stdout)
 
 
 # openConnection_cmc
@@ -80,7 +80,7 @@ async def openConnection_cmc():
                                                        db=config.mysql_cmc.db, cursorclass=DictCursor)
     except:
         print("ERROR: Unexpected error: Could not connect to MySql instance.")
-        sys.exit()
+        traceback.print_exc(file=sys.stdout)
 
 
 async def get_coingecko_coin(coin: str):

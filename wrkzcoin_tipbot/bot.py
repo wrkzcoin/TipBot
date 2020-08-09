@@ -3964,6 +3964,7 @@ async def pools(ctx, coin: str):
 
 @bot.command(pass_context=True, name='info', help=bot_help_info)
 async def info(ctx, coin: str = None):
+    global LIST_IGNORECHAN, MUTE_CHANNEL
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'info')
     if account_lock:
@@ -3985,7 +3986,6 @@ async def info(ctx, coin: str = None):
         pass
     # End Check if maintenance
 
-    global LIST_IGNORECHAN, MUTE_CHANNEL
     wallet = None
     COIN_NAME = None
     if coin is None:
@@ -4002,19 +4002,18 @@ async def info(ctx, coin: str = None):
             return
         else:
             serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            servername = ctx.message.guild.name
+            prefix = config.discord.prefixCmd
+            server_coin = DEFAULT_TICKER
+            server_tiponly = "ALLCOIN"
+            react_tip_value = "N/A"
             if serverinfo is None:
                 # Let's add some info if server return None
                 add_server_info = await store.sql_addinfo_by_server(str(ctx.guild.id),
                                                                     ctx.message.guild.name, config.discord.prefixCmd, "WRKZ")
-                servername = ctx.message.guild.name
-                server_id = str(ctx.guild.id)
-                server_prefix = config.discord.prefixCmd
-                server_coin = DEFAULT_TICKER
-                server_tiponly = "ALLCOIN"
             else:
                 servername = serverinfo['servername']
-                server_id = str(ctx.guild.id)
-                server_prefix = serverinfo['prefix']
+                prefix = serverinfo['prefix']
                 server_coin = serverinfo['default_coin'].upper()
                 server_tiponly = serverinfo['tiponly'].upper()
                 if serverinfo['react_tip'].upper() == "ON":
@@ -4022,40 +4021,58 @@ async def info(ctx, coin: str = None):
                     # COIN_DEC = get_decimal(COIN_NAME)
                     # real_amount = int(amount * COIN_DEC)
                     react_tip_value = str(serverinfo['react_tip_100']) + COIN_NAME
-                else:
-                    react_tip_value = "N/A"
-            chanel_ignore_list = ''
-            if LIST_IGNORECHAN and len(LIST_IGNORECHAN[str(ctx.guild.id)]) > 0 and str(ctx.guild.id) in LIST_IGNORECHAN:
-                for item in LIST_IGNORECHAN[str(ctx.guild.id)]:
-                    try:
-                        chanel_ignore = bot.get_channel(id=int(item))
-                        chanel_ignore_list += '#'  + chanel_ignore.name + ' '
-                    except Exception as e:
-                        pass
+            try:
+                MUTE_CHANNEL = await store.sql_list_mutechan()
+                LIST_IGNORECHAN = await store.sql_listignorechan()
+                chanel_ignore_list = ''
+                if LIST_IGNORECHAN and str(ctx.guild.id) in LIST_IGNORECHAN:
+                    for item in LIST_IGNORECHAN[str(ctx.guild.id)]:
+                        try:
+                            chanel_ignore = bot.get_channel(id=int(item))
+                            chanel_ignore_list += '#'  + chanel_ignore.name + ' '
+                        except Exception as e:
+                            pass
+                if chanel_ignore_list == '': chanel_ignore_list = 'N/A'
 
-            chanel_mute_list = ''
-            if MUTE_CHANNEL and len(MUTE_CHANNEL[str(ctx.guild.id)]) > 0 and str(ctx.guild.id) in MUTE_CHANNEL:
-                for item in MUTE_CHANNEL[str(ctx.guild.id)]:
-                    try:
-                        chanel_mute = bot.get_channel(id=int(item))
-                        chanel_mute_list += '#'  + chanel_mute.name + ' '
-                    except Exception as e:
-                        pass
-
-            tickers = '|'.join(ENABLE_COIN).lower()
-            extra_text = f'Type: `{server_prefix}setting` if you want to change `prefix` or `default_coin` or `ignorechan` or `del_ignorechan` or `tiponly`. (Required permission)'
-            msg = await ctx.send(
-                '\n```'
-                f'Server ID:      {ctx.guild.id}\n'
-                f'Server Name:    {ctx.message.guild.name}\n'
-                f'Default ticker: {server_coin}\n'
-                f'Default prefix: {server_prefix}\n'
-                f'TipOnly Coins:  {server_tiponly}\n'
-                f'Re-act Tip:     {react_tip_value}\n'
-                f'Ignored Tip in: {chanel_ignore_list}\n'
-                f'Mute in:        {chanel_mute_list}\n'
-                f'```\n{extra_text}')
-            await msg.add_reaction(EMOJI_OK_BOX)
+                chanel_mute_list = ''
+                if MUTE_CHANNEL and str(ctx.guild.id) in MUTE_CHANNEL:
+                    for item in MUTE_CHANNEL[str(ctx.guild.id)]:
+                        try:
+                            chanel_mute = bot.get_channel(id=int(item))
+                            chanel_mute_list += '#'  + chanel_mute.name + ' '
+                        except Exception as e:
+                            pass
+                if chanel_mute_list == '': chanel_mute_list = 'N/A'
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            extra_text = f'Type: {prefix}setting or {prefix}help setting for more info. (Required permission)'
+            try:
+                embed = discord.Embed(title=f'Guild {ctx.guild.id} / {ctx.guild.name}', timestamp=datetime.utcnow())
+                embed.set_author(name=ctx.guild.name, icon_url=ctx.guild.icon_url)
+                embed.add_field(name="Default Ticker", value=f'`{server_coin}`', inline=True)
+                embed.add_field(name="Default Prefix", value=f'`{prefix}`', inline=True)
+                embed.add_field(name="TipOnly Coins", value=f'`{server_tiponly}`', inline=True)
+                embed.add_field(name=f"Re-act Tip {EMOJI_TIP}", value=f'`{react_tip_value}`', inline=True)
+                embed.add_field(name="Ignored Tip", value=f'`{chanel_ignore_list}`', inline=True)
+                embed.add_field(name="Mute in", value=f'`{chanel_mute_list}`', inline=True)
+                embed.set_footer(text=f"{extra_text}")
+                msg = await ctx.send(embed=embed)
+                await msg.add_reaction(EMOJI_OK_BOX)
+                await ctx.message.add_reaction(EMOJI_OK_HAND)
+            except (discord.errors.NotFound, discord.errors.Forbidden, Exception) as e:
+                msg = await ctx.send(
+                    '\n```'
+                    f'Server ID:      {ctx.guild.id}\n'
+                    f'Server Name:    {ctx.message.guild.name}\n'
+                    f'Default Ticker: {server_coin}\n'
+                    f'Default Prefix: {prefix}\n'
+                    f'TipOnly Coins:  {server_tiponly}\n'
+                    f'Re-act Tip:     {react_tip_value}\n'
+                    f'Ignored Tip in: {chanel_ignore_list}\n'
+                    f'Mute in:        {chanel_mute_list}\n'
+                    f'```{extra_text}')
+                await msg.add_reaction(EMOJI_OK_BOX)
+                await ctx.message.add_reaction(EMOJI_OK_HAND)
             return
     else:
         COIN_NAME = coin.upper()
@@ -8270,7 +8287,12 @@ async def stats(ctx, coin: str = None):
         embed.add_field(name="Total faucet claims", value=total_claimed, inline=True)
         embed.add_field(name="Total tip operations", value='{:,.0f} off-chain, {:,.0f} on-chain'.format(total_tx['off_chain'], total_tx['on_chain']), inline=True)
         embed.add_field(name="OTHER LINKS", value="{} / {} / {}".format("[Invite TipBot](http://invite.discord.bot.tips)", "[Support Server](https://discord.com/invite/GpHzURM)", "[TipBot Github](https://github.com/wrkzcoin/TipBot)"), inline=False)
-        await ctx.send(embed=embed)
+        try:
+            msg = await ctx.send(embed=embed)
+            await msg.add_reaction(EMOJI_OK_BOX)
+        except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+            traceback.print_exc(file=sys.stdout)
+            await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
         return
 
     gettopblock = None
@@ -8729,6 +8751,9 @@ async def setting(ctx, *args):
         embed.add_field(name="Delete Ignored Channel", value=f'`{server_prefix}setting del_ignorechan`', inline=False)
         n_mute = 0
         n_ignore = 0
+        
+        MUTE_CHANNEL = await store.sql_list_mutechan()
+        LIST_IGNORECHAN = await store.sql_listignorechan()
         if MUTE_CHANNEL and str(ctx.guild.id) in MUTE_CHANNEL:
             n_mute = len(MUTE_CHANNEL[str(ctx.guild.id)])
         if LIST_IGNORECHAN and str(ctx.guild.id) in LIST_IGNORECHAN:
@@ -9347,7 +9372,17 @@ async def setting_error(ctx, error):
         await ctx.send('This command is not available in DM.')
         return
     if isinstance(error, commands.MissingPermissions):
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Looks like you don\'t have the permission.')
+        prefix = await get_guild_prefix(ctx)
+        embed = discord.Embed(title=f'Guild {ctx.guild.id} / {ctx.guild.name}', timestamp=datetime.utcnow())
+        embed.set_author(name=ctx.guild.name, icon_url=ctx.guild.icon_url)
+        embed.add_field(name="Default Prefix", value=f'`{prefix}`', inline=True)
+        embed.set_footer(text=f"You don\'t have the permission to change anything. Use {prefix}info also.")
+        try:
+            msg = await ctx.send(embed=embed)
+            await msg.add_reaction(EMOJI_OK_BOX)
+        except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+            pass
+        return
 
 
 @register.error

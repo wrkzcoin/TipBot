@@ -1863,7 +1863,7 @@ async def sql_listignorechan():
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ SELECT `serverid`, `ignorechan`, `set_by_userid`, `by_author`, `set_when` FROM discord_ignorechan """
+                sql = """ SELECT * FROM `discord_ignorechan` """
                 await cur.execute(sql)
                 result = await cur.fetchall()
                 ignore_chan = {}
@@ -1875,6 +1875,56 @@ async def sql_listignorechan():
                             ignore_chan[str(row['serverid'])] = []
                             ignore_chan[str(row['serverid'])].append(str(row['ignorechan']))
                     return ignore_chan
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+
+async def sql_add_mutechan_by_server(server_id: str, mutechan: str, by_userid: str, by_name: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ INSERT IGNORE INTO `discord_mutechan` (`serverid`, `mutechan`, `set_by_userid`, `by_author`, `set_when`)
+                          VALUES (%s, %s, %s, %s, %s) """
+                await cur.execute(sql, (server_id, mutechan, by_userid, by_name, int(time.time())))
+                await conn.commit()
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
+async def sql_del_mutechan_by_server(server_id: str, mutechan: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ DELETE FROM `discord_mutechan` WHERE `serverid` = %s AND `mutechan` = %s """
+                await cur.execute(sql, (server_id, mutechan,))
+                await conn.commit()
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
+async def sql_list_mutechan():
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM `discord_mutechan` """
+                await cur.execute(sql)
+                result = await cur.fetchall()
+                mute_chan = {}
+                if result:
+                    for row in result:
+                        if str(row['serverid']) in mute_chan:
+                            mute_chan[str(row['serverid'])].append(str(row['mutechan']))
+                        else:
+                            mute_chan[str(row['serverid'])] = []
+                            mute_chan[str(row['serverid'])].append(str(row['mutechan']))
+                    return mute_chan
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     return None

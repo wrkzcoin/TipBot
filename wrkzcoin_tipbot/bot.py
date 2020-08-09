@@ -85,6 +85,7 @@ LOG_CHAN = 572686071771430922
 
 WALLET_SERVICE = None
 LIST_IGNORECHAN = None
+MUTE_CHANNEL = None
 
 # param introduce by @bobbieltd
 TX_IN_PROCESS = []
@@ -393,11 +394,13 @@ bot = AutoShardedBot(command_prefix = get_prefix, case_insensitive=True, owner_i
 
 @bot.event
 async def on_ready():
-    global LIST_IGNORECHAN, IS_RESTARTING, BOT_INVITELINK, HANGMAN_WORDS
+    global LIST_IGNORECHAN, MUTE_CHANNEL, IS_RESTARTING, BOT_INVITELINK, HANGMAN_WORDS
     HANGMAN_WORDS = hm_load_words()
     print('Ready!')
     print("Hello, I am TipBot Bot!")
     LIST_IGNORECHAN = await store.sql_listignorechan()
+    MUTE_CHANNEL = await store.sql_list_mutechan()
+    print("Loaded ignore and mute channel list.")
     print(bot.user.name)
     print(bot.user.id)
     print('------')
@@ -688,7 +691,7 @@ async def on_reaction_add(reaction, user):
 
 @bot.event
 async def on_message(message):
-    global LIST_IGNORECHAN
+    global LIST_IGNORECHAN, MUTE_CHANNEL
     if isinstance(message.channel, discord.DMChannel) == False and message.author.bot == False and len(message.content) > 0 and message.author != bot.user:
         if config.Enable_Message_Logging == 1:
             await add_msg_redis(json.dumps([str(message.guild.id), message.guild.name, str(message.channel.id), message.channel.name, 
@@ -696,8 +699,15 @@ async def on_message(message):
         else:
             await add_msg_redis(json.dumps([str(message.guild.id), message.guild.name, str(message.channel.id), message.channel.name, 
                                              str(message.author.id), message.author.name, str(message.id), '', int(time.time())]), False)
+
+    # mute channel
+    if isinstance(message.channel, discord.DMChannel) == False and MUTE_CHANNEL and str(message.guild.id) in MUTE_CHANNEL:
+        if str(message.channel.id) in MUTE_CHANNEL[str(message.guild.id)] and message.content[1:].upper() != "SETTING UNMUTE":
+            # Ignore
+            return
+
     # filter ignorechan
-    commandList = ('TIP', 'TIPALL', 'DONATE', 'HELP', 'STATS', 'DONATE', 'SEND', 'WITHDRAW', 'BOTBAL', 'BAL PUB')
+    commandList = ('TIP', 'TIPALL', 'DONATE', 'HELP', 'DONATE', 'SEND', 'WITHDRAW', 'BOTBAL', 'BAL PUB', 'GAME')
     try:
         # remove first char
         if LIST_IGNORECHAN:
@@ -3699,7 +3709,7 @@ async def help_main(message, prefix):
     botLogChan = bot.get_channel(id=LOG_CHAN)
     embed = discord.Embed(title="List of commands", description="To avoid spamming other, you can do in Direct Message or Bot Channel", color=0xDEADBF)
     if isinstance(message.channel, discord.DMChannel) == False:
-        cmd_setting = ["setting prefix <.>", "setting default_coin <coin_name>", "setting tiponly <coin1> [coin2] [coin3] ..", "setting ignorechan", "setting del_ignorechan", "setting game"]
+        cmd_setting = ["setting prefix <.>", "setting default_coin <coin_name>", "setting tiponly <coin1> [coin2] [coin3] ..", "setting ignorechan", "setting del_ignorechan", "setting <mute/unmute>", "setting game"]
         embed.add_field(name="SERVER", value="`{}`".format(", ".join(cmd_setting)), inline=False)
         
         cmd_tag = ["tag", "tag <-add> <tag_name> <tag description>", "tag <-del> <tag_name>", "itag", "itag <itag_name> (need attachement)", "itag -del <tag_name>"]
@@ -3752,6 +3762,7 @@ async def help_setting(message, prefix):
         embed.add_field(name=f"{prefix}setting del_ignorechan", value="`Delete this channel from ignored tipping channel`", inline=False)
         embed.add_field(name=f"{prefix}setting botchan #channel_name", value="`Restrict most bot command in #channel_name`", inline=False)
         embed.add_field(name=f"{prefix}setting game", value="`Enable / Disable game feature / command`", inline=False)
+        embed.add_field(name=f"{prefix}setting <mute/unmute>", value="`Mute / Unmute the said text channel`", inline=False)
         embed.add_field(name="OTHER LINKS", value="{} / {} / {}".format("[Invite TipBot](http://invite.discord.bot.tips)", "[Support Server](https://discord.com/invite/GpHzURM)", "[TipBot Github](https://github.com/wrkzcoin/TipBot)"), inline=False)
         embed.set_footer(text="Required - <>, Optional - []")
     try:
@@ -3974,7 +3985,7 @@ async def info(ctx, coin: str = None):
         pass
     # End Check if maintenance
 
-    global LIST_IGNORECHAN
+    global LIST_IGNORECHAN, MUTE_CHANNEL
     wallet = None
     COIN_NAME = None
     if coin is None:
@@ -4014,11 +4025,22 @@ async def info(ctx, coin: str = None):
                 else:
                     react_tip_value = "N/A"
             chanel_ignore_list = ''
-            if LIST_IGNORECHAN:
-                if str(ctx.guild.id) in LIST_IGNORECHAN:
-                    for item in LIST_IGNORECHAN[str(ctx.guild.id)]:
+            if LIST_IGNORECHAN and len(LIST_IGNORECHAN[str(ctx.guild.id)]) > 0 and str(ctx.guild.id) in LIST_IGNORECHAN:
+                for item in LIST_IGNORECHAN[str(ctx.guild.id)]:
+                    try:
                         chanel_ignore = bot.get_channel(id=int(item))
-                        chanel_ignore_list = chanel_ignore_list + '#'  + chanel_ignore.name + ' '
+                        chanel_ignore_list += '#'  + chanel_ignore.name + ' '
+                    except Exception as e:
+                        pass
+
+            chanel_mute_list = ''
+            if MUTE_CHANNEL and len(MUTE_CHANNEL[str(ctx.guild.id)]) > 0 and str(ctx.guild.id) in MUTE_CHANNEL:
+                for item in MUTE_CHANNEL[str(ctx.guild.id)]:
+                    try:
+                        chanel_mute = bot.get_channel(id=int(item))
+                        chanel_mute_list += '#'  + chanel_mute.name + ' '
+                    except Exception as e:
+                        pass
 
             tickers = '|'.join(ENABLE_COIN).lower()
             extra_text = f'Type: `{server_prefix}setting` if you want to change `prefix` or `default_coin` or `ignorechan` or `del_ignorechan` or `tiponly`. (Required permission)'
@@ -4031,6 +4053,7 @@ async def info(ctx, coin: str = None):
                 f'TipOnly Coins:  {server_tiponly}\n'
                 f'Re-act Tip:     {react_tip_value}\n'
                 f'Ignored Tip in: {chanel_ignore_list}\n'
+                f'Mute in:        {chanel_mute_list}\n'
                 f'```\n{extra_text}')
             await msg.add_reaction(EMOJI_OK_BOX)
             return
@@ -8672,8 +8695,7 @@ async def height(ctx, coin: str = None):
 @bot.command(pass_context=True, name='setting', aliases=['settings', 'set'], help=bot_help_settings)
 @commands.has_permissions(manage_channels=True)
 async def setting(ctx, *args):
-    global LIST_IGNORECHAN
-    LIST_IGNORECHAN = await store.sql_listignorechan()
+    global LIST_IGNORECHAN, MUTE_CHANNEL
     # Check if address is valid first
     if isinstance(ctx.channel, discord.DMChannel):
         await ctx.send('This command is not available in DM.')
@@ -8705,6 +8727,13 @@ async def setting(ctx, *args):
         embed.add_field(name="Bot Channel", value=f'`{server_prefix}setting botchan #channel_name`', inline=False)
         embed.add_field(name="Ignore Tipping this Channel", value=f'`{server_prefix}setting ignorechan`', inline=False)
         embed.add_field(name="Delete Ignored Channel", value=f'`{server_prefix}setting del_ignorechan`', inline=False)
+        n_mute = 0
+        n_ignore = 0
+        if MUTE_CHANNEL and str(ctx.guild.id) in MUTE_CHANNEL:
+            n_mute = len(MUTE_CHANNEL[str(ctx.guild.id)])
+        if LIST_IGNORECHAN and str(ctx.guild.id) in LIST_IGNORECHAN:
+            n_ignore = len(LIST_IGNORECHAN[str(ctx.guild.id)])
+        embed.add_field(name="Num. Mute/Ignore Channel", value=f'`{n_mute} / {n_ignore}`', inline=False)
         try:
             msg = await ctx.send(embed=embed)
             await msg.add_reaction(EMOJI_OK_BOX)
@@ -8732,33 +8761,65 @@ async def setting(ctx, *args):
             if LIST_IGNORECHAN is None:
                 await store.sql_addignorechan_by_server(str(ctx.guild.id), str(ctx.channel.id), str(ctx.message.author.id), ctx.message.author.name)
                 LIST_IGNORECHAN = await store.sql_listignorechan()
-                await ctx.send(f'Added #{ctx.channel.name} to ignore tip action list.')
+                await ctx.send(f'{ctx.author.mention} Added #{ctx.channel.name} to ignore tip action list.')
                 return
             if str(ctx.guild.id) in LIST_IGNORECHAN:
                 if str(ctx.channel.id) in LIST_IGNORECHAN[str(ctx.guild.id)]:
-                    await ctx.send(f'This channel #{ctx.channel.name} is already in ignore list.')
+                    await ctx.send(f'{ctx.author.mention} This channel #{ctx.channel.name} is already in ignore list.')
                     return
                 else:
                     await store.sql_addignorechan_by_server(str(ctx.guild.id), str(ctx.channel.id), str(ctx.message.author.id), ctx.message.author.name)
                     LIST_IGNORECHAN = await store.sql_listignorechan()
-                    await ctx.send(f'Added #{ctx.channel.name} to ignore tip action list.')
+                    await ctx.send(f'{ctx.author.mention} Added #{ctx.channel.name} to ignore tip action list.')
                     return
             else:
                 await store.sql_addignorechan_by_server(str(ctx.guild.id), str(ctx.channel.id), str(ctx.message.author.id), ctx.message.author.name)
-                await ctx.send(f'Added #{ctx.channel.name} to ignore tip action list.')
+                await ctx.send(f'{ctx.author.mention} Added #{ctx.channel.name} to ignore tip action list.')
                 return
         elif args[0].upper() == "DEL_IGNORE_CHAN" or args[0].upper() == "DEL_IGNORECHAN" or args[0].upper() == "DELIGNORECHAN":
             if str(ctx.guild.id) in LIST_IGNORECHAN:
                 if str(ctx.channel.id) in LIST_IGNORECHAN[str(ctx.guild.id)]:
                     await store.sql_delignorechan_by_server(str(ctx.guild.id), str(ctx.channel.id))
                     LIST_IGNORECHAN = await store.sql_listignorechan()
-                    await ctx.send(f'This channel #{ctx.channel.name} is deleted from ignore tip list.')
+                    await ctx.send(f'{ctx.author.mention} This channel #{ctx.channel.name} is deleted from ignore tip list.')
                     return
                 else:
-                    await ctx.send(f'Channel #{ctx.channel.name} is not in ignore tip action list.')
+                    await ctx.send(f'{ctx.author.mention} Channel #{ctx.channel.name} is not in ignore tip action list.')
                     return
             else:
-                await ctx.send(f'Channel #{ctx.channel.name} is not in ignore tip action list.')
+                await ctx.send(f'{ctx.author.mention} Channel #{ctx.channel.name} is not in ignore tip action list.')
+                return
+        elif args[0].upper() == "MUTE":
+            if MUTE_CHANNEL is None:
+                await store.sql_add_mutechan_by_server(str(ctx.guild.id), str(ctx.channel.id), str(ctx.message.author.id), ctx.message.author.name)
+                MUTE_CHANNEL = await store.sql_list_mutechan()
+                await ctx.send(f'{ctx.author.mention} Added #{ctx.channel.name} to mute. I will ignore anything here.')
+                return
+            if str(ctx.guild.id) in MUTE_CHANNEL:
+                if str(ctx.channel.id) in MUTE_CHANNEL[str(ctx.guild.id)]:
+                    await ctx.send(f'{ctx.author.mention} This channel #{ctx.channel.name} is already in mute mode.')
+                    return
+                else:
+                    await store.sql_add_mutechan_by_server(str(ctx.guild.id), str(ctx.channel.id), str(ctx.message.author.id), ctx.message.author.name)
+                    MUTE_CHANNEL = await store.sql_list_mutechan()
+                    await ctx.send(f'{ctx.author.mention} Added #{ctx.channel.name} to mute. I will ignore anything here.')
+                    return
+            else:
+                await store.sql_add_mutechan_by_server(str(ctx.guild.id), str(ctx.channel.id), str(ctx.message.author.id), ctx.message.author.name)
+                await ctx.send(f'{ctx.author.mention} Added #{ctx.channel.name} to mute. I will ignore anything here.')
+                return
+        elif args[0].upper() == "UNMUTE":
+            if str(ctx.guild.id) in MUTE_CHANNEL:
+                if str(ctx.channel.id) in MUTE_CHANNEL[str(ctx.guild.id)]:
+                    await store.sql_del_mutechan_by_server(str(ctx.guild.id), str(ctx.channel.id))
+                    MUTE_CHANNEL = await store.sql_list_mutechan()
+                    await ctx.send(f'{ctx.author.mention} This channel #{ctx.channel.name} is unmute.')
+                    return
+                else:
+                    await ctx.send(f'{ctx.author.mention} Channel #{ctx.channel.name} is not mute right now!')
+                    return
+            else:
+                await ctx.send(f'{ctx.author.mention} Channel #{ctx.channel.name} is not mute right now!')
                 return
         elif args[0].upper() == "BOTCHAN" or args[0].upper() == "BOTCHANNEL" or args[0].upper() == "BOT_CHAN":
             if serverinfo['botchan']:

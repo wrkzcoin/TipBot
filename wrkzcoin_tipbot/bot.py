@@ -122,7 +122,8 @@ GAME_SLOT_REWARD = {
     "WRKZ": config.game_reward.wrkz,
     "DEGO": config.game_reward.dego,
     "TRTL": config.game_reward.trtl,
-    "BTCMZ": config.game_reward.btcmz
+    "BTCMZ": config.game_reward.btcmz,
+    "XFG": config.game_reward.xfg
 }
 
 GAME_INTERACTIVE_PRGORESS = []
@@ -4413,7 +4414,7 @@ async def botbalance(ctx, member: discord.Member, coin: str):
 
     COIN_NAME = coin.upper()
     if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR:
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**!')
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER {COIN_NAME}**!')
         return
 
     # TRTL discord
@@ -4459,7 +4460,7 @@ async def botbalance(ctx, member: discord.Member, coin: str):
         elif coin_family == "XMR":
             userdata_balance = await store.sql_xmr_balance(str(member.id), COIN_NAME)
             balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
-        elif coin_family == "TRTL":
+        elif coin_family in ["TRTL", "BCN"]:
             userdata_balance = await store.sql_cnoff_balance(str(member.id), COIN_NAME)
             balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
 

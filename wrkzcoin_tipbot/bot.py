@@ -472,8 +472,8 @@ async def on_raw_reaction_add(payload):
             and author != member and message:
             # Delete message
             try:
-                # do not delete maze message
-                if 'MAZE' in message.content.upper():
+                # do not delete maze or blackjack message
+                if 'MAZE' in message.content.upper() or 'BLACKJACK' in message.content.upper():
                     return
                 await message.delete()
                 return
@@ -492,8 +492,8 @@ async def on_reaction_add(reaction, user):
     else:
         # If re-action is OK box and message author is bot itself
         if reaction.emoji == EMOJI_OK_BOX and reaction.message.author.id == bot.user.id:
-            # do not delete maze message
-            if 'MAZE' in reaction.message.content.upper():
+            # do not delete maze or blackjack message
+            if 'MAZE' in reaction.message.content.upper() or 'BLACKJACK' in reaction.message.content.upper():
                 return
             await reaction.message.delete()
         # EMOJI_100
@@ -1321,14 +1321,25 @@ Rules:
                 await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is going to restart soon. Wait until it is back for using this.')
                 return
             get_display = blackjack_displayHands(playerHand, dealerHand, False)
-            msg = await ctx.send('{} **BLACKJACK**\n'
-                                 '```DEALER: {}\n'
-                                 '{}\n'
-                                 'PLAYER:  {}\n'
-                                 '{}```Please re-act {}: Stand, {}: Hit'.format(ctx.author.mention, get_display['dealer_header'], 
-                                 get_display['dealer'], get_display['player_header'], get_display['player'], EMOJI_LETTER_S, EMOJI_LETTER_H))
-            await msg.add_reaction(EMOJI_LETTER_S)
-            await msg.add_reaction(EMOJI_LETTER_H)
+            # Sometimes bot sending failure. If fails, we finish it.
+            try:
+                msg = await ctx.send('{} **BLACKJACK**\n'
+                                     '```DEALER: {}\n'
+                                     '{}\n'
+                                     'PLAYER:  {}\n'
+                                     '{}```Please re-act {}: Stand, {}: Hit'.format(ctx.author.mention, get_display['dealer_header'], 
+                                     get_display['dealer'], get_display['player_header'], get_display['player'], EMOJI_LETTER_S, EMOJI_LETTER_H))
+                await msg.add_reaction(EMOJI_LETTER_S)
+                await msg.add_reaction(EMOJI_LETTER_H)
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+                game_over = True
+                if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+                    GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot failed to start BlackJack message. Please re-try.')
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                break
+                return
             # Check if the player has bust:
             if blackjack_getCardValue(playerHand) >= 21:
                 player_over = True
@@ -1336,7 +1347,7 @@ Rules:
             
             def check(reaction, user):
                 return user == ctx.message.author and reaction.message.author == bot.user and reaction.message.id == msg.id and str(reaction.emoji) \
-                in (EMOJI_LETTER_S, EMOJI_LETTER_H, EMOJI_OK_BOX)
+                in (EMOJI_LETTER_S, EMOJI_LETTER_H)
             try:
                 reaction, user = await bot.wait_for('reaction_add', timeout=60, check=check)
             except asyncio.TimeoutError:
@@ -1425,7 +1436,7 @@ Rules:
             traceback.print_exc(file=sys.stdout)
     else:
         try:
-            reward = await store.sql_game_add('BLACKJACK: PLAYER={}, DEALER={}'.format(playerValue, dealerValue), str(ctx.message.author.id), 'None', 'WIN' if won else 'LOSE', real_amount if won else 0, COIN_DEC if won else 0, str(ctx.guild.id), 'BLACKJACK', 'DISCORD')
+            reward = await store.sql_game_add('BLACKJACK: PLAYER={}, DEALER={}'.format(playerValue, dealerValue), str(ctx.message.author.id), COIN_NAME, 'WIN' if won else 'LOSE', real_amount if won else 0, COIN_DEC if won else 0, str(ctx.guild.id), 'BLACKJACK', 'DISCORD')
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
                         

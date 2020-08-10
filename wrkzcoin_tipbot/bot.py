@@ -10797,6 +10797,7 @@ def set_coin_tipable(coin: str, set_tipable: bool = True):
 
 async def bot_faucet(ctx):
     global TRTL_DISCORD
+    get_game_stat = await store.sql_game_stat()
     table_data = [
         ['TICKER', 'Available', 'Claimed']
     ]
@@ -10810,6 +10811,11 @@ async def bot_faucet(ctx):
                 wallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
             userdata_balance = await store.sql_cnoff_balance(str(bot.user.id), COIN_NAME)
             wallet['actual_balance'] = wallet['actual_balance'] + int(userdata_balance['Adjust'])
+            try:
+                if COIN_NAME in get_game_stat:
+                    wallet['actual_balance'] = wallet['actual_balance'] - get_game_stat[COIN_NAME]
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
             balance_actual = num_format_coin(wallet['actual_balance'], COIN_NAME)
             get_claimed_count = await store.sql_faucet_sum_count_claimed(COIN_NAME)
             sub_claim = num_format_coin(float(get_claimed_count['claimed']), COIN_NAME) if get_claimed_count['count'] > 0 else f"0.00{COIN_NAME}"
@@ -10825,6 +10831,11 @@ async def bot_faucet(ctx):
             userwallet = await store.sql_register_user(str(bot.user.id), COIN_NAME, 'DISCORD')
             userwallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
         actual = userwallet['actual_balance']
+        try:
+            if COIN_NAME in get_game_stat:
+                actual = actual - get_game_stat[COIN_NAME]
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
         userdata_balance = await store.sql_doge_balance(str(bot.user.id), COIN_NAME)
         balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
         get_claimed_count = await store.sql_faucet_sum_count_claimed(COIN_NAME)

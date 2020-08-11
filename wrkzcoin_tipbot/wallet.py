@@ -61,6 +61,8 @@ async def send_transaction(from_address: str, to_address: str, amount: int, coin
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     result = None
     time_out = 64
+    if COIN_NAME == "DEGO":
+        time_out = 300
     if coin_family == "TRTL" or coin_family == "BCN":
         if COIN_NAME not in FEE_PER_BYTE_COIN:
             payload = {
@@ -109,6 +111,8 @@ async def send_transaction(from_address: str, to_address: str, amount: int, coin
 async def send_transaction_id(from_address: str, to_address: str, amount: int, paymentid: str, coin: str) -> str:
     time_out = 32
     COIN_NAME = coin.upper()
+    if COIN_NAME == "DEGO":
+        time_out = 300
     if COIN_NAME not in FEE_PER_BYTE_COIN:
         payload = {
             'addresses': [from_address],
@@ -146,6 +150,8 @@ async def send_transaction_id(from_address: str, to_address: str, amount: int, p
 async def send_transactionall(from_address: str, to_address, coin: str, acc_index: int = None) -> str:
     time_out = 32
     COIN_NAME = coin.upper()
+    if COIN_NAME == "DEGO":
+        time_out = 300
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     result = None
     if coin_family == "TRTL" or coin_family == "BCN":
@@ -192,6 +198,8 @@ async def send_transaction_offchain(from_address: str, to_address: str, amount: 
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     result = None
     time_out = 64
+    if COIN_NAME == "DEGO":
+        time_out = 300
     if coin_family == "TRTL" or coin_family == "BCN":
         if COIN_NAME not in FEE_PER_BYTE_COIN:
             payload = {

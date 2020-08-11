@@ -278,54 +278,6 @@ async def get_balance_address(address: str, coin: str, acc_index: int = None) ->
         return wallet
 
 
-async def wallet_optimize_single(subaddress: str, threshold: int, coin: str=None) -> int:
-    time_out = 32
-    if coin is None:
-        coin = "WRKZ"
-    else:
-        coin = coin.upper()
-
-    params = {
-        "threshold": int(threshold),
-        "anonymity": get_mixin(coin),
-        "addresses": [
-            subaddress
-        ],
-        "destinationAddress": subaddress
-    }
-    full_payload = {
-        'params': params or {},
-        'jsonrpc': '2.0',
-        'id': str(uuid4()),
-        'method': 'sendFusionTransaction'
-    }
-
-    i = 0
-    while True:
-        url = get_wallet_api_url(coin)
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(url, json=full_payload, timeout=time_out) as response:
-                    if response.status == 200:
-                        res_data = await response.read()
-                        res_data = res_data.decode('utf-8')
-                        await session.close()
-                        decoded_data = json.loads(res_data)
-                        if 'result' in decoded_data:
-                            if 'transactionHash' in decoded_data['result']:
-                                i=i+1
-                            else:
-                                break
-                        else:
-                            break
-                    else:
-                        break
-        except asyncio.TimeoutError:
-            print('TIMEOUT: method_name: {} - coin_family: {} - timeout {}'.format('sendFusionTransaction', coin, time_out))
-            return i
-    return i
-
-
 async def rpc_cn_wallet_save(coin: str):
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
@@ -336,22 +288,6 @@ async def rpc_cn_wallet_save(coin: str):
         result = await rpc_client.call_aiohttp_wallet('store', coin)
     end = time.time()
     return float(end - start)
-
-
-async def wallet_estimate_fusion(subaddress: str, threshold: int, coin: str=None) -> int:
-    if coin is None:
-        coin = "WRKZ"
-    else:
-        coin = coin.upper()
-
-    payload = {
-        "threshold": threshold,
-        "addresses": [
-            subaddress
-        ]
-    }
-    result = await rpc_client.call_aiohttp_wallet('estimateFusion', coin, payload=payload)
-    return result
 
 
 async def doge_register(account: str, coin: str, user_server: str = 'DISCORD') -> str:

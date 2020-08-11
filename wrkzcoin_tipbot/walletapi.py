@@ -257,42 +257,6 @@ async def walletapi_get_balance_address(address: str, coin: str) -> Dict[str, Di
     return None
 
 
-async def walletapi_wallet_optimize_single(subaddress: str, coin: str) -> int:
-    time_out = 32
-    COIN_NAME = coin.upper()
-
-    json_data = {
-        "mixin": get_mixin(COIN_NAME),
-        "sourceAddresses": [
-            subaddress
-        ],
-        "destination": subaddress
-    }
-    print('Optimizing wallet: '+subaddress)
-    i = 0
-    method = "/transactions/send/fusion/advanced"
-    while True:
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(get_wallet_api_url(COIN_NAME) + method, headers=get_wallet_api_header(COIN_NAME), json=json_data, timeout=time_out) as response:
-                    if response.status == 200 or response.status == 201:
-                        res_data = await response.json()
-                        if 'transactionHash' in res_data:
-                            i = i + 1
-                            print("Optimizing {} - {}: {}".format(COIN_NAME, subaddress[:20], res_data['transactionHash']))
-                        else:
-                            break
-                    else:
-                        print('response.text: ')
-                        print(await response.text())
-                        print('fusion {} response.status return: {}'.format(COIN_NAME, response.status))
-                        break
-        except asyncio.TimeoutError:
-            print('TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method, COIN_NAME, time_out))
-            return i
-    return i
-
-
 async def save_walletapi(coin: str):
     time_out = 1200
     COIN_NAME = coin.upper()

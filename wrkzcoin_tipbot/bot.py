@@ -2191,6 +2191,7 @@ async def maze(ctx):
 
     # Credit: https://github.com/asweigart/PythonStdioGames
     free_game = False
+    won = False
 
     if ctx.message.author.id not in GAME_INTERACTIVE_PRGORESS:
         GAME_INTERACTIVE_PRGORESS.append(ctx.message.author.id)
@@ -2198,6 +2199,11 @@ async def maze(ctx):
         await ctx.send(f'{ctx.author.mention} You are ongoing with one **game** play.')
         await ctx.message.add_reaction(EMOJI_ERROR)
         return
+
+    count_played = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', False)
+    if count_played and count_played >= config.game.max_daily_play:
+        free_game = True
+        await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
 
     # Make random height and width
     try:
@@ -2242,6 +2248,17 @@ async def maze(ctx):
                     GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
                 if ctx.guild.id in GAME_MAZE_IN_PROCESS:
                     GAME_MAZE_IN_PROCESS.remove(ctx.guild.id)
+
+                if free_game == True:
+                    try:
+                        await store.sql_game_free_add(json.dumps(remap_keys(maze_data)), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'MAZE', 'DISCORD')
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                else:
+                    try:
+                        reward = await store.sql_game_add(json.dumps(remap_keys(maze_data)), str(ctx.message.author.id), 'None', 'WIN' if won else 'LOSE', 0, 0, str(ctx.guild.id), 'MAZE', 'DISCORD')
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
                 await ctx.send(f'{ctx.author.mention} too long. Game exits.')
                 await msg.delete()
                 return
@@ -2252,8 +2269,22 @@ async def maze(ctx):
                     GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
                 if ctx.guild.id in GAME_MAZE_IN_PROCESS:
                     GAME_MAZE_IN_PROCESS.remove(ctx.guild.id)
+
+                if free_game == True:
+                    try:
+                        await store.sql_game_free_add(json.dumps(remap_keys(maze_data)), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'MAZE', 'DISCORD')
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                else:
+                    try:
+                        reward = await store.sql_game_add(json.dumps(remap_keys(maze_data)), str(ctx.message.author.id), 'None', 'WIN' if won else 'LOSE', 0, 0, str(ctx.guild.id), 'MAZE', 'DISCORD')
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
                 await asyncio.sleep(1)
-                await msg.delete()
+                try:
+                    await msg.delete()
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
                 break
                 return
             
@@ -2307,12 +2338,31 @@ async def maze(ctx):
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
         if (playerx, playery) == (exitx, exity):
+            won = True
+            # Handle whether the player won, lost, or tied:
+            COIN_NAME = random.choice(GAME_COIN)
+            amount = GAME_SLOT_REWARD[COIN_NAME]
+            coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+            COIN_DEC = get_decimal(COIN_NAME)
+            real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL"] else float(amount * COIN_DEC)
+            result = f'You got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
+            if free_game == True:
+                result = f'You do not get any reward because it is a free game!'
+                try:
+                    await store.sql_game_free_add(json.dumps(remap_keys(maze_data)), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'MAZE', 'DISCORD')
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+            else:
+                try:
+                    reward = await store.sql_game_add(json.dumps(remap_keys(maze_data)), str(ctx.message.author.id), COIN_NAME, 'WIN' if won else 'LOSE', real_amount if won else 0, COIN_DEC if won else 0, str(ctx.guild.id), 'MAZE', 'DISCORD')
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
             duration = seconds_str(int(time.time()) - time_start)
             if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
                 GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
             if ctx.guild.id in GAME_MAZE_IN_PROCESS:
                 GAME_MAZE_IN_PROCESS.remove(ctx.guild.id)
-            await ctx.send(f'{ctx.author.mention} **MAZE** Grats! You completed! You completed in: **{duration}**')
+            await ctx.send(f'{ctx.author.mention} **MAZE** Grats! You completed! You completed in: **{duration}\n{result}**')
             return
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
@@ -11006,6 +11056,11 @@ async def get_miningpoolstat_coin(coin: str):
 # function to return if input string is ascii
 def is_ascii(s):
     return all(ord(c) < 128 for c in s)
+
+
+# json.dumps for turple
+def remap_keys(mapping):
+    return [{'key':k, 'value': v} for k, v in mapping.items()]
 
 
 def get_roach_level(takes: int):

@@ -4,17 +4,54 @@ from config import config
 import store
 import time
 import asyncio
+import redis
+import rpc_client
+
+redis_pool = None
+redis_conn = None
+redis_expired = 120
 
 ENABLE_COIN_NANO = config.Enable_Coin_Nano.split(",")
-INTERVAL_EACH = 5
+INTERVAL_EACH = 10
+
+def init():
+    global redis_pool
+    print("PID %d: initializing redis pool..." % os.getpid())
+    redis_pool = redis.ConnectionPool(host='localhost', port=6379, decode_responses=True, db=8)
+
+
+def openRedis():
+    global redis_pool, redis_conn
+    if redis_conn is None:
+        try:
+            redis_conn = redis.Redis(connection_pool=redis_pool)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+
 
 # Let's run balance update by a separate process
 async def update_balance():
+    global redis_conn
     while True:
         print('sleep in second: '+str(INTERVAL_EACH))
         # do not update yet
         # DOGE family:
         for coinItem in ENABLE_COIN_NANO:
+            timeout = 12
+            try:
+                gettopblock = await rpc_client.call_nano(coinItem.upper().strip(), payload='{ "action": "block_count" }')
+                if gettopblock and 'count' in gettopblock:
+                    height = int(gettopblock['count'])
+                    # store in redis
+                    try:
+                        openRedis()
+                        if redis_conn: redis_conn.set(f'TIPBOT:DAEMON_HEIGHT_{coinItem.upper().strip()}', str(height))
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+            except asyncio.TimeoutError:
+                pass
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
             update = 0
             time.sleep(INTERVAL_EACH)
             print('Update balance: '+ coinItem)

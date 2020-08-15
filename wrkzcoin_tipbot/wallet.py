@@ -634,4 +634,8 @@ async def get_transfers_xmr(coin: str, height_start: int = None, height_end: int
 
 def get_confirm_depth(coin: str):
     COIN_NAME = coin.upper()
-    return int(getattr(config,"daemon"+COIN_NAME).confirm_depth)
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    if coin_family == "NANO":
+        return getattr(config,"daemon"+COIN_NAME).confirm_depth
+    else:
+        return int(getattr(config,"daemon"+COIN_NAME).confirm_depth)

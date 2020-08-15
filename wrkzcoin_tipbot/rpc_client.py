@@ -10,7 +10,7 @@ from config import config
 import sys, traceback
 sys.path.append("..")
 ENABLE_COIN_DOGE = config.Enable_Coin_Doge.split(",")
-
+ENABLE_COIN_NANO = config.Enable_Coin_Nano.split(",")
 
 class RPCException(Exception):
     def __init__(self, message):
@@ -111,6 +111,28 @@ async def call_doge(method_name: str, coin: str, payload: str = None) -> Dict:
                     return decoded_data['result']
     except asyncio.TimeoutError:
         print('TIMEOUT: method_name: {} - COIN: {} - timeout {}'.format(method_name, coin.upper(), timeout))
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
+async def call_nano(coin: str, payload: str) -> Dict:
+    global ENABLE_COIN_NANO
+    timeout = 64
+    COIN_NAME = coin.upper()
+    url = None
+    if COIN_NAME in ENABLE_COIN_NANO:
+        url = 'http://'+getattr(config,"daemon"+COIN_NAME).rpchost
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, data=payload, timeout=timeout) as response:
+                if response.status == 200:
+                    res_data = await response.read()
+                    res_data = res_data.decode('utf-8')
+                    await session.close()
+                    decoded_data = json.loads(res_data)
+                    return decoded_data
+    except asyncio.TimeoutError:
+        print('TIMEOUT: COIN: {} - timeout {}'.format(coin.upper(), timeout))
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
 

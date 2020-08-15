@@ -35,6 +35,8 @@ sys.path.append("..")
 ENABLE_COIN = config.Enable_Coin.split(",")
 ENABLE_XMR = config.Enable_Coin_XMR.split(",")
 ENABLE_COIN_DOGE = config.Enable_Coin_Doge.split(",")
+ENABLE_COIN_NANO = config.Enable_Coin_Nano.split(",")
+
 XS_COIN = ["DEGO"]
 ENABLE_SWAP = config.Enabe_Swap_Coin.split(",")
 
@@ -114,6 +116,244 @@ async def get_all_user_balance_address(coin: str):
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     return False
+
+
+async def sql_nano_update_balances(coin: str):
+    global pool, redis_conn
+    updated = 0
+    COIN_NAME = coin.upper()
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","BAN")
+    get_balance = await wallet.nano_get_wallet_balance_elements(COIN_NAME)
+    all_user_info = await sql_nano_get_user_wallets(COIN_NAME)
+    all_deposit_address = {}
+    all_deposit_address_keys = []
+    if all_user_info and len(all_user_info) > 0:
+        all_deposit_address_keys = [each['balance_wallet_address'] for each in all_user_info]
+        for each in all_user_info:
+            all_deposit_address[each['balance_wallet_address']] = each
+    if get_balance and len(get_balance) > 0:
+        for address, balance in get_balance.items():
+            try:
+                # if bigger than minimum deposit, and no pending and the address is in user database addresses
+                if int(balance['balance']) >= getattr(getattr(config,"daemon"+COIN_NAME),"min_deposit", 100000000000000000000000000000) \
+                and int(balance['pending']) == 0 and address in all_deposit_address_keys:
+                    # let's move balance to main_address
+                    try:
+                        main_address = getattr(getattr(config,"daemon"+COIN_NAME),"MainAddress")
+                        move_to_deposit = await wallet.nano_sendtoaddress(address, main_address, int(balance['balance']), COIN_NAME)
+                        # add to DB
+                        if move_to_deposit:
+                            try:
+                                await openConnection()
+                                async with pool.acquire() as conn:
+                                    async with conn.cursor() as cur:
+                                        sql = """ INSERT INTO nano_move_deposit (`coin_name`, `user_id`, `balance_wallet_address`, `to_main_address`, `amount`, `decimal`, `block`, `time_insert`) 
+                                                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                                        await cur.execute(sql, (COIN_NAME, all_deposit_address[address]['user_id'], address, main_address, int(balance['balance']),  wallet.get_decimal(COIN_NAME), move_to_deposit['block'], int(time.time()), ))
+                                        await conn.commit()
+                                        updated += 1
+                                        # add to notification list also
+                                        # txid = new block ID
+                                        # payment_id = deposit address
+                                        sql = """ INSERT IGNORE INTO discord_notify_new_tx (`coin_name`, `txid`, `payment_id`, `amount`, `decimal`) 
+                                                  VALUES (%s, %s, %s, %s, %s) """
+                                        await cur.execute(sql, (COIN_NAME, move_to_deposit['block'], address, int(balance['balance']), wallet.get_decimal(COIN_NAME)))
+                                        await conn.commit()
+                            except Exception as e:
+                                traceback.print_exc(file=sys.stdout)
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+    return updated
+
+
+async def sql_nano_balance(userID: str, coin: str, user_server: str = 'DISCORD'):
+    global pool
+    user_server = user_server.upper()
+    if user_server not in ['DISCORD', 'TELEGRAM']:
+        return
+    COIN_NAME = coin.upper()
+    if COIN_NAME not in ENABLE_COIN_NANO:
+        return False
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT SUM(amount) AS Expense FROM nano_mv_tx WHERE `from_userid`=%s AND `coin_name`=%s AND `user_server`=%s """
+                await cur.execute(sql, (userID, COIN_NAME, user_server))
+                result = await cur.fetchone()
+                if result:
+                    Expense = result['Expense']
+                else:
+                    Expense = 0
+
+                sql = """ SELECT SUM(amount) AS Income FROM nano_mv_tx WHERE `to_userid`=%s AND `coin_name`=%s AND `user_server`=%s """
+                await cur.execute(sql, (userID, COIN_NAME, user_server))
+                result = await cur.fetchone()
+                if result:
+                    Income = result['Income']
+                else:
+                    Income = 0
+
+                sql = """ SELECT SUM(amount) AS TxExpense FROM nano_external_tx WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s """
+                await cur.execute(sql, (userID, COIN_NAME, user_server))
+                result = await cur.fetchone()
+                if result:
+                    TxExpense = result['TxExpense']
+                else:
+                    TxExpense = 0
+
+                # Credit by admin is positive (Positive)
+                sql = """ SELECT SUM(amount) AS Credited FROM credit_balance WHERE `coin_name`=%s AND `to_userid`=%s 
+                      AND `user_server`=%s """
+                await cur.execute(sql, (COIN_NAME, userID, user_server))
+                result = await cur.fetchone()
+                if result:
+                    Credited = result['Credited']
+                else:
+                    Credited = 0
+
+                # nano_move_deposit by admin is positive (Positive)
+                sql = """ SELECT SUM(amount) AS Deposited FROM nano_move_deposit WHERE `coin_name`=%s AND `user_id`=%s 
+                      AND `user_server`=%s """
+                await cur.execute(sql, (COIN_NAME, userID, user_server))
+                result = await cur.fetchone()
+                if result:
+                    Deposited = result['Deposited']
+                else:
+                    Deposited = 0
+
+                # Voucher create (Negative)
+                sql = """ SELECT SUM(amount) AS Expended_Voucher FROM cn_voucher 
+                          WHERE `coin_name`=%s AND `user_id`=%s AND `user_server`=%s """
+                await cur.execute(sql, (COIN_NAME, userID, user_server))
+                result = await cur.fetchone()
+                if result:
+                    Expended_Voucher = result['Expended_Voucher']
+                else:
+                    Expended_Voucher = 0
+
+                # Game Credit
+                sql = """ SELECT SUM(won_amount) AS GameCredit FROM discord_game WHERE `coin_name`=%s AND `played_user`=%s 
+                      AND `user_server`=%s """
+                await cur.execute(sql, (COIN_NAME, userID, user_server))
+                result = await cur.fetchone()
+                if result:
+                    GameCredit = result['GameCredit']
+                else:
+                    GameCredit = 0
+
+                balance = {}
+                balance['Deposited'] = Deposited or 0
+                balance['Expense'] = Expense or 0
+                balance['Income'] = Income or 0
+                balance['TxExpense'] = TxExpense or 0
+                balance['Credited'] = Credited if Credited else 0
+                balance['GameCredit'] = GameCredit if GameCredit else 0
+                balance['Expended_Voucher'] = Expended_Voucher if Expended_Voucher else 0
+                balance['Adjust'] = int(balance['Deposited']) + int(balance['Credited']) + int(balance['GameCredit']) \
+                + int(balance['Income']) - int(balance['Expense']) - int(balance['TxExpense']) - int(balance['Expended_Voucher'])
+                return balance
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
+async def sql_nano_get_user_wallets(coin: str):
+    global pool
+    COIN_NAME = coin.upper()
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","BAN")
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM nano_user WHERE `coin_name` = %s """
+                await cur.execute(sql, (COIN_NAME,))
+                result = await cur.fetchall()
+                return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+
+# NANO Based
+async def sql_mv_nano_single(user_from: str, to_user: str, amount: float, coin: str, tiptype: str):
+    global pool
+    COIN_NAME = coin.upper()
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","NANO")
+    if coin_family != "NANO":
+        return False
+    if tiptype.upper() not in ["TIP", "DONATE", "SECRETTIP", "FAUCET", "FREETIP", "FREETIPS"]:
+        return False
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ INSERT INTO nano_mv_tx (`coin_name`, `from_userid`, `to_userid`, `amount`, `decimal`, `type`, `date`) 
+                          VALUES (%s, %s, %s, %s, %s, %s, %s) """
+                await cur.execute(sql, (COIN_NAME, user_from, to_user, amount, wallet.get_decimal(COIN_NAME), tiptype.upper(), int(time.time()),))
+                await conn.commit()
+                return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return False
+
+
+async def sql_mv_nano_multiple(user_from: str, user_tos, amount_each: float, coin: str, tiptype: str):
+    # user_tos is array "account1", "account2", ....
+    global pool
+    COIN_NAME = coin.upper()
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","NANO")
+    if coin_family != "NANO":
+        return False
+    if tiptype.upper() not in ["TIPS", "TIPALL", "FREETIP", "FREETIPS"]:
+        return False
+    values_str = []
+    currentTs = int(time.time())
+    for item in user_tos:
+        values_str.append(f"('{COIN_NAME}', '{user_from}', '{item}', {amount_each}, {wallet.get_decimal(COIN_NAME)}, '{tiptype.upper()}', {currentTs})\n")
+    values_sql = "VALUES " + ",".join(values_str)
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ INSERT INTO nano_mv_tx (`coin_name`, `from_userid`, `to_userid`, `amount`, `decimal`, `type`, `date`) 
+                          """+values_sql+""" """
+                await cur.execute(sql,)
+                await conn.commit()
+                return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return False
+
+
+async def sql_external_nano_single(user_from: str, amount: int, to_address: str, coin: str, tiptype: str):
+    global pool
+    COIN_NAME = coin.upper()
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","NANO")
+    if coin_family != "NANO":
+        return False
+    if tiptype.upper() not in ["SEND", "WITHDRAW"]:
+        return False
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                if coin_family == "NANO":
+                    main_address = getattr(getattr(config,"daemon"+COIN_NAME),"MainAddress")
+                    tx_hash = await wallet.nano_sendtoaddress(main_address, to_address, amount, COIN_NAME)
+                    if tx_hash:
+                        updateTime = int(time.time())
+                        async with conn.cursor() as cur: 
+                            sql = """ INSERT INTO nano_external_tx (`coin_name`, `user_id`, `amount`, `decimal`, `to_address`, 
+                                      `type`, `date`, `tx_hash`) 
+                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                            await cur.execute(sql, (COIN_NAME, user_from, amount, wallet.get_decimal(COIN_NAME), to_address, tiptype.upper(), int(time.time()), tx_hash['block'],))
+                            await conn.commit()
+                            return tx_hash
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return None
 
 
 async def sql_update_balances(coin: str = None):
@@ -499,6 +739,10 @@ async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD', cha
                     sql = """ SELECT * FROM doge_user WHERE `user_id`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """
                     await cur.execute(sql, (str(userID), COIN_NAME, user_server))
                     result = await cur.fetchone()
+                elif coin_family == "NANO":
+                    sql = """ SELECT * FROM nano_user WHERE `user_id`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """
+                    await cur.execute(sql, (str(userID), COIN_NAME, user_server))
+                    result = await cur.fetchone()
                 if result is None:
                     balance_address = None
                     main_address = None
@@ -512,6 +756,9 @@ async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD', cha
                         balance_address = await wallet.make_integrated_address_xmr(main_address, COIN_NAME)
                     elif coin_family == "DOGE":
                         balance_address = await wallet.doge_register(str(userID), COIN_NAME, user_server)
+                    elif coin_family == "NANO":
+                        # No need ID
+                        balance_address = await wallet.nano_register(COIN_NAME, user_server)
                     if balance_address is None:
                         print('Internal error during call register wallet-api')
                         return
@@ -536,7 +783,13 @@ async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD', cha
                                       VALUES (%s, %s, %s, %s, %s, %s, %s) """
                             await cur.execute(sql, (COIN_NAME, str(userID), balance_address['address'], int(time.time()), 
                                                     encrypt_string(balance_address['privateKey']), user_server, chat_id))
-                            balance_address['address'] = balance_address['address']
+                            await conn.commit()
+                        elif coin_family == "NANO":
+                            sql = """ INSERT INTO nano_user (`coin_name`, `user_id`, `balance_wallet_address`, `address_ts`, 
+                                      `user_server`, `chat_id`) 
+                                      VALUES (%s, %s, %s, %s, %s, %s) """
+                            await cur.execute(sql, (COIN_NAME, str(userID), balance_address['address'], int(time.time()), 
+                                                    user_server, chat_id))
                             await conn.commit()
                     return balance_address
                 else:
@@ -575,6 +828,10 @@ async def sql_update_user(userID, user_wallet_address, coin: str, user_server: s
                     await conn.commit()
                 elif coin_family == "DOGE":
                     sql = """ UPDATE doge_user SET user_wallet_address=%s WHERE `user_id`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """               
+                    await cur.execute(sql, (user_wallet_address, str(userID), COIN_NAME, user_server))
+                    await conn.commit()
+                elif coin_family == "NANO":
+                    sql = """ UPDATE nano_user SET user_wallet_address=%s WHERE `user_id`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """               
                     await cur.execute(sql, (user_wallet_address, str(userID), COIN_NAME, user_server))
                     await conn.commit()
                 return user_wallet_address  # return userwallet
@@ -616,6 +873,10 @@ async def sql_get_userwallet(userID, coin: str, user_server: str = 'DISCORD'):
                               FROM doge_user WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s LIMIT 1 """
                     await cur.execute(sql, (str(userID), COIN_NAME, user_server))
                     result = await cur.fetchone()
+                elif coin_family == "NANO":
+                    sql = """ SELECT * FROM nano_user WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s LIMIT 1 """
+                    await cur.execute(sql, (str(userID), COIN_NAME, user_server))
+                    result = await cur.fetchone()
                 if result:
                     userwallet = result
                     if coin_family == "XMR":
@@ -634,6 +895,8 @@ async def sql_get_userwallet(userID, coin: str, user_server: str = 'DISCORD'):
                                 userwallet['actual_balance'] = result['actual_balance']
                                 userwallet['locked_balance'] = 0 # There shall not be locked balance
                                 userwallet['lastUpdate'] = result['lastUpdate']
+                    elif coin_family == "NANO":
+                        return userwallet
                     if result['lastUpdate'] == 0 and (coin_family in ["TRTL", "BCN"] or coin_family == "XMR"):
                         userwallet['lastUpdate'] = result['paymentid_ts']
                     return userwallet
@@ -2534,6 +2797,11 @@ async def sql_get_userwallet_by_paymentid(paymentid: str, coin: str, user_server
                 elif coin_family == "DOGE":
                     # if doge family, address is paymentid
                     sql = """ SELECT * FROM doge_user WHERE `balance_wallet_address`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """
+                    await cur.execute(sql, (paymentid, COIN_NAME, user_server))
+                    result = await cur.fetchone()
+                elif coin_family == "NANO":
+                    # if doge family, address is paymentid
+                    sql = """ SELECT * FROM nano_user WHERE `balance_wallet_address`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """
                     await cur.execute(sql, (paymentid, COIN_NAME, user_server))
                     result = await cur.fetchone()
                 return result

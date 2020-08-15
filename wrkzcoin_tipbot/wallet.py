@@ -290,6 +290,48 @@ async def rpc_cn_wallet_save(coin: str):
     return float(end - start)
 
 
+async def nano_register(coin: str, user_server: str = 'DISCORD') -> str:
+    COIN_NAME = coin.upper()
+    address_call = await rpc_client.call_nano(COIN_NAME, payload='{ "action": "account_create", "wallet": "'+getattr(config,"daemon"+COIN_NAME,config.daemonBAN).walletkey+'" }')
+    reg_address = {}
+    reg_address['address'] = address_call['account']
+    if reg_address['address']:
+        return reg_address
+    return None
+
+
+async def nano_validate_address(coin: str, account: str) -> str:
+    COIN_NAME = coin.upper()
+    valid_address = await rpc_client.call_nano(COIN_NAME, payload='{ "action": "validate_account_number", "account": "'+account+'" }')
+    if valid_address and valid_address['valid'] == "1":
+        return True
+    else:
+        return None
+
+
+async def nano_get_wallet_balance_elements(coin: str) -> str:
+    COIN_NAME = coin.upper()
+    get_wallet_balance = await rpc_client.call_nano(COIN_NAME, payload='{ "action": "wallet_balances", "wallet": "'+getattr(config,"daemon"+COIN_NAME,config.daemonBAN).walletkey+'" }')
+    if get_wallet_balance and 'balances' in get_wallet_balance:
+        return get_wallet_balance['balances']
+    else:
+        return None
+
+
+async def nano_sendtoaddress(source: str, to_address: str, real_amount: int, coin: str) -> str:
+    COIN_NAME = coin.upper()
+    payload = '{ "action": "send", \
+    "wallet": "'+getattr(config,"daemon"+COIN_NAME,config.daemonBAN).walletkey+'", \
+    "source": "'+source+'", \
+    "destination": "'+to_address+'", \
+    "amount": "'+str(real_amount)+'" }'
+    sending = await rpc_client.call_nano(COIN_NAME, payload=payload)
+    if sending and 'block' in sending:
+        return sending
+    else:
+        return None
+
+
 async def doge_register(account: str, coin: str, user_server: str = 'DISCORD') -> str:
     COIN_NAME = coin.upper()
     naming = "tipbot_" + account

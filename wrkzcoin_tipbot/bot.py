@@ -526,7 +526,7 @@ async def on_reaction_add(reaction, user):
                 userdata_balance = await store.sql_cnoff_balance(str(user.id), COIN_NAME)
                 user_from['actual_balance'] = user_from['actual_balance'] + int(userdata_balance['Adjust'])
                 # process other check balance
-                if (real_amount + NetFee >= user_from['actual_balance']) or \
+                if (real_amount + NetFee > user_from['actual_balance']) or \
                     (real_amount > MaxTX) or (real_amount < MinTx):
                     return
                 else:
@@ -598,7 +598,7 @@ async def on_reaction_add(reaction, user):
                     userregister = await store.sql_register_user(str(reaction.message.author.id), COIN_NAME, 'DISCORD')
                     user_to = await store.sql_get_userwallet(str(reaction.message.author.id), COIN_NAME)
                 # process other check balance
-                if (real_amount + NetFee >= user_from['actual_balance']) or \
+                if (real_amount + NetFee > user_from['actual_balance']) or \
                     (real_amount > MaxTX) or (real_amount < MinTx):
                     return
                 else:
@@ -737,7 +737,10 @@ async def on_message(message):
                     if serverinfo and 'prefix' in serverinfo: prefix = serverinfo['prefix']
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
-                await help_main(message, prefix)
+                try:
+                    await help_main(message, prefix)
+                except (discord.Forbidden, discord.errors.Forbidden) as e:
+                    pass
                 return
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
@@ -4906,7 +4909,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
         userdata_balance = await store.sql_cnoff_balance(str(ctx.message.author.id), COIN_NAME)
         user['actual_balance'] = user['actual_balance'] + int(userdata_balance['Adjust'])
 
-        if real_amount + NetFee >= user['actual_balance']:
+        if real_amount + NetFee > user['actual_balance']:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to withdraw '
                            f'{num_format_coin(real_amount, COIN_NAME)} '
@@ -5338,7 +5341,7 @@ async def donate(ctx, amount: str, coin: str = None):
         userdata_balance = await store.sql_cnoff_balance(str(ctx.message.author.id), COIN_NAME)
         user_from['actual_balance'] = user_from['actual_balance'] + int(userdata_balance['Adjust'])
 
-        if real_amount + NetFee >= user_from['actual_balance']:
+        if real_amount + NetFee > user_from['actual_balance']:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to donate '
                            f'{num_format_coin(real_amount, COIN_NAME)} '
@@ -5822,7 +5825,7 @@ async def take(ctx, info: str=None):
             userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
             user_to = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
 
-        if real_amount + NetFee >= user_from['actual_balance']:
+        if real_amount + NetFee > user_from['actual_balance']:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{ctx.author.mention} Please try again later. Bot runs out of **{COIN_NAME}**')
             return
@@ -7454,7 +7457,7 @@ async def send(ctx, amount: str, CoinAddress: str):
         userdata_balance = await store.sql_cnoff_balance(str(ctx.message.author.id), COIN_NAME)
         user_from['actual_balance'] = user_from['actual_balance'] + int(userdata_balance['Adjust'])
 
-        if real_amount + NetFee >= user_from['actual_balance']:
+        if real_amount + NetFee > user_from['actual_balance']:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
                            f'{num_format_coin(real_amount, COIN_NAME)} '

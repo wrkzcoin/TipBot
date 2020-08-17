@@ -6707,13 +6707,13 @@ async def tipall(ctx, amount: str, *args):
             COIN_NAME = "WRKZ"
     else:
         COIN_NAME = args[0].upper()
-        if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR:
+        if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO:
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**!')
             return
 
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
         if coin_family not in ["BCN", "TRTL", "XMR"]:
-            if (args[0].upper() in ENABLE_COIN_DOGE+ENABLE_COIN_NANO):
+            if args[0].upper() in ENABLE_COIN_DOGE+ENABLE_COIN_NANO:
                 COIN_NAME = args[0].upper()
             else:
                 await ctx.message.add_reaction(EMOJI_ERROR)

@@ -13,7 +13,6 @@ import store, daemonrpc_client, addressvalidation, walletapi
 
 from generic_xmr.address_msr import address_msr as address_msr
 from generic_xmr.address_xmr import address_xmr as address_xmr
-from generic_xmr.address_xam import address_xam as address_xam
 from generic_xmr.address_wow import address_wow as address_wow
 
 # games.bagels
@@ -8038,46 +8037,6 @@ async def address(ctx, *args):
                     await ctx.send(f'{EMOJI_RED_NO} Address: `{CoinAddress}`\n'
                                     'Checked: Invalid.')
                     return
-            elif COIN_NAME == "XAM":
-                addr = None
-                if len(CoinAddress) == 98 or len(CoinAddress) == 99:
-                    try:
-                        addr = address_xam(CoinAddress)
-                    except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
-                        pass
-                elif len(CoinAddress) == 109:
-                    addr = None
-                    try:
-                        addr = address_xam(CoinAddress)
-                    except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
-                        pass
-                print(addr)
-                print(type(addr))
-                if addr == CoinAddress:
-                    address_result = 'Valid: `{}`\n'.format(addr)                    
-                    if type(addr).__name__ == "Address":
-                        address_result += 'Main Address: `{}`\n'.format('True')
-                    else:
-                        address_result += 'Main Address: `{}`\n'.format('False')
-                    if type(addr).__name__ == "IntegratedAddress":
-                        address_result += 'Integrated: `{}`\n'.format('True')
-                    else:
-                        address_result += 'Integrated: `{}`\n'.format('False')
-                    if type(addr).__name__ == "SubAddress":
-                        address_result += 'Subaddress: `{}`\n'.format('True')
-                    else:
-                        address_result += 'Subaddress: `{}`\n'.format('False')
-                    print(address_result)
-                    await ctx.message.add_reaction(EMOJI_CHECK)
-                    await ctx.send(f'{EMOJI_CHECK} Address: `{CoinAddress}`\n{address_result}')
-                    return
-                else:
-                    await ctx.message.add_reaction(EMOJI_ERROR)
-                    await ctx.send(f'{EMOJI_RED_NO} Address: `{CoinAddress}`\n'
-                                    'Checked: Invalid.')
-                    return
             valid_address = await validate_address_xmr(str(CoinAddress), COIN_NAME)
             if valid_address is None:
                 await ctx.send(f'{EMOJI_RED_NO} Address: `{CoinAddress}`\n'
@@ -9809,14 +9768,6 @@ def get_cn_coin_from_address(CoinAddress: str):
         except Exception as e:
             # traceback.print_exc(file=sys.stdout)
             pass
-        # Try XAM
-        try:
-            addr = address_xam(CoinAddress)
-            COIN_NAME = "XAM"
-            return COIN_NAME
-        except Exception as e:
-            # traceback.print_exc(file=sys.stdout)
-            pass
         # Try XMR
         try:
             addr = address_xmr(CoinAddress)
@@ -9825,9 +9776,6 @@ def get_cn_coin_from_address(CoinAddress: str):
         except Exception as e:
             # traceback.print_exc(file=sys.stdout)
             pass
-    elif (CoinAddress.startswith("amit") and len(CoinAddress) == 98) or (CoinAddress.startswith("aint") and len(CoinAddress) == 109)  or \
-        (CoinAddress.startswith("asub") and len(CoinAddress) == 99):
-        COIN_NAME = "XAM"
     elif CoinAddress.startswith("L") and (len(CoinAddress) == 95 or len(CoinAddress) == 106):
         COIN_NAME = "LOKI"
     elif CoinAddress.startswith("cms") and (len(CoinAddress) == 98 or len(CoinAddress) == 109):

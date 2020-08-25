@@ -1217,14 +1217,6 @@ async def get_cn_coin_from_address(CoinAddress: str):
         except Exception as e:
             # traceback.print_exc(file=sys.stdout)
             pass
-        # Try XAM
-        try:
-            addr = address_xam(CoinAddress)
-            COIN_NAME = "XAM"
-            return COIN_NAME
-        except Exception as e:
-            # traceback.print_exc(file=sys.stdout)
-            pass
         # Try XMR
         try:
             addr = address_xmr(CoinAddress)
@@ -1233,9 +1225,6 @@ async def get_cn_coin_from_address(CoinAddress: str):
         except Exception as e:
             # traceback.print_exc(file=sys.stdout)
             pass
-    elif (CoinAddress.startswith("amit") and len(CoinAddress) == 98) or (CoinAddress.startswith("aint") and len(CoinAddress) == 109)  or \
-        (CoinAddress.startswith("asub") and len(CoinAddress) == 99):
-        COIN_NAME = "XAM"
     elif CoinAddress.startswith("L") and (len(CoinAddress) == 95 or len(CoinAddress) == 106):
         COIN_NAME = "LOKI"
     elif CoinAddress.startswith("cms") and (len(CoinAddress) == 98 or len(CoinAddress) == 109):

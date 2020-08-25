@@ -112,7 +112,8 @@ FAUCET_MINMAX = {
     "TRTL": [config.Faucet_min_max.trtl_min, config.Faucet_min_max.trtl_max],
     "DOGE": [config.Faucet_min_max.doge_min, config.Faucet_min_max.doge_max],
     "BTCMZ": [config.Faucet_min_max.btcmz_min, config.Faucet_min_max.btcmz_max],
-    "NBXC": [config.Faucet_min_max.nbxc_min, config.Faucet_min_max.nbxc_max]
+    "NBXC": [config.Faucet_min_max.nbxc_min, config.Faucet_min_max.nbxc_max],
+    "XFG": [config.Faucet_min_max.xfg_min, config.Faucet_min_max.xfg_max]
 }
 
 
@@ -123,7 +124,8 @@ GAME_SLOT_REWARD = {
     "DEGO": config.game_reward.dego,
     "TRTL": config.game_reward.trtl,
     "BTCMZ": config.game_reward.btcmz,
-    "XFG": config.game_reward.xfg
+    "NBXC": config.game_reward.nbxc,
+    "XFG": config.game_reward.xfg,
 }
 
 GAME_INTERACTIVE_PRGORESS = []
@@ -410,7 +412,7 @@ async def on_ready():
     print("Users: {}".format(sum([x.member_count for x in bot.guilds])))
     print("Bot invitation link: " + BOT_INVITELINK)
     if HANGMAN_WORDS and len(HANGMAN_WORDS) > 0: print('Loaded {} words for hangman.'.format(len(HANGMAN_WORDS)))
-    game = discord.Game(name="Tip Forever!")
+    game = discord.Game(name="making crypto fun!")
     await bot.change_presence(status=discord.Status.online, activity=game)
     botLogChan = bot.get_channel(id=LOG_CHAN)
     await botLogChan.send(f'{EMOJI_REFRESH} I am back :)')
@@ -9848,8 +9850,6 @@ def get_cn_coin_from_address(CoinAddress: str):
         COIN_NAME = "LTC"
     elif (CoinAddress[0] in ["3", "1"]) and len(CoinAddress) == 34:
         COIN_NAME = "BTC"
-    elif CoinAddress.startswith("bitcoincash") and len(CoinAddress) == 54:
-        COIN_NAME = "BCH"
     elif (CoinAddress[0] in ["X"]) and len(CoinAddress) == 34:
         COIN_NAME = "DASH"
     elif CoinAddress.startswith("ban_") and len(CoinAddress) == 64:

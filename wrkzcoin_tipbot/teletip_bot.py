@@ -1250,8 +1250,6 @@ async def get_cn_coin_from_address(CoinAddress: str):
         COIN_NAME = "LTC"
     elif (CoinAddress[0] in ["3", "1"]) and len(CoinAddress) == 34:
         COIN_NAME = "BTC"
-    elif CoinAddress.startswith("bitcoincash") and len(CoinAddress) == 54:
-        COIN_NAME = "BCH"
     elif (CoinAddress[0] in ["X"]) and len(CoinAddress) == 34:
         COIN_NAME = "DASH"
     print('get_cn_coin_from_address return {}: {}'.format(CoinAddress, COIN_NAME))

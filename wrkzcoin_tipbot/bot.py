@@ -1557,8 +1557,8 @@ async def slot(ctx):
         msg = await ctx.send(embed=embed)
         await msg.add_reaction(EMOJI_OK_BOX)
         if won == False:
-            # Delete lose game after 5s
-            await asyncio.sleep(5)
+            # Delete lose game after 10s
+            await asyncio.sleep(10)
             try:
                 await msg.delete()
             except discord.errors.NotFound as e:

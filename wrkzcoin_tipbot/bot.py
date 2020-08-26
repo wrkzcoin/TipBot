@@ -218,6 +218,7 @@ COIN_REPR = "COIN"
 DEFAULT_TICKER = "WRKZ"
 ENABLE_COIN_VOUCHER = config.Enable_Coin_Voucher.split(",")
 ENABLE_SWAP = config.Enabe_Swap_Coin.split(",")
+ENABLE_SWAP_GUILD = config.Enabe_Swap_Guild.split(",")
 
 # Some notice about coin that going to swap or take out.
 NOTICE_COIN = {}
@@ -5632,6 +5633,21 @@ async def swap(ctx, amount: str, coin: str, to: str):
     if is_maintenance_coin(COIN_NAME):
         await ctx.message.add_reaction(EMOJI_MAINTENANCE)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
+        return
+
+    in_swappable_guild = False
+    try:
+        for each_guild in ENABLE_SWAP_GUILD:
+            guild = bot.get_guild(id=int(each_guild))
+            if guild and guild.get_member(ctx.message.author.id) is not None:
+                in_swappable_guild = True
+                break
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+    if in_swappable_guild == False:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You are not in any of support swap guild.')
         return
 
     user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)

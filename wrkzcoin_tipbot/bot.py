@@ -5768,13 +5768,6 @@ async def take(ctx, info: str=None):
         return
     # end of check if account locked
 
-    # Check if user guild member less than 15 online
-    num_online = sum(member.status != "offline" and not member.bot for member in ctx.message.guild.members)
-    if num_online <= 5:
-        await ctx.message.add_reaction(EMOJI_ERROR)
-        msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} This command isn\'t available with this guild.')
-        return
-
     # check if user create account less than 3 days
     try:
         account_created = ctx.message.author.created_at

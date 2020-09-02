@@ -125,6 +125,7 @@ GAME_SLOT_REWARD = {
     "BTCMZ": config.game_reward.btcmz,
     "NBXC": config.game_reward.nbxc,
     "XFG": config.game_reward.xfg,
+    "DOGE": config.game_reward.doge
 }
 
 GAME_INTERACTIVE_PRGORESS = []
@@ -4902,6 +4903,9 @@ async def withdraw(ctx, amount: str, coin: str = None):
         MinTx = get_min_tx_amount(COIN_NAME)
         MaxTX = get_max_tx_amount(COIN_NAME)
         NetFee = get_reserved_fee(coin = COIN_NAME)
+        # Currently we have two BCN coins
+        if coin_family == "BCN":
+            NetFee = get_tx_fee(coin = COIN_NAME)
         if user['user_wallet_address'] is None:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You do not have a withdrawal address, please use '
@@ -7332,6 +7336,9 @@ async def send(ctx, amount: str, CoinAddress: str):
         addressLength = get_addrlen(COIN_NAME)
         IntaddressLength = get_intaddrlen(COIN_NAME)
         NetFee = get_reserved_fee(coin = COIN_NAME)
+        # Currently we have two BCN coins
+        if coin_family == "BCN":
+            NetFee = get_tx_fee(coin = COIN_NAME)
         if is_maintenance_coin(COIN_NAME):
             await ctx.message.add_reaction(EMOJI_MAINTENANCE)
             try:

@@ -332,6 +332,15 @@ async def nano_sendtoaddress(source: str, to_address: str, real_amount: int, coi
         return None
 
 
+async def nano_get_wallet_info(coin: str) -> str:
+    COIN_NAME = coin.upper()
+    get_wallet_info = await rpc_client.call_nano(COIN_NAME, payload='{ "action": "wallet_balances", "wallet": "'+getattr(config,"daemon"+COIN_NAME,config.daemonBAN).walletkey+'" }')
+    if get_wallet_info and 'balance' in get_wallet_info and 'accounts_count' in get_wallet_info:
+        return get_wallet_info
+    else:
+        return None
+
+
 async def doge_register(account: str, coin: str, user_server: str = 'DISCORD') -> str:
     COIN_NAME = coin.upper()
     naming = "tipbot_" + account

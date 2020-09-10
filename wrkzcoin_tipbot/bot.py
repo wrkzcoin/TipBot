@@ -6298,9 +6298,15 @@ async def tip(ctx, amount: str, *args):
                             if len(message_talker) == 0:
                                 await ctx.message.add_reaction(EMOJI_ERROR)
                                 await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is not sufficient user to count.')
-                            elif len(message_talker) != num_user:
-                                await ctx.message.add_reaction(EMOJI_ERROR)
-                                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} I could not find sufficient talkers up to **{num_user}**.')
+                            elif len(message_talker) < num_user:
+                                await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
+                                await ctx.send(f'{EMOJI_INFORMATION} {ctx.author.mention} I could not find sufficient talkers up to **{num_user}**. I found only **{len(message_talker)}**'
+                                               f' and tip to those **{len(message_talker)}** users if they are still here.')
+                                # tip all user who are in the list
+                                try:
+                                    await _tip_talker(ctx, amount, message_talker, COIN_NAME)
+                                except Exception as e:
+                                    traceback.print_exc(file=sys.stdout)
                             else:
                                 try:
                                     await _tip_talker(ctx, amount, message_talker, COIN_NAME)

@@ -10755,10 +10755,13 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
                             pass
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
             try:
-                await ctx.send(f'{discord.utils.escape_markdown(mention_list_name)}\n\nYou got tip :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
+                await ctx.send(f'{discord.utils.escape_markdown(mention_list_name)}\n\n**({len(memids)})** members got tip :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
                 await ctx.message.add_reaction(EMOJI_SPEAK)
             except discord.errors.Forbidden:
                 await ctx.message.add_reaction(EMOJI_SPEAK)
+            except discord.errors.HTTPException:
+                await ctx.message.add_reaction(EMOJI_SPEAK)
+                await ctx.send(f'**({len(memids)})** members got tip :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
             return
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -10847,10 +10850,13 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
                                 await store.sql_toggle_tipnotify(str(member.id), "OFF")
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
             try:
-                await ctx.send(f'{discord.utils.escape_markdown(mention_list_name)}\n\nYou got tip :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
+                await ctx.send(f'{discord.utils.escape_markdown(mention_list_name)}\n\n**({len(memids)})** members got tip :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
                 await ctx.message.add_reaction(EMOJI_SPEAK)
             except discord.errors.Forbidden:
                 await ctx.message.add_reaction(EMOJI_SPEAK)
+            except discord.errors.HTTPException:
+                await ctx.message.add_reaction(EMOJI_SPEAK)
+                await ctx.send(f'**({len(memids)})** members got tip :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
             return
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -10935,10 +10941,13 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
                                 await store.sql_toggle_tipnotify(str(member.id), "OFF")
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
             try:
-                await ctx.send(f'{discord.utils.escape_markdown(mention_list_name)}\n\nYou got tip :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
+                await ctx.send(f'{discord.utils.escape_markdown(mention_list_name)}\n\n**({len(memids)})** members got tip :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
                 await ctx.message.add_reaction(EMOJI_SPEAK)
             except discord.errors.Forbidden:
                 await ctx.message.add_reaction(EMOJI_SPEAK)
+            except discord.errors.HTTPException:
+                await ctx.message.add_reaction(EMOJI_SPEAK)
+                await ctx.send(f'**({len(memids)})** members got tip :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
             return
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -11024,10 +11033,13 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
                                 await store.sql_toggle_tipnotify(str(member.id), "OFF")
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
             try:
-                await ctx.send(f'{discord.utils.escape_markdown(mention_list_name)}\n\nYou got tip :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
+                await ctx.send(f'{discord.utils.escape_markdown(mention_list_name)}\n\n**({len(memids)})** members got tip :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
                 await ctx.message.add_reaction(EMOJI_SPEAK)
             except discord.errors.Forbidden:
                 await ctx.message.add_reaction(EMOJI_SPEAK)
+            except discord.errors.HTTPException:
+                await ctx.message.add_reaction(EMOJI_SPEAK)
+                await ctx.send(f'**({len(memids)})** members got tip :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
             return
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)

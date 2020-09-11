@@ -6284,9 +6284,29 @@ async def tip(ctx, amount: str, *args):
                             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Please use normal tip command. There are only few users.')
                             return
                         # Check if we really have that many user in the guild 20%
-                        elif num_user > 0.2 * len(ctx.guild.members):
-                            await ctx.message.add_reaction(EMOJI_ERROR)
-                            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} We allowed to seek not more than 20% of total guild members. Current max is **{int(0.2*len(ctx.guild.members))}**.')
+                        elif num_user >= len(ctx.guild.members):
+                            try:
+                                await ctx.message.add_reaction(EMOJI_INFORMATION)
+                                await ctx.send(f'{ctx.author.mention} Boss, you want to tip more than the number of people in this guild!?.'
+                                               ' Can be done :). Wait a while.... I am doing it. (**counting..**)')
+                            except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+                                # No need to tip if failed to message
+                                await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
+                                return
+                            message_talker = await store.sql_get_messages(str(ctx.message.guild.id), str(ctx.message.channel.id), 0, len(ctx.guild.members))
+                            if ctx.message.author.id in message_talker:
+                                message_talker.remove(ctx.message.author.id)
+                            if len(message_talker) == 0:
+                                await ctx.message.add_reaction(EMOJI_ERROR)
+                                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is not sufficient user to count.')
+                            elif len(message_talker) < len(ctx.guild.members) - 1: # minus bot
+                                await ctx.send(f'{EMOJI_INFORMATION} {ctx.author.mention} I could not find sufficient talkers up to **{num_user}**. I found only **{len(message_talker)}**'
+                                               f' and tip to those **{len(message_talker)}** users if they are still here.')
+                                # tip all user who are in the list
+                                try:
+                                    await _tip_talker(ctx, amount, message_talker, COIN_NAME)
+                                except Exception as e:
+                                    traceback.print_exc(file=sys.stdout)
                             return
                         elif num_user > 0:
                             message_talker = await store.sql_get_messages(str(ctx.message.guild.id), str(ctx.message.channel.id), 0, num_user + 1)
@@ -6299,9 +6319,14 @@ async def tip(ctx, amount: str, *args):
                                 await ctx.message.add_reaction(EMOJI_ERROR)
                                 await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is not sufficient user to count.')
                             elif len(message_talker) < num_user:
-                                await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
-                                await ctx.send(f'{EMOJI_INFORMATION} {ctx.author.mention} I could not find sufficient talkers up to **{num_user}**. I found only **{len(message_talker)}**'
-                                               f' and tip to those **{len(message_talker)}** users if they are still here.')
+                                try:
+                                    await ctx.message.add_reaction(EMOJI_INFORMATION)
+                                    await ctx.send(f'{EMOJI_INFORMATION} {ctx.author.mention} I could not find sufficient talkers up to **{num_user}**. I found only **{len(message_talker)}**'
+                                                   f' and tip to those **{len(message_talker)}** users if they are still here.')
+                                except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+                                    # No need to tip if failed to message
+                                    await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
+                                    return
                                 # tip all user who are in the list
                                 try:
                                     await _tip_talker(ctx, amount, message_talker, COIN_NAME)

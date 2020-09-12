@@ -130,6 +130,7 @@ GAME_SLOT_REWARD = {
 
 GAME_INTERACTIVE_PRGORESS = []
 GAME_SLOT_IN_PRGORESS = []
+GAME_DICE_IN_PRGORESS = []
 GAME_MAZE_IN_PROCESS = []
 
 # miningpoolstat_progress
@@ -311,6 +312,7 @@ bot_help_game_bagel = "Bagels, a deductive logic game. By Al Sweigart al@inventw
 bot_help_game_hangman = "Old hangman game"
 bot_help_game_maze = "Interactive 2D ascii maze game"
 bot_help_game_blackjack = "Blackjack, original code by Al Sweigart al@inventwithpython.com"
+bot_help_game_dice = "Simple dice game"
 bot_help_game_stat = "Check overall game stat"
 
 # account commands
@@ -2553,6 +2555,150 @@ async def hangman(ctx):
     except (discord.Forbidden, discord.errors.Forbidden) as e:
         await ctx.message.add_reaction(EMOJI_ERROR)
         return
+    if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+        GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+
+
+@game.command(name='dice', aliases=['dices'], help=bot_help_game_dice)
+async def dice(ctx):
+    global GAME_INTERACTIVE_PRGORESS, GAME_COIN, GAME_SLOT_REWARD, HANGMAN_WORDS, IS_RESTARTING
+    # bot check in the first place
+    if ctx.message.author.bot == True:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is not allowed using this.')
+        return
+
+    # disable game for TRTL discord
+    if ctx.guild and ctx.guild.id == TRTL_DISCORD:
+        await ctx.message.add_reaction(EMOJI_LOCKED)
+        return
+
+    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+    if serverinfo and 'enable_game' in serverinfo and serverinfo['enable_game'] == "NO":
+        prefix = serverinfo['prefix']
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. Please request Guild owner to enable by `{prefix}SETTING GAME`')
+        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}game** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+        return
+
+    # Credit: https://github.com/asweigart/PythonStdioGames
+    free_game = False
+
+    # check if user create account less than 3 days
+    try:
+        account_created = ctx.message.author.created_at
+        if (datetime.utcnow() - account_created).total_seconds() <= 3*24*3600:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using this.')
+            return
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
+    if ctx.message.author.id not in GAME_INTERACTIVE_PRGORESS:
+        GAME_INTERACTIVE_PRGORESS.append(ctx.message.author.id)
+    else:
+        await ctx.send(f'{ctx.author.mention} You are ongoing with one **game** play.')
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        return
+
+    count_played = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', False)
+    count_played_free = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', True)
+    if count_played and count_played >= config.game.max_daily_play:
+        free_game = True
+        await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
+
+    won = False
+    game_text = '''A player rolls two dice. Each die has six faces. 
+These faces contain 1, 2, 3, 4, 5, and 6 spots. 
+After the dice have come to rest, the sum of the spots on the two upward faces is calculated. 
+
+* If the sum is 7 or 11 on the first throw, the player wins.
+ 
+* If the sum is not 7 or 11 on the first throw, then the sum becomes the player's "point." 
+To win, you must continue rolling the dice until you "make your point." 
+
+* The player loses if they got 7 or 11 for their points.'''
+    msg = await ctx.send(f'{ctx.author.mention} ```{game_text}```')
+    await msg.add_reaction(EMOJI_OK_BOX)
+
+    if ctx.message.author.id not in GAME_DICE_IN_PRGORESS:
+        GAME_DICE_IN_PRGORESS.append(ctx.message.author.id)
+    else:
+        await ctx.send(f'{ctx.author.mention} You are ongoing with one **game dice** play.')
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        return
+    # sleep 3s
+    await asyncio.sleep(3)
+
+    try:
+        game_over = False
+        sum_dice = 0
+        dice_time = 0
+        while not game_over:
+            dice1 = random.randint(1, 6)
+            dice2 = random.randint(1, 6)
+            dice_time += 1
+            msg = await ctx.send(f'#{dice_time} {ctx.author.mention} your dices: **{dice1}** and **{dice2}**')
+            if sum_dice == 0:
+                # first dice
+                sum_dice = dice1 + dice2
+                if sum_dice == 7 or sum_dice == 11:
+                    won = True
+                    game_over = True
+                    break
+            else:
+                # not first dice
+                if dice1 + dice2 == 7 or dice1 + dice2 == 11:
+                    game_over = True
+                elif dice1 + dice2 == sum_dice:
+                    won = True
+                    game_over = True
+                    break
+            if game_over == False:
+                msg = await ctx.send(f'{ctx.author.mention} re-throwing dices...')
+                await msg.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+                await asyncio.sleep(2)
+        # game end, check win or lose
+        try:
+            result = ''
+            if free_game == False:
+                won_x = 2
+                if won:
+                    COIN_NAME = random.choice(GAME_COIN)
+                    amount = GAME_SLOT_REWARD[COIN_NAME] * won_x
+                    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+                    COIN_DEC = get_decimal(COIN_NAME)
+                    real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount * COIN_DEC)
+                    reward = await store.sql_game_add('{}:{}:{}:{}'.format(dice_time, sum_dice, dice1, dice2), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, COIN_DEC, str(ctx.guild.id), 'DICE', 'DISCORD')
+                    result = f'You won! {ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
+                else:
+                    reward = await store.sql_game_add('{}:{}:{}:{}'.format(dice_time, sum_dice, dice1, dice2), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'DICE', 'DISCORD')
+                    result = f'You lose!'
+            else:
+                if won:
+                    result = f'You won! but this is a free game without **reward**!'
+                else:
+                    result = f'You lose!'
+                try:
+                    await store.sql_game_free_add('{}:{}:{}:{}'.format(dice_time, sum_dice, dice1, dice2), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'DICE', 'DISCORD')
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+            await ctx.send(f'{ctx.author.mention} **Dice: ** You throwed dices **{dice_time}** times. {result}')
+            if ctx.message.author.id in GAME_DICE_IN_PRGORESS:
+                GAME_DICE_IN_PRGORESS.remove(ctx.message.author.id)
+            if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+                GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+            return
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+    except (discord.Forbidden, discord.errors.Forbidden) as e:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        return
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    if ctx.message.author.id in GAME_DICE_IN_PRGORESS:
+        GAME_DICE_IN_PRGORESS.remove(ctx.message.author.id)
     if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
         GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
 

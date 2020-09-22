@@ -2756,8 +2756,10 @@ async def snail(ctx, bet_numb: str=None):
     won = False
     game_text = '''Snail Race, by Al Sweigart al@inventwithpython.com
 Fast-paced snail racing action!'''
-    msg = await ctx.send(f'{ctx.author.mention} ```{game_text}```')
-    await msg.add_reaction(EMOJI_OK_BOX)
+    # We do not always show credit
+    if random.randint(1,100) < 30:
+        msg = await ctx.send(f'{ctx.author.mention} ```{game_text}```')
+        await msg.add_reaction(EMOJI_OK_BOX)
 
     if bet_numb is None:
         if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:

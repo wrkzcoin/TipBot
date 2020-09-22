@@ -313,6 +313,7 @@ bot_help_game_hangman = "Old hangman game"
 bot_help_game_maze = "Interactive 2D ascii maze game"
 bot_help_game_blackjack = "Blackjack, original code by Al Sweigart al@inventwithpython.com"
 bot_help_game_dice = "Simple dice game"
+bot_help_game_snailrace = "Snail racing game. You bet which one."
 bot_help_game_stat = "Check overall game stat"
 
 # account commands
@@ -2684,7 +2685,7 @@ To win, you must continue rolling the dice until you "make your point."
                     await store.sql_game_free_add('{}:{}:{}:{}'.format(dice_time, sum_dice, dice1, dice2), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'DICE', 'DISCORD')
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
-            await ctx.send(f'{ctx.author.mention} **Dice: ** You throwed dices **{dice_time}** times. {result}')
+            await ctx.send(f'{ctx.author.mention} **Dice: ** You threw dices **{dice_time}** times. {result}')
             if ctx.message.author.id in GAME_DICE_IN_PRGORESS:
                 GAME_DICE_IN_PRGORESS.remove(ctx.message.author.id)
             if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
@@ -2701,6 +2702,180 @@ To win, you must continue rolling the dice until you "make your point."
         GAME_DICE_IN_PRGORESS.remove(ctx.message.author.id)
     if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
         GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+
+
+@game.command(name='snail', aliases=['snailrace'], help=bot_help_game_snailrace)
+async def snail(ctx, bet_numb: str=None):
+    global GAME_INTERACTIVE_PRGORESS, GAME_COIN, GAME_SLOT_REWARD, HANGMAN_WORDS, IS_RESTARTING
+    # bot check in the first place
+    if ctx.message.author.bot == True:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is not allowed using this.')
+        return
+
+    # disable game for TRTL discord
+    if ctx.guild and ctx.guild.id == TRTL_DISCORD:
+        await ctx.message.add_reaction(EMOJI_LOCKED)
+        return
+
+    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+    if serverinfo and 'enable_game' in serverinfo and serverinfo['enable_game'] == "NO":
+        prefix = serverinfo['prefix']
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. Please request Guild owner to enable by `{prefix}SETTING GAME`')
+        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}game** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+        return
+
+    # Credit: https://github.com/asweigart/PythonStdioGames
+    free_game = False
+
+    # check if user create account less than 3 days
+    try:
+        account_created = ctx.message.author.created_at
+        if (datetime.utcnow() - account_created).total_seconds() <= 3*24*3600:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using this.')
+            return
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
+    if ctx.message.author.id not in GAME_INTERACTIVE_PRGORESS:
+        GAME_INTERACTIVE_PRGORESS.append(ctx.message.author.id)
+    else:
+        await ctx.send(f'{ctx.author.mention} You are ongoing with one **game** play.')
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        return
+
+    count_played = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', False)
+    count_played_free = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', True)
+    if count_played and count_played >= config.game.max_daily_play:
+        free_game = True
+        await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
+
+    won = False
+    game_text = '''Snail Race, by Al Sweigart al@inventwithpython.com
+Fast-paced snail racing action!'''
+    msg = await ctx.send(f'{ctx.author.mention} ```{game_text}```')
+    await msg.add_reaction(EMOJI_OK_BOX)
+
+    if bet_numb is None:
+        if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+            GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+        await ctx.send(f'{ctx.author.mention} There are 8 snail racers. Please put your snail number **(1 to 8)**')
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        return
+    else:
+        your_snail = 0
+        try:
+            your_snail = int(bet_numb)
+        except ValueError:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Please put a valid snail number **(1 to 8)**')
+            return
+        if 1 <= your_snail <= 8:
+            # valid betting
+            # Set up the constants:
+            MAX_NUM_SNAILS = 8
+            MAX_NAME_LENGTH = 20
+            FINISH_LINE = 36  # (!) Try modifying this number.
+            # sleep 1s
+            await asyncio.sleep(1)
+            try:
+                game_over = False
+                # Enter the names of each snail:
+                snailNames = []  # List of the string snail names.
+                for i in range(1, MAX_NUM_SNAILS + 1):
+                    snailNames.append("#" + str(i))
+                start_line = 'START' + (' ' * (FINISH_LINE - len('START')) + 'FINISH') + '\n'
+                start_line += '|' + (' ' * (FINISH_LINE - len('|')) + '|')
+                msg_racing = await ctx.send(f'{ctx.author.mention}\n```{start_line}```')
+
+                # sleep 2s
+                await asyncio.sleep(2)
+                snailProgress = {}
+                list_snails = ''
+                for snailName in snailNames:
+                    list_snails += snailName[:MAX_NAME_LENGTH] + '\n'
+                    list_snails += '@v'
+                    snailProgress[snailName] = 0
+                await msg_racing.edit(content=f'```{start_line}\n{list_snails}```')
+
+                while not game_over:
+                    # Pick random snails to move forward:
+                    for i in range(random.randint(1, MAX_NUM_SNAILS // 2)):
+                        randomSnailName = random.choice(snailNames)
+                        snailProgress[randomSnailName] += 1
+
+                        # Check if a snail has reached the finish line:
+                        if snailProgress[randomSnailName] == FINISH_LINE:
+                            game_over = True
+                            if '#' + str(your_snail) == randomSnailName:
+                                # You won
+                                won = True
+                            # add to DB, game end, check win or lose
+                            try:
+                                result = ''
+                                if free_game == False:
+                                    won_x = 10
+                                    if won:
+                                        COIN_NAME = random.choice(GAME_COIN)
+                                        amount = GAME_SLOT_REWARD[COIN_NAME] * won_x
+                                        coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+                                        COIN_DEC = get_decimal(COIN_NAME)
+                                        real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount * COIN_DEC)
+                                        reward = await store.sql_game_add('BET:#{}/WINNER:{}'.format(your_snail, randomSnailName), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, COIN_DEC, str(ctx.guild.id), 'SNAIL', 'DISCORD')
+                                        result = f'You won **snail#{str(your_snail)}**! {ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
+                                    else:
+                                        reward = await store.sql_game_add('BET:#{}/WINNER:{}'.format(your_snail, randomSnailName), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'SNAIL', 'DISCORD')
+                                        result = f'You lose! **snail{randomSnailName}** is the winner!!! You bet for **snail#{str(your_snail)}**'
+                                else:
+                                    if won:
+                                        result = f'You won! **snail#{str(your_snail)}** but this is a free game without **reward**!'
+                                    else:
+                                        result = f'You lose! **snail{randomSnailName}** is the winner!!! You bet for **snail#{str(your_snail)}**'
+                                    try:
+                                        await store.sql_game_free_add('BET:#{}/WINNER:{}'.format(your_snail, randomSnailName), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'SNAIL', 'DISCORD')
+                                    except Exception as e:
+                                        traceback.print_exc(file=sys.stdout)
+                                await ctx.send(f'{ctx.author.mention} **Snail Racing** {result}')
+                                if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+                                    GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+                                return
+                            except Exception as e:
+                                traceback.print_exc(file=sys.stdout)
+                            break
+                    # (!) EXPERIMENT: Add a cheat here that increases a snail's progress
+                    # if it has your name.
+
+                    await asyncio.sleep(0.5)  # (!) EXPERIMENT: Try changing this value.
+                    # Display the snails (with name tags):
+                    list_snails = ''
+                    for snailName in snailNames:
+                        spaces = snailProgress[snailName]
+                        list_snails += (' ' * spaces) + snailName[:MAX_NAME_LENGTH]
+                        list_snails += '\n'
+                        list_snails += ('.' * snailProgress[snailName]) + '@v'
+                        list_snails += '\n'
+                    try:
+                        await msg_racing.edit(content=f'```{start_line}\n{list_snails}```')
+                    except Exception as e:
+                        if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+                            GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+                        traceback.print_exc(file=sys.stdout)
+                        return
+                return
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+                GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+        else:
+            # invalid betting
+            if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+                GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Please put a valid snail number **(1 to 8)**')
+            return
 
 
 @bot.group(aliases=['acc'], help=bot_help_account)
@@ -8918,7 +9093,7 @@ async def stats(ctx, coin: str = None):
 
     if COIN_NAME not in (ENABLE_COIN+ENABLE_XMR) and COIN_NAME != "BOT":
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{ctx.author.mention} Please put available ticker: '+ ', '.join(ENABLE_COIN).lower())
+        await ctx.send(f'{ctx.author.mention} Unsupported or Unknown Ticker: **{COIN_NAME}**')
         return
 
     # TRTL discord
@@ -9344,7 +9519,7 @@ async def height(ctx, coin: str = None):
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     if COIN_NAME not in (ENABLE_COIN + ENABLE_XMR):
         await ctx.message.add_reaction(EMOJI_ERROR)
-        msg = await ctx.send(f'{ctx.author.mention} Please put available ticker: '+ ', '.join(ENABLE_COIN).lower())
+        msg = await ctx.send(f'{ctx.author.mention} Unsupported or Unknown Ticker: **{COIN_NAME}**')
         return
     elif is_maintenance_coin(COIN_NAME):
         await ctx.message.add_reaction(EMOJI_MAINTENANCE)

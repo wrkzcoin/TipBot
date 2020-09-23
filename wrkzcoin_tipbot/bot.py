@@ -28,6 +28,14 @@ from games.blackjack import getDeck as blackjack_getDeck
 from games.blackjack import displayHands as blackjack_displayHands
 from games.blackjack import getCardValue as blackjack_getCardValue
 
+from games.twentyfortyeight import getNewBoard as g2048_getNewBoard
+from games.twentyfortyeight import drawBoard as g2048_drawBoard
+from games.twentyfortyeight import getScore as g2048_getScore
+from games.twentyfortyeight import addTwoToBoard as g2048_addTwoToBoard
+from games.twentyfortyeight import isFull as g2048_isFull
+from games.twentyfortyeight import makeMove as g2048_makeMove
+
+
 # tb
 from tb.tbfun import action as tb_action
 
@@ -315,6 +323,7 @@ bot_help_game_blackjack = "Blackjack, original code by Al Sweigart al@inventwith
 bot_help_game_dice = "Simple dice game"
 bot_help_game_snailrace = "Snail racing game. You bet which one."
 bot_help_game_stat = "Check overall game stat"
+bot_help_game_2048 = "Classic 2048 game. Slide all the tiles on the board in one of four directions."
 
 # account commands
 bot_help_account = "Various user account commands."
@@ -480,7 +489,7 @@ async def on_raw_reaction_add(payload):
             # Delete message
             try:
                 # do not delete maze or blackjack message
-                if 'MAZE' in message.content.upper() or 'BLACKJACK' in message.content.upper():
+                if 'MAZE' in message.content.upper() or 'BLACKJACK' in message.content.upper() or 'YOUR SCORE' in message.content.upper():
                     return
                 await message.delete()
                 return
@@ -2888,6 +2897,193 @@ Fast-paced snail racing action!'''
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Please put a valid snail number **(1 to 8)**')
             return
+
+
+@game.command(name='g2048', aliases=['2048'], help=bot_help_game_2048)
+async def g2048(ctx):
+    global GAME_INTERACTIVE_PRGORESS, GAME_COIN, GAME_SLOT_REWARD, HANGMAN_WORDS, IS_RESTARTING
+    # bot check in the first place
+    if ctx.message.author.bot == True:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is not allowed using this.')
+        return
+
+    # disable game for TRTL discord
+    if ctx.guild and ctx.guild.id == TRTL_DISCORD:
+        await ctx.message.add_reaction(EMOJI_LOCKED)
+        return
+
+    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+    if serverinfo and 'enable_game' in serverinfo and serverinfo['enable_game'] == "NO":
+        prefix = serverinfo['prefix']
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. Please request Guild owner to enable by `{prefix}SETTING GAME`')
+        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}game** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+        return
+
+    # Credit: https://github.com/asweigart/PythonStdioGames
+    free_game = False
+
+    # check if user create account less than 3 days
+    try:
+        account_created = ctx.message.author.created_at
+        if (datetime.utcnow() - account_created).total_seconds() <= 3*24*3600:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using this.')
+            return
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
+    if ctx.message.author.id not in GAME_INTERACTIVE_PRGORESS:
+        GAME_INTERACTIVE_PRGORESS.append(ctx.message.author.id)
+    else:
+        await ctx.send(f'{ctx.author.mention} You are ongoing with one **game** play.')
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        return
+
+    count_played = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', False)
+    count_played_free = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', True)
+    if count_played and count_played >= config.game.max_daily_play:
+        free_game = True
+        await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
+
+    won = False
+    score = 0
+    game_text = '''Twenty Forty Eight, by Al Sweigart al@inventwithpython.com
+
+Slide all the tiles on the board in one of four directions. Tiles with
+like numbers will combine into larger-numbered tiles. A new 2 tile is
+added to the board on each move. You win if you can create a 2048 tile.
+You lose if the board fills up the tiles before then.'''
+    # We do not always show credit
+    if random.randint(1,100) < 30:
+        msg = await ctx.send(f'{ctx.author.mention} ```{game_text}```')
+        await msg.add_reaction(EMOJI_OK_BOX)
+
+    game_over = False
+    gameBoard = g2048_getNewBoard()
+    try:
+        board = g2048_drawBoard(gameBoard) # string
+        msg = await ctx.send(f'**2048 game starts**...')
+        await msg.add_reaction(EMOJI_UP)
+        await msg.add_reaction(EMOJI_DOWN)
+        await msg.add_reaction(EMOJI_LEFT)
+        await msg.add_reaction(EMOJI_RIGHT)
+        await msg.add_reaction(EMOJI_FIRE)
+        await msg.add_reaction(EMOJI_BOMB)
+        await msg.add_reaction(EMOJI_OK_BOX)
+        time_start = int(time.time())
+
+        while not game_over:
+            await msg.edit(content=f'{ctx.author.mention}```{board}```Your score: **{score}**')
+            score = g2048_getScore(gameBoard)
+            if IS_RESTARTING:
+                await ctx.message.add_reaction(EMOJI_REFRESH)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is going to restart soon. Wait until it is back for using this.')
+                return
+            def check(reaction, user):
+                return user == ctx.message.author and reaction.message.author == bot.user and reaction.message.id == msg.id and str(reaction.emoji) \
+                in (EMOJI_UP, EMOJI_DOWN, EMOJI_LEFT, EMOJI_RIGHT, EMOJI_OK_BOX)
+
+            done, pending = await asyncio.wait([
+                                bot.wait_for('reaction_remove', timeout=60, check=check),
+                                bot.wait_for('reaction_add', timeout=60, check=check)
+                            ], return_when=asyncio.FIRST_COMPLETED)
+            try:
+                # stuff = done.pop().result()
+                reaction, user = done.pop().result()
+            except asyncio.TimeoutError:
+                if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+                    GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+                if free_game == True:
+                    try:
+                        await store.sql_game_free_add(board, str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), '2048', 'DISCORD')
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                else:
+                    try:
+                        reward = await store.sql_game_add(board, str(ctx.message.author.id), 'None', 'WIN' if won else 'LOSE', 0, 0, str(ctx.guild.id), '2048', 'DISCORD')
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                await ctx.send(f'{ctx.author.mention} too long. Game exits. Your score **{score}**.')
+                await msg.delete()
+                game_over = True
+                return
+            for future in pending:
+                future.cancel()  # we don't need these anymore
+
+            if str(reaction.emoji) == EMOJI_OK_BOX:
+                await ctx.send(f'{ctx.author.mention} You gave up the current game. Your score **{score}**.')
+                game_over = True
+                if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+                    GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+
+                if free_game == True:
+                    try:
+                        await store.sql_game_free_add(board, str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), '2048', 'DISCORD')
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                else:
+                    try:
+                        reward = await store.sql_game_add(board, str(ctx.message.author.id), 'None', 'WIN' if won else 'LOSE', 0, 0, str(ctx.guild.id), '2048', 'DISCORD')
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                await asyncio.sleep(1)
+                try:
+                    await msg.delete()
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                break
+                return
+
+            playerMove = None
+            if str(reaction.emoji) == EMOJI_UP:
+                playerMove = 'W'
+            elif str(reaction.emoji) == EMOJI_DOWN:
+                playerMove = 'S'
+            elif str(reaction.emoji) == EMOJI_LEFT:
+                playerMove = 'A'
+            elif str(reaction.emoji) == EMOJI_RIGHT:
+                playerMove = 'D'
+            if playerMove in ('W', 'A', 'S', 'D'):
+                gameBoard = g2048_makeMove(gameBoard, playerMove)
+                g2048_addTwoToBoard(gameBoard)
+                board = g2048_drawBoard(gameBoard)
+            if g2048_isFull(gameBoard):
+                game_over = True
+                won = True # we assume won but it is not a winner
+                if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+                    GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+                board = g2048_drawBoard(gameBoard)
+
+                # Handle whether the player won, lost, or tied:
+                COIN_NAME = random.choice(GAME_COIN)
+                amount = GAME_SLOT_REWARD[COIN_NAME] * (int(score / 100) if score / 100 > 1 else 1) # testing first
+                coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+                COIN_DEC = get_decimal(COIN_NAME)
+                real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount * COIN_DEC)
+                result = f'You got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
+                if free_game == True:
+                    result = f'You do not get any reward because it is a free game!'
+                    try:
+                        await store.sql_game_free_add(board, str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), '2048', 'DISCORD')
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                else:
+                    try:
+                        reward = await store.sql_game_add(board, str(ctx.message.author.id), COIN_NAME, 'WIN' if won else 'LOSE', real_amount if won else 0, COIN_DEC if won else 0, str(ctx.guild.id), '2048', 'DISCORD')
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                duration = seconds_str(int(time.time()) - time_start)
+                await msg.edit(content=f'**{ctx.author.mention} Game Over**```{board}```Your score: **{score}**\nYou have spent time: **{duration}**\n{result}')
+                await msg.add_reaction(EMOJI_OK_BOX)
+                return
+
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+        GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
 
 
 @bot.group(aliases=['acc'], help=bot_help_account)

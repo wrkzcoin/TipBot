@@ -308,7 +308,7 @@ bot_help_admin_cleartx = "Clear pending TX in case of urgent need."
 # game command
 bot_help_game = "Various game commands"
 bot_help_game_slot = "Play slot game"
-bot_help_game_bagel = "Bagels, a deductive logic game. By Al Sweigart al@inventwithpython.com"
+bot_help_game_bagel = "Bagels, a deductive logic game"
 bot_help_game_hangman = "Old hangman game"
 bot_help_game_maze = "Interactive 2D ascii maze game"
 bot_help_game_blackjack = "Blackjack, original code by Al Sweigart al@inventwithpython.com"
@@ -2251,8 +2251,14 @@ async def maze(ctx):
             def check(reaction, user):
                 return user == ctx.message.author and reaction.message.author == bot.user and reaction.message.id == msg.id and str(reaction.emoji) \
                 in (EMOJI_UP, EMOJI_DOWN, EMOJI_LEFT, EMOJI_RIGHT, EMOJI_OK_BOX)
+
+            done, pending = await asyncio.wait([
+                                bot.wait_for('reaction_remove', timeout=60, check=check),
+                                bot.wait_for('reaction_add', timeout=60, check=check)
+                            ], return_when=asyncio.FIRST_COMPLETED)
             try:
-                reaction, user = await bot.wait_for('reaction_add', timeout=60, check=check)
+                # stuff = done.pop().result()
+                reaction, user = done.pop().result()
             except asyncio.TimeoutError:
                 if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
                     GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
@@ -2272,6 +2278,8 @@ async def maze(ctx):
                 await ctx.send(f'{ctx.author.mention} too long. Game exits.')
                 await msg.delete()
                 return
+            for future in pending:
+                future.cancel()  # we don't need these anymore
                 
             if str(reaction.emoji) == EMOJI_OK_BOX:
                 await ctx.send(f'{ctx.author.mention} You gave up the current game.')
@@ -2789,9 +2797,11 @@ Fast-paced snail racing action!'''
                 snailNames = []  # List of the string snail names.
                 for i in range(1, MAX_NUM_SNAILS + 1):
                     snailNames.append("#" + str(i))
+                start_line_mention = '{}#{} bet for #{}\n'.format(ctx.author.name, ctx.author.discriminator, your_snail)
+                
                 start_line = 'START' + (' ' * (FINISH_LINE - len('START')) + 'FINISH') + '\n'
                 start_line += '|' + (' ' * (FINISH_LINE - len('|')) + '|')
-                msg_racing = await ctx.send(f'{ctx.author.mention}\n```{start_line}```')
+                msg_racing = await ctx.send(f'{start_line_mention}```{start_line}```')
 
                 # sleep 2s
                 await asyncio.sleep(2)
@@ -2801,7 +2811,7 @@ Fast-paced snail racing action!'''
                     list_snails += snailName[:MAX_NAME_LENGTH] + '\n'
                     list_snails += '@v'
                     snailProgress[snailName] = 0
-                await msg_racing.edit(content=f'```{start_line}\n{list_snails}```')
+                await msg_racing.edit(content=f'{start_line_mention}```{start_line}\n{list_snails}```')
 
                 while not game_over:
                     # Pick random snails to move forward:
@@ -2860,7 +2870,7 @@ Fast-paced snail racing action!'''
                         list_snails += ('.' * snailProgress[snailName]) + '@v'
                         list_snails += '\n'
                     try:
-                        await msg_racing.edit(content=f'```{start_line}\n{list_snails}```')
+                        await msg_racing.edit(content=f'{start_line_mention}```{start_line}\n{list_snails}```')
                     except Exception as e:
                         if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
                             GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)

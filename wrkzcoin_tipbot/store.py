@@ -1247,6 +1247,15 @@ async def sql_get_donate_list():
                     donate_list.update({coin: 0})
                 else:
                     donate_list.update({coin: float(result['donate'])})
+                # XOL
+                coin = "XOL"
+                sql = """ SELECT SUM(amount) AS donate FROM xmroff_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
+                await cur.execute(sql, (wallet.get_donate_address(coin)))
+                result = await cur.fetchone()
+                if result['donate'] is None:
+                    donate_list.update({coin: 0})
+                else:
+                    donate_list.update({coin: float(result['donate'])})
                 # MSR
                 coin = "MSR"
                 sql = """ SELECT SUM(amount) AS donate FROM xmroff_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
@@ -2793,7 +2802,10 @@ async def sql_get_userwallet_by_paymentid(paymentid: str, coin: str, user_server
                     sql = """ SELECT * FROM cnoff_user_paymentid WHERE `paymentid`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """
                     await cur.execute(sql, (paymentid, COIN_NAME, user_server))
                     result = await cur.fetchone()
-                # TODO: XMR family to be in one table
+                elif coin_family == "XMR":
+                    sql = """ SELECT * FROM xmroff_user_paymentid WHERE `paymentid`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """
+                    await cur.execute(sql, (paymentid, COIN_NAME, user_server))
+                    result = await cur.fetchone()
                 elif coin_family == "DOGE":
                     # if doge family, address is paymentid
                     sql = """ SELECT * FROM doge_user WHERE `balance_wallet_address`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """

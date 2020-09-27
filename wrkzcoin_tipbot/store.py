@@ -1474,7 +1474,8 @@ async def sql_game_count_user(userID: str, lastDuration: int, user_server: str =
     return None
 
 
-async def sql_game_add(game_result: str, played_user: str, coin_name: str, win_lose: str, won_amount: float, decimal: int, played_server: str, game_type: str, user_server: str = 'DISCORD'):
+async def sql_game_add(game_result: str, played_user: str, coin_name: str, win_lose: str, won_amount: float, decimal: int, \
+played_server: str, game_type: str, duration: int=0, user_server: str = 'DISCORD'):
     global pool
     game_result = game_result.replace("\t", "")
     user_server = user_server.upper()
@@ -1485,10 +1486,10 @@ async def sql_game_add(game_result: str, played_user: str, coin_name: str, win_l
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 sql = """ INSERT INTO discord_game (`played_user`, `coin_name`, `win_lose`, 
-                          `won_amount`, `decimal`, `played_server`, `played_at`, `game_type`, `user_server`, `game_result`) 
-                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                          `won_amount`, `decimal`, `played_server`, `played_at`, `game_type`, `user_server`, `game_result`, `duration`) 
+                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
                 await cur.execute(sql, (played_user, coin_name, win_lose, won_amount, decimal, played_server, 
-                                        int(time.time()), game_type, user_server, game_result))
+                                        int(time.time()), game_type, user_server, game_result, duration))
                 await conn.commit()
                 return True
     except Exception as e:
@@ -1496,7 +1497,7 @@ async def sql_game_add(game_result: str, played_user: str, coin_name: str, win_l
     return None
 
 
-async def sql_game_free_add(game_result: str, played_user: str, win_lose: str, played_server: str, game_type: str, user_server: str = 'DISCORD'):
+async def sql_game_free_add(game_result: str, played_user: str, win_lose: str, played_server: str, game_type: str, duration: int=0, user_server: str = 'DISCORD'):
     global pool
     game_result = game_result.replace("\t", "")
     user_server = user_server.upper()
@@ -1506,9 +1507,9 @@ async def sql_game_free_add(game_result: str, played_user: str, win_lose: str, p
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ INSERT INTO discord_game_free (`played_user`, `win_lose`, `played_server`, `played_at`, `game_type`, `user_server`, `game_result`) 
-                          VALUES (%s, %s, %s, %s, %s, %s, %s) """
-                await cur.execute(sql, (played_user, win_lose, played_server, int(time.time()), game_type, user_server, game_result))
+                sql = """ INSERT INTO discord_game_free (`played_user`, `win_lose`, `played_server`, `played_at`, `game_type`, `user_server`, `game_result`, `duration`) 
+                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                await cur.execute(sql, (played_user, win_lose, played_server, int(time.time()), game_type, user_server, game_result, duration))
                 await conn.commit()
                 return True
     except Exception as e:
@@ -3153,6 +3154,58 @@ guild_name: str, funcmd: str, msg_content: str, user_server: str='DISCORD'):
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     return False
+
+
+async def sql_game_get_level_tpl(level: int, game_name: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM discord_game_level_tpl WHERE `level`=%s 
+                          AND `game_name`=%s LIMIT 1 """
+                await cur.execute(sql, (level, game_name.upper()))
+                result = await cur.fetchone()
+                if result and len(result) > 0:
+                    return result
+                else:
+                    return None
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+
+async def sql_game_get_level_user(userid: str, game_name: str):
+    global pool
+    level = -1
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM discord_game WHERE `played_user`=%s 
+                          AND `game_type`=%s AND `win_lose`=%s ORDER BY `played_at` DESC LIMIT 1 """
+                await cur.execute(sql, (userid, game_name.upper(), 'WIN'))
+                result = await cur.fetchone()
+                if result and len(result) > 0:
+                    try:
+                        level = int(result['game_result'])
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+
+                sql = """ SELECT * FROM discord_game_free WHERE `played_user`=%s 
+                          AND `game_type`=%s AND `win_lose`=%s ORDER BY `played_at` DESC LIMIT 1 """
+                await cur.execute(sql, (userid, game_name.upper(), 'WIN'))
+                result = await cur.fetchone()
+                if result and len(result) > 0:
+                    try:
+                        if level and int(result['game_result']) > level:
+                            level = int(result['game_result'])
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                return level
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return level
 
 
 # Steal from https://nitratine.net/blog/post/encryption-and-decryption-in-python/

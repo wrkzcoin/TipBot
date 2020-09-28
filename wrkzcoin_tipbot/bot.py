@@ -121,7 +121,8 @@ FAUCET_MINMAX = {
     "DOGE": [config.Faucet_min_max.doge_min, config.Faucet_min_max.doge_max],
     "BTCMZ": [config.Faucet_min_max.btcmz_min, config.Faucet_min_max.btcmz_max],
     "NBXC": [config.Faucet_min_max.nbxc_min, config.Faucet_min_max.nbxc_max],
-    "XFG": [config.Faucet_min_max.xfg_min, config.Faucet_min_max.xfg_max]
+    "XFG": [config.Faucet_min_max.xfg_min, config.Faucet_min_max.xfg_max],
+    "WOW": [config.Faucet_min_max.wow_min, config.Faucet_min_max.wow_max]
 }
 
 
@@ -134,7 +135,8 @@ GAME_SLOT_REWARD = {
     "BTCMZ": config.game_reward.btcmz,
     "NBXC": config.game_reward.nbxc,
     "XFG": config.game_reward.xfg,
-    "DOGE": config.game_reward.doge
+    "DOGE": config.game_reward.doge,
+    "WOW": config.game_reward.wow
 }
 
 GAME_INTERACTIVE_PRGORESS = []
@@ -2817,7 +2819,13 @@ Fast-paced snail racing action!'''
                 
                 start_line = 'START' + (' ' * (FINISH_LINE - len('START')) + 'FINISH') + '\n'
                 start_line += '|' + (' ' * (FINISH_LINE - len('|')) + '|')
-                msg_racing = await ctx.send(f'{start_line_mention}```{start_line}```')
+                try:
+                    msg_racing = await ctx.send(f'{start_line_mention}```{start_line}```')
+                except Exception as e:
+                    if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+                        GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+                    await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} **GAME SNAIL** failed to send message in {ctx.guild.name} / {ctx.guild.id}')
+                    return
 
                 # sleep 2s
                 await asyncio.sleep(2)
@@ -2972,7 +2980,14 @@ You lose if the board fills up the tiles before then.'''
     gameBoard = g2048_getNewBoard()
     try:
         board = g2048_drawBoard(gameBoard) # string
-        msg = await ctx.send(f'**2048 game starts**...')
+        try:
+            msg = await ctx.send(f'**2048 game starts**...')
+        except Exception as e:
+            if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+                GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+            await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} **GAME 2048** failed to send message in {ctx.guild.name} / {ctx.guild.id}')
+            return
+
         await msg.add_reaction(EMOJI_UP)
         await msg.add_reaction(EMOJI_DOWN)
         await msg.add_reaction(EMOJI_LEFT)
@@ -3092,6 +3107,125 @@ You lose if the board fills up the tiles before then.'''
         GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
 
 
+@commands.is_owner()
+@game.command(name='sokotest', hidden = True)
+async def sokotest(ctx, level:int=0):
+    # For testing display
+    global GAME_INTERACTIVE_PRGORESS, GAME_COIN, GAME_SLOT_REWARD, HANGMAN_WORDS, IS_RESTARTING
+    # bot check in the first place
+    if ctx.message.author.bot == True:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is not allowed using this.')
+        return
+
+    # disable game for TRTL discord
+    if ctx.guild and ctx.guild.id == TRTL_DISCORD:
+        await ctx.message.add_reaction(EMOJI_LOCKED)
+        return
+
+    # Set up the constants:
+    WIDTH = 'width'
+    HEIGHT = 'height'
+
+    # Characters in level files that represent objects:
+    WALL = '#'
+    FACE = '@'
+    CRATE = '$'
+    GOAL = '.'
+    CRATE_ON_GOAL = '*'
+    PLAYER_ON_GOAL = '+'
+    EMPTY = ' '
+
+    # How objects should be displayed on the screen:
+    # WALL_DISPLAY = random.choice([':red_square:', ':orange_square:', ':yellow_square:', ':blue_square:', ':purple_square:']) # '#' # chr(9617)   # Character 9617 is '░'
+    WALL_DISPLAY = random.choice(['🟥', '🟧', '🟨', '🟦', '🟪'])
+    FACE_DISPLAY = '<:smiling_face:700888455877754991>'
+    # CRATE_DISPLAY = ':brown_square:'  # Character 9679 is '▪'
+    CRATE_DISPLAY = '🟫'
+    # GOAL_DISPLAY = ':negative_squared_cross_mark:'
+    GOAL_DISPLAY = '❎'
+    # A list of chr() codes is at https://inventwithpython.com/chr
+    # CRATE_ON_GOAL_DISPLAY = ':green_square:'
+    CRATE_ON_GOAL_DISPLAY = '🟩'
+    PLAYER_ON_GOAL_DISPLAY = '<:grinning_face:700888456028487700>'
+    # EMPTY_DISPLAY = ':black_large_square:'
+    EMPTY_DISPLAY = '⬛'
+
+    CHAR_MAP = {WALL: WALL_DISPLAY, FACE: FACE_DISPLAY,
+                CRATE: CRATE_DISPLAY, PLAYER_ON_GOAL: PLAYER_ON_GOAL_DISPLAY,
+                GOAL: GOAL_DISPLAY, CRATE_ON_GOAL: CRATE_ON_GOAL_DISPLAY,
+                EMPTY: EMPTY_DISPLAY}
+
+    won = False
+    game_text = f'''Push the solid crates {CRATE_DISPLAY} onto the {GOAL_DISPLAY}. You can only push,
+you cannot pull. Re-act with direction to move up-left-down-right,
+respectively. You can also reload game level.'''
+    # We do not always show credit
+    if random.randint(1,100) < 30:
+        msg = await ctx.send(f'{ctx.author.mention} ```{game_text}```')
+        await msg.add_reaction(EMOJI_OK_BOX)
+
+    get_level = await store.sql_game_get_level_tpl(level, 'SOKOBAN')
+    
+    if get_level is None:
+        await ctx.send(f'{ctx.author.mention} Check back later.')
+        await ctx.message.add_reaction(EMOJI_INFORMATION)
+        return
+
+    def loadLevel(level_str: str):
+        level_str = level_str
+        currentLevel = {WIDTH: 0, HEIGHT: 0}
+        y = 0
+
+        # Add the line to the current level.
+        # We use line[:-1] so we don't include the newline:
+        for line in level_str.splitlines():
+            line += "\n"
+            for x, levelChar in enumerate(line[:-1]):
+                currentLevel[(x, y)] = levelChar
+            y += 1
+
+            if len(line) - 1 > currentLevel[WIDTH]:
+                currentLevel[WIDTH] = len(line) - 1
+            if y > currentLevel[HEIGHT]:
+                currentLevel[HEIGHT] = y
+
+        return currentLevel
+
+    def displayLevel(levelData):
+        # Draw the current level.
+        solvedCrates = 0
+        unsolvedCrates = 0
+
+        level_display = ''
+        for y in range(levelData[HEIGHT]):
+            for x in range(levelData[WIDTH]):
+                if levelData.get((x, y), EMPTY) == CRATE:
+                    unsolvedCrates += 1
+                elif levelData.get((x, y), EMPTY) == CRATE_ON_GOAL:
+                    solvedCrates += 1
+                prettyChar = CHAR_MAP[levelData.get((x, y), EMPTY)]
+                level_display += prettyChar
+            level_display += '\n'
+        totalCrates = unsolvedCrates + solvedCrates
+        level_display += "\nSolved: {}/{}".format(solvedCrates, totalCrates)
+        return level_display
+
+    currentLevel = loadLevel(get_level['template_str'])
+    display_level = displayLevel(currentLevel)
+
+    embed = discord.Embed(title=f'SOKOBAN GAME TEST RUN {ctx.author.name}#{ctx.author.discriminator}', description=f'{display_level}', timestamp=datetime.utcnow(), colour=7047495)
+    embed.add_field(name="LEVEL", value=f'{level}')
+    embed.add_field(name="OTHER LINKS", value="{} / {} / {}".format("[Invite TipBot](http://invite.discord.bot.tips)", 
+                    "[Support Server](https://discord.com/invite/GpHzURM)", "[TipBot Github](https://github.com/wrkzcoin/TipBot)"), inline=False)
+    try:
+        msg = await ctx.send(embed=embed)
+    except Exception as e:
+        await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
+        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} **GAME SOKOBAN** failed to send embed in {ctx.guild.name} / {ctx.guild.id}')
+        return
+
+
 @game.command(name='sokoban', aliases=['soko'], help=bot_help_game_sokoban)
 async def sokoban(ctx):
     global GAME_INTERACTIVE_PRGORESS, GAME_COIN, GAME_SLOT_REWARD, HANGMAN_WORDS, IS_RESTARTING
@@ -3140,33 +3274,6 @@ async def sokoban(ctx):
         free_game = True
         await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
 
-    won = False
-    game_text = '''Push the solid crates onto the circle outlines. You can only push,
-you cannot pull. Re-act with direction to move up-left-down-right,
-respectively. You can also refresh game.'''
-    # We do not always show credit
-    if random.randint(1,100) < 30:
-        msg = await ctx.send(f'{ctx.author.mention} ```{game_text}```')
-        await msg.add_reaction(EMOJI_OK_BOX)
-
-    # get max level user already played.
-    level = 0
-    get_level_user = await store.sql_game_get_level_user(str(ctx.message.author.id), 'SOKOBAN')
-    print(get_level_user)
-    if get_level_user < 0:
-        level = 0
-    elif get_level_user >= 0:
-        level = get_level_user + 1
-
-    get_level = await store.sql_game_get_level_tpl(level, 'SOKOBAN')
-    
-    if get_level is None:
-        if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
-            GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
-        await ctx.send(f'{ctx.author.mention} Check back later.')
-        await ctx.message.add_reaction(EMOJI_INFORMATION)
-        return
-    
     # Set up the constants:
     WIDTH = 'width'
     HEIGHT = 'height'
@@ -3199,6 +3306,35 @@ respectively. You can also refresh game.'''
                 CRATE: CRATE_DISPLAY, PLAYER_ON_GOAL: PLAYER_ON_GOAL_DISPLAY,
                 GOAL: GOAL_DISPLAY, CRATE_ON_GOAL: CRATE_ON_GOAL_DISPLAY,
                 EMPTY: EMPTY_DISPLAY}
+
+    won = False
+    game_text = f'''Push the solid crates {CRATE_DISPLAY} onto the {GOAL_DISPLAY}. You can only push,
+you cannot pull. Re-act with direction to move up-left-down-right,
+respectively. You can also reload game level.'''
+    # We do not always show credit
+    if random.randint(1,100) < 30:
+        msg = await ctx.send(f'{ctx.author.mention} ```{game_text}```')
+        await msg.add_reaction(EMOJI_OK_BOX)
+
+    # get max level user already played.
+    level = 0
+    get_level_user = await store.sql_game_get_level_user(str(ctx.message.author.id), 'SOKOBAN')
+    print(get_level_user)
+    if get_level_user < 0:
+        level = 0
+    elif get_level_user >= 0:
+        level = get_level_user + 1
+
+    get_level = await store.sql_game_get_level_tpl(level, 'SOKOBAN')
+    
+    if get_level is None:
+        if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+            GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+        await ctx.send(f'{ctx.author.mention} Check back later.')
+        await ctx.message.add_reaction(EMOJI_INFORMATION)
+        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} **GAME SOKOBAN** failed get level **{str(level)}** in {ctx.guild.name} / {ctx.guild.id}')
+        return
+
 
     def loadLevel(level_str: str):
         level_str = level_str
@@ -3249,7 +3385,14 @@ respectively. You can also refresh game.'''
         embed.add_field(name="LEVEL", value=f'{level}')
         embed.add_field(name="OTHER LINKS", value="{} / {} / {}".format("[Invite TipBot](http://invite.discord.bot.tips)", 
                         "[Support Server](https://discord.com/invite/GpHzURM)", "[TipBot Github](https://github.com/wrkzcoin/TipBot)"), inline=False)
-        msg = await ctx.send(embed=embed)
+        try:
+            msg = await ctx.send(embed=embed)
+        except Exception as e:
+            if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+                GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+            await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
+            await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} **GAME SOKOBAN** failed to send embed in {ctx.guild.name} / {ctx.guild.id}')
+            return
         await msg.add_reaction(EMOJI_UP)
         await msg.add_reaction(EMOJI_DOWN)
         await msg.add_reaction(EMOJI_LEFT)
@@ -3412,7 +3555,7 @@ respectively. You can also refresh game.'''
                 try:
                     result = ''
                     if free_game == False:
-                        won_x = 5
+                        won_x = 2
                         if won:
                             COIN_NAME = random.choice(GAME_COIN)
                             amount = GAME_SLOT_REWARD[COIN_NAME] * won_x
@@ -12469,6 +12612,26 @@ async def bot_faucet(ctx):
                 wallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
             userdata_balance = await store.sql_cnoff_balance(str(bot.user.id), COIN_NAME)
             wallet['actual_balance'] = wallet['actual_balance'] + int(userdata_balance['Adjust'])
+            try:
+                if COIN_NAME in get_game_stat:
+                    wallet['actual_balance'] = wallet['actual_balance'] - get_game_stat[COIN_NAME]
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            balance_actual = num_format_coin(wallet['actual_balance'], COIN_NAME)
+            get_claimed_count = await store.sql_faucet_sum_count_claimed(COIN_NAME)
+            sub_claim = num_format_coin(float(get_claimed_count['claimed']), COIN_NAME) if get_claimed_count['count'] > 0 else f"0.00{COIN_NAME}"
+            if wallet['actual_balance'] + wallet['locked_balance'] != 0:
+                table_data.append([COIN_NAME, balance_actual, sub_claim])
+            else:
+                table_data.append([COIN_NAME, '0', sub_claim])
+        if (not is_maintenance_coin(COIN_NAME)) and coin_family == "XMR":
+            COIN_DEC = get_decimal(COIN_NAME)
+            wallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
+            if wallet is None:
+                wallet = await store.sql_register_user(str(bot.user.id), COIN_NAME, 'DISCORD')
+                wallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
+            userdata_balance = await store.sql_xmr_balance(str(bot.user.id), COIN_NAME)
+            wallet['actual_balance'] = wallet['actual_balance'] + userdata_balance['Adjust']
             try:
                 if COIN_NAME in get_game_stat:
                     wallet['actual_balance'] = wallet['actual_balance'] - get_game_stat[COIN_NAME]

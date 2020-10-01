@@ -36,6 +36,7 @@ from games.twentyfortyeight import addTwoToBoard as g2048_addTwoToBoard
 from games.twentyfortyeight import isFull as g2048_isFull
 from games.twentyfortyeight import makeMove as g2048_makeMove
 
+from decimal import Decimal
 
 # tb
 from tb.tbfun import action as tb_action
@@ -122,7 +123,8 @@ FAUCET_MINMAX = {
     "BTCMZ": [config.Faucet_min_max.btcmz_min, config.Faucet_min_max.btcmz_max],
     "NBXC": [config.Faucet_min_max.nbxc_min, config.Faucet_min_max.nbxc_max],
     "XFG": [config.Faucet_min_max.xfg_min, config.Faucet_min_max.xfg_max],
-    "WOW": [config.Faucet_min_max.wow_min, config.Faucet_min_max.wow_max]
+    "WOW": [config.Faucet_min_max.wow_min, config.Faucet_min_max.wow_max],
+    "BAN": [config.Faucet_min_max.ban_min, config.Faucet_min_max.ban_max]
 }
 
 
@@ -136,7 +138,8 @@ GAME_SLOT_REWARD = {
     "NBXC": config.game_reward.nbxc,
     "XFG": config.game_reward.xfg,
     "DOGE": config.game_reward.doge,
-    "WOW": config.game_reward.wow
+    "WOW": config.game_reward.wow,
+    "BAN": config.game_reward.ban
 }
 
 GAME_INTERACTIVE_PRGORESS = []
@@ -1429,7 +1432,7 @@ Rules:
     amount = GAME_SLOT_REWARD[COIN_NAME]
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     COIN_DEC = get_decimal(COIN_NAME)
-    real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount * COIN_DEC)
+    real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
     result = f'You got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
     if free_game == True:
         result = f'You do not get any reward because it is a free game!'
@@ -1542,7 +1545,7 @@ async def slot(ctx):
                 amount = GAME_SLOT_REWARD[COIN_NAME] * won_x
                 coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                 COIN_DEC = get_decimal(COIN_NAME)
-                real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount * COIN_DEC)
+                real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
                 reward = await store.sql_game_add(slotOutput, str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, COIN_DEC, str(ctx.guild.id), 'SLOT', int(time.time()) - time_start, 'DISCORD')
                 result = f'You won! {ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
             else:
@@ -1728,7 +1731,7 @@ clues would be Fermi Pico.'''.format(NUM_DIGITS)
                                 amount = GAME_SLOT_REWARD[COIN_NAME] * won_x
                                 coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                                 COIN_DEC = get_decimal(COIN_NAME)
-                                real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount * COIN_DEC)
+                                real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
                                 reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, COIN_DEC, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
                                 result = f'{ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
                             elif won == False and free_game == True:
@@ -1935,7 +1938,7 @@ Hints:
                                 amount = GAME_SLOT_REWARD[COIN_NAME] * won_x
                                 coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                                 COIN_DEC = get_decimal(COIN_NAME)
-                                real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount * COIN_DEC)
+                                real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
                                 reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, COIN_DEC, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
                                 result = f'{ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
                             elif won == False and free_game == True:
@@ -2150,7 +2153,7 @@ Hints:
                                 amount = GAME_SLOT_REWARD[COIN_NAME] * won_x
                                 coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                                 COIN_DEC = get_decimal(COIN_NAME)
-                                real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount * COIN_DEC)
+                                real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
                                 reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, COIN_DEC, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
                                 result = f'{ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
                             elif won == False and free_game == True:
@@ -2377,7 +2380,7 @@ async def maze(ctx):
             amount = GAME_SLOT_REWARD[COIN_NAME]
             coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
             COIN_DEC = get_decimal(COIN_NAME)
-            real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount * COIN_DEC)
+            real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
             result = f'You got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
             if free_game == True:
                 result = f'You do not get any reward because it is a free game!'
@@ -2536,7 +2539,7 @@ async def hangman(ctx):
                         amount = GAME_SLOT_REWARD[COIN_NAME]
                         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                         COIN_DEC = get_decimal(COIN_NAME)
-                        real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount * COIN_DEC)
+                        real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
                         reward = await store.sql_game_add(secretWord, str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, COIN_DEC, str(ctx.guild.id), 'HANGMAN', int(time.time()) - time_start, 'DISCORD')
                         result = f'{ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
                     elif foundAllLetters and free_game == True:
@@ -2695,7 +2698,7 @@ To win, you must continue rolling the dice until you "make your point."
                     amount = GAME_SLOT_REWARD[COIN_NAME] * won_x
                     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                     COIN_DEC = get_decimal(COIN_NAME)
-                    real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount * COIN_DEC)
+                    real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
                     reward = await store.sql_game_add('{}:{}:{}:{}'.format(dice_time, sum_dice, dice1, dice2), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, COIN_DEC, str(ctx.guild.id), 'DICE', int(time.time()) - time_start, 'DISCORD')
                     result = f'You won! {ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
                 else:
@@ -2859,7 +2862,7 @@ Fast-paced snail racing action!'''
                                         amount = GAME_SLOT_REWARD[COIN_NAME] * won_x
                                         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                                         COIN_DEC = get_decimal(COIN_NAME)
-                                        real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount * COIN_DEC)
+                                        real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
                                         reward = await store.sql_game_add('BET:#{}/WINNER:{}'.format(your_snail, randomSnailName), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, COIN_DEC, str(ctx.guild.id), 'SNAIL', int(time.time()) - time_start, 'DISCORD')
                                         result = f'You won **snail#{str(your_snail)}**! {ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
                                     else:
@@ -3083,7 +3086,7 @@ You lose if the board fills up the tiles before then.'''
                 amount = GAME_SLOT_REWARD[COIN_NAME] * (int(score / 100) if score / 100 > 1 else 1) # testing first
                 coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                 COIN_DEC = get_decimal(COIN_NAME)
-                real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount * COIN_DEC)
+                real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
                 result = f'You got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
                 duration = seconds_str(int(time.time()) - time_start)
                 if free_game == True:
@@ -3561,7 +3564,7 @@ respectively. You can also reload game level.'''
                             amount = GAME_SLOT_REWARD[COIN_NAME] * won_x
                             coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                             COIN_DEC = get_decimal(COIN_NAME)
-                            real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount * COIN_DEC)
+                            real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
                             reward = await store.sql_game_add(str(level), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, COIN_DEC, str(ctx.guild.id), 'SOKOBAN', int(time.time()) - time_start, 'DISCORD')
                             result = f'You won! {ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
                         else:
@@ -4023,7 +4026,7 @@ async def credit(ctx, amount: str, coin: str, to_userid: str):
         return
 
     COIN_NAME = coin.upper()
-    if COIN_NAME not in (ENABLE_COIN + ENABLE_XMR + ENABLE_COIN_DOGE):
+    if COIN_NAME not in (ENABLE_COIN + ENABLE_XMR + ENABLE_COIN_DOGE + ENABLE_COIN_NANO):
         await ctx.send(f'{EMOJI_ERROR} **{COIN_NAME}** is not in our list.')
         return
 
@@ -4035,12 +4038,6 @@ async def credit(ctx, amount: str, coin: str, to_userid: str):
         return
     # check if user / address exist in database
     amount = amount.replace(",", "")
-    try:
-        amount = float(amount)
-    except ValueError:
-        await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid credit amount.')
-        return
 
     coin_family = None
     wallet = None
@@ -4050,7 +4047,7 @@ async def credit(ctx, amount: str, coin: str, to_userid: str):
         traceback.print_exc(file=sys.stdout)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**')
         return
-    if coin_family == "XMR" or coin_family == "DOGE" or coin_family == "TRTL" or coin_family == "BCN" or coin_family == "NANO":
+    if coin_family in ["BCN", "XMR", "TRTL", "NANO", "DOGE"]:
         wallet = await store.sql_get_userwallet(to_userid, COIN_NAME)
         if wallet is None:
             userregister = await store.sql_register_user(to_userid, COIN_NAME, 'DISCORD')
@@ -4060,11 +4057,17 @@ async def credit(ctx, amount: str, coin: str, to_userid: str):
         return
 
     COIN_DEC = get_decimal(COIN_NAME)
-    real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL"] else float(amount * COIN_DEC)
-    credit_to = await store.sql_credit(str(ctx.message.author.id), to_userid, real_amount, COIN_NAME, ctx.message.content)
-    if credit_to:
-        msg = await ctx.send(f'{ctx.author.mention} amount **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** has been credited to userid **{to_userid}**.')
-        await msg.add_reaction(EMOJI_OK_BOX)
+
+    try:
+        real_amount = int(Decimal(amount) * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else Decimal(amount)
+        credit_to = await store.sql_credit(str(ctx.message.author.id), to_userid, real_amount, COIN_NAME, ctx.message.content)
+        if credit_to:
+            msg = await ctx.send(f'{ctx.author.mention} amount **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** has been credited to userid **{to_userid}**.')
+            await msg.add_reaction(EMOJI_OK_BOX)
+            return
+    except ValueError:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid credit amount.')
         return
 
 
@@ -5911,7 +5914,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
                 pass
         # end of bot channel check
     try:
-        amount = float(amount)
+        amount = Decimal(amount)
     except ValueError:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid given amount for `withdraw`.')
@@ -6355,7 +6358,7 @@ async def donate(ctx, amount: str, coin: str = None):
     # End Check if maintenance
 
     try:
-        amount = float(amount)
+        amount = Decimal(amount)
     except ValueError:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid amount.')
@@ -6660,7 +6663,7 @@ async def swap(ctx, amount: str, coin: str, to: str):
 
     amount = amount.replace(",", "")
     try:
-        amount = float(amount)
+        amount = Decimal(amount)
     except ValueError:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid amount.')
@@ -6789,8 +6792,11 @@ async def take(ctx, info: str=None):
         msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
         await msg.add_reaction(EMOJI_OK_BOX)
         return
-
-    remaining = await bot_faucet(ctx) or ''
+    remaining = ''
+    try:
+        remaining = await bot_faucet(ctx) or ''
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
     total_claimed = '{:,.0f}'.format(await store.sql_faucet_count_all())
     if info:
         await ctx.message.add_reaction(EMOJI_OK_HAND)
@@ -6964,6 +6970,49 @@ async def take(ctx, info: str=None):
             await ctx.send(f'{ctx.author.mention} Please try again later. Failed during executing tx **{COIN_NAME}**.')
             await ctx.message.add_reaction(EMOJI_ERROR)
             return
+    elif coin_family == "NANO":
+        COIN_DEC = get_decimal(COIN_NAME)
+        real_amount = int(amount) # already real amount amount = random.randint( ....
+        user_from = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
+        if user_from is None:
+            user_from = await store.sql_register_user(str(bot.user.id), COIN_NAME, 'DISCORD')
+            user_from = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
+
+        userdata_balance = await store.sql_nano_balance(str(bot.user.id), COIN_NAME)
+        if real_amount > int(user_from['actual_balance']) + int(userdata_balance['Adjust']):
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{ctx.author.mention} Please try again later. Bot runs out of **{COIN_NAME}**')
+            return
+        user_to = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        if user_to is None:
+            userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
+            user_to = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+
+        tip = None
+        if ctx.message.author.id not in TX_IN_PROCESS:
+            TX_IN_PROCESS.append(ctx.message.author.id)
+            try:
+                tip = await store.sql_mv_nano_single(str(bot.user.id), str(ctx.message.author.id), real_amount, COIN_NAME, "FAUCET")
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            await asyncio.sleep(config.interval.tx_lap_each)
+            TX_IN_PROCESS.remove(ctx.message.author.id)
+        else:
+            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+            await msg.add_reaction(EMOJI_OK_BOX)
+            return
+
+        if tip:
+            faucet_add = await store.sql_faucet_add(str(ctx.message.author.id), str(ctx.guild.id), COIN_NAME, real_amount, COIN_DEC, 'DISCORD')
+            await ctx.message.add_reaction(get_emoji(COIN_NAME))
+            msg = await ctx.send(f'{EMOJI_MONEYFACE} {ctx.author.mention} You got a random faucet {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
+            await msg.add_reaction(EMOJI_OK_BOX)
+            return
+        else:
+            await ctx.send(f'{ctx.author.mention} Please try again later. Failed during executing tx **{COIN_NAME}**.')
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            return
     elif coin_family == "DOGE":
         COIN_DEC = 1
         real_amount = float(amount * COIN_DEC)
@@ -7039,7 +7088,7 @@ async def freetip(ctx, amount: str, coin: str):
     amount = amount.replace(",", "")
 
     try:
-        amount = float(amount)
+        amount = Decimal(amount)
     except ValueError:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid amount.')
@@ -7784,7 +7833,7 @@ async def tipall(ctx, amount: str, *args):
     amount = amount.replace(",", "")
 
     try:
-        amount = float(amount)
+        amount = Decimal(amount)
     except ValueError:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid amount.')
@@ -8380,7 +8429,7 @@ async def send(ctx, amount: str, CoinAddress: str):
     # End Check if maintenance
 
     try:
-        amount = float(amount)
+        amount = Decimal(amount)
     except ValueError:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid amount.')
@@ -9304,7 +9353,7 @@ async def make(ctx, amount: str, coin: str, *, comment):
         voucher_each = amount.lower().split("*")[1]
         try:
             voucher_numb = int(voucher_numb)
-            voucher_each = float(voucher_each)
+            voucher_each = Decimal(voucher_each)
             if voucher_numb > config.voucher.max_batch:
                 await ctx.message.add_reaction(EMOJI_ERROR)
                 await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Too many. Maximum allowed: **{config.voucher.max_batch}**')
@@ -9315,7 +9364,7 @@ async def make(ctx, amount: str, coin: str, *, comment):
             return
     else:
         try:
-            amount = float(amount)
+            amount = Decimal(amount)
             voucher_each = amount
         except ValueError:
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -9342,8 +9391,8 @@ async def make(ctx, amount: str, coin: str, *, comment):
 
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     COIN_DEC = get_decimal(COIN_NAME)
-    real_amount = int(voucher_each * COIN_DEC) if coin_family in ["XMR", "TRTL", "BCN", "NANO"] else float(voucher_each * COIN_DEC)
-    total_real_amount = int(total_amount * COIN_DEC) if coin_family in ["XMR", "TRTL", "BCN", "NANO"] else float(total_amount * COIN_DEC)
+    real_amount = int(voucher_each * COIN_DEC) if coin_family in ["XMR", "TRTL", "BCN", "NANO"] else float(voucher_each)
+    total_real_amount = int(total_amount * COIN_DEC) if coin_family in ["XMR", "TRTL", "BCN", "NANO"] else float(total_amount)
     secret_string = str(uuid.uuid4())
     unique_filename = str(uuid.uuid4())
 
@@ -9363,7 +9412,7 @@ async def make(ctx, amount: str, coin: str, *, comment):
         user['actual_balance'] = user['actual_balance'] + float(userdata_balance['Adjust'])
     elif coin_family == "NANO":
         userdata_balance = await store.sql_nano_balance(str(ctx.message.author.id), COIN_NAME)
-        user['actual_balance'] = user['actual_balance'] + int(userdata_balance['Adjust'])
+        user['actual_balance'] = int(user['actual_balance']) + int(userdata_balance['Adjust'])
     else:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Voucher not supported.')
@@ -10491,7 +10540,7 @@ async def setting(ctx, *args):
         elif args[0].upper() == "REACTAMOUNT" or args[0].upper() == "REACTTIP-AMOUNT":
             amount = args[1].replace(",", "")
             try:
-                amount = float(amount)
+                amount = Decimal(amount)
             except ValueError:
                 await ctx.message.add_reaction(EMOJI_ERROR)
                 await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid amount.')
@@ -11334,7 +11383,7 @@ async def _tip(ctx, amount, coin: str):
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     if coin_family in ["TRTL", "BCN"]:
         COIN_DEC = get_decimal(COIN_NAME)
-        real_amount = int(round(float(amount) * COIN_DEC))
+        real_amount = int(Decimal(amount) * COIN_DEC)
         MinTx = get_min_mv_amount(COIN_NAME)
         MaxTX = get_max_mv_amount(COIN_NAME)
         NetFee = 0
@@ -11453,7 +11502,7 @@ async def _tip(ctx, amount, coin: str):
         if user_from is None:
             user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
             user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-        real_amount = int(round(float(amount) * COIN_DEC))
+        real_amount = int(Decimal(amount) * COIN_DEC)
         userdata_balance = await store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
         if real_amount < MinTx:
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -11621,7 +11670,7 @@ async def _tip(ctx, amount, coin: str):
         if user_from is None:
             user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
             user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-        real_amount = int(round(float(amount) * COIN_DEC))
+        real_amount = int(Decimal(amount) * COIN_DEC)
         userdata_balance = await store.sql_nano_balance(str(ctx.message.author.id), COIN_NAME)
         if real_amount < MinTx:
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -11709,7 +11758,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     try:
-        amount = float(amount)
+        amount = Decimal(amount)
     except ValueError:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid amount.')
@@ -11722,7 +11771,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
         return
     if coin_family in ["TRTL", "BCN"]:
         COIN_DEC = get_decimal(COIN_NAME)
-        real_amount = int(round(float(amount) * COIN_DEC))
+        real_amount = int(Decimal(amount) * COIN_DEC)
         MinTx = get_min_mv_amount(COIN_NAME)
         MaxTX = get_max_mv_amount(COIN_NAME)
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
@@ -11864,7 +11913,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
         if user_from is None:
             user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
             user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-        real_amount = int(round(float(amount) * COIN_DEC))
+        real_amount = int(Decimal(amount) * COIN_DEC)
         userdata_balance = await store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
         if real_amount < MinTx:
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -11955,7 +12004,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
         if user_from is None:
             user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
             user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-        real_amount = int(round(float(amount) * COIN_DEC))
+        real_amount = int(Decimal(amount) * COIN_DEC)
         userdata_balance = await store.sql_nano_balance(str(ctx.message.author.id), COIN_NAME)
         if real_amount < MinTx:
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -12151,7 +12200,7 @@ async def _tip_react(reaction, user, amount, coin: str):
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     if coin_family in ["TRTL", "BCN"]:
         COIN_DEC = get_decimal(COIN_NAME)
-        real_amount = int(round(float(amount) * COIN_DEC))
+        real_amount = int(Decimal(amount) * COIN_DEC)
         MinTx = get_min_mv_amount(COIN_NAME)
         MaxTX = get_max_mv_amount(COIN_NAME)
         NetFee = 0
@@ -12244,7 +12293,7 @@ async def _tip_react(reaction, user, amount, coin: str):
         if user_from is None:
             user_from = await store.sql_register_user(str(user.id), COIN_NAME, 'DISCORD')
             user_from = await store.sql_get_userwallet(str(user.id), COIN_NAME)
-        real_amount = int(round(float(amount) * COIN_DEC))
+        real_amount = int(Decimal(amount) * COIN_DEC)
         userdata_balance = await store.sql_xmr_balance(str(user.id), COIN_NAME)
         if real_amount > user_from['actual_balance'] + userdata_balance['Adjust']:
             await user.send(f'{EMOJI_RED_NO} {user.mention} Insufficient balance to send tip of '
@@ -12305,7 +12354,7 @@ async def _tip_react(reaction, user, amount, coin: str):
         if user_from is None:
             user_from = await store.sql_register_user(str(user.id), COIN_NAME, 'DISCORD')
             user_from = await store.sql_get_userwallet(str(user.id), COIN_NAME)
-        real_amount = int(round(float(amount) * COIN_DEC))
+        real_amount = int(Decimal(amount) * COIN_DEC)
         userdata_balance = await store.sql_nano_balance(str(user.id), COIN_NAME)
         if real_amount > int(user_from['actual_balance']) + int(userdata_balance['Adjust']):
             await user.send(f'{EMOJI_RED_NO} {user.mention} Insufficient balance to send tip of '
@@ -12614,17 +12663,17 @@ async def bot_faucet(ctx):
             wallet['actual_balance'] = wallet['actual_balance'] + int(userdata_balance['Adjust'])
             try:
                 if COIN_NAME in get_game_stat:
-                    wallet['actual_balance'] = wallet['actual_balance'] - get_game_stat[COIN_NAME]
+                    wallet['actual_balance'] = wallet['actual_balance'] - int(get_game_stat[COIN_NAME])
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
             balance_actual = num_format_coin(wallet['actual_balance'], COIN_NAME)
             get_claimed_count = await store.sql_faucet_sum_count_claimed(COIN_NAME)
-            sub_claim = num_format_coin(float(get_claimed_count['claimed']), COIN_NAME) if get_claimed_count['count'] > 0 else f"0.00{COIN_NAME}"
+            sub_claim = num_format_coin(int(get_claimed_count['claimed']), COIN_NAME) if get_claimed_count['count'] > 0 else f"0.00{COIN_NAME}"
             if wallet['actual_balance'] + wallet['locked_balance'] != 0:
                 table_data.append([COIN_NAME, balance_actual, sub_claim])
             else:
                 table_data.append([COIN_NAME, '0', sub_claim])
-        if (not is_maintenance_coin(COIN_NAME)) and coin_family == "XMR":
+        elif (not is_maintenance_coin(COIN_NAME)) and coin_family == "XMR":
             COIN_DEC = get_decimal(COIN_NAME)
             wallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
             if wallet is None:
@@ -12634,13 +12683,33 @@ async def bot_faucet(ctx):
             wallet['actual_balance'] = wallet['actual_balance'] + userdata_balance['Adjust']
             try:
                 if COIN_NAME in get_game_stat:
-                    wallet['actual_balance'] = wallet['actual_balance'] - get_game_stat[COIN_NAME]
+                    wallet['actual_balance'] = int(wallet['actual_balance']) - int(get_game_stat[COIN_NAME])
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
             balance_actual = num_format_coin(wallet['actual_balance'], COIN_NAME)
             get_claimed_count = await store.sql_faucet_sum_count_claimed(COIN_NAME)
-            sub_claim = num_format_coin(float(get_claimed_count['claimed']), COIN_NAME) if get_claimed_count['count'] > 0 else f"0.00{COIN_NAME}"
+            sub_claim = num_format_coin(int(get_claimed_count['claimed']), COIN_NAME) if get_claimed_count['count'] > 0 else f"0.00{COIN_NAME}"
             if wallet['actual_balance'] + wallet['locked_balance'] != 0:
+                table_data.append([COIN_NAME, balance_actual, sub_claim])
+            else:
+                table_data.append([COIN_NAME, '0', sub_claim])
+        elif (not is_maintenance_coin(COIN_NAME)) and coin_family == "NANO":
+            COIN_DEC = get_decimal(COIN_NAME)
+            wallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
+            if wallet is None:
+                wallet = await store.sql_register_user(str(bot.user.id), COIN_NAME, 'DISCORD')
+                wallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
+            userdata_balance = await store.sql_nano_balance(str(bot.user.id), COIN_NAME)
+            wallet['actual_balance'] = int(wallet['actual_balance']) + int(userdata_balance['Adjust'])
+            try:
+                if COIN_NAME in get_game_stat:
+                    wallet['actual_balance'] = wallet['actual_balance'] - int(get_game_stat[COIN_NAME])
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            balance_actual = num_format_coin(wallet['actual_balance'], COIN_NAME)
+            get_claimed_count = await store.sql_faucet_sum_count_claimed(COIN_NAME)
+            sub_claim = num_format_coin(int(get_claimed_count['claimed']), COIN_NAME) if get_claimed_count['count'] > 0 else f"0.00{COIN_NAME}"
+            if wallet['actual_balance'] != 0:
                 table_data.append([COIN_NAME, balance_actual, sub_claim])
             else:
                 table_data.append([COIN_NAME, '0', sub_claim])
@@ -12654,7 +12723,7 @@ async def bot_faucet(ctx):
         actual = userwallet['actual_balance']
         try:
             if COIN_NAME in get_game_stat:
-                actual = actual - get_game_stat[COIN_NAME]
+                actual = actual - float(get_game_stat[COIN_NAME])
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         userdata_balance = await store.sql_doge_balance(str(bot.user.id), COIN_NAME)

@@ -11269,6 +11269,15 @@ async def info_error(ctx, error):
     pass
 
 
+@randtip.error
+async def randtip_error(ctx, error):
+    prefix = await get_guild_prefix(ctx)
+    if isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Missing coin ticker and/or amount. '
+                       f'Example: {prefix}randtip 10 doge')
+    return
+
+
 @balance.error
 async def balance_error(ctx, error):
     pass

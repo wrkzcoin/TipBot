@@ -237,6 +237,7 @@ DEFAULT_TICKER = "WRKZ"
 ENABLE_COIN_VOUCHER = config.Enable_Coin_Voucher.split(",")
 ENABLE_SWAP = config.Enabe_Swap_Coin.split(",")
 ENABLE_SWAP_GUILD = config.Enabe_Swap_Guild.split(",")
+HIGH_DECIMAL_COIN = config.ManyDecimalCoin.split(",")
 
 # Some notice about coin that going to swap or take out.
 NOTICE_COIN = {}
@@ -6920,8 +6921,8 @@ async def take(ctx, info: str=None):
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     if COIN_NAME == "DOGE":
         amount = float(amount / 10)
-    elif coin_family == "NANO":
-        amount = round(amount / get_decimal(COIN_NAME), 4) * get_decimal(COIN_NAME)
+    elif COIN_NAME in HIGH_DECIMAL_COIN:
+        amount = round(amount / get_decimal(COIN_NAME), 5) * get_decimal(COIN_NAME)
 
     def myround_number(x, base=5):
         return base * round(x/base)

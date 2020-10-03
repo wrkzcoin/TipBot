@@ -59,6 +59,17 @@ def openRedis():
             traceback.print_exc(file=sys.stdout)
 
 
+async def logchanbot(content: str):
+    filterword = config.discord.logfilterword.split(",")
+    for each in filterword:
+        content = content.replace(each, config.discord.filteredwith)
+    try:
+        webhook = DiscordWebhook(url=config.discord.botdbghook, content=f'```{discord.utils.escape_markdown(content)}```')
+        webhook.execute()
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
 # openConnection
 async def openConnection():
     global pool
@@ -69,7 +80,7 @@ async def openConnection():
                                                    db=config.mysql.db, autocommit=True, cursorclass=DictCursor)
     except:
         print("ERROR: Unexpected error: Could not connect to MySql instance.")
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
 
 # openConnection_cmc
@@ -82,7 +93,7 @@ async def openConnection_cmc():
                                                        db=config.mysql_cmc.db, cursorclass=DictCursor)
     except:
         print("ERROR: Unexpected error: Could not connect to MySql instance.")
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
 
 async def get_coingecko_coin(coin: str):
@@ -96,7 +107,7 @@ async def get_coingecko_coin(coin: str):
                 result = await cur.fetchone()
                 return result
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return None
 
 
@@ -114,7 +125,7 @@ async def get_all_user_balance_address(coin: str):
                     listAddr.append({'address':row['balance_wallet_address'], 'scanHeight': row['balance_wallet_address_ch'], 'privateSpendKey': decrypt_string(row['privateSpendKey'])})
                 return listAddr
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return False
 
 
@@ -160,11 +171,11 @@ async def sql_nano_update_balances(coin: str):
                                         await cur.execute(sql, (COIN_NAME, move_to_deposit['block'], address, int(balance['balance']), wallet.get_decimal(COIN_NAME)))
                                         await conn.commit()
                             except Exception as e:
-                                traceback.print_exc(file=sys.stdout)
+                                await logchanbot(traceback.format_exc())
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
     return updated
 
 
@@ -256,7 +267,7 @@ async def sql_nano_balance(userID: str, coin: str, user_server: str = 'DISCORD')
                 + int(balance['Income']) - int(balance['Expense']) - int(balance['TxExpense']) - int(balance['Expended_Voucher'])
                 return balance
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
 
 async def sql_nano_get_user_wallets(coin: str):
@@ -272,7 +283,7 @@ async def sql_nano_get_user_wallets(coin: str):
                 result = await cur.fetchall()
                 return result
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return None
 
 
@@ -282,8 +293,6 @@ async def sql_mv_nano_single(user_from: str, to_user: str, amount: float, coin: 
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","NANO")
     if coin_family != "NANO":
-        return False
-    if tiptype.upper() not in ["TIP", "DONATE", "SECRETTIP", "FAUCET", "FREETIP", "FREETIPS"]:
         return False
     try:
         await openConnection()
@@ -295,7 +304,7 @@ async def sql_mv_nano_single(user_from: str, to_user: str, amount: float, coin: 
                 await conn.commit()
                 return True
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return False
 
 
@@ -323,7 +332,7 @@ async def sql_mv_nano_multiple(user_from: str, user_tos, amount_each: float, coi
                 await conn.commit()
                 return True
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return False
 
 
@@ -352,7 +361,7 @@ async def sql_external_nano_single(user_from: str, amount: int, to_address: str,
                             await conn.commit()
                             return tx_hash
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return None
 
 
@@ -372,7 +381,7 @@ async def sql_update_balances(coin: str = None):
     except asyncio.TimeoutError:
         pass
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
     height = None
     if gettopblock:
@@ -386,14 +395,14 @@ async def sql_update_balances(coin: str = None):
             if redis_conn:
                 redis_conn.set(f'TIPBOT:DAEMON_HEIGHT_{COIN_NAME}', str(height))
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
     else:
         try:
             openRedis()
             if redis_conn and redis_conn.exists(f'TIPBOT:DAEMON_HEIGHT_{COIN_NAME}'):
                 height = int(redis_conn.get(f'TIPBOT:DAEMON_HEIGHT_{COIN_NAME}'))
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
 
     if coin_family in ["TRTL", "BCN"]:
         #print('SQL: Updating get_transfers '+COIN_NAME)
@@ -445,9 +454,9 @@ async def sql_update_balances(coin: str = None):
                                                                     tx['amount'], tx['fee'], wallet.get_decimal(COIN_NAME)))
                                             await conn.commit()
                                     except pymysql.err.Warning as e:
-                                        traceback.print_exc(file=sys.stdout)
+                                        await logchanbot(traceback.format_exc())
                                     except Exception as e:
-                                        traceback.print_exc(file=sys.stdout)
+                                        await logchanbot(traceback.format_exc())
                                 elif height < int(tx['blockIndex']) + wallet.get_confirm_depth(COIN_NAME) and tx['amount'] >= wallet.get_min_deposit_amount(COIN_NAME):
                                     # add notify to redis and alert deposit. Can be clean later?
                                     if config.notify_new_tx.enable_new_no_confirm == 1:
@@ -466,7 +475,7 @@ async def sql_update_balances(coin: str = None):
                                                 redis_conn.set(key_tx_json, json.dumps({'coin_name': COIN_NAME, 'txid': tx['transactionHash'], 'payment_id': tx['paymentId'], 'height': tx['blockIndex'],
                                                                                         'amount': tx['amount'], 'fee': tx['fee'], 'decimal': wallet.get_decimal(COIN_NAME)}), ex=86400)
                                         except Exception as e:
-                                            traceback.print_exc(file=sys.stdout)
+                                            await logchanbot(traceback.format_exc())
             if list_balance_user and len(list_balance_user) > 0:
                 await openConnection()
                 async with pool.acquire() as conn:
@@ -485,7 +494,7 @@ async def sql_update_balances(coin: str = None):
                                                       WHERE paymentid = %s """, list_update)
                             await conn.commit()
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
     elif coin_family == "XMR":
         #print('SQL: Updating get_transfers '+COIN_NAME)
         get_transfers = await wallet.get_transfers_xmr(COIN_NAME)
@@ -525,7 +534,7 @@ async def sql_update_balances(coin: str = None):
                                                                 tx['amount'], tx['fee'], wallet.get_decimal(COIN_NAME)))
                                         await conn.commit()
                                 except Exception as e:
-                                    traceback.print_exc(file=sys.stdout)
+                                    await logchanbot(traceback.format_exc())
                             elif height < int(tx['height']) + wallet.get_confirm_depth(COIN_NAME) and tx['amount'] >= wallet.get_min_deposit_amount(COIN_NAME):
                                 # add notify to redis and alert deposit. Can be clean later?
                                 if config.notify_new_tx.enable_new_no_confirm == 1:
@@ -544,7 +553,7 @@ async def sql_update_balances(coin: str = None):
                                             redis_conn.set(key_tx_json, json.dumps({'coin_name': COIN_NAME, 'txid': tx['txid'], 'payment_id': tx['payment_id'], 'height': tx['height'],
                                                                                     'amount': tx['amount'], 'fee': tx['fee'], 'decimal': wallet.get_decimal(COIN_NAME)}), ex=86400)
                                     except Exception as e:
-                                        traceback.print_exc(file=sys.stdout)
+                                        await logchanbot(traceback.format_exc())
                         if len(list_balance_user) > 0:
                             list_update = []
                             timestamp = int(time.time())
@@ -554,7 +563,7 @@ async def sql_update_balances(coin: str = None):
                                                       WHERE paymentid = %s """, list_update)
                             await conn.commit()
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
     elif coin_family == "DOGE":
         #print('SQL: Updating get_transfers '+COIN_NAME)
         get_transfers = await wallet.doge_listtransactions(COIN_NAME)
@@ -596,9 +605,9 @@ async def sql_update_balances(coin: str = None):
                                                                     tx['amount'], wallet.get_decimal(COIN_NAME)))
                                             await conn.commit()
                                 except pymysql.err.Warning as e:
-                                    traceback.print_exc(file=sys.stdout)
+                                    await logchanbot(traceback.format_exc())
                                 except Exception as e:
-                                    traceback.print_exc(file=sys.stdout)
+                                    await logchanbot(traceback.format_exc())
                             if wallet.get_confirm_depth(COIN_NAME) > int(tx['confirmations']) and tx['amount'] >= wallet.get_min_deposit_amount(COIN_NAME):
                                 # add notify to redis and alert deposit. Can be clean later?
                                 if config.notify_new_tx.enable_new_no_confirm == 1:
@@ -617,7 +626,7 @@ async def sql_update_balances(coin: str = None):
                                             redis_conn.set(key_tx_json, json.dumps({'coin_name': COIN_NAME, 'txid': tx['txid'], 'payment_id': tx['address'], 'blockhash': tx['blockhash'],
                                                                                     'amount': tx['amount'], 'decimal': wallet.get_decimal(COIN_NAME)}), ex=86400)
                                     except Exception as e:
-                                        traceback.print_exc(file=sys.stdout)
+                                        await logchanbot(traceback.format_exc())
                         if len(list_balance_user) > 0:
                             list_update = []
                             timestamp = int(time.time())
@@ -627,7 +636,7 @@ async def sql_update_balances(coin: str = None):
                                                       WHERE balance_wallet_address = %s """, list_update)
                             await conn.commit()
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
 
 
 async def sql_credit(user_from: str, to_user: str, amount: float, coin: str, reason: str):
@@ -643,7 +652,7 @@ async def sql_credit(user_from: str, to_user: str, amount: float, coin: str, rea
                 await conn.commit()
                 return True
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return False
 
 
@@ -682,7 +691,7 @@ async def sql_update_some_balances(wallet_addresses: List[str], coin: str):
                     await cur.execute(sql,)
                     await conn.commit()
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
     return False
 
 
@@ -707,7 +716,7 @@ async def sql_get_alluser_balance(coin: str, filename: str):
                     write_csv_dumpinfo.close()
                     return True
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
             return False
     return False
 
@@ -795,7 +804,7 @@ async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD', cha
                 else:
                     return result
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return None
 
 
@@ -811,7 +820,7 @@ async def sql_update_user(userID, user_wallet_address, coin: str, user_server: s
         if redis_conn and redis_conn.exists(f'TIPBOT:WALLET_{str(userID)}_{COIN_NAME}'):
             redis_conn.delete(f'TIPBOT:WALLET_{str(userID)}_{COIN_NAME}')
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     try:
@@ -836,7 +845,7 @@ async def sql_update_user(userID, user_wallet_address, coin: str, user_server: s
                     await conn.commit()
                 return user_wallet_address  # return userwallet
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return False
 
 
@@ -852,7 +861,7 @@ async def sql_get_userwallet(userID, coin: str, user_server: str = 'DISCORD'):
         if redis_conn and redis_conn.exists(f'TIPBOT:WALLET_{str(userID)}_{COIN_NAME}'):
             return json.loads(redis_conn.get(f'TIPBOT:WALLET_{str(userID)}_{COIN_NAME}').decode())
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     try:
@@ -901,7 +910,7 @@ async def sql_get_userwallet(userID, coin: str, user_server: str = 'DISCORD'):
                         userwallet['lastUpdate'] = result['paymentid_ts']
                     return userwallet
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return None
 
 
@@ -943,7 +952,7 @@ async def sql_get_countLastTip(userID, lastDuration: int):
                 else:
                     return (len(result) if result else 0) + (len(result2) if result2 else 0) + (len(result3) if result3 else 0)
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
 
 async def sql_send_tip(user_from: str, user_to: str, amount: int, tiptype: str, coin: str, user_server: str = 'DISCORD'):
@@ -976,7 +985,7 @@ async def sql_send_tip(user_from: str, user_to: str, amount: int, tiptype: str, 
                         await conn.commit()
                         return {'transactionHash': 'NONE', 'fee': 0}
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
     return False
 
 
@@ -1009,7 +1018,7 @@ async def sql_send_tipall(user_from: str, user_tos, amount: int, amount_div: int
                         await conn.commit()
                         return {'transactionHash': 'NONE', 'fee': 0}
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
                 print(f"SQL:\n{sql}\n")
     return False
 
@@ -1055,7 +1064,7 @@ async def sql_send_tip_Ex(user_from: str, address_to: str, amount: int, coin: st
                                                     tx_hash['transactionHash'], fee, user_server))
                             await conn.commit()
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
             return tx_hash
     return False
 
@@ -1096,7 +1105,7 @@ async def sql_send_tip_Ex_id(user_from: str, address_to: str, amount: int, payme
                                                     timestamp, tx_hash['transactionHash'], paymentid, fee, user_server))
                             await conn.commit()
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
             return tx_hash
     return False
 
@@ -1147,7 +1156,7 @@ async def sql_withdraw(user_from: str, amount: int, coin: str, user_server: str 
                             await cur.execute(sql, (COIN_NAME, user_from, user_from_wallet['user_wallet_address'], amount, tx_hash['fee'], timestamp, tx_hash['tx_hash'], tx_hash['tx_key'],))
                             await conn.commit()
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
         return tx_hash
     else:
         return None
@@ -1174,7 +1183,7 @@ async def sql_donate(user_from: str, address_to: str, amount: int, coin: str, us
                         await conn.commit()
                         return {'transactionHash': 'NONE', 'fee': 0}
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
     else:
         return None
 
@@ -1303,7 +1312,7 @@ async def sql_get_donate_list():
                     donate_list.update({coin: float(result['donate'])})
             return donate_list
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return False
 
 
@@ -1322,7 +1331,7 @@ async def sql_send_to_voucher(user_id: str, user_name: str, message_creating: st
                 await conn.commit()
                 return True
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return None
 
 
@@ -1347,7 +1356,7 @@ async def sql_voucher_get_user(user_id: str, user_server: str='DISCORD', last: i
                     result = await cur.fetchall()
                     return result
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return None
 
 
@@ -1368,7 +1377,7 @@ async def sql_faucet_add(claimed_user: str, claimed_server: str, coin_name: str,
                 await conn.commit()
                 return True
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return None
 
 
@@ -1394,7 +1403,7 @@ async def sql_faucet_checkuser(userID: str, user_server: str = 'DISCORD'):
                 result = await cur.fetchone()
                 return result
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return None
 
 
@@ -1412,7 +1421,7 @@ async def sql_faucet_count_user(userID: str, user_server: str = 'DISCORD'):
                 result = await cur.fetchone()
                 return int(result['COUNT(*)']) if 'COUNT(*)' in result else 0
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return None
 
 
@@ -1427,7 +1436,7 @@ async def sql_faucet_count_all():
                 result = await cur.fetchone()
                 return int(result['COUNT(*)']) if 'COUNT(*)' in result else 0
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return None
 
 
@@ -1446,7 +1455,7 @@ async def sql_faucet_sum_count_claimed(coin: str):
                 # print(result)
                 return result
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return None
 
 
@@ -1470,7 +1479,7 @@ async def sql_game_count_user(userID: str, lastDuration: int, user_server: str =
                 result = await cur.fetchone()
                 return int(result['COUNT(*)']) if 'COUNT(*)' in result else 0
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return None
 
 
@@ -1493,7 +1502,7 @@ played_server: str, game_type: str, duration: int=0, user_server: str = 'DISCORD
                 await conn.commit()
                 return True
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return None
 
 
@@ -1513,7 +1522,7 @@ async def sql_game_free_add(game_result: str, played_user: str, win_lose: str, p
                 await conn.commit()
                 return True
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return None
 
 
@@ -1546,7 +1555,7 @@ async def sql_game_stat():
                     stat['free_slot_play'] = sum(d.get('SLOT', 0) for d in result_game_free)
             return stat
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return None
 
 
@@ -1605,7 +1614,7 @@ async def sql_count_tx_all():
                 off_chain = cnoff_mv_tx + doge_mv_tx + xmroff_mv_tx
                 return {'on_chain': on_chain, 'off_chain': off_chain, 'total': on_chain+off_chain}
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return None
 
 
@@ -1639,9 +1648,9 @@ async def sql_tag_by_server(server_id: str, tag_id: str = None):
                                 redis_conn.set(f'TIPBOT:TAG_{str(server_id)}_{tag_id}', json.dumps(result), ex=redis_expired)
                                 return json.loads(redis_conn.get(f'TIPBOT:TAG_{str(server_id)}_{tag_id}'))
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return None
 
 
@@ -1670,7 +1679,7 @@ async def sql_tag_by_server_add(server_id: str, tag_id: str, tag_desc: str, adde
                     await conn.commit()
                     return tag_id.upper()
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return None
 
 
@@ -1695,10 +1704,10 @@ async def sql_tag_by_server_del(server_id: str, tag_id: str):
                         if redis_conn and redis_conn.exists(f'TIPBOT:TAG_{str(server_id)}_{tag_id}'):
                             redis_conn.delete(f'TIPBOT:TAG_{str(server_id)}_{tag_id}')
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                     return tag_id.upper()
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return None
 
 
@@ -1725,7 +1734,7 @@ async def sql_itag_by_server(server_id: str, tag_id: str = None):
                         await conn.commit()
                         return tag
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return None
 
 
@@ -1754,7 +1763,7 @@ async def sql_itag_by_server_add(server_id: str, tag_id: str, added_byname: str,
                 else:
                     return None
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return None
 
 
@@ -1775,7 +1784,7 @@ async def sql_itag_by_server_del(server_id: str, tag_id: str):
                     await conn.commit()
                     return tag_id.upper()
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return None
 
 
@@ -1790,7 +1799,7 @@ async def sql_get_allguild():
                 result = await cur.fetchall()
                 return result
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return None
 
 
@@ -1805,7 +1814,7 @@ async def sql_info_by_server(server_id: str):
                 result = await cur.fetchone()
                 return result
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return None
 
 
@@ -1828,7 +1837,7 @@ async def sql_addinfo_by_server(server_id: str, servername: str, prefix: str, de
                     await cur.execute(sql, (server_id, servername[:28], prefix, default_coin, servername[:28], prefix, default_coin,))
                     await conn.commit()
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
 
 async def sql_add_messages(list_messages):
@@ -1846,7 +1855,7 @@ async def sql_add_messages(list_messages):
                 await conn.commit()
                 return cur.rowcount
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return None
 
 
@@ -1878,7 +1887,7 @@ async def sql_get_messages(server_id: str, channel_id: str, time_int: int, num_u
                                 list_talker.append(int(item['user_id']))
                 return list_talker
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return None
 
 
@@ -1894,7 +1903,7 @@ async def sql_changeinfo_by_server(server_id: str, what: str, value: str):
                     await cur.execute(sql, (value, server_id,))
                     await conn.commit()
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
 
 
 async def sql_updatestat_by_server(server_id: str, numb_user: int, numb_bot: int, numb_channel: int, numb_online: int):
@@ -1909,7 +1918,7 @@ async def sql_updatestat_by_server(server_id: str, numb_user: int, numb_bot: int
                 await cur.execute(sql, (numb_user, numb_bot, numb_channel, numb_online, int(time.time()), server_id,))
                 await conn.commit()
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
 
 async def sql_discord_userinfo_get(user_id: str):
@@ -1925,7 +1934,7 @@ async def sql_discord_userinfo_get(user_id: str):
                 result = await cur.fetchone()
                 return result
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return None
 
 
@@ -1954,7 +1963,7 @@ async def sql_userinfo_locked(user_id: str, locked: str, locked_reason: str, loc
                     await conn.commit()
                 return True
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
 
 async def sql_roach_add(main_id: str, roach_id: str, roach_name: str, main_name: str):
@@ -1977,7 +1986,7 @@ async def sql_roach_add(main_id: str, roach_id: str, roach_name: str, main_name:
                 else:
                     return None
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
 
 async def sql_roach_get_by_id(roach_id: str, user_server: str = 'DISCORD'):
@@ -2003,7 +2012,7 @@ async def sql_roach_get_by_id(roach_id: str, user_server: str = 'DISCORD'):
                         roaches.append(each['main_id'])
                     return set(roaches)
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
 
 async def sql_userinfo_2fa_insert(user_id: str, twofa_secret: str):
@@ -2024,7 +2033,7 @@ async def sql_userinfo_2fa_insert(user_id: str, twofa_secret: str):
                     await conn.commit()
                     return True
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
 
 async def sql_userinfo_2fa_update(user_id: str, twofa_secret: str):
@@ -2045,7 +2054,7 @@ async def sql_userinfo_2fa_update(user_id: str, twofa_secret: str):
                     await conn.commit()
                     return True
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
 
 async def sql_userinfo_2fa_verify(user_id: str, verify: str):
@@ -2076,7 +2085,7 @@ async def sql_userinfo_2fa_verify(user_id: str, verify: str):
                         await conn.commit()
                     return True
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
 
 async def sql_change_userinfo_single(user_id: str, what: str, value: str):
@@ -2100,7 +2109,7 @@ async def sql_change_userinfo_single(user_id: str, what: str, value: str):
                     await cur.execute(sql, (user_id, value))
                     await conn.commit()
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
 
 async def sql_addignorechan_by_server(server_id: str, ignorechan: str, by_userid: str, by_name: str):
@@ -2114,7 +2123,7 @@ async def sql_addignorechan_by_server(server_id: str, ignorechan: str, by_userid
                 await cur.execute(sql, (server_id, ignorechan, by_userid, by_name, int(time.time())))
                 await conn.commit()
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
 
 async def sql_delignorechan_by_server(server_id: str, ignorechan: str):
@@ -2127,7 +2136,7 @@ async def sql_delignorechan_by_server(server_id: str, ignorechan: str):
                 await cur.execute(sql, (server_id, ignorechan,))
                 await conn.commit()
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
 
 async def sql_listignorechan():
@@ -2149,7 +2158,7 @@ async def sql_listignorechan():
                             ignore_chan[str(row['serverid'])].append(str(row['ignorechan']))
                     return ignore_chan
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return None
 
 
@@ -2164,7 +2173,7 @@ async def sql_add_mutechan_by_server(server_id: str, mutechan: str, by_userid: s
                 await cur.execute(sql, (server_id, mutechan, by_userid, by_name, int(time.time())))
                 await conn.commit()
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
 
 async def sql_del_mutechan_by_server(server_id: str, mutechan: str):
@@ -2177,7 +2186,7 @@ async def sql_del_mutechan_by_server(server_id: str, mutechan: str):
                 await cur.execute(sql, (server_id, mutechan,))
                 await conn.commit()
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
 
 async def sql_list_mutechan():
@@ -2199,7 +2208,7 @@ async def sql_list_mutechan():
                             mute_chan[str(row['serverid'])].append(str(row['mutechan']))
                     return mute_chan
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return None
 
 
@@ -2218,7 +2227,7 @@ async def sql_add_logs_tx(list_tx):
                 await conn.commit()
                 return cur.rowcount
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
 
 async def sql_add_failed_tx(coin: str, user_id: str, user_author: str, amount: int, tx_type: str):
@@ -2235,7 +2244,7 @@ async def sql_add_failed_tx(coin: str, user_id: str, user_author: str, amount: i
                 await conn.commit()
                 return True
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return False
 
 
@@ -2253,7 +2262,7 @@ async def sql_get_tipnotify():
                     ignorelist.append(row['user_id'])
                 return ignorelist
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
 
 async def sql_toggle_tipnotify(user_id: str, onoff: str):
@@ -2274,9 +2283,9 @@ async def sql_toggle_tipnotify(user_id: str, onoff: str):
                         await cur.execute(sql, (user_id, int(time.time())))
                         await conn.commit()
         except pymysql.err.Warning as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
     elif onoff == "ON":
         try:
             await openConnection()
@@ -2286,7 +2295,7 @@ async def sql_toggle_tipnotify(user_id: str, onoff: str):
                     await cur.execute(sql, str(user_id))
                     await conn.commit()
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
 
 
 async def sql_updateinfo_by_server(server_id: str, what: str, value: str):
@@ -2309,7 +2318,7 @@ async def sql_updateinfo_by_server(server_id: str, what: str, value: str):
                     else:
                         return None
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
 
 # DOGE
@@ -2321,8 +2330,6 @@ async def sql_mv_doge_single(user_from: str, to_user: str, amount: float, coin: 
     COIN_NAME = coin.upper()
     if COIN_NAME not in ENABLE_COIN_DOGE:
         return False
-    if tiptype.upper() not in ["TIP", "DONATE", "SECRETTIP", "FAUCET", "FREETIP", "FREETIPS"]:
-        return False
     try:
         await openConnection()
         async with pool.acquire() as conn:
@@ -2333,7 +2340,7 @@ async def sql_mv_doge_single(user_from: str, to_user: str, amount: float, coin: 
                 await conn.commit()
                 return True
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return False
 
 
@@ -2360,7 +2367,7 @@ async def sql_mv_doge_multiple(user_from: str, user_tos, amount_each: float, coi
                 await conn.commit()
                 return True
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return False
 
 
@@ -2389,7 +2396,7 @@ async def sql_external_doge_single(user_from: str, amount: float, fee: float, to
                 await conn.commit()
                 return txHash
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return False
 
 
@@ -2489,7 +2496,7 @@ async def sql_doge_balance(userID: str, coin: str, user_server: str = 'DISCORD')
                 - float(balance['TxExpense']) - float(balance['SwapOut']) - float(balance['Expended_Voucher'])
                 return balance
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
 
 # XMR Based
@@ -2498,8 +2505,6 @@ async def sql_mv_xmr_single(user_from: str, to_user: str, amount: float, coin: s
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     if coin_family != "XMR":
-        return False
-    if tiptype.upper() not in ["TIP", "DONATE", "SECRETTIP", "FAUCET", "FREETIP", "FREETIPS"]:
         return False
     try:
         await openConnection()
@@ -2511,7 +2516,7 @@ async def sql_mv_xmr_single(user_from: str, to_user: str, amount: float, coin: s
                 await conn.commit()
                 return True
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return False
 
 
@@ -2539,7 +2544,7 @@ async def sql_mv_xmr_multiple(user_from: str, user_tos, amount_each: float, coin
                 await conn.commit()
                 return True
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return False
 
 
@@ -2568,7 +2573,7 @@ async def sql_external_xmr_single(user_from: str, amount: float, to_address: str
                             await conn.commit()
                             return tx_hash
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return None
 
 
@@ -2671,7 +2676,7 @@ async def sql_cnoff_balance(userID: str, coin: str, user_server: str = 'DISCORD'
 
                 return balance
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
 
 async def sql_xmr_balance(userID: str, coin: str, redis_reset: bool = True):
@@ -2689,7 +2694,7 @@ async def sql_xmr_balance(userID: str, coin: str, redis_reset: bool = True):
             else:
                 redis_conn.delete(f'TIPBOT:BALANCE_{str(userID)}_{COIN_NAME}')
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
     try:
         await openConnection()
@@ -2781,10 +2786,10 @@ async def sql_xmr_balance(userID: str, coin: str, redis_reset: bool = True):
                     if redis_conn:
                         redis_conn.set(f'TIPBOT:BALANCE_{str(userID)}_{COIN_NAME}', json.dumps(balance), ex=redis_expired)
                 except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(traceback.format_exc())
                 return balance
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
 
 
@@ -2819,7 +2824,7 @@ async def sql_get_userwallet_by_paymentid(paymentid: str, coin: str, user_server
                     result = await cur.fetchone()
                 return result
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return False
 
 
@@ -2834,7 +2839,7 @@ async def sql_get_new_tx_table(notified: str = 'NO', failed_notify: str = 'NO'):
                 result = await cur.fetchall()
                 return result
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
 
 async def sql_update_notify_tx_table(payment_id: str, owner_id: str, owner_name: str, notified: str = 'YES', failed_notify: str = 'NO'):
@@ -2849,7 +2854,7 @@ async def sql_update_notify_tx_table(payment_id: str, owner_id: str, owner_name:
                 await conn.commit()
                 return True
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return False
 
 
@@ -2868,7 +2873,7 @@ async def sql_swap_balance(coin: str, owner_id: str, owner_name: str, from_: str
                 await conn.commit()
                 return True
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return False
 
 
@@ -2883,7 +2888,7 @@ async def sql_get_new_swap_table(notified: str = 'NO', failed_notify: str = 'NO'
                 result = await cur.fetchall()
                 return result
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return False
 
 
@@ -2899,7 +2904,7 @@ async def sql_update_notify_swap_table(id: int, notified: str = 'YES', failed_no
                 await conn.commit()
                 return True
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return False
 
 
@@ -2915,7 +2920,7 @@ async def sql_feedback_add(user_id: str, user_name:str, feedback_id: str, text_i
                 await conn.commit()
                 return True
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return False
 
 
@@ -2934,7 +2939,7 @@ async def sql_get_feedback_count_last(userID, lastDuration: int):
                     return 0
                 return len(result) if result else 0
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
 
 async def sql_feedback_by_ref(ref: str):
@@ -2948,7 +2953,7 @@ async def sql_feedback_by_ref(ref: str):
                 result = await cur.fetchone()
                 return result if result else None
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return False
 
 
@@ -2964,7 +2969,7 @@ async def sql_feedback_list_by_user(userid: str, last: int):
                 result = await cur.fetchall()
                 return result
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return False
 
 
@@ -2982,7 +2987,7 @@ async def sql_depositlink_user(userid: str, user_server: str = 'DISCORD'):
                 result = await cur.fetchone()
                 return result
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return None
 
 
@@ -2999,7 +3004,7 @@ async def sql_depositlink_user_create(user_id: str, user_name:str, link_key: str
                 await conn.commit()
                 return True
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return False
 
 
@@ -3017,7 +3022,7 @@ async def sql_depositlink_user_update(user_id: str, what: str, value: str, user_
                 await conn.commit()
                 return True
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return False
 
 
@@ -3052,7 +3057,7 @@ async def sql_deposit_getall_address_user(userid: str, user_server: str = 'DISCO
                         user_coin_list[each['coin_name']] = each['balance_wallet_address']
                 return user_coin_list
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return None
 
 
@@ -3075,7 +3080,7 @@ async def sql_deposit_getall_address_user_remote(userid: str, user_server: str =
                 else:
                     return None
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return None
 
 
@@ -3092,7 +3097,7 @@ async def sql_depositlink_user_insert_address(user_id: str, coin_name: str, depo
                 await conn.commit()
                 return True
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return False
 
 
@@ -3108,7 +3113,7 @@ async def sql_depositlink_user_delete_address(user_id: str, coin_name: str, user
                 await conn.commit()
                 return True
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return False
 
 
@@ -3130,7 +3135,7 @@ respond_date: int, response: str, guild_id: str, guild_name: str, channel_id: st
                 await conn.commit()
                 return True
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return False
 
 
@@ -3152,7 +3157,7 @@ guild_name: str, funcmd: str, msg_content: str, user_server: str='DISCORD'):
                 await conn.commit()
                 return True
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return False
 
 
@@ -3171,7 +3176,7 @@ async def sql_game_get_level_tpl(level: int, game_name: str):
                 else:
                     return None
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return None
 
 
@@ -3190,7 +3195,7 @@ async def sql_game_get_level_user(userid: str, game_name: str):
                     try:
                         level = int(result['game_result'])
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
 
                 sql = """ SELECT * FROM discord_game_free WHERE `played_user`=%s 
                           AND `game_type`=%s AND `win_lose`=%s ORDER BY `played_at` DESC LIMIT 1 """
@@ -3201,10 +3206,10 @@ async def sql_game_get_level_user(userid: str, game_name: str):
                         if level and int(result['game_result']) > level:
                             level = int(result['game_result'])
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                 return level
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return level
 
 

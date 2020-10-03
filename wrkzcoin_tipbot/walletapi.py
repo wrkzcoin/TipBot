@@ -18,6 +18,16 @@ class RPCException(Exception):
         super(RPCException, self).__init__(message)
 
 
+async def logchanbot(content: str):
+    filterword = config.discord.logfilterword.split(",")
+    for each in filterword:
+        content = content.replace(each, config.discord.filteredwith)
+    try:
+        webhook = DiscordWebhook(url=config.discord.botdbghook, content=f'```{discord.utils.escape_markdown(content)}```')
+        webhook.execute()
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
 
 async def walletapi_registerOTHER(coin: str) -> str:
     time_out = 32
@@ -34,7 +44,7 @@ async def walletapi_registerOTHER(coin: str) -> str:
                 elif 'errorMessage' in json_resp:
                     raise RPCException(json_resp['errorMessage'])
     except asyncio.TimeoutError:
-        print('TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method, COIN_NAME, time_out))
+        await logchanbot('walletapi_registerOTHER: TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method, COIN_NAME, time_out))
     return reg_address
 
 
@@ -53,7 +63,7 @@ async def walletapi_get_all_addresses(coin: str) -> Dict[str, Dict]:
                 elif 'errorMessage' in json_resp:
                     raise RPCException(json_resp['errorMessage'])
     except asyncio.TimeoutError:
-        print('TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method, COIN_NAME, time_out))
+        await logchanbot('walletapi_get_all_addresses: TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method, COIN_NAME, time_out))
 
 
 async def walletapi_send_transaction(from_address: str, to_address: str, amount: int, coin: str) -> str:
@@ -93,8 +103,7 @@ async def walletapi_send_transaction(from_address: str, to_address: str, amount:
                 elif 'errorMessage' in json_resp:
                     raise RPCException(json_resp['errorMessage'])
     except asyncio.TimeoutError:
-        print('TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method, COIN_NAME, time_out))
-
+        await logchanbot('walletapi_send_transaction: TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method, COIN_NAME, time_out))
 
 
 async def walletapi_send_transaction_id(from_address: str, to_address: str, amount: int, paymentid: str, coin: str) -> str:
@@ -136,7 +145,7 @@ async def walletapi_send_transaction_id(from_address: str, to_address: str, amou
                 elif 'errorMessage' in json_resp:
                     raise RPCException(json_resp['errorMessage'])
     except asyncio.TimeoutError:
-        print('TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method, COIN_NAME, time_out))
+        await logchanbot('walletapi_send_transaction_id: TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method, COIN_NAME, time_out))
 
 
 async def walletapi_send_transactionall(from_address: str, to_address, coin: str) -> str:
@@ -177,7 +186,7 @@ async def walletapi_send_transactionall(from_address: str, to_address, coin: str
                 elif 'errorMessage' in json_resp:
                     raise RPCException(json_resp['errorMessage'])
     except asyncio.TimeoutError:
-        print('TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method, COIN_NAME, time_out))
+        await logchanbot('walletapi_send_transactionall: TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method, COIN_NAME, time_out))
 
 
 async def walletapi_get_all_balances_all(coin: str) -> Dict[str, Dict]:
@@ -195,7 +204,7 @@ async def walletapi_get_all_balances_all(coin: str) -> Dict[str, Dict]:
                 elif 'errorMessage' in json_resp:
                     raise RPCException(json_resp['errorMessage'])
     except asyncio.TimeoutError:
-        print('TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method, COIN_NAME, time_out))
+        await logchanbot('walletapi_get_all_balances_all: TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method, COIN_NAME, time_out))
 
 
 async def walletapi_get_some_balances(wallet_addresses: List[str], coin: str) -> Dict[str, Dict]:
@@ -215,7 +224,7 @@ async def walletapi_get_some_balances(wallet_addresses: List[str], coin: str) ->
                     elif 'errorMessage' in json_resp:
                         raise RPCException(json_resp['errorMessage'])
         except asyncio.TimeoutError:
-            print('TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method, COIN_NAME, time_out))
+            await logchanbot('walletapi_get_some_balances: TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method, COIN_NAME, time_out))
     return wallets
 
 
@@ -234,7 +243,7 @@ async def walletapi_get_sum_balances(coin: str) -> Dict[str, Dict]:
                 elif 'errorMessage' in json_resp:
                     raise RPCException(json_resp['errorMessage'])
     except asyncio.TimeoutError:
-        print('TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method, COIN_NAME, time_out))
+        await logchanbot('walletapi_get_sum_balances: TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method, COIN_NAME, time_out))
     return None
 
 
@@ -253,7 +262,7 @@ async def walletapi_get_balance_address(address: str, coin: str) -> Dict[str, Di
                 elif 'errorMessage' in json_resp:
                     raise RPCException(json_resp['errorMessage'])
     except asyncio.TimeoutError:
-        print('TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method, COIN_NAME, time_out))
+        await logchanbot('walletapi_get_balance_address: TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method, COIN_NAME, time_out))
     return None
 
 
@@ -271,7 +280,7 @@ async def save_walletapi(coin: str):
                 else:
                     return False
     except asyncio.TimeoutError:
-        print('TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method, COIN_NAME, time_out))
+        await logchanbot('save_walletapi: TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method, COIN_NAME, time_out))
         return False
 
 

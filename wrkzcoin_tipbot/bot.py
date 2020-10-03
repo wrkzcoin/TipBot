@@ -1,4 +1,5 @@
 import click
+from discord_webhook import DiscordWebhook
 
 import discord
 from discord.ext import commands
@@ -279,6 +280,7 @@ bot_help_botbalance = f"Check (only) bot {COIN_REPR} balance."
 bot_help_donate = f"Donate {COIN_REPR} to a Bot Owner."
 bot_help_tip = f"Give {COIN_REPR} to a user from your balance."
 bot_help_freetip = f"Give {COIN_REPR} to a re-acted user from your balance."
+bot_help_randomtip = "Tip to random user in the guild"
 
 bot_help_forwardtip = f"Forward all your received tip of {COIN_REPR} to registered wallet."
 bot_help_tipall = f"Spread a tip amount of {COIN_REPR} to all online members."
@@ -417,6 +419,18 @@ async def get_prefix(bot, message):
 
 bot = AutoShardedBot(command_prefix = get_prefix, case_insensitive=True, owner_id = OWNER_ID_TIPBOT, pm_help = True)
 
+
+async def logchanbot(content: str):
+    filterword = config.discord.logfilterword.split(",")
+    for each in filterword:
+        content = content.replace(each, config.discord.filteredwith)
+    try:
+        webhook = DiscordWebhook(url=config.discord.botdbghook, content=f'```{discord.utils.escape_markdown(content)}```')
+        webhook.execute()
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
 @bot.event
 async def on_ready():
     global LIST_IGNORECHAN, MUTE_CHANNEL, IS_RESTARTING, BOT_INVITELINK, HANGMAN_WORDS
@@ -480,7 +494,7 @@ async def on_raw_reaction_add(payload):
         if isinstance(channel, discord.DMChannel):
             return
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
         return
     message = None
     author = None
@@ -559,7 +573,7 @@ async def on_reaction_add(reaction, user):
                         tip = await store.sql_send_tip(str(user.id), str(reaction.message.author.id), real_amount, 'REACTTIP', COIN_NAME)
                         tip_tx_tipper = "Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                     if tip:
                         notifyList = await store.sql_get_tipnotify()
                         REACT_TIP_STORE.append((str(reaction.message.id) + '.' + str(user.id)))
@@ -631,7 +645,7 @@ async def on_reaction_add(reaction, user):
                         tip = await store.sql_send_tip(str(user.id), str(reaction.message.author.id), real_amount, 'REACTTIP', COIN_NAME)
                         tip_tx_tipper = "Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                     if tip:
                         notifyList = await store.sql_get_tipnotify()
                         REACT_TIP_STORE.append((str(reaction.message.id) + '.' + str(user.id)))
@@ -750,7 +764,7 @@ async def on_message(message):
                     serverinfo = await store.sql_info_by_server(str(message.guild.id))
                     if serverinfo and 'prefix' in serverinfo: prefix = serverinfo['prefix']
                 except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(traceback.format_exc())
                 await help_setting(message, prefix)
                 return
         elif message.content[1:].upper() == "HELP":
@@ -760,14 +774,14 @@ async def on_message(message):
                     serverinfo = await store.sql_info_by_server(str(message.guild.id))
                     if serverinfo and 'prefix' in serverinfo: prefix = serverinfo['prefix']
                 except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(traceback.format_exc())
                 try:
                     await help_main(message, prefix)
                 except (discord.Forbidden, discord.errors.Forbidden) as e:
                     pass
                 return
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
         pass
 
     # Do not remove this, otherwise, command not working.
@@ -790,7 +804,7 @@ async def about(ctx):
         await ctx.send(embed=botdetails)
     except Exception as e:
         await ctx.message.author.send(embed=botdetails)
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
 
 @bot.group(hidden = True, name='reddit', aliases=['rd'], help='Reddit random images')
@@ -837,7 +851,7 @@ async def meme(ctx):
                                 get_data += get_data_each["data"]["children"]
                                 print(f'Fetch {each_link} and got {len(get_data_each["data"]["children"])} items.')
                 except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(traceback.format_exc())
             print(f'Got total new: {len(get_data)} memes.')    
             redis_conn.set(key, json.dumps(get_data), ex=600)
     if get_data and len(get_data) > 0:
@@ -854,7 +868,7 @@ async def meme(ctx):
                 msg = await ctx.send(embed=embed)
                 await msg.add_reaction(EMOJI_OK_BOX)
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
     else:
         await ctx.message.add_reaction(EMOJI_QUESTEXCLAIM)
     return
@@ -894,7 +908,7 @@ async def spank(ctx, member: discord.Member = None):
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return
 
 
@@ -921,7 +935,7 @@ async def punch(ctx, member: discord.Member = None):
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return
 
 
@@ -948,7 +962,7 @@ async def slap(ctx, member: discord.Member = None):
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return
 
 
@@ -975,7 +989,7 @@ async def praise(ctx, member: discord.Member = None):
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return
 
 
@@ -1002,7 +1016,7 @@ async def shoot(ctx, member: discord.Member = None):
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return
 
 
@@ -1029,7 +1043,7 @@ async def kick(ctx, member: discord.Member = None):
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return
 
 
@@ -1056,7 +1070,7 @@ async def fistbump(ctx, member: discord.Member = None):
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return
 
 
@@ -1079,7 +1093,7 @@ async def dance(ctx):
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return
 
 
@@ -1120,12 +1134,12 @@ async def emoji(ctx):
                     await msg.edit(embed=embed)
                     await msg.add_reaction(EMOJI_OK_BOX)
                 except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(traceback.format_exc())
             elif str(reaction.emoji) == EMOJI_OK_BOX:
                 return
     except Exception as e:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return
 
 
@@ -1185,7 +1199,7 @@ async def hex2str(ctx, hex_string: str):
     except Exception as e:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{ctx.author.mention} **{hex_string}** I can not decode.')
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return
 
 
@@ -1205,7 +1219,7 @@ async def str2hex(ctx, str2hex: str):
         msg = await ctx.send(f'{ctx.author.mention} ascii of **{str2hex}** in hex is:```{hex_value}```')
         await msg.add_reaction(EMOJI_OK_BOX)
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return
 
 
@@ -1259,7 +1273,7 @@ async def stat(ctx):
             await msg.add_reaction(EMOJI_OK_BOX)
         except Exception as e:
             await ctx.message.author.send(embed=stat)
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
     return
 
 
@@ -1296,7 +1310,7 @@ async def blackjack(ctx):
             msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using this.')
             return
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
     count_played = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', False)
     count_played_free = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', True)
@@ -1354,7 +1368,7 @@ Rules:
                 await msg.add_reaction(EMOJI_LETTER_S)
                 await msg.add_reaction(EMOJI_LETTER_H)
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
                 game_over = True
                 if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
                     GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
@@ -1456,13 +1470,13 @@ Rules:
             await store.sql_game_free_add('BLACKJACK: PLAYER={}, DEALER={}'.format(playerValue, dealerValue), str(ctx.message.author.id), \
             'WIN' if won else 'LOSE', str(ctx.guild.id), 'BLACKJACK', int(time.time()) - time_start, 'DISCORD')
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
     else:
         try:
             reward = await store.sql_game_add('BLACKJACK: PLAYER={}, DEALER={}'.format(playerValue, dealerValue), str(ctx.message.author.id), \
             COIN_NAME, 'WIN' if won else 'LOSE', real_amount if won else 0, COIN_DEC if won else 0, str(ctx.guild.id), 'BLACKJACK', int(time.time()) - time_start, 'DISCORD')
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
                         
     if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
         GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
@@ -1503,7 +1517,7 @@ async def slot(ctx):
             msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using this.')
             return
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
     count_played = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', False)
     count_played_free = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', True)
@@ -1556,9 +1570,9 @@ async def slot(ctx):
             try:
                 await store.sql_game_free_add(slotOutput, str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'SLOT', int(time.time()) - time_start, 'DISCORD')
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     embed = discord.Embed(title="TIPBOT FREE SLOT ({} REWARD)".format("WITHOUT" if free_game else "WITH"), description="Anyone can freely play!", color=0x00ff00)
     embed.add_field(name="Player", value="{}#{}".format(ctx.message.author.name, ctx.message.author.discriminator), inline=False)
     embed.add_field(name="Last 24h you played", value=str(count_played_free+count_played+1), inline=False)
@@ -1583,10 +1597,10 @@ async def slot(ctx):
             try:
                 await msg.delete()
             except discord.errors.NotFound as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
     except (discord.errors.NotFound, discord.errors.Forbidden) as e:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     except discord.errors.NotFound as e:
         pass
     if ctx.message.author.id in GAME_SLOT_IN_PRGORESS:
@@ -1627,7 +1641,7 @@ async def bagel(ctx):
             msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using this.')
             return
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
 
     if ctx.message.author.id not in GAME_INTERACTIVE_PRGORESS:
@@ -1686,12 +1700,12 @@ clues would be Fermi Pico.'''.format(NUM_DIGITS)
                     try:
                         await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                 else:
                     try:
                         reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'WIN' if won else 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                 if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
                     GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
                 return
@@ -1702,12 +1716,12 @@ clues would be Fermi Pico.'''.format(NUM_DIGITS)
                     try:
                         await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                 else:
                     try:
                         reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                 if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
                     GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
                 return
@@ -1740,7 +1754,7 @@ clues would be Fermi Pico.'''.format(NUM_DIGITS)
                                 try:
                                     await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
                                 except Exception as e:
-                                    traceback.print_exc(file=sys.stdout)
+                                    await logchanbot(traceback.format_exc())
                             if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
                                 GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
                             await ctx.send(f'{ctx.author.mention} **Bagel: ** You won! The answer was **{secretNum}**. You had guessed **{numGuesses+1}** times only. {result}')
@@ -1751,19 +1765,19 @@ clues would be Fermi Pico.'''.format(NUM_DIGITS)
                             guess = None
                             numGuesses += 1
                 except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(traceback.format_exc())
             if numGuesses >= MAX_GUESSES:
                 await ctx.send(f'{ctx.author.mention} **Bagel: ** You run out of guesses and you did it **{numGuesses}** times. Game over! The answer was **{secretNum}**')
                 if free_game == True:
                     try:
                         await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                 else:
                     try:
                         reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                 if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
                     GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
                 return
@@ -1807,7 +1821,7 @@ async def bagel2(ctx):
             msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using this.')
             return
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
 
     if ctx.message.author.id not in GAME_INTERACTIVE_PRGORESS:
@@ -1893,12 +1907,12 @@ Hints:
                     try:
                         await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                 else:
                     try:
                         reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'WIN' if won else 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                 if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
                     GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
                 return
@@ -1909,12 +1923,12 @@ Hints:
                     try:
                         await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                 else:
                     try:
                         reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                 if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
                     GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
                 return
@@ -1947,7 +1961,7 @@ Hints:
                                 try:
                                     await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
                                 except Exception as e:
-                                    traceback.print_exc(file=sys.stdout)
+                                    await logchanbot(traceback.format_exc())
                             if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
                                 GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
                             await ctx.send(f'{ctx.author.mention} **Bagel: ** You won! The answer was **{secretNum}**. You had guessed **{numGuesses+1}** times only. {result}')
@@ -1958,19 +1972,19 @@ Hints:
                             guess = None
                             numGuesses += 1
                 except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(traceback.format_exc())
             if numGuesses >= MAX_GUESSES:
                 await ctx.send(f'{ctx.author.mention} **Bagel: ** You run out of guesses and you did it **{numGuesses}** times. Game over! The answer was **{secretNum}**')
                 if free_game == True:
                     try:
                         await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                 else:
                     try:
                         reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                 if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
                     GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
                 return
@@ -2014,7 +2028,7 @@ async def bagel3(ctx):
             msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using this.')
             return
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
 
     if ctx.message.author.id not in GAME_INTERACTIVE_PRGORESS:
@@ -2108,12 +2122,12 @@ Hints:
                     try:
                         await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                 else:
                     try:
                         reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'WIN' if won else 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                 if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
                     GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
                 return
@@ -2124,12 +2138,12 @@ Hints:
                     try:
                         await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                 else:
                     try:
                         reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                 if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
                     GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
                 return
@@ -2162,7 +2176,7 @@ Hints:
                                 try:
                                     await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
                                 except Exception as e:
-                                    traceback.print_exc(file=sys.stdout)
+                                    await logchanbot(traceback.format_exc())
                             if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
                                 GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
                             await ctx.send(f'{ctx.author.mention} **Bagel: ** You won! The answer was **{secretNum}**. You had guessed **{numGuesses+1}** times only. {result}')
@@ -2173,19 +2187,19 @@ Hints:
                             guess = None
                             numGuesses += 1
                 except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(traceback.format_exc())
             if numGuesses >= MAX_GUESSES:
                 await ctx.send(f'{ctx.author.mention} **Bagel: ** You run out of guesses and you did it **{numGuesses}** times. Game over! The answer was **{secretNum}**')
                 if free_game == True:
                     try:
                         await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                 else:
                     try:
                         reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                 if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
                     GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
                 return
@@ -2287,12 +2301,12 @@ async def maze(ctx):
                     try:
                         await store.sql_game_free_add(json.dumps(remap_keys(maze_data)), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'MAZE', int(time.time()) - time_start, 'DISCORD')
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                 else:
                     try:
                         reward = await store.sql_game_add(json.dumps(remap_keys(maze_data)), str(ctx.message.author.id), 'None', 'WIN' if won else 'LOSE', 0, 0, str(ctx.guild.id), 'MAZE', int(time.time()) - time_start, 'DISCORD')
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                 await ctx.send(f'{ctx.author.mention} **MAZE GAME** has waited you too long. Game exits.')
                 await msg.delete()
                 return
@@ -2310,17 +2324,17 @@ async def maze(ctx):
                     try:
                         await store.sql_game_free_add(json.dumps(remap_keys(maze_data)), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'MAZE', int(time.time()) - time_start, 'DISCORD')
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                 else:
                     try:
                         reward = await store.sql_game_add(json.dumps(remap_keys(maze_data)), str(ctx.message.author.id), 'None', 'WIN' if won else 'LOSE', 0, 0, str(ctx.guild.id), 'MAZE', int(time.time()) - time_start, 'DISCORD')
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                 await asyncio.sleep(1)
                 try:
                     await msg.delete()
                 except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(traceback.format_exc())
                 break
                 return
             
@@ -2372,7 +2386,7 @@ async def maze(ctx):
                 maze_edit = maze_displayMaze(maze_data, WIDTH, HEIGHT, playerx, playery, exitx, exity)
                 await msg.edit(content=f'{ctx.author.mention} Maze:\n```{maze_edit}```')
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
         if (playerx, playery) == (exitx, exity):
             won = True
             # Handle whether the player won, lost, or tied:
@@ -2387,12 +2401,12 @@ async def maze(ctx):
                 try:
                     await store.sql_game_free_add(json.dumps(remap_keys(maze_data)), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'MAZE', int(time.time()) - time_start, 'DISCORD')
                 except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(traceback.format_exc())
             else:
                 try:
                     reward = await store.sql_game_add(json.dumps(remap_keys(maze_data)), str(ctx.message.author.id), COIN_NAME, 'WIN' if won else 'LOSE', real_amount if won else 0, COIN_DEC if won else 0, str(ctx.guild.id), 'MAZE', int(time.time()) - time_start, 'DISCORD')
                 except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(traceback.format_exc())
             duration = seconds_str(int(time.time()) - time_start)
             if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
                 GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
@@ -2401,7 +2415,7 @@ async def maze(ctx):
             await ctx.send(f'{ctx.author.mention} **MAZE** Grats! You completed! You completed in: **{duration}\n{result}**')
             return
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
         GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
     if ctx.guild.id in GAME_MAZE_IN_PROCESS:
@@ -2441,7 +2455,7 @@ async def hangman(ctx):
             msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using this.')
             return
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
 
     if ctx.message.author.id not in GAME_INTERACTIVE_PRGORESS:
@@ -2490,12 +2504,12 @@ async def hangman(ctx):
                     try:
                         await store.sql_game_free_add(secretWord, str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'HANGMAN', int(time.time()) - time_start, 'DISCORD')
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                 else:
                     try:
                         reward = await store.sql_game_add(secretWord, str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'HANGMAN', int(time.time()) - time_start, 'DISCORD')
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                 if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
                     GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
                 return
@@ -2506,12 +2520,12 @@ async def hangman(ctx):
                     try:
                         await store.sql_game_free_add(secretWord, str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'HANGMAN', int(time.time()) - time_start, 'DISCORD')
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                 else:
                     try:
                         reward = await store.sql_game_add(secretWord, str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'HANGMAN', int(time.time()) - time_start, 'DISCORD')
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                 if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
                     GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
                 return
@@ -2620,7 +2634,7 @@ async def dice(ctx):
             msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using this.')
             return
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
 
     if ctx.message.author.id not in GAME_INTERACTIVE_PRGORESS:
@@ -2712,7 +2726,7 @@ To win, you must continue rolling the dice until you "make your point."
                 try:
                     await store.sql_game_free_add('{}:{}:{}:{}'.format(dice_time, sum_dice, dice1, dice2), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'DICE', int(time.time()) - time_start, 'DISCORD')
                 except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(traceback.format_exc())
             await ctx.send(f'{ctx.author.mention} **Dice: ** You threw dices **{dice_time}** times. {result}')
             if ctx.message.author.id in GAME_DICE_IN_PRGORESS:
                 GAME_DICE_IN_PRGORESS.remove(ctx.message.author.id)
@@ -2720,12 +2734,12 @@ To win, you must continue rolling the dice until you "make your point."
                 GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
             return
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
     except (discord.Forbidden, discord.errors.Forbidden) as e:
         await ctx.message.add_reaction(EMOJI_ERROR)
         return
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     if ctx.message.author.id in GAME_DICE_IN_PRGORESS:
         GAME_DICE_IN_PRGORESS.remove(ctx.message.author.id)
     if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
@@ -2765,7 +2779,7 @@ async def snail(ctx, bet_numb: str=None):
             msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using this.')
             return
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
 
     if ctx.message.author.id not in GAME_INTERACTIVE_PRGORESS:
@@ -2876,13 +2890,13 @@ Fast-paced snail racing action!'''
                                     try:
                                         await store.sql_game_free_add('BET:#{}/WINNER:{}'.format(your_snail, randomSnailName), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'SNAIL', int(time.time()) - time_start, 'DISCORD')
                                     except Exception as e:
-                                        traceback.print_exc(file=sys.stdout)
+                                        await logchanbot(traceback.format_exc())
                                 await ctx.send(f'{ctx.author.mention} **Snail Racing** {result}')
                                 if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
                                     GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
                                 return
                             except Exception as e:
-                                traceback.print_exc(file=sys.stdout)
+                                await logchanbot(traceback.format_exc())
                             break
                     # (!) EXPERIMENT: Add a cheat here that increases a snail's progress
                     # if it has your name.
@@ -2901,11 +2915,11 @@ Fast-paced snail racing action!'''
                     except Exception as e:
                         if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
                             GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                         return
                 return
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
             if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
                 GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
         else:
@@ -2950,7 +2964,7 @@ async def g2048(ctx):
             msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using this.')
             return
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
 
     if ctx.message.author.id not in GAME_INTERACTIVE_PRGORESS:
@@ -3024,12 +3038,12 @@ You lose if the board fills up the tiles before then.'''
                     try:
                         await store.sql_game_free_add(board, str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), '2048', int(time.time()) - time_start, 'DISCORD')
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                 else:
                     try:
                         reward = await store.sql_game_add(board, str(ctx.message.author.id), 'None', 'WIN' if won else 'LOSE', 0, 0, str(ctx.guild.id), '2048', int(time.time()) - time_start, 'DISCORD')
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                 await ctx.send(f'{ctx.author.mention} **2048 GAME** has waited you too long. Game exits. Your score **{score}**.')
                 await msg.delete()
                 game_over = True
@@ -3047,17 +3061,17 @@ You lose if the board fills up the tiles before then.'''
                     try:
                         await store.sql_game_free_add(board, str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), '2048', int(time.time()) - time_start, 'DISCORD')
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                 else:
                     try:
                         reward = await store.sql_game_add(board, str(ctx.message.author.id), 'None', 'WIN' if won else 'LOSE', 0, 0, str(ctx.guild.id), '2048', int(time.time()) - time_start, 'DISCORD')
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                 await asyncio.sleep(1)
                 try:
                     await msg.delete()
                 except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(traceback.format_exc())
                 break
                 return
 
@@ -3094,18 +3108,18 @@ You lose if the board fills up the tiles before then.'''
                     try:
                         await store.sql_game_free_add(board, str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), '2048', int(time.time()) - time_start, 'DISCORD')
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                 else:
                     try:
                         reward = await store.sql_game_add(board, str(ctx.message.author.id), COIN_NAME, 'WIN' if won else 'LOSE', real_amount if won else 0, COIN_DEC if won else 0, str(ctx.guild.id), '2048', int(time.time()) - time_start, 'DISCORD')
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                 await msg.edit(content=f'**{ctx.author.mention} Game Over**```{board}```Your score: **{score}**\nYou have spent time: **{duration}**\n{result}')
                 await msg.add_reaction(EMOJI_OK_BOX)
                 return
 
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
         GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
 
@@ -3261,7 +3275,7 @@ async def sokoban(ctx):
             msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using this.')
             return
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
 
     if ctx.message.author.id not in GAME_INTERACTIVE_PRGORESS:
@@ -3443,12 +3457,12 @@ respectively. You can also reload game level.'''
                     try:
                         await store.sql_game_free_add(str(level), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'SOKOBAN', int(time.time()) - time_start, 'DISCORD')
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                 else:
                     try:
                         reward = await store.sql_game_add(str(level), str(ctx.message.author.id), 'None', 'WIN' if won else 'LOSE', 0, 0, str(ctx.guild.id), 'SOKOBAN', int(time.time()) - time_start, 'DISCORD')
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                 await msg.delete()
                 return
             for future in pending:
@@ -3464,17 +3478,17 @@ respectively. You can also reload game level.'''
                     try:
                         await store.sql_game_free_add(str(level), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'SOKOBAN', int(time.time()) - time_start, 'DISCORD')
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                 else:
                     try:
                         reward = await store.sql_game_add(str(level), str(ctx.message.author.id), 'None', 'WIN' if won else 'LOSE', 0, 0, str(ctx.guild.id), 'SOKOBAN', int(time.time()) - time_start, 'DISCORD')
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                 await asyncio.sleep(1)
                 try:
                     await msg.delete()
                 except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(traceback.format_exc())
                 break
                 return
             elif str(reaction.emoji) == EMOJI_REFRESH:
@@ -3578,13 +3592,13 @@ respectively. You can also reload game level.'''
                         try:
                             await store.sql_game_free_add(str(level), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'SOKOBAN', int(time.time()) - time_start, 'DISCORD')
                         except Exception as e:
-                            traceback.print_exc(file=sys.stdout)
+                            await logchanbot(traceback.format_exc())
                     await ctx.send(f'{ctx.author.mention} **SOKOBAN GAME** {result}')
                     if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
                         GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
 
                 except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(traceback.format_exc())
                 embed = discord.Embed(title=f'SOKOBAN GAME FINISHED {ctx.author.name}#{ctx.author.discriminator}', description=f'{display_level}', timestamp=datetime.utcnow(), colour=7047495)
                 embed.add_field(name="LEVEL", value=f'{level}')
                 duration = seconds_str(int(time.time()) - time_start)
@@ -3600,7 +3614,7 @@ respectively. You can also reload game level.'''
             GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
         return
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
         GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
 
@@ -3639,7 +3653,7 @@ async def deposit_link(ctx, disable: str=None):
                     img = img.resize((256, 256))
                     img.save(config.deposit_qr.path_deposit_qr_create + wallet['balance_wallet_address'] + ".png")
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
     prefix = await get_guild_prefix(ctx)
     local_address = await store.sql_deposit_getall_address_user(str(ctx.message.author.id), 'DISCORD')
     remote_address = await store.sql_deposit_getall_address_user_remote(str(ctx.message.author.id), 'DISCORD')
@@ -3814,7 +3828,7 @@ async def twofa(ctx):
         try:
             verified = userinfo['twofa_verified']
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
         if verified and verified.upper() == "YES":
             await ctx.send(f'{ctx.author.mention} You already verified 2FA.')
             return
@@ -3822,7 +3836,7 @@ async def twofa(ctx):
         try:
             secret_code = store.decrypt_string(userinfo['twofa_secret'])
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
         if secret_code and len(secret_code) > 0:
             if os.path.exists(config.qrsettings.path + secret_code + ".png"):
                 pass
@@ -3905,7 +3919,7 @@ async def verify(ctx, codes: str):
         try:
             verified = userinfo['twofa_verified']
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
         if verified and verified.upper() == "YES":
             await ctx.send(f'{ctx.author.mention} You already verified 2FA. You do not need this.')
             return
@@ -3913,7 +3927,7 @@ async def verify(ctx, codes: str):
         try:
             secret_code = store.decrypt_string(userinfo['twofa_secret'])
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
 
         if secret_code and len(secret_code) > 0:
             totp = pyotp.TOTP(secret_code, interval=30)
@@ -3964,7 +3978,7 @@ async def unverify(ctx, codes: str):
         try:
             verified = userinfo['twofa_verified']
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
         if verified and verified.upper() == "NO":
             await ctx.send(f'{ctx.author.mention} You have not verified yet. **Unverify** stopped.')
             return
@@ -3972,7 +3986,7 @@ async def unverify(ctx, codes: str):
         try:
             secret_code = store.decrypt_string(userinfo['twofa_secret'])
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
 
         if secret_code and len(secret_code) > 0:
             totp = pyotp.TOTP(secret_code, interval=30)
@@ -4018,6 +4032,13 @@ async def admin(ctx):
 
 
 @commands.is_owner()
+@admin.command()
+async def echo(ctx, *, text: str):
+    await logchanbot(text)
+    return
+
+
+@commands.is_owner()
 @admin.command(aliases=['addbalance'])
 async def credit(ctx, amount: str, coin: str, to_userid: str):
     if isinstance(ctx.channel, discord.DMChannel) == False:
@@ -4044,7 +4065,7 @@ async def credit(ctx, amount: str, coin: str, to_userid: str):
     try:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**')
         return
     if coin_family in ["BCN", "XMR", "TRTL", "NANO", "DOGE"]:
@@ -4200,7 +4221,7 @@ async def save(ctx, coin: str):
                             one_save = await rpc_cn_wallet_save(coinItem)
                         duration_msg += "{} saved took {}s.\n".format(coinItem, round(one_save,3))
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                         duration_msg += "{} internal error. {}\n".format(coinItem, str(e))
         SAVING_ALL = None
         end = time.time()
@@ -4302,10 +4323,27 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
                 wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
             if wallet:
                 actual = wallet['actual_balance']
-                locked = wallet['locked_balance']
                 userdata_balance = await store.sql_xmr_balance(str(user_id), COIN_NAME)
-                balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
+                balance_actual = num_format_coin(actual + int(userdata_balance['Adjust']), COIN_NAME)
 
+                if wallet['user_wallet_address'] is None:
+                    COIN_NAME += '*'
+                table_data.append([COIN_NAME, balance_actual])
+            else:
+                table_data.append([COIN_NAME, "N/A"])
+        else:
+            table_data.append([COIN_NAME, "***"])
+    for COIN_NAME in [coinItem.upper() for coinItem in ENABLE_COIN_NANO]:
+        if not is_maintenance_coin(COIN_NAME):
+            wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
+            if wallet is None and create_acc:
+                userregister = await store.sql_register_user(str(user_id), COIN_NAME, 'DISCORD')
+                wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
+            if wallet:
+                userdata_balance = await store.sql_nano_balance(str(user_id), COIN_NAME)
+                actual = int(wallet['actual_balance']) + int(userdata_balance['Adjust'])
+                actual = round(actual / get_decimal(COIN_NAME), 6) * get_decimal(COIN_NAME)
+                balance_actual = num_format_coin(actual, COIN_NAME)
                 if wallet['user_wallet_address'] is None:
                     COIN_NAME += '*'
                 table_data.append([COIN_NAME, balance_actual])
@@ -4484,7 +4522,7 @@ async def dumpinfo(ctx, coin: str):
     try:
         await store.sql_update_balances(COIN_NAME)
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     end = time.time()
     await ctx.message.author.send('Done update balance: '+ COIN_NAME+ ' duration (s): '+str(end - start))
 
@@ -4540,7 +4578,7 @@ async def prefix(ctx):
         await msg.add_reaction(EMOJI_OK_BOX)
     except (discord.errors.NotFound, discord.errors.Forbidden) as e:
         await msg.add_reaction(EMOJI_ERROR)
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     return
 
 
@@ -4611,7 +4649,7 @@ async def cg(ctx, ticker: str):
         try:
             embed.set_footer(text=f"Fetched from CoinGecko requested by {ctx.message.author.name}#{ctx.message.author.discriminator}")
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
         try:
             msg = await ctx.send(embed=embed)
             await ctx.message.add_reaction(EMOJI_OK_HAND)
@@ -4631,13 +4669,13 @@ async def cg(ctx, ticker: str):
                 ago = str(timeago.format(fetch, datetime.utcnow()))
                 message_price += f"Fetched from CoinGecko {ago} requested by {ctx.message.author.name}#{ctx.message.author.discriminator}"
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
             try:
                 msg = await ctx.send(f'{ctx.author.mention}```{message_price}```')
                 await ctx.message.add_reaction(EMOJI_OK_HAND)
                 await msg.add_reaction(EMOJI_OK_BOX)
             except (discord.Forbidden, discord.errors.Forbidden) as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
                 return
         return
     else:
@@ -4711,7 +4749,7 @@ async def deposit(ctx, coin_name: str, option: str=None):
     try:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**')
         return
     
@@ -4761,7 +4799,7 @@ async def deposit(ctx, coin_name: str, option: str=None):
             img = img.resize((256, 256))
             img.save(config.deposit_qr.path_deposit_qr_create + wallet['balance_wallet_address'] + ".png")
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
         # https://deposit.bot.tips/
     if not os.path.exists(config.qrsettings.path + wallet['balance_wallet_address'] + ".png"):
         try:
@@ -4778,7 +4816,7 @@ async def deposit(ctx, coin_name: str, option: str=None):
             img = img.resize((256, 256))
             img.save(config.qrsettings.path + wallet['balance_wallet_address'] + ".png")
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
     if option and option.upper() in ["PLAIN", "TEXT", "NOEMBED"]:
         deposit = wallet['balance_wallet_address']
         try:
@@ -4973,7 +5011,7 @@ async def pools(ctx, coin: str):
                     try:
                         embed.add_field(name="Pool List", value=pool_links)
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                 embed.add_field(name="OTHER LINKS", value="{} / {} / {} / {}".format("[More pools](https://miningpoolstats.stream/{})".format(COIN_NAME.lower()), "[Invite TipBot](http://invite.discord.bot.tips)", "[Support Server](https://discord.com/invite/GpHzURM)", "[TipBot Github](https://github.com/wrkzcoin/TipBot)"), inline=False)
                 embed.set_footer(text="Data from https://miningpoolstats.stream")
                 try:
@@ -4989,9 +5027,9 @@ async def pools(ctx, coin: str):
                     await msg.add_reaction(EMOJI_OK_BOX)
                 except (discord.errors.NotFound, discord.errors.Forbidden) as e:
                     await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
-                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(traceback.format_exc())
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
             if ctx.message.author.id in MINGPOOLSTAT_IN_PROCESS:
                 MINGPOOLSTAT_IN_PROCESS.remove(ctx.message.author.id)
         else:
@@ -5044,7 +5082,7 @@ async def pools(ctx, coin: str):
                                 try:
                                     embed.add_field(name="List", value=pool_links)
                                 except Exception as e:
-                                    traceback.print_exc(file=sys.stdout)
+                                    await logchanbot(traceback.format_exc())
                             embed.add_field(name="OTHER LINKS", value="{} / {} / {} / {}".format("[More pools](https://miningpoolstats.stream/{})".format(COIN_NAME.lower()), "[Invite TipBot](http://invite.discord.bot.tips)", "[Support Server](https://discord.com/invite/GpHzURM)", "[TipBot Github](https://github.com/wrkzcoin/TipBot)"), inline=False)
                             embed.set_footer(text="Data from https://miningpoolstats.stream")
                             msg = await ctx.send(embed=embed)
@@ -5063,7 +5101,7 @@ async def pools(ctx, coin: str):
                             return
                         except Exception as e:
                             await ctx.message.add_reaction(EMOJI_ERROR)
-                            traceback.print_exc(file=sys.stdout)
+                            await logchanbot(traceback.format_exc())
                             if ctx.message.author.id in MINGPOOLSTAT_IN_PROCESS:
                                 MINGPOOLSTAT_IN_PROCESS.remove(ctx.message.author.id)
                             return
@@ -5078,7 +5116,7 @@ async def pools(ctx, coin: str):
                             MINGPOOLSTAT_IN_PROCESS.remove(ctx.message.author.id)
                         return
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
     if ctx.message.author.id in MINGPOOLSTAT_IN_PROCESS:
         MINGPOOLSTAT_IN_PROCESS.remove(ctx.message.author.id)
     return
@@ -5166,7 +5204,7 @@ async def info(ctx, coin: str = None):
                             pass
                 if chanel_mute_list == '': chanel_mute_list = 'N/A'
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
             extra_text = f'Type: {prefix}setting or {prefix}help setting for more info. (Required permission)'
             try:
                 embed = discord.Embed(title=f'Guild {ctx.guild.id} / {ctx.guild.name}', timestamp=datetime.utcnow())
@@ -5227,7 +5265,7 @@ async def coininfo(ctx, coin: str = None):
                     else:
                         table_data.append([COIN_NAME, "***", "***", "***", get_confirm_depth(COIN_NAME)])
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
 
         table = AsciiTable(table_data)
         table.padding_left = 0
@@ -5276,7 +5314,7 @@ async def coininfo(ctx, coin: str = None):
                 get_tx_min_max = "Withdraw Min/Max:\n   " + num_format_coin(get_min_tx_amount(COIN_NAME), COIN_NAME) + " / " + num_format_coin(get_max_tx_amount(COIN_NAME), COIN_NAME) + COIN_NAME
                 response_text += get_tx_min_max
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
             response_text += "```"
             await ctx.send(response_text)
             return
@@ -5380,9 +5418,9 @@ async def balance(ctx, coin: str = None):
                     userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
                     wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
                 if wallet:
-                    
                     userdata_balance = await store.sql_nano_balance(str(ctx.message.author.id), COIN_NAME)
                     actual = int(wallet['actual_balance']) + int(userdata_balance['Adjust'])
+                    actual = round(actual / get_decimal(COIN_NAME), 6) * get_decimal(COIN_NAME)
                     balance_actual = num_format_coin(actual, COIN_NAME)
                     if wallet['user_wallet_address'] is None:
                         COIN_NAME += '*'
@@ -5433,7 +5471,7 @@ async def balance(ctx, coin: str = None):
     try:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**')
         return
 
@@ -5491,7 +5529,9 @@ async def balance(ctx, coin: str = None):
             depositAddress = userwallet['balance_wallet_address']
             actual = int(userwallet['actual_balance'])
             userdata_balance = await store.sql_nano_balance(str(ctx.message.author.id), COIN_NAME)
-            balance_actual = num_format_coin(actual + int(userdata_balance['Adjust']) , COIN_NAME)
+            actual = actual + int(userdata_balance['Adjust'])
+            actual = round(actual / get_decimal(COIN_NAME), 6) * get_decimal(COIN_NAME)
+            balance_actual = num_format_coin(actual , COIN_NAME)
 
             await ctx.message.add_reaction(EMOJI_OK_HAND)
             msg = await ctx.message.author.send(
@@ -5503,7 +5543,7 @@ async def balance(ctx, coin: str = None):
             await msg.add_reaction(EMOJI_OK_BOX)
             return
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
         return
 
 
@@ -5621,7 +5661,7 @@ async def botbalance(ctx, member: discord.Member, coin: str):
                 userwallet = await store.sql_get_userwallet(str(member.id), COIN_NAME)
             depositAddress = userwallet['balance_wallet_address']
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
         
         actual = int(userwallet['actual_balance'])
         balance_actual = "0.00"
@@ -6026,7 +6066,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
                     # add redis action
                     await add_tx_action_redis(json.dumps([random_string, "WITHDRAW", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, "DISCORD", "COMPLETE"]), False)
                 except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(traceback.format_exc())
                 await asyncio.sleep(config.interval.tx_lap_each)
                 TX_IN_PROCESS.remove(ctx.message.author.id)
             else:
@@ -6035,7 +6075,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
                 await msg.add_reaction(EMOJI_OK_BOX)
                 return
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
         if withdrawal:
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
             await botLogChan.send(f'A user successfully executed `.withdraw {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`')
@@ -6112,7 +6152,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
                     # add redis action
                     await add_tx_action_redis(json.dumps([random_string, "WITHDRAW", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, "DISCORD", "COMPLETE"]), False)
                 except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(traceback.format_exc())
                 await asyncio.sleep(config.interval.tx_lap_each)
                 TX_IN_PROCESS.remove(ctx.message.author.id)
             else:
@@ -6189,7 +6229,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
                     # add redis action
                     await add_tx_action_redis(json.dumps([random_string, "WITHDRAW", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, "DISCORD", "COMPLETE"]), False)
                 except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(traceback.format_exc())
                 await asyncio.sleep(config.interval.tx_lap_each)
                 TX_IN_PROCESS.remove(ctx.message.author.id)
             else:
@@ -6260,7 +6300,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
                     # add redis action
                     await add_tx_action_redis(json.dumps([random_string, "WITHDRAW", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, "DISCORD", "COMPLETE"]), False)
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
             await asyncio.sleep(config.interval.tx_lap_each)
             TX_IN_PROCESS.remove(ctx.message.author.id)
         else:
@@ -6427,7 +6467,7 @@ async def donate(ctx, amount: str, coin: str = None):
             tip = await store.sql_donate(str(ctx.message.author.id), CoinAddress, real_amount, COIN_NAME)
             tip_tx_tipper = "Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
 
         if tip:
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
@@ -6701,7 +6741,7 @@ async def swap(ctx, amount: str, coin: str, to: str):
                 in_swappable_guild = True
                 break
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
     if in_swappable_guild == False:
         await ctx.message.add_reaction(EMOJI_ERROR)
@@ -6761,7 +6801,7 @@ async def swap(ctx, amount: str, coin: str, to: str):
             await msg.add_reaction(EMOJI_OK_BOX)
             return
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     if swapit:
         await ctx.message.add_reaction(EMOJI_OK_BOX)
         await ctx.message.author.send(
@@ -6796,7 +6836,7 @@ async def take(ctx, info: str=None):
     try:
         remaining = await bot_faucet(ctx) or ''
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     total_claimed = '{:,.0f}'.format(await store.sql_faucet_count_all())
     if info:
         await ctx.message.add_reaction(EMOJI_OK_HAND)
@@ -6837,7 +6877,7 @@ async def take(ctx, info: str=None):
             msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using .take')
             return
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
     # check if bot channel is set:
     serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
@@ -6880,6 +6920,8 @@ async def take(ctx, info: str=None):
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     if COIN_NAME == "DOGE":
         amount = float(amount / 10)
+    elif coin_family == "NANO":
+        amount = round(amount / get_decimal(COIN_NAME), 4) * get_decimal(COIN_NAME)
 
     def myround_number(x, base=5):
         return base * round(x/base)
@@ -6908,7 +6950,7 @@ async def take(ctx, info: str=None):
                 tip = await store.sql_send_tip(str(bot.user.id), str(ctx.message.author.id), real_amount, 'FAUCET', COIN_NAME)
                 tip_tx_tipper = "Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
             await asyncio.sleep(config.interval.tx_lap_each)
             TX_IN_PROCESS.remove(ctx.message.author.id)
         else:
@@ -6951,7 +6993,7 @@ async def take(ctx, info: str=None):
             try:
                 tip = await store.sql_mv_xmr_single(str(bot.user.id), str(ctx.message.author.id), real_amount, COIN_NAME, "FAUCET")
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
             await asyncio.sleep(config.interval.tx_lap_each)
             TX_IN_PROCESS.remove(ctx.message.author.id)
         else:
@@ -6994,7 +7036,7 @@ async def take(ctx, info: str=None):
             try:
                 tip = await store.sql_mv_nano_single(str(bot.user.id), str(ctx.message.author.id), real_amount, COIN_NAME, "FAUCET")
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
             await asyncio.sleep(config.interval.tx_lap_each)
             TX_IN_PROCESS.remove(ctx.message.author.id)
         else:
@@ -7040,7 +7082,7 @@ async def take(ctx, info: str=None):
             try:
                 tip = await store.sql_mv_doge_single(str(bot.user.id), str(ctx.message.author.id), real_amount, COIN_NAME, "FAUCET")
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
             await asyncio.sleep(config.interval.tx_lap_each)
             TX_IN_PROCESS.remove(ctx.message.author.id)
         else:
@@ -7059,6 +7101,207 @@ async def take(ctx, info: str=None):
             await ctx.send(f'{ctx.author.mention} Please try again later. Failed during executing tx **{COIN_NAME}**.')
             await ctx.message.add_reaction(EMOJI_ERROR)
             return
+
+
+@bot.command(pass_context=True, aliases=['randomtip'], help=bot_help_randomtip)
+async def randtip(ctx, amount: str, coin: str):
+    global TRTL_DISCORD, IS_RESTARTING
+    # check if bot is going to restart
+    if IS_RESTARTING:
+        await ctx.message.add_reaction(EMOJI_REFRESH)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is going to restart soon. Wait until it is back for using this.')
+        return
+    # check if account locked
+    account_lock = await alert_if_userlock(ctx, 'tip')
+    if account_lock:
+        await ctx.message.add_reaction(EMOJI_LOCKED) 
+        await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
+        return
+    # end of check if account locked
+
+    # Check if tx in progress
+    if ctx.message.author.id in TX_IN_PROCESS:
+        await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+        msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+        await msg.add_reaction(EMOJI_OK_BOX)
+        return
+
+    botLogChan = bot.get_channel(id=LOG_CHAN)
+    amount = amount.replace(",", "")
+
+    try:
+        amount = Decimal(amount)
+    except ValueError:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid amount.')
+        return
+
+    if isinstance(ctx.channel, discord.DMChannel):
+        await ctx.send(f'{EMOJI_RED_NO} This command can not be in private.')
+        return
+
+    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+    COIN_NAME = coin.upper()
+    print("COIN_NAME: " + COIN_NAME)
+
+    # TRTL discord
+    if ctx.guild.id == TRTL_DISCORD and COIN_NAME != "TRTL":
+        return
+
+    if COIN_NAME not in (ENABLE_COIN + ENABLE_XMR + ENABLE_COIN_DOGE + ENABLE_COIN_NANO):
+        msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} **{COIN_NAME}** is not in our supported coins.')
+        await msg.add_reaction(EMOJI_OK_BOX)
+        return
+
+    if not is_coin_tipable(COIN_NAME):
+        msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} TIPPING is currently disable for {COIN_NAME}.')
+        await msg.add_reaction(EMOJI_OK_BOX)
+        return
+
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    # Check allowed coins
+    tiponly_coins = serverinfo['tiponly'].split(",")
+    if COIN_NAME == serverinfo['default_coin'].upper() or serverinfo['tiponly'].upper() == "ALLCOIN":
+        pass
+    elif COIN_NAME not in tiponly_coins:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} not in allowed coins set by server manager.')
+        return
+    # End of checking allowed coins
+
+    if is_maintenance_coin(COIN_NAME):
+        await ctx.message.add_reaction(EMOJI_MAINTENANCE)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
+        return
+
+    # Check flood of tip
+    floodTip = await store.sql_get_countLastTip(str(ctx.message.author.id), config.floodTipDuration)
+    if floodTip >= config.floodTip:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Cool down your tip or TX. or increase your amount next time.')
+        await botLogChan.send('A user reached max. TX threshold. Currently halted: `.tip`')
+        return
+    # End of Check flood of tip
+
+    # Check if maintenance
+    if IS_MAINTENANCE == 1:
+        if int(ctx.message.author.id) in MAINTENANCE_OWNER:
+            pass
+        else:
+            await ctx.message.add_reaction(EMOJI_WARNING)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {config.maintenance_msg}')
+            return
+    # End Check if maintenance
+
+    # Get a random user in the guild, except bots. At least 3 members for random.
+    try:
+        listMembers = [member for member in ctx.guild.members if member.bot == False]
+        rand_user = random.choice(listMembers)
+        if len(listMembers) >= 3:
+            max_loop = 0
+            while True:
+                if rand_user != ctx.message.author and rand_user.bot == False:
+                    break
+                else:
+                    rand_user = random.choice(listMembers)
+                max_loop += 1
+                if max_loop >= 5:
+                    await ctx.message.add_reaction(EMOJI_ERROR)
+                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Please try again, maybe guild doesnot have so many users.')
+                    return
+                    break
+        else:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} not enough member for random.')
+            return
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+        return
+
+    notifyList = await store.sql_get_tipnotify()
+
+    COIN_DEC = get_decimal(COIN_NAME)
+    real_amount = int(amount * COIN_DEC) if coin_family in ["XMR", "TRTL", "BCN", "NANO"] else float(amount)
+    MinTx = get_min_mv_amount(COIN_NAME)
+    MaxTX = get_max_mv_amount(COIN_NAME)
+    NetFee = 0
+    user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+    if user_from is None:
+        user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
+        user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+    if coin_family in ["TRTL", "BCN"]:
+        userdata_balance = await store.sql_cnoff_balance(str(ctx.message.author.id), COIN_NAME)
+        user_from['actual_balance'] = user_from['actual_balance'] + int(userdata_balance['Adjust'])
+    elif coin_family == "XMR":
+        userdata_balance = await store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
+        user_from['actual_balance'] = float(user_from['actual_balance']) + float(userdata_balance['Adjust'])
+    elif coin_family == "NANO":
+        userdata_balance = await store.sql_nano_balance(str(ctx.message.author.id), COIN_NAME)
+        user_from['actual_balance'] = int(user_from['actual_balance']) + int(userdata_balance['Adjust'])
+    elif coin_family == "DOGE":
+        userdata_balance = await store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
+        user_from['actual_balance'] = float(user_from['actual_balance']) + float(userdata_balance['Adjust'])
+
+    if real_amount > MaxTX:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
+                       f'{num_format_coin(MaxTX, COIN_NAME)} '
+                       f'{COIN_NAME}.')
+        return
+    elif real_amount < MinTx:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
+                       f'{num_format_coin(MinTx, COIN_NAME)} '
+                       f'{COIN_NAME}.')
+        return
+    elif real_amount + NetFee > user_from['actual_balance']:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to do a random tip of '
+                       f'{num_format_coin(real_amount, COIN_NAME)} '
+                       f'{COIN_NAME}.')
+        return
+
+    tip = None
+    user_to = await store.sql_get_userwallet(str(rand_user.id), COIN_NAME)
+    if user_to is None:
+        userregister = await store.sql_register_user(str(rand_user.id), COIN_NAME, 'DISCORD')
+        user_to = await store.sql_get_userwallet(str(rand_user.id), COIN_NAME)
+    if coin_family in ["TRTL", "BCN"]:
+        tip = await store.sql_send_tip(str(ctx.message.author.id), str(rand_user.id), real_amount, 'RANDTIP', COIN_NAME)
+    elif coin_family == "XMR":
+        tip = await store.sql_mv_xmr_single(str(ctx.message.author.id), str(rand_user.id), real_amount, COIN_NAME, "RANDTIP")
+    elif coin_family == "NANO":
+        tip = await store.sql_mv_nano_single(str(ctx.message.author.id), str(rand_user.id), real_amount, COIN_NAME, "RANDTIP")
+    elif coin_family == "DOGE":
+        tip = await store.sql_mv_doge_single(str(ctx.message.author.id), str(rand_user.id), real_amount, COIN_NAME, "RANDTIP")
+
+    if tip:
+        # tipper shall always get DM. Ignore notifyList
+        try:
+            await ctx.message.author.send(
+                f'{EMOJI_ARROW_RIGHTHOOK} {rand_user.name}#{rand_user.discriminator} got your random tip of {num_format_coin(real_amount, COIN_NAME)} '
+                f'{COIN_NAME} in server `{ctx.guild.name}`')
+        except (discord.Forbidden, discord.errors.Forbidden) as e:
+            await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
+        if str(rand_user.id) not in notifyList:
+            try:
+                await rand_user.send(
+                    f'{EMOJI_MONEYFACE} You got a random tip of {num_format_coin(real_amount, COIN_NAME)} '
+                    f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{ctx.guild.name}`\n'
+                    f'{NOTIFICATION_OFF_CMD}')
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                await store.sql_toggle_tipnotify(str(user.id), "OFF")
+        try:
+            # try message in public also
+            msg = await ctx.send(
+                            f'{rand_user.name}#{rand_user.discriminator} got a random tip of {num_format_coin(real_amount, COIN_NAME)} '
+                            f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator}')
+            await msg.add_reaction(EMOJI_OK_BOX)
+        except (discord.Forbidden, discord.errors.Forbidden) as e:
+            pass
+        await ctx.message.add_reaction(EMOJI_OK_BOX)
+        return
+
 
 
 @bot.command(pass_context=True, help=bot_help_freetip)
@@ -7406,7 +7649,7 @@ async def tip(ctx, amount: str, *args):
                                 try:
                                     await _tip_talker(ctx, amount, message_talker, COIN_NAME)
                                 except Exception as e:
-                                    traceback.print_exc(file=sys.stdout)
+                                    await logchanbot(traceback.format_exc())
                             return
                         elif num_user > 0:
                             message_talker = await store.sql_get_messages(str(ctx.message.guild.id), str(ctx.message.channel.id), 0, num_user + 1)
@@ -7431,12 +7674,12 @@ async def tip(ctx, amount: str, *args):
                                 try:
                                     await _tip_talker(ctx, amount, message_talker, COIN_NAME)
                                 except Exception as e:
-                                    traceback.print_exc(file=sys.stdout)
+                                    await logchanbot(traceback.format_exc())
                             else:
                                 try:
                                     await _tip_talker(ctx, amount, message_talker, COIN_NAME)
                                 except Exception as e:
-                                    traceback.print_exc(file=sys.stdout)
+                                    await logchanbot(traceback.format_exc())
                                 return
                             return
                         else:
@@ -7477,7 +7720,7 @@ async def tip(ctx, amount: str, *args):
                     mult = {'y': 12*30*24*60*60, 'mon': 30*24*60*60, 'w': 7*24*60*60, 'd': 24*60*60, 'h': 60*60, 'mn': 60}
                     time_second = sum(int(num) * mult.get(val, 1) for num, val in re.findall('(\d+)(\w+)', time_string))
                 except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(traceback.format_exc())
                     await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid time given. Please use this example: `.tip 1,000 last 5h 12mn`')
                     return
                 try:
@@ -7501,7 +7744,7 @@ async def tip(ctx, amount: str, *args):
                             try:
                                 await _tip_talker(ctx, amount, message_talker, COIN_NAME)
                             except Exception as e:
-                                traceback.print_exc(file=sys.stdout)
+                                await logchanbot(traceback.format_exc())
                             return
             else:
                 await ctx.message.add_reaction(EMOJI_ERROR)
@@ -7600,7 +7843,7 @@ async def tip(ctx, amount: str, *args):
             if ctx.message.author.bot == False and serverinfo['react_tip'] == "ON":
                 await ctx.message.add_reaction(EMOJI_TIP)
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
         if tip:
             servername = serverinfo['servername']
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
@@ -7994,7 +8237,7 @@ async def tipall(ctx, amount: str, *args):
                 tip_tx_tipper = "Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
                 ActualSpend = int(amountDiv * len(destinations))
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
             await asyncio.sleep(config.interval.tx_lap_each)
             TX_IN_PROCESS.remove(ctx.message.author.id)
         else:
@@ -8106,7 +8349,7 @@ async def tipall(ctx, amount: str, *args):
             try:
                 tips = await store.sql_mv_xmr_multiple(str(ctx.message.author.id), memids, amountDiv, COIN_NAME, "TIPALL")
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
             await asyncio.sleep(config.interval.tx_lap_each)
             TX_IN_PROCESS.remove(ctx.message.author.id)
         else:
@@ -8209,7 +8452,7 @@ async def tipall(ctx, amount: str, *args):
             try:
                 tips = await store.sql_mv_nano_multiple(str(ctx.message.author.id), memids, amountDiv, COIN_NAME, "TIPALL")
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
             await asyncio.sleep(config.interval.tx_lap_each)
             TX_IN_PROCESS.remove(ctx.message.author.id)
         else:
@@ -8317,7 +8560,7 @@ async def tipall(ctx, amount: str, *args):
             try:
                 tips = await store.sql_mv_doge_multiple(str(ctx.message.author.id), memids, amountDiv, COIN_NAME, "TIPALL")
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
             await asyncio.sleep(config.interval.tx_lap_each)
             TX_IN_PROCESS.remove(ctx.message.author.id)
         else:
@@ -8667,7 +8910,7 @@ async def send(ctx, amount: str, CoinAddress: str):
                         tip_tx_tipper = "Transaction hash: `{}`".format(tip['transactionHash'])
                         tip_tx_tipper += "\nTx Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                     await asyncio.sleep(config.interval.tx_lap_each)
                     TX_IN_PROCESS.remove(ctx.message.author.id)
                 else:
@@ -8676,7 +8919,7 @@ async def send(ctx, amount: str, CoinAddress: str):
                     await msg.add_reaction(EMOJI_OK_BOX)
                     return                    
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
             if tip:
                 await ctx.message.add_reaction(get_emoji(COIN_NAME))
                 await botLogChan.send(f'A user successfully executed `.send {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}` with paymentid.')
@@ -8704,7 +8947,7 @@ async def send(ctx, amount: str, CoinAddress: str):
                         tip_tx_tipper = "Transaction hash: `{}`".format(tip['transactionHash'])
                         tip_tx_tipper += "\nTx Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                     await asyncio.sleep(config.interval.tx_lap_each)
                     TX_IN_PROCESS.remove(ctx.message.author.id)
                     # add redis
@@ -8715,7 +8958,7 @@ async def send(ctx, amount: str, CoinAddress: str):
                     await msg.add_reaction(EMOJI_OK_BOX)
                     return
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
             if tip:
                 await ctx.message.add_reaction(get_emoji(COIN_NAME))
                 await botLogChan.send(f'A user successfully executed `.send {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`.')
@@ -8793,7 +9036,7 @@ async def send(ctx, amount: str, CoinAddress: str):
                 # add redis
                 await add_tx_action_redis(json.dumps([random_string, "SEND", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, "DISCORD", "COMPLETE"]), False)
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
             await asyncio.sleep(config.interval.tx_lap_each)
             TX_IN_PROCESS.remove(ctx.message.author.id)
         else:
@@ -8868,7 +9111,7 @@ async def send(ctx, amount: str, CoinAddress: str):
                 # add redis
                 await add_tx_action_redis(json.dumps([random_string, "SEND", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, "DISCORD", "COMPLETE"]), False)
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
             await asyncio.sleep(config.interval.tx_lap_each)
             TX_IN_PROCESS.remove(ctx.message.author.id)
         else:
@@ -8940,7 +9183,7 @@ async def send(ctx, amount: str, CoinAddress: str):
                     # add redis
                     await add_tx_action_redis(json.dumps([random_string, "SEND", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, "DISCORD", "COMPLETE"]), False)
                 except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(traceback.format_exc())
                 await asyncio.sleep(config.interval.tx_lap_each)
                 TX_IN_PROCESS.remove(ctx.message.author.id)
             else:
@@ -9150,14 +9393,14 @@ async def address(ctx, *args):
                     try:
                         addr = address_msr(CoinAddress)
                     except Exception as e:
-                        # traceback.print_exc(file=sys.stdout)
+                        # await logchanbot(traceback.format_exc())
                         pass
                 elif len(CoinAddress) == 106:
                     addr = None
                     try:
                         addr = address_msr(CoinAddress)
                     except Exception as e:
-                        # traceback.print_exc(file=sys.stdout)
+                        # await logchanbot(traceback.format_exc())
                         pass
                 # print(addr)
                 # print(type(addr))
@@ -9497,7 +9740,7 @@ async def make(ctx, amount: str, coin: str, *, comment):
                 qr_img.paste(region,box)
                 # qr_img.save(config.voucher.path_voucher_create + unique_filename + "_2.png")
             except Exception as e: 
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
             # Image Frame on which we want to paste 
             img_frame = Image.open(config.voucher.path_voucher_defaultimg)  
             img_frame.paste(qr_img, (150, 150)) 
@@ -9525,7 +9768,7 @@ async def make(ctx, amount: str, coin: str, *, comment):
                 w, h = myFont.getsize(comment_txt)
                 draw.text((561-w/2,275+125+h+120), comment_txt, fill="black",font=myFont)
             except Exception as e: 
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
             # Saved in the same relative location 
             img_frame.save(config.voucher.path_voucher_create + unique_filename + ".png")
             if ctx.message.author.id not in TX_IN_PROCESS:
@@ -9535,7 +9778,7 @@ async def make(ctx, amount: str, coin: str, *, comment):
                                                                    ctx.message.content, real_amount, get_voucher_fee(COIN_NAME), comment, 
                                                                    secret_string, unique_filename + ".png", COIN_NAME, 'DISCORD')
                 except Exception as e: 
-                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(traceback.format_exc())
                 await asyncio.sleep(config.interval.tx_lap_each)
                 TX_IN_PROCESS.remove(ctx.message.author.id)
             else:
@@ -9553,7 +9796,7 @@ async def make(ctx, amount: str, coin: str, *, comment):
                                         f'Voucher comment: {comment}```')
                     await msg.add_reaction(EMOJI_OK_BOX)
                 except (discord.Forbidden, discord.errors.Forbidden) as e:
-                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(traceback.format_exc())
                     await ctx.message.add_reaction(EMOJI_ERROR)
                     await ctx.send(f'{ctx.author.mention} Sorry, I failed to DM you.')
             else:
@@ -9585,7 +9828,7 @@ async def make(ctx, amount: str, coin: str, *, comment):
             qr_img.paste(region,box)
             # qr_img.save(config.voucher.path_voucher_create + unique_filename + "_2.png")
         except Exception as e: 
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
         # Image Frame on which we want to paste 
         img_frame = Image.open(config.voucher.path_voucher_defaultimg)  
         img_frame.paste(qr_img, (150, 150)) 
@@ -9613,7 +9856,7 @@ async def make(ctx, amount: str, coin: str, *, comment):
             w, h = myFont.getsize(comment_txt)
             draw.text((561-w/2,275+125+h+120), comment_txt, fill="black",font=myFont)
         except Exception as e: 
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
         # Saved in the same relative location 
         img_frame.save(config.voucher.path_voucher_create + unique_filename + ".png")
         if ctx.message.author.id not in TX_IN_PROCESS:
@@ -9623,7 +9866,7 @@ async def make(ctx, amount: str, coin: str, *, comment):
                                                                ctx.message.content, real_amount, get_voucher_fee(COIN_NAME), comment, 
                                                                secret_string, unique_filename + ".png", COIN_NAME, 'DISCORD')
             except Exception as e: 
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
             await asyncio.sleep(config.interval.tx_lap_each)
             TX_IN_PROCESS.remove(ctx.message.author.id)
         else:
@@ -9647,7 +9890,7 @@ async def make(ctx, amount: str, coin: str, *, comment):
                                     f'Voucher comment: {comment}```')
                 await msg.add_reaction(EMOJI_OK_BOX)
             except (discord.Forbidden, discord.errors.Forbidden) as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
                 await ctx.message.add_reaction(EMOJI_ERROR)
                 await ctx.send(f'{ctx.author.mention} Sorry, I failed to DM you.')
         else:
@@ -9800,10 +10043,10 @@ async def getunclaim(ctx):
                 except Exception as e:
                     await ctx.message.add_reaction(EMOJI_ERROR) 
                     await ctx.send(f'{ctx.author.mention} I failed to send CSV file to you.')
-                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(traceback.format_exc())
                 os.remove(filename)
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
     else:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{ctx.author.mention} You did not create any voucher yet.')
@@ -9831,10 +10074,10 @@ async def getclaim(ctx):
                 except Exception as e:
                     await ctx.message.add_reaction(EMOJI_ERROR) 
                     await ctx.send(f'{ctx.author.mention} I failed to send CSV file to you.')
-                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(traceback.format_exc())
                 os.remove(filename)
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
     else:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{ctx.author.mention} You did not create any voucher yet.')
@@ -9907,7 +10150,7 @@ async def stats(ctx, coin: str = None):
             msg = await ctx.send(embed=embed)
             await msg.add_reaction(EMOJI_OK_BOX)
         except (discord.errors.NotFound, discord.errors.Forbidden) as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
             await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
         return
 
@@ -9919,19 +10162,19 @@ async def stats(ctx, coin: str = None):
         msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} connection to daemon timeout after {str(timeout)} seconds. I am checking info from wallet now.')
         await msg.add_reaction(EMOJI_OK_BOX)
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     walletStatus = None
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     if coin_family in ["TRTL", "BCN"]:
         try:
             walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
     elif coin_family == "XMR":
         try:
             walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
     if gettopblock:
         COIN_DEC = get_decimal(COIN_NAME)
         COIN_DIFF = get_diff_target(COIN_NAME)
@@ -10171,7 +10414,7 @@ async def feedback(ctx):
                                     botLogChan = bot.get_channel(id=LOG_CHAN)
                                     await botLogChan.send(f'{EMOJI_INFORMATION} A user has submitted a feedback `{feedback_id}`')
                                 except Exception as e:
-                                    traceback.print_exc(file=sys.stdout)
+                                    await logchanbot(traceback.format_exc())
                                 return
                             else:
                                 msg = await ctx.send(f'{ctx.author.mention} Internal Error.')
@@ -10315,7 +10558,7 @@ async def height(ctx, coin: str = None):
         await msg.add_reaction(EMOJI_OK_BOX)
         return
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
     if gettopblock:
         height = ""
@@ -10379,7 +10622,7 @@ async def setting(ctx, *args):
             msg = await ctx.send(embed=embed)
             await msg.add_reaction(EMOJI_OK_BOX)
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
             await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
         return
     elif len(args) == 1:
@@ -10692,7 +10935,7 @@ async def itag(ctx, *, itag_text: str = None):
                                 await ctx.send(f'{ctx.author.mention} Successfully added itag **{itag_text}**')
                                 return
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
 
 @bot.command(pass_context=True, help=bot_help_tag)
@@ -10847,7 +11090,7 @@ async def alert_if_userlock(ctx, cmd: str):
     try:
         get_discord_userinfo = await store.sql_discord_userinfo_get(str(ctx.message.author.id))
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     if get_discord_userinfo is None:
         return None
     else:
@@ -10913,7 +11156,7 @@ def get_cn_coin_from_address(CoinAddress: str):
             COIN_NAME = "MSR"
             return COIN_NAME
         except Exception as e:
-            # traceback.print_exc(file=sys.stdout)
+            # await logchanbot(traceback.format_exc())
             pass
         # Try XMR
         try:
@@ -10921,7 +11164,7 @@ def get_cn_coin_from_address(CoinAddress: str):
             COIN_NAME = "XMR"
             return COIN_NAME
         except Exception as e:
-            # traceback.print_exc(file=sys.stdout)
+            # await logchanbot(traceback.format_exc())
             pass
     elif CoinAddress.startswith("L") and (len(CoinAddress) == 95 or len(CoinAddress) == 106):
         COIN_NAME = "LOKI"
@@ -11246,7 +11489,7 @@ async def notify_new_tx_user_noconfirmation():
                                 try:
                                     if redis_conn.exists(key_tx_json): eachTx = json.loads(redis_conn.get(key_tx_json).decode())
                                 except Exception as e:
-                                    traceback.print_exc(file=sys.stdout)
+                                    await logchanbot(traceback.format_exc())
                                 if eachTx and eachTx['coin_name'] in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR:
                                     user_tx = await store.sql_get_userwallet_by_paymentid(eachTx['payment_id'], eachTx['coin_name'], 'DISCORD')
                                     if user_tx and eachTx['coin_name'] in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR:
@@ -11272,9 +11515,9 @@ async def notify_new_tx_user_noconfirmation():
                                 else:
                                     redis_conn.lpush(key_tx_no_confirmed_sent, tx)
                         except Exception as e:
-                            traceback.print_exc(file=sys.stdout)
+                            await logchanbot(traceback.format_exc())
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
         await asyncio.sleep(INTERVAL_EACH)
 
 
@@ -11310,7 +11553,7 @@ async def notify_new_tx_user():
                             else:
                                 print('Can not find user id {} to notification tx: {}'.format(user_tx['user_id'], eachTx['txid']))
                 except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(traceback.format_exc())
         await asyncio.sleep(INTERVAL_EACH)
 
 
@@ -11360,7 +11603,7 @@ async def saving_wallet():
                     else:
                         duration = await rpc_cn_wallet_save(COIN_NAME)
                 except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(traceback.format_exc())
                 if duration:
                     if duration > 30:
                         await botLogChan.send(f'INFO: AUTOSAVE FOR **{COIN_NAME}** TOOK **{round(duration, 3)}s**.')
@@ -11457,7 +11700,7 @@ async def _tip(ctx, amount, coin: str):
             if ctx.message.author.bot == False and serverinfo['react_tip'] == "ON":
                 await ctx.message.add_reaction(EMOJI_TIP)
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
         if tip:
             servername = serverinfo['servername']
             try:
@@ -11469,10 +11712,10 @@ async def _tip(ctx, amount, coin: str):
                                               f'{tip_tx_tipper}\n'
                                               f'{NOTIFICATION_OFF_CMD}')
                         except (discord.Forbidden, discord.errors.Forbidden) as e:
-                            traceback.print_exc(file=sys.stdout)
+                            await logchanbot(traceback.format_exc())
                             await store.sql_toggle_tipnotify(str(member.id), "OFF")
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
             # tipper shall always get DM. Ignore notifyList
             try:
@@ -11483,7 +11726,7 @@ async def _tip(ctx, amount, coin: str):
                                         f'Each: `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`'
                                         f'Total spending: `{num_format_coin(ActualSpend, COIN_NAME)} {COIN_NAME}`')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
             return
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -11542,7 +11785,7 @@ async def _tip(ctx, amount, coin: str):
         try:
             tips = await store.sql_mv_xmr_multiple(str(ctx.message.author.id), memids, real_amount, COIN_NAME, "TIPS")
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
         if tips:
             servername = serverinfo['servername']
             tipAmount = num_format_coin(TotalAmount, COIN_NAME)
@@ -11558,10 +11801,10 @@ async def _tip(ctx, amount, coin: str):
                                               f'from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{servername}` #{ctx.channel.name}\n'
                                               f'{NOTIFICATION_OFF_CMD}')
                         except (discord.Forbidden, discord.errors.Forbidden) as e:
-                            traceback.print_exc(file=sys.stdout)
+                            await logchanbot(traceback.format_exc())
                             await store.sql_toggle_tipnotify(str(member.id), "OFF")
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
             # tipper shall always get DM. Ignore notifyList
             try:
@@ -11629,7 +11872,7 @@ async def _tip(ctx, amount, coin: str):
             if ctx.message.author.bot == False and serverinfo['react_tip'] == "ON":
                 await ctx.message.add_reaction(EMOJI_TIP)
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
         if tips:
             servername = serverinfo['servername']
             tipAmount = num_format_coin(TotalAmount, COIN_NAME)
@@ -11643,10 +11886,10 @@ async def _tip(ctx, amount, coin: str):
                                               f'from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{servername}` #{ctx.channel.name}\n'
                                               f'{NOTIFICATION_OFF_CMD}')
                         except (discord.Forbidden, discord.errors.Forbidden) as e:
-                            traceback.print_exc(file=sys.stdout)
+                            await logchanbot(traceback.format_exc())
                             await store.sql_toggle_tipnotify(str(member.id), "OFF")
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
             # tipper shall always get DM. Ignore notifyList
             try:
@@ -11656,7 +11899,7 @@ async def _tip(ctx, amount, coin: str):
                     f'was sent to ({len(memids)}) members in server `{servername}`.\n'
                     f'Each member got: `{amountDiv_str}{COIN_NAME}`\n')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
             return
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -11710,7 +11953,7 @@ async def _tip(ctx, amount, coin: str):
         try:
             tips = await store.sql_mv_nano_multiple(str(ctx.message.author.id), memids, real_amount, COIN_NAME, "TIPS")
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
         if tips:
             servername = serverinfo['servername']
             tipAmount = num_format_coin(TotalAmount, COIN_NAME)
@@ -11726,10 +11969,10 @@ async def _tip(ctx, amount, coin: str):
                                               f'from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{servername}` #{ctx.channel.name} \n'
                                               f'{NOTIFICATION_OFF_CMD}')
                         except (discord.Forbidden, discord.errors.Forbidden) as e:
-                            traceback.print_exc(file=sys.stdout)
+                            await logchanbot(traceback.format_exc())
                             await store.sql_toggle_tipnotify(str(member.id), "OFF")
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
             # tipper shall always get DM. Ignore notifyList
             try:
@@ -11810,10 +12053,10 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
                         memids.append(user_to['balance_wallet_address'])
                         list_receivers.append(str(member_id))
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
                         print('Failed creating wallet for tip talk for userid: {}'.format(member_id))
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
 
         # Check number of receivers.
         if len(memids) > config.tipallMax:
@@ -11859,7 +12102,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
             tip_tx_tipper = "Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
             ActualSpend += int(tip['fee'])
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
         if tip:
             servername = serverinfo['servername']
             # tipper shall always get DM. Ignore notifyList
@@ -11955,7 +12198,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
         try:
             tips = await store.sql_mv_xmr_multiple(str(ctx.message.author.id), memids, real_amount, COIN_NAME, "TIPS")
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
         if tips:
             servername = serverinfo['servername']
             # tipper shall always get DM. Ignore notifyList
@@ -12046,7 +12289,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
         try:
             tips = await store.sql_mv_nano_multiple(str(ctx.message.author.id), memids, real_amount, COIN_NAME, "TIPS")
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
         if tips:
             servername = serverinfo['servername']
             # tipper shall always get DM. Ignore notifyList
@@ -12138,7 +12381,7 @@ async def _tip_talker(ctx, amount, list_talker, coin: str = None):
         try:
             tips = await store.sql_mv_doge_multiple(str(ctx.message.author.id), memids, real_amount, COIN_NAME, "TIPS")
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
         if tips:
             servername = serverinfo['servername']
             # tipper shall always get DM. Ignore notifyList
@@ -12251,7 +12494,7 @@ async def _tip_react(reaction, user, amount, coin: str):
             ActualSpend += int(tip['fee'])
             REACT_TIP_STORE.append((str(reaction.message.id) + '.' + str(user.id)))
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
         if tip:
             servername = serverinfo['servername']
             # tipper shall always get DM. Ignore notifyList
@@ -12318,7 +12561,7 @@ async def _tip_react(reaction, user, amount, coin: str):
             tips = await store.sql_mv_xmr_multiple(str(user.id), memids, real_amount, COIN_NAME, "TIPS")
             REACT_TIP_STORE.append((str(reaction.message.id) + '.' + str(user.id)))
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
         if tips:
             servername = serverinfo['servername']
             tipAmount = num_format_coin(TotalAmount, COIN_NAME)
@@ -12379,7 +12622,7 @@ async def _tip_react(reaction, user, amount, coin: str):
             tips = await store.sql_mv_nano_multiple(str(user.id), memids, real_amount, COIN_NAME, "TIPS")
             REACT_TIP_STORE.append((str(reaction.message.id) + '.' + str(user.id)))
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
         if tips:
             servername = serverinfo['servername']
             tipAmount = num_format_coin(TotalAmount, COIN_NAME)
@@ -12444,7 +12687,7 @@ async def _tip_react(reaction, user, amount, coin: str):
             tips = await store.sql_mv_doge_multiple(user.id, memids, real_amount, COIN_NAME, "TIPS")
             REACT_TIP_STORE.append((str(reaction.message.id) + '.' + str(user.id)))
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
         if tips:
             servername = serverinfo['servername']
             tipAmount = num_format_coin(TotalAmount, COIN_NAME)
@@ -12665,7 +12908,7 @@ async def bot_faucet(ctx):
                 if COIN_NAME in get_game_stat:
                     wallet['actual_balance'] = wallet['actual_balance'] - int(get_game_stat[COIN_NAME])
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
             balance_actual = num_format_coin(wallet['actual_balance'], COIN_NAME)
             get_claimed_count = await store.sql_faucet_sum_count_claimed(COIN_NAME)
             sub_claim = num_format_coin(int(get_claimed_count['claimed']), COIN_NAME) if get_claimed_count['count'] > 0 else f"0.00{COIN_NAME}"
@@ -12685,7 +12928,7 @@ async def bot_faucet(ctx):
                 if COIN_NAME in get_game_stat:
                     wallet['actual_balance'] = int(wallet['actual_balance']) - int(get_game_stat[COIN_NAME])
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
             balance_actual = num_format_coin(wallet['actual_balance'], COIN_NAME)
             get_claimed_count = await store.sql_faucet_sum_count_claimed(COIN_NAME)
             sub_claim = num_format_coin(int(get_claimed_count['claimed']), COIN_NAME) if get_claimed_count['count'] > 0 else f"0.00{COIN_NAME}"
@@ -12705,7 +12948,7 @@ async def bot_faucet(ctx):
                 if COIN_NAME in get_game_stat:
                     wallet['actual_balance'] = wallet['actual_balance'] - int(get_game_stat[COIN_NAME])
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
             balance_actual = num_format_coin(wallet['actual_balance'], COIN_NAME)
             get_claimed_count = await store.sql_faucet_sum_count_claimed(COIN_NAME)
             sub_claim = num_format_coin(int(get_claimed_count['claimed']), COIN_NAME) if get_claimed_count['count'] > 0 else f"0.00{COIN_NAME}"
@@ -12725,7 +12968,7 @@ async def bot_faucet(ctx):
             if COIN_NAME in get_game_stat:
                 actual = actual - float(get_game_stat[COIN_NAME])
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
         userdata_balance = await store.sql_doge_balance(str(bot.user.id), COIN_NAME)
         balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
         get_claimed_count = await store.sql_faucet_sum_count_claimed(COIN_NAME)
@@ -12753,7 +12996,7 @@ async def store_action_list():
                 else:
                     print(f"Failed delete {key}")
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
         await asyncio.sleep(interval_action_list)
 
 
@@ -12767,7 +13010,7 @@ async def add_tx_action_redis(action: str, delete_temp: bool = False):
             else:
                 redis_conn.lpush(key, action)
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
 
 async def get_guild_prefix(ctx):
@@ -12798,7 +13041,7 @@ async def add_msg_redis(msg: str, delete_temp: bool = False):
             else:
                 redis_conn.lpush(key, msg)
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
 
 async def store_message_list():
@@ -12814,14 +13057,14 @@ async def store_message_list():
                 try:
                     num_add = await store.sql_add_messages(temp_msg_list)
                 except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(traceback.format_exc())
                 if num_add and num_add > 0:
                     redis_conn.delete(key)
                 else:
                     redis_conn.delete(key)
                     print(f"Failed delete {key}")
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
         await asyncio.sleep(interval_msg_list)
 
 
@@ -12853,9 +13096,9 @@ async def get_miningpool_coinlist():
             except asyncio.TimeoutError:
                 print('TIMEOUT: Fetching from miningpoolstats')
             except Exception:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
         await asyncio.sleep(interval_msg_list)
 
 
@@ -12887,9 +13130,9 @@ async def get_miningpoolstat_coin(coin: str):
             except asyncio.TimeoutError:
                 print(f'TIMEOUT: Fetching from miningpoolstats {COIN_NAME}')
             except Exception:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
         return None
 
 

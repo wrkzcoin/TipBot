@@ -29,6 +29,17 @@ def openRedis():
             traceback.print_exc(file=sys.stdout)
 
 
+async def logchanbot(content: str):
+    filterword = config.discord.logfilterword.split(",")
+    for each in filterword:
+        content = content.replace(each, config.discord.filteredwith)
+    try:
+        webhook = DiscordWebhook(url=config.discord.botdbghook, content=f'```{discord.utils.escape_markdown(content)}```')
+        webhook.execute()
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
 # Let's run balance update by a separate process
 async def update_balance():
     global redis_conn
@@ -47,11 +58,11 @@ async def update_balance():
                         openRedis()
                         if redis_conn: redis_conn.set(f'TIPBOT:DAEMON_HEIGHT_{coinItem.upper().strip()}', str(height))
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
             except asyncio.TimeoutError:
                 pass
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
             update = 0
             time.sleep(INTERVAL_EACH)
             print('Update balance: '+ coinItem)
@@ -59,7 +70,7 @@ async def update_balance():
             try:
                 update = await store.sql_nano_update_balances(coinItem.upper().strip())
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
             end = time.time()
             print('Done update balance: '+ coinItem.upper().strip()+ ' updated *'+str(update)+'* duration (s): '+str(end - start))
             time.sleep(INTERVAL_EACH)

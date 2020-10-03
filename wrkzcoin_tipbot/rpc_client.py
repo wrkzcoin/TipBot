@@ -17,6 +17,17 @@ class RPCException(Exception):
         super(RPCException, self).__init__(message)
 
 
+async def logchanbot(content: str):
+    filterword = config.discord.logfilterword.split(",")
+    for each in filterword:
+        content = content.replace(each, config.discord.filteredwith)
+    try:
+        webhook = DiscordWebhook(url=config.discord.botdbghook, content=f'```{discord.utils.escape_markdown(content)}```')
+        webhook.execute()
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
 async def call_aiohttp_wallet(method_name: str, coin: str, time_out: int = None, payload: Dict = None) -> Dict:
     coin_family = getattr(getattr(config,"daemon"+coin),"coin_family","TRTL")
     full_payload = {
@@ -58,7 +69,7 @@ async def call_aiohttp_wallet(method_name: str, coin: str, time_out: int = None,
                 print('TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method_name, coin.upper(), timeout))
                 return None
             except Exception:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
                 return None
         elif coin_family in ["TRTL", "BCN"]:
             try:
@@ -78,12 +89,12 @@ async def call_aiohttp_wallet(method_name: str, coin: str, time_out: int = None,
                 print('TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method_name, coin.upper(), timeout))
                 return None
             except Exception:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
                 return None
     except asyncio.TimeoutError:
         print('TIMEOUT: method_name: {} - coin_family: {} - timeout {}'.format(method_name, coin_family, timeout))
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
 
 async def call_doge(method_name: str, coin: str, payload: str = None) -> Dict:
@@ -112,7 +123,7 @@ async def call_doge(method_name: str, coin: str, payload: str = None) -> Dict:
     except asyncio.TimeoutError:
         print('TIMEOUT: method_name: {} - COIN: {} - timeout {}'.format(method_name, coin.upper(), timeout))
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
 
 async def call_nano(coin: str, payload: str) -> Dict:
@@ -134,7 +145,7 @@ async def call_nano(coin: str, payload: str) -> Dict:
     except asyncio.TimeoutError:
         print('TIMEOUT: COIN: {} - timeout {}'.format(coin.upper(), timeout))
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
 
 
 def get_wallet_rpc_url(coin: str = None):

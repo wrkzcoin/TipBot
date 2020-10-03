@@ -1,3 +1,4 @@
+from discord_webhook import DiscordWebhook
 from typing import Dict
 from uuid import uuid4
 
@@ -20,6 +21,17 @@ class RPCException(Exception):
         super(RPCException, self).__init__(message)
 
 
+async def logchanbot(content: str):
+    filterword = config.discord.logfilterword.split(",")
+    for each in filterword:
+        content = content.replace(each, config.discord.filteredwith)
+    try:
+        webhook = DiscordWebhook(url=config.discord.botdbghook, content=f'```{discord.utils.escape_markdown(content)}```')
+        webhook.execute()
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
 async def getWalletStatus(coin: str):
     global WALLET_API_COIN
     COIN_NAME = coin.upper()
@@ -37,14 +49,14 @@ async def getWalletStatus(coin: str):
                     elif json_resp and 'errorMessage' in json_resp:
                         raise RPCException(json_resp['errorMessage'])
         except asyncio.TimeoutError:
-            print('TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method, COIN_NAME, time_out))
+            await logchanbot('getWalletStatus: method: {} COIN_NAME {} - timeout {}'.format(method, COIN_NAME, time_out))
             return None
         except aiohttp.ContentTypeError:
-            print('aiohttp.ContentTypeError: {} COIN_NAME {}'.format(method, COIN_NAME))
+            await logchanbot('getWalletStatus: aiohttp.ContentTypeError: {} COIN_NAME {}'.format(method, COIN_NAME))
             print(await response.text())
             return None
         except aiohttp.ClientConnectorError:
-            print('aiohttp.ClientConnectorError: {} COIN_NAME {}'.format(method, COIN_NAME))
+            await logchanbot('getWalletStatus: aiohttp.ClientConnectorError: {} COIN_NAME {}'.format(method, COIN_NAME))
             return None
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -69,7 +81,7 @@ async def gettopblock(coin: str, time_out: int = None):
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     result = None
     timeout = time_out or 32
-    if coin_family in ["TRTL", "BCN"] or coin_family == "XMR":
+    if coin_family in ["TRTL", "BCN"]:
         result = await call_daemon('getblockcount', COIN_NAME, time_out = timeout)
         if result:
             full_payload = {
@@ -85,10 +97,62 @@ async def gettopblock(coin: str, time_out: int = None):
                             await session.close()
                             return res_data['result']
             except asyncio.TimeoutError:
-                print('TIMEOUT: {} COIN_NAME {} - timeout {}'.format('getblockheaderbyheight', COIN_NAME, time_out))
+                await logchanbot('gettopblock: method: {} COIN_NAME {} - timeout {}'.format('getblockheaderbyheight', COIN_NAME, time_out))
                 return None
             except Exception:
-                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
+                return None
+        else:
+            return None
+    elif coin_family == "XMR" and COIN_NAME not in ["LOKI"]:
+        result = await call_daemon('get_block_count', COIN_NAME, time_out = timeout)
+        if result:
+            full_payload = {
+                'jsonrpc': '2.0',
+                'method': 'get_block_header_by_height',
+                'params': {'height': result['count'] - 1}
+            }
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(get_daemon_rpc_url(COIN_NAME)+'/json_rpc', json=full_payload, timeout=timeout) as response:
+                        if response.status == 200:
+                            res_data = await response.json()
+                            await session.close()
+                            if res_data and 'result' in res_data:
+                                return res_data['result']
+                            else:
+                                return res_data
+            except asyncio.TimeoutError:
+                await logchanbot('gettopblock: method: {} COIN_NAME {} - timeout {}'.format('get_block_count', COIN_NAME, time_out))
+                return None
+            except Exception:
+                await logchanbot(traceback.format_exc())
+                return None
+        else:
+            return None
+    elif coin_family == "XMR" and COIN_NAME in ["LOKI"]:
+        result = await call_daemon('get_height', COIN_NAME, time_out = timeout)
+        if result:
+            full_payload = {
+                'jsonrpc': '2.0',
+                'method': 'get_block_header_by_height',
+                'params': {'height': result['height'] - 1}
+            }
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(get_daemon_rpc_url(COIN_NAME)+'/json_rpc', json=full_payload, timeout=timeout) as response:
+                        if response.status == 200:
+                            res_data = await response.json()
+                            await session.close()
+                            if res_data and 'result' in res_data:
+                                return res_data['result']
+                            else:
+                                return res_data
+            except asyncio.TimeoutError:
+                await logchanbot('gettopblock: method: {} COIN_NAME {} - timeout {}'.format('get_block_count', COIN_NAME, time_out))
+                return None
+            except Exception:
+                await logchanbot(traceback.format_exc())
                 return None
         else:
             return None
@@ -108,12 +172,15 @@ async def call_daemon(method_name: str, coin: str, time_out: int = None, payload
                 if response.status == 200:
                     res_data = await response.json()
                     await session.close()
-                    return res_data['result']
+                    if res_data and 'result' in res_data:
+                        return res_data['result']
+                    else:
+                        return res_data
     except asyncio.TimeoutError:
-        print('TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method_name, coin.upper(), time_out))
+        await logchanbot('call_daemon: method: {} COIN_NAME {} - timeout {}'.format(method_name, coin.upper(), time_out))
         return None
     except Exception:
-        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
         return None
 
 

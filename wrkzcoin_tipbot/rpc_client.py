@@ -1,3 +1,4 @@
+from discord_webhook import DiscordWebhook
 from typing import Dict
 from uuid import uuid4
 
@@ -66,6 +67,7 @@ async def call_aiohttp_wallet(method_name: str, coin: str, time_out: int = None,
                                 print(decoded_data)
                                 return None
             except asyncio.TimeoutError:
+                await logchanbot('call_aiohttp_wallet: method_name: {} COIN_NAME {} - timeout {}'.format(method_name, coin.upper(), timeout))
                 print('TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method_name, coin.upper(), timeout))
                 return None
             except Exception:
@@ -86,12 +88,14 @@ async def call_aiohttp_wallet(method_name: str, coin: str, time_out: int = None,
                                 print(decoded_data)
                                 return None
             except asyncio.TimeoutError:
+                await logchanbot('call_aiohttp_wallet: {} COIN_NAME {} - timeout {}'.format(method_name, coin.upper(), timeout))
                 print('TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method_name, coin.upper(), timeout))
                 return None
             except Exception:
                 await logchanbot(traceback.format_exc())
                 return None
     except asyncio.TimeoutError:
+        await logchanbot('call_aiohttp_wallet: method_name: {} - coin_family: {} - timeout {}'.format(method_name, coin_family, timeout))
         print('TIMEOUT: method_name: {} - coin_family: {} - timeout {}'.format(method_name, coin_family, timeout))
     except Exception as e:
         await logchanbot(traceback.format_exc())
@@ -122,6 +126,7 @@ async def call_doge(method_name: str, coin: str, payload: str = None) -> Dict:
                     return decoded_data['result']
     except asyncio.TimeoutError:
         print('TIMEOUT: method_name: {} - COIN: {} - timeout {}'.format(method_name, coin.upper(), timeout))
+        await logchanbot('call_doge: method_name: {} - COIN: {} - timeout {}'.format(method_name, coin.upper(), timeout))
     except Exception as e:
         await logchanbot(traceback.format_exc())
 

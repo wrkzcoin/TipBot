@@ -7857,7 +7857,7 @@ async def tip(ctx, amount: str, *args):
                     f'{tip_tx_tipper}')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
                 await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
-            if str(member.id) not in notifyList:
+            if bot.user.id != member.id and str(member.id) not in notifyList:
                 try:
                     await member.send(
                         f'{EMOJI_MONEYFACE} You got a tip of {num_format_coin(real_amount, COIN_NAME)} '
@@ -7917,7 +7917,7 @@ async def tip(ctx, amount: str, *args):
                     f'was sent to {member.name}#{member.discriminator} in server `{servername}`\n')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
                 await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
-            if str(member.id) not in notifyList:
+            if bot.user.id != member.id and str(member.id) not in notifyList:
                 try:
                     await member.send(
                         f'{EMOJI_MONEYFACE} You got a tip of {num_format_coin(real_amount, COIN_NAME)} '
@@ -7981,7 +7981,7 @@ async def tip(ctx, amount: str, *args):
                         f'was sent to {member.name}#{member.discriminator} in server `{servername}`\n')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
                 await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
-            if str(member.id) not in notifyList:
+            if bot.user.id != member.id and str(member.id) not in notifyList:
                 try:
                     await member.send(
                         f'{EMOJI_MONEYFACE} You got a tip of {num_format_coin(real_amount, COIN_NAME)} '
@@ -8036,7 +8036,7 @@ async def tip(ctx, amount: str, *args):
                     f'was sent to {member.name}#{member.discriminator} in server `{servername}`\n')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
                 await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
-            if str(member.id) not in notifyList:
+            if bot.user.id != member.id and str(member.id) not in notifyList:
                 try:
                     await member.send(
                         f'{EMOJI_MONEYFACE} You got a tip of {num_format_coin(real_amount, COIN_NAME)} '
@@ -11715,7 +11715,7 @@ async def _tip(ctx, amount, coin: str):
             servername = serverinfo['servername']
             try:
                 for member in ctx.message.mentions:
-                    if ctx.message.author.id != member.id and str(member.id) not in notifyList:
+                    if ctx.message.author.id != member.id and bot.user.id != member.id and str(member.id) not in notifyList:
                         try:
                             await member.send(f'{EMOJI_MONEYFACE} You got a tip of  {num_format_coin(real_amount, COIN_NAME)} '
                                               f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{servername} #{ctx.channel.name}`\n'
@@ -11805,7 +11805,7 @@ async def _tip(ctx, amount, coin: str):
             try:
                 for member in ctx.message.mentions:
                     # print(member.name) # you'll just print out Member objects your way.
-                    if ctx.message.author.id != member.id and str(member.id) not in notifyList:
+                    if ctx.message.author.id != member.id and bot.user.id != member.id and str(member.id) not in notifyList:
                         try:
                             await member.send(f'{EMOJI_MONEYFACE} You got a tip of `{amountDiv_str}{COIN_NAME}` '
                                               f'from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{servername}` #{ctx.channel.name}\n'
@@ -11890,7 +11890,7 @@ async def _tip(ctx, amount, coin: str):
             try:
                 for member in ctx.message.mentions:
                     # print(member.name) # you'll just print out Member objects your way.
-                    if ctx.message.author.id != member.id and str(member.id) not in notifyList:
+                    if ctx.message.author.id != member.id and bot.user.id != member.id and str(member.id) not in notifyList:
                         try:
                             await member.send(f'{EMOJI_MONEYFACE} You got a tip of `{amountDiv_str}{COIN_NAME}` '
                                               f'from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{servername}` #{ctx.channel.name}\n'
@@ -11973,7 +11973,7 @@ async def _tip(ctx, amount, coin: str):
             try:
                 for member in ctx.message.mentions:
                     # print(member.name) # you'll just print out Member objects your way.
-                    if ctx.message.author.id != member.id and str(member.id) not in notifyList:
+                    if ctx.message.author.id != member.id and bot.user.id != member.id and str(member.id) not in notifyList:
                         try:
                             await member.send(f'{EMOJI_MONEYFACE} You got a tip of `{amountDiv_str}{COIN_NAME}` '
                                               f'from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{servername}` #{ctx.channel.name} \n'

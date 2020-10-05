@@ -226,6 +226,14 @@ EMOJI_REFRESH = "\U0001F504"
 EMOJI_ZIPPED_MOUTH = "\U0001F910"
 EMOJI_LOCKED = "\U0001F512"
 
+EMOJI_HELP_HOUSE = "\U0001F3E0" # :house:
+EMOJI_HELP_GUILD = "\U0001F9D9" # :mage_man:
+EMOJI_HELP_TIP = "\U0001F4B8" # :money_with_wings:
+EMOJI_HELP_GAME = "\U0001F3B2" # :game_die:
+EMOJI_HELP_TOOL = "\U0001F6E0" # :hammer_and_wrench:
+EMOJI_HELP_NOTE = "\U0001F4DD" # :memo:
+EMOJI_HELP_CG = "\U0001F4C8" # :chart_with_upwards_trend: :chart_increasing:
+
 ENABLE_COIN = config.Enable_Coin.split(",")
 ENABLE_COIN_DOGE = config.Enable_Coin_Doge.split(",")
 ENABLE_XMR = config.Enable_Coin_XMR.split(",")
@@ -419,6 +427,7 @@ async def get_prefix(bot, message):
 
 
 bot = AutoShardedBot(command_prefix = get_prefix, case_insensitive=True, owner_id = OWNER_ID_TIPBOT, pm_help = True)
+bot.remove_command('help')
 
 
 async def logchanbot(content: str):
@@ -758,29 +767,6 @@ async def on_message(message):
                     await message.add_reaction(EMOJI_ERROR)
                     await message.channel.send(f'Bot not respond to #{message.channel.name}. It is set to ignore list by channel manager or discord server owner.')
                     return
-        if message.content[1:].upper() == "HELP SETTING":
-            prefix = await get_guild_prefix_msg(message)
-            if prefix == message.content[0] and isinstance(message.channel, discord.DMChannel) == False:
-                try:
-                    serverinfo = await store.sql_info_by_server(str(message.guild.id))
-                    if serverinfo and 'prefix' in serverinfo: prefix = serverinfo['prefix']
-                except Exception as e:
-                    await logchanbot(traceback.format_exc())
-                await help_setting(message, prefix)
-                return
-        elif message.content[1:].upper() == "HELP":
-            prefix = await get_guild_prefix_msg(message)
-            if prefix == message.content[0] and isinstance(message.channel, discord.DMChannel) == False:
-                try:
-                    serverinfo = await store.sql_info_by_server(str(message.guild.id))
-                    if serverinfo and 'prefix' in serverinfo: prefix = serverinfo['prefix']
-                except Exception as e:
-                    await logchanbot(traceback.format_exc())
-                try:
-                    await help_main(message, prefix)
-                except (discord.Forbidden, discord.errors.Forbidden) as e:
-                    pass
-                return
     except Exception as e:
         await logchanbot(traceback.format_exc())
         pass
@@ -4865,46 +4851,135 @@ async def deposit(ctx, coin_name: str, option: str=None):
             return
 
 
-async def help_main(message, prefix):
-    global LOG_CHAN
-    botLogChan = bot.get_channel(id=LOG_CHAN)
+async def help_main_embed(ctx, prefix, section: str='MAIN'):
     embed = discord.Embed(title="List of commands", description="To avoid spamming other, you can do in Direct Message or Bot Channel", color=0xDEADBF)
-    if isinstance(message.channel, discord.DMChannel) == False:
+
+    if section.upper() == "GUILD":
         cmd_setting = ["setting prefix <.>", "setting default_coin <coin_name>", "setting tiponly <coin1> [coin2] [coin3] ..", "setting ignorechan", "setting del_ignorechan", "setting <mute/unmute>", "setting game"]
-        embed.add_field(name="SERVER", value="`{}`".format(", ".join(cmd_setting)), inline=False)
+        embed.add_field(name="SERVER [GUILD]", value="`{}`".format(", ".join(cmd_setting)), inline=False)
         
         cmd_tag = ["tag", "tag <-add> <tag_name> <tag description>", "tag <-del> <tag_name>", "itag", "itag <itag_name> (need attachement)", "itag -del <tag_name>"]
         embed.add_field(name="TAG / ITAG", value="`{}`".format(", ".join(cmd_tag)), inline=False)
 
-    cmd_tip = ["tip <amount> [coin_name] @mention1 @mention2", "tipall <amount> [coin_name]", "tip <amount> [coin_name] [last 2h]", "freetip <amount> <coin_name>"]
-    embed.add_field(name="TIP COMMAND", value="`{}`".format(", ".join(cmd_tip)), inline=False)
+    elif section.upper() == "TIP":
+        cmd_tip = ["tip <amount> [coin_name] @mention1 @mention2", "tipall <amount> [coin_name]", "tip <amount> [coin_name] [last 2h]",  "tip <amount> [coin_name] [last 10u]", "freetip <amount> <coin_name>", "randtip <amount> <coin_name>", "take"]
+        embed.add_field(name="TIP COMMAND", value="`{}`".format(", ".join(cmd_tip)), inline=False)
 
-    cmd_user = ["balance [list]", "botbalance @mention_bot <coin_name>", "deposit <coin_name>", "notifytip <on/off>", "reg <coin_address>", "send <amount> <coin_address>", "withdraw <amount> <coin_name>", "swap <amount> <coin_name> <MARKETBOT>", "account deposit"]
-    embed.add_field(name="USER", value="`{}`".format(", ".join(cmd_user)), inline=False)
+        cmd_user = ["balance [list]", "botbalance @mention_bot <coin_name>", "deposit <coin_name>", "notifytip <on/off>", "reg <coin_address>", "send <amount> <coin_address>", "withdraw <amount> <coin_name>", "swap <amount> <coin_name> <MARKETBOT>", "account deposit"]
+        embed.add_field(name="USER", value="`{}`".format(", ".join(cmd_user)), inline=False)
 
-    cmd_voucher = ["voucher claim", "voucher fee", "voucher getclaim", "voucher getunclaim", "voucher make <amount> <coin_name> <comment>"]
-    embed.add_field(name="VOUCHER", value="`{}`".format(", ".join(cmd_voucher)), inline=False)
+        cmd_voucher = ["voucher claim", "voucher fee", "voucher getclaim", "voucher getunclaim", "voucher make <amount> <coin_name> <comment>"]
+        embed.add_field(name="VOUCHER", value="`{}`".format(", ".join(cmd_voucher)), inline=False)
 
-    cmd_other = ["disclaimer", "cal <1+2+3>", "donate <amount> <coin_name>", "donate list", "coininfo <coin_name>", "feedback", "paymentid", "rand <1-100>", "stats", "userinfo @mention", "take", "pools <coin_name_full>"]
-    embed.add_field(name="OTHER COMMAND", value="`{}`".format(", ".join(cmd_other)), inline=False)
+    elif section.upper() == "GAME":
+        cmd_game = ["game bagel", "game bagel2", "game bagel3", "game blackjack", "game dice", "game 2048", "game hangman", "game maze", "game slot", "game snail <number>", "game sokoban", "game stat"]
+        embed.add_field(name="GAMES", value="`{}`".format(", ".join(cmd_game)), inline=False)
 
-    if isinstance(message.channel, discord.DMChannel) == False:
-        serverinfo = await store.sql_info_by_server(str(message.guild.id))
+    elif section.upper() == "TOOL":
+        cmd_fun = ["tb spank <@mention>", "tb punch <@mention>", "tb slap <@mention>", "tb praise <@mention>", "tb shoot <@mention>", "tb kick <@mention>", "tb fistbump <@mention>", "tb dance"]
+        embed.add_field(name="FUN COMMAND", value="`{}`".format(", ".join(cmd_fun)), inline=False)
+
+        cmd_dev = ["tool dec2hex <number>", "tool hex2dec <hex>", "tool hex2str <hex>", "tool str2hex <string>", "tool emoji"]
+        embed.add_field(name="DEV COMMAND", value="`{}`".format(", ".join(cmd_dev)), inline=False)
+
+        cmd_other = ["disclaimer", "cal <1+2+3>", "coininfo <coin_name>", "feedback", "paymentid", "rand <1-100>", "stats", "userinfo @mention", "pools <coin_name_full>"]
+        embed.add_field(name="OTHER COMMAND", value="`{}`".format(", ".join(cmd_other)), inline=False)
+
+    elif section.upper() == "MARKET":
+        cmd_market = ["cg <ticker>"]
+        embed.add_field(name="MARKET COMMAND", value="`{}`".format(", ".join(cmd_market)), inline=False)
+
+    elif section.upper() == "DISCLAIMER":
+        embed.add_field(name="DISCLAIMER", value="{}".format(DISCLAIM_MSG_LONG), inline=False)
+
+    else:
+        embed.add_field(name="What is this", value="`It's a cool cryptocurrency tipping bot`", inline=False)
+        embed.add_field(name="Why is it here", value="`Guild Manager or Owner invited it`", inline=False)
+        embed.add_field(name="What is it for", value="`Tipping cryptocurrency to other people, playing some discord text games and earning crypto, depositing and withdrawing is so easy, tipping is off-chain (no fee), and more`", inline=False)
+        embed.add_field(name="Tell me how to use it", value="`Re-act on each EMOJI for help commands`", inline=False)
+        embed.add_field(name="Any other info?", value="`Check link in the footer`", inline=False)
+        embed.add_field(name="It's not working", value="`We appreciate for any feedback such as submitting an issue in our Github, using feedback command, joining our discord and say it`", inline=False)
+
+    # add donation to every section
+    cmd_donation = ["donate <amount> <coin_name>", "donate list"]
+    embed.add_field(name="DONATION", value="`{}`".format(", ".join(cmd_donation)), inline=False)
+
+    if isinstance(ctx.message.channel, discord.DMChannel) == False:
+        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         coin_name = serverinfo['default_coin'].upper() if serverinfo else "WRKZ"
-        embed.add_field(name="GUILD INFO", value="`ID: {}, Name: {}, Default Coin: {}, Prefix: {}`".format(message.guild.id, message.guild.name, coin_name, prefix), inline=False)
+        embed.add_field(name="GUILD INFO", value="`ID: {}, Name: {}, Default Coin: {}, Prefix: {}`".format(ctx.guild.id, ctx.guild.name, coin_name, prefix), inline=False)
 
     embed.add_field(name="OTHER LINKS", value="{} / {} / {}".format("[Invite TipBot](http://invite.discord.bot.tips)", "[Support Server](https://discord.com/invite/GpHzURM)", "[TipBot Github](https://github.com/wrkzcoin/TipBot)"), inline=False)
-    embed.set_footer(text="Required - <>, Optional - []")
+    embed.set_footer(text=f"Required - <>, Optional - [], Help: {EMOJI_HELP_HOUSE} Home, Help: {EMOJI_HELP_GUILD} Guild, {EMOJI_HELP_TIP} Tipping, {EMOJI_HELP_GAME} Game, {EMOJI_HELP_CG} Market, {EMOJI_HELP_TOOL} Tool, {EMOJI_HELP_NOTE} Disclaimer")
+    return embed
+
+
+@bot.command(pass_context=True, name='help')
+async def help(ctx, section: str='MAIN'):
+    global LOG_CHAN
+    botLogChan = bot.get_channel(id=LOG_CHAN)
+    prefix = await get_guild_prefix(ctx)
+
     try:
-        if isinstance(message.channel, discord.DMChannel) == False:
-            msg = await message.channel.send(embed=embed)
-            await msg.add_reaction(EMOJI_OK_BOX)
+        embed = await help_main_embed(ctx, prefix, section)
+        if isinstance(ctx.message.channel, discord.DMChannel) == False:
+            msg = await ctx.send(embed=embed)
         else:
-            msg = await message.author.send(embed=embed)
-            await msg.add_reaction(EMOJI_OK_BOX)
+            msg = await ctx.message.author.send(embed=embed)
+        await msg.add_reaction(EMOJI_HELP_HOUSE)    
+        await msg.add_reaction(EMOJI_HELP_GUILD)
+        await msg.add_reaction(EMOJI_HELP_TIP)
+        await msg.add_reaction(EMOJI_HELP_GAME)
+        await msg.add_reaction(EMOJI_HELP_TOOL)
+        await msg.add_reaction(EMOJI_HELP_CG)
+        await msg.add_reaction(EMOJI_HELP_NOTE)
+        await msg.add_reaction(EMOJI_OK_BOX)
+        
+        while True:
+            def check(reaction, user):
+                return user == ctx.message.author and reaction.message.author == bot.user and reaction.message.id == msg.id and str(reaction.emoji) \
+                in (EMOJI_HELP_HOUSE, EMOJI_HELP_GUILD, EMOJI_HELP_TIP, EMOJI_HELP_GAME, EMOJI_HELP_TOOL, EMOJI_HELP_NOTE, EMOJI_HELP_CG, EMOJI_OK_BOX)
+
+            done, pending = await asyncio.wait([
+                                bot.wait_for('reaction_remove', timeout=90, check=check),
+                                bot.wait_for('reaction_add', timeout=90, check=check)
+                            ], return_when=asyncio.FIRST_COMPLETED)
+            try:
+                # stuff = done.pop().result()
+                reaction, user = done.pop().result()
+            except (asyncio.TimeoutError, asyncio.exceptions.TimeoutError) as e:
+                # timeout pass, just let it pass
+                pass
+                return
+
+            if str(reaction.emoji) == EMOJI_OK_BOX:
+                await asyncio.sleep(1)
+                try:
+                    await msg.delete()
+                except Exception as e:
+                    pass
+                return
+            elif str(reaction.emoji) == EMOJI_HELP_HOUSE:
+                section = "MAIN"
+            elif str(reaction.emoji) == EMOJI_HELP_GUILD:
+                section = "GUILD"
+            elif str(reaction.emoji) == EMOJI_HELP_TIP:
+                section = "TIP"
+            elif str(reaction.emoji) == EMOJI_HELP_GAME:
+                section = "GAME"
+            elif str(reaction.emoji) == EMOJI_HELP_TOOL:
+                section = "TOOL"
+            elif str(reaction.emoji) == EMOJI_HELP_CG:
+                section = "MARKET"
+            elif str(reaction.emoji) == EMOJI_HELP_NOTE:
+                section = "DISCLAIMER"
+            embed = await help_main_embed(ctx, prefix, section)
+            await msg.edit(embed=embed)
     except (discord.errors.NotFound, discord.errors.Forbidden) as e:
-        await botLogChan.send(f'**Failed** Missing Permissions for sending help_main in guild {message.guild.id} / {message.guild.name} / # {message.channel.name}')
+        await botLogChan.send(f'**Failed** Missing Permissions for sending help in guild {ctx.guild.id} / {ctx.guild.name} / # {ctx.message.channel.name}')
         await message.add_reaction(EMOJI_ERROR)
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
     return
 
 
@@ -6920,7 +6995,7 @@ async def take(ctx, info: str=None):
     wallet = None
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     if COIN_NAME == "DOGE":
-        amount = float(amount / 10)
+        amount = float(amount / 50)
     elif COIN_NAME in HIGH_DECIMAL_COIN:
         amount = round(amount / get_decimal(COIN_NAME), 5) * get_decimal(COIN_NAME)
 

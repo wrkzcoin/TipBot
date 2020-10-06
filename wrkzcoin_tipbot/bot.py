@@ -742,6 +742,10 @@ async def on_reaction_add(reaction, user):
 @bot.event
 async def on_message(message):
     global LIST_IGNORECHAN, MUTE_CHANNEL
+    # should ignore webhook message
+    if isinstance(message.channel, discord.DMChannel) == False and message.webhook_id:
+        return
+
     if isinstance(message.channel, discord.DMChannel) == False and message.author.bot == False and len(message.content) > 0 and message.author != bot.user:
         if config.Enable_Message_Logging == 1:
             await add_msg_redis(json.dumps([str(message.guild.id), message.guild.name, str(message.channel.id), message.channel.name, 

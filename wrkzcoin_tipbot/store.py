@@ -1893,7 +1893,8 @@ async def sql_get_messages(server_id: str, channel_id: str, time_int: int, num_u
 
 async def sql_changeinfo_by_server(server_id: str, what: str, value: str):
     global pool
-    if what.lower() in ["servername", "prefix", "default_coin", "tiponly", "numb_user", "numb_bot", "numb_channel", "react_tip", "react_tip_100", "lastUpdate", "botchan", "enable_faucet", "enable_game"]:
+    if what.lower() in ["servername", "prefix", "default_coin", "tiponly", "numb_user", "numb_bot", "numb_channel", \
+    "react_tip", "react_tip_100", "lastUpdate", "botchan", "enable_faucet", "enable_game", "enable_market"]:
         try:
             #print(f"ok try to change {what} to {value}")
             await openConnection()
@@ -3211,6 +3212,84 @@ async def sql_game_get_level_user(userid: str, game_name: str):
     except Exception as e:
         await logchanbot(traceback.format_exc())
     return level
+
+
+# original ValueInUSD
+async def market_value_in_usd(amount, ticker) -> str:
+    global pool_cmc
+    try:
+        await openConnection_cmc()
+        async with pool_cmc.acquire() as conn:
+            async with conn.cursor() as cur:
+                # Read a single record from cmc_v2
+                sql = """ SELECT * FROM `cmc_v2` WHERE `symbol`=%s ORDER BY `id` DESC LIMIT 1 """
+                await cur.execute(sql, (ticker.upper()))
+                result = await cur.fetchone()
+
+                sql = """ SELECT * FROM `coingecko_v2` WHERE `symbol`=%s ORDER BY `id` DESC LIMIT 1 """
+                await cur.execute(sql, (ticker.lower()))
+                result2 = await cur.fetchone()
+
+            if all(v is None for v in [result, result2]):
+                # return 'We can not find ticker {} in Coinmarketcap or CoinGecko'.format(ticker.upper())
+                return None
+            else:
+                market_price = {}
+                if result:
+                    name = result['name']
+                    ticker = result['symbol'].upper()
+                    price = result['priceUSD']
+                    totalValue = amount * price
+                    # update = datetime.datetime.strptime(result['last_updated'].split(".")[0], '%Y-%m-%dT%H:%M:%S')
+                    market_price['cmc_price'] = price
+                    market_price['cmc_totalvalue'] = totalValue
+                    market_price['cmc_update'] = result['last_updated']
+                if result2:				
+                    name2 = result2['name']
+                    ticker2 = result2['symbol'].upper()
+                    price2 = result2['marketprice_USD']
+                    totalValue2 = amount * price2
+                    market_price['cg_price'] = price2
+                    market_price['cg_totalvalue'] = totalValue2
+                    market_price['cg_update'] = result2['last_updated']
+                return market_price
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return None
+
+
+# original ValueCmcUSD
+async def market_value_cmc_usd(ticker) -> float:
+    global pool_cmc
+    try:
+        await openConnection_cmc()
+        async with pool_cmc.acquire() as conn:
+            async with conn.cursor() as cur:
+                # Read a single record from cmc_v2
+                sql = """ SELECT * FROM `cmc_v2` WHERE `symbol`=%s ORDER BY `id` DESC LIMIT 1 """
+                await cur.execute(sql, (ticker.upper()))
+                result = await cur.fetchone()
+                if result: return float(result['priceUSD'])
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return None
+
+
+# original ValueGeckoUSD
+async def market_value_cg_usd(ticker) -> float:
+    global pool_cmc
+    try:
+        await openConnection_cmc()
+        async with pool_cmc.acquire() as conn:
+            async with conn.cursor() as cur:
+                # Read a single record from cmc_v2
+                sql = """ SELECT * FROM `coingecko_v2` WHERE `symbol`=%s ORDER BY `id` DESC LIMIT 1 """
+                await cur.execute(sql, (ticker.lower()))
+                result = await cur.fetchone()
+                if result: return float(result['marketprice_USD'])
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return None
 
 
 # Steal from https://nitratine.net/blog/post/encryption-and-decryption-in-python/

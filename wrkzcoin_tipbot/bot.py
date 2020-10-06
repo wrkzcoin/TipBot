@@ -206,7 +206,7 @@ EMOJI_RIGHT = "\u27A1"
 EMOJI_DOWN = "\u2B07"
 EMOJI_FIRE = "\U0001F525"
 EMOJI_BOMB = "\U0001F4A3"
-EMPTY_DISPLAY = ':black_large_square:'
+EMPTY_DISPLAY = '⬛' # ⬛ :black_large_square:
 
 EMOJI_UP_RIGHT = "\u2197"
 EMOJI_DOWN_RIGHT = "\u2198"
@@ -3153,7 +3153,7 @@ async def sokotest(ctx, level:int=0):
     CRATE_ON_GOAL_DISPLAY = '🟩'
     PLAYER_ON_GOAL_DISPLAY = '<:grinning_face:700888456028487700>'
     # EMPTY_DISPLAY = ':black_large_square:'
-    EMPTY_DISPLAY = '⬛'
+    # EMPTY_DISPLAY = '⬛' # already initial
 
     CHAR_MAP = {WALL: WALL_DISPLAY, FACE: FACE_DISPLAY,
                 CRATE: CRATE_DISPLAY, PLAYER_ON_GOAL: PLAYER_ON_GOAL_DISPLAY,
@@ -3304,7 +3304,7 @@ async def sokoban(ctx):
     CRATE_ON_GOAL_DISPLAY = '🟩'
     PLAYER_ON_GOAL_DISPLAY = '<:grinning_face:700888456028487700>'
     # EMPTY_DISPLAY = ':black_large_square:'
-    EMPTY_DISPLAY = '⬛'
+    # EMPTY_DISPLAY = '⬛' already initial
 
     CHAR_MAP = {WALL: WALL_DISPLAY, FACE: FACE_DISPLAY,
                 CRATE: CRATE_DISPLAY, PLAYER_ON_GOAL: PLAYER_ON_GOAL_DISPLAY,
@@ -4606,6 +4606,14 @@ async def cg(ctx, ticker: str):
         await ctx.message.add_reaction(EMOJI_ERROR) 
         return
 
+    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+    if serverinfo and 'enable_market' in serverinfo and serverinfo['enable_market'] == "NO":
+        prefix = serverinfo['prefix']
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Market Command is not ENABLE yet in this guild. Please request Guild owner to enable by `{prefix}SETTING MARKET`')
+        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}cg** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+        return
+
     get_cg = await store.get_coingecko_coin(ticker)
     def format_amount(amount: float):
         if amount > 1:
@@ -4669,6 +4677,226 @@ async def cg(ctx, ticker: str):
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} I can not find the ticker **{ticker}** in CoinGecko.')
     return
+
+
+@bot.command(pass_context=True)
+async def price(ctx, *args):
+    prefix = await get_guild_prefix(ctx)
+    PriceQ = (' '.join(args)).split()
+
+    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+    if serverinfo and 'enable_market' in serverinfo and serverinfo['enable_market'] == "NO":
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Market command is not ENABLE yet in this guild. Please request Guild owner to enable by `{prefix}SETTING MARKET`')
+        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}price** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+        return
+
+    def format_amount(amount: float):
+        if amount > 1:
+            return '{:,.2f}'.format(amount)
+        elif amount > 0.01:
+            return '{:,.4f}'.format(amount)
+        elif amount > 0.0001:
+            return '{:,.6f}'.format(amount)
+        elif amount > 0.000001:
+            return '{:,.8f}'.format(amount)
+        else:
+            return '{:,.10f}'.format(amount)
+
+    if len(PriceQ) == 1:
+        # Only ticker accepted
+        if not re.match('^[a-zA-Z0-9]+$', PriceQ[0]):
+            await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} Invalid **{ticker}**.')
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            return
+        
+        ticker = PriceQ[0].upper()
+        market_price = await store.market_value_in_usd(1, ticker)
+        if market_price is None:
+            await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} I can not find price information for **{ticker}** in CoinGecko and CMC.')
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            return
+        else:
+            try:
+                embed = discord.Embed(title='{} Price'.format(ticker), description='Price Information', timestamp=datetime.utcnow(), colour=7047495)
+                if 'cmc_price' in market_price and market_price['cmc_price'] > 0.00000001:
+                    update = datetime.strptime(market_price['cmc_update'].split(".")[0], '%Y-%m-%dT%H:%M:%S')
+                    ago = timeago.format(update, datetime.utcnow())
+                    embed.add_field(name="From CoinMarketCap", value='`{}USD. Updated {} from CoinMarketCap`'.format(format_amount(market_price['cmc_price']), ago), inline=False)
+                if 'cg_price' in market_price and market_price['cg_price'] > 0.00000001:
+                    update = datetime.strptime(market_price['cg_update'].split(".")[0], '%Y-%m-%dT%H:%M:%S')
+                    ago = timeago.format(update, datetime.utcnow())
+                    embed.add_field(name="From CoinGecko", value='`{}USD. Updated {} from CoinGecko`'.format(format_amount(market_price['cg_price']), ago), inline=False)
+                    
+                embed.add_field(name="OTHER LINKS", value="{} / {} / {}".format("[Invite TipBot](http://invite.discord.bot.tips)", "[Support Server](https://discord.com/invite/GpHzURM)", "[TipBot Github](https://github.com/wrkzcoin/TipBot)"), inline=False)
+                embed.set_footer(text=f"Market command requested by {ctx.message.author.name}#{ctx.message.author.discriminator}. To disable Market Command, {prefix}setting market")
+                try:
+                    msg = await ctx.send(embed=embed)
+                    await ctx.message.add_reaction(EMOJI_OK_HAND)
+                    await msg.add_reaction(EMOJI_OK_BOX)
+                except (discord.Forbidden, discord.errors.Forbidden) as e:
+                    await logchanbot(traceback.format_exc())
+                return
+            except Exception as e:
+                await logchanbot(traceback.format_exc())
+            return
+    elif len(PriceQ) == 2:
+        # Only ticker accepted sample 10 btc, 15.2 btc
+        # price 10.0 btc
+        ticker = PriceQ[1].upper()
+        if not re.match('^[a-zA-Z0-9]+$', ticker):
+            await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} Invalid **{ticker}**.')
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            return
+        # check if valid number
+        amount = None
+        PriceQ[0] = PriceQ[0].replace(",", "")
+        try:
+            amount = int(PriceQ[0])
+        except ValueError:
+            pass
+        try:
+            amount = float(PriceQ[0])
+        except ValueError:
+            pass
+
+        if amount is None:
+            await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} Invalid amount **{PriceQ[0]}**.')
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            return
+
+        market_price = await store.market_value_in_usd(amount, ticker)
+        if market_price is None:
+            await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} I can not find price information for **{ticker}** in CoinGecko and CMC.')
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            return
+        else:
+            try:
+                embed = discord.Embed(title='{}{} Price'.format(PriceQ[0], ticker), description='Price Information', timestamp=datetime.utcnow(), colour=7047495)
+                if 'cmc_price' in market_price and market_price['cmc_price'] > 0.00000001:
+                    update = datetime.strptime(market_price['cmc_update'].split(".")[0], '%Y-%m-%dT%H:%M:%S')
+                    ago = timeago.format(update, datetime.utcnow())
+                    embed.add_field(name="From CoinMarketCap", value='`{}{} = {}USD. Updated {} from CoinMarketCap`'.format(PriceQ[0], PriceQ[1].upper(), format_amount(market_price['cmc_price'] * float(PriceQ[0])), ago), inline=False)
+                if 'cg_price' in market_price and market_price['cg_price'] > 0.00000001:
+                    update = datetime.strptime(market_price['cg_update'].split(".")[0], '%Y-%m-%dT%H:%M:%S')
+                    ago = timeago.format(update, datetime.utcnow())
+                    embed.add_field(name="From CoinGecko", value='`{}{} = {}USD. Updated {} from CoinGecko`'.format(PriceQ[0], PriceQ[1].upper(), format_amount(market_price['cg_price'] * float(PriceQ[0])), ago), inline=False)
+
+                embed.add_field(name="OTHER LINKS", value="{} / {} / {}".format("[Invite TipBot](http://invite.discord.bot.tips)", "[Support Server](https://discord.com/invite/GpHzURM)", "[TipBot Github](https://github.com/wrkzcoin/TipBot)"), inline=False)
+                embed.set_footer(text=f"Market command requested by {ctx.message.author.name}#{ctx.message.author.discriminator}. To disable Market Command, {prefix}setting market")
+                try:
+                    msg = await ctx.send(embed=embed)
+                    await ctx.message.add_reaction(EMOJI_OK_HAND)
+                    await msg.add_reaction(EMOJI_OK_BOX)
+                except (discord.Forbidden, discord.errors.Forbidden) as e:
+                    await logchanbot(traceback.format_exc())
+                return
+            except Exception as e:
+                await logchanbot(traceback.format_exc())
+            return
+    elif len(PriceQ) == 3:
+        # .price xmr in btc
+        if not re.match('^[a-zA-Z0-9]+$', PriceQ[0]) or not re.match('^[a-zA-Z0-9]+$', PriceQ[2]):
+            await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} Invalid pairs **{PriceQ[0]}** and **{PriceQ[2]}**.')
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            return
+
+        if PriceQ[1].lower() == "in":
+            ### A1 / B1 or A2 / B2
+            tmpA1 = await store.market_value_cmc_usd(PriceQ[0])
+            tmpA2 = await store.market_value_cg_usd(PriceQ[0])
+
+            tmpB1 = await store.market_value_cmc_usd(PriceQ[2])
+            tmpB2 = await store.market_value_cg_usd(PriceQ[2])
+
+            try:
+                embed = discord.Embed(title='{} IN {}'.format(PriceQ[0].upper(), PriceQ[2].upper()), description='Price Information', timestamp=datetime.utcnow(), colour=7047495)
+                if any(x is None for x in [tmpA1, tmpB1]) and any(x is None for x in [tmpA2, tmpB2]):
+                    embed.add_field(name="From CoinMarketCap", value='`No data from CoinMarketCap`', inline=True)
+                    embed.add_field(name="From CoinGecko", value='`No data from Coingecko`', inline=True)
+                if tmpA1 and tmpB1:
+                    totalValue = float(tmpA1 / tmpB1)
+                    embed.add_field(name="From CoinMarketCap", value='`1 {} = {:,.8f}{} from CoinMarketCap`'.format(PriceQ[0].upper(), totalValue, PriceQ[2].upper()), inline=False)
+                if tmpA2 and tmpB2:
+                    totalValue = float(tmpA2 / tmpB2)
+                    embed.add_field(name="From CoinGecko", value='`1 {} = {:,.8f}{} from CoinGecko`'.format(PriceQ[0].upper(), totalValue, PriceQ[2].upper()), inline=False)
+                embed.add_field(name="OTHER LINKS", value="{} / {} / {}".format("[Invite TipBot](http://invite.discord.bot.tips)", "[Support Server](https://discord.com/invite/GpHzURM)", "[TipBot Github](https://github.com/wrkzcoin/TipBot)"), inline=False)
+                embed.set_footer(text=f"Market command requested by {ctx.message.author.name}#{ctx.message.author.discriminator}. To disable Market Command, {prefix}setting market")
+                try:
+                    msg = await ctx.send(embed=embed)
+                    await ctx.message.add_reaction(EMOJI_OK_HAND)
+                    await msg.add_reaction(EMOJI_OK_BOX)
+                except (discord.Forbidden, discord.errors.Forbidden) as e:
+                    await logchanbot(traceback.format_exc())
+            except Exception as e:
+                await logchanbot(traceback.format_exc())
+            return
+    elif len(PriceQ) >= 4:
+        # .price 10 xmr in btc
+        if not re.match('^[a-zA-Z0-9]+$', PriceQ[1]) or not re.match('^[a-zA-Z0-9]+$', PriceQ[3]):
+            await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} Invalid pairs **{PriceQ[1]}** and **{PriceQ[3]}**.')
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            return
+
+        if PriceQ[2].lower() != "in":
+            await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} Invalid syntax.')
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            return
+        else:
+            # check if valid number
+            amount = None
+            PriceQ[0] = PriceQ[0].replace(",", "")
+            try:
+                amount = int(PriceQ[0])
+            except ValueError:
+                message = 'Invalid given number.'
+                pass
+            if amount is None:
+                try:
+                    amount = float(PriceQ[0])
+                except ValueError:
+                    message = 'Invalid given number.'
+
+            if amount is None:
+                await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} Invalid amount **{PriceQ[0]}**.')
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                return
+
+            ### A1 / B1 or A2 / B2
+            tmpA1 = await store.market_value_cmc_usd(PriceQ[1])
+            tmpA2 = await store.market_value_cg_usd(PriceQ[1])
+
+            tmpB1 = await store.market_value_cmc_usd(PriceQ[3])
+            tmpB2 = await store.market_value_cg_usd(PriceQ[3])
+
+            try:
+                embed = discord.Embed(title='{}{} IN {}'.format(PriceQ[0], PriceQ[1].upper(), PriceQ[3].upper()), description='Price Information', timestamp=datetime.utcnow(), colour=7047495)
+                if any(x is None for x in [tmpA1, tmpB1]) and any(x is None for x in [tmpA2, tmpB2]):
+                    embed.add_field(name="From CoinMarketCap", value='`No data from CoinMarketCap`', inline=True)
+                    embed.add_field(name="From CoinGecko", value='`No data from Coingecko`', inline=True)
+                if tmpA1 and tmpB1:
+                    totalValue = float(float(PriceQ[0]) * tmpA1 / tmpB1)
+                    if tmpA1 == 0 or tmpB1 == 0:
+                        embed.add_field(name="From CoinMarketCap", value='`Not sufficient data from CoinMarketCap`', inline=True)
+                    else:
+                        embed.add_field(name="From CoinMarketCap", value='`{} {} = {}{} from CoinMarketCap`'.format(PriceQ[0], PriceQ[1].upper(), format_amount(totalValue), PriceQ[3].upper()), inline=False)
+                if tmpA2 and tmpB2:
+                    totalValue = float(float(PriceQ[0]) * tmpA2 / tmpB2)
+                    if tmpA2 == 0 or tmpB2 == 0:
+                        embed.add_field(name="From CoinGecko", value='`Not sufficient data from CoinGecko`', inline=True)
+                    else:
+                        embed.add_field(name="From CoinGecko", value='`{} {} = {}{} from CoinGecko`'.format(PriceQ[0], PriceQ[1].upper(), format_amount(totalValue), PriceQ[3].upper()), inline=False)
+                embed.add_field(name="OTHER LINKS", value="{} / {} / {}".format("[Invite TipBot](http://invite.discord.bot.tips)", "[Support Server](https://discord.com/invite/GpHzURM)", "[TipBot Github](https://github.com/wrkzcoin/TipBot)"), inline=False)
+                embed.set_footer(text=f"Market command requested by {ctx.message.author.name}#{ctx.message.author.discriminator}. To disable Market Command, {prefix}setting market")
+                try:
+                    msg = await ctx.send(embed=embed)
+                    await ctx.message.add_reaction(EMOJI_OK_HAND)
+                    await msg.add_reaction(EMOJI_OK_BOX)
+                except (discord.Forbidden, discord.errors.Forbidden) as e:
+                    await logchanbot(traceback.format_exc())
+            except Exception as e:
+                await logchanbot(traceback.format_exc())
+            return
 
 
 @bot.command(pass_context=True, name='cal', aliases=['calcule', 'calculator', 'calc'], help=bot_help_cal)
@@ -4886,7 +5114,7 @@ async def help_main_embed(ctx, prefix, section: str='MAIN'):
         embed.add_field(name="OTHER COMMAND", value="`{}`".format(", ".join(cmd_other)), inline=False)
 
     elif section.upper() == "MARKET":
-        cmd_market = ["cg <ticker>"]
+        cmd_market = ["cg <ticker>", "price <ticker>", "price <amount> <ticker>", "price <amount> <coin1> in <coin2>"]
         embed.add_field(name="MARKET COMMAND", value="`{}`".format(", ".join(cmd_market)), inline=False)
 
     elif section.upper() == "DISCLAIMER":
@@ -10716,6 +10944,18 @@ async def setting(ctx, *args):
                 changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_game', 'YES')
                 await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} ENABLE game in their guild {ctx.guild.name} / {ctx.guild.id}')
                 await ctx.send(f'{ctx.author.mention} ENABLE GAME feature in this guild **{ctx.guild.name}**.')
+            return
+        # enable / disable game
+        elif args[0].upper() == "MARKET":
+            if serverinfo['enable_market'] == "YES":
+                changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_market', 'NO')
+                await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} DISABLE market command in their guild {ctx.guild.name} / {ctx.guild.id}')
+                await ctx.send(f'{ctx.author.mention} DISABLE market command in this guild **{ctx.guild.name}**.')
+                return
+            elif serverinfo['enable_market'] == "NO":
+                changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_market', 'YES')
+                await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} ENABLE market command in their guild {ctx.guild.name} / {ctx.guild.id}')
+                await ctx.send(f'{ctx.author.mention} ENABLE market command in this guild **{ctx.guild.name}**.')
             return
         elif args[0].upper() == "IGNORE_CHAN" or args[0].upper() == "IGNORECHAN":
             if LIST_IGNORECHAN is None:

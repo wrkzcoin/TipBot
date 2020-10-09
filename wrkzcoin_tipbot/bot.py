@@ -41,6 +41,14 @@ from decimal import Decimal
 
 # tb
 from tb.tbfun import action as tb_action
+# byte-oriented StringIO was moved to io.BytesIO in py3k
+try:
+    from io import BytesIO
+except ImportError:
+    from StringIO import StringIO as BytesIO
+
+import cv2
+import numpy as np
 
 from config import config
 from wallet import *
@@ -874,6 +882,59 @@ async def tb(ctx):
     if ctx.invoked_subcommand is None:
         await ctx.send(f'{ctx.author.mention} Invalid {prefix}tb command.\n Please use {prefix}help tb')
         return
+
+
+@tb.command(name='sketchme')
+async def sketchme(ctx, member: discord.Member = None):
+    if isinstance(ctx.channel, discord.DMChannel) == True:
+        return
+    user_avatar = str(ctx.message.author.avatar_url)
+    if member:
+        user_avatar = str(member.avatar_url)
+
+    def create_line_drawing_image(img):
+        kernel = np.array([
+            [1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1],
+            ], np.uint8)
+        img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        img_dilated = cv2.dilate(img_gray, kernel, iterations=1)
+        img_diff = cv2.absdiff(img_dilated, img_gray)
+        contour = 255 - img_diff
+        return contour
+
+    try:
+        timeout = 12
+        res_data = None
+        async with aiohttp.ClientSession() as session:
+            async with session.get(user_avatar, timeout=timeout) as response:
+                if response.status == 200:
+                    res_data = await response.read()
+                    await session.close()
+
+        if res_data:
+            nparr = np.fromstring(res_data, np.uint8)
+            img_np = cv2.imdecode(nparr, cv2.IMREAD_COLOR) # cv2.IMREAD_COLOR in OpenCV 3.1
+
+            img_contour = create_line_drawing_image(img_np)
+            random_img_name = config.fun.fun_img_path + str(uuid.uuid4()) + ".png"
+            
+            cv2.imwrite(random_img_name, img_contour)
+            try:
+                msg = await ctx.send(file=discord.File(random_img_name))
+                await msg.add_reaction(EMOJI_OK_BOX)
+            except Exception as e:
+                await logchanbot(traceback.format_exc())
+            os.remove(random_img_name)
+            await ctx.message.add_reaction(EMOJI_OK_HAND)
+        else:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return
 
 
 @tb.command(name='spank', help='Spank someone')
@@ -3298,7 +3359,7 @@ async def sokoban(ctx):
     # How objects should be displayed on the screen:
     # WALL_DISPLAY = random.choice([':red_square:', ':orange_square:', ':yellow_square:', ':blue_square:', ':purple_square:']) # '#' # chr(9617)   # Character 9617 is '░'
     WALL_DISPLAY = random.choice(['🟥', '🟧', '🟨', '🟦', '🟪'])
-    FACE_DISPLAY = '<:smiling_face:700888455877754991>'
+    FACE_DISPLAY = ':zany_face:' # '<:smiling_face:700888455877754991>' some guild not support having this
     # CRATE_DISPLAY = ':brown_square:'  # Character 9679 is '▪'
     CRATE_DISPLAY = '🟫'
     # GOAL_DISPLAY = ':negative_squared_cross_mark:'
@@ -3306,7 +3367,7 @@ async def sokoban(ctx):
     # A list of chr() codes is at https://inventwithpython.com/chr
     # CRATE_ON_GOAL_DISPLAY = ':green_square:'
     CRATE_ON_GOAL_DISPLAY = '🟩'
-    PLAYER_ON_GOAL_DISPLAY = '<:grinning_face:700888456028487700>'
+    PLAYER_ON_GOAL_DISPLAY = '😁' # '<:grinning_face:700888456028487700>'
     # EMPTY_DISPLAY = ':black_large_square:'
     # EMPTY_DISPLAY = '⬛' already initial
 
@@ -4602,21 +4663,24 @@ async def userinfo(ctx, member: discord.Member = None):
         await ctx.send(embed=error)
 
 
-@bot.command(pass_context=True, name='cg', aliases=['coingecko'], help='Get coin information from Coingecko')
+@bot.command(pass_context=True, name='cg', aliases=['coingecko'], help='Get coin information from CoinGecko')
 async def cg(ctx, ticker: str):
     global TRTL_DISCORD
     # TRTL discord
-    if isinstance(ctx.message.channel, discord.DMChannel) == False and ctx.guild.id == TRTL_DISCORD:
-        await ctx.message.add_reaction(EMOJI_ERROR) 
+    if isinstance(ctx.message.channel, discord.DMChannel) == False and ctx.guild and ctx.guild.id == TRTL_DISCORD:
         return
 
-    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
-    if serverinfo and 'enable_market' in serverinfo and serverinfo['enable_market'] == "NO":
-        prefix = serverinfo['prefix']
-        await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Market Command is not ENABLE yet in this guild. Please request Guild owner to enable by `{prefix}SETTING MARKET`')
-        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}cg** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
-        return
+    try:
+        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        if isinstance(ctx.message.channel, discord.DMChannel) == False and serverinfo \
+        and 'enable_market' in serverinfo and serverinfo['enable_market'] == "NO":
+            prefix = serverinfo['prefix']
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Market Command is not ENABLE yet in this guild. Please request Guild owner to enable by `{prefix}SETTING MARKET`')
+            await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}cg** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+            return
+    except Exception as e:
+        pass
 
     get_cg = await store.get_coingecko_coin(ticker)
     def format_amount(amount: float):
@@ -4688,12 +4752,20 @@ async def price(ctx, *args):
     prefix = await get_guild_prefix(ctx)
     PriceQ = (' '.join(args)).split()
 
-    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
-    if serverinfo and 'enable_market' in serverinfo and serverinfo['enable_market'] == "NO":
-        await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Market command is not ENABLE yet in this guild. Please request Guild owner to enable by `{prefix}SETTING MARKET`')
-        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}price** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+    # disable game for TRTL discord
+    if isinstance(ctx.message.channel, discord.DMChannel) == False and ctx.guild and ctx.guild.id == TRTL_DISCORD:
         return
+
+    try:
+        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        if isinstance(ctx.message.channel, discord.DMChannel) == False and serverinfo \
+        and 'enable_market' in serverinfo and serverinfo['enable_market'] == "NO" or ():
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Market command is not ENABLE yet in this guild. Please request Guild owner to enable by `{prefix}SETTING MARKET`')
+            await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}price** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+            return
+    except Exception as e:
+        pass
 
     def format_amount(amount: float):
         if amount > 1:
@@ -5108,7 +5180,7 @@ async def help_main_embed(ctx, prefix, section: str='MAIN'):
         embed.add_field(name="GAMES", value="`{}`".format(", ".join(cmd_game)), inline=False)
 
     elif section.upper() == "TOOL":
-        cmd_fun = ["tb spank <@mention>", "tb punch <@mention>", "tb slap <@mention>", "tb praise <@mention>", "tb shoot <@mention>", "tb kick <@mention>", "tb fistbump <@mention>", "tb dance"]
+        cmd_fun = ["tb spank <@mention>", "tb punch <@mention>", "tb slap <@mention>", "tb praise <@mention>", "tb shoot <@mention>", "tb kick <@mention>", "tb fistbump <@mention>", "tb dance", "tb sketchme [@mention]"]
         embed.add_field(name="FUN COMMAND", value="`{}`".format(", ".join(cmd_fun)), inline=False)
 
         cmd_dev = ["tool dec2hex <number>", "tool hex2dec <hex>", "tool hex2str <hex>", "tool str2hex <string>", "tool emoji"]
@@ -11047,7 +11119,7 @@ async def setting(ctx, *args):
                 return
     elif len(args) == 2:
         if args[0].upper() == "TIPONLY":
-            if (args[1].upper() not in (ENABLE_COIN+ENABLE_COIN_DOGE)) and (args[1].upper() not in ["ALLCOIN", "*", "ALL", "TIPALL", "ANY"]):
+            if (args[1].upper() not in (ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_COIN_NANO+ENABLE_XMR)) and (args[1].upper() not in ["ALLCOIN", "*", "ALL", "TIPALL", "ANY"]):
                 await ctx.send(f'{ctx.author.mention} {args[1].upper()} is not in any known coin we set.')
                 return
             else:

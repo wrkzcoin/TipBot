@@ -916,10 +916,11 @@ async def sketchme(ctx, member: discord.Member = None):
                     await session.close()
 
         if res_data:
-            nparr = np.fromstring(res_data, np.uint8)
-            img_np = cv2.imdecode(nparr, cv2.IMREAD_COLOR) # cv2.IMREAD_COLOR in OpenCV 3.1
+            img = np.array(Image.open(BytesIO(res_data)).convert("RGBA"))
+            # nparr = np.fromstring(res_data, np.uint8)
+            # img_np = cv2.imdecode(nparr, cv2.IMREAD_COLOR) # cv2.IMREAD_COLOR in OpenCV 3.1
 
-            img_contour = create_line_drawing_image(img_np)
+            img_contour = create_line_drawing_image(img)
             random_img_name = config.fun.fun_img_path + str(uuid.uuid4()) + ".png"
             
             cv2.imwrite(random_img_name, img_contour)
@@ -7301,7 +7302,7 @@ async def take(ctx, info: str=None):
     if COIN_NAME == "DOGE":
         amount = float(amount / 50)
     elif COIN_NAME in HIGH_DECIMAL_COIN:
-        amount = round(amount / get_decimal(COIN_NAME), 5) * get_decimal(COIN_NAME)
+        amount = float("%.5f" % (amount / get_decimal(COIN_NAME))) * get_decimal(COIN_NAME)
 
     def myround_number(x, base=5):
         return base * round(x/base)

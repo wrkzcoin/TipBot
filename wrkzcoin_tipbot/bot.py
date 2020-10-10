@@ -40,6 +40,7 @@ from games.twentyfortyeight import makeMove as g2048_makeMove
 # linedraw
 from linedraw.linedraw import *
 from cairosvg import svg2png
+import functools
 
 from decimal import Decimal
 
@@ -933,22 +934,26 @@ async def draw(ctx, member: discord.Member = None):
                 return
 
             img = Image.open(BytesIO(res_data)).convert("RGBA")
-            width = 4000
-            height = 4000
-
-            lines = sketch_image(img, random_img_name_svg)
-
-            # save from svg to png and will have some transparent
-            svg2png(url=random_img_name_svg, write_to=random_img_name_png, output_width=width, output_height=height)
-
-            # open the saved image
-            png_image = Image.open(random_img_name_png)
-            imageBox = png_image.getbbox()
-            # crop transparent
-            cropped = png_image.crop(imageBox)
             
-            # saved replaced old PNG image
-            cropped.save(random_img_name_png)
+            def async_sketch_image(img, svg, png_out):
+                width = 4000
+                height = 4000
+                line_draw = sketch_image(img, svg)
+
+                # save from svg to png and will have some transparent
+                svg2png(url=svg, write_to=png_out, output_width=width, output_height=height)
+
+                # open the saved image
+                png_image = Image.open(png_out)
+                imageBox = png_image.getbbox()
+                # crop transparent
+                cropped = png_image.crop(imageBox)
+                
+                # saved replaced old PNG image
+                cropped.save(png_out)
+
+            partial_img = functools.partial(async_sketch_image, img, random_img_name_svg, random_img_name_png)
+            lines = await bot.loop.run_in_executor(None, partial_img)
             try:
                 e = discord.Embed(timestamp=datetime.utcnow())
                 e.set_author(name=ctx.message.author.name, icon_url=ctx.message.author.avatar_url)
@@ -1027,23 +1032,32 @@ async def sketchme(ctx, member: discord.Member = None):
             # nparr = np.fromstring(res_data, np.uint8)
             # img_np = cv2.imdecode(nparr, cv2.IMREAD_COLOR) # cv2.IMREAD_COLOR in OpenCV 3.1
 
-            img_contour = create_line_drawing_image(img)
-            
-            # full path of image .png
-            cv2.imwrite(random_img_name_png, img_contour)
-
+            partial_contour = functools.partial(create_line_drawing_image, img)
+            img_contour = await bot.loop.run_in_executor(None, partial_contour)
+            if img_contour is None:
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                return
             try:
-                e = discord.Embed(timestamp=datetime.utcnow())
-                e.set_author(name=ctx.message.author.name, icon_url=ctx.message.author.avatar_url)
-                e.set_image(url=draw_link)
-                e.set_footer(text=f"Sketchme requested by {ctx.message.author.name}#{ctx.message.author.discriminator}")
-                msg = await ctx.send(embed=e)
-                await msg.add_reaction(EMOJI_OK_BOX)
-                await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
-                            str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SKETCHME', ctx.message.content, 'DISCORD')
-            except Exception as e:
-                await logchanbot(traceback.format_exc())
-            await ctx.message.add_reaction(EMOJI_OK_HAND)
+                # stuff = done.pop().result()
+                # img_contour = done.pop().result()
+                # full path of image .png
+                cv2.imwrite(random_img_name_png, img_contour)
+
+                try:
+                    e = discord.Embed(timestamp=datetime.utcnow())
+                    e.set_author(name=ctx.message.author.name, icon_url=ctx.message.author.avatar_url)
+                    e.set_image(url=draw_link)
+                    e.set_footer(text=f"Sketchme requested by {ctx.message.author.name}#{ctx.message.author.discriminator}")
+                    msg = await ctx.send(embed=e)
+                    await msg.add_reaction(EMOJI_OK_BOX)
+                    await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
+                                str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SKETCHME', ctx.message.content, 'DISCORD')
+                except Exception as e:
+                    await logchanbot(traceback.format_exc())
+                await ctx.message.add_reaction(EMOJI_OK_HAND)
+            except asyncio.TimeoutError:
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                return
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
     except Exception as e:

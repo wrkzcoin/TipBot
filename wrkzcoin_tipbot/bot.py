@@ -37,6 +37,10 @@ from games.twentyfortyeight import addTwoToBoard as g2048_addTwoToBoard
 from games.twentyfortyeight import isFull as g2048_isFull
 from games.twentyfortyeight import makeMove as g2048_makeMove
 
+# linedraw
+from linedraw.linedraw import *
+from cairosvg import svg2png
+
 from decimal import Decimal
 
 # tb
@@ -46,6 +50,9 @@ try:
     from io import BytesIO
 except ImportError:
     from StringIO import StringIO as BytesIO
+
+# For hash file in case already have
+import hashlib
 
 import cv2
 import numpy as np
@@ -884,6 +891,83 @@ async def tb(ctx):
         return
 
 
+@tb.command(name='draw')
+async def draw(ctx, member: discord.Member = None):
+    if isinstance(ctx.channel, discord.DMChannel) == True:
+        return
+    user_avatar = str(ctx.message.author.avatar_url)
+    if member:
+        user_avatar = str(member.avatar_url)
+    try:
+        timeout = 12
+        res_data = None
+        async with aiohttp.ClientSession() as session:
+            async with session.get(user_avatar, timeout=timeout) as response:
+                if response.status == 200:
+                    res_data = await response.read()
+                    await session.close()
+
+        if res_data:
+            hash_object = hashlib.sha256(res_data)
+            hex_dig = str(hash_object.hexdigest())
+            random_img_name = hex_dig + "_draw"
+
+            random_img_name_svg = config.fun.static_draw_path + random_img_name + ".svg"
+            random_img_name_png = config.fun.static_draw_path + random_img_name + ".png"
+            draw_link = config.fun.static_draw_link + random_img_name + ".png"
+            # if hash exists
+            if os.path.exists(random_img_name_png):
+                # send the made file, no need to create new
+                try:
+                    e = discord.Embed(timestamp=datetime.utcnow())
+                    e.set_author(name=ctx.message.author.name, icon_url=ctx.message.author.avatar_url)
+                    e.set_image(url=draw_link)
+                    e.set_footer(text=f"Draw requested by {ctx.message.author.name}#{ctx.message.author.discriminator}")
+                    msg = await ctx.send(embed=e)
+                    await msg.add_reaction(EMOJI_OK_BOX)
+                    await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
+                                str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'DRAW', ctx.message.content, 'DISCORD')
+                except Exception as e:
+                    await logchanbot(traceback.format_exc())
+                await ctx.message.add_reaction(EMOJI_FLOPPY)
+                return
+
+            img = Image.open(BytesIO(res_data)).convert("RGBA")
+            width = 4000
+            height = 4000
+
+            lines = sketch_image(img, random_img_name_svg)
+
+            # save from svg to png and will have some transparent
+            svg2png(url=random_img_name_svg, write_to=random_img_name_png, output_width=width, output_height=height)
+
+            # open the saved image
+            png_image = Image.open(random_img_name_png)
+            imageBox = png_image.getbbox()
+            # crop transparent
+            cropped = png_image.crop(imageBox)
+            
+            # saved replaced old PNG image
+            cropped.save(random_img_name_png)
+            try:
+                e = discord.Embed(timestamp=datetime.utcnow())
+                e.set_author(name=ctx.message.author.name, icon_url=ctx.message.author.avatar_url)
+                e.set_image(url=draw_link)
+                e.set_footer(text=f"Draw requested by {ctx.message.author.name}#{ctx.message.author.discriminator}")
+                msg = await ctx.send(embed=e)
+                await msg.add_reaction(EMOJI_OK_BOX)
+                await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
+                            str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'DRAW', ctx.message.content, 'DISCORD')
+            except Exception as e:
+                await logchanbot(traceback.format_exc())
+            await ctx.message.add_reaction(EMOJI_OK_HAND)
+        else:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return
+
+
 @tb.command(name='sketchme')
 async def sketchme(ctx, member: discord.Member = None):
     if isinstance(ctx.channel, discord.DMChannel) == True:
@@ -916,20 +1000,49 @@ async def sketchme(ctx, member: discord.Member = None):
                     await session.close()
 
         if res_data:
+            hash_object = hashlib.sha256(res_data)
+            hex_dig = str(hash_object.hexdigest())
+            random_img_name = hex_dig + "_sketchme"
+            draw_link = config.fun.static_draw_link + random_img_name + ".png"
+
+            random_img_name_png = config.fun.static_draw_path + random_img_name + ".png"
+            # if hash exists
+            if os.path.exists(random_img_name_png):
+                # send the made file, no need to create new
+                try:
+                    e = discord.Embed(timestamp=datetime.utcnow())
+                    e.set_author(name=ctx.message.author.name, icon_url=ctx.message.author.avatar_url)
+                    e.set_image(url=draw_link)
+                    e.set_footer(text=f"Sketchme requested by {ctx.message.author.name}#{ctx.message.author.discriminator}")
+                    msg = await ctx.send(embed=e)
+                    await msg.add_reaction(EMOJI_OK_BOX)
+                    await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
+                                str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SKETCHME', ctx.message.content, 'DISCORD')
+                except Exception as e:
+                    await logchanbot(traceback.format_exc())
+                await ctx.message.add_reaction(EMOJI_FLOPPY)
+                return
+
             img = np.array(Image.open(BytesIO(res_data)).convert("RGBA"))
             # nparr = np.fromstring(res_data, np.uint8)
             # img_np = cv2.imdecode(nparr, cv2.IMREAD_COLOR) # cv2.IMREAD_COLOR in OpenCV 3.1
 
             img_contour = create_line_drawing_image(img)
-            random_img_name = config.fun.fun_img_path + str(uuid.uuid4()) + ".png"
             
-            cv2.imwrite(random_img_name, img_contour)
+            # full path of image .png
+            cv2.imwrite(random_img_name_png, img_contour)
+
             try:
-                msg = await ctx.send(file=discord.File(random_img_name))
+                e = discord.Embed(timestamp=datetime.utcnow())
+                e.set_author(name=ctx.message.author.name, icon_url=ctx.message.author.avatar_url)
+                e.set_image(url=draw_link)
+                e.set_footer(text=f"Sketchme requested by {ctx.message.author.name}#{ctx.message.author.discriminator}")
+                msg = await ctx.send(embed=e)
                 await msg.add_reaction(EMOJI_OK_BOX)
+                await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
+                            str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SKETCHME', ctx.message.content, 'DISCORD')
             except Exception as e:
                 await logchanbot(traceback.format_exc())
-            os.remove(random_img_name)
             await ctx.message.add_reaction(EMOJI_OK_HAND)
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -5181,7 +5294,7 @@ async def help_main_embed(ctx, prefix, section: str='MAIN'):
         embed.add_field(name="GAMES", value="`{}`".format(", ".join(cmd_game)), inline=False)
 
     elif section.upper() == "TOOL":
-        cmd_fun = ["tb spank <@mention>", "tb punch <@mention>", "tb slap <@mention>", "tb praise <@mention>", "tb shoot <@mention>", "tb kick <@mention>", "tb fistbump <@mention>", "tb dance", "tb sketchme [@mention]"]
+        cmd_fun = ["tb spank <@mention>", "tb punch <@mention>", "tb slap <@mention>", "tb praise <@mention>", "tb shoot <@mention>", "tb kick <@mention>", "tb fistbump <@mention>", "tb dance", "tb sketchme [@mention]", "tb draw [@mention]"]
         embed.add_field(name="FUN COMMAND", value="`{}`".format(", ".join(cmd_fun)), inline=False)
 
         cmd_dev = ["tool dec2hex <number>", "tool hex2dec <hex>", "tool hex2str <hex>", "tool str2hex <string>", "tool emoji"]

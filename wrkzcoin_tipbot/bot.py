@@ -896,9 +896,29 @@ async def tb(ctx):
 async def draw(ctx, member: discord.Member = None):
     if isinstance(ctx.channel, discord.DMChannel) == True:
         return
+
     user_avatar = str(ctx.message.author.avatar_url)
     if member:
         user_avatar = str(member.avatar_url)
+
+    # if there is attachment image, we use it to draw
+    if ctx.message.attachments and len(ctx.message.attachments) >= 1:
+        attachment = ctx.message.attachments[0]
+        link = attachment.url # https://cdn.discordapp.com/attachments
+        if (attachment.filename.lower()).endswith(('.gif', '.jpeg', '.jpg', '.png')):
+            try:
+                if link.startswith("https://cdn.discordapp.com/attachments"):
+                    async with aiohttp.ClientSession() as session:
+                        async with session.get(link) as resp:
+                            if resp.status == 200:
+                                if resp.headers["Content-Type"] not in ["image/gif", "image/png", "image/jpeg", "image/jpg"]:
+                                    # ignore it and we use user_avatar
+                                    pass
+                                else: 
+                                    user_avatar = link
+            except Exception as e:
+                await logchanbot(traceback.format_exc())
+            
     try:
         timeout = 12
         res_data = None
@@ -980,6 +1000,24 @@ async def sketchme(ctx, member: discord.Member = None):
     user_avatar = str(ctx.message.author.avatar_url)
     if member:
         user_avatar = str(member.avatar_url)
+
+    # if there is attachment image, we use it to draw
+    if ctx.message.attachments and len(ctx.message.attachments) >= 1:
+        attachment = ctx.message.attachments[0]
+        link = attachment.url # https://cdn.discordapp.com/attachments
+        if (attachment.filename.lower()).endswith(('.gif', '.jpeg', '.jpg', '.png')):
+            try:
+                if link.startswith("https://cdn.discordapp.com/attachments"):
+                    async with aiohttp.ClientSession() as session:
+                        async with session.get(link) as resp:
+                            if resp.status == 200:
+                                if resp.headers["Content-Type"] not in ["image/gif", "image/png", "image/jpeg", "image/jpg"]:
+                                    # ignore it and we use user_avatar
+                                    pass
+                                else: 
+                                    user_avatar = link
+            except Exception as e:
+                await logchanbot(traceback.format_exc())
 
     def create_line_drawing_image(img):
         kernel = np.array([

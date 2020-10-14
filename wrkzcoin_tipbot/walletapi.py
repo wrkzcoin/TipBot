@@ -1,3 +1,6 @@
+from discord_webhook import DiscordWebhook
+import discord
+
 from typing import List, Dict
 import json
 from uuid import uuid4
@@ -102,6 +105,8 @@ async def walletapi_send_transaction(from_address: str, to_address: str, amount:
                         return {"transactionHash": json_resp['transactionHash'], "fee": json_resp['fee']}
                 elif 'errorMessage' in json_resp:
                     raise RPCException(json_resp['errorMessage'])
+                else:
+                    await logchanbot('walletapi_send_transaction: {} response: {}'.format(method, response))
     except asyncio.TimeoutError:
         await logchanbot('walletapi_send_transaction: TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method, COIN_NAME, time_out))
 
@@ -264,6 +269,23 @@ async def walletapi_get_balance_address(address: str, coin: str) -> Dict[str, Di
     except asyncio.TimeoutError:
         await logchanbot('walletapi_get_balance_address: TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method, COIN_NAME, time_out))
     return None
+
+
+async def walletapi_get_transfers(coin: str, height_start: int = None, height_end: int = None):
+    time_out = 30
+    COIN_NAME = coin.upper()
+    method = "/transactions"
+    if (height_start is None) or (height_end is None):
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(get_wallet_api_url(COIN_NAME) + method, headers=get_wallet_api_header(COIN_NAME), timeout=time_out) as response:
+                    json_resp = await response.json()
+                    if response.status == 200 or response.status == 201:
+                        return json_resp['transactions']
+                    elif 'errorMessage' in json_resp:
+                        raise RPCException(json_resp['errorMessage'])
+        except asyncio.TimeoutError:
+            await logchanbot('get_transfers_cn wallet_api: TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method, COIN_NAME, time_out))
 
 
 async def save_walletapi(coin: str):

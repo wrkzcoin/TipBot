@@ -1,4 +1,6 @@
 from discord_webhook import DiscordWebhook
+import discord
+
 from typing import Dict
 from uuid import uuid4
 
@@ -77,7 +79,7 @@ async def call_aiohttp_wallet(method_name: str, coin: str, time_out: int = None,
             try:
                 async with aiohttp.ClientSession() as session:
                     async with session.post(url, json=full_payload, timeout=timeout) as response:
-                        if response.status == 200:
+                        if response.status == 200 or response.status == 201:
                             res_data = await response.read()
                             res_data = res_data.decode('utf-8')
                             await session.close()
@@ -85,8 +87,11 @@ async def call_aiohttp_wallet(method_name: str, coin: str, time_out: int = None,
                             if 'result' in decoded_data:
                                 return decoded_data['result']
                             else:
-                                print(decoded_data)
+                                await logchanbot(str(res_data))
                                 return None
+                        else:
+                            await logchanbot(str(response))
+                            return None
             except asyncio.TimeoutError:
                 await logchanbot('call_aiohttp_wallet: {} COIN_NAME {} - timeout {}'.format(method_name, coin.upper(), timeout))
                 print('TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method_name, coin.upper(), timeout))

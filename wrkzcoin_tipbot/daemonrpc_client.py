@@ -1,4 +1,6 @@
 from discord_webhook import DiscordWebhook
+import discord
+
 from typing import Dict
 from uuid import uuid4
 

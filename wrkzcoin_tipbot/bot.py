@@ -141,7 +141,8 @@ FAUCET_MINMAX = {
     "NBXC": [config.Faucet_min_max.nbxc_min, config.Faucet_min_max.nbxc_max],
     "XFG": [config.Faucet_min_max.xfg_min, config.Faucet_min_max.xfg_max],
     "WOW": [config.Faucet_min_max.wow_min, config.Faucet_min_max.wow_max],
-    "BAN": [config.Faucet_min_max.ban_min, config.Faucet_min_max.ban_max]
+    "BAN": [config.Faucet_min_max.ban_min, config.Faucet_min_max.ban_max],
+    "NANO": [config.Faucet_min_max.nano_min, config.Faucet_min_max.nano_max]
 }
 
 
@@ -156,7 +157,8 @@ GAME_SLOT_REWARD = {
     "XFG": config.game_reward.xfg,
     "DOGE": config.game_reward.doge,
     "WOW": config.game_reward.wow,
-    "BAN": config.game_reward.ban
+    "BAN": config.game_reward.ban,
+    "NANO": config.game_reward.nano
 }
 
 GAME_INTERACTIVE_PRGORESS = []
@@ -1667,7 +1669,7 @@ Rules:
     real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
     result = f'You got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
     if free_game == True:
-        result = f'You do not get any reward because it is a free game!'
+        result = f'You do not get any reward because it is a free game! Waiting to refresh your paid plays (24h max).'
     if dealerValue > 21:
         won = True
         await ctx.send('{} **BLACKJACK**\n'
@@ -1784,7 +1786,7 @@ async def slot(ctx):
                 reward = await store.sql_game_add(slotOutput, str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'SLOT', int(time.time()) - time_start, 'DISCORD')
         else:
             if won:
-                result = f'You won! but this is a free game without **reward**!'
+                result = f'You won! but this is a free game without **reward**! Waiting to refresh your paid plays (24h max).'
             try:
                 await store.sql_game_free_add(slotOutput, str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'SLOT', int(time.time()) - time_start, 'DISCORD')
             except Exception as e:
@@ -1955,7 +1957,7 @@ clues would be Fermi Pico.'''.format(NUM_DIGITS)
                         await ctx.send(f'{ctx.author.mention} **Bagel: ** Please do not use repeated numbers!')
                     else:
                         if guess == secretNum:
-                            result = 'But this is a free game without **reward**!'
+                            result = 'But this is a free game without **reward**! Waiting to refresh your paid plays (24h max).'
                             won = True
                             if won and free_game == False:
                                 won_x = 5
@@ -2162,7 +2164,7 @@ Hints:
                         await ctx.send(f'{ctx.author.mention} **Bagel: ** Please do not use repeated numbers!')
                     else:
                         if guess == secretNum:
-                            result = 'But this is a free game without **reward**!'
+                            result = 'But this is a free game without **reward**! Waiting to refresh your paid plays (24h max).'
                             won = True
                             if won and free_game == False:
                                 won_x = 5
@@ -2377,7 +2379,7 @@ Hints:
                         await ctx.send(f'{ctx.author.mention} **Bagel: ** Please do not use repeated numbers!')
                     else:
                         if guess == secretNum:
-                            result = 'But this is a free game without **reward**!'
+                            result = 'But this is a free game without **reward**! Waiting to refresh your paid plays (24h max).'
                             won = True
                             if won and free_game == False:
                                 won_x = 5
@@ -2760,7 +2762,7 @@ async def hangman(ctx):
                     correctLetters.append(guess)
                     # Check if the player has won:
                     foundAllLetters = True  # Start off assuming they've won.
-                    result = 'But this is a free game without **reward**!'
+                    result = 'But this is a free game without **reward**! Waiting to refresh your paid plays (24h max).'
                     for secretWordLetter in secretWord:
                         if secretWordLetter not in correctLetters:
                             # There's a letter in the secret word that isn't
@@ -2938,7 +2940,7 @@ To win, you must continue rolling the dice until you "make your point."
                     result = f'You lose!'
             else:
                 if won:
-                    result = f'You won! but this is a free game without **reward**!'
+                    result = f'You won! but this is a free game without **reward**! Waiting to refresh your paid plays (24h max).'
                 else:
                     result = f'You lose!'
                 try:
@@ -3102,7 +3104,7 @@ Fast-paced snail racing action!'''
                                         result = f'You lose! **snail{randomSnailName}** is the winner!!! You bet for **snail#{str(your_snail)}**'
                                 else:
                                     if won:
-                                        result = f'You won! **snail#{str(your_snail)}** but this is a free game without **reward**!'
+                                        result = f'You won! **snail#{str(your_snail)}** but this is a free game without **reward**! Waiting to refresh your paid plays (24h max).'
                                     else:
                                         result = f'You lose! **snail{randomSnailName}** is the winner!!! You bet for **snail#{str(your_snail)}**'
                                     try:
@@ -3322,7 +3324,7 @@ You lose if the board fills up the tiles before then.'''
                 result = f'You got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
                 duration = seconds_str(int(time.time()) - time_start)
                 if free_game == True:
-                    result = f'You do not get any reward because it is a free game!'
+                    result = f'You do not get any reward because it is a free game! Waiting to refresh your paid plays (24h max).'
                     try:
                         await store.sql_game_free_add(board, str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), '2048', int(time.time()) - time_start, 'DISCORD')
                     except Exception as e:
@@ -3804,7 +3806,7 @@ respectively. You can also reload game level.'''
                             result = f'You lose!'
                     else:
                         if won:
-                            result = f'You won! but this is a free game without **reward**!'
+                            result = f'You won! but this is a free game without **reward**! Waiting to refresh your paid plays (24h max).'
                         else:
                             result = f'You lose!'
                         try:
@@ -12017,6 +12019,7 @@ async def update_balance():
     while True:
         # print('BOT.PY: sleep in second: '+str(INTERVAL_EACH))
         for coinItem in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR:
+            long_coinItem = 10 # if a coin longer than 10s process, log it to check performance
             if is_maintenance_coin(coinItem):
                 # print("BOT.PY: {} is on maintenance. No need update balance.".format(coinItem))
                 pass

@@ -1,3 +1,6 @@
+from discord_webhook import DiscordWebhook
+import discord
+
 from typing import List, Dict
 from datetime import datetime
 import time
@@ -406,95 +409,188 @@ async def sql_update_balances(coin: str = None):
 
     if coin_family in ["TRTL", "BCN"]:
         #print('SQL: Updating get_transfers '+COIN_NAME)
-        get_transfers = await wallet.getTransactions(COIN_NAME, int(height)-100000, 100000)
-        try:
-            list_balance_user = {}
-            if get_transfers and len(get_transfers) >= 1:
-                await openConnection()
-                async with pool.acquire() as conn:
-                    async with conn.cursor() as cur:
-                        sql = """ SELECT * FROM cnoff_get_transfers WHERE `coin_name` = %s """
-                        await cur.execute(sql, (COIN_NAME,))
-                        result = await cur.fetchall()
-                        d = [i['txid'] for i in result]
-                        # print('=================='+COIN_NAME+'===========')
-                        # print(d)
-                        # print('=================='+COIN_NAME+'===========')
-                        for txes in get_transfers:
-                            tx_in_block = txes['transactions']
-                            for tx in tx_in_block:
+        if COIN_NAME in WALLET_API_COIN:
+            get_transfers = await walletapi.walletapi_get_transfers(COIN_NAME)
+            try:
+                list_balance_user = {}
+                if get_transfers and len(get_transfers) >= 1:
+                    await openConnection()
+                    async with pool.acquire() as conn:
+                        async with conn.cursor() as cur:
+                            sql = """ SELECT * FROM cnoff_get_transfers WHERE `coin_name` = %s """
+                            await cur.execute(sql, (COIN_NAME,))
+                            result = await cur.fetchall()
+                            d = [i['txid'] for i in result]
+                            # print('=================='+COIN_NAME+'===========')
+                            # print(d)
+                            # print('=================='+COIN_NAME+'===========')
+                            for tx in get_transfers:
                                 # Could be one block has two or more tx with different payment ID
                                 # add to balance only confirmation depth meet
-                                if height >= int(tx['blockIndex']) + wallet.get_confirm_depth(COIN_NAME) and tx['amount'] >= wallet.get_min_deposit_amount(COIN_NAME):
-                                    if ('paymentId' in tx) and (tx['paymentId'] in list_balance_user):
-                                        if tx['amount'] > 0:
-                                            list_balance_user[tx['paymentId']] += tx['amount']
-                                    elif ('paymentId' in tx) and (tx['paymentId'] not in list_balance_user):
-                                        if tx['amount'] > 0:
-                                            list_balance_user[tx['paymentId']] = tx['amount']
+                                if len(tx['transfers']) > 0 and height >= int(tx['blockHeight']) + wallet.get_confirm_depth(COIN_NAME) \
+                                and tx['transfers'][0]['amount'] >= wallet.get_min_deposit_amount(COIN_NAME) and 'paymentID' in tx:
+                                    if ('paymentID' in tx) and (tx['paymentID'] in list_balance_user):
+                                        if tx['transfers'][0]['amount'] > 0:
+                                            list_balance_user[tx['paymentID']] += tx['transfers'][0]['amount']
+                                    elif ('paymentID' in tx) and (tx['paymentID'] not in list_balance_user):
+                                        if tx['transfers'][0]['amount'] > 0:
+                                            list_balance_user[tx['paymentID']] = tx['transfers'][0]['amount']
                                     try:
-                                        if tx['transactionHash'] not in d:
+                                        if tx['hash'] not in d:
                                             addresses = tx['transfers']
                                             address = ''
                                             for each_add in addresses:
                                                 if len(each_add['address']) > 0: address = each_add['address']
                                                 break
-                                                
+                                                    
                                             sql = """ INSERT IGNORE INTO cnoff_get_transfers (`coin_name`, `txid`, 
                                             `payment_id`, `height`, `timestamp`, `amount`, `fee`, `decimal`, `address`, time_insert) 
                                             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                                            await cur.execute(sql, (COIN_NAME, tx['transactionHash'], tx['paymentId'], tx['blockIndex'], tx['timestamp'],
-                                                                    tx['amount'], tx['fee'], wallet.get_decimal(COIN_NAME), address, int(time.time())))
+                                            await cur.execute(sql, (COIN_NAME, tx['hash'], tx['paymentID'], tx['blockHeight'], tx['timestamp'],
+                                                                    tx['transfers'][0]['amount'], tx['fee'], wallet.get_decimal(COIN_NAME), address, int(time.time())))
                                             await conn.commit()
                                             # add to notification list also
                                             sql = """ INSERT IGNORE INTO discord_notify_new_tx (`coin_name`, `txid`, 
                                             `payment_id`, `height`, `amount`, `fee`, `decimal`) 
                                             VALUES (%s, %s, %s, %s, %s, %s, %s) """
-                                            await cur.execute(sql, (COIN_NAME, tx['transactionHash'], tx['paymentId'], tx['blockIndex'],
-                                                                    tx['amount'], tx['fee'], wallet.get_decimal(COIN_NAME)))
+                                            await cur.execute(sql, (COIN_NAME, tx['hash'], tx['paymentID'], tx['blockHeight'],
+                                                                    tx['transfers'][0]['amount'], tx['fee'], wallet.get_decimal(COIN_NAME)))
                                             await conn.commit()
                                     except pymysql.err.Warning as e:
                                         await logchanbot(traceback.format_exc())
                                     except Exception as e:
                                         await logchanbot(traceback.format_exc())
-                                elif height < int(tx['blockIndex']) + wallet.get_confirm_depth(COIN_NAME) and tx['amount'] >= wallet.get_min_deposit_amount(COIN_NAME):
+                                elif len(tx['transfers']) > 0 and height < int(tx['blockHeight']) + wallet.get_confirm_depth(COIN_NAME) and \
+                                tx['transfers'][0]['amount'] >= wallet.get_min_deposit_amount(COIN_NAME) and 'paymentID' in tx:
                                     # add notify to redis and alert deposit. Can be clean later?
                                     if config.notify_new_tx.enable_new_no_confirm == 1:
                                         key_tx_new = 'TIPBOT:NEWTX:NOCONFIRM'
-                                        key_tx_json = 'TIPBOT:NEWTX:' + tx['transactionHash']
+                                        key_tx_json = 'TIPBOT:NEWTX:' + tx['hash']
                                         try:
                                             openRedis()
                                             if redis_conn and redis_conn.llen(key_tx_new) > 0:
                                                 list_new_tx = redis_conn.lrange(key_tx_new, 0, -1)
-                                                if list_new_tx and len(list_new_tx) > 0 and tx['transactionHash'] not in list_new_tx:
+                                                if list_new_tx and len(list_new_tx) > 0 and tx['hash'] not in list_new_tx:
+                                                    redis_conn.lpush(key_tx_new, tx['hash'])
+                                                    redis_conn.set(key_tx_json, json.dumps({'coin_name': COIN_NAME, 'txid': tx['hash'], 'payment_id': tx['paymentID'], 'height': tx['blockHeight'],
+                                                                                            'amount': tx['transfers'][0]['amount'], 'fee': tx['fee'], 'decimal': wallet.get_decimal(COIN_NAME)}), ex=86400)
+                                            elif redis_conn and redis_conn.llen(key_tx_new) == 0:
+                                                redis_conn.lpush(key_tx_new, tx['hash'])
+                                                redis_conn.set(key_tx_json, json.dumps({'coin_name': COIN_NAME, 'txid': tx['hash'], 'payment_id': tx['paymentID'], 'height': tx['blockHeight'],
+                                                                                        'amount': tx['transfers'][0]['amount'], 'fee': tx['fee'], 'decimal': wallet.get_decimal(COIN_NAME)}), ex=86400)
+                                        except Exception as e:
+                                            await logchanbot(traceback.format_exc())
+                if list_balance_user and len(list_balance_user) > 0:
+                    await openConnection()
+                    async with pool.acquire() as conn:
+                        async with conn.cursor() as cur:
+                            sql = """ SELECT coin_name, payment_id, SUM(amount) AS txIn FROM cnoff_get_transfers 
+                                      WHERE coin_name = %s AND amount > 0 
+                                      GROUP BY payment_id """
+                            await cur.execute(sql, (COIN_NAME,))
+                            result = await cur.fetchall()
+                            timestamp = int(time.time())
+                            list_update = []
+                            if result and len(result) > 0:
+                                for eachTxIn in result:
+                                    list_update.append((eachTxIn['txIn'], timestamp, eachTxIn['payment_id']))
+                                await cur.executemany(""" UPDATE cnoff_user_paymentid SET `actual_balance` = %s, `lastUpdate` = %s 
+                                                          WHERE paymentid = %s """, list_update)
+                                await conn.commit()
+            except Exception as e:
+                await logchanbot(traceback.format_exc())
+        else:
+            get_transfers = await wallet.getTransactions(COIN_NAME, int(height)-100000, 100000)
+            try:
+                list_balance_user = {}
+                if get_transfers and len(get_transfers) >= 1:
+                    await openConnection()
+                    async with pool.acquire() as conn:
+                        async with conn.cursor() as cur:
+                            sql = """ SELECT * FROM cnoff_get_transfers WHERE `coin_name` = %s """
+                            await cur.execute(sql, (COIN_NAME,))
+                            result = await cur.fetchall()
+                            d = [i['txid'] for i in result]
+                            # print('=================='+COIN_NAME+'===========')
+                            # print(d)
+                            # print('=================='+COIN_NAME+'===========')
+                            for txes in get_transfers:
+                                tx_in_block = txes['transactions']
+                                for tx in tx_in_block:
+                                    # Could be one block has two or more tx with different payment ID
+                                    # add to balance only confirmation depth meet
+                                    if height >= int(tx['blockIndex']) + wallet.get_confirm_depth(COIN_NAME) and tx['amount'] >= wallet.get_min_deposit_amount(COIN_NAME) \
+                                    and 'paymentId' in tx:
+                                        if ('paymentId' in tx) and (tx['paymentId'] in list_balance_user):
+                                            if tx['amount'] > 0:
+                                                list_balance_user[tx['paymentId']] += tx['amount']
+                                        elif ('paymentId' in tx) and (tx['paymentId'] not in list_balance_user):
+                                            if tx['amount'] > 0:
+                                                list_balance_user[tx['paymentId']] = tx['amount']
+                                        try:
+                                            if tx['transactionHash'] not in d:
+                                                addresses = tx['transfers']
+                                                address = ''
+                                                for each_add in addresses:
+                                                    if len(each_add['address']) > 0: address = each_add['address']
+                                                    break
+                                                    
+                                                sql = """ INSERT IGNORE INTO cnoff_get_transfers (`coin_name`, `txid`, 
+                                                `payment_id`, `height`, `timestamp`, `amount`, `fee`, `decimal`, `address`, time_insert) 
+                                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                                await cur.execute(sql, (COIN_NAME, tx['transactionHash'], tx['paymentId'], tx['blockIndex'], tx['timestamp'],
+                                                                        tx['amount'], tx['fee'], wallet.get_decimal(COIN_NAME), address, int(time.time())))
+                                                await conn.commit()
+                                                # add to notification list also
+                                                sql = """ INSERT IGNORE INTO discord_notify_new_tx (`coin_name`, `txid`, 
+                                                `payment_id`, `height`, `amount`, `fee`, `decimal`) 
+                                                VALUES (%s, %s, %s, %s, %s, %s, %s) """
+                                                await cur.execute(sql, (COIN_NAME, tx['transactionHash'], tx['paymentId'], tx['blockIndex'],
+                                                                        tx['amount'], tx['fee'], wallet.get_decimal(COIN_NAME)))
+                                                await conn.commit()
+                                        except pymysql.err.Warning as e:
+                                            await logchanbot(traceback.format_exc())
+                                        except Exception as e:
+                                            await logchanbot(traceback.format_exc())
+                                    elif height < int(tx['blockIndex']) + wallet.get_confirm_depth(COIN_NAME) and tx['amount'] >= wallet.get_min_deposit_amount(COIN_NAME) \
+                                    and 'paymentId' in tx:
+                                        # add notify to redis and alert deposit. Can be clean later?
+                                        if config.notify_new_tx.enable_new_no_confirm == 1:
+                                            key_tx_new = 'TIPBOT:NEWTX:NOCONFIRM'
+                                            key_tx_json = 'TIPBOT:NEWTX:' + tx['transactionHash']
+                                            try:
+                                                openRedis()
+                                                if redis_conn and redis_conn.llen(key_tx_new) > 0:
+                                                    list_new_tx = redis_conn.lrange(key_tx_new, 0, -1)
+                                                    if list_new_tx and len(list_new_tx) > 0 and tx['transactionHash'] not in list_new_tx:
+                                                        redis_conn.lpush(key_tx_new, tx['transactionHash'])
+                                                        redis_conn.set(key_tx_json, json.dumps({'coin_name': COIN_NAME, 'txid': tx['transactionHash'], 'payment_id': tx['paymentId'], 'height': tx['blockIndex'],
+                                                                                                'amount': tx['amount'], 'fee': tx['fee'], 'decimal': wallet.get_decimal(COIN_NAME)}), ex=86400)
+                                                elif redis_conn and redis_conn.llen(key_tx_new) == 0:
                                                     redis_conn.lpush(key_tx_new, tx['transactionHash'])
                                                     redis_conn.set(key_tx_json, json.dumps({'coin_name': COIN_NAME, 'txid': tx['transactionHash'], 'payment_id': tx['paymentId'], 'height': tx['blockIndex'],
                                                                                             'amount': tx['amount'], 'fee': tx['fee'], 'decimal': wallet.get_decimal(COIN_NAME)}), ex=86400)
-                                            elif redis_conn and redis_conn.llen(key_tx_new) == 0:
-                                                redis_conn.lpush(key_tx_new, tx['transactionHash'])
-                                                redis_conn.set(key_tx_json, json.dumps({'coin_name': COIN_NAME, 'txid': tx['transactionHash'], 'payment_id': tx['paymentId'], 'height': tx['blockIndex'],
-                                                                                        'amount': tx['amount'], 'fee': tx['fee'], 'decimal': wallet.get_decimal(COIN_NAME)}), ex=86400)
-                                        except Exception as e:
-                                            await logchanbot(traceback.format_exc())
-            if list_balance_user and len(list_balance_user) > 0:
-                await openConnection()
-                async with pool.acquire() as conn:
-                    async with conn.cursor() as cur:
-                        sql = """ SELECT coin_name, payment_id, SUM(amount) AS txIn FROM cnoff_get_transfers 
-                                  WHERE coin_name = %s AND amount > 0 
-                                  GROUP BY payment_id """
-                        await cur.execute(sql, (COIN_NAME,))
-                        result = await cur.fetchall()
-                        timestamp = int(time.time())
-                        list_update = []
-                        if result and len(result) > 0:
-                            for eachTxIn in result:
-                                list_update.append((eachTxIn['txIn'], timestamp, eachTxIn['payment_id']))
-                            await cur.executemany(""" UPDATE cnoff_user_paymentid SET `actual_balance` = %s, `lastUpdate` = %s 
-                                                      WHERE paymentid = %s """, list_update)
-                            await conn.commit()
-        except Exception as e:
-            await logchanbot(traceback.format_exc())
+                                            except Exception as e:
+                                                await logchanbot(traceback.format_exc())
+                if list_balance_user and len(list_balance_user) > 0:
+                    await openConnection()
+                    async with pool.acquire() as conn:
+                        async with conn.cursor() as cur:
+                            sql = """ SELECT coin_name, payment_id, SUM(amount) AS txIn FROM cnoff_get_transfers 
+                                      WHERE coin_name = %s AND amount > 0 
+                                      GROUP BY payment_id """
+                            await cur.execute(sql, (COIN_NAME,))
+                            result = await cur.fetchall()
+                            timestamp = int(time.time())
+                            list_update = []
+                            if result and len(result) > 0:
+                                for eachTxIn in result:
+                                    list_update.append((eachTxIn['txIn'], timestamp, eachTxIn['payment_id']))
+                                await cur.executemany(""" UPDATE cnoff_user_paymentid SET `actual_balance` = %s, `lastUpdate` = %s 
+                                                          WHERE paymentid = %s """, list_update)
+                                await conn.commit()
+            except Exception as e:
+                await logchanbot(traceback.format_exc())
     elif coin_family == "XMR":
         #print('SQL: Updating get_transfers '+COIN_NAME)
         get_transfers = await wallet.get_transfers_xmr(COIN_NAME)
@@ -513,7 +609,8 @@ async def sql_update_balances(coin: str = None):
                         list_balance_user = {}
                         for tx in get_transfers['in']:
                             # add to balance only confirmation depth meet
-                            if height >= int(tx['height']) + wallet.get_confirm_depth(COIN_NAME) and tx['amount'] >= wallet.get_min_deposit_amount(COIN_NAME):
+                            if height >= int(tx['height']) + wallet.get_confirm_depth(COIN_NAME) and tx['amount'] >= wallet.get_min_deposit_amount(COIN_NAME) \
+                            and 'payment_id' in tx:
                                 if ('payment_id' in tx) and (tx['payment_id'] in list_balance_user):
                                     list_balance_user[tx['payment_id']] += tx['amount']
                                 elif ('payment_id' in tx) and (tx['payment_id'] not in list_balance_user):
@@ -535,7 +632,8 @@ async def sql_update_balances(coin: str = None):
                                         await conn.commit()
                                 except Exception as e:
                                     await logchanbot(traceback.format_exc())
-                            elif height < int(tx['height']) + wallet.get_confirm_depth(COIN_NAME) and tx['amount'] >= wallet.get_min_deposit_amount(COIN_NAME):
+                            elif height < int(tx['height']) + wallet.get_confirm_depth(COIN_NAME) and tx['amount'] >= wallet.get_min_deposit_amount(COIN_NAME) \
+                            and 'payment_id' in tx:
                                 # add notify to redis and alert deposit. Can be clean later?
                                 if config.notify_new_tx.enable_new_no_confirm == 1:
                                     key_tx_new = 'TIPBOT:NEWTX:NOCONFIRM'
@@ -1123,13 +1221,16 @@ async def sql_withdraw(user_from: str, amount: int, coin: str, user_server: str 
         if coin_family in ["TRTL", "BCN"]:
             # send from wallet and store in cnoff_external_tx
             main_address = getattr(getattr(config,"daemon"+COIN_NAME),"MainAddress")
-            if COIN_NAME in WALLET_API_COIN:
-                tx_hash = await walletapi.walletapi_send_transaction(main_address,
-                                                                     user_from_wallet['user_wallet_address'], amount, COIN_NAME)
+            try:
+                if COIN_NAME in WALLET_API_COIN:
+                    tx_hash = await walletapi.walletapi_send_transaction(main_address,
+                                                                         user_from_wallet['user_wallet_address'], amount, COIN_NAME)
 
-            else:
-                tx_hash = await wallet.send_transaction(main_address,
-                                                        user_from_wallet['user_wallet_address'], amount, COIN_NAME)
+                else:
+                    tx_hash = await wallet.send_transaction(main_address,
+                                                            user_from_wallet['user_wallet_address'], amount, COIN_NAME)
+            except Exception as e:
+                await logchanbot(traceback.format_exc())
         elif coin_family == "XMR":
             tx_hash = await wallet.send_transaction(user_from_wallet['balance_wallet_address'],
                                                     user_from_wallet['user_wallet_address'], amount, COIN_NAME, user_from_wallet['account_index'])

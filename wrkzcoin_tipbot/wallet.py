@@ -1,3 +1,6 @@
+from discord_webhook import DiscordWebhook
+import discord
+
 from typing import List, Dict
 import json
 from uuid import uuid4
@@ -536,24 +539,18 @@ def get_coinlogo_path(coin: str = None):
 
 def num_format_coin(amount, coin: str):
     COIN_NAME = coin.upper() 
-    if COIN_NAME == "DOGE":
-        coin_decimal = 1
-    elif COIN_NAME == "LTC":
-        coin_decimal = 1
-    elif COIN_NAME == "BTC":
-        coin_decimal = 1
-    elif COIN_NAME == "DASH":
-        coin_decimal = 1
-    elif COIN_NAME == "BCH":
+    if COIN_NAME in ["DOGE", "LTC", "BTC", "DASH", "BCH"]:
         coin_decimal = 1
     else:
         coin_decimal = get_decimal(COIN_NAME)
     amount_str = 'Invalid.'
     if COIN_NAME in ["DOGE", "LTC", "BTC", "DASH", "BCH"]:
         # return '{:,.6f}'.format(amount)
-        return '{:,}'.format(float('%.12g' % (amount)))
+        return '{:,}'.format(float('%.8g' % (amount)))
+    elif COIN_NAME in ["NANO", "BAN"]:
+        return '{:,.8f}'.format(amount / coin_decimal)
     else:
-        return '{:,}'.format(float('%.12g' % (amount / coin_decimal)))
+        return '{:,}'.format(float('%.8g' % (amount / coin_decimal)))
     return amount_str
 
 

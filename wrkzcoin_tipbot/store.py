@@ -326,7 +326,7 @@ async def sql_mv_nano_multiple(user_from: str, user_tos, amount_each: float, coi
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","NANO")
     if coin_family != "NANO":
         return False
-    if tiptype.upper() not in ["TIPS", "TIPALL", "FREETIP", "FREETIPS"]:
+    if tiptype.upper() not in ["TIPS", "TIPALL", "FREETIP", "FREETIPS", "GUILDTIP"]:
         return False
     values_str = []
     currentTs = int(time.time())
@@ -1100,7 +1100,7 @@ async def sql_send_tipall(user_from: str, user_tos, amount: int, amount_div: int
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
 
-    if tiptype.upper() not in ["TIPS", "TIPALL", "FREETIP", "FREETIPS"]:
+    if tiptype.upper() not in ["TIPS", "TIPALL", "FREETIP", "FREETIPS", "GUILDTIP"]:
         return None
 
     user_from_wallet = None
@@ -2342,7 +2342,7 @@ async def sql_add_logs_tx(list_tx):
 
 async def sql_add_failed_tx(coin: str, user_id: str, user_author: str, amount: int, tx_type: str):
     global pool
-    if tx_type.upper() not in ['TIP','TIPS','TIPALL','DONATE','WITHDRAW','SEND', 'REACTTIP', 'FREETIP']:
+    if tx_type.upper() not in ['TIP','TIPS','TIPALL','DONATE','WITHDRAW','SEND', 'REACTTIP', 'FREETIP', 'GUILDTIP']:
         return None
     try:
         await openConnection()
@@ -2460,7 +2460,7 @@ async def sql_mv_doge_multiple(user_from: str, user_tos, amount_each: float, coi
     COIN_NAME = coin.upper()
     if COIN_NAME not in ENABLE_COIN_DOGE:
         return False
-    if tiptype.upper() not in ["TIPS", "TIPALL", "FREETIP", "FREETIPS"]:
+    if tiptype.upper() not in ["TIPS", "TIPALL", "FREETIP", "FREETIPS", "GUILDTIP"]:
         return False
     values_str = []
     currentTs = int(time.time())
@@ -2637,7 +2637,7 @@ async def sql_mv_xmr_multiple(user_from: str, user_tos, amount_each: float, coin
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     if coin_family != "XMR":
         return False
-    if tiptype.upper() not in ["TIPS", "TIPALL", "FREETIP", "FREETIPS"]:
+    if tiptype.upper() not in ["TIPS", "TIPALL", "FREETIP", "FREETIPS", "GUILDTIP"]:
         return False
     values_str = []
     currentTs = int(time.time())
@@ -3457,6 +3457,84 @@ async def cg_plot_price(ticker, last_n_days: int, out_file: str):
                     plt.savefig(out_file, transparent=True)
                     plt.close()
                     return True
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return None
+
+
+
+async def sql_help_doc_add(section: str, what: str, detail: str, added_byname: str, added_byuid: str, example: str=None):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM discord_help_docs WHERE `section` = %s AND `what`=%s LIMIT 1 """
+                await cur.execute(sql, (section.upper(), what.upper(),))
+                result = await cur.fetchone()
+                if result is None:
+                    sql = """ INSERT INTO discord_help_docs (`section`, `what`, `detail`, `example`, 
+                              `time_added`, `added_by`, `added_name`) 
+                              VALUES (%s, %s, %s, %s, %s, %s, %s) """
+                    await cur.execute(sql, (section.upper(), what.upper(), detail, example, int(time.time()), added_byuid, added_byname,))
+                    await conn.commit()
+                    return True
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return None
+
+
+async def sql_help_doc_del(section: str, what: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM discord_help_docs WHERE `section` = %s AND `what`=%s LIMIT 1 """
+                await cur.execute(sql, (section.upper(), what.upper(),))
+                result = await cur.fetchone()
+                if result:
+                    sql = """ DELETE FROM discord_help_docs
+                              WHERE `section`=%s AND `what`=%s """
+                    await cur.execute(sql, (section.upper(), what.upper(),))
+                    await conn.commit()
+                    return True
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return None
+
+
+async def sql_help_doc_get(section: str, what: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM discord_help_docs WHERE `section` = %s AND `what`=%s LIMIT 1 """
+                await cur.execute(sql, (section.upper(), what.upper(),))
+                result = await cur.fetchone()
+                if result: return result
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return None
+
+
+async def sql_help_doc_list(section: str='HELP', getall:bool=False):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                if getall == False:
+                    sql = """ SELECT * FROM discord_help_docs WHERE `section` = %s """
+                    await cur.execute(sql, (section.upper(),))
+                    result = await cur.fetchall()
+                    if result: return result
+                else:
+                    sql = """ SELECT * FROM discord_help_docs """
+                    await cur.execute(sql,)
+                    result = await cur.fetchall()
+                    if result: return result
     except Exception as e:
         await logchanbot(traceback.format_exc())
     return None

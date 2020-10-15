@@ -14,6 +14,14 @@ from config import config
 import sys, traceback
 import os.path
 
+# For plot
+import numpy as np
+import matplotlib as mpl
+
+import matplotlib.pyplot as plt
+import matplotlib.dates as dates
+import pandas as pd
+
 # Encrypt
 from cryptography.fernet import Fernet
 
@@ -3370,7 +3378,7 @@ async def market_value_cmc_usd(ticker) -> float:
                 sql = """ SELECT * FROM `cmc_v2` WHERE `symbol`=%s ORDER BY `id` DESC LIMIT 1 """
                 await cur.execute(sql, (ticker.upper()))
                 result = await cur.fetchone()
-                if result: return float(result['priceUSD'])
+                if result and 'priceUSD' in result: return float(result['priceUSD'])
     except Exception as e:
         await logchanbot(traceback.format_exc())
     return None
@@ -3387,7 +3395,68 @@ async def market_value_cg_usd(ticker) -> float:
                 sql = """ SELECT * FROM `coingecko_v2` WHERE `symbol`=%s ORDER BY `id` DESC LIMIT 1 """
                 await cur.execute(sql, (ticker.lower()))
                 result = await cur.fetchone()
-                if result: return float(result['marketprice_USD'])
+                if result and 'marketprice_USD' in result: return float(result['marketprice_USD'])
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return None
+
+
+# plot cg to image, return path
+async def cg_plot_price(ticker, last_n_days: int, out_file: str):
+    mpl.use('Agg')
+    global pool_cmc
+    SMALL_SIZE = 6
+    MEDIUM_SIZE = 8
+    BIGGER_SIZE = 10
+    try:
+        await openConnection_cmc()
+        async with pool_cmc.acquire() as conn:
+            async with conn.cursor() as cur:
+                # Read a single record from cmc_v2
+                sql = """ SELECT STR_TO_DATE(LEFT(s.last_updated, 10), '%Y-%m-%d') AS last_updated, 
+                                 AVG(s.marketprice_USD) AS marketprice_USD,
+                                 AVG(s.totalVolume_USD) AS totalVolume_USD
+                          FROM `coingecko_v2` AS s WHERE symbol='"""+ticker.lower()+"""' 
+                          AND STR_TO_DATE(LEFT(s.last_updated, 10), '%Y-%m-%d') >= DATE_SUB(NOW(), INTERVAL """+str(last_n_days)+""" DAY)
+                          GROUP BY STR_TO_DATE(LEFT(s.last_updated, 10), '%Y-%m-%d') """
+                await cur.execute(sql,)
+                result = await cur.fetchall()
+                if result:
+                    to_plot1 = pd.DataFrame(result, columns=['marketprice_USD', 'last_updated']).set_index('last_updated')
+                    to_plot2 = pd.DataFrame(result, columns=['totalVolume_USD', 'last_updated']).set_index('last_updated')
+
+                    plt.style.use('grayscale')
+                    plt.rc('axes', labelcolor='Green')
+                    plt.rc('font', size=SMALL_SIZE)
+                    plt.rc('axes', labelsize=SMALL_SIZE)    # fontsize of the x and y labels
+                    plt.rc('xtick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+                    plt.rc('ytick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+
+                    plt.subplot(2, 1, 1)
+                    plt.gcf().subplots_adjust(left=0.15)
+                    plt.ticklabel_format(useOffset=False, style='plain', axis='y')
+                    plt.autoscale()
+                    plt.grid(True, linestyle='-.')
+                    plt.tick_params(labelcolor='r')
+                    plt.xticks([])
+                    plt.plot(to_plot1, color='Green')
+                    plt.title(f'Market Price {ticker.upper()} - Last {str(last_n_days)} days', color='Green')
+                    plt.ylabel('Price (USD)', color='Green')
+
+                    plt.subplot(2, 1, 2)
+                    plt.gcf().subplots_adjust(left=0.15)
+                    plt.ticklabel_format(useOffset=False, style='plain', axis='y')
+                    plt.autoscale()
+                    plt.grid(True, linestyle='-.')
+                    plt.tick_params(labelcolor='r')
+                    plt.xticks(rotation=20, color='Green')
+                    plt.plot(to_plot2, color='Green')
+                    plt.ylabel('Volume (USD)', color='Green')
+
+                    # Save to outfile
+                    plt.savefig(out_file, transparent=True)
+                    plt.close()
+                    return True
     except Exception as e:
         await logchanbot(traceback.format_exc())
     return None

@@ -4877,6 +4877,14 @@ async def cg(ctx, ticker: str):
         embed.add_field(name="Change (14d)", value='{:,.2f}%{}'.format(get_cg['price_change14d_percent'], EMOJI_CHART_DOWN if float(get_cg['price_change14d_percent']) < 0 else EMOJI_CHART_UP), inline=True)
         embed.add_field(name="Change (30d)", value='{:,.2f}%{}'.format(get_cg['price_change30d_percent'], EMOJI_CHART_DOWN if float(get_cg['price_change30d_percent']) < 0 else EMOJI_CHART_UP), inline=True)
         embed.add_field(name="OTHER LINKS", value="{} / {} / {}".format("[Invite TipBot](http://invite.discord.bot.tips)", "[Support Server](https://discord.com/invite/GpHzURM)", "[TipBot Github](https://github.com/wrkzcoin/TipBot)"), inline=False)
+        
+        # Add image
+        name_png = 'tmp_' + str(uuid.uuid4())
+        random_file = config.cg_cmc_setting.static_file + name_png + '.png'
+        url_png = config.cg_cmc_setting.url_file + name_png + '.png'
+        graph_price = await store.cg_plot_price(ticker, 14, random_file)
+        if graph_price:
+            embed.set_image(url = url_png)
         try:
             embed.set_footer(text=f"Fetched from CoinGecko requested by {ctx.message.author.name}#{ctx.message.author.discriminator}")
         except Exception as e:

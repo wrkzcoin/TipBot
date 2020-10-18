@@ -12510,7 +12510,8 @@ async def setting(ctx, *args):
                 return
         elif args[0].upper() == "PREFIX":
             if args[1] not in [".", "?", "*", "!", "$", "~"]:
-                await ctx.send('Invalid prefix')
+                await ctx.send(f'{ctx.author.mention} Invalid prefix **{args[1]}**')
+                await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} wanted to changed prefix in {ctx.guild.name} / {ctx.guild.id} to `{args[1].lower()}`')
                 return
             else:
                 if server_prefix == args[1]:
@@ -12522,8 +12523,9 @@ async def setting(ctx, *args):
                     await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} changed prefix in {ctx.guild.name} / {ctx.guild.id} to `{args[1].lower()}`')
                     return
         elif args[0].upper() == "DEFAULT_COIN" or args[0].upper() == "DEFAULTCOIN" or args[0].upper() == "COIN":
-            if args[1].upper() not in (ENABLE_COIN + ENABLE_XMR):
+            if args[1].upper() not in (ENABLE_COIN + ENABLE_XMR + ENABLE_COIN_DOGE + ENABLE_COIN_NANO):
                 await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**!')
+                await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} changed default_coin in {ctx.guild.name} / {ctx.guild.id} to `{args[1].upper()}`')
                 return
             else:
                 if server_coin.upper() == args[1].upper():
@@ -12560,31 +12562,36 @@ async def setting(ctx, *args):
         else:
             await ctx.send(f'{ctx.author.mention} Invalid command input and parameter.')
             return
-    else:
+    elif len(args) >= 3:
+        # If argument is more than 3, such as setting tiponly X Y ..
         if args[0].upper() == "TIPONLY":
-            # if nothing given after TIPONLY
-            if len(args) == 1:
-                await ctx.send(f'{ctx.author.mention} Please tell what coins to be allowed here. Separated by space.')
-                return
             if args[1].upper() == "ALLCOIN" or args[1].upper() == "ALL" or args[1].upper() == "TIPALL" or args[1].upper() == "ANY" or args[1].upper() == "*":
                 changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'tiponly', "ALLCOIN")
                 await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} changed tiponly in {ctx.guild.name} / {ctx.guild.id} to `ALLCOIN`')
+                await ctx.message.add_reaction(EMOJI_OK_HAND)
                 await ctx.send(f'{ctx.author.mention} all coins will be allowed in here.')
                 return
             else:
-                coins = list(args)
-                del coins[0]  # del TIPONLY
-                contained = [x.upper() for x in coins if x.upper() in (ENABLE_COIN+ENABLE_COIN_DOGE)]
-                if len(contained) == 0:
-                    await ctx.send(f'{ctx.author.mention} No known coin. TIPONLY is remained unchanged.')
+                try:
+                    contained = [x.upper() for x in args if x.upper() in (ENABLE_COIN+ENABLE_XMR+ENABLE_COIN_DOGE+ENABLE_COIN_NANO)]
+                    if contained and len(contained) >= 2:
+                        tiponly_value = ','.join(contained)
+                        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} changed tiponly in {ctx.guild.name} / {ctx.guild.id} to `{tiponly_value}`')
+                        await ctx.send(f'{ctx.author.mention} TIPONLY set to: **{tiponly_value}**.')
+                        changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'tiponly', tiponly_value.upper())
+                        await ctx.message.add_reaction(EMOJI_OK_HAND)
+                    else:
+                        # Delete tiponly
+                        del args[0]
+                        list_coin = ', '.join(args)
+                        await ctx.message.add_reaction(EMOJI_INFORMATION)
+                        await ctx.send(f'{ctx.author.mention} No known coin in **{list_coin}**. TIPONLY is remained unchanged.')
                     return
-                else:
-                    tiponly_value = ','.join(contained)
-                    await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} changed tiponly in {ctx.guild.name} / {ctx.guild.id} to `{tiponly_value}`')
-                    await ctx.send(f'{ctx.author.mention} TIPONLY set to: {tiponly_value}.')
-                    changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'tiponly', tiponly_value.upper())
-                    return
-        await ctx.send(f'{ctx.author.mention} In valid command input and parameter.')
+                except Exception as e:
+                    await logchanbot(traceback.format_exc())
+        else:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{ctx.author.mention} In valid setting command input and parameter(s).')
         return
 
 

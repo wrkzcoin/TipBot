@@ -443,7 +443,6 @@ async def get_prefix(bot, message):
     extras = [pre_cmd, 'tb!', 'tipbot!']
     return when_mentioned_or(*extras)(bot, message)
 
-
 bot = AutoShardedBot(command_prefix = get_prefix, case_insensitive=True, owner_id = OWNER_ID_TIPBOT, pm_help = True)
 bot.remove_command('help')
 
@@ -974,20 +973,21 @@ async def draw(ctx, member: discord.Member = None):
                 # saved replaced old PNG image
                 cropped.save(png_out)
 
-            partial_img = functools.partial(async_sketch_image, img, random_img_name_svg, random_img_name_png)
-            lines = await bot.loop.run_in_executor(None, partial_img)
-            try:
-                e = discord.Embed(timestamp=datetime.utcnow())
-                e.set_author(name=ctx.message.author.name, icon_url=ctx.message.author.avatar_url)
-                e.set_image(url=draw_link)
-                e.set_footer(text=f"Draw requested by {ctx.message.author.name}#{ctx.message.author.discriminator}")
-                msg = await ctx.send(embed=e)
-                await msg.add_reaction(EMOJI_OK_BOX)
-                await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
-                            str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'DRAW', ctx.message.content, 'DISCORD')
-            except Exception as e:
-                await logchanbot(traceback.format_exc())
-            await ctx.message.add_reaction(EMOJI_OK_HAND)
+            async with ctx.typing():
+                partial_img = functools.partial(async_sketch_image, img, random_img_name_svg, random_img_name_png)
+                lines = await bot.loop.run_in_executor(None, partial_img)
+                try:
+                    e = discord.Embed(timestamp=datetime.utcnow())
+                    e.set_author(name=ctx.message.author.name, icon_url=ctx.message.author.avatar_url)
+                    e.set_image(url=draw_link)
+                    e.set_footer(text=f"Draw requested by {ctx.message.author.name}#{ctx.message.author.discriminator}")
+                    msg = await ctx.send(embed=e)
+                    await msg.add_reaction(EMOJI_OK_BOX)
+                    await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
+                                str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'DRAW', ctx.message.content, 'DISCORD')
+                except Exception as e:
+                    await logchanbot(traceback.format_exc())
+                await ctx.message.add_reaction(EMOJI_OK_HAND)
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
     except Exception as e:
@@ -1072,32 +1072,33 @@ async def sketchme(ctx, member: discord.Member = None):
             # nparr = np.fromstring(res_data, np.uint8)
             # img_np = cv2.imdecode(nparr, cv2.IMREAD_COLOR) # cv2.IMREAD_COLOR in OpenCV 3.1
 
-            partial_contour = functools.partial(create_line_drawing_image, img)
-            img_contour = await bot.loop.run_in_executor(None, partial_contour)
-            if img_contour is None:
-                await ctx.message.add_reaction(EMOJI_ERROR)
-                return
-            try:
-                # stuff = done.pop().result()
-                # img_contour = done.pop().result()
-                # full path of image .png
-                cv2.imwrite(random_img_name_png, img_contour)
-
+            async with ctx.typing():
+                partial_contour = functools.partial(create_line_drawing_image, img)
+                img_contour = await bot.loop.run_in_executor(None, partial_contour)
+                if img_contour is None:
+                    await ctx.message.add_reaction(EMOJI_ERROR)
+                    return
                 try:
-                    e = discord.Embed(timestamp=datetime.utcnow())
-                    e.set_author(name=ctx.message.author.name, icon_url=ctx.message.author.avatar_url)
-                    e.set_image(url=draw_link)
-                    e.set_footer(text=f"Sketchme requested by {ctx.message.author.name}#{ctx.message.author.discriminator}")
-                    msg = await ctx.send(embed=e)
-                    await msg.add_reaction(EMOJI_OK_BOX)
-                    await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
-                                str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SKETCHME', ctx.message.content, 'DISCORD')
-                except Exception as e:
-                    await logchanbot(traceback.format_exc())
-                await ctx.message.add_reaction(EMOJI_OK_HAND)
-            except asyncio.TimeoutError:
-                await ctx.message.add_reaction(EMOJI_ERROR)
-                return
+                    # stuff = done.pop().result()
+                    # img_contour = done.pop().result()
+                    # full path of image .png
+                    cv2.imwrite(random_img_name_png, img_contour)
+
+                    try:
+                        e = discord.Embed(timestamp=datetime.utcnow())
+                        e.set_author(name=ctx.message.author.name, icon_url=ctx.message.author.avatar_url)
+                        e.set_image(url=draw_link)
+                        e.set_footer(text=f"Sketchme requested by {ctx.message.author.name}#{ctx.message.author.discriminator}")
+                        msg = await ctx.send(embed=e)
+                        await msg.add_reaction(EMOJI_OK_BOX)
+                        await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
+                                    str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SKETCHME', ctx.message.content, 'DISCORD')
+                    except Exception as e:
+                        await logchanbot(traceback.format_exc())
+                    await ctx.message.add_reaction(EMOJI_OK_HAND)
+                except asyncio.TimeoutError:
+                    await ctx.message.add_reaction(EMOJI_ERROR)
+                    return
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
     except Exception as e:
@@ -1119,14 +1120,15 @@ async def spank(ctx, member: discord.Member = None):
 
     try:
         random_gif_name = config.fun.fun_img_path + str(uuid.uuid4()) + ".gif"
-        fun_image = await tb_action(user1, user2, random_gif_name, 'SPANK', config.tbfun_image.spank_gif)
-        if fun_image:
-            await ctx.send(file=discord.File(random_gif_name))
-            os.remove(random_gif_name)
-            await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
-            str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SPANK', ctx.message.content, 'DISCORD')
-        else:
-            await ctx.message.add_reaction(EMOJI_ERROR)
+        async with ctx.typing():
+            fun_image = await tb_action(user1, user2, random_gif_name, 'SPANK', config.tbfun_image.spank_gif)
+            if fun_image:
+                await ctx.send(file=discord.File(random_gif_name))
+                os.remove(random_gif_name)
+                await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
+                str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SPANK', ctx.message.content, 'DISCORD')
+            else:
+                await ctx.message.add_reaction(EMOJI_ERROR)
     except Exception as e:
         await logchanbot(traceback.format_exc())
     return
@@ -1146,14 +1148,15 @@ async def punch(ctx, member: discord.Member = None):
 
     try:
         random_gif_name = config.fun.fun_img_path + str(uuid.uuid4()) + ".gif"
-        fun_image = await tb_action(user1, user2, random_gif_name, 'PUNCH', config.tbfun_image.punch_gif)
-        if fun_image:
-            await ctx.send(file=discord.File(random_gif_name))
-            os.remove(random_gif_name)
-            await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
-            str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'PUNCH', ctx.message.content, 'DISCORD')
-        else:
-            await ctx.message.add_reaction(EMOJI_ERROR)
+        async with ctx.typing():
+            fun_image = await tb_action(user1, user2, random_gif_name, 'PUNCH', config.tbfun_image.punch_gif)
+            if fun_image:
+                await ctx.send(file=discord.File(random_gif_name))
+                os.remove(random_gif_name)
+                await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
+                str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'PUNCH', ctx.message.content, 'DISCORD')
+            else:
+                await ctx.message.add_reaction(EMOJI_ERROR)
     except Exception as e:
         await logchanbot(traceback.format_exc())
     return
@@ -1173,14 +1176,15 @@ async def slap(ctx, member: discord.Member = None):
 
     try:
         random_gif_name = config.fun.fun_img_path + str(uuid.uuid4()) + ".gif"
-        fun_image = await tb_action(user1, user2, random_gif_name, 'SLAP', config.tbfun_image.slap_gif)
-        if fun_image:
-            await ctx.send(file=discord.File(random_gif_name))
-            os.remove(random_gif_name)
-            await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
-            str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SLAP', ctx.message.content, 'DISCORD')
-        else:
-            await ctx.message.add_reaction(EMOJI_ERROR)
+        async with ctx.typing():
+            fun_image = await tb_action(user1, user2, random_gif_name, 'SLAP', config.tbfun_image.slap_gif)
+            if fun_image:
+                await ctx.send(file=discord.File(random_gif_name))
+                os.remove(random_gif_name)
+                await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
+                str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SLAP', ctx.message.content, 'DISCORD')
+            else:
+                await ctx.message.add_reaction(EMOJI_ERROR)
     except Exception as e:
         await logchanbot(traceback.format_exc())
     return
@@ -1201,13 +1205,14 @@ async def praise(ctx, member: discord.Member = None):
     try:
         random_gif_name = config.fun.fun_img_path + str(uuid.uuid4()) + ".gif"
         fun_image = await tb_action(user1, user2, random_gif_name, 'PRAISE', config.tbfun_image.praise_gif)
-        if fun_image:
-            await ctx.send(file=discord.File(random_gif_name))
-            os.remove(random_gif_name)
-            await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
-            str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'PRAISE', ctx.message.content, 'DISCORD')
-        else:
-            await ctx.message.add_reaction(EMOJI_ERROR)
+        async with ctx.typing():
+            if fun_image:
+                await ctx.send(file=discord.File(random_gif_name))
+                os.remove(random_gif_name)
+                await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
+                str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'PRAISE', ctx.message.content, 'DISCORD')
+            else:
+                await ctx.message.add_reaction(EMOJI_ERROR)
     except Exception as e:
         await logchanbot(traceback.format_exc())
     return
@@ -1227,14 +1232,15 @@ async def shoot(ctx, member: discord.Member = None):
 
     try:
         random_gif_name = config.fun.fun_img_path + str(uuid.uuid4()) + ".gif"
-        fun_image = await tb_action(user1, user2, random_gif_name, 'SHOOT', config.tbfun_image.shoot_gif)
-        if fun_image:
-            await ctx.send(file=discord.File(random_gif_name))
-            os.remove(random_gif_name)
-            await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
-            str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SHOOT', ctx.message.content, 'DISCORD')
-        else:
-            await ctx.message.add_reaction(EMOJI_ERROR)
+        async with ctx.typing():
+            fun_image = await tb_action(user1, user2, random_gif_name, 'SHOOT', config.tbfun_image.shoot_gif)
+            if fun_image:
+                await ctx.send(file=discord.File(random_gif_name))
+                os.remove(random_gif_name)
+                await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
+                str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SHOOT', ctx.message.content, 'DISCORD')
+            else:
+                await ctx.message.add_reaction(EMOJI_ERROR)
     except Exception as e:
         await logchanbot(traceback.format_exc())
     return
@@ -1254,14 +1260,15 @@ async def kick(ctx, member: discord.Member = None):
 
     try:
         random_gif_name = config.fun.fun_img_path + str(uuid.uuid4()) + ".gif"
-        fun_image = await tb_action(user1, user2, random_gif_name, 'KICK', config.tbfun_image.kick_gif)
-        if fun_image:
-            await ctx.send(file=discord.File(random_gif_name))
-            os.remove(random_gif_name)
-            await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
-            str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'KICK', ctx.message.content, 'DISCORD')
-        else:
-            await ctx.message.add_reaction(EMOJI_ERROR)
+        async with ctx.typing():
+            fun_image = await tb_action(user1, user2, random_gif_name, 'KICK', config.tbfun_image.kick_gif)
+            if fun_image:
+                await ctx.send(file=discord.File(random_gif_name))
+                os.remove(random_gif_name)
+                await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
+                str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'KICK', ctx.message.content, 'DISCORD')
+            else:
+                await ctx.message.add_reaction(EMOJI_ERROR)
     except Exception as e:
         await logchanbot(traceback.format_exc())
     return
@@ -1281,14 +1288,15 @@ async def fistbump(ctx, member: discord.Member = None):
 
     try:
         random_gif_name = config.fun.fun_img_path + str(uuid.uuid4()) + ".gif"
-        fun_image = await tb_action(user1, user2, random_gif_name, 'FISTBUMP', config.tbfun_image.fistbump_gif)
-        if fun_image:
-            await ctx.send(file=discord.File(random_gif_name))
-            os.remove(random_gif_name)
-            await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
-            str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'FISTBUMP', ctx.message.content, 'DISCORD')
-        else:
-            await ctx.message.add_reaction(EMOJI_ERROR)
+        async with ctx.typing():
+            fun_image = await tb_action(user1, user2, random_gif_name, 'FISTBUMP', config.tbfun_image.fistbump_gif)
+            if fun_image:
+                await ctx.send(file=discord.File(random_gif_name))
+                os.remove(random_gif_name)
+                await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
+                str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'FISTBUMP', ctx.message.content, 'DISCORD')
+            else:
+                await ctx.message.add_reaction(EMOJI_ERROR)
     except Exception as e:
         await logchanbot(traceback.format_exc())
     return
@@ -1304,15 +1312,64 @@ async def dance(ctx):
 
     try:
         random_gif_name = config.fun.fun_img_path + str(uuid.uuid4()) + ".gif"
-        fun_image = await tb_action(user1, user2, random_gif_name, 'DANCE', config.tbfun_image.single_dance_gif)
-        if fun_image:
-            await ctx.send(file=discord.File(random_gif_name))
-            os.remove(random_gif_name)
-            await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
-            str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'DANCE', ctx.message.content, 'DISCORD')
-        else:
-            await ctx.message.add_reaction(EMOJI_ERROR)
+        async with ctx.typing():
+            fun_image = await tb_action(user1, user2, random_gif_name, 'DANCE', config.tbfun_image.single_dance_gif)
+            if fun_image:
+                await ctx.send(file=discord.File(random_gif_name))
+                os.remove(random_gif_name)
+                await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
+                str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'DANCE', ctx.message.content, 'DISCORD')
+            else:
+                await ctx.message.add_reaction(EMOJI_ERROR)
     except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return
+
+
+@tb.command(name='getemoji', aliases=['get_emoji', 'emoji'])
+async def getemoji(ctx, *, emoji: str):
+    emoji_url = None
+    timeout = 12
+    try:
+        async with ctx.typing():
+            custom_emojis = re.findall(r'<:\w*:\d*>', emoji)
+            if custom_emojis and len(custom_emojis) >= 1:
+                split_id = custom_emojis[0].split(":")[2]
+                link = 'https://cdn.discordapp.com/emojis/' + str(split_id.replace(">", "")) + '.png'
+                try:
+                    async with aiohttp.ClientSession() as session:
+                        async with session.get(link, timeout=timeout) as response:
+                            if response.status == 200 or response.status == 201:
+                                emoji_url = link
+                except Exception as e:
+                    pass
+            if emoji_url is None:
+                custom_emojis = re.findall(r'<a:\w*:\d*>', emoji)
+                if custom_emojis and len(custom_emojis) >= 1:
+                    split_id = custom_emojis[0].split(":")[2]
+                    link = 'https://cdn.discordapp.com/emojis/' + str(split_id.replace(">", "")) + '.gif'
+                    try:
+                        async with aiohttp.ClientSession() as session:
+                            async with session.get(link, timeout=timeout) as response:
+                                if response.status == 200 or response.status == 201:
+                                    emoji_url = link
+                    except Exception as e:
+                        pass
+            if emoji_url is None:
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                msg = await ctx.send(f'{ctx.author.mention} I could not get that emoji image or it is a unicode text and not supported.')
+                await msg.add_reaction(EMOJI_OK_BOX)
+                return
+            else:
+                try:
+                    msg = await ctx.send(f'{ctx.author.mention} {emoji_url}')
+                    await msg.add_reaction(EMOJI_OK_BOX)
+                    await ctx.message.add_reaction(EMOJI_OK_HAND)
+                except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+                    await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
+                return
+    except Exception as e:
+        await ctx.send(f'{ctx.author.mention} Internal error for getting emoji.')
         await logchanbot(traceback.format_exc())
     return
 
@@ -1438,6 +1495,113 @@ async def str2hex(ctx, str2hex: str):
         await ctx.message.add_reaction(EMOJI_OK_HAND)
         msg = await ctx.send(f'{ctx.author.mention} ascii of **{str2hex}** in hex is:```{hex_value}```')
         await msg.add_reaction(EMOJI_OK_BOX)
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return
+
+
+@tool.command(name='find', aliases=['search'])
+async def find(ctx, *, searched_text: str):
+    # bot check in the first place
+    if ctx.message.author.bot == True:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is not allowed using this.')
+        return
+
+    # disable game for TRTL discord
+    if ctx.guild and ctx.guild.id == TRTL_DISCORD:
+        await ctx.message.add_reaction(EMOJI_LOCKED)
+        return
+
+    if not re.match('^[a-zA-Z0-9-_ ]+$', searched_text):
+        await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} Invalid help searching text **{searched_text}**.')
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        return
+
+    prefix = await get_guild_prefix(ctx)
+    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+    if ctx.guild and serverinfo and 'enable_find' in serverinfo and serverinfo['enable_find'] == "NO":
+        ## Disable all guild first. Need to manually set
+        # prefix = serverinfo['prefix']
+        # await ctx.message.add_reaction(EMOJI_ERROR)
+        # await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Find is not ENABLE yet in this guild. Please request Guild owner to enable by `{prefix}SETTING FIND`')
+        # await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}find** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+        return
+
+    if len(searched_text) >= 100:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{ctx.author.mention} Searched text is too long.')
+        return
+
+    if not is_ascii(searched_text):
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{ctx.author.mention} **{searched_text}** is not valid text.')
+        return
+    try:
+        # Let's search
+        searching = None
+
+        async with ctx.typing():
+            # search one title first
+            finding = await store.sql_help_doc_get('any', searched_text)
+            if finding is None:
+                searching = await store.sql_help_doc_search(searched_text, 5)
+        if finding or (searching and len(searching) >= 1):
+            if finding:
+                first_result = finding
+            else:
+                first_result = searching[0]
+            embed = discord.Embed(title='TipBot Find', description=f'`{searched_text}`', timestamp=datetime.utcnow())
+            embed.add_field(name="Title", value="```{}```".format(first_result['what'].replace('prefix', prefix)), inline=False)
+            embed.add_field(name="Content", value="```{}```".format(first_result['detail'].replace('prefix', prefix)), inline=False)
+            if 'example' in first_result and first_result['example'] and len(first_result['example'].strip()) > 0:
+                embed.add_field(name="More", value="```{}```".format(first_result['example'].replace('prefix', prefix)), inline=False)
+            embed.add_field(name="OTHER LINKS", value="{} / {} / {}".format("[Invite TipBot](http://invite.discord.bot.tips)", "[Support Server](https://discord.com/invite/GpHzURM)", "[TipBot Github](https://github.com/wrkzcoin/TipBot)"), inline=False)
+            embed.set_footer(text=f"Find requested by {ctx.message.author.name}#{ctx.message.author.discriminator}")
+            msg = await ctx.send(embed=embed)
+            await msg.add_reaction(EMOJI_OK_BOX)
+            await ctx.message.add_reaction(EMOJI_OK_HAND)
+            reaction_numbers = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🆗']
+            if searching and len(searching) > 1:
+                i = 0
+                for item in searching:
+                    await msg.add_reaction(reaction_numbers[i])
+                    i += 1
+                while True:
+                    def check(reaction, user):
+                        return user == ctx.message.author and reaction.message.author == bot.user and reaction.message.id == msg.id and reaction.emoji \
+                        in reaction_numbers
+
+                    done, pending = await asyncio.wait([
+                                        bot.wait_for('reaction_remove', timeout=60, check=check),
+                                        bot.wait_for('reaction_add', timeout=60, check=check)
+                                    ], return_when=asyncio.FIRST_COMPLETED)
+                    try:
+                        # stuff = done.pop().result()
+                        reaction, user = done.pop().result()
+                    except asyncio.TimeoutError:
+                        break
+                        
+                    try:
+                        emoji_n = reaction_numbers.index(str(reaction.emoji))
+                        if emoji_n <= len(searching):
+                            first_result = searching[emoji_n-1]
+                            embed = discord.Embed(title='TipBot Find {}/{}'.format(emoji_n+1, len(searching)), description=f'`{searched_text}`', timestamp=datetime.utcnow())
+                            embed.add_field(name="Title", value="```{}```".format(first_result['what'].replace('prefix', prefix)), inline=False)
+                            embed.add_field(name="Content", value="```{}```".format(first_result['detail'].replace('prefix', prefix)), inline=False)
+                            if 'example' in first_result and first_result['example'] and len(first_result['example'].strip()) > 0:
+                                embed.add_field(name="More", value="```{}```".format(first_result['example'].replace('prefix', prefix)), inline=False)
+                            embed.add_field(name="OTHER LINKS", value="{} / {} / {}".format("[Invite TipBot](http://invite.discord.bot.tips)", "[Support Server](https://discord.com/invite/GpHzURM)", "[TipBot Github](https://github.com/wrkzcoin/TipBot)"), inline=False)
+                            embed.set_footer(text=f"Find requested by {ctx.message.author.name}#{ctx.message.author.discriminator}")
+                            await msg.edit(embed=embed)
+                    except Exception as e:
+                        pass
+        else:
+            await ctx.message.add_reaction(EMOJI_INFORMATION)
+            await ctx.send(f'{ctx.author.mention} Searching.. **{searched_text}** and has no result.')
+        return
+    except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+        await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
     except Exception as e:
         await logchanbot(traceback.format_exc())
     return
@@ -5406,6 +5570,11 @@ async def mdeposit(ctx, coin_name: str, option: str=None):
         return
     # end of check if account locked
 
+    # disable guild tip for TRTL discord
+    if ctx.guild and ctx.guild.id == TRTL_DISCORD:
+        await ctx.message.add_reaction(EMOJI_LOCKED)
+        return
+
     # Check if maintenance
     if IS_MAINTENANCE == 1:
         if int(ctx.message.author.id) in MAINTENANCE_OWNER:
@@ -5587,7 +5756,7 @@ async def help_main_embed(ctx, prefix, section: str='MAIN'):
             embed.add_field(name="Explanation", value="```{}```".format(discord.utils.escape_markdown(help_item['detail'].replace('prefix', prefix))), inline=False)
             help_specific = True
             try:
-                if 'example' in help_item and len(help_item['example'].strip()) > 0:
+                if 'example' in help_item and help_item['example'] and len(help_item['example'].strip()) > 0:
                     embed.add_field(name="Example", value="`{}`".format(discord.utils.escape_markdown(help_item['example'].replace('prefix', prefix))), inline=False)
                 else:
                     embed.add_field(name="Example", value="`N/A`", inline=False)
@@ -5619,10 +5788,15 @@ async def help_main_embed(ctx, prefix, section: str='MAIN'):
 
 
 @bot.command(pass_context=True, name='help')
-async def help(ctx, section: str='MAIN'):
+async def help(ctx, *, section: str='MAIN'):
     global LOG_CHAN
     botLogChan = bot.get_channel(id=LOG_CHAN)
     prefix = await get_guild_prefix(ctx)
+
+    if not re.match('^[a-zA-Z0-9-_ ]+$', section):
+        await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} Invalid help topic.')
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        return
 
     try:
         embed = await help_main_embed(ctx, prefix, section)
@@ -5758,8 +5932,13 @@ async def pools(ctx, coin: str):
                 await ctx.message.add_reaction(EMOJI_ERROR)
                 await ctx.send(f'{ctx.author.mention} You have another check of pools stats in progress.')
                 return
-            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
-            get_pool_data = await get_miningpoolstat_coin(COIN_NAME)
+            try:
+                async with ctx.typing():
+                    await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+                    get_pool_data = await get_miningpoolstat_coin(COIN_NAME)
+            except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+                await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
+                return
         if get_pool_data and 'data' in get_pool_data:
             try:
                 embed = discord.Embed(title='Mining Pools for {}'.format(COIN_NAME), description='', timestamp=datetime.utcnow(), colour=7047495)
@@ -5828,78 +6007,84 @@ async def pools(ctx, coin: str):
             elif redis_conn and redis_conn.llen(key_queue) == 0:
                 redis_conn.lpush(key_queue, COIN_NAME)
             try:
-                # loop and waiting for another fetch
-                retry = 0
-                await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
-                while True:
-                    key = "TIPBOT:MININGPOOL2:" + COIN_NAME
-                    key_p = key + ":POOLS" # TIPBOT:MININGPOOL2:COIN_NAME:POOLS
-                    await asyncio.sleep(5)
-                    if redis_conn and redis_conn.exists(key_p):
-                        result = json.loads(redis_conn.get(key_p).decode())
-                        is_cache = 'NO'
-                        try:
-                            embed = discord.Embed(title='Mining Pools for {}'.format(COIN_NAME), description='', timestamp=datetime.utcnow(), colour=7047495)
-                            i = 0
-                            if result and len(result) > 0:
-                                pool_links = ''
-                                hash_rate = ''
-                                for each in result:
-                                    if i < 15 and i < len(result):
-                                        if len(each) >= 4:
-                                            hash_list = ['H/s', 'KH/s', 'MH/s', 'GH/s', 'TH/s', 'PH/s', 'EH/s']
-                                            if [ele for ele in hash_list if((ele in each[2]) and ('Hashrate' not in each[2]))]:
-                                                hash_rate = each[2]
-                                            elif [ele for ele in hash_list if((ele in each[3]) and ('Hashrate' not in each[3]))]:
-                                                hash_rate = each[3]
+                async with ctx.typing():
+                    # loop and waiting for another fetch
+                    retry = 0
+                    await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+                    while True:
+                        key = "TIPBOT:MININGPOOL2:" + COIN_NAME
+                        key_p = key + ":POOLS" # TIPBOT:MININGPOOL2:COIN_NAME:POOLS
+                        await asyncio.sleep(5)
+                        if redis_conn and redis_conn.exists(key_p):
+                            result = json.loads(redis_conn.get(key_p).decode())
+                            is_cache = 'NO'
+                            try:
+                                embed = discord.Embed(title='Mining Pools for {}'.format(COIN_NAME), description='', timestamp=datetime.utcnow(), colour=7047495)
+                                i = 0
+                                if result and len(result) > 0:
+                                    pool_links = ''
+                                    hash_rate = ''
+                                    for each in result:
+                                        if i < 15 and i < len(result):
+                                            if len(each) >= 4:
+                                                hash_list = ['H/s', 'KH/s', 'MH/s', 'GH/s', 'TH/s', 'PH/s', 'EH/s']
+                                                if [ele for ele in hash_list if((ele in each[2]) and ('Hashrate' not in each[2]))]:
+                                                    hash_rate = each[2]
+                                                elif [ele for ele in hash_list if((ele in each[3]) and ('Hashrate' not in each[3]))]:
+                                                    hash_rate = each[3]
+                                                else:
+                                                    hash_rate = ''
+                                                if hash_rate == '' and len(each) >= 5 and [ele for ele in hash_list if((ele in each[4]) and ('Hashrate' not in each[4]))]:
+                                                    hash_rate = each[4]
+                                                elif hash_rate == '' and len(each) >= 6 and [ele for ele in hash_list if((ele in each[5]) and ('Hashrate' not in each[5]))]:
+                                                    hash_rate = each[5]
+                                                elif hash_rate == '' and len(each) >= 7 and [ele for ele in hash_list if((ele in each[6]) and ('Hashrate' not in each[6]))]:
+                                                    hash_rate = each[6]
+                                                pool_links += each[0] + ' ' + each[1] + ' ' + hash_rate + '\n'
                                             else:
-                                                hash_rate = ''
-                                            if hash_rate == '' and len(each) >= 5 and [ele for ele in hash_list if((ele in each[4]) and ('Hashrate' not in each[4]))]:
-                                                hash_rate = each[4]
-                                            elif hash_rate == '' and len(each) >= 6 and [ele for ele in hash_list if((ele in each[5]) and ('Hashrate' not in each[5]))]:
-                                                hash_rate = each[5]
-                                            elif hash_rate == '' and len(each) >= 7 and [ele for ele in hash_list if((ele in each[6]) and ('Hashrate' not in each[6]))]:
-                                                hash_rate = each[6]
-                                            pool_links += each[0] + ' ' + each[1] + ' ' + hash_rate + '\n'
-                                        else:
-                                            pool_links += each[0] + ' ' + each[1] + '\n'
-                                        i += 1
-                                try:
-                                    embed.add_field(name="List", value=pool_links)
-                                except Exception as e:
-                                    await logchanbot(traceback.format_exc())
-                            embed.add_field(name="OTHER LINKS", value="{} / {} / {} / {}".format("[More pools](https://miningpoolstats.stream/{})".format(COIN_NAME.lower()), "[Invite TipBot](http://invite.discord.bot.tips)", "[Support Server](https://discord.com/invite/GpHzURM)", "[TipBot Github](https://github.com/wrkzcoin/TipBot)"), inline=False)
-                            embed.set_footer(text="Data from https://miningpoolstats.stream")
-                            msg = await ctx.send(embed=embed)
-                            respond_date = int(time.time())
-                            await store.sql_miningpoolstat_fetch(COIN_NAME, str(ctx.message.author.id), 
-                                                                '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), 
-                                                                requested_date, respond_date, json.dumps(result), str(ctx.guild.id) if isinstance(ctx.channel, discord.DMChannel) == False else 'DM', 
-                                                                ctx.guild.name if isinstance(ctx.channel, discord.DMChannel) == False else 'DM', 
-                                                                str(ctx.message.channel.id), is_cache, 'DISCORD', 'YES')
-                            # sleep 3s
-                            await msg.add_reaction(EMOJI_OK_BOX)
-                            await ctx.message.add_reaction(EMOJI_OK_HAND)
+                                                pool_links += each[0] + ' ' + each[1] + '\n'
+                                            i += 1
+                                    try:
+                                        embed.add_field(name="List", value=pool_links)
+                                    except Exception as e:
+                                        await logchanbot(traceback.format_exc())
+                                embed.add_field(name="OTHER LINKS", value="{} / {} / {} / {}".format("[More pools](https://miningpoolstats.stream/{})".format(COIN_NAME.lower()), "[Invite TipBot](http://invite.discord.bot.tips)", "[Support Server](https://discord.com/invite/GpHzURM)", "[TipBot Github](https://github.com/wrkzcoin/TipBot)"), inline=False)
+                                embed.set_footer(text="Data from https://miningpoolstats.stream")
+                                msg = await ctx.send(embed=embed)
+                                respond_date = int(time.time())
+                                await store.sql_miningpoolstat_fetch(COIN_NAME, str(ctx.message.author.id), 
+                                                                    '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), 
+                                                                    requested_date, respond_date, json.dumps(result), str(ctx.guild.id) if isinstance(ctx.channel, discord.DMChannel) == False else 'DM', 
+                                                                    ctx.guild.name if isinstance(ctx.channel, discord.DMChannel) == False else 'DM', 
+                                                                    str(ctx.message.channel.id), is_cache, 'DISCORD', 'YES')
+                                # sleep 3s
+                                await msg.add_reaction(EMOJI_OK_BOX)
+                                await ctx.message.add_reaction(EMOJI_OK_HAND)
+                                break
+                                if ctx.message.author.id in MINGPOOLSTAT_IN_PROCESS:
+                                    MINGPOOLSTAT_IN_PROCESS.remove(ctx.message.author.id)
+                                return
+                            except Exception as e:
+                                await ctx.message.add_reaction(EMOJI_ERROR)
+                                await logchanbot(traceback.format_exc())
+                                if ctx.message.author.id in MINGPOOLSTAT_IN_PROCESS:
+                                    MINGPOOLSTAT_IN_PROCESS.remove(ctx.message.author.id)
+                                return
+                        elif redis_conn and not redis_conn.exists(key_p):
+                            retry += 1
+                        if retry >= 5:
+                            redis_conn.lrem(key_queue, 0, COIN_NAME)
+                            await ctx.message.add_reaction(EMOJI_ERROR)
+                            await ctx.send(f'{ctx.author.mention} We can not fetch data for **{COIN_NAME}**.')
                             break
                             if ctx.message.author.id in MINGPOOLSTAT_IN_PROCESS:
                                 MINGPOOLSTAT_IN_PROCESS.remove(ctx.message.author.id)
                             return
-                        except Exception as e:
-                            await ctx.message.add_reaction(EMOJI_ERROR)
-                            await logchanbot(traceback.format_exc())
-                            if ctx.message.author.id in MINGPOOLSTAT_IN_PROCESS:
-                                MINGPOOLSTAT_IN_PROCESS.remove(ctx.message.author.id)
-                            return
-                    elif redis_conn and not redis_conn.exists(key_p):
-                        retry += 1
-                    if retry >= 5:
-                        redis_conn.lrem(key_queue, 0, COIN_NAME)
-                        await ctx.message.add_reaction(EMOJI_ERROR)
-                        await ctx.send(f'{ctx.author.mention} We can not fetch data for **{COIN_NAME}**.')
-                        break
-                        if ctx.message.author.id in MINGPOOLSTAT_IN_PROCESS:
-                            MINGPOOLSTAT_IN_PROCESS.remove(ctx.message.author.id)
-                        return
+            except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+                if ctx.message.author.id in MINGPOOLSTAT_IN_PROCESS:
+                    MINGPOOLSTAT_IN_PROCESS.remove(ctx.message.author.id)
+                await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
+                return
             except Exception as e:
                 await logchanbot(traceback.format_exc())
     if ctx.message.author.id in MINGPOOLSTAT_IN_PROCESS:
@@ -6390,6 +6575,11 @@ async def mbalance(ctx, coin: str = None):
         await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
         return
     # end of check if account locked
+
+    # disable guild tip for TRTL discord
+    if ctx.guild and ctx.guild.id == TRTL_DISCORD:
+        await ctx.message.add_reaction(EMOJI_LOCKED)
+        return
 
     # If DM, error
     if isinstance(ctx.message.channel, discord.DMChannel) == True:
@@ -7452,25 +7642,17 @@ async def donate(ctx, amount: str, coin: str = None):
             user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
             user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         MinTx = get_min_mv_amount(COIN_NAME)
-        MaxTX = get_max_mv_amount(COIN_NAME)
-        NetFee = 0
 
         userdata_balance = await store.sql_cnoff_balance(str(ctx.message.author.id), COIN_NAME)
         user_from['actual_balance'] = user_from['actual_balance'] + int(userdata_balance['Adjust'])
 
-        if real_amount + NetFee > user_from['actual_balance']:
+        if real_amount > user_from['actual_balance']:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to donate '
                            f'{num_format_coin(real_amount, COIN_NAME)} '
                            f'{COIN_NAME}.')
             return
 
-        if real_amount > MaxTX:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
-                           f'{num_format_coin(MaxTX, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
         elif real_amount < MinTx:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
@@ -7512,7 +7694,6 @@ async def donate(ctx, amount: str, coin: str = None):
             user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
             user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         MinTx = get_min_mv_amount(COIN_NAME)
-        MaxTX = get_max_mv_amount(COIN_NAME)
         userdata_balance = await store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
         if real_amount > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -7524,12 +7705,6 @@ async def donate(ctx, amount: str, coin: str = None):
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
                            f'{num_format_coin(MinTx, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        if real_amount > MaxTX:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
-                           f'{num_format_coin(MaxTX, COIN_NAME)} '
                            f'{COIN_NAME}.')
             return
 
@@ -7557,7 +7732,6 @@ async def donate(ctx, amount: str, coin: str = None):
             user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
             user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         MinTx = get_min_mv_amount(COIN_NAME)
-        MaxTX = get_max_mv_amount(COIN_NAME)
         userdata_balance = await store.sql_nano_balance(str(ctx.message.author.id), COIN_NAME)
         if real_amount > int(user_from['actual_balance']) + int(userdata_balance['Adjust']):
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -7569,12 +7743,6 @@ async def donate(ctx, amount: str, coin: str = None):
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
                            f'{num_format_coin(MinTx, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        if real_amount > MaxTX:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
-                           f'{num_format_coin(MaxTX, COIN_NAME)} '
                            f'{COIN_NAME}.')
             return
 
@@ -7596,7 +7764,6 @@ async def donate(ctx, amount: str, coin: str = None):
         return
     elif coin_family == "DOGE":
         MinTx = config.daemonDOGE.min_mv_amount
-        MaxTX = config.daemonDOGE.max_mv_amount
 
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if user_from is None:
@@ -7616,12 +7783,6 @@ async def donate(ctx, amount: str, coin: str = None):
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
                            f'{num_format_coin(MinTx, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        if real_amount > MaxTX:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
-                           f'{num_format_coin(MaxTX, COIN_NAME)} '
                            f'{COIN_NAME}.')
             return
 
@@ -8664,6 +8825,11 @@ async def tip(ctx, amount: str, *args):
                                                f' and tip to those **{len(message_talker)}** users if they are still here.')
                                 # tip all user who are in the list
                                 try:
+                                    async with ctx.typing():
+                                        await _tip_talker(ctx, amount, message_talker, False, COIN_NAME)
+                                except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+                                    await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
+                                    # zipped mouth but still need to do tip talker
                                     await _tip_talker(ctx, amount, message_talker, False, COIN_NAME)
                                 except Exception as e:
                                     await logchanbot(traceback.format_exc())
@@ -8689,11 +8855,21 @@ async def tip(ctx, amount: str, *args):
                                     return
                                 # tip all user who are in the list
                                 try:
+                                    async with ctx.typing():
+                                        await _tip_talker(ctx, amount, message_talker, False, COIN_NAME)
+                                except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+                                    await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
+                                    # zipped mouth but still need to do tip talker
                                     await _tip_talker(ctx, amount, message_talker, False, COIN_NAME)
                                 except Exception as e:
                                     await logchanbot(traceback.format_exc())
                             else:
                                 try:
+                                    async with ctx.typing():
+                                        await _tip_talker(ctx, amount, message_talker, False, COIN_NAME)
+                                except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+                                    await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
+                                    # zipped mouth but still need to do tip talker
                                     await _tip_talker(ctx, amount, message_talker, False, COIN_NAME)
                                 except Exception as e:
                                     await logchanbot(traceback.format_exc())
@@ -8759,6 +8935,11 @@ async def tip(ctx, amount: str, *args):
                             return
                         else:
                             try:
+                                async with ctx.typing():
+                                    await _tip_talker(ctx, amount, message_talker, False, COIN_NAME)
+                            except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+                                await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
+                                # zipped mouth but still need to do tip talker
                                 await _tip_talker(ctx, amount, message_talker, False, COIN_NAME)
                             except Exception as e:
                                 await logchanbot(traceback.format_exc())
@@ -8795,8 +8976,9 @@ async def tip(ctx, amount: str, *args):
             return
         pass
     elif len(ctx.message.mentions) > 1:
-        await _tip(ctx, amount, COIN_NAME)
-        return
+        async with ctx.typing():
+            await _tip(ctx, amount, COIN_NAME)
+            return
 
     # Check flood of tip
     floodTip = await store.sql_get_countLastTip(str(ctx.message.author.id), config.floodTipDuration)
@@ -9083,6 +9265,11 @@ async def mtip(ctx, amount: str, *args):
         return
     # end of check if account locked
 
+    # disable guild tip for TRTL discord
+    if ctx.guild and ctx.guild.id == TRTL_DISCORD:
+        await ctx.message.add_reaction(EMOJI_LOCKED)
+        return
+
     # Check if tx in progress
     if ctx.guild.id in TX_IN_PROCESS:
         await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
@@ -9191,6 +9378,11 @@ async def mtip(ctx, amount: str, *args):
                                                f' and tip to those **{len(message_talker)}** users if they are still here.')
                                 # tip all user who are in the list
                                 try:
+                                    async with ctx.typing():
+                                        await _tip_talker(ctx, amount, message_talker, True, COIN_NAME)
+                                except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+                                    await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
+                                    # zipped mouth but still need to do tip talker
                                     await _tip_talker(ctx, amount, message_talker, True, COIN_NAME)
                                 except Exception as e:
                                     await logchanbot(traceback.format_exc())
@@ -9216,11 +9408,21 @@ async def mtip(ctx, amount: str, *args):
                                     return
                                 # tip all user who are in the list
                                 try:
+                                    async with ctx.typing():
+                                        await _tip_talker(ctx, amount, message_talker, True, COIN_NAME)
+                                except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+                                    await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
+                                    # zipped mouth but still need to do tip talker
                                     await _tip_talker(ctx, amount, message_talker, True, COIN_NAME)
                                 except Exception as e:
                                     await logchanbot(traceback.format_exc())
                             else:
                                 try:
+                                    async with ctx.typing():
+                                        await _tip_talker(ctx, amount, message_talker, True, COIN_NAME)
+                                except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+                                    await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
+                                    # zipped mouth but still need to do tip talker
                                     await _tip_talker(ctx, amount, message_talker, True, COIN_NAME)
                                 except Exception as e:
                                     await logchanbot(traceback.format_exc())
@@ -9286,6 +9488,11 @@ async def mtip(ctx, amount: str, *args):
                             return
                         else:
                             try:
+                                async with ctx.typing():
+                                    await _tip_talker(ctx, amount, message_talker, True, COIN_NAME)
+                            except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+                                await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
+                                # zipped mouth but still need to do tip talker
                                 await _tip_talker(ctx, amount, message_talker, True, COIN_NAME)
                             except Exception as e:
                                 await logchanbot(traceback.format_exc())
@@ -9322,8 +9529,9 @@ async def mtip(ctx, amount: str, *args):
             return
         pass
     elif len(ctx.message.mentions) > 1:
-        await _tip(ctx, amount, COIN_NAME)
-        return
+        async with ctx.typing():
+            await _tip(ctx, amount, COIN_NAME)
+            return
 
     # Check flood of tip
     floodTip = await store.sql_get_countLastTip(str(ctx.guild.id), config.floodTipDuration)
@@ -9705,7 +9913,9 @@ async def tipall(ctx, amount: str, *args):
         MinTx = get_min_mv_amount(COIN_NAME)
         MaxTX = get_max_mv_amount(COIN_NAME)
         NetFee = 0
-        listMembers = [member for member in ctx.guild.members if member.status != discord.Status.offline and member.bot == False]
+
+        # [x.guild for x in [g.members for g in bot.guilds] if x.id = useridyourelookingfor]
+        listMembers = [member for member in ctx.guild.members if member.status == discord.Status.online and member.bot == False]
         print("Number of tip-all in {}: {}".format(ctx.guild.name, len(listMembers)))
         # Check number of receivers.
         if len(listMembers) > config.tipallMax_Offchain:
@@ -9864,7 +10074,7 @@ async def tipall(ctx, amount: str, *args):
                             f'{num_format_coin(real_amount, COIN_NAME)} '
                             f'{COIN_NAME}.')
             return
-        listMembers = [member for member in ctx.guild.members if member.status != discord.Status.offline and member.bot == False]
+        listMembers = [member for member in ctx.guild.members if member.status == discord.Status.online and member.bot == False]
         print("Number of tip-all in {}: {}".format(ctx.guild.name, len(listMembers)))
         # Check number of receivers.
         if len(listMembers) > config.tipallMax_Offchain:
@@ -9967,7 +10177,7 @@ async def tipall(ctx, amount: str, *args):
                             f'{num_format_coin(real_amount, COIN_NAME)} '
                             f'{COIN_NAME}.')
             return
-        listMembers = [member for member in ctx.guild.members if member.status != discord.Status.offline and member.bot == False]
+        listMembers = [member for member in ctx.guild.members if member.status == discord.Status.online and member.bot == False]
         print("Number of tip-all in {}: {}".format(ctx.guild.name, len(listMembers)))
         # Check number of receivers.
         if len(listMembers) > config.tipallMax_Offchain:
@@ -10072,7 +10282,7 @@ async def tipall(ctx, amount: str, *args):
                             f'{num_format_coin(real_amount, COIN_NAME)} '
                             f'{COIN_NAME}.')
             return
-        listMembers = [member for member in ctx.guild.members if member.status != discord.Status.offline and member.bot == False]
+        listMembers = [member for member in ctx.guild.members if member.status == discord.Status.online and member.bot == False]
         print("Number of tip-all in {}: {}".format(ctx.guild.name, len(listMembers)))
         # Check number of receivers.
         if len(listMembers) > config.tipallMax_Offchain:
@@ -11684,8 +11894,8 @@ async def stats(ctx, coin: str = None):
         embed.add_field(name="Bot ID", value=str(bot.user.id), inline=True)
         embed.add_field(name="Guilds", value='{:,.0f}'.format(len(bot.guilds)), inline=True)
         embed.add_field(name="Shards", value='{:,.0f}'.format(bot.shard_count), inline=True)
-        embed.add_field(name="Total Online", value='{:,.0f}'.format(sum(1 for m in get_all_m if str(m.status) != 'offline')), inline=True)
-        embed.add_field(name="Unique user", value='{:,.0f}'.format(len(bot.users)), inline=True)
+        embed.add_field(name="Total Online", value='{:,.0f}'.format(sum(1 for m in get_all_m if m.status == discord.Status.online)), inline=True)
+        embed.add_field(name="Users", value='{:,.0f}'.format(sum([x.member_count for x in bot.guilds])), inline=True)
         embed.add_field(name="Channels", value='{:,.0f}'.format(sum(1 for g in bot.guilds for _ in g.channels)), inline=True)
         embed.add_field(name="Total faucet claims", value=total_claimed, inline=True)
         embed.add_field(name="Total tip operations", value='{:,.0f} off-chain, {:,.0f} on-chain'.format(total_tx['off_chain'], total_tx['on_chain']), inline=True)

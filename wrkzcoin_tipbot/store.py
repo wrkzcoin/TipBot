@@ -3510,10 +3510,16 @@ async def sql_help_doc_get(section: str, what: str):
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ SELECT * FROM discord_help_docs WHERE `section` = %s AND `what`=%s LIMIT 1 """
-                await cur.execute(sql, (section.upper(), what.upper(),))
-                result = await cur.fetchone()
-                if result: return result
+                if section.upper() == 'ANY':
+                    sql = """ SELECT * FROM discord_help_docs WHERE `what`=%s LIMIT 1 """
+                    await cur.execute(sql, (what.upper(),))
+                    result = await cur.fetchone()
+                    if result: return result
+                else:
+                    sql = """ SELECT * FROM discord_help_docs WHERE `section` = %s AND `what`=%s LIMIT 1 """
+                    await cur.execute(sql, (section.upper(), what.upper(),))
+                    result = await cur.fetchone()
+                    if result: return result
     except Exception as e:
         await logchanbot(traceback.format_exc())
     return None
@@ -3535,6 +3541,23 @@ async def sql_help_doc_list(section: str='HELP', getall:bool=False):
                     await cur.execute(sql,)
                     result = await cur.fetchall()
                     if result: return result
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return None
+
+
+async def sql_help_doc_search(term: str, max_result: int=10):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT *, MATCH(detail, example) AGAINST(%s IN BOOLEAN MODE) AS `score` 
+                          FROM discord_help_docs WHERE MATCH(detail, example) AGAINST(%s IN BOOLEAN MODE) 
+                          ORDER BY `score` DESC LIMIT """+str(max_result)+"""; """
+                await cur.execute(sql, (term, term))
+                result = await cur.fetchall()
+                if result: return result
     except Exception as e:
         await logchanbot(traceback.format_exc())
     return None

@@ -40,7 +40,7 @@ async def call_aiohttp_wallet(method_name: str, coin: str, time_out: int = None,
         'method': f'{method_name}'
     }
     url = get_wallet_rpc_url(coin.upper())
-    timeout = time_out or 32
+    timeout = time_out or 60
     if method_name == "save" or method_name == "store":
         timeout = 300
     elif method_name == "sendTransaction":
@@ -69,7 +69,7 @@ async def call_aiohttp_wallet(method_name: str, coin: str, time_out: int = None,
                                 print(decoded_data)
                                 return None
             except asyncio.TimeoutError:
-                await logchanbot('call_aiohttp_wallet: method_name: {} COIN_NAME {} - timeout {}'.format(method_name, coin.upper(), timeout))
+                await logchanbot('call_aiohttp_wallet: method_name: {} COIN_NAME {} - timeout {}\nfull_payload:\n{}'.format(method_name, coin.upper(), timeout, json.dumps(payload)))
                 print('TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method_name, coin.upper(), timeout))
                 return None
             except Exception:
@@ -93,7 +93,7 @@ async def call_aiohttp_wallet(method_name: str, coin: str, time_out: int = None,
                             await logchanbot(str(response))
                             return None
             except asyncio.TimeoutError:
-                await logchanbot('call_aiohttp_wallet: {} COIN_NAME {} - timeout {}'.format(method_name, coin.upper(), timeout))
+                await logchanbot('call_aiohttp_wallet: {} COIN_NAME {} - timeout {}\nfull_payload:\n{}'.format(method_name, coin.upper(), timeout, json.dumps(payload)))
                 print('TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method_name, coin.upper(), timeout))
                 return None
             except Exception:

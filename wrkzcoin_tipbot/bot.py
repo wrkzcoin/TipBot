@@ -11932,13 +11932,21 @@ async def stats(ctx, coin: str = None):
     if gettopblock:
         COIN_DEC = get_decimal(COIN_NAME)
         COIN_DIFF = get_diff_target(COIN_NAME)
-        blockfound = datetime.utcfromtimestamp(int(gettopblock['block_header']['timestamp'])).strftime("%Y-%m-%d %H:%M:%S")
-        ago = str(timeago.format(blockfound, datetime.utcnow()))
-        difficulty = "{:,}".format(gettopblock['block_header']['difficulty'])
-        hashrate = str(hhashes(int(gettopblock['block_header']['difficulty']) / int(COIN_DIFF)))
-        height = "{:,}".format(gettopblock['block_header']['height'])
-        reward = "{:,}".format(int(gettopblock['block_header']['reward'])/int(COIN_DEC))
-
+        if COIN_NAME != "TRTL":
+            blockfound = datetime.utcfromtimestamp(int(gettopblock['block_header']['timestamp'])).strftime("%Y-%m-%d %H:%M:%S")
+            ago = str(timeago.format(blockfound, datetime.utcnow()))
+            difficulty = "{:,}".format(gettopblock['block_header']['difficulty'])
+            hashrate = str(hhashes(int(gettopblock['block_header']['difficulty']) / int(COIN_DIFF)))
+            height = "{:,}".format(gettopblock['block_header']['height'])
+            reward = "{:,}".format(int(gettopblock['block_header']['reward'])/int(COIN_DEC))
+        else:
+            # TRTL use daemon API
+            blockfound = datetime.utcfromtimestamp(int(gettopblock['timestamp'])).strftime("%Y-%m-%d %H:%M:%S")
+            ago = str(timeago.format(blockfound, datetime.utcnow()))
+            difficulty = "{:,}".format(gettopblock['difficulty'])
+            hashrate = str(hhashes(int(gettopblock['difficulty']) / int(COIN_DIFF)))
+            height = "{:,}".format(gettopblock['height'])
+            reward = "{:,}".format(int(gettopblock['reward'])/int(COIN_DEC))
         if coin_family == "XMR":
             desc = f"Tip min/max: {num_format_coin(get_min_mv_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_mv_amount(COIN_NAME), COIN_NAME)}{COIN_NAME}\n"
             desc += f"Tx min/max: {num_format_coin(get_min_tx_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_tx_amount(COIN_NAME), COIN_NAME)}{COIN_NAME}\n"
@@ -11953,7 +11961,10 @@ async def stats(ctx, coin: str = None):
             if COIN_NAME not in ["XWP"]:
                 embed.add_field(name="NETWORK HASH", value=hashrate, inline=True)
             if walletStatus:
-                t_percent = '{:,.2f}'.format(truncate((walletStatus['height'] - 1)/gettopblock['block_header']['height']*100,2))
+                if COIN_NAME != "TRTL":
+                    t_percent = '{:,.2f}'.format(truncate((walletStatus['height'] - 1)/gettopblock['block_header']['height']*100,2))
+                else:
+                    t_percent = '{:,.2f}'.format(truncate((walletStatus['height'] - 1)/gettopblock['height']*100,2))
                 embed.add_field(name="WALLET SYNC %", value=t_percent + '% (' + '{:,.0f}'.format(walletStatus['height'] - 1) + ')', inline=True)
             if NOTICE_COIN[COIN_NAME]:
                 notice_txt = NOTICE_COIN[COIN_NAME]
@@ -12316,8 +12327,10 @@ async def height(ctx, coin: str = None):
 
     if gettopblock:
         height = ""
-        if coin_family in [ "BCN", "TRTL", "XMR"]:
+        if coin_family in [ "BCN", "TRTL", "XMR"] and COIN_NAME != "TRTL":
             height = "{:,}".format(gettopblock['block_header']['height'])
+        else:
+            height = "{:,}".format(gettopblock['height'])
         msg = await ctx.send(f'**[ {COIN_NAME} HEIGHT]**: {height}\n')
         await msg.add_reaction(EMOJI_OK_BOX)
         return

@@ -396,7 +396,9 @@ async def sql_update_balances(coin: str = None):
 
     height = None
     if gettopblock:
-        if coin_family in ["TRTL", "BCN", "XMR"]:
+        if COIN_NAME == "TRTL":
+            height = int(gettopblock['height'])
+        elif coin_family in ["TRTL", "BCN", "XMR"]:
             height = int(gettopblock['block_header']['height'])
         elif coin_family == "DOGE":
             height = int(gettopblock['blocks'])
@@ -418,8 +420,8 @@ async def sql_update_balances(coin: str = None):
     if coin_family in ["TRTL", "BCN"]:
         #print('SQL: Updating get_transfers '+COIN_NAME)
         if COIN_NAME in WALLET_API_COIN:
-            get_transfers = await walletapi.walletapi_get_transfers(COIN_NAME)
             try:
+                get_transfers = await walletapi.walletapi_get_transfers(COIN_NAME)
                 list_balance_user = {}
                 if get_transfers and len(get_transfers) >= 1:
                     await openConnection()
@@ -508,8 +510,8 @@ async def sql_update_balances(coin: str = None):
             except Exception as e:
                 await logchanbot(traceback.format_exc())
         else:
-            get_transfers = await wallet.getTransactions(COIN_NAME, int(height)-100000, 100000)
             try:
+                get_transfers = await wallet.getTransactions(COIN_NAME, int(height)-100000, 100000)
                 list_balance_user = {}
                 if get_transfers and len(get_transfers) >= 1:
                     await openConnection()
@@ -2422,13 +2424,13 @@ async def sql_updateinfo_by_server(server_id: str, what: str, value: str):
                     return None
                 else:
                     if what in ["servername", "prefix", "default_coin", "tiponly", "status"]:
-                        sql = """ UPDATE discord_server SET """+what+"""=%s WHERE serverid=%s """
-                        await cur.execute(sql, (what, value, server_id,))
+                        sql = """ UPDATE discord_server SET `"""+what+"""`=%s WHERE serverid=%s """
+                        await cur.execute(sql, (value, server_id,))
                         await conn.commit()
                     else:
                         return None
     except Exception as e:
-        await logchanbot(traceback.format_exc())
+        await logchanbot(str(traceback.format_exc()) + "\n\n" + f"({sql}, ({what}, {value}, {server_id},)")
 
 
 # DOGE

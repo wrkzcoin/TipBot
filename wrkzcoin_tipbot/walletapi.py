@@ -286,7 +286,22 @@ async def walletapi_get_transfers(coin: str, height_start: int = None, height_en
                         raise RPCException(json_resp['errorMessage'])
         except asyncio.TimeoutError:
             await logchanbot('get_transfers_cn wallet_api: TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method, COIN_NAME, time_out))
-
+        except Exception as e:
+            await logchanbot('walletapi_get_transfers: '+ str(traceback.format_exc()))
+    elif height_start and height_end:
+        method += '/' + str(height_start) + '/' + str(height_end)
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(get_wallet_api_url(COIN_NAME) + method, headers=get_wallet_api_header(COIN_NAME), timeout=time_out) as response:
+                    json_resp = await response.json()
+                    if response.status == 200 or response.status == 201:
+                        return json_resp['transactions']
+                    elif 'errorMessage' in json_resp:
+                        raise RPCException(json_resp['errorMessage'])
+        except asyncio.TimeoutError:
+            await logchanbot('get_transfers_cn wallet_api: TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method, COIN_NAME, time_out))
+        except Exception as e:
+            await logchanbot('walletapi_get_transfers: ' + str(traceback.format_exc()))
 
 async def save_walletapi(coin: str):
     time_out = 1200

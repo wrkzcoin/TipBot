@@ -4705,6 +4705,24 @@ async def delhelp(ctx, section: str, what: str):
 
 
 @commands.is_owner()
+@admin.command()
+async def update_balance(ctx, coin: str):
+    COIN_NAME = coin.upper()
+    if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR:
+        await ctx.message.author.send(f'{ctx.author.mention} COIN **{COIN_NAME}** NOT SUPPORTED.')
+        return
+
+    start = time.time()
+    try:
+        await store.sql_update_balances(COIN_NAME)
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    end = time.time()
+    await ctx.message.author.send(f'{ctx.author.mention} Done update balance: ' + COIN_NAME+ ' duration (s): '+str(end - start))
+    return
+
+
+@commands.is_owner()
 @admin.command(help=bot_help_admin_baluser)
 async def baluser(ctx, user_id: str, create_wallet: str = None):
     if isinstance(ctx.channel, discord.DMChannel) == False:

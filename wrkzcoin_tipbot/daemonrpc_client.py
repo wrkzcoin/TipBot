@@ -112,10 +112,8 @@ async def gettopblock(coin: str, time_out: int = None):
             try:
                 async with aiohttp.ClientSession() as session:
                     async with session.get(get_daemon_rpc_url(COIN_NAME)+'/block/last', timeout=timeout) as response:
-                        print(response)
                         if response.status == 200 or response.status == 201:
                             res_data = await response.json()
-                            print(res_data)
                             await session.close()
                             return res_data
             except asyncio.TimeoutError:

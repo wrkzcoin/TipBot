@@ -383,7 +383,7 @@ async def sql_update_balances(coin: str = None):
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
 
     gettopblock = None
-    timeout = 12
+    timeout = 60
     try:
         if COIN_NAME not in ENABLE_COIN_DOGE:
             gettopblock = await daemonrpc_client.gettopblock(COIN_NAME, time_out=timeout)

@@ -1,4 +1,7 @@
 #!/usr/bin/python3.6
+from discord_webhook import DiscordWebhook
+import discord
+
 import sys, traceback
 from config import config
 import store
@@ -13,6 +16,7 @@ redis_expired = 120
 
 ENABLE_COIN_NANO = config.Enable_Coin_Nano.split(",")
 INTERVAL_EACH = 10
+
 
 def init():
     global redis_pool

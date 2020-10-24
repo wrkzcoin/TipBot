@@ -11927,7 +11927,7 @@ async def stats(ctx, coin: str = None):
         return
 
     gettopblock = None
-    timeout = 30
+    timeout = 60
     try:
         gettopblock = await daemonrpc_client.gettopblock(COIN_NAME, time_out=timeout)
     except asyncio.TimeoutError:

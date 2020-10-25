@@ -12982,6 +12982,8 @@ def get_cn_coin_from_address(CoinAddress: str):
         COIN_NAME = "CX"
     elif CoinAddress.startswith("XCR"):
         COIN_NAME = "NBXC"
+    elif CoinAddress.startswith("ccx7"):
+        COIN_NAME = "CCX"
     elif CoinAddress.startswith("fango"):
         COIN_NAME = "XFG"
     elif CoinAddress.startswith("btcm"):

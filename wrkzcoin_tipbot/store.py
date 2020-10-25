@@ -1331,96 +1331,14 @@ async def sql_get_donate_list():
                         donate_list.update({coin: 0})
                     else:
                        donate_list.update({coin: float(result['donate'])})
-                # XTOR
-                coin = "XTOR"
-                sql = """ SELECT SUM(amount) AS donate FROM xmroff_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
-                await cur.execute(sql, (wallet.get_donate_address(coin)))
-                result = await cur.fetchone()
-                if result['donate'] is None:
-                    donate_list.update({coin: 0})
-                else:
-                    donate_list.update({coin: float(result['donate'])})
-                # LOKI
-                coin = "LOKI"
-                sql = """ SELECT SUM(amount) AS donate FROM xmroff_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
-                await cur.execute(sql, (wallet.get_donate_address(coin)))
-                result = await cur.fetchone()
-                if result['donate'] is None:
-                    donate_list.update({coin: 0})
-                else:
-                    donate_list.update({coin: float(result['donate'])})
-                # XMR
-                coin = "XMR"
-                sql = """ SELECT SUM(amount) AS donate FROM xmroff_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
-                await cur.execute(sql, (wallet.get_donate_address(coin)))
-                result = await cur.fetchone()
-                if result['donate'] is None:
-                    donate_list.update({coin: 0})
-                else:
-                    donate_list.update({coin: float(result['donate'])})
-                # WOW
-                coin = "WOW"
-                sql = """ SELECT SUM(amount) AS donate FROM xmroff_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
-                await cur.execute(sql, (wallet.get_donate_address(coin)))
-                result = await cur.fetchone()
-                if result['donate'] is None:
-                    donate_list.update({coin: 0})
-                else:
-                    donate_list.update({coin: float(result['donate'])})
-                # XOL
-                coin = "XOL"
-                sql = """ SELECT SUM(amount) AS donate FROM xmroff_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
-                await cur.execute(sql, (wallet.get_donate_address(coin)))
-                result = await cur.fetchone()
-                if result['donate'] is None:
-                    donate_list.update({coin: 0})
-                else:
-                    donate_list.update({coin: float(result['donate'])})
-                # MSR
-                coin = "MSR"
-                sql = """ SELECT SUM(amount) AS donate FROM xmroff_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
-                await cur.execute(sql, (wallet.get_donate_address(coin)))
-                result = await cur.fetchone()
-                if result['donate'] is None:
-                    donate_list.update({coin: 0})
-                else:
-                    donate_list.update({coin: float(result['donate'])})
-                # XAM
-                coin = "XAM"
-                sql = """ SELECT SUM(amount) AS donate FROM xmroff_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
-                await cur.execute(sql, (wallet.get_donate_address(coin)))
-                result = await cur.fetchone()
-                if result['donate'] is None:
-                    donate_list.update({coin: 0})
-                else:
-                    donate_list.update({coin: float(result['donate'])})
-                # BLOG
-                coin = "BLOG"
-                sql = """ SELECT SUM(amount) AS donate FROM xmroff_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
-                await cur.execute(sql, (wallet.get_donate_address(coin)))
-                result = await cur.fetchone()
-                if result['donate'] is None:
-                    donate_list.update({coin: 0})
-                else:
-                    donate_list.update({coin: float(result['donate'])})
-                # UPX
-                coin = "UPX"
-                sql = """ SELECT SUM(amount) AS donate FROM xmroff_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
-                await cur.execute(sql, (wallet.get_donate_address(coin)))
-                result = await cur.fetchone()
-                if result['donate'] is None:
-                    donate_list.update({coin: 0})
-                else:
-                    donate_list.update({coin: float(result['donate'])})
-                # XWP
-                coin = "XWP"
-                sql = """ SELECT SUM(amount) AS donate FROM xmroff_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
-                await cur.execute(sql, (wallet.get_donate_address(coin)))
-                result = await cur.fetchone()
-                if result['donate'] is None:
-                    donate_list.update({coin: 0})
-                else:
-                    donate_list.update({coin: float(result['donate'])})
+                for coin in ENABLE_XMR:
+                    sql = """ SELECT SUM(amount) AS donate FROM xmroff_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
+                    await cur.execute(sql, (wallet.get_donate_address(coin.upper())))
+                    result = await cur.fetchone()
+                    if result['donate'] is None:
+                        donate_list.update({coin: 0})
+                    else:
+                        donate_list.update({coin: float(result['donate'])})
             return donate_list
     except Exception as e:
         await logchanbot(traceback.format_exc())

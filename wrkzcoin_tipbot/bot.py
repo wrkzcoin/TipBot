@@ -14,6 +14,7 @@ import store, daemonrpc_client, addressvalidation, walletapi
 
 from generic_xmr.address_msr import address_msr as address_msr
 from generic_xmr.address_xmr import address_xmr as address_xmr
+from generic_xmr.address_upx import address_upx as address_upx
 from generic_xmr.address_wow import address_wow as address_wow
 from generic_xmr.address_xol import address_xol as address_xol
 
@@ -5822,7 +5823,9 @@ async def help(ctx, *, section: str='MAIN'):
             msg = await ctx.send(embed=embed)
         else:
             msg = await ctx.message.author.send(embed=embed)
-        if section.upper() in ["MAIN", "GUILD", "TIPPING", "GAMING", "TOOLING", "MARKETING", "DISCLAIMER"]:
+        help_item = await store.sql_help_doc_get('help', section.upper())
+
+        if section.upper() in ["MAIN", "GUILD", "TIPPING", "GAMING", "TOOLING", "MARKETING", "DISCLAIMER"] or help_item is None:
             await msg.add_reaction(EMOJI_HELP_HOUSE)    
             await msg.add_reaction(EMOJI_HELP_GUILD)
             await msg.add_reaction(EMOJI_HELP_TIP)
@@ -6346,7 +6349,7 @@ async def balance(ctx, coin: str = None):
                     wallet['actual_balance'] = wallet['actual_balance'] + int(userdata_balance['Adjust'])
                     balance_actual = num_format_coin(wallet['actual_balance'], COIN_NAME)
                     coinName = COIN_NAME
-                    if wallet['actual_balance'] + wallet['locked_balance'] != 0:
+                    if wallet['actual_balance'] != 0:
                         if coin:
                             table_data.append([coinName, balance_actual, "YES" if is_coin_txable(COIN_NAME) else "NO"])
                         else:
@@ -7059,6 +7062,12 @@ async def register(ctx, wallet_address: str):
                     if type(valid_address).__name__ != "Address":
                         await ctx.message.add_reaction(EMOJI_ERROR)
                         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Please use {COIN_NAME} main address.')
+                        return
+                elif COIN_NAME == "UPX":	
+                    valid_address = address_upx(wallet_address)	
+                    if type(valid_address).__name__ != "Address":	
+                        await ctx.message.add_reaction(EMOJI_ERROR)	
+                        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Please use {COIN_NAME} main address.')	
                         return
         else:
             await ctx.message.add_reaction(EMOJI_WARNING)
@@ -10755,7 +10764,7 @@ async def send(ctx, amount: str, CoinAddress: str):
         IntaddressLength = get_intaddrlen(COIN_NAME)
 
         # If not Masari
-        if COIN_NAME != "MSR":
+        if COIN_NAME not in ["MSR", "UPX"]:
             valid_address = await validate_address_xmr(str(CoinAddress), COIN_NAME)
             if valid_address['valid'] == False or valid_address['nettype'] != 'mainnet':
                     await ctx.message.add_reaction(EMOJI_ERROR)
@@ -11174,8 +11183,6 @@ async def address(ctx, *args):
                     except Exception as e:
                         # await logchanbot(traceback.format_exc())
                         pass
-                # print(addr)
-                # print(type(addr))
                 if addr == CoinAddress:
                     address_result = 'Valid: `{}`\n'.format(addr)                    
                     if type(addr).__name__ == "Address":
@@ -11190,7 +11197,6 @@ async def address(ctx, *args):
                         address_result += 'Subaddress: `{}`\n'.format('True')
                     else:
                         address_result += 'Subaddress: `{}`\n'.format('False')
-                    print(address_result)
                     await ctx.message.add_reaction(EMOJI_CHECK)
                     await ctx.send(f'{EMOJI_CHECK} Address: `{CoinAddress}`\n{address_result}')
                     return
@@ -11199,19 +11205,57 @@ async def address(ctx, *args):
                     await ctx.send(f'{EMOJI_RED_NO} Address: `{CoinAddress}`\n'
                                     'Checked: Invalid.')
                     return
-            valid_address = await validate_address_xmr(str(CoinAddress), COIN_NAME)
-            if valid_address is None:
-                await ctx.send(f'{EMOJI_RED_NO} Address: `{CoinAddress}`\n'
-                                'Checked: Invalid.')
-                return
-            elif valid_address['valid'] == True:
-                address_result = 'Valid: `{}`\n'.format(str(valid_address['valid'])) + \
-                               'Integrated: `{}`\n'.format(str(valid_address['integrated'])) + \
-                               'Net Type: `{}`\n'.format(str(valid_address['nettype'])) + \
-                               'Subaddress: `{}`\n'.format(str(valid_address['subaddress']))
-                await ctx.message.add_reaction(EMOJI_CHECK)
-                await ctx.send(f'{EMOJI_CHECK} Address: `{CoinAddress}`\n{address_result}')
-                return
+            elif COIN_NAME == "UPX":	
+                addr = None	
+                if len(CoinAddress) == 98 or len(CoinAddress) == 97:	
+                    try:	
+                        addr = address_upx(CoinAddress)	
+                    except Exception as e:	
+                        traceback.print_exc(file=sys.stdout)	
+                        pass	
+                elif len(CoinAddress) == 109:	
+                    addr = None	
+                    try:	
+                        addr = address_upx(CoinAddress)	
+                    except Exception as e:	
+                        traceback.print_exc(file=sys.stdout)	
+                        pass	
+                if addr == CoinAddress:	
+                    address_result = 'Valid: `{}`\n'.format(addr)                    	
+                    if type(addr).__name__ == "Address":	
+                        address_result += 'Main Address: `{}`\n'.format('True')	
+                    else:	
+                        address_result += 'Main Address: `{}`\n'.format('False')	
+                    if type(addr).__name__ == "IntegratedAddress":	
+                        address_result += 'Integrated: `{}`\n'.format('True')	
+                    else:	
+                        address_result += 'Integrated: `{}`\n'.format('False')	
+                    if type(addr).__name__ == "SubAddress":	
+                        address_result += 'Subaddress: `{}`\n'.format('True')	
+                    else:	
+                        address_result += 'Subaddress: `{}`\n'.format('False')	
+                    await ctx.message.add_reaction(EMOJI_CHECK)	
+                    await ctx.send(f'{EMOJI_CHECK} Address: `{CoinAddress}`\n{address_result}')	
+                    return	
+                else:	
+                    await ctx.message.add_reaction(EMOJI_ERROR)	
+                    await ctx.send(f'{EMOJI_RED_NO} Address: `{CoinAddress}`\n'	
+                                    'Checked: Invalid.')	
+                    return
+            else:
+                valid_address = await validate_address_xmr(str(CoinAddress), COIN_NAME)
+                if valid_address is None:
+                    await ctx.send(f'{EMOJI_RED_NO} Address: `{CoinAddress}`\n'
+                                    'Checked: Invalid.')
+                    return
+                elif valid_address['valid'] == True:
+                    address_result = 'Valid: `{}`\n'.format(str(valid_address['valid'])) + \
+                                   'Integrated: `{}`\n'.format(str(valid_address['integrated'])) + \
+                                   'Net Type: `{}`\n'.format(str(valid_address['nettype'])) + \
+                                   'Subaddress: `{}`\n'.format(str(valid_address['subaddress']))
+                    await ctx.message.add_reaction(EMOJI_CHECK)
+                    await ctx.send(f'{EMOJI_CHECK} Address: `{CoinAddress}`\n{address_result}')
+                    return
 
         if len(CoinAddress) == int(addressLength):
             valid_address = addressvalidation.validate_address_cn(CoinAddress, COIN_NAME)
@@ -12969,6 +13013,14 @@ def get_cn_coin_from_address(CoinAddress: str):
             return COIN_NAME
         except Exception as e:
             # await logchanbot(traceback.format_exc())
+            pass
+        # Try UPX	
+        try:	
+            addr = address_upx(CoinAddress)	
+            COIN_NAME = "UPX"	
+            return COIN_NAME	
+        except Exception as e:	
+            # traceback.print_exc(file=sys.stdout)	
             pass
     elif CoinAddress.startswith("L") and (len(CoinAddress) == 95 or len(CoinAddress) == 106):
         COIN_NAME = "LOKI"
@@ -14769,11 +14821,12 @@ async def bot_faucet(ctx):
     global TRTL_DISCORD
     get_game_stat = await store.sql_game_stat()
     table_data = [
-        ['TICKER', 'Available', 'Claimed']
+        ['TICKER', 'Available', 'Claimed / Game']
     ]
     for COIN_NAME in [coinItem.upper() for coinItem in FAUCET_COINS]:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
         if (not is_maintenance_coin(COIN_NAME)) and coin_family in ["TRTL", "BCN"]:
+            sum_sub = 0
             COIN_DEC = get_decimal(COIN_NAME)
             wallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
             if wallet is None:
@@ -14784,16 +14837,18 @@ async def bot_faucet(ctx):
             try:
                 if COIN_NAME in get_game_stat:
                     wallet['actual_balance'] = wallet['actual_balance'] - int(get_game_stat[COIN_NAME])
+                    sum_sub = int(get_game_stat[COIN_NAME])
             except Exception as e:
                 await logchanbot(traceback.format_exc())
             balance_actual = num_format_coin(wallet['actual_balance'], COIN_NAME)
             get_claimed_count = await store.sql_faucet_sum_count_claimed(COIN_NAME)
-            sub_claim = num_format_coin(int(get_claimed_count['claimed']), COIN_NAME) if get_claimed_count['count'] > 0 else f"0.00{COIN_NAME}"
-            if wallet['actual_balance'] + wallet['locked_balance'] != 0:
+            sub_claim = num_format_coin(int(get_claimed_count['claimed'] + sum_sub), COIN_NAME) if get_claimed_count['count'] > 0 else f"0.00{COIN_NAME}"
+            if wallet['actual_balance'] != 0:
                 table_data.append([COIN_NAME, balance_actual, sub_claim])
             else:
                 table_data.append([COIN_NAME, '0', sub_claim])
         elif (not is_maintenance_coin(COIN_NAME)) and coin_family == "XMR":
+            sum_sub = 0
             COIN_DEC = get_decimal(COIN_NAME)
             wallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
             if wallet is None:
@@ -14804,16 +14859,18 @@ async def bot_faucet(ctx):
             try:
                 if COIN_NAME in get_game_stat:
                     wallet['actual_balance'] = int(wallet['actual_balance']) - int(get_game_stat[COIN_NAME])
+                    sum_sub = int(get_game_stat[COIN_NAME])
             except Exception as e:
                 await logchanbot(traceback.format_exc())
             balance_actual = num_format_coin(wallet['actual_balance'], COIN_NAME)
             get_claimed_count = await store.sql_faucet_sum_count_claimed(COIN_NAME)
-            sub_claim = num_format_coin(int(get_claimed_count['claimed']), COIN_NAME) if get_claimed_count['count'] > 0 else f"0.00{COIN_NAME}"
-            if wallet['actual_balance'] + wallet['locked_balance'] != 0:
+            sub_claim = num_format_coin(int(get_claimed_count['claimed'] + sum_sub), COIN_NAME) if get_claimed_count['count'] > 0 else f"0.00{COIN_NAME}"
+            if wallet['actual_balance'] != 0:
                 table_data.append([COIN_NAME, balance_actual, sub_claim])
             else:
                 table_data.append([COIN_NAME, '0', sub_claim])
         elif (not is_maintenance_coin(COIN_NAME)) and coin_family == "NANO":
+            sum_sub = 0
             COIN_DEC = get_decimal(COIN_NAME)
             wallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
             if wallet is None:
@@ -14824,11 +14881,12 @@ async def bot_faucet(ctx):
             try:
                 if COIN_NAME in get_game_stat:
                     wallet['actual_balance'] = wallet['actual_balance'] - int(get_game_stat[COIN_NAME])
+                    sum_sub = int(get_game_stat[COIN_NAME])
             except Exception as e:
                 await logchanbot(traceback.format_exc())
             balance_actual = num_format_coin(wallet['actual_balance'], COIN_NAME)
             get_claimed_count = await store.sql_faucet_sum_count_claimed(COIN_NAME)
-            sub_claim = num_format_coin(int(get_claimed_count['claimed']), COIN_NAME) if get_claimed_count['count'] > 0 else f"0.00{COIN_NAME}"
+            sub_claim = num_format_coin(int(get_claimed_count['claimed'] + sum_sub), COIN_NAME) if get_claimed_count['count'] > 0 else f"0.00{COIN_NAME}"
             if wallet['actual_balance'] != 0:
                 table_data.append([COIN_NAME, balance_actual, sub_claim])
             else:
@@ -14836,6 +14894,7 @@ async def bot_faucet(ctx):
     # Add DOGE
     COIN_NAME = "DOGE"
     if (not is_maintenance_coin(COIN_NAME)) and (COIN_NAME in FAUCET_COINS):
+        sum_sub = 0
         userwallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
         if userwallet is None:
             userwallet = await store.sql_register_user(str(bot.user.id), COIN_NAME, 'DISCORD')
@@ -14844,12 +14903,13 @@ async def bot_faucet(ctx):
         try:
             if COIN_NAME in get_game_stat:
                 actual = actual - float(get_game_stat[COIN_NAME])
+                sum_sub = float(get_game_stat[COIN_NAME])
         except Exception as e:
             await logchanbot(traceback.format_exc())
         userdata_balance = await store.sql_doge_balance(str(bot.user.id), COIN_NAME)
         balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
         get_claimed_count = await store.sql_faucet_sum_count_claimed(COIN_NAME)
-        sub_claim = num_format_coin(float(get_claimed_count['claimed']), COIN_NAME) if get_claimed_count['count'] > 0 else f"0.00{COIN_NAME}"
+        sub_claim = num_format_coin(float(get_claimed_count['claimed']) + sum_sub, COIN_NAME) if get_claimed_count['count'] > 0 else f"0.00{COIN_NAME}"
         table_data.append([COIN_NAME, balance_actual, sub_claim])
     table = AsciiTable(table_data)
     table.padding_left = 0

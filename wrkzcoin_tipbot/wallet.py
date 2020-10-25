@@ -104,6 +104,16 @@ async def send_transaction(from_address: str, to_address: str, amount: int, coin
             "get_tx_hex": False,
             "get_tx_metadata": False
         }
+        if COIN_NAME == "UPX":
+            payload = {
+                "destinations": [{'amount': amount, 'address': to_address}],
+                "account_index": acc_index,
+                "subaddr_indices": [],
+                "ring_size": 11,
+                "get_tx_key": True,
+                "get_tx_hex": False,
+                "get_tx_metadata": False
+            }
         result = await rpc_client.call_aiohttp_wallet('transfer', COIN_NAME, time_out=time_out, payload=payload)
         if result:
             if ('tx_hash' in result) and ('tx_key' in result):
@@ -112,7 +122,7 @@ async def send_transaction(from_address: str, to_address: str, amount: int, coin
 
 
 async def send_transaction_id(from_address: str, to_address: str, amount: int, paymentid: str, coin: str) -> str:
-    time_out = 32
+    time_out = 64
     COIN_NAME = coin.upper()
     if COIN_NAME == "DEGO":
         time_out = 300
@@ -151,7 +161,7 @@ async def send_transaction_id(from_address: str, to_address: str, amount: int, p
 
 
 async def send_transactionall(from_address: str, to_address, coin: str, acc_index: int = None) -> str:
-    time_out = 32
+    time_out = 64
     COIN_NAME = coin.upper()
     if COIN_NAME == "DEGO":
         time_out = 300
@@ -465,7 +475,7 @@ def get_tx_fee(coin: str):
 
 async def get_tx_fee_xmr(coin: str, amount: int = None, to_address: str = None):
     COIN_NAME = coin.upper()
-    timeout = 32
+    timeout = 64
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","XMR")      
     if coin_family == "XMR":
         if COIN_NAME in ["XAM"]:
@@ -478,6 +488,21 @@ async def get_tx_fee_xmr(coin: str, amount: int = None, to_address: str = None):
                 "do_not_relay": True
             }
 
+            result = await rpc_client.call_aiohttp_wallet('transfer', COIN_NAME, time_out=timeout, payload=payload)
+            if result:
+                if ('tx_hash' in result) and ('tx_key' in result) and ('fee' in result):
+                    return result['fee']
+        if COIN_NAME == "UPX":
+            payload = {
+                "destinations": [{'amount': amount, 'address': to_address}],
+                "account_index": 0,
+                "subaddr_indices": [],
+                "get_tx_key": True,
+                "do_not_relay": True,
+                "get_tx_hex": True,
+                "ring_size": 11,
+                "get_tx_metadata": False
+            }
             result = await rpc_client.call_aiohttp_wallet('transfer', COIN_NAME, time_out=timeout, payload=payload)
             if result:
                 if ('tx_hash' in result) and ('tx_key' in result) and ('fee' in result):

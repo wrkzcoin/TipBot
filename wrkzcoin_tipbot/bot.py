@@ -444,7 +444,12 @@ async def get_prefix(bot, message):
     extras = [pre_cmd, 'tb!', 'tipbot!']
     return when_mentioned_or(*extras)(bot, message)
 
-bot = AutoShardedBot(command_prefix = get_prefix, case_insensitive=True, owner_id = OWNER_ID_TIPBOT, pm_help = True)
+
+intents = discord.Intents.default()
+intents.members = True
+intents.presences = True
+
+bot = AutoShardedBot(command_prefix = get_prefix, case_insensitive=True, owner_id = OWNER_ID_TIPBOT, pm_help = True, intents=intents)
 bot.remove_command('help')
 
 
@@ -9942,7 +9947,7 @@ async def tipall(ctx, amount: str, *args):
         NetFee = 0
 
         # [x.guild for x in [g.members for g in bot.guilds] if x.id = useridyourelookingfor]
-        listMembers = [member for member in ctx.guild.members if member.status == discord.Status.online and member.bot == False]
+        listMembers = [member for member in ctx.guild.members if member.status != discord.Status.offline and member.bot == False]
         print("Number of tip-all in {}: {}".format(ctx.guild.name, len(listMembers)))
         # Check number of receivers.
         if len(listMembers) > config.tipallMax_Offchain:
@@ -10101,7 +10106,7 @@ async def tipall(ctx, amount: str, *args):
                             f'{num_format_coin(real_amount, COIN_NAME)} '
                             f'{COIN_NAME}.')
             return
-        listMembers = [member for member in ctx.guild.members if member.status == discord.Status.online and member.bot == False]
+        listMembers = [member for member in ctx.guild.members if member.status != discord.Status.offline and member.bot == False]
         print("Number of tip-all in {}: {}".format(ctx.guild.name, len(listMembers)))
         # Check number of receivers.
         if len(listMembers) > config.tipallMax_Offchain:
@@ -10204,7 +10209,7 @@ async def tipall(ctx, amount: str, *args):
                             f'{num_format_coin(real_amount, COIN_NAME)} '
                             f'{COIN_NAME}.')
             return
-        listMembers = [member for member in ctx.guild.members if member.status == discord.Status.online and member.bot == False]
+        listMembers = [member for member in ctx.guild.members if member.status != discord.Status.offline and member.bot == False]
         print("Number of tip-all in {}: {}".format(ctx.guild.name, len(listMembers)))
         # Check number of receivers.
         if len(listMembers) > config.tipallMax_Offchain:
@@ -10309,7 +10314,7 @@ async def tipall(ctx, amount: str, *args):
                             f'{num_format_coin(real_amount, COIN_NAME)} '
                             f'{COIN_NAME}.')
             return
-        listMembers = [member for member in ctx.guild.members if member.status == discord.Status.online and member.bot == False]
+        listMembers = [member for member in ctx.guild.members if member.status != discord.Status.offline and member.bot == False]
         print("Number of tip-all in {}: {}".format(ctx.guild.name, len(listMembers)))
         # Check number of receivers.
         if len(listMembers) > config.tipallMax_Offchain:

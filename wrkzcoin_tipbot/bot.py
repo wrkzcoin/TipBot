@@ -556,7 +556,7 @@ async def on_raw_reaction_add(payload):
 
 @bot.event
 async def on_reaction_add(reaction, user):
-    global REACT_TIP_STORE, TRTL_DISCORD, EMOJI_99, EMOJI_TIP
+    global REACT_TIP_STORE, TRTL_DISCORD, EMOJI_99, EMOJI_TIP, TX_IN_PROCESS
     # If bot re-act, ignore.
     if user.id == bot.user.id:
         return
@@ -601,12 +601,26 @@ async def on_reaction_add(reaction, user):
                     (real_amount > MaxTX) or (real_amount < MinTx):
                     return
                 else:
+                    # add queue also react-tip
+                    if user.id not in TX_IN_PROCESS:
+                        TX_IN_PROCESS.append(user.id)
+                    else:
+                        try:
+                            msg = await user.send(f'{EMOJI_ERROR} You have another tx in progress. Re-act tip not proceed.')
+                        except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+                            pass
+                        return
                     tip = None
                     try:
                         tip = await store.sql_send_tip(str(user.id), str(reaction.message.author.id), real_amount, 'REACTTIP', COIN_NAME)
                         tip_tx_tipper = "Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
+
+                    # remove queue from react-tip
+                    if user.id in TX_IN_PROCESS:
+                        TX_IN_PROCESS.remove(user.id)
+
                     if tip:
                         notifyList = await store.sql_get_tipnotify()
                         REACT_TIP_STORE.append((str(reaction.message.id) + '.' + str(user.id)))
@@ -672,12 +686,27 @@ async def on_reaction_add(reaction, user):
                     (real_amount > MaxTX) or (real_amount < MinTx):
                     return
                 else:
+                    # add queue also react-tip
+                    if user.id not in TX_IN_PROCESS:
+                        TX_IN_PROCESS.append(user.id)
+                    else:
+                        try:
+                            msg = await user.send(f'{EMOJI_ERROR} You have another tx in progress. Re-act tip not proceed.')
+                        except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+                            pass
+                        return
+
                     tip = None
                     try:
                         tip = await store.sql_send_tip(str(user.id), str(reaction.message.author.id), real_amount, 'REACTTIP', COIN_NAME)
                         tip_tx_tipper = "Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
+
+                    # remove queue from react-tip
+                    if user.id in TX_IN_PROCESS:
+                        TX_IN_PROCESS.remove(user.id)
+
                     if tip:
                         notifyList = await store.sql_get_tipnotify()
                         REACT_TIP_STORE.append((str(reaction.message.id) + '.' + str(user.id)))
@@ -7887,6 +7916,12 @@ async def swap(ctx, amount: str, coin: str, to: str):
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} supporting to **MARKETBOT** only right now.')
         return
+
+    # Swap disable, we will remove this
+    await ctx.message.add_reaction(EMOJI_ERROR)
+    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Command is disable and will not be available.')
+    return
+
     # check if bot is going to restart
     if IS_RESTARTING:
         await ctx.message.add_reaction(EMOJI_REFRESH)
@@ -8467,11 +8502,21 @@ async def randtip(ctx, amount: str, coin: str):
                        f'{COIN_NAME}.')
         return
 
+    # add queue also randtip
+    if ctx.message.author.id not in TX_IN_PROCESS:
+        TX_IN_PROCESS.append(ctx.message.author.id)
+    else:
+        await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+        msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+        await msg.add_reaction(EMOJI_OK_BOX)
+        return
+
     tip = None
     user_to = await store.sql_get_userwallet(str(rand_user.id), COIN_NAME)
     if user_to is None:
         userregister = await store.sql_register_user(str(rand_user.id), COIN_NAME, 'DISCORD')
         user_to = await store.sql_get_userwallet(str(rand_user.id), COIN_NAME)
+
     if coin_family in ["TRTL", "BCN"]:
         tip = await store.sql_send_tip(str(ctx.message.author.id), str(rand_user.id), real_amount, 'RANDTIP', COIN_NAME)
     elif coin_family == "XMR":
@@ -8480,6 +8525,10 @@ async def randtip(ctx, amount: str, coin: str):
         tip = await store.sql_mv_nano_single(str(ctx.message.author.id), str(rand_user.id), real_amount, COIN_NAME, "RANDTIP")
     elif coin_family == "DOGE":
         tip = await store.sql_mv_doge_single(str(ctx.message.author.id), str(rand_user.id), real_amount, COIN_NAME, "RANDTIP")
+
+    # remove queue from randtip
+    if ctx.message.author.id in TX_IN_PROCESS:
+        TX_IN_PROCESS.remove(ctx.message.author.id)
 
     if tip:
         # tipper shall always get DM. Ignore notifyList
@@ -8689,7 +8738,16 @@ async def freetip(ctx, amount: str, coin: str):
                            f'{COIN_NAME}.')
             return
         # end of re-check balance
-        
+
+        # add queue also freetip
+        if ctx.message.author.id not in TX_IN_PROCESS:
+            TX_IN_PROCESS.append(ctx.message.author.id)
+        else:
+            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+            await msg.add_reaction(EMOJI_OK_BOX)
+            return
+
         tip = None
         user_to = await store.sql_get_userwallet(str(user.id), COIN_NAME)
         if user_to is None:
@@ -8703,6 +8761,11 @@ async def freetip(ctx, amount: str, coin: str):
             tip = await store.sql_mv_nano_single(str(ctx.message.author.id), str(user.id), real_amount, COIN_NAME, "FREETIP")
         elif coin_family == "DOGE":
             tip = await store.sql_mv_doge_single(str(ctx.message.author.id), str(user.id), real_amount, COIN_NAME, "FREETIP")
+
+        # remove queue from freetip
+        if ctx.message.author.id in TX_IN_PROCESS:
+            TX_IN_PROCESS.remove(ctx.message.author.id)
+
         if tip:
             embed = discord.Embed(title=f"Free Tip appeared {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}", description=f"Already collected", color=0x00ff00)
             embed.add_field(name="Message ID", value=msg.id, inline=True)
@@ -9063,6 +9126,15 @@ async def tip(ctx, amount: str, *args):
                            f'{COIN_NAME}.')
             return
 
+        # add queue also tip
+        if ctx.message.author.id not in TX_IN_PROCESS:
+            TX_IN_PROCESS.append(ctx.message.author.id)
+        else:
+            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+            await msg.add_reaction(EMOJI_OK_BOX)
+            return
+
         tip = None
         try:
             tip = await store.sql_send_tip(str(ctx.message.author.id), str(member.id), real_amount, 'TIP', COIN_NAME)
@@ -9071,6 +9143,11 @@ async def tip(ctx, amount: str, *args):
                 await ctx.message.add_reaction(EMOJI_TIP)
         except Exception as e:
             await logchanbot(traceback.format_exc())
+
+        # remove queue from tip
+        if ctx.message.author.id in TX_IN_PROCESS:
+            TX_IN_PROCESS.remove(ctx.message.author.id)
+
         if tip:
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
             # tipper shall always get DM. Ignore notifyList
@@ -9128,7 +9205,22 @@ async def tip(ctx, amount: str, *args):
                             f'{num_format_coin(real_amount, COIN_NAME)} '
                             f'{COIN_NAME} to {member.name}#{member.discriminator}.')
             return
+
+        # add queue also tip
+        if ctx.message.author.id not in TX_IN_PROCESS:
+            TX_IN_PROCESS.append(ctx.message.author.id)
+        else:
+            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+            await msg.add_reaction(EMOJI_OK_BOX)
+            return
+
         tip = await store.sql_mv_xmr_single(str(ctx.message.author.id), str(member.id), real_amount, COIN_NAME, "TIP")
+
+        # remove queue from tip
+        if ctx.message.author.id in TX_IN_PROCESS:
+            TX_IN_PROCESS.remove(ctx.message.author.id)
+
         if tip:
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
             if ctx.message.author.bot == False and serverinfo['react_tip'] == "ON":
@@ -9190,7 +9282,22 @@ async def tip(ctx, amount: str, *args):
                             f'{num_format_coin(real_amount, COIN_NAME)} '
                             f'{COIN_NAME} to {member.name}#{member.discriminator}.')
             return
+
+        # add queue also tip
+        if ctx.message.author.id not in TX_IN_PROCESS:
+            TX_IN_PROCESS.append(ctx.message.author.id)
+        else:
+            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+            await msg.add_reaction(EMOJI_OK_BOX)
+            return
+
         tip = await store.sql_mv_doge_single(str(ctx.message.author.id), str(member.id), real_amount, COIN_NAME, "TIP")
+
+        # remove queue from tip
+        if ctx.message.author.id in TX_IN_PROCESS:
+            TX_IN_PROCESS.remove(ctx.message.author.id)
+
         if tip:
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
             if ctx.message.author.bot == False and serverinfo['react_tip'] == "ON":
@@ -9245,7 +9352,22 @@ async def tip(ctx, amount: str, *args):
                             f'{num_format_coin(real_amount, COIN_NAME)} '
                             f'{COIN_NAME} to {member.name}#{member.discriminator}.')
             return
+
+        # add queue also tip
+        if ctx.message.author.id not in TX_IN_PROCESS:
+            TX_IN_PROCESS.append(ctx.message.author.id)
+        else:
+            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+            await msg.add_reaction(EMOJI_OK_BOX)
+            return
+
         tip = await store.sql_mv_nano_single(str(ctx.message.author.id), str(member.id), real_amount, COIN_NAME, "TIP")
+
+        # remove queue from tip
+        if ctx.message.author.id in TX_IN_PROCESS:
+            TX_IN_PROCESS.remove(ctx.message.author.id)
+
         if tip:
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
             if ctx.message.author.bot == False and serverinfo['react_tip'] == "ON":
@@ -10002,23 +10124,29 @@ async def tipall(ctx, amount: str, *args):
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is no one to tip to.')
             return
-        tip = None
-        
+
+        # add queue also tipall
         if ctx.message.author.id not in TX_IN_PROCESS:
             TX_IN_PROCESS.append(ctx.message.author.id)
-            try:
-                tip = await store.sql_send_tipall(str(ctx.message.author.id), destinations, real_amount, amountDiv, list_receivers, 'TIPALL', COIN_NAME)
-                tip_tx_tipper = "Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
-                ActualSpend = int(amountDiv * len(destinations))
-            except Exception as e:
-                await logchanbot(traceback.format_exc())
-            await asyncio.sleep(config.interval.tx_lap_each)
-            TX_IN_PROCESS.remove(ctx.message.author.id)
         else:
             await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
             msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
             await msg.add_reaction(EMOJI_OK_BOX)
             return
+
+        tip = None
+        try:
+            tip = await store.sql_send_tipall(str(ctx.message.author.id), destinations, real_amount, amountDiv, list_receivers, 'TIPALL', COIN_NAME)
+            tip_tx_tipper = "Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
+            ActualSpend = int(amountDiv * len(destinations))
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
+        await asyncio.sleep(config.interval.tx_lap_each)
+
+        # remove queue from tipall
+        if ctx.message.author.id in TX_IN_PROCESS:
+            TX_IN_PROCESS.remove(ctx.message.author.id)
+
         if tip:
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
             TotalSpend = num_format_coin(real_amount, COIN_NAME)
@@ -10117,19 +10245,25 @@ async def tipall(ctx, amount: str, *args):
                            f'{COIN_NAME} for each member. You need at least {num_format_coin(len(memids) * MinTx, COIN_NAME)}{COIN_NAME}.')
             return
 
+        # add queue also tipall
         if ctx.message.author.id not in TX_IN_PROCESS:
             TX_IN_PROCESS.append(ctx.message.author.id)
-            try:
-                tips = await store.sql_mv_xmr_multiple(str(ctx.message.author.id), memids, amountDiv, COIN_NAME, "TIPALL")
-            except Exception as e:
-                await logchanbot(traceback.format_exc())
-            await asyncio.sleep(config.interval.tx_lap_each)
-            TX_IN_PROCESS.remove(ctx.message.author.id)
         else:
             await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
             msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
             await msg.add_reaction(EMOJI_OK_BOX)
             return
+
+        try:
+            tips = await store.sql_mv_xmr_multiple(str(ctx.message.author.id), memids, amountDiv, COIN_NAME, "TIPALL")
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
+        await asyncio.sleep(config.interval.tx_lap_each)
+
+        # remove queue from tipall
+        if ctx.message.author.id in TX_IN_PROCESS:
+            TX_IN_PROCESS.remove(ctx.message.author.id)
+
         if tips:
             tipAmount = num_format_coin(real_amount, COIN_NAME)
             ActualSpend_str = num_format_coin(amountDiv * len(memids), COIN_NAME)
@@ -10219,19 +10353,25 @@ async def tipall(ctx, amount: str, *args):
                            f'{COIN_NAME} for each member. You need at least {num_format_coin(len(memids) * MinTx, COIN_NAME)}{COIN_NAME}.')
             return
 
+        # add queue also tipall
         if ctx.message.author.id not in TX_IN_PROCESS:
             TX_IN_PROCESS.append(ctx.message.author.id)
-            try:
-                tips = await store.sql_mv_nano_multiple(str(ctx.message.author.id), memids, amountDiv, COIN_NAME, "TIPALL")
-            except Exception as e:
-                await logchanbot(traceback.format_exc())
-            await asyncio.sleep(config.interval.tx_lap_each)
-            TX_IN_PROCESS.remove(ctx.message.author.id)
         else:
             await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
             msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
             await msg.add_reaction(EMOJI_OK_BOX)
             return
+
+        try:
+            tips = await store.sql_mv_nano_multiple(str(ctx.message.author.id), memids, amountDiv, COIN_NAME, "TIPALL")
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
+            await asyncio.sleep(config.interval.tx_lap_each)
+
+        # remove queue from tipall
+        if ctx.message.author.id in TX_IN_PROCESS:
+            TX_IN_PROCESS.remove(ctx.message.author.id)
+
         if tips:
             tipAmount = num_format_coin(real_amount, COIN_NAME)
             ActualSpend_str = num_format_coin(amountDiv * len(memids), COIN_NAME)
@@ -10326,19 +10466,25 @@ async def tipall(ctx, amount: str, *args):
                            f'{COIN_NAME} for each member. You need at least {num_format_coin(len(memids) * MinTx, COIN_NAME)}{COIN_NAME}.')
             return
 
+        # add queue also tipall
         if ctx.message.author.id not in TX_IN_PROCESS:
             TX_IN_PROCESS.append(ctx.message.author.id)
-            try:
-                tips = await store.sql_mv_doge_multiple(str(ctx.message.author.id), memids, amountDiv, COIN_NAME, "TIPALL")
-            except Exception as e:
-                await logchanbot(traceback.format_exc())
-            await asyncio.sleep(config.interval.tx_lap_each)
-            TX_IN_PROCESS.remove(ctx.message.author.id)
         else:
             await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
             msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
             await msg.add_reaction(EMOJI_OK_BOX)
             return
+
+        try:
+            tips = await store.sql_mv_doge_multiple(str(ctx.message.author.id), memids, amountDiv, COIN_NAME, "TIPALL")
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
+        await asyncio.sleep(config.interval.tx_lap_each)
+
+        # remove queue from tipall
+        if ctx.message.author.id in TX_IN_PROCESS:
+            TX_IN_PROCESS.remove(ctx.message.author.id)
+
         if tips:
             tipAmount = num_format_coin(real_amount, COIN_NAME)
             ActualSpend_str = num_format_coin(amountDiv * len(memids), COIN_NAME)
@@ -13523,6 +13669,7 @@ async def saving_wallet():
 
 # Multiple tip
 async def _tip(ctx, amount, coin: str, if_guild: bool=False):
+    global TX_IN_PROCESS
     guild_name = '**{}**'.format(ctx.guild.name) if if_guild == True else ''
     tip_type_text = 'guild tip' if if_guild == True else 'tip'
     guild_or_tip = 'GUILDTIP' if if_guild == True else 'TIPS'
@@ -13598,6 +13745,16 @@ async def _tip(ctx, amount, coin: str, if_guild: bool=False):
                            f'{num_format_coin(ActualSpend, COIN_NAME)} '
                            f'{COIN_NAME}.')
             return
+
+        # add queue also tip
+        if int(id_tipper) not in TX_IN_PROCESS:
+            TX_IN_PROCESS.append(int(id_tipper))
+        else:
+            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+            await msg.add_reaction(EMOJI_OK_BOX)
+            return
+
         tip = None
         if len(list_receivers) < 1:
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -13611,6 +13768,11 @@ async def _tip(ctx, amount, coin: str, if_guild: bool=False):
                 await ctx.message.add_reaction(EMOJI_TIP)
         except Exception as e:
             await logchanbot(traceback.format_exc())
+
+        # remove queue from tip
+        if int(id_tipper) in TX_IN_PROCESS:
+            TX_IN_PROCESS.remove(int(id_tipper))
+
         if tip:
             try:
                 for member in ctx.message.mentions:
@@ -13691,10 +13853,25 @@ async def _tip(ctx, amount, coin: str, if_guild: bool=False):
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Not sufficient balance. ')
             return
+
+        # add queue also tip
+        if int(id_tipper) not in TX_IN_PROCESS:
+            TX_IN_PROCESS.append(int(id_tipper))
+        else:
+            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+            await msg.add_reaction(EMOJI_OK_BOX)
+            return
+
         try:
             tips = await store.sql_mv_xmr_multiple(id_tipper, memids, real_amount, COIN_NAME, guild_or_tip)
         except Exception as e:
             await logchanbot(traceback.format_exc())
+
+        # remove queue from tip
+        if int(id_tipper) in TX_IN_PROCESS:
+            TX_IN_PROCESS.remove(int(id_tipper))
+
         if tips:
             tipAmount = num_format_coin(TotalAmount, COIN_NAME)
             amountDiv_str = num_format_coin(real_amount, COIN_NAME)
@@ -13775,12 +13952,27 @@ async def _tip(ctx, amount, coin: str, if_guild: bool=False):
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Not sufficient balance. ')
             return
+
+        # add queue also tip
+        if int(id_tipper) not in TX_IN_PROCESS:
+            TX_IN_PROCESS.append(int(id_tipper))
+        else:
+            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+            await msg.add_reaction(EMOJI_OK_BOX)
+            return
+
         try:
             tips = await store.sql_mv_doge_multiple(id_tipper, memids, real_amount, COIN_NAME, guild_or_tip)
             if ctx.message.author.bot == False and serverinfo['react_tip'] == "ON":
                 await ctx.message.add_reaction(EMOJI_TIP)
         except Exception as e:
             await logchanbot(traceback.format_exc())
+
+        # remove queue from tip
+        if int(id_tipper) in TX_IN_PROCESS:
+            TX_IN_PROCESS.remove(int(id_tipper))
+
         if tips:
             tipAmount = num_format_coin(TotalAmount, COIN_NAME)
             amountDiv_str = num_format_coin(real_amount, COIN_NAME)
@@ -13857,10 +14049,25 @@ async def _tip(ctx, amount, coin: str, if_guild: bool=False):
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Not sufficient balance. ')
             return
+
+        # add queue also tip
+        if int(id_tipper) not in TX_IN_PROCESS:
+            TX_IN_PROCESS.append(int(id_tipper))
+        else:
+            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+            await msg.add_reaction(EMOJI_OK_BOX)
+            return
+
         try:
             tips = await store.sql_mv_nano_multiple(id_tipper, memids, real_amount, COIN_NAME, guild_or_tip)
         except Exception as e:
             await logchanbot(traceback.format_exc())
+
+        # remove queue from tip
+        if int(id_tipper) in TX_IN_PROCESS:
+            TX_IN_PROCESS.remove(int(id_tipper))
+
         if tips:
             tipAmount = num_format_coin(TotalAmount, COIN_NAME)
             amountDiv_str = num_format_coin(real_amount, COIN_NAME)
@@ -13902,6 +14109,7 @@ async def _tip(ctx, amount, coin: str, if_guild: bool=False):
 
 # Multiple tip
 async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str = None):
+    global TX_IN_PROCESS
     guild_or_tip = 'GUILDTIP' if if_guild == True else 'TIPS'
     guild_name = '**{}**'.format(ctx.guild.name) if if_guild == True else ''
     tip_type_text = 'guild tip' if if_guild == True else 'tip'
@@ -14008,6 +14216,16 @@ async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str 
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is no active talker in such period. Please increase more duration or tip directly!')
             return
+
+        # add queue also tip
+        if int(id_tipper) not in TX_IN_PROCESS:
+            TX_IN_PROCESS.append(int(id_tipper))
+        else:
+            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+            await msg.add_reaction(EMOJI_OK_BOX)
+            return
+
         tip = None
         try:
             tip = await store.sql_send_tipall(id_tipper, destinations, real_amount, real_amount, list_receivers, guild_or_tip, COIN_NAME)
@@ -14015,6 +14233,11 @@ async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str 
             ActualSpend += int(tip['fee'])
         except Exception as e:
             await logchanbot(traceback.format_exc())
+
+        # remove queue from tip
+        if int(id_tipper) in TX_IN_PROCESS:
+            TX_IN_PROCESS.remove(int(id_tipper))
+
         if tip:
             # tipper shall always get DM. Ignore notifyList
             try:
@@ -14106,10 +14329,25 @@ async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str 
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Not sufficient balance. ')
             return
+
+        # add queue also tip
+        if int(id_tipper) not in TX_IN_PROCESS:
+            TX_IN_PROCESS.append(int(id_tipper))
+        else:
+            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+            await msg.add_reaction(EMOJI_OK_BOX)
+            return
+
         try:
             tips = await store.sql_mv_xmr_multiple(id_tipper, memids, real_amount, COIN_NAME, guild_or_tip)
         except Exception as e:
             await logchanbot(traceback.format_exc())
+
+        # remove queue from tip
+        if int(id_tipper) in TX_IN_PROCESS:
+            TX_IN_PROCESS.remove(int(id_tipper))
+
         if tips:
             # tipper shall always get DM. Ignore notifyList
             try:
@@ -14196,10 +14434,25 @@ async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str 
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Not sufficient balance. ')
             return
+
+        # add queue also tip
+        if int(id_tipper) not in TX_IN_PROCESS:
+            TX_IN_PROCESS.append(int(id_tipper))
+        else:
+            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+            await msg.add_reaction(EMOJI_OK_BOX)
+            return
+
         try:
             tips = await store.sql_mv_nano_multiple(id_tipper, memids, real_amount, COIN_NAME, guild_or_tip)
         except Exception as e:
             await logchanbot(traceback.format_exc())
+
+        # remove queue from tip
+        if int(id_tipper) in TX_IN_PROCESS:
+            TX_IN_PROCESS.remove(int(id_tipper))
+
         if tips:
             # tipper shall always get DM. Ignore notifyList
             try:
@@ -14287,10 +14540,25 @@ async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str 
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Not sufficient balance. ')
             return
+
+        # add queue also tip
+        if int(id_tipper) not in TX_IN_PROCESS:
+            TX_IN_PROCESS.append(int(id_tipper))
+        else:
+            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+            await msg.add_reaction(EMOJI_OK_BOX)
+            return
+
         try:
             tips = await store.sql_mv_doge_multiple(id_tipper, memids, real_amount, COIN_NAME, guild_or_tip)
         except Exception as e:
             await logchanbot(traceback.format_exc())
+
+        # remove queue from tip
+        if int(id_tipper) in TX_IN_PROCESS:
+            TX_IN_PROCESS.remove(int(id_tipper))
+
         if tips:
             # tipper shall always get DM. Ignore notifyList
             try:

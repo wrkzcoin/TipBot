@@ -735,6 +735,7 @@ async def sql_update_balances(coin: str = None):
                                                                                     'amount': tx['amount'], 'decimal': wallet.get_decimal(COIN_NAME)}), ex=86400)
                                     except Exception as e:
                                         await logchanbot(traceback.format_exc())
+                                        await logchanbot(json.dumps(tx))
                         if len(list_balance_user) > 0:
                             list_update = []
                             timestamp = int(time.time())
@@ -1936,7 +1937,7 @@ async def sql_changeinfo_by_server(server_id: str, what: str, value: str):
             await logchanbot(traceback.format_exc())
 
 
-async def sql_updatestat_by_server(server_id: str, numb_user: int, numb_bot: int, numb_channel: int, numb_online: int):
+async def sql_updatestat_by_server(server_id: str, numb_user: int, numb_bot: int, numb_channel: int, numb_online: int, servername: str):
     global pool
     try:
         await openConnection()
@@ -1944,8 +1945,8 @@ async def sql_updatestat_by_server(server_id: str, numb_user: int, numb_bot: int
             async with conn.cursor() as cur:
                 sql = """ UPDATE discord_server SET `numb_user` = %s, 
                           `numb_bot`= %s, `numb_channel` = %s, `numb_online` = %s, 
-                         `lastUpdate` = %s WHERE `serverid` = %s """
-                await cur.execute(sql, (numb_user, numb_bot, numb_channel, numb_online, int(time.time()), server_id,))
+                         `lastUpdate` = %s, `servername` = %s WHERE `serverid` = %s """
+                await cur.execute(sql, (numb_user, numb_bot, numb_channel, numb_online, int(time.time()), server_id, conn.escape(servername)))
                 await conn.commit()
     except Exception as e:
         await logchanbot(traceback.format_exc())
@@ -3298,7 +3299,7 @@ async def market_value_cmc_usd(ticker) -> float:
                 sql = """ SELECT * FROM `cmc_v2` WHERE `symbol`=%s ORDER BY `id` DESC LIMIT 1 """
                 await cur.execute(sql, (ticker.upper()))
                 result = await cur.fetchone()
-                if result and 'priceUSD' in result: return float(result['priceUSD'])
+                if result and 'priceUSD' in result and result['priceUSD']: return float(result['priceUSD'])
     except Exception as e:
         await logchanbot(traceback.format_exc())
     return None
@@ -3315,7 +3316,7 @@ async def market_value_cg_usd(ticker) -> float:
                 sql = """ SELECT * FROM `coingecko_v2` WHERE `symbol`=%s ORDER BY `id` DESC LIMIT 1 """
                 await cur.execute(sql, (ticker.lower()))
                 result = await cur.fetchone()
-                if result and 'marketprice_USD' in result: return float(result['marketprice_USD'])
+                if result and 'marketprice_USD' in result and result['marketprice_USD']: return float(result['marketprice_USD'])
     except Exception as e:
         await logchanbot(traceback.format_exc())
     return None

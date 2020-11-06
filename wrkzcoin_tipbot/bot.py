@@ -6928,13 +6928,13 @@ async def botbalance(ctx, member: discord.Member, coin: str):
             balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
         elif coin_family == "XMR":
             userdata_balance = await store.sql_xmr_balance(str(member.id), COIN_NAME)
-            balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
+            balance_actual = num_format_coin(actual + int(userdata_balance['Adjust']), COIN_NAME)
         elif coin_family == "NANO":
             userdata_balance = await store.sql_nano_balance(str(member.id), COIN_NAME)
             balance_actual = num_format_coin(actual + int(userdata_balance['Adjust']), COIN_NAME)
         elif coin_family in ["TRTL", "BCN"]:
             userdata_balance = await store.sql_cnoff_balance(str(member.id), COIN_NAME)
-            balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
+            balance_actual = num_format_coin(actual + int(userdata_balance['Adjust']), COIN_NAME)
 
         embed = discord.Embed(title=f'Deposit for {member.name}#{member.discriminator}', description='`This is bot\'s tipjar address. Do not deposit here unless you want to deposit to this bot`', timestamp=datetime.utcnow(), colour=7047495)
         embed.set_author(name=member.name, icon_url=member.avatar_url)
@@ -7271,7 +7271,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
             return
 
         userdata_balance = await store.sql_cnoff_balance(str(ctx.message.author.id), COIN_NAME)
-        user['actual_balance'] = user['actual_balance'] + int(userdata_balance['Adjust'])
+        user['actual_balance'] = int(user['actual_balance']) + int(userdata_balance['Adjust'])
 
         if real_amount + NetFee > user['actual_balance']:
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -7690,178 +7690,65 @@ async def donate(ctx, amount: str, coin: str = None):
         await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} in maintenance.')
         return
 
+    COIN_DEC = get_decimal(COIN_NAME)
+    real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
+    user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+    if user_from is None:
+        user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
+        user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
     if coin_family in ["TRTL", "BCN"]:
-        CoinAddress = get_donate_address(COIN_NAME)
-        COIN_DEC = get_decimal(COIN_NAME)
-        real_amount = int(amount * COIN_DEC)
-        user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-        if user_from is None:
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
-            user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-        MinTx = get_min_mv_amount(COIN_NAME)
-
         userdata_balance = await store.sql_cnoff_balance(str(ctx.message.author.id), COIN_NAME)
-        user_from['actual_balance'] = user_from['actual_balance'] + int(userdata_balance['Adjust'])
-
-        if real_amount > user_from['actual_balance']:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to donate '
-                           f'{num_format_coin(real_amount, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-
-        elif real_amount < MinTx:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
-                           f'{num_format_coin(MinTx, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-
-            return
-
-        tip = None
-        try:
-            tip = await store.sql_donate(str(ctx.message.author.id), CoinAddress, real_amount, COIN_NAME)
-            tip_tx_tipper = "Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
-        except Exception as e:
-            await logchanbot(traceback.format_exc())
-
-        if tip:
-            await ctx.message.add_reaction(get_emoji(COIN_NAME))
-            await botLogChan.send(f'{EMOJI_MONEYFACE} TipBot got donation: {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
-            await ctx.message.author.send(
-                                   f'{EMOJI_MONEYFACE} TipBot got donation: {num_format_coin(real_amount, COIN_NAME)} '
-                                   f'{COIN_NAME} '
-                                   f'\n'
-                                   f'Thank you.\n{tip_tx_tipper}')
-            return
-        else:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            msg = await ctx.send(f'{ctx.author.mention} Donating failed, try again. Thank you.')
-            await botLogChan.send(f'A user failed to donate `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`.')
-            await msg.add_reaction(EMOJI_OK_BOX)
-            # add to failed tx table
-            await store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "DONATE")
-            return
-
+        user_from['actual_balance'] = int(user_from['actual_balance']) + int(userdata_balance['Adjust'])
     elif coin_family == "XMR":
-        COIN_DEC = get_decimal(COIN_NAME)
-        real_amount = int(amount * COIN_DEC)
-        user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-        if user_from is None:
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
-            user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-        MinTx = get_min_mv_amount(COIN_NAME)
         userdata_balance = await store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
-        if real_amount > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to donate '
-                           f'{num_format_coin(real_amount, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        if real_amount < MinTx:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
-                           f'{num_format_coin(MinTx, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-
-        donateTx = await store.sql_mv_xmr_single(str(ctx.message.author.id), 
-                                                get_donate_account_name(COIN_NAME), 
-                                                real_amount, COIN_NAME, "DONATE")
-        if donateTx:
-            await ctx.message.add_reaction(get_emoji(COIN_NAME))
-            await botLogChan.send(f'{EMOJI_MONEYFACE} TipBot got donation: {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
-            await ctx.message.author.send(
-                                   f'{EMOJI_MONEYFACE} TipBot got donation: {num_format_coin(real_amount, COIN_NAME)}'
-                                   f'{COIN_NAME} '
-                                   f'\n'
-                                   f'Thank you.')
-            return
-        else:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            return
-        return
+        user_from['actual_balance'] = int(user_from['actual_balance']) + int(userdata_balance['Adjust'])
     elif coin_family == "NANO":
-        COIN_DEC = get_decimal(COIN_NAME)
-        real_amount = int(amount * COIN_DEC)
-        user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-        if user_from is None:
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
-            user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-        MinTx = get_min_mv_amount(COIN_NAME)
         userdata_balance = await store.sql_nano_balance(str(ctx.message.author.id), COIN_NAME)
-        if real_amount > int(user_from['actual_balance']) + int(userdata_balance['Adjust']):
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to donate '
-                           f'{num_format_coin(real_amount, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        if real_amount < MinTx:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
-                           f'{num_format_coin(MinTx, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-
-        donateTx = await store.sql_mv_nano_single(str(ctx.message.author.id), 
-                                                  get_donate_account_name(COIN_NAME), 
-                                                  real_amount, COIN_NAME, "DONATE")
-        if donateTx:
-            await ctx.message.add_reaction(get_emoji(COIN_NAME))
-            await botLogChan.send(f'{EMOJI_MONEYFACE} TipBot got donation: {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
-            await ctx.message.author.send(
-                                   f'{EMOJI_MONEYFACE} TipBot got donation: {num_format_coin(real_amount, COIN_NAME)}'
-                                   f'{COIN_NAME} '
-                                   f'\n'
-                                   f'Thank you.')
-            return
-        else:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            return
-        return
+        user_from['actual_balance'] = int(user_from['actual_balance']) + int(userdata_balance['Adjust'])
     elif coin_family == "DOGE":
-        MinTx = config.daemonDOGE.min_mv_amount
-
-        user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-        if user_from is None:
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
-            user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-        user_from['address'] = user_from['balance_wallet_address']
-
-        real_amount = float(amount)
         userdata_balance = await store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
-        if real_amount > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to donate '
-                           f'{num_format_coin(real_amount, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        if real_amount < MinTx:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
-                           f'{num_format_coin(MinTx, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
+        user_from['actual_balance'] = float(user_from['actual_balance']) + float(userdata_balance['Adjust'])
 
-        donateTx = await store.sql_mv_doge_single(str(ctx.message.author.id), get_donate_account_name(COIN_NAME), real_amount,
-                                            COIN_NAME, "DONATE")
-        if donateTx:
-            await ctx.message.add_reaction(get_emoji(COIN_NAME))
-            await botLogChan.send(f'{EMOJI_MONEYFACE} TipBot got donation: {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
-            await ctx.message.author.send(
-                                   f'{EMOJI_MONEYFACE} TipBot got donation: {num_format_coin(real_amount, COIN_NAME)}'
-                                   f'{COIN_NAME} '
-                                   f'\n'
-                                   f'Thank you.')
-            return
-        else:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            return
+    if real_amount > user_from['actual_balance']:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to donate '
+                       f'{num_format_coin(real_amount, COIN_NAME)} '
+                       f'{COIN_NAME}.')
         return
 
+    donateTx = None
+    try:
+        if coin_family in ["TRTL", "BCN"]:
+            donateTx = await store.sql_donate(str(ctx.message.author.id), get_donate_address(COIN_NAME), real_amount, COIN_NAME)
+        elif coin_family == "XMR":
+            donateTx = await store.sql_mv_xmr_single(str(ctx.message.author.id), 
+                                                    get_donate_account_name(COIN_NAME), 
+                                                    real_amount, COIN_NAME, "DONATE")
+        elif coin_family == "NANO":
+            donateTx = await store.sql_mv_nano_single(str(ctx.message.author.id), 
+                                                      get_donate_account_name(COIN_NAME), 
+                                                      real_amount, COIN_NAME, "DONATE")
+        elif coin_family == "DOGE":
+            donateTx = await store.sql_mv_doge_single(str(ctx.message.author.id), get_donate_account_name(COIN_NAME), real_amount,
+                                                      COIN_NAME, "DONATE")
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    if donateTx:
+        await ctx.message.add_reaction(get_emoji(COIN_NAME))
+        await botLogChan.send(f'{EMOJI_MONEYFACE} TipBot got donation: {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
+        await ctx.message.author.send(
+                                f'{EMOJI_MONEYFACE} TipBot got donation: {num_format_coin(real_amount, COIN_NAME)} '
+                                f'{COIN_NAME} '
+                                f'\n'
+                                f'Thank you.')
+        return
     else:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} INVALID TICKER!')
+        msg = await ctx.send(f'{ctx.author.mention} Donating failed, try again. Thank you.')
+        await botLogChan.send(f'A user failed to donate `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`.')
+        await msg.add_reaction(EMOJI_OK_BOX)
+        # add to failed tx table
+        await store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "DONATE")
         return
 
 
@@ -7999,16 +7886,16 @@ async def swap(ctx, amount: str, coin: str, to: str):
     MaxTX = get_max_mv_amount(COIN_NAME)
     if coin_family in ["TRTL", "BCN"]:
         userdata_balance = await store.sql_cnoff_balance(str(ctx.message.author.id), COIN_NAME)
-        user_from['actual_balance'] = user_from['actual_balance'] + int(userdata_balance['Adjust'])
+        user_from['actual_balance'] = int(user_from['actual_balance']) + int(userdata_balance['Adjust'])
     elif coin_family == "XMR":
         userdata_balance = await store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
-        user_from['actual_balance'] = user_from['actual_balance'] + float(userdata_balance['Adjust'])
+        user_from['actual_balance'] = int(user_from['actual_balance']) + int(userdata_balance['Adjust'])
     elif coin_family == "NANO":
         userdata_balance = await store.sql_nano_balance(str(ctx.message.author.id), COIN_NAME)
-        user_from['actual_balance'] = int(user_from['actual_balance'] + userdata_balance['Adjust'])
+        user_from['actual_balance'] = int(user_from['actual_balance'] + int(userdata_balance['Adjust']))
     elif coin_family == "DOGE":
         userdata_balance = await store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
-        user_from['actual_balance'] = user_from['actual_balance'] + float(userdata_balance['Adjust'])
+        user_from['actual_balance'] = float(user_from['actual_balance']) + float(userdata_balance['Adjust'])
 
     if real_amount > user_from['actual_balance']:
         await ctx.message.add_reaction(EMOJI_ERROR)
@@ -8172,7 +8059,7 @@ async def take(ctx, info: str=None):
         real_amount = int(amount) # already real amount amount = random.randint( ....
         user_from = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
         userdata_balance = await store.sql_cnoff_balance(str(bot.user.id), COIN_NAME)
-        user_from['actual_balance'] = user_from['actual_balance'] + int(userdata_balance['Adjust'])
+        user_from['actual_balance'] = int(user_from['actual_balance']) + int(userdata_balance['Adjust'])
         user_to = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         NetFee = 0
         if user_to is None:
@@ -8472,10 +8359,10 @@ async def randtip(ctx, amount: str, coin: str):
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
     if coin_family in ["TRTL", "BCN"]:
         userdata_balance = await store.sql_cnoff_balance(str(ctx.message.author.id), COIN_NAME)
-        user_from['actual_balance'] = user_from['actual_balance'] + int(userdata_balance['Adjust'])
+        user_from['actual_balance'] = int(user_from['actual_balance']) + int(userdata_balance['Adjust'])
     elif coin_family == "XMR":
         userdata_balance = await store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
-        user_from['actual_balance'] = float(user_from['actual_balance']) + float(userdata_balance['Adjust'])
+        user_from['actual_balance'] = int(user_from['actual_balance']) + int(userdata_balance['Adjust'])
     elif coin_family == "NANO":
         userdata_balance = await store.sql_nano_balance(str(ctx.message.author.id), COIN_NAME)
         user_from['actual_balance'] = int(user_from['actual_balance']) + int(userdata_balance['Adjust'])
@@ -8662,10 +8549,10 @@ async def freetip(ctx, amount: str, coin: str):
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
     if coin_family in ["TRTL", "BCN"]:
         userdata_balance = await store.sql_cnoff_balance(str(ctx.message.author.id), COIN_NAME)
-        user_from['actual_balance'] = user_from['actual_balance'] + int(userdata_balance['Adjust'])
+        user_from['actual_balance'] = int(user_from['actual_balance']) + int(userdata_balance['Adjust'])
     elif coin_family == "XMR":
         userdata_balance = await store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
-        user_from['actual_balance'] = float(user_from['actual_balance']) + float(userdata_balance['Adjust'])
+        user_from['actual_balance'] = int(user_from['actual_balance']) + int(userdata_balance['Adjust'])
     elif coin_family == "NANO":
         userdata_balance = await store.sql_nano_balance(str(ctx.message.author.id), COIN_NAME)
         user_from['actual_balance'] = int(user_from['actual_balance']) + int(userdata_balance['Adjust'])
@@ -8723,7 +8610,7 @@ async def freetip(ctx, amount: str, coin: str):
             user_from['actual_balance'] = user_from['actual_balance'] + int(userdata_balance['Adjust'])
         elif coin_family == "XMR":
             userdata_balance = await store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
-            user_from['actual_balance'] = float(user_from['actual_balance']) + float(userdata_balance['Adjust'])
+            user_from['actual_balance'] = int(user_from['actual_balance']) + int(userdata_balance['Adjust'])
         elif coin_family == "NANO":
             userdata_balance = await store.sql_nano_balance(str(ctx.message.author.id), COIN_NAME)
             user_from['actual_balance'] = int(user_from['actual_balance']) + int(userdata_balance['Adjust'])
@@ -9093,304 +8980,103 @@ async def tip(ctx, amount: str, *args):
     notifyList = await store.sql_get_tipnotify()
     address_to = None
 
+    user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
     if coin_family in ["TRTL", "BCN"]:
-        user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-        user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
         userdata_balance = await store.sql_cnoff_balance(str(ctx.message.author.id), COIN_NAME)
-        user_from['actual_balance'] = user_from['actual_balance'] + int(userdata_balance['Adjust'])
-        if user_to is None:
-            userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD')
-            user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
-        COIN_DEC = get_decimal(COIN_NAME)
-        real_amount = int(amount * COIN_DEC)
-        MinTx = get_min_mv_amount(COIN_NAME)
-        MaxTX = get_max_mv_amount(COIN_NAME)
-        NetFee = 0
-
-        if real_amount > MaxTX:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
-                           f'{num_format_coin(MaxTX, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        elif real_amount > user_from['actual_balance']:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
-                            f'{num_format_coin(real_amount, COIN_NAME)} '
-                            f'{COIN_NAME} to {member.name}#{member.discriminator}.')
-            return
-        elif real_amount < MinTx:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
-                           f'{num_format_coin(MinTx, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-
-        # add queue also tip
-        if ctx.message.author.id not in TX_IN_PROCESS:
-            TX_IN_PROCESS.append(ctx.message.author.id)
-        else:
-            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
-            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
-            await msg.add_reaction(EMOJI_OK_BOX)
-            return
-
-        tip = None
-        try:
-            tip = await store.sql_send_tip(str(ctx.message.author.id), str(member.id), real_amount, 'TIP', COIN_NAME)
-            tip_tx_tipper = "Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
-            if ctx.message.author.bot == False and serverinfo['react_tip'] == "ON":
-                await ctx.message.add_reaction(EMOJI_TIP)
-        except Exception as e:
-            await logchanbot(traceback.format_exc())
-
-        # remove queue from tip
-        if ctx.message.author.id in TX_IN_PROCESS:
-            TX_IN_PROCESS.remove(ctx.message.author.id)
-
-        if tip:
-            await ctx.message.add_reaction(get_emoji(COIN_NAME))
-            # tipper shall always get DM. Ignore notifyList
-            try:
-                await ctx.message.author.send(
-                    f'{EMOJI_ARROW_RIGHTHOOK} Tip of {num_format_coin(real_amount, COIN_NAME)} '
-                    f'{COIN_NAME} '
-                    f'was sent to {member.name}#{member.discriminator} in server `{ctx.guild.name}`\n'
-                    f'{tip_tx_tipper}')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
-            if bot.user.id != member.id and str(member.id) not in notifyList:
-                try:
-                    await member.send(
-                        f'{EMOJI_MONEYFACE} You got a tip of {num_format_coin(real_amount, COIN_NAME)} '
-                        f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{ctx.guild.name}` #{ctx.channel.name}\n'
-                        f'{tip_tx_tipper}\n'
-                        f'{NOTIFICATION_OFF_CMD}')
-                except (discord.Forbidden, discord.errors.Forbidden) as e:
-                    await store.sql_toggle_tipnotify(str(member.id), "OFF")
-            return
-        else:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{ctx.author.mention} Can not deliver TX for {COIN_NAME} right now. Try again soon.')
-            # add to failed tx table
-            await store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "TIP")
-            return
-
+        user_from['actual_balance'] = int(user_from['actual_balance']) + int(userdata_balance['Adjust'])
     elif coin_family == "XMR":
-        COIN_DEC = get_decimal(COIN_NAME)
-        real_amount = int(amount * COIN_DEC)
-        MinTx = get_min_mv_amount(COIN_NAME)
-        MaxTX = get_max_mv_amount(COIN_NAME)
-        user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-        if user_from is None:
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
-            user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-        real_amount = int(amount * COIN_DEC)
         userdata_balance = await store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
-        if real_amount < MinTx:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} Transactions cannot be smaller than '
-                           f'{num_format_coin(MinTx, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        elif real_amount > MaxTX:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} Transactions cannot be bigger than '
-                           f'{num_format_coin(MaxTX, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        elif real_amount > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
-                            f'{num_format_coin(real_amount, COIN_NAME)} '
-                            f'{COIN_NAME} to {member.name}#{member.discriminator}.')
-            return
-
-        # add queue also tip
-        if ctx.message.author.id not in TX_IN_PROCESS:
-            TX_IN_PROCESS.append(ctx.message.author.id)
-        else:
-            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
-            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
-            await msg.add_reaction(EMOJI_OK_BOX)
-            return
-
-        tip = await store.sql_mv_xmr_single(str(ctx.message.author.id), str(member.id), real_amount, COIN_NAME, "TIP")
-
-        # remove queue from tip
-        if ctx.message.author.id in TX_IN_PROCESS:
-            TX_IN_PROCESS.remove(ctx.message.author.id)
-
-        if tip:
-            await ctx.message.add_reaction(get_emoji(COIN_NAME))
-            if ctx.message.author.bot == False and serverinfo['react_tip'] == "ON":
-                await ctx.message.add_reaction(EMOJI_TIP)
-            # tipper shall always get DM. Ignore notifyList
-            try:
-                await ctx.message.author.send(
-                    f'{EMOJI_ARROW_RIGHTHOOK} Tip of {num_format_coin(real_amount, COIN_NAME)} '
-                    f'{COIN_NAME} '
-                    f'was sent to {member.name}#{member.discriminator} in server `{ctx.guild.name}`\n')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
-            if bot.user.id != member.id and str(member.id) not in notifyList:
-                try:
-                    await member.send(
-                        f'{EMOJI_MONEYFACE} You got a tip of {num_format_coin(real_amount, COIN_NAME)} '
-                        f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{ctx.guild.name}` #{ctx.channel.name}\n'
-                        f'{NOTIFICATION_OFF_CMD}')
-                except (discord.Forbidden, discord.errors.Forbidden) as e:
-                    await store.sql_toggle_tipnotify(str(member.id), "OFF")
-            return
-        else:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-        return
-    elif coin_family == "DOGE":
-        MinTx = getattr(config,"daemon"+COIN_NAME).min_mv_amount
-        MaxTX = getattr(config,"daemon"+COIN_NAME).max_mv_amount
-
-        user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-        if user_from is None:
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
-            user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-        user_from['address'] = user_from['balance_wallet_address']
-
-        user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
-        if user_to is None:
-            user_to = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD')
-            user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
-
-        user_to['address'] = user_to['balance_wallet_address']
-
-        real_amount = float(amount)
-        userdata_balance = await store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
-        if real_amount < MinTx:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} Transactions cannot be smaller than '
-                           f'{num_format_coin(MinTx, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        elif real_amount > MaxTX:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} Transactions cannot be bigger than '
-                           f'{num_format_coin(MaxTX, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        elif real_amount > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
-                            f'{num_format_coin(real_amount, COIN_NAME)} '
-                            f'{COIN_NAME} to {member.name}#{member.discriminator}.')
-            return
-
-        # add queue also tip
-        if ctx.message.author.id not in TX_IN_PROCESS:
-            TX_IN_PROCESS.append(ctx.message.author.id)
-        else:
-            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
-            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
-            await msg.add_reaction(EMOJI_OK_BOX)
-            return
-
-        tip = await store.sql_mv_doge_single(str(ctx.message.author.id), str(member.id), real_amount, COIN_NAME, "TIP")
-
-        # remove queue from tip
-        if ctx.message.author.id in TX_IN_PROCESS:
-            TX_IN_PROCESS.remove(ctx.message.author.id)
-
-        if tip:
-            await ctx.message.add_reaction(get_emoji(COIN_NAME))
-            if ctx.message.author.bot == False and serverinfo['react_tip'] == "ON":
-                await ctx.message.add_reaction(EMOJI_TIP)
-            # tipper shall always get DM. Ignore notifyList
-            try:
-                if ctx.message.author.bot == False:
-                    await ctx.message.author.send(
-                        f'{EMOJI_ARROW_RIGHTHOOK} Tip of {num_format_coin(real_amount, COIN_NAME)} '
-                        f'{COIN_NAME} '
-                        f'was sent to {member.name}#{member.discriminator} in server `{ctx.guild.name}`\n')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
-            if bot.user.id != member.id and str(member.id) not in notifyList:
-                try:
-                    await member.send(
-                        f'{EMOJI_MONEYFACE} You got a tip of {num_format_coin(real_amount, COIN_NAME)} '
-                        f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{ctx.guild.name}` #{ctx.channel.name}\n'
-                        f'{NOTIFICATION_OFF_CMD}')
-                except (discord.Forbidden, discord.errors.Forbidden) as e:
-                    await store.sql_toggle_tipnotify(str(member.id), "OFF")
-            return
-        else:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-        return
+        user_from['actual_balance'] = int(user_from['actual_balance']) + int(userdata_balance['Adjust'])
     elif coin_family == "NANO":
-        COIN_DEC = get_decimal(COIN_NAME)
-        real_amount = int(amount * COIN_DEC)
-        MinTx = get_min_mv_amount(COIN_NAME)
-        MaxTX = get_max_mv_amount(COIN_NAME)
-        user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-        if user_from is None:
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
-            user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-        real_amount = int(amount * COIN_DEC)
         userdata_balance = await store.sql_nano_balance(str(ctx.message.author.id), COIN_NAME)
-        if real_amount < MinTx:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} Transactions cannot be smaller than '
-                           f'{num_format_coin(MinTx, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        elif real_amount > MaxTX:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} Transactions cannot be bigger than '
-                           f'{num_format_coin(MaxTX, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        elif real_amount > int(user_from['actual_balance']) + int(userdata_balance['Adjust']):
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
-                            f'{num_format_coin(real_amount, COIN_NAME)} '
-                            f'{COIN_NAME} to {member.name}#{member.discriminator}.')
-            return
+        user_from['actual_balance'] = int(user_from['actual_balance']) + int(userdata_balance['Adjust'])
+    elif coin_family == "DOGE":
+        userdata_balance = await store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
+        user_from['actual_balance'] = float(user_from['actual_balance']) + float(userdata_balance['Adjust'])
 
-        # add queue also tip
-        if ctx.message.author.id not in TX_IN_PROCESS:
-            TX_IN_PROCESS.append(ctx.message.author.id)
-        else:
-            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
-            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
-            await msg.add_reaction(EMOJI_OK_BOX)
-            return
+    user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
+    if user_to is None:
+        userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD')
+        user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
 
-        tip = await store.sql_mv_nano_single(str(ctx.message.author.id), str(member.id), real_amount, COIN_NAME, "TIP")
+    COIN_DEC = get_decimal(COIN_NAME)
+    real_amount = int(amount * COIN_DEC)
+    MinTx = get_min_mv_amount(COIN_NAME)
+    MaxTX = get_max_mv_amount(COIN_NAME)
+    NetFee = 0
 
-        # remove queue from tip
-        if ctx.message.author.id in TX_IN_PROCESS:
-            TX_IN_PROCESS.remove(ctx.message.author.id)
 
-        if tip:
-            await ctx.message.add_reaction(get_emoji(COIN_NAME))
-            if ctx.message.author.bot == False and serverinfo['react_tip'] == "ON":
-                await ctx.message.add_reaction(EMOJI_TIP)
-            # tipper shall always get DM. Ignore notifyList
+    if real_amount > MaxTX:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
+                       f'{num_format_coin(MaxTX, COIN_NAME)} '
+                       f'{COIN_NAME}.')
+        return
+    elif real_amount > user_from['actual_balance']:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
+                       f'{num_format_coin(real_amount, COIN_NAME)} '
+                       f'{COIN_NAME} to {member.name}#{member.discriminator}.')
+        return
+    elif real_amount < MinTx:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
+                       f'{num_format_coin(MinTx, COIN_NAME)} '
+                       f'{COIN_NAME}.')
+        return
+
+    # add queue also tip
+    if ctx.message.author.id not in TX_IN_PROCESS:
+        TX_IN_PROCESS.append(ctx.message.author.id)
+    else:
+        await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+        msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+        await msg.add_reaction(EMOJI_OK_BOX)
+        return
+
+    tip = None
+    try:
+        if coin_family in ["TRTL", "BCN"]:
+            tip = await store.sql_send_tip(str(ctx.message.author.id), str(member.id), real_amount, 'TIP', COIN_NAME)
+        elif coin_family == "XMR":
+            tip = await store.sql_mv_xmr_single(str(ctx.message.author.id), str(member.id), real_amount, COIN_NAME, "TIP")
+        elif coin_family == "DOGE":
+            tip = await store.sql_mv_doge_single(str(ctx.message.author.id), str(member.id), real_amount, COIN_NAME, "TIP")
+        elif coin_family == "NANO":
+            tip = await store.sql_mv_nano_single(str(ctx.message.author.id), str(member.id), real_amount, COIN_NAME, "TIP")
+        if ctx.message.author.bot == False and serverinfo['react_tip'] == "ON":
+            await ctx.message.add_reaction(EMOJI_TIP)
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+
+    # remove queue from tip
+    if ctx.message.author.id in TX_IN_PROCESS:
+        TX_IN_PROCESS.remove(ctx.message.author.id)
+
+    if tip:
+        await ctx.message.add_reaction(get_emoji(COIN_NAME))
+        # tipper shall always get DM. Ignore notifyList
+        try:
+            await ctx.message.author.send(
+                f'{EMOJI_ARROW_RIGHTHOOK} Tip of {num_format_coin(real_amount, COIN_NAME)} '
+                f'{COIN_NAME} '
+                f'was sent to {member.name}#{member.discriminator} in server `{ctx.guild.name}`')
+        except (discord.Forbidden, discord.errors.Forbidden) as e:
+            await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
+        if bot.user.id != member.id and str(member.id) not in notifyList:
             try:
-                await ctx.message.author.send(
-                    f'{EMOJI_ARROW_RIGHTHOOK} Tip of {num_format_coin(real_amount, COIN_NAME)} '
-                    f'{COIN_NAME} '
-                    f'was sent to {member.name}#{member.discriminator} in server `{ctx.guild.name}`\n')
+                await member.send(
+                    f'{EMOJI_MONEYFACE} You got a tip of {num_format_coin(real_amount, COIN_NAME)} '
+                    f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{ctx.guild.name}` #{ctx.channel.name}\n'
+                    f'{NOTIFICATION_OFF_CMD}')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
-                await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
-            if bot.user.id != member.id and str(member.id) not in notifyList:
-                try:
-                    await member.send(
-                        f'{EMOJI_MONEYFACE} You got a tip of {num_format_coin(real_amount, COIN_NAME)} '
-                        f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{ctx.guild.name}` #{ctx.channel.name}\n'
-                        f'{NOTIFICATION_OFF_CMD}')
-                except (discord.Forbidden, discord.errors.Forbidden) as e:
-                    await store.sql_toggle_tipnotify(str(member.id), "OFF")
-            return
-        else:
-            await ctx.message.add_reaction(EMOJI_ERROR)
+                await store.sql_toggle_tipnotify(str(member.id), "OFF")
+        return
+    else:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{ctx.author.mention} Can not deliver TX for {COIN_NAME} right now. Try again soon.')
+        # add to failed tx table
+        await store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "TIP")
         return
 
 
@@ -9701,245 +9387,87 @@ async def mtip(ctx, amount: str, *args):
     notifyList = await store.sql_get_tipnotify()
     address_to = None
 
+    user_from = await store.sql_get_userwallet(str(ctx.guild.id), COIN_NAME)
     if coin_family in ["TRTL", "BCN"]:
-        user_from = await store.sql_get_userwallet(str(ctx.guild.id), COIN_NAME)
-        user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
         userdata_balance = await store.sql_cnoff_balance(str(ctx.guild.id), COIN_NAME)
-        user_from['actual_balance'] = user_from['actual_balance'] + int(userdata_balance['Adjust'])
-        if user_to is None:
-            userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD')
-            user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
-        COIN_DEC = get_decimal(COIN_NAME)
-        real_amount = int(amount * COIN_DEC)
-        MinTx = get_min_mv_amount(COIN_NAME)
-        MaxTX = get_max_mv_amount(COIN_NAME)
-        NetFee = 0
-
-        if real_amount > MaxTX:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
-                           f'{num_format_coin(MaxTX, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        elif real_amount > user_from['actual_balance']:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
-                            f'{num_format_coin(real_amount, COIN_NAME)} '
-                            f'{COIN_NAME} to {member.name}#{member.discriminator}.')
-            return
-        elif real_amount < MinTx:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
-                           f'{num_format_coin(MinTx, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-
-        tip = None
-        try:
-            tip = await store.sql_send_tip(str(ctx.guild.id), str(member.id), real_amount, 'TIP', COIN_NAME)
-            tip_tx_tipper = "Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
-            if ctx.message.author.bot == False and serverinfo['react_tip'] == "ON":
-                await ctx.message.add_reaction(EMOJI_TIP)
-        except Exception as e:
-            await logchanbot(traceback.format_exc())
-        if tip:
-            await ctx.message.add_reaction(get_emoji(COIN_NAME))
-            # tipper shall always get DM. Ignore notifyList
-            try:
-                await ctx.message.author.send(
-                    f'{EMOJI_ARROW_RIGHTHOOK} Guild tip of {num_format_coin(real_amount, COIN_NAME)} '
-                    f'{COIN_NAME} '
-                    f'was sent to {member.name}#{member.discriminator} in server `{ctx.guild.name}`\n'
-                    f'{tip_tx_tipper}')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
-            if bot.user.id != member.id and str(member.id) not in notifyList:
-                try:
-                    await member.send(
-                        f'{EMOJI_MONEYFACE} You got a guild tip of {num_format_coin(real_amount, COIN_NAME)} '
-                        f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{ctx.guild.name}` #{ctx.channel.name}\n'
-                        f'{tip_tx_tipper}\n'
-                        f'{NOTIFICATION_OFF_CMD}')
-                except (discord.Forbidden, discord.errors.Forbidden) as e:
-                    await store.sql_toggle_tipnotify(str(member.id), "OFF")
-            return
-        else:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{ctx.author.mention} Can not deliver TX for {COIN_NAME} right now. Try again soon.')
-            # add to failed tx table
-            await store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "TIP")
-            return
-
+        user_from['actual_balance'] = int(user_from['actual_balance']) + int(userdata_balance['Adjust'])
     elif coin_family == "XMR":
-        COIN_DEC = get_decimal(COIN_NAME)
-        real_amount = int(amount * COIN_DEC)
-        MinTx = get_min_mv_amount(COIN_NAME)
-        MaxTX = get_max_mv_amount(COIN_NAME)
-        user_from = await store.sql_get_userwallet(str(ctx.guild.id), COIN_NAME)
-        if user_from is None:
-            user_from = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD')
-            user_from = await store.sql_get_userwallet(str(ctx.guild.id), COIN_NAME)
-        real_amount = int(amount * COIN_DEC)
         userdata_balance = await store.sql_xmr_balance(str(ctx.guild.id), COIN_NAME)
-        if real_amount < MinTx:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} Transactions cannot be smaller than '
-                           f'{num_format_coin(MinTx, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        elif real_amount > MaxTX:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} Transactions cannot be bigger than '
-                           f'{num_format_coin(MaxTX, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        elif real_amount > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
-                            f'{num_format_coin(real_amount, COIN_NAME)} '
-                            f'{COIN_NAME} to {member.name}#{member.discriminator}.')
-            return
-        tip = await store.sql_mv_xmr_single(str(ctx.guild.id), str(member.id), real_amount, COIN_NAME, "TIP")
-        if tip:
-            await ctx.message.add_reaction(get_emoji(COIN_NAME))
-            if ctx.message.author.bot == False and serverinfo['react_tip'] == "ON":
-                await ctx.message.add_reaction(EMOJI_TIP)
-            # tipper shall always get DM. Ignore notifyList
-            try:
-                await ctx.message.author.send(
-                    f'{EMOJI_ARROW_RIGHTHOOK} Guild tip of {num_format_coin(real_amount, COIN_NAME)} '
-                    f'{COIN_NAME} '
-                    f'was sent to {member.name}#{member.discriminator} in server `{ctx.guild.name}`\n')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
-            if bot.user.id != member.id and str(member.id) not in notifyList:
-                try:
-                    await member.send(
-                        f'{EMOJI_MONEYFACE} You got a guild tip of {num_format_coin(real_amount, COIN_NAME)} '
-                        f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{ctx.guild.name}` #{ctx.channel.name}\n'
-                        f'{NOTIFICATION_OFF_CMD}')
-                except (discord.Forbidden, discord.errors.Forbidden) as e:
-                    await store.sql_toggle_tipnotify(str(member.id), "OFF")
-            return
-        else:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-        return
-    elif coin_family == "DOGE":
-        MinTx = getattr(config,"daemon"+COIN_NAME).min_mv_amount
-        MaxTX = getattr(config,"daemon"+COIN_NAME).max_mv_amount
-
-        user_from = await store.sql_get_userwallet(str(ctx.guild.id), COIN_NAME)
-        if user_from is None:
-            user_from = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD')
-            user_from = await store.sql_get_userwallet(str(ctx.guild.id), COIN_NAME)
-        user_from['address'] = user_from['balance_wallet_address']
-
-        user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
-        if user_to is None:
-            user_to = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD')
-            user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
-
-        user_to['address'] = user_to['balance_wallet_address']
-
-        real_amount = float(amount)
-        userdata_balance = await store.sql_doge_balance(str(ctx.guild.id), COIN_NAME)
-        if real_amount < MinTx:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} Transactions cannot be smaller than '
-                           f'{num_format_coin(MinTx, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        elif real_amount > MaxTX:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} Transactions cannot be bigger than '
-                           f'{num_format_coin(MaxTX, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        elif real_amount > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
-                            f'{num_format_coin(real_amount, COIN_NAME)} '
-                            f'{COIN_NAME} to {member.name}#{member.discriminator}.')
-            return
-        tip = await store.sql_mv_doge_single(str(ctx.guild.id), str(member.id), real_amount, COIN_NAME, "TIP")
-        if tip:
-            await ctx.message.add_reaction(get_emoji(COIN_NAME))
-            if ctx.message.author.bot == False and serverinfo['react_tip'] == "ON":
-                await ctx.message.add_reaction(EMOJI_TIP)
-            # tipper shall always get DM. Ignore notifyList
-            try:
-                if ctx.message.author.bot == False:
-                    await ctx.message.author.send(
-                        f'{EMOJI_ARROW_RIGHTHOOK} Guild tip of {num_format_coin(real_amount, COIN_NAME)} '
-                        f'{COIN_NAME} '
-                        f'was sent to {member.name}#{member.discriminator} in server `{ctx.guild.name}`\n')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
-            if bot.user.id != member.id and str(member.id) not in notifyList:
-                try:
-                    await member.send(
-                        f'{EMOJI_MONEYFACE} You got a guild tip of {num_format_coin(real_amount, COIN_NAME)} '
-                        f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{ctx.guild.name}` #{ctx.channel.name}\n'
-                        f'{NOTIFICATION_OFF_CMD}')
-                except (discord.Forbidden, discord.errors.Forbidden) as e:
-                    await store.sql_toggle_tipnotify(str(member.id), "OFF")
-            return
-        else:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-        return
+        user_from['actual_balance'] = int(user_from['actual_balance']) + int(userdata_balance['Adjust'])
     elif coin_family == "NANO":
-        COIN_DEC = get_decimal(COIN_NAME)
-        real_amount = int(amount * COIN_DEC)
-        MinTx = get_min_mv_amount(COIN_NAME)
-        MaxTX = get_max_mv_amount(COIN_NAME)
-        user_from = await store.sql_get_userwallet(str(ctx.guild.id), COIN_NAME)
-        if user_from is None:
-            user_from = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD')
-            user_from = await store.sql_get_userwallet(str(ctx.guild.id), COIN_NAME)
-        real_amount = int(amount * COIN_DEC)
         userdata_balance = await store.sql_nano_balance(str(ctx.guild.id), COIN_NAME)
-        if real_amount < MinTx:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} Transactions cannot be smaller than '
-                           f'{num_format_coin(MinTx, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        elif real_amount > MaxTX:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} Transactions cannot be bigger than '
-                           f'{num_format_coin(MaxTX, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        elif real_amount > int(user_from['actual_balance']) + int(userdata_balance['Adjust']):
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
-                            f'{num_format_coin(real_amount, COIN_NAME)} '
-                            f'{COIN_NAME} to {member.name}#{member.discriminator}.')
-            return
-        tip = await store.sql_mv_nano_single(str(ctx.guild.id), str(member.id), real_amount, COIN_NAME, "TIP")
-        if tip:
-            await ctx.message.add_reaction(get_emoji(COIN_NAME))
-            if ctx.message.author.bot == False and serverinfo['react_tip'] == "ON":
-                await ctx.message.add_reaction(EMOJI_TIP)
-            # tipper shall always get DM. Ignore notifyList
+        user_from['actual_balance'] = int(user_from['actual_balance']) + int(userdata_balance['Adjust'])
+    elif coin_family == "DOGE":
+        userdata_balance = await store.sql_doge_balance(str(ctx.guild.id), COIN_NAME)
+        user_from['actual_balance'] = float(user_from['actual_balance']) + float(userdata_balance['Adjust'])
+
+    user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
+    if user_to is None:
+        userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD')
+        user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
+
+    COIN_DEC = get_decimal(COIN_NAME)
+    real_amount = int(amount * COIN_DEC)
+    MinTx = get_min_mv_amount(COIN_NAME)
+    MaxTX = get_max_mv_amount(COIN_NAME)
+
+    if real_amount > MaxTX:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
+                       f'{num_format_coin(MaxTX, COIN_NAME)} '
+                       f'{COIN_NAME}.')
+        return
+    elif real_amount > user_from['actual_balance']:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
+                       f'{num_format_coin(real_amount, COIN_NAME)} '
+                       f'{COIN_NAME} to {member.name}#{member.discriminator}.')
+        return
+    elif real_amount < MinTx:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
+                       f'{num_format_coin(MinTx, COIN_NAME)} '
+                       f'{COIN_NAME}.')
+        return
+
+    tip = None
+    try:
+        if coin_family in ["TRTL", "BCN"]:
+            tip = await store.sql_send_tip(str(ctx.guild.id), str(member.id), real_amount, 'TIP', COIN_NAME)
+        elif coin_family == "XMR":
+            tip = await store.sql_mv_xmr_single(str(ctx.guild.id), str(member.id), real_amount, COIN_NAME, "TIP")
+        elif coin_family == "DOGE":
+            tip = await store.sql_mv_doge_single(str(ctx.guild.id), str(member.id), real_amount, COIN_NAME, "TIP")
+        elif coin_family == "NANO":
+            tip = await store.sql_mv_nano_single(str(ctx.guild.id), str(member.id), real_amount, COIN_NAME, "TIP")
+        if ctx.message.author.bot == False and serverinfo['react_tip'] == "ON":
+            await ctx.message.add_reaction(EMOJI_TIP)
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    if tip:
+        await ctx.message.add_reaction(get_emoji(COIN_NAME))
+        # tipper shall always get DM. Ignore notifyList
+        try:
+            await ctx.message.author.send(
+                f'{EMOJI_ARROW_RIGHTHOOK} Guild tip of {num_format_coin(real_amount, COIN_NAME)} '
+                f'{COIN_NAME} '
+                f'was sent to {member.name}#{member.discriminator} in server `{ctx.guild.name}`\n')
+        except (discord.Forbidden, discord.errors.Forbidden) as e:
+            await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
+        if bot.user.id != member.id and str(member.id) not in notifyList:
             try:
-                await ctx.message.author.send(
-                    f'{EMOJI_ARROW_RIGHTHOOK} Guild tip of {num_format_coin(real_amount, COIN_NAME)} '
-                    f'{COIN_NAME} '
-                    f'was sent to {member.name}#{member.discriminator} in server `{ctx.guild.name}`\n')
+                await member.send(
+                    f'{EMOJI_MONEYFACE} You got a guild tip of {num_format_coin(real_amount, COIN_NAME)} '
+                    f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{ctx.guild.name}` #{ctx.channel.name}\n'
+                    f'{NOTIFICATION_OFF_CMD}')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
-                await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
-            if bot.user.id != member.id and str(member.id) not in notifyList:
-                try:
-                    await member.send(
-                        f'{EMOJI_MONEYFACE} You got a guild tip of {num_format_coin(real_amount, COIN_NAME)} '
-                        f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{ctx.guild.name}` #{ctx.channel.name}\n'
-                        f'{NOTIFICATION_OFF_CMD}')
-                except (discord.Forbidden, discord.errors.Forbidden) as e:
-                    await store.sql_toggle_tipnotify(str(member.id), "OFF")
-            return
-        else:
-            await ctx.message.add_reaction(EMOJI_ERROR)
+                await store.sql_toggle_tipnotify(str(member.id), "OFF")
+        return
+    else:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{ctx.author.mention} Can not deliver TX for {COIN_NAME} right now. Try again soon.')
+        # add to failed tx table
+        await store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "TIP")
         return
 
 
@@ -10049,478 +9577,154 @@ async def tipall(ctx, amount: str, *args):
 
     notifyList = await store.sql_get_tipnotify()
 
-    if coin_family in ["TRTL", "BCN"]:
-        COIN_DEC = get_decimal(COIN_NAME)
-        real_amount = int(amount * COIN_DEC)
-        MinTx = get_min_mv_amount(COIN_NAME)
-        MaxTX = get_max_mv_amount(COIN_NAME)
-        NetFee = 0
+    COIN_DEC = get_decimal(COIN_NAME)
+    real_amount = int(amount * COIN_DEC)
+    MinTx = get_min_mv_amount(COIN_NAME)
+    MaxTX = get_max_mv_amount(COIN_NAME)
+    NetFee = 0
 
-        # [x.guild for x in [g.members for g in bot.guilds] if x.id = useridyourelookingfor]
-        listMembers = [member for member in ctx.guild.members if member.status != discord.Status.offline and member.bot == False]
-        print("Number of tip-all in {}: {}".format(ctx.guild.name, len(listMembers)))
-        # Check number of receivers.
-        if len(listMembers) > config.tipallMax_Offchain:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            try:
-                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} The number of receivers are too many. This command isn\'t available here.')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                await ctx.message.author.send(f'{EMOJI_RED_NO} The number of receivers are too many in `{ctx.guild.name}`. This command isn\'t available here.')
-            return
-        # End of checking receivers numbers.
+    # [x.guild for x in [g.members for g in bot.guilds] if x.id = useridyourelookingfor]
+    listMembers = [member for member in ctx.guild.members if member.status != discord.Status.offline and member.bot == False]
+    print("Number of tip-all in {}: {}".format(ctx.guild.name, len(listMembers)))
+    # Check number of receivers.
+    if len(listMembers) > config.tipallMax_Offchain:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        try:
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} The number of receivers are too many. This command isn\'t available here.')
+        except (discord.Forbidden, discord.errors.Forbidden) as e:
+            await ctx.message.author.send(f'{EMOJI_RED_NO} The number of receivers are too many in `{ctx.guild.name}`. This command isn\'t available here.')
+        return
+    # End of checking receivers numbers.
 
-        memids = []  # list of member ID
-        list_receivers = []
-        addresses = []
-        for member in listMembers:
-            # print(member.name) # you'll just print out Member objects your way.
-            if ctx.message.author.id != member.id and member.id != bot.user.id:
+    list_receivers = []
+    addresses = []
+    for member in listMembers:
+        # print(member.name) # you'll just print out Member objects your way.
+        if ctx.message.author.id != member.id and member.id != bot.user.id:
+            user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
+            if user_to is None:
+                userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD')
                 user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
-                if user_to is None:
-                    userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD')
-                    user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
-                list_receivers.append(str(member.id))
-                memids.append(user_to['balance_wallet_address'])
+            list_receivers.append(str(member.id))
 
+    user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+    if user_from is None:
+        user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-        if user_from is None:
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
-            user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
 
+    if coin_family in ["TRTL", "BCN"]:
         userdata_balance = await store.sql_cnoff_balance(str(ctx.message.author.id), COIN_NAME)
-        user_from['actual_balance'] = user_from['actual_balance'] + int(userdata_balance['Adjust'])
-
-        if real_amount > MaxTX:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
-                           f'{num_format_coin(MaxTX, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        elif real_amount < MinTx:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
-                           f'{num_format_coin(MinTx, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        elif real_amount >= user_from['actual_balance']:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to spread tip of '
-                           f'{num_format_coin(real_amount, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        elif (real_amount / len(memids)) < MinTx:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
-                           f'{num_format_coin(MinTx, COIN_NAME)} '
-                           f'{COIN_NAME} for each member. You need at least {num_format_coin(len(memids) * MinTx, COIN_NAME)}{COIN_NAME}.')
-            return
-
-        amountDiv = int(round(real_amount / len(memids), 2))  # cut 2 decimal only
-        destinations = []
-        for desti in memids:
-            destinations.append({"address": desti, "amount": amountDiv})
-
-        if len(list_receivers) < 1:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is no one to tip to.')
-            return
-
-        # add queue also tipall
-        if ctx.message.author.id not in TX_IN_PROCESS:
-            TX_IN_PROCESS.append(ctx.message.author.id)
-        else:
-            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
-            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
-            await msg.add_reaction(EMOJI_OK_BOX)
-            return
-
-        tip = None
-        try:
-            tip = await store.sql_send_tipall(str(ctx.message.author.id), destinations, real_amount, amountDiv, list_receivers, 'TIPALL', COIN_NAME)
-            tip_tx_tipper = "Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
-            ActualSpend = int(amountDiv * len(destinations))
-        except Exception as e:
-            await logchanbot(traceback.format_exc())
-        await asyncio.sleep(config.interval.tx_lap_each)
-
-        # remove queue from tipall
-        if ctx.message.author.id in TX_IN_PROCESS:
-            TX_IN_PROCESS.remove(ctx.message.author.id)
-
-        if tip:
-            await ctx.message.add_reaction(get_emoji(COIN_NAME))
-            TotalSpend = num_format_coin(real_amount, COIN_NAME)
-            ActualSpend_str =  num_format_coin(ActualSpend, COIN_NAME)
-            amountDiv_str = num_format_coin(amountDiv, COIN_NAME)
-            # tipper shall always get DM. Ignore notifyList
-            try:
-                await ctx.message.author.send(
-                    f'{EMOJI_ARROW_RIGHTHOOK} Tip of {TotalSpend} '
-                    f'{COIN_NAME} '
-                    f'was sent spread to ({len(destinations)}) members in server `{ctx.guild.name}`.\n'
-                    f'{tip_tx_tipper}\n'
-                    f'Each member got: `{amountDiv_str}{COIN_NAME}`\n'
-                    f'Actual spending: `{ActualSpend_str}{COIN_NAME}`')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
-            numMsg = 0
-            for member in listMembers:
-                # print(member.name) # you'll just print out Member objects your way.
-                if ctx.message.author.id != member.id and member.id != bot.user.id:
-                    if str(member.id) not in notifyList:
-                        # random user to DM
-                        dm_user = bool(random.getrandbits(1)) if len(listMembers) > config.tipallMax_LimitDM else True
-                        if dm_user:
-                            try:
-                                user = bot.get_user(id=member.id)
-                                await user.send(
-                                    f'{EMOJI_MONEYFACE} You got a tip of {amountDiv_str} '
-                                    f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} `.tipall` in server `{ctx.guild.name}` #{ctx.channel.name}\n'
-                                    f'{tip_tx_tipper}\n'
-                                    f'{NOTIFICATION_OFF_CMD}')
-                                numMsg += 1
-                            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                                await store.sql_toggle_tipnotify(str(member.id), "OFF")
-                if numMsg >= config.tipallMax_LimitDM:
-                    # stop DM if reaches
-                    break
-            print('Messaged to users: (.tipall): '+str(numMsg))
-            return
-        else:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{ctx.author.mention} Can not deliver TX for {COIN_NAME} right now. Try again soon.')
-            # add to failed tx table
-            await store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "TIPALL")
-            return
-
+        user_from['actual_balance'] = int(user_from['actual_balance']) + int(userdata_balance['Adjust'])
     elif coin_family == "XMR":
-        COIN_DEC = get_decimal(COIN_NAME)
-        real_amount = int(amount * COIN_DEC)
-        MinTx = get_min_mv_amount(COIN_NAME)
-        MaxTX = get_max_mv_amount(COIN_NAME)
-        user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-        if user_from is None:
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
-            user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         userdata_balance = await store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
-        if real_amount < MinTx:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
-                           f'{num_format_coin(MinTx, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        elif real_amount > MaxTX:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
-                           f'{num_format_coin(MaxTX, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        elif real_amount > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
-                            f'{num_format_coin(real_amount, COIN_NAME)} '
-                            f'{COIN_NAME}.')
-            return
-        listMembers = [member for member in ctx.guild.members if member.status != discord.Status.offline and member.bot == False]
-        print("Number of tip-all in {}: {}".format(ctx.guild.name, len(listMembers)))
-        # Check number of receivers.
-        if len(listMembers) > config.tipallMax_Offchain:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} The number of receivers are too many. This command isn\'t available here.')
-            return
-        # End of checking receivers numbers.
-
-        memids = []  # list of member ID
-        for member in listMembers:
-            # print(member.name) # you'll just print out Member objects your way.
-            if ctx.message.author.id != member.id:
-                if (str(member.status) != 'offline'):
-                    if (member.bot == False):
-                        memids.append(str(member.id))
-        amountDiv = round(real_amount / len(memids), 4)
-        if (real_amount / len(memids)) < MinTx:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
-                           f'{num_format_coin(MinTx, COIN_NAME)} '
-                           f'{COIN_NAME} for each member. You need at least {num_format_coin(len(memids) * MinTx, COIN_NAME)}{COIN_NAME}.')
-            return
-
-        # add queue also tipall
-        if ctx.message.author.id not in TX_IN_PROCESS:
-            TX_IN_PROCESS.append(ctx.message.author.id)
-        else:
-            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
-            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
-            await msg.add_reaction(EMOJI_OK_BOX)
-            return
-
-        try:
-            tips = await store.sql_mv_xmr_multiple(str(ctx.message.author.id), memids, amountDiv, COIN_NAME, "TIPALL")
-        except Exception as e:
-            await logchanbot(traceback.format_exc())
-        await asyncio.sleep(config.interval.tx_lap_each)
-
-        # remove queue from tipall
-        if ctx.message.author.id in TX_IN_PROCESS:
-            TX_IN_PROCESS.remove(ctx.message.author.id)
-
-        if tips:
-            tipAmount = num_format_coin(real_amount, COIN_NAME)
-            ActualSpend_str = num_format_coin(amountDiv * len(memids), COIN_NAME)
-            amountDiv_str = num_format_coin(amountDiv, COIN_NAME)
-            await ctx.message.add_reaction(get_emoji(COIN_NAME))
-            # tipper shall always get DM. Ignore notifyList
-            try:
-                await ctx.message.author.send(
-                    f'{EMOJI_ARROW_RIGHTHOOK} Tip of {tipAmount} '
-                    f'{COIN_NAME} '
-                    f'was sent spread to ({len(memids)}) members in server `{ctx.guild.name}`.\n'
-                    f'Each member got: `{amountDiv_str}{COIN_NAME}`\n'
-                    f'Actual spending: `{ActualSpend_str}{COIN_NAME}`')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
-            numMsg = 0
-            for member in listMembers:
-                if ctx.message.author.id != member.id and member.id != bot.user.id:
-                    if str(member.id) not in notifyList:
-                        # random user to DM
-                        dm_user = bool(random.getrandbits(1)) if len(listMembers) > config.tipallMax_LimitDM else True
-                        if dm_user:
-                            try:
-                                await member.send(
-                                    f'{EMOJI_MONEYFACE} You got a tip of {amountDiv_str} '
-                                    f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} `.tipall` in server `{ctx.guild.name}` #{ctx.channel.name}\n'
-                                    f'{NOTIFICATION_OFF_CMD}')
-                                numMsg += 1
-                            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                                await store.sql_toggle_tipnotify(str(member.id), "OFF")
-                if numMsg >= config.tipallMax_LimitDM:
-                    # stop DM if reaches
-                    break
-            return
-        else:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-        return
+        user_from['actual_balance'] = int(user_from['actual_balance']) + int(userdata_balance['Adjust'])
     elif coin_family == "NANO":
-        COIN_DEC = get_decimal(COIN_NAME)
-        real_amount = int(amount * COIN_DEC)
-        MinTx = get_min_mv_amount(COIN_NAME)
-        MaxTX = get_max_mv_amount(COIN_NAME)
-        user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-        if user_from is None:
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
-            user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         userdata_balance = await store.sql_nano_balance(str(ctx.message.author.id), COIN_NAME)
-        if real_amount < MinTx:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
-                           f'{num_format_coin(MinTx, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        elif real_amount > MaxTX:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
-                           f'{num_format_coin(MaxTX, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        elif real_amount > int(user_from['actual_balance']) + int(userdata_balance['Adjust']):
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
-                            f'{num_format_coin(real_amount, COIN_NAME)} '
-                            f'{COIN_NAME}.')
-            return
-        listMembers = [member for member in ctx.guild.members if member.status != discord.Status.offline and member.bot == False]
-        print("Number of tip-all in {}: {}".format(ctx.guild.name, len(listMembers)))
-        # Check number of receivers.
-        if len(listMembers) > config.tipallMax_Offchain:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} The number of receivers are too many. This command isn\'t available here.')
-            return
-        # End of checking receivers numbers.
-
-        memids = []  # list of member ID
-        for member in listMembers:
-            # print(member.name) # you'll just print out Member objects your way.
-            if ctx.message.author.id != member.id:
-                if (str(member.status) != 'offline'):
-                    if (member.bot == False):
-                        memids.append(str(member.id))
-        amountDiv = round(real_amount / len(memids), 4)
-        if (real_amount / len(memids)) < MinTx:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
-                           f'{num_format_coin(MinTx, COIN_NAME)} '
-                           f'{COIN_NAME} for each member. You need at least {num_format_coin(len(memids) * MinTx, COIN_NAME)}{COIN_NAME}.')
-            return
-
-        # add queue also tipall
-        if ctx.message.author.id not in TX_IN_PROCESS:
-            TX_IN_PROCESS.append(ctx.message.author.id)
-        else:
-            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
-            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
-            await msg.add_reaction(EMOJI_OK_BOX)
-            return
-
-        try:
-            tips = await store.sql_mv_nano_multiple(str(ctx.message.author.id), memids, amountDiv, COIN_NAME, "TIPALL")
-        except Exception as e:
-            await logchanbot(traceback.format_exc())
-            await asyncio.sleep(config.interval.tx_lap_each)
-
-        # remove queue from tipall
-        if ctx.message.author.id in TX_IN_PROCESS:
-            TX_IN_PROCESS.remove(ctx.message.author.id)
-
-        if tips:
-            tipAmount = num_format_coin(real_amount, COIN_NAME)
-            ActualSpend_str = num_format_coin(amountDiv * len(memids), COIN_NAME)
-            amountDiv_str = num_format_coin(amountDiv, COIN_NAME)
-            await ctx.message.add_reaction(get_emoji(COIN_NAME))
-            # tipper shall always get DM. Ignore notifyList
-            try:
-                await ctx.message.author.send(
-                    f'{EMOJI_ARROW_RIGHTHOOK} Tip of {tipAmount} '
-                    f'{COIN_NAME} '
-                    f'was sent spread to ({len(memids)}) members in server `{ctx.guild.name}`.\n'
-                    f'Each member got: `{amountDiv_str}{COIN_NAME}`\n'
-                    f'Actual spending: `{ActualSpend_str}{COIN_NAME}`')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
-            numMsg = 0
-            for member in listMembers:
-                if ctx.message.author.id != member.id and member.id != bot.user.id:
-                    if str(member.id) not in notifyList:
-                        # random user to DM
-                        dm_user = bool(random.getrandbits(1)) if len(listMembers) > config.tipallMax_LimitDM else True
-                        if dm_user:
-                            try:
-                                await member.send(
-                                    f'{EMOJI_MONEYFACE} You got a tip of {amountDiv_str} '
-                                    f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} `.tipall` in server `{ctx.guild.name}` #{ctx.channel.name}\n'
-                                    f'{NOTIFICATION_OFF_CMD}')
-                                numMsg += 1
-                            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                                await store.sql_toggle_tipnotify(str(member.id), "OFF")
-                if numMsg >= config.tipallMax_LimitDM:
-                    # stop DM if reaches
-                    break
-            return
-        else:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-        return
+        user_from['actual_balance'] = int(user_from['actual_balance']) + int(userdata_balance['Adjust'])
     elif coin_family == "DOGE":
-        MinTx = config.daemonDOGE.min_mv_amount
-        MaxTX = config.daemonDOGE.max_mv_amount
-
-        user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-        if user_from is None:
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
-            user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-        user_from['address'] = user_from['balance_wallet_address']
-
-        real_amount = float(amount)
         userdata_balance = await store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
-        if real_amount < MinTx:
+        user_from['actual_balance'] = float(user_from['actual_balance']) + float(userdata_balance['Adjust'])
+
+    if real_amount > MaxTX:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
+                       f'{num_format_coin(MaxTX, COIN_NAME)} '
+                       f'{COIN_NAME}.')
+        return
+    elif real_amount < MinTx:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
+                       f'{num_format_coin(MinTx, COIN_NAME)} '
+                       f'{COIN_NAME}.')
+        return
+    elif real_amount >= user_from['actual_balance']:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to spread tip of '
+                       f'{num_format_coin(real_amount, COIN_NAME)} '
+                       f'{COIN_NAME}.')
+        return
+    elif (real_amount / len(list_receivers)) < MinTx:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
+                       f'{num_format_coin(MinTx, COIN_NAME)} '
+                       f'{COIN_NAME} for each member. You need at least {num_format_coin(len(list_receivers) * MinTx, COIN_NAME)}{COIN_NAME}.')
+        return
+
+    amountDiv = int(round(real_amount / len(list_receivers), 2))  # cut 2 decimal only
+    if coin_family == "DOGE":
+        amountDiv = round(real_amount / len(list_receivers), 4)
+        if (real_amount / len(list_receivers)) < MinTx:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
                            f'{num_format_coin(MinTx, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        elif real_amount > MaxTX:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
-                           f'{num_format_coin(MaxTX, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        elif real_amount > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
-                            f'{num_format_coin(real_amount, COIN_NAME)} '
-                            f'{COIN_NAME}.')
-            return
-        listMembers = [member for member in ctx.guild.members if member.status != discord.Status.offline and member.bot == False]
-        print("Number of tip-all in {}: {}".format(ctx.guild.name, len(listMembers)))
-        # Check number of receivers.
-        if len(listMembers) > config.tipallMax_Offchain:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            try:
-                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} The number of receivers are too many. This command isn\'t available here.')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                await ctx.message.author.send(f'{EMOJI_RED_NO} The number of receivers are too many in `{ctx.guild.name}`. This command isn\'t available here.')
-            return
-        # End of checking receivers numbers.
-
-        memids = []  # list of member ID
-        for member in listMembers:
-            # print(member.name) # you'll just print out Member objects your way.
-            if ctx.message.author.id != member.id:
-                if (str(member.status) != 'offline'):
-                    if (member.bot == False):
-                        memids.append(str(member.id))
-        amountDiv = round(real_amount / len(memids), 4)
-        if (real_amount / len(memids)) < MinTx:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
-                           f'{num_format_coin(MinTx, COIN_NAME)} '
-                           f'{COIN_NAME} for each member. You need at least {num_format_coin(len(memids) * MinTx, COIN_NAME)}{COIN_NAME}.')
+                           f'{COIN_NAME} for each member. You need at least {num_format_coin(len(list_receivers) * MinTx, COIN_NAME)}{COIN_NAME}.')
             return
 
-        # add queue also tipall
-        if ctx.message.author.id not in TX_IN_PROCESS:
-            TX_IN_PROCESS.append(ctx.message.author.id)
-        else:
-            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
-            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
-            await msg.add_reaction(EMOJI_OK_BOX)
-            return
+    if len(list_receivers) < 1:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is no one to tip to.')
+        return
 
+    # add queue also tipall
+    if ctx.message.author.id not in TX_IN_PROCESS:
+        TX_IN_PROCESS.append(ctx.message.author.id)
+    else:
+        await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+        msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+        await msg.add_reaction(EMOJI_OK_BOX)
+        return
+
+    tip = None
+    try:
+        if coin_family in ["TRTL", "BCN"]:
+            tip = await store.sql_send_tipall(str(ctx.message.author.id), real_amount, amountDiv, list_receivers, 'TIPALL', COIN_NAME)
+        elif coin_family == "XMR":
+            tip = await store.sql_mv_xmr_multiple(str(ctx.message.author.id), list_receivers, amountDiv, COIN_NAME, "TIPALL")
+        elif coin_family == "NANO":
+            tip = await store.sql_mv_nano_multiple(str(ctx.message.author.id), list_receivers, amountDiv, COIN_NAME, "TIPALL")
+        elif coin_family == "DOGE":
+            tip = await store.sql_mv_doge_multiple(str(ctx.message.author.id), list_receivers, amountDiv, COIN_NAME, "TIPALL")
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    await asyncio.sleep(config.interval.tx_lap_each)
+
+    # remove queue from tipall
+    if ctx.message.author.id in TX_IN_PROCESS:
+        TX_IN_PROCESS.remove(ctx.message.author.id)
+
+    if tip:
+        tipAmount = num_format_coin(real_amount, COIN_NAME)
+        ActualSpend_str = num_format_coin(amountDiv * len(list_receivers), COIN_NAME)
+        amountDiv_str = num_format_coin(amountDiv, COIN_NAME)
+        await ctx.message.add_reaction(get_emoji(COIN_NAME))
+        # tipper shall always get DM. Ignore notifyList
         try:
-            tips = await store.sql_mv_doge_multiple(str(ctx.message.author.id), memids, amountDiv, COIN_NAME, "TIPALL")
-        except Exception as e:
-            await logchanbot(traceback.format_exc())
-        await asyncio.sleep(config.interval.tx_lap_each)
-
-        # remove queue from tipall
-        if ctx.message.author.id in TX_IN_PROCESS:
-            TX_IN_PROCESS.remove(ctx.message.author.id)
-
-        if tips:
-            tipAmount = num_format_coin(real_amount, COIN_NAME)
-            ActualSpend_str = num_format_coin(amountDiv * len(memids), COIN_NAME)
-            amountDiv_str = num_format_coin(amountDiv, COIN_NAME)
-            await ctx.message.add_reaction(get_emoji(COIN_NAME))
-            # tipper shall always get DM. Ignore notifyList
-            try:
-                await ctx.message.author.send(
-                    f'{EMOJI_ARROW_RIGHTHOOK} Tip of {tipAmount} '
-                    f'{COIN_NAME} '
-                    f'was sent spread to ({len(memids)}) members in server `{ctx.guild.name}`.\n'
-                    f'Each member got: `{amountDiv_str}{COIN_NAME}`\n'
-                    f'Actual spending: `{ActualSpend_str}{COIN_NAME}`')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
-            numMsg = 0
-            for member in listMembers:
-                if ctx.message.author.id != member.id and member.id != bot.user.id:
-                    if str(member.id) not in notifyList:
-                        # random user to DM
-                        dm_user = bool(random.getrandbits(1)) if len(listMembers) > config.tipallMax_LimitDM else True
-                        if dm_user:
-                            try:
-                                await member.send(
-                                    f'{EMOJI_MONEYFACE} You got a tip of {amountDiv_str} '
-                                    f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} `.tipall` in server `{ctx.guild.name}` #{ctx.channel.name}\n'
-                                    f'{NOTIFICATION_OFF_CMD}')
-                                numMsg += 1
-                            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                                await store.sql_toggle_tipnotify(str(member.id), "OFF")
-                if numMsg >= config.tipallMax_LimitDM:
-                    # stop DM if reaches
-                    break
-            return
-        else:
-            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.message.author.send(
+                f'{EMOJI_ARROW_RIGHTHOOK} Tip of {tipAmount} '
+                f'{COIN_NAME} '
+                f'was sent spread to ({len(list_receivers)}) members in server `{ctx.guild.name}`.\n'
+                f'Each member got: `{amountDiv_str}{COIN_NAME}`\n'
+                f'Actual spending: `{ActualSpend_str}{COIN_NAME}`')
+        except (discord.Forbidden, discord.errors.Forbidden) as e:
+            await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
+        numMsg = 0
+        for member in listMembers:
+            if ctx.message.author.id != member.id and member.id != bot.user.id:
+                if str(member.id) not in notifyList:
+                    # random user to DM
+                    dm_user = bool(random.getrandbits(1)) if len(listMembers) > config.tipallMax_LimitDM else True
+                    if dm_user:
+                        try:
+                            await member.send(
+                                f'{EMOJI_MONEYFACE} You got a tip of {amountDiv_str} '
+                                f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} `.tipall` in server `{ctx.guild.name}` #{ctx.channel.name}\n'
+                                f'{NOTIFICATION_OFF_CMD}')
+                            numMsg += 1
+                        except (discord.Forbidden, discord.errors.Forbidden) as e:
+                            await store.sql_toggle_tipnotify(str(member.id), "OFF")
+            if numMsg >= config.tipallMax_LimitDM:
+                # stop DM if reaches
+                break
         return
 
 
@@ -11601,12 +10805,12 @@ async def make(ctx, amount: str, coin: str, *, comment):
     elif coin_family == "XMR":
         userdata_balance = await store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
         user['actual_balance'] = user['actual_balance'] + int(userdata_balance['Adjust'])
-    elif coin_family == "DOGE":
-        userdata_balance = await store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
-        user['actual_balance'] = user['actual_balance'] + float(userdata_balance['Adjust'])
     elif coin_family == "NANO":
         userdata_balance = await store.sql_nano_balance(str(ctx.message.author.id), COIN_NAME)
         user['actual_balance'] = int(user['actual_balance']) + int(userdata_balance['Adjust'])
+    elif coin_family == "DOGE":
+        userdata_balance = await store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
+        user['actual_balance'] = user['actual_balance'] + float(userdata_balance['Adjust'])
     else:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Voucher not supported.')
@@ -13681,429 +12885,143 @@ async def _tip(ctx, amount, coin: str, if_guild: bool=False):
 
     notifyList = await store.sql_get_tipnotify()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+
+    COIN_DEC = get_decimal(COIN_NAME)
+    real_amount = int(Decimal(amount) * COIN_DEC)
+    MinTx = get_min_mv_amount(COIN_NAME)
+    MaxTX = get_max_mv_amount(COIN_NAME)
+    NetFee = 0
+    user_from = await store.sql_get_userwallet(id_tipper, COIN_NAME)
+    if user_from is None:
+        user_from = await store.sql_register_user(id_tipper, COIN_NAME, 'DISCORD')
+        user_from = await store.sql_get_userwallet(id_tipper, COIN_NAME)
+
     if coin_family in ["TRTL", "BCN"]:
-        COIN_DEC = get_decimal(COIN_NAME)
-        real_amount = int(Decimal(amount) * COIN_DEC)
-        MinTx = get_min_mv_amount(COIN_NAME)
-        MaxTX = get_max_mv_amount(COIN_NAME)
-        NetFee = 0
-        user_from = await store.sql_get_userwallet(id_tipper, COIN_NAME)
-        if user_from is None:
-            user_from = await store.sql_register_user(id_tipper, COIN_NAME, 'DISCORD')
-            user_from = await store.sql_get_userwallet(id_tipper, COIN_NAME)
-        userdata_balance = await store.sql_cnoff_balance(id_tipper, COIN_NAME)
-        user_from['actual_balance'] = user_from['actual_balance'] + int(userdata_balance['Adjust'])
-        if real_amount > MaxTX:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
-                           f'{num_format_coin(MaxTX, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        elif real_amount < MinTx:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
-                           f'{num_format_coin(MinTx, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-
-        destinations = []
-        listMembers = ctx.message.mentions
-
-        memids = []  # list of member ID
-        list_receivers = []
-        addresses = []
-        for member in listMembers:
-            # print(member.name) # you'll just print out Member objects your way.
-            if ctx.message.author.id != member.id and member in ctx.guild.members:
-                user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
-                if user_to is None:
-                    userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD')
-                    user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
-
-                list_receivers.append(str(member.id))
-                memids.append(user_to['balance_wallet_address'])
-
-        for desti in memids:
-            destinations.append({"address": desti, "amount": real_amount})
-
-        ActualSpend = real_amount * len(memids)
-        if ActualSpend > MaxTX:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Total transactions cannot be bigger than '
-                           f'{num_format_coin(MaxTX, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        elif real_amount < MinTx:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Total transactions cannot be smaller than '
-                           f'{num_format_coin(MinTx, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        elif ActualSpend >= user_from['actual_balance']:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send total {tip_type_text} of '
-                           f'{num_format_coin(ActualSpend, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-
-        # add queue also tip
-        if int(id_tipper) not in TX_IN_PROCESS:
-            TX_IN_PROCESS.append(int(id_tipper))
-        else:
-            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
-            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
-            await msg.add_reaction(EMOJI_OK_BOX)
-            return
-
-        tip = None
-        if len(list_receivers) < 1:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is no one to {tip_type_text} to.')
-            return
-        try:
-            tip = await store.sql_send_tipall(id_tipper, destinations, real_amount, real_amount, list_receivers, guild_or_tip, COIN_NAME)
-            tip_tx_tipper = "Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
-            ActualSpend += int(tip['fee'])
-            if ctx.message.author.bot == False and serverinfo['react_tip'] == "ON":
-                await ctx.message.add_reaction(EMOJI_TIP)
-        except Exception as e:
-            await logchanbot(traceback.format_exc())
-
-        # remove queue from tip
-        if int(id_tipper) in TX_IN_PROCESS:
-            TX_IN_PROCESS.remove(int(id_tipper))
-
-        if tip:
-            try:
-                for member in ctx.message.mentions:
-                    if ctx.message.author.id != member.id and bot.user.id != member.id and str(member.id) not in notifyList:
-                        try:
-                            await member.send(f'{EMOJI_MONEYFACE} You got a {tip_type_text} of  {num_format_coin(real_amount, COIN_NAME)} '
-                                              f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{ctx.guild.name} #{ctx.channel.name}`\n'
-                                              f'{tip_tx_tipper}\n'
-                                              f'{NOTIFICATION_OFF_CMD}')
-                        except (discord.Forbidden, discord.errors.Forbidden) as e:
-                            await logchanbot(traceback.format_exc())
-                            await store.sql_toggle_tipnotify(str(member.id), "OFF")
-            except Exception as e:
-                await logchanbot(traceback.format_exc())
-            await ctx.message.add_reaction(get_emoji(COIN_NAME))
-            # tipper shall always get DM. Ignore notifyList
-            try:
-                await ctx.message.author.send(f'{EMOJI_ARROW_RIGHTHOOK} Total {tip_type_text} of {num_format_coin(ActualSpend, COIN_NAME)} '
-                                        f'{COIN_NAME} '
-                                        f'was sent to ({len(destinations)}) members in server `{ctx.guild.name}`.\n'
-                                        f'{tip_tx_tipper}\n'
-                                        f'Each: `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`'
-                                        f'Total spending: `{num_format_coin(ActualSpend, COIN_NAME)} {COIN_NAME}`')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                await logchanbot(traceback.format_exc())
-            return
-        else:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Tipping failed, try again.')
-            await botLogChan.send(f'A user failed to _tip `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`.')
-            await msg.add_reaction(EMOJI_OK_BOX)
-            # add to failed tx table
-            await store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, guild_or_tip)
-            return
-
+        userdata_balance = await store.sql_cnoff_balance(str(ctx.message.author.id), COIN_NAME)
+        user_from['actual_balance'] = int(user_from['actual_balance']) + int(userdata_balance['Adjust'])
     elif coin_family == "XMR":
-        COIN_DEC = get_decimal(COIN_NAME)
-        MinTx = get_min_mv_amount(COIN_NAME)
-        MaxTX = get_max_mv_amount(COIN_NAME)
-        user_from = await store.sql_get_userwallet(id_tipper, COIN_NAME)
-        if user_from is None:
-            user_from = await store.sql_register_user(id_tipper, COIN_NAME, 'DISCORD')
-            user_from = await store.sql_get_userwallet(id_tipper, COIN_NAME)
-        real_amount = int(Decimal(amount) * COIN_DEC)
-        userdata_balance = await store.sql_xmr_balance(id_tipper, COIN_NAME)
-        if real_amount < MinTx:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
-                           f'{num_format_coin(MinTx, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        elif real_amount > MaxTX:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
-                           f'{num_format_coin(MaxTX, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        elif real_amount > user_from['actual_balance'] + userdata_balance['Adjust']:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send {tip_type_text} of '
-                            f'{num_format_coin(real_amount, COIN_NAME)} '
-                            f'{COIN_NAME}.')
-            return
-        listMembers = ctx.message.mentions
-        memids = []  # list of member ID
-        for member in listMembers:
-            if ctx.message.author.id != member.id and member in ctx.guild.members:
-                memids.append(str(member.id))
-        TotalAmount = real_amount * len(memids)
-
-        if TotalAmount > MaxTX:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Total transaction cannot be bigger than '
-                           f'{num_format_coin(MaxTX, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        if user_from['actual_balance'] + userdata_balance['Adjust'] < TotalAmount:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Not sufficient balance. ')
-            return
-
-        # add queue also tip
-        if int(id_tipper) not in TX_IN_PROCESS:
-            TX_IN_PROCESS.append(int(id_tipper))
-        else:
-            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
-            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
-            await msg.add_reaction(EMOJI_OK_BOX)
-            return
-
-        try:
-            tips = await store.sql_mv_xmr_multiple(id_tipper, memids, real_amount, COIN_NAME, guild_or_tip)
-        except Exception as e:
-            await logchanbot(traceback.format_exc())
-
-        # remove queue from tip
-        if int(id_tipper) in TX_IN_PROCESS:
-            TX_IN_PROCESS.remove(int(id_tipper))
-
-        if tips:
-            tipAmount = num_format_coin(TotalAmount, COIN_NAME)
-            amountDiv_str = num_format_coin(real_amount, COIN_NAME)
-            if ctx.message.author.bot == False and serverinfo['react_tip'] == "ON":
-                await ctx.message.add_reaction(EMOJI_TIP)
-            try:
-                for member in ctx.message.mentions:
-                    # print(member.name) # you'll just print out Member objects your way.
-                    if ctx.message.author.id != member.id and bot.user.id != member.id and str(member.id) not in notifyList:
-                        try:
-                            await member.send(f'{EMOJI_MONEYFACE} You got a {tip_type_text} of `{amountDiv_str}{COIN_NAME}` '
-                                              f'from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{ctx.guild.name}` #{ctx.channel.name}\n'
-                                              f'{NOTIFICATION_OFF_CMD}')
-                        except (discord.Forbidden, discord.errors.Forbidden) as e:
-                            await logchanbot(traceback.format_exc())
-                            await store.sql_toggle_tipnotify(str(member.id), "OFF")
-            except Exception as e:
-                await logchanbot(traceback.format_exc())
-            await ctx.message.add_reaction(get_emoji(COIN_NAME))
-            # tipper shall always get DM. Ignore notifyList
-            try:
-                await ctx.message.author.send(
-                    f'{EMOJI_ARROW_RIGHTHOOK} {tip_type_text} of {tipAmount} '
-                    f'{COIN_NAME} '
-                    f'was sent to ({len(memids)}) members in server `{ctx.guild.name}`.\n'
-                    f'Each member got: `{amountDiv_str}{COIN_NAME}`\n')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
-            return
-        else:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            return
-        return
-    elif coin_family == "DOGE":
-        MinTx = getattr(config,"daemon"+COIN_NAME).min_mv_amount
-        MaxTX = getattr(config,"daemon"+COIN_NAME).max_mv_amount
-
-        user_from = await store.sql_get_userwallet(id_tipper, COIN_NAME)
-        if user_from is None:
-            user_from = await store.sql_register_user(id_tipper, COIN_NAME, 'DISCORD')
-            user_from = await store.sql_get_userwallet(id_tipper, COIN_NAME)
-        user_from['address'] = user_from['balance_wallet_address']
-
-        real_amount = float(amount)
-        userdata_balance = await store.sql_doge_balance(id_tipper, COIN_NAME)
-        if real_amount < MinTx:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
-                           f'{num_format_coin(MinTx, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        elif real_amount > MaxTX:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
-                           f'{num_format_coin(MaxTX, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        elif real_amount > user_from['actual_balance'] + userdata_balance['Adjust']:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send {tip_type_text} of '
-                            f'{num_format_coin(real_amount, COIN_NAME)} '
-                            f'{COIN_NAME}.')
-            return
-        listMembers = ctx.message.mentions
-        memids = []  # list of member ID
-        for member in listMembers:
-            if ctx.message.author.id != member.id and member in ctx.guild.members:
-                memids.append(str(member.id))
-        TotalAmount = real_amount * len(memids)
-
-        if TotalAmount > MaxTX:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Total transaction cannot be bigger than '
-                           f'{num_format_coin(MaxTX, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        if user_from['actual_balance'] + userdata_balance['Adjust'] < TotalAmount:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Not sufficient balance. ')
-            return
-
-        # add queue also tip
-        if int(id_tipper) not in TX_IN_PROCESS:
-            TX_IN_PROCESS.append(int(id_tipper))
-        else:
-            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
-            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
-            await msg.add_reaction(EMOJI_OK_BOX)
-            return
-
-        try:
-            tips = await store.sql_mv_doge_multiple(id_tipper, memids, real_amount, COIN_NAME, guild_or_tip)
-            if ctx.message.author.bot == False and serverinfo['react_tip'] == "ON":
-                await ctx.message.add_reaction(EMOJI_TIP)
-        except Exception as e:
-            await logchanbot(traceback.format_exc())
-
-        # remove queue from tip
-        if int(id_tipper) in TX_IN_PROCESS:
-            TX_IN_PROCESS.remove(int(id_tipper))
-
-        if tips:
-            tipAmount = num_format_coin(TotalAmount, COIN_NAME)
-            amountDiv_str = num_format_coin(real_amount, COIN_NAME)
-            try:
-                for member in ctx.message.mentions:
-                    # print(member.name) # you'll just print out Member objects your way.
-                    if ctx.message.author.id != member.id and bot.user.id != member.id and str(member.id) not in notifyList:
-                        try:
-                            await member.send(f'{EMOJI_MONEYFACE} You got a {tip_type_text} of `{amountDiv_str}{COIN_NAME}` '
-                                              f'from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{ctx.guild.name}` #{ctx.channel.name}\n'
-                                              f'{NOTIFICATION_OFF_CMD}')
-                        except (discord.Forbidden, discord.errors.Forbidden) as e:
-                            await logchanbot(traceback.format_exc())
-                            await store.sql_toggle_tipnotify(str(member.id), "OFF")
-            except Exception as e:
-                await logchanbot(traceback.format_exc())
-            await ctx.message.add_reaction(get_emoji(COIN_NAME))
-            # tipper shall always get DM. Ignore notifyList
-            try:
-                await ctx.message.author.send(
-                    f'{EMOJI_ARROW_RIGHTHOOK} {tip_type_text} of {tipAmount} '
-                    f'{COIN_NAME} '
-                    f'was sent to ({len(memids)}) members in server `{ctx.guild.name}`.\n'
-                    f'Each member got: `{amountDiv_str}{COIN_NAME}`\n')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                await logchanbot(traceback.format_exc())
-            return
-        else:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            return
-        return
+        userdata_balance = await store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
+        user_from['actual_balance'] = int(user_from['actual_balance']) + int(userdata_balance['Adjust'])
     elif coin_family == "NANO":
-        COIN_DEC = get_decimal(COIN_NAME)
-        MinTx = get_min_mv_amount(COIN_NAME)
-        MaxTX = get_max_mv_amount(COIN_NAME)
-        user_from = await store.sql_get_userwallet(id_tipper, COIN_NAME)
-        if user_from is None:
-            user_from = await store.sql_register_user(id_tipper, COIN_NAME, 'DISCORD')
-            user_from = await store.sql_get_userwallet(id_tipper, COIN_NAME)
-        real_amount = int(Decimal(amount) * COIN_DEC)
-        userdata_balance = await store.sql_nano_balance(id_tipper, COIN_NAME)
-        if real_amount < MinTx:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
-                           f'{num_format_coin(MinTx, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        elif real_amount > MaxTX:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
-                           f'{num_format_coin(MaxTX, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        elif real_amount > int(user_from['actual_balance']) + int(userdata_balance['Adjust']):
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send {tip_type_text} of '
-                            f'{num_format_coin(real_amount, COIN_NAME)} '
-                            f'{COIN_NAME}.')
-            return
-        listMembers = ctx.message.mentions
-        memids = []  # list of member ID
-        for member in listMembers:
-            if ctx.message.author.id != member.id and member in ctx.guild.members:
-                memids.append(str(member.id))
-        TotalAmount = real_amount * len(memids)
+        userdata_balance = await store.sql_nano_balance(str(ctx.message.author.id), COIN_NAME)
+        user_from['actual_balance'] = int(user_from['actual_balance']) + int(userdata_balance['Adjust'])
+    elif coin_family == "DOGE":
+        userdata_balance = await store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
+        user_from['actual_balance'] = float(user_from['actual_balance']) + float(userdata_balance['Adjust'])
 
-        if TotalAmount > MaxTX:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Total transaction cannot be bigger than '
-                           f'{num_format_coin(MaxTX, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        if int(user_from['actual_balance']) + int(userdata_balance['Adjust']) < TotalAmount:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Not sufficient balance. ')
-            return
+    if real_amount > MaxTX:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
+                       f'{num_format_coin(MaxTX, COIN_NAME)} '
+                       f'{COIN_NAME}.')
+        return
+    elif real_amount < MinTx:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
+                       f'{num_format_coin(MinTx, COIN_NAME)} '
+                       f'{COIN_NAME}.')
+        return
 
-        # add queue also tip
-        if int(id_tipper) not in TX_IN_PROCESS:
-            TX_IN_PROCESS.append(int(id_tipper))
-        else:
-            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
-            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
-            await msg.add_reaction(EMOJI_OK_BOX)
-            return
+    listMembers = ctx.message.mentions
+    list_receivers = []
+    addresses = []
 
+    for member in listMembers:
+        # print(member.name) # you'll just print out Member objects your way.
+        if ctx.message.author.id != member.id and member in ctx.guild.members:
+            user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
+            if user_to is None:
+                userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD')
+                user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
+
+            list_receivers.append(str(member.id))
+
+    TotalAmount = real_amount * len(list_receivers)
+    if TotalAmount > MaxTX:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Total transactions cannot be bigger than '
+                       f'{num_format_coin(MaxTX, COIN_NAME)} '
+                       f'{COIN_NAME}.')
+        return
+    elif real_amount < MinTx:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Total transactions cannot be smaller than '
+                       f'{num_format_coin(MinTx, COIN_NAME)} '
+                       f'{COIN_NAME}.')
+        return
+    elif TotalAmount >= user_from['actual_balance']:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send total {tip_type_text} of '
+                       f'{num_format_coin(TotalAmount, COIN_NAME)} '
+                       f'{COIN_NAME}.')
+        return
+
+    # add queue also tip
+    if int(id_tipper) not in TX_IN_PROCESS:
+        TX_IN_PROCESS.append(int(id_tipper))
+    else:
+        await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+        msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+        await msg.add_reaction(EMOJI_OK_BOX)
+        return
+
+    tip = None
+    if len(list_receivers) < 1:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is no one to {tip_type_text} to.')
+        return
+    try:
+        if coin_family in ["TRTL", "BCN"]:
+            tip = await store.sql_send_tipall(id_tipper, real_amount, real_amount, list_receivers, guild_or_tip, COIN_NAME)
+        elif coin_family == "XMR":
+            tip = await store.sql_mv_xmr_multiple(id_tipper, list_receivers, real_amount, COIN_NAME, guild_or_tip)
+        elif coin_family == "NANO":
+            tip = await store.sql_mv_nano_multiple(id_tipper, list_receivers, real_amount, COIN_NAME, guild_or_tip)
+        elif coin_family == "DOGE":
+            tip = await store.sql_mv_doge_multiple(id_tipper, list_receivers, real_amount, COIN_NAME, guild_or_tip)
+        if ctx.message.author.bot == False and serverinfo['react_tip'] == "ON":
+            try:
+                await ctx.message.add_reaction(EMOJI_TIP)
+            except Exception as e:
+                pass
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+
+    # remove queue from tip
+    if int(id_tipper) in TX_IN_PROCESS:
+        TX_IN_PROCESS.remove(int(id_tipper))
+
+    if tip:
         try:
-            tips = await store.sql_mv_nano_multiple(id_tipper, memids, real_amount, COIN_NAME, guild_or_tip)
+            for member in ctx.message.mentions:
+                if ctx.message.author.id != member.id and bot.user.id != member.id and str(member.id) not in notifyList:
+                    try:
+                        await member.send(f'{EMOJI_MONEYFACE} You got a {tip_type_text} of  {num_format_coin(real_amount, COIN_NAME)} '
+                                          f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{ctx.guild.name} #{ctx.channel.name}`\n'
+                                          f'{NOTIFICATION_OFF_CMD}')
+                    except (discord.Forbidden, discord.errors.Forbidden) as e:
+                        await logchanbot(traceback.format_exc())
+                        await store.sql_toggle_tipnotify(str(member.id), "OFF")
         except Exception as e:
             await logchanbot(traceback.format_exc())
-
-        # remove queue from tip
-        if int(id_tipper) in TX_IN_PROCESS:
-            TX_IN_PROCESS.remove(int(id_tipper))
-
-        if tips:
-            tipAmount = num_format_coin(TotalAmount, COIN_NAME)
-            amountDiv_str = num_format_coin(real_amount, COIN_NAME)
-            if ctx.message.author.bot == False and serverinfo['react_tip'] == "ON":
-                await ctx.message.add_reaction(EMOJI_TIP)
-            try:
-                for member in ctx.message.mentions:
-                    # print(member.name) # you'll just print out Member objects your way.
-                    if ctx.message.author.id != member.id and bot.user.id != member.id and str(member.id) not in notifyList:
-                        try:
-                            await member.send(f'{EMOJI_MONEYFACE} You got a {tip_type_text} of `{amountDiv_str}{COIN_NAME}` '
-                                              f'from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{ctx.guild.name}` #{ctx.channel.name} \n'
-                                              f'{NOTIFICATION_OFF_CMD}')
-                        except (discord.Forbidden, discord.errors.Forbidden) as e:
-                            await logchanbot(traceback.format_exc())
-                            await store.sql_toggle_tipnotify(str(member.id), "OFF")
-            except Exception as e:
-                await logchanbot(traceback.format_exc())
-            await ctx.message.add_reaction(get_emoji(COIN_NAME))
-            # tipper shall always get DM. Ignore notifyList
-            try:
-                await ctx.message.author.send(
-                    f'{EMOJI_ARROW_RIGHTHOOK} {tip_type_text} of {tipAmount} '
-                    f'{COIN_NAME} '
-                    f'was sent to ({len(memids)}) members in server `{ctx.guild.name}`.\n'
-                    f'Each member got: `{amountDiv_str}{COIN_NAME}`\n')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
-            return
-        else:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            return
+        await ctx.message.add_reaction(get_emoji(COIN_NAME))
+        # tipper shall always get DM. Ignore notifyList
+        try:
+            await ctx.message.author.send(f'{EMOJI_ARROW_RIGHTHOOK} Total {tip_type_text} of {num_format_coin(TotalAmount, COIN_NAME)} '
+                                    f'{COIN_NAME} '
+                                    f'was sent to ({len(destinations)}) members in server `{ctx.guild.name}`.\n'
+                                    f'Each: `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`'
+                                    f'Total spending: `{num_format_coin(TotalAmount, COIN_NAME)} {COIN_NAME}`')
+        except (discord.Forbidden, discord.errors.Forbidden) as e:
+            await logchanbot(traceback.format_exc())
         return
     else:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**!')
+        msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Tipping failed, try again.')
+        await botLogChan.send(f'A user failed to _tip `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`.')
+        await msg.add_reaction(EMOJI_OK_BOX)
+        # add to failed tx table
+        await store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, guild_or_tip)
         return
 
 
@@ -14131,476 +13049,167 @@ async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str 
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} is restricted with this command.')
         return
+
+
+    COIN_DEC = get_decimal(COIN_NAME)
+    real_amount = int(amount * COIN_DEC) if coin_family in ["XMR", "TRTL", "BCN", "NANO"] else float(amount)
+    MinTx = get_min_mv_amount(COIN_NAME)
+    MaxTX = get_max_mv_amount(COIN_NAME)
+
+    user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+    if user_from is None:
+        user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
+        user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+
     if coin_family in ["TRTL", "BCN"]:
-        COIN_DEC = get_decimal(COIN_NAME)
-        real_amount = int(Decimal(amount) * COIN_DEC)
-        MinTx = get_min_mv_amount(COIN_NAME)
-        MaxTX = get_max_mv_amount(COIN_NAME)
-        user_from = await store.sql_get_userwallet(id_tipper, COIN_NAME)
-        if user_from is None:
-            user_from = await store.sql_register_user(id_tipper, COIN_NAME, 'DISCORD')
-            user_from = await store.sql_get_userwallet(id_tipper, COIN_NAME)
-        userdata_balance = await store.sql_cnoff_balance(id_tipper, COIN_NAME)
-        user_from['actual_balance'] = user_from['actual_balance'] + int(userdata_balance['Adjust'])
-        NetFee = 0
-        if real_amount + NetFee > MaxTX:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
-                           f'{num_format_coin(MaxTX, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        elif real_amount < MinTx:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
-                           f'{num_format_coin(MinTx, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-
-        destinations = []
-        memids = []  # list of member ID
-        list_receivers = []
-        addresses = []
-        for member_id in list_talker:
-            try:
-                member = bot.get_user(id=int(member_id))
-                if member and member in ctx.guild.members and ctx.message.author.id != member.id:
-                    user_to = await store.sql_get_userwallet(str(member_id), COIN_NAME)
-                    if user_to is None:
-                        userregister = await store.sql_register_user(str(member_id), COIN_NAME, 'DISCORD')
-                        user_to = await store.sql_get_userwallet(str(member_id), COIN_NAME)
-                    try:
-                        memids.append(user_to['balance_wallet_address'])
-                        list_receivers.append(str(member_id))
-                    except Exception as e:
-                        await logchanbot(traceback.format_exc())
-                        print('Failed creating wallet for tip talk for userid: {}'.format(member_id))
-            except Exception as e:
-                await logchanbot(traceback.format_exc())
-
-        # Check number of receivers.
-        if len(memids) > config.tipallMax:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            try:
-                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} The number of receivers are too many.')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                await ctx.message.author.send(f'{EMOJI_RED_NO} The number of receivers are too many in `{ctx.guild.name}`.')
-            return
-        # End of checking receivers numbers.
-
-        for desti in memids:
-            destinations.append({"address": desti, "amount": real_amount})
-
-        ActualSpend = real_amount * len(memids)
-
-        if ActualSpend > MaxTX:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Total transactions cannot be bigger than '
-                           f'{num_format_coin(MaxTX, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        elif real_amount < MinTx:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Total transactions cannot be smaller than '
-                           f'{num_format_coin(MinTx, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        elif ActualSpend >= user_from['actual_balance']:
-            
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {guild_name} Insufficient balance to send total {tip_type_text} of '
-                           f'{num_format_coin(ActualSpend, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-
-        if len(list_receivers) < 1:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is no active talker in such period. Please increase more duration or tip directly!')
-            return
-
-        # add queue also tip
-        if int(id_tipper) not in TX_IN_PROCESS:
-            TX_IN_PROCESS.append(int(id_tipper))
-        else:
-            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
-            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
-            await msg.add_reaction(EMOJI_OK_BOX)
-            return
-
-        tip = None
-        try:
-            tip = await store.sql_send_tipall(id_tipper, destinations, real_amount, real_amount, list_receivers, guild_or_tip, COIN_NAME)
-            tip_tx_tipper = "Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
-            ActualSpend += int(tip['fee'])
-        except Exception as e:
-            await logchanbot(traceback.format_exc())
-
-        # remove queue from tip
-        if int(id_tipper) in TX_IN_PROCESS:
-            TX_IN_PROCESS.remove(int(id_tipper))
-
-        if tip:
-            # tipper shall always get DM. Ignore notifyList
-            try:
-                await ctx.message.author.send(f'{EMOJI_ARROW_RIGHTHOOK} {guild_name} Total {tip_type_text} of {num_format_coin(ActualSpend, COIN_NAME)} '
-                                        f'{COIN_NAME} '
-                                        f'was sent to ({len(destinations)}) members in server `{ctx.guild.name}` for active talking.\n'
-                                        f'{tip_tx_tipper}\n'
-                                        f'Each: `{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}`'
-                                        f'Total spending: `{num_format_coin(ActualSpend, COIN_NAME)}{COIN_NAME}`')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
-            mention_list_name = ''
-            for member_id in list_talker:
-                if ctx.message.author.id != int(member_id):
-                    member = bot.get_user(id=int(member_id))
-                    if member and member.bot == False and member in ctx.guild.members:
-                        mention_list_name += '{}#{} '.format(member.name, member.discriminator)
-                        if str(member_id) not in notifyList:
-                            try:
-                                await member.send(f'{EMOJI_MONEYFACE} You got a {tip_type_text} of {num_format_coin(real_amount, COIN_NAME)} '
-                                                f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{ctx.guild.name}` #{ctx.channel.name} for active talking.\n'
-                                                f'{tip_tx_tipper}\n'
-                                                f'{NOTIFICATION_OFF_CMD}')
-                            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                                await store.sql_toggle_tipnotify(str(member.id), "OFF")
-                            pass
-            await ctx.message.add_reaction(get_emoji(COIN_NAME))
-            try:
-                await ctx.send(f'{discord.utils.escape_markdown(mention_list_name)}\n\n**({len(memids)})** members got {tip_type_text} :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
-                await ctx.message.add_reaction(EMOJI_SPEAK)
-            except discord.errors.Forbidden:
-                await ctx.message.add_reaction(EMOJI_SPEAK)
-            except discord.errors.HTTPException:
-                await ctx.message.add_reaction(EMOJI_SPEAK)
-                await ctx.send(f'**({len(memids)})** members got {tip_type_text} :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
-            return
-        else:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Tipping failed, try again.')
-            await botLogChan.send(f'A user failed to _tip_talker `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`.')
-            await msg.add_reaction(EMOJI_OK_BOX)
-            # add to failed tx table
-            await store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, guild_or_tip)
-            return
+        userdata_balance = await store.sql_cnoff_balance(str(ctx.message.author.id), COIN_NAME)
+        user_from['actual_balance'] = int(user_from['actual_balance']) + int(userdata_balance['Adjust'])
     elif coin_family == "XMR":
-        COIN_DEC = get_decimal(COIN_NAME)
-        MinTx = get_min_mv_amount(COIN_NAME)
-        MaxTX = get_max_mv_amount(COIN_NAME)
-        user_from = await store.sql_get_userwallet(id_tipper, COIN_NAME)
-        if user_from is None:
-            user_from = await store.sql_register_user(id_tipper, COIN_NAME, 'DISCORD')
-            user_from = await store.sql_get_userwallet(id_tipper, COIN_NAME)
-        real_amount = int(Decimal(amount) * COIN_DEC)
-        userdata_balance = await store.sql_xmr_balance(id_tipper, COIN_NAME)
-        if real_amount < MinTx:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
-                           f'{num_format_coin(MinTx, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        elif real_amount > MaxTX:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
-                           f'{num_format_coin(MaxTX, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        elif real_amount > user_from['actual_balance'] + userdata_balance['Adjust']:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send {tip_type_text} of '
-                            f'{num_format_coin(real_amount, COIN_NAME)} '
-                            f'{COIN_NAME}.')
-            return
-        memids = []  # list of member ID
-        for member_id in list_talker:
-            if member_id != ctx.message.author.id:
-                # If user in the guild
-                member = bot.get_user(id=member_id)
-                if member in ctx.guild.members and member.bot == False:
-                    memids.append(str(member_id))
-        TotalAmount = real_amount * len(memids)
-
-        if TotalAmount > MaxTX:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Total transaction cannot be bigger than '
-                           f'{num_format_coin(MaxTX, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        if user_from['actual_balance'] + userdata_balance['Adjust'] < TotalAmount:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Not sufficient balance. ')
-            return
-
-        # add queue also tip
-        if int(id_tipper) not in TX_IN_PROCESS:
-            TX_IN_PROCESS.append(int(id_tipper))
-        else:
-            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
-            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
-            await msg.add_reaction(EMOJI_OK_BOX)
-            return
-
-        try:
-            tips = await store.sql_mv_xmr_multiple(id_tipper, memids, real_amount, COIN_NAME, guild_or_tip)
-        except Exception as e:
-            await logchanbot(traceback.format_exc())
-
-        # remove queue from tip
-        if int(id_tipper) in TX_IN_PROCESS:
-            TX_IN_PROCESS.remove(int(id_tipper))
-
-        if tips:
-            # tipper shall always get DM. Ignore notifyList
-            try:
-                await ctx.message.author.send(
-                    f'{EMOJI_ARROW_RIGHTHOOK} {tip_type_text} of {num_format_coin(TotalAmount, COIN_NAME)} '
-                    f'{COIN_NAME} '
-                    f'was sent to ({len(memids)}) members in server `{ctx.guild.name}` for active talking.\n'
-                    f'Each member got: `{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}`\n')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
-            mention_list_name = ''
-            for member_id in list_talker:
-                # print(member.name) # you'll just print out Member objects your way.
-                if ctx.message.author.id != int(member_id):
-                    member = bot.get_user(id=int(member_id))
-                    if member and member.bot == False and member in ctx.guild.members:
-                        mention_list_name += '{}#{} '.format(member.name, member.discriminator)
-                        if str(member_id) not in notifyList:
-                            try:
-                                await member.send(
-                                    f'{EMOJI_MONEYFACE} You got a {tip_type_text} of `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}` '
-                                    f'from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{ctx.guild.name}` #{ctx.channel.name} for active talking.\n'
-                                    f'{NOTIFICATION_OFF_CMD}')
-                            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                                await store.sql_toggle_tipnotify(str(member.id), "OFF")
-            await ctx.message.add_reaction(get_emoji(COIN_NAME))
-            try:
-                await ctx.send(f'{discord.utils.escape_markdown(mention_list_name)}\n\n**({len(memids)})** members got {tip_type_text} :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
-                await ctx.message.add_reaction(EMOJI_SPEAK)
-            except discord.errors.Forbidden:
-                await ctx.message.add_reaction(EMOJI_SPEAK)
-            except discord.errors.HTTPException:
-                await ctx.message.add_reaction(EMOJI_SPEAK)
-                await ctx.send(f'**({len(memids)})** members got {tip_type_text} :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
-            return
-        else:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            return
-        return
+        userdata_balance = await store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
+        user_from['actual_balance'] = int(user_from['actual_balance']) + int(userdata_balance['Adjust'])
     elif coin_family == "NANO":
-        COIN_DEC = get_decimal(COIN_NAME)
-        MinTx = get_min_mv_amount(COIN_NAME)
-        MaxTX = get_max_mv_amount(COIN_NAME)
-        user_from = await store.sql_get_userwallet(id_tipper, COIN_NAME)
-        if user_from is None:
-            user_from = await store.sql_register_user(id_tipper, COIN_NAME, 'DISCORD')
-            user_from = await store.sql_get_userwallet(id_tipper, COIN_NAME)
-        real_amount = int(Decimal(amount) * COIN_DEC)
-        userdata_balance = await store.sql_nano_balance(id_tipper, COIN_NAME)
-        if real_amount < MinTx:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
-                           f'{num_format_coin(MinTx, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        elif real_amount > MaxTX:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
-                           f'{num_format_coin(MaxTX, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        elif real_amount > user_from['actual_balance'] + userdata_balance['Adjust']:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
-                            f'{num_format_coin(real_amount, COIN_NAME)} '
-                            f'{COIN_NAME}.')
-            return
-        memids = []  # list of member ID
-        for member_id in list_talker:
-            if member_id != ctx.message.author.id:
-                # If user in the guild
-                member = bot.get_user(id=member_id)
-                if member in ctx.guild.members and member.bot == False:
-                    memids.append(str(member_id))
-        TotalAmount = real_amount * len(memids)
-
-        if TotalAmount > MaxTX:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Total transaction cannot be bigger than '
-                           f'{num_format_coin(MaxTX, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        if user_from['actual_balance'] + userdata_balance['Adjust'] < TotalAmount:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Not sufficient balance. ')
-            return
-
-        # add queue also tip
-        if int(id_tipper) not in TX_IN_PROCESS:
-            TX_IN_PROCESS.append(int(id_tipper))
-        else:
-            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
-            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
-            await msg.add_reaction(EMOJI_OK_BOX)
-            return
-
-        try:
-            tips = await store.sql_mv_nano_multiple(id_tipper, memids, real_amount, COIN_NAME, guild_or_tip)
-        except Exception as e:
-            await logchanbot(traceback.format_exc())
-
-        # remove queue from tip
-        if int(id_tipper) in TX_IN_PROCESS:
-            TX_IN_PROCESS.remove(int(id_tipper))
-
-        if tips:
-            # tipper shall always get DM. Ignore notifyList
-            try:
-                await ctx.message.author.send(
-                    f'{EMOJI_ARROW_RIGHTHOOK} {tip_type_text} of {num_format_coin(TotalAmount, COIN_NAME)} '
-                    f'{COIN_NAME} '
-                    f'was sent to ({len(memids)}) members in server `{ctx.guild.name}` for active talking.\n'
-                    f'Each member got: `{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}`\n')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
-            mention_list_name = ''
-            for member_id in list_talker:
-                # print(member.name) # you'll just print out Member objects your way.
-                if ctx.message.author.id != int(member_id):
-                    member = bot.get_user(id=int(member_id))
-                    if member and member.bot == False and member in ctx.guild.members:
-                        mention_list_name += '{}#{} '.format(member.name, member.discriminator)
-                        if str(member_id) not in notifyList:
-                            try:
-                                await member.send(
-                                    f'{EMOJI_MONEYFACE} You got a {tip_type_text} of `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}` '
-                                    f'from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{ctx.guild.name}` #{ctx.channel.name} for active talking.\n'
-                                    f'{NOTIFICATION_OFF_CMD}')
-                            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                                await store.sql_toggle_tipnotify(str(member.id), "OFF")
-            await ctx.message.add_reaction(get_emoji(COIN_NAME))
-            try:
-                await ctx.send(f'{discord.utils.escape_markdown(mention_list_name)}\n\n**({len(memids)})** members got {tip_type_text} :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
-                await ctx.message.add_reaction(EMOJI_SPEAK)
-            except discord.errors.Forbidden:
-                await ctx.message.add_reaction(EMOJI_SPEAK)
-            except discord.errors.HTTPException:
-                await ctx.message.add_reaction(EMOJI_SPEAK)
-                await ctx.send(f'**({len(memids)})** members got {tip_type_text} :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
-            return
-        else:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            return
-        return
+        userdata_balance = await store.sql_nano_balance(str(ctx.message.author.id), COIN_NAME)
+        user_from['actual_balance'] = int(user_from['actual_balance']) + int(userdata_balance['Adjust'])
     elif coin_family == "DOGE":
-        MinTx = getattr(config,"daemon"+COIN_NAME).min_mv_amount
-        MaxTX = getattr(config,"daemon"+COIN_NAME).max_mv_amount
+        userdata_balance = await store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
+        user_from['actual_balance'] = float(user_from['actual_balance']) + float(userdata_balance['Adjust'])
 
-        user_from = await store.sql_get_userwallet(id_tipper, COIN_NAME)
-        if user_from is None:
-            user_from = await store.sql_register_user(id_tipper, COIN_NAME, 'DISCORD')
-            user_from = await store.sql_get_userwallet(id_tipper, COIN_NAME)
-        user_from['address'] = user_from['balance_wallet_address']
-        real_amount = float(amount)
-        userdata_balance = await store.sql_doge_balance(id_tipper, COIN_NAME)
-        if real_amount < MinTx:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
-                           f'{num_format_coin(MinTx, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        elif real_amount > MaxTX:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
-                           f'{num_format_coin(MaxTX, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        elif real_amount > user_from['actual_balance'] + userdata_balance['Adjust']:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
-                            f'{num_format_coin(real_amount, COIN_NAME)} '
-                            f'{COIN_NAME}.')
-            return
-        memids = []  # list of member ID
-        for member_id in list_talker:
-            if member_id != ctx.message.author.id:
-                # If user in the guild
-                member = bot.get_user(id=member_id)
-                if member in ctx.guild.members and member.bot == False:
-                    memids.append(str(member_id))
-        TotalAmount = real_amount * len(memids)
+    if real_amount > MaxTX:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
+                       f'{num_format_coin(MaxTX, COIN_NAME)} '
+                       f'{COIN_NAME}.')
+        return
+    elif real_amount < MinTx:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
+                       f'{num_format_coin(MinTx, COIN_NAME)} '
+                       f'{COIN_NAME}.')
+        return
+    elif real_amount > user_from['actual_balance']:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send {tip_type_text} of '
+                       f'{num_format_coin(real_amount, COIN_NAME)} '
+                        f'{COIN_NAME}.')
+        return
 
-        if TotalAmount > MaxTX:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Total transaction cannot be bigger than '
-                           f'{num_format_coin(MaxTX, COIN_NAME)} '
-                           f'{COIN_NAME}.')
-            return
-        if user_from['actual_balance'] + userdata_balance['Adjust'] < TotalAmount:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Not sufficient balance. ')
-            return
-
-        # add queue also tip
-        if int(id_tipper) not in TX_IN_PROCESS:
-            TX_IN_PROCESS.append(int(id_tipper))
-        else:
-            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
-            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
-            await msg.add_reaction(EMOJI_OK_BOX)
-            return
-
+    list_receivers = []
+    addresses = []
+    for member_id in list_talker:
         try:
-            tips = await store.sql_mv_doge_multiple(id_tipper, memids, real_amount, COIN_NAME, guild_or_tip)
+            member = bot.get_user(id=int(member_id))
+            if member and member in ctx.guild.members and ctx.message.author.id != member.id:
+                user_to = await store.sql_get_userwallet(str(member_id), COIN_NAME)
+                if user_to is None:
+                    userregister = await store.sql_register_user(str(member_id), COIN_NAME, 'DISCORD')
+                    user_to = await store.sql_get_userwallet(str(member_id), COIN_NAME)
+                try:
+                    list_receivers.append(str(member_id))
+                except Exception as e:
+                    await logchanbot(traceback.format_exc())
+                    print('Failed creating wallet for tip talk for userid: {}'.format(member_id))
         except Exception as e:
             await logchanbot(traceback.format_exc())
 
-        # remove queue from tip
-        if int(id_tipper) in TX_IN_PROCESS:
-            TX_IN_PROCESS.remove(int(id_tipper))
+    # Check number of receivers.
+    if len(list_receivers) > config.tipallMax:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        try:
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} The number of receivers are too many.')
+        except (discord.Forbidden, discord.errors.Forbidden) as e:
+            await ctx.message.author.send(f'{EMOJI_RED_NO} The number of receivers are too many in `{ctx.guild.name}`.')
+        return
+    # End of checking receivers numbers.
 
-        if tips:
-            # tipper shall always get DM. Ignore notifyList
-            try:
-                await ctx.message.author.send(
-                    f'{EMOJI_ARROW_RIGHTHOOK} {tip_type_text} of {num_format_coin(TotalAmount, COIN_NAME)} '
-                    f'{COIN_NAME} '
-                    f'was sent to ({len(memids)}) members in server `{ctx.guild.name}` for active talking.\n'
-                    f'Each member got: `{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}`\n')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
-            mention_list_name = ''
-            for member_id in list_talker:
-                # print(member.name) # you'll just print out Member objects your way.
-                if ctx.message.author.id != int(member_id):
-                    member = bot.get_user(id=int(member_id))
-                    if member and member.bot == False and member in ctx.guild.members:
-                        mention_list_name += '{}#{} '.format(member.name, member.discriminator)
-                        if str(member_id) not in notifyList:
-                            try:
-                                await member.send(
-                                    f'{EMOJI_MONEYFACE} You got a {tip_type_text} of `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}` '
-                                    f'from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{ctx.guild.name}` #{ctx.channel.name} for active talking.\n'
-                                    f'{NOTIFICATION_OFF_CMD}')
-                            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                                await store.sql_toggle_tipnotify(str(member.id), "OFF")
-            await ctx.message.add_reaction(get_emoji(COIN_NAME))
-            try:
-                await ctx.send(f'{discord.utils.escape_markdown(mention_list_name)}\n\n**({len(memids)})** members got {tip_type_text} :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
-                await ctx.message.add_reaction(EMOJI_SPEAK)
-            except discord.errors.Forbidden:
-                await ctx.message.add_reaction(EMOJI_SPEAK)
-            except discord.errors.HTTPException:
-                await ctx.message.add_reaction(EMOJI_SPEAK)
-                await ctx.send(f'**({len(memids)})** members got {tip_type_text} :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
-            return
-        else:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            return
+    TotalAmount = real_amount * len(list_receivers)
+
+    if TotalAmount > MaxTX:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Total transactions cannot be bigger than '
+                       f'{num_format_coin(MaxTX, COIN_NAME)} '
+                       f'{COIN_NAME}.')
+        return
+    elif real_amount < MinTx:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Total transactions cannot be smaller than '
+                       f'{num_format_coin(MinTx, COIN_NAME)} '
+                       f'{COIN_NAME}.')
+        return
+    elif TotalAmount >= user_from['actual_balance']:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {guild_name} Insufficient balance to send total {tip_type_text} of '
+                       f'{num_format_coin(TotalAmount, COIN_NAME)} '
+                       f'{COIN_NAME}.')
+        return
+
+    if len(list_receivers) < 1:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is no active talker in such period. Please increase more duration or tip directly!')
+        return
+
+    # add queue also tip
+    if int(id_tipper) not in TX_IN_PROCESS:
+        TX_IN_PROCESS.append(int(id_tipper))
+    else:
+        await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+        msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+        await msg.add_reaction(EMOJI_OK_BOX)
+        return
+
+    tip = None
+    try:
+        if coin_family in ["TRTL", "BCN"]:
+            tip = await store.sql_send_tipall(id_tipper, real_amount, real_amount, list_receivers, guild_or_tip, COIN_NAME)
+        elif coin_family == "XMR":
+            tip = await store.sql_mv_xmr_multiple(id_tipper, list_receivers, real_amount, COIN_NAME, guild_or_tip)
+        elif coin_family == "NANO":
+            tip = await store.sql_mv_nano_multiple(id_tipper, list_receivers, real_amount, COIN_NAME, guild_or_tip)
+        elif coin_family == "DOGE":
+            tip = await store.sql_mv_doge_multiple(id_tipper, list_receivers, real_amount, COIN_NAME, guild_or_tip)
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+
+    # remove queue from tip
+    if int(id_tipper) in TX_IN_PROCESS:
+        TX_IN_PROCESS.remove(int(id_tipper))
+
+    if tip:
+        # tipper shall always get DM. Ignore notifyList
+        try:
+            await ctx.message.author.send(
+                f'{EMOJI_ARROW_RIGHTHOOK} {tip_type_text} of {num_format_coin(TotalAmount, COIN_NAME)} '
+                f'{COIN_NAME} '
+                f'was sent to ({len(list_receivers)}) members in server `{ctx.guild.name}` for active talking.\n'
+                f'Each member got: `{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}`\n')
+        except (discord.Forbidden, discord.errors.Forbidden) as e:
+            await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
+        mention_list_name = ''
+        for member_id in list_talker:
+            # print(member.name) # you'll just print out Member objects your way.
+            if ctx.message.author.id != int(member_id):
+                member = bot.get_user(id=int(member_id))
+                if member and member.bot == False and member in ctx.guild.members:
+                    mention_list_name += '{}#{} '.format(member.name, member.discriminator)
+                    if str(member_id) not in notifyList:
+                        try:
+                            await member.send(
+                                f'{EMOJI_MONEYFACE} You got a {tip_type_text} of `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}` '
+                                f'from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{ctx.guild.name}` #{ctx.channel.name} for active talking.\n'
+                                f'{NOTIFICATION_OFF_CMD}')
+                        except (discord.Forbidden, discord.errors.Forbidden) as e:
+                            await store.sql_toggle_tipnotify(str(member.id), "OFF")
+        await ctx.message.add_reaction(get_emoji(COIN_NAME))
+        try:
+            await ctx.send(f'{discord.utils.escape_markdown(mention_list_name)}\n\n**({len(list_receivers)})** members got {tip_type_text} :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
+            await ctx.message.add_reaction(EMOJI_SPEAK)
+        except discord.errors.Forbidden:
+            await ctx.message.add_reaction(EMOJI_SPEAK)
+        except discord.errors.HTTPException:
+            await ctx.message.add_reaction(EMOJI_SPEAK)
+            await ctx.send(f'**({len(list_receivers)})** members got {tip_type_text} :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
         return
     else:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**!')
         return
 
 
@@ -14617,275 +13226,98 @@ async def _tip_react(reaction, user, amount, coin: str):
         
     notifyList = await store.sql_get_tipnotify()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+
+    COIN_DEC = get_decimal(COIN_NAME)
+    real_amount = int(Decimal(amount) * COIN_DEC)
+    MinTx = get_min_mv_amount(COIN_NAME)
+    MaxTX = get_max_mv_amount(COIN_NAME)
+    NetFee = 0
+    user_from = await store.sql_get_userwallet(str(user.id), COIN_NAME)
+    if user_from is None:
+        user_from = await store.sql_register_user(str(user.id), COIN_NAME, 'DISCORD')
+        user_from = await store.sql_get_userwallet(str(user.id), COIN_NAME)
+    # get user balance
     if coin_family in ["TRTL", "BCN"]:
-        COIN_DEC = get_decimal(COIN_NAME)
-        real_amount = int(Decimal(amount) * COIN_DEC)
-        MinTx = get_min_mv_amount(COIN_NAME)
-        MaxTX = get_max_mv_amount(COIN_NAME)
-        NetFee = 0
-        user_from = await store.sql_get_userwallet(str(user.id), COIN_NAME)
-        if user_from is None:
-            user_from = await store.sql_register_user(str(user.id), COIN_NAME, 'DISCORD')
-            user_from = await store.sql_get_userwallet(str(user.id), COIN_NAME)
         userdata_balance = await store.sql_cnoff_balance(str(user.id), COIN_NAME)
-        user_from['actual_balance'] = user_from['actual_balance'] + int(userdata_balance['Adjust'])
-        destinations = []
-        listMembers = reaction.message.mentions
-
-        memids = []  # list of member ID
-        list_receivers = []
-        addresses = []
-        for member in listMembers:
-            # print(member.name) # you'll just print out Member objects your way.
-            if user.id != member.id and reaction.message.author.id != member.id:
-                user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
-                if user_to is None:
-                    userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD')
-                    user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
-
-                list_receivers.append(str(member.id))
-                memids.append(user_to['balance_wallet_address'])
-
-        for desti in memids:
-            destinations.append({"address": desti, "amount": real_amount})
-
-
-        ActualSpend = real_amount * len(memids)
-        if ActualSpend >= user_from['actual_balance']:
-            try:
-                await user.send(f'{EMOJI_RED_NO} {user.mention} Insufficient balance {EMOJI_TIP} total of '
-                               f'{num_format_coin(ActualSpend, COIN_NAME)} '
-                               f'{COIN_NAME}.')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                print(f"_tip_react Can not send DM to {user.id}")
-            return
-
-        tip = None
-        if len(list_receivers) < 1:
-            await reaction.message.add_reaction(EMOJI_ERROR)
-            return
-        try:
-            tip = await store.sql_send_tipall(str(user.id), destinations, real_amount, real_amount, list_receivers, 'TIPS', COIN_NAME)
-            tip_tx_tipper = "Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
-            ActualSpend += int(tip['fee'])
-            REACT_TIP_STORE.append((str(reaction.message.id) + '.' + str(user.id)))
-        except Exception as e:
-            await logchanbot(traceback.format_exc())
-        if tip:
-            # tipper shall always get DM. Ignore notifyList
-            try:
-                await user.send(f'{EMOJI_ARROW_RIGHTHOOK} Total {EMOJI_TIP} of {num_format_coin(ActualSpend, COIN_NAME)} '
-                                f'{COIN_NAME} '
-                                f'was sent to ({len(destinations)}) members in server `{reaction.message.guild.name}`.\n'
-                                f'{tip_tx_tipper}\n'
-                                f'Each: `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`'
-                                f'Total spending: `{num_format_coin(ActualSpend, COIN_NAME)} {COIN_NAME}`')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                await store.sql_toggle_tipnotify(str(user.id), "OFF")
-            for member in reaction.message.mentions:
-                if user.id != member.id and reaction.message.author.id != member.id:
-                    if member.bot == False:
-                        if str(member.id) not in notifyList:
-                            try:
-                                await member.send(f'{EMOJI_MONEYFACE} You got a {EMOJI_TIP} of  {num_format_coin(real_amount, COIN_NAME)} '
-                                                f'{COIN_NAME} from {user.name}#{user.discriminator} in server `{reaction.message.guild.name}`\n'
-                                                f'{tip_tx_tipper}\n'
-                                                f'{NOTIFICATION_OFF_CMD}')
-                            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                                await store.sql_toggle_tipnotify(str(member.id), "OFF")
-                            pass
-            return
-        else:
-            msg = await user.send(f'{EMOJI_RED_NO} {user.mention} Try again for {EMOJI_TIP}.')
-            await botLogChan.send(f'A user failed to _tip_react `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`.')
-            await msg.add_reaction(EMOJI_OK_BOX)
-            # add to failed tx table
-            await store.sql_add_failed_tx(COIN_NAME, str(user.id), user.name, real_amount, "REACTTIP")
-            return
-
+        user_from['actual_balance'] = int(user_from['actual_balance']) + int(userdata_balance['Adjust'])
     elif coin_family == "XMR":
-        COIN_DEC = get_decimal(COIN_NAME)
-        MinTx = get_min_mv_amount(COIN_NAME)
-        MaxTX = get_max_mv_amount(COIN_NAME)
-        user_from = await store.sql_get_userwallet(str(user.id), COIN_NAME)
-        if user_from is None:
-            user_from = await store.sql_register_user(str(user.id), COIN_NAME, 'DISCORD')
-            user_from = await store.sql_get_userwallet(str(user.id), COIN_NAME)
-        real_amount = int(Decimal(amount) * COIN_DEC)
         userdata_balance = await store.sql_xmr_balance(str(user.id), COIN_NAME)
-        if real_amount > user_from['actual_balance'] + userdata_balance['Adjust']:
-            await user.send(f'{EMOJI_RED_NO} {user.mention} Insufficient balance to send tip of '
-                            f'{num_format_coin(real_amount, COIN_NAME)} '
-                            f'{COIN_NAME}.')
-            return
-
-        listMembers = reaction.message.mentions
-        memids = []  # list of member ID
-        for member in listMembers:
-            if user.id != member.id and reaction.message.author.id != member.id:
-                memids.append(str(member.id))
-        TotalAmount = real_amount * len(memids)
-
-        if user_from['actual_balance'] + userdata_balance['Adjust'] < TotalAmount:
-            try:
-                await user.send(f'{EMOJI_RED_NO} {user.mention} You don\'t have sufficient balance. ')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                print(f"{COIN_NAME} _tip_reactCan not send DM to {user.id}")
-            return
-        try:
-            tips = await store.sql_mv_xmr_multiple(str(user.id), memids, real_amount, COIN_NAME, "TIPS")
-            REACT_TIP_STORE.append((str(reaction.message.id) + '.' + str(user.id)))
-        except Exception as e:
-            await logchanbot(traceback.format_exc())
-        if tips:
-            tipAmount = num_format_coin(TotalAmount, COIN_NAME)
-            amountDiv_str = num_format_coin(real_amount, COIN_NAME)
-            # tipper shall always get DM. Ignore notifyList
-            try:
-                await user.send(
-                    f'{EMOJI_ARROW_RIGHTHOOK} {EMOJI_TIP} of {tipAmount} '
-                    f'{COIN_NAME} '
-                    f'was sent to ({len(memids)}) members in server `{reaction.message.guild.name}`.\n'
-                    f'Each member got: `{amountDiv_str}{COIN_NAME}`\n')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                await store.sql_toggle_tipnotify(str(user.id), "OFF")
-            for member in reaction.message.mentions:
-                # print(member.name) # you'll just print out Member objects your way.
-                if (user.id != member.id):
-                    if member.bot == False:
-                        if str(member.id) not in notifyList:
-                            try:
-                                await member.send(
-                                    f'{EMOJI_MONEYFACE} You got a {EMOJI_TIP} of `{amountDiv_str}{COIN_NAME}` '
-                                    f'from {user.name}#{user.discriminator} in server `{reaction.message.guild.name}`\n'
-                                    f'{NOTIFICATION_OFF_CMD}')
-                            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                                await store.sql_toggle_tipnotify(str(member.id), "OFF")
-            return
-        return
+        user_from['actual_balance'] = int(user_from['actual_balance']) + int(userdata_balance['Adjust'])
     elif coin_family == "NANO":
-        COIN_DEC = get_decimal(COIN_NAME)
-        MinTx = get_min_mv_amount(COIN_NAME)
-        MaxTX = get_max_mv_amount(COIN_NAME)
-        user_from = await store.sql_get_userwallet(str(user.id), COIN_NAME)
-        if user_from is None:
-            user_from = await store.sql_register_user(str(user.id), COIN_NAME, 'DISCORD')
-            user_from = await store.sql_get_userwallet(str(user.id), COIN_NAME)
-        real_amount = int(Decimal(amount) * COIN_DEC)
         userdata_balance = await store.sql_nano_balance(str(user.id), COIN_NAME)
-        if real_amount > int(user_from['actual_balance']) + int(userdata_balance['Adjust']):
-            await user.send(f'{EMOJI_RED_NO} {user.mention} Insufficient balance to send tip of '
-                            f'{num_format_coin(real_amount, COIN_NAME)} '
-                            f'{COIN_NAME}.')
-            return
-
-        listMembers = reaction.message.mentions
-        memids = []  # list of member ID
-        for member in listMembers:
-            if user.id != member.id and reaction.message.author.id != member.id:
-                memids.append(str(member.id))
-        TotalAmount = real_amount * len(memids)
-
-        if int(user_from['actual_balance']) + int(userdata_balance['Adjust']) < TotalAmount:
-            try:
-                await user.send(f'{EMOJI_RED_NO} {user.mention} You don\'t have sufficient balance. ')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                print(f"{COIN_NAME} _tip_reactCan not send DM to {user.id}")
-            return
-        try:
-            tips = await store.sql_mv_nano_multiple(str(user.id), memids, real_amount, COIN_NAME, "TIPS")
-            REACT_TIP_STORE.append((str(reaction.message.id) + '.' + str(user.id)))
-        except Exception as e:
-            await logchanbot(traceback.format_exc())
-        if tips:
-            tipAmount = num_format_coin(TotalAmount, COIN_NAME)
-            amountDiv_str = num_format_coin(real_amount, COIN_NAME)
-            # tipper shall always get DM. Ignore notifyList
-            try:
-                await user.send(
-                    f'{EMOJI_ARROW_RIGHTHOOK} {EMOJI_TIP} of {tipAmount} '
-                    f'{COIN_NAME} '
-                    f'was sent to ({len(memids)}) members in server `{reaction.message.guild.name}`.\n'
-                    f'Each member got: `{amountDiv_str}{COIN_NAME}`\n')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                await store.sql_toggle_tipnotify(str(user.id), "OFF")
-            for member in reaction.message.mentions:
-                # print(member.name) # you'll just print out Member objects your way.
-                if (user.id != member.id):
-                    if member.bot == False:
-                        if str(member.id) not in notifyList:
-                            try:
-                                await member.send(
-                                    f'{EMOJI_MONEYFACE} You got a {EMOJI_TIP} of `{amountDiv_str}{COIN_NAME}` '
-                                    f'from {user.name}#{user.discriminator} in server `{reaction.message.guild.name}`\n'
-                                    f'{NOTIFICATION_OFF_CMD}')
-                            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                                await store.sql_toggle_tipnotify(str(member.id), "OFF")
-            return
-        return
+        user_from['actual_balance'] = int(user_from['actual_balance']) + int(userdata_balance['Adjust'])
     elif coin_family == "DOGE":
-        MinTx = getattr(config,"daemon"+COIN_NAME).min_mv_amount
-        MaxTX = getattr(config,"daemon"+COIN_NAME).max_mv_amount
-
-        user_from = await store.sql_get_userwallet(str(user.id), COIN_NAME)
-        if user_from is None:
-            user_from = await store.sql_register_user(str(user.id), COIN_NAME, 'DISCORD')
-            user_from = await store.sql_get_userwallet(str(user.id), COIN_NAME)
-        user_from['address'] = user_from['balance_wallet_address']
-        real_amount = float(amount)
         userdata_balance = await store.sql_doge_balance(str(user.id), COIN_NAME)
-        if real_amount > user_from['actual_balance'] + userdata_balance['Adjust']:
-            try:
-                await user.send(f'{EMOJI_RED_NO} {user.mention} Insufficient balance to send tip of '
-                                f'{num_format_coin(real_amount, COIN_NAME)} '
-                                f'{COIN_NAME}.')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                print(f"{COIN_NAME} _tip_reactCan not send DM to {user.id}")
-            return
+        user_from['actual_balance'] = float(user_from['actual_balance']) + float(userdata_balance['Adjust'])
 
-        listMembers = reaction.message.mentions
-        memids = []  # list of member ID
-        for member in listMembers:
-            if user.id != member.id and reaction.message.author.id != member.id:
-                memids.append(str(member.id))
-        TotalAmount = real_amount * len(memids)
+    listMembers = reaction.message.mentions
+    list_receivers = []
+    addresses = []
 
-        if user_from['actual_balance'] + userdata_balance['Adjust'] < TotalAmount:
-            try:
-                await user.send(f'{EMOJI_RED_NO} {user.mention} You don\'t have sufficient balance. ')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                print(f"{COIN_NAME} _tip_reactCan not send DM to {user.id}")
-            return
+
+    for member in listMembers:
+        # print(member.name) # you'll just print out Member objects your way.
+        if user.id != member.id and reaction.message.author.id != member.id:
+            user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
+            if user_to is None:
+                userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD')
+                user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
+
+            list_receivers.append(str(member.id))
+
+    TotalAmount = real_amount * len(list_receivers)
+    if TotalAmount >= user_from['actual_balance']:
         try:
-            tips = await store.sql_mv_doge_multiple(user.id, memids, real_amount, COIN_NAME, "TIPS")
-            REACT_TIP_STORE.append((str(reaction.message.id) + '.' + str(user.id)))
-        except Exception as e:
-            await logchanbot(traceback.format_exc())
-        if tips:
-            tipAmount = num_format_coin(TotalAmount, COIN_NAME)
-            amountDiv_str = num_format_coin(real_amount, COIN_NAME)
-            # tipper shall always get DM. Ignore notifyList
-            try:
-                await user.send(
-                    f'{EMOJI_ARROW_RIGHTHOOK} {EMOJI_TIP} of {tipAmount} '
-                    f'{COIN_NAME} '
-                    f'was sent to ({len(memids)}) members in server `{reaction.message.guild.name}`.\n'
-                    f'Each member got: `{amountDiv_str}{COIN_NAME}`\n')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                await store.sql_toggle_tipnotify(str(user.id), "OFF")
-            for member in reaction.message.mentions:
-                # print(member.name) # you'll just print out Member objects your way.
-                if (user.id != member.id):
-                    if member.bot == False:
-                        if str(member.id) not in notifyList:
-                            try:
-                                await member.send(
-                                    f'{EMOJI_MONEYFACE} You got {EMOJI_TIP} of `{amountDiv_str}{COIN_NAME}` '
-                                    f'from {user.name}#{user.discriminator} in server `{reaction.message.guild.name}`\n'
-                                    f'{NOTIFICATION_OFF_CMD}')
-                            except (discord.Forbidden, discord.errors.Forbidden) as e:
-                                await store.sql_toggle_tipnotify(str(member.id), "OFF")
-            return
+            await user.send(f'{EMOJI_RED_NO} {user.mention} Insufficient balance {EMOJI_TIP} total of '
+                            f'{num_format_coin(TotalAmount, COIN_NAME)} '
+                            f'{COIN_NAME}.')
+        except (discord.Forbidden, discord.errors.Forbidden) as e:
+            print(f"_tip_react Can not send DM to {user.id}")
+        return
+
+    tip = None
+    if len(list_receivers) < 1:
+        await reaction.message.add_reaction(EMOJI_ERROR)
+        return
+    try:
+        if coin_family in ["TRTL", "BCN"]:
+            tip = await store.sql_send_tipall(str(user.id), real_amount, real_amount, list_receivers, 'TIPS', COIN_NAME)
+        elif coin_family == "XMR":
+            tip = await store.sql_mv_xmr_multiple(str(user.id), list_receivers, real_amount, COIN_NAME, "TIPS")
+        elif coin_family == "NANO":
+            tip = await store.sql_mv_nano_multiple(str(user.id), list_receivers, real_amount, COIN_NAME, "TIPS")
+        elif coin_family == "DOGE":
+            tip = await store.sql_mv_doge_multiple(user.id, list_receivers, real_amount, COIN_NAME, "TIPS")
+        REACT_TIP_STORE.append((str(reaction.message.id) + '.' + str(user.id)))
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    if tip:
+        # tipper shall always get DM. Ignore notifyList
+        try:
+            await user.send(f'{EMOJI_ARROW_RIGHTHOOK} Total {EMOJI_TIP} of {num_format_coin(TotalAmount, COIN_NAME)} '
+                            f'{COIN_NAME} '
+                            f'was sent to ({len(destinations)}) members in server `{reaction.message.guild.name}`.\n'
+                            f'Each: `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`'
+                            f'Total spending: `{num_format_coin(TotalAmount, COIN_NAME)} {COIN_NAME}`')
+        except (discord.Forbidden, discord.errors.Forbidden) as e:
+            await store.sql_toggle_tipnotify(str(user.id), "OFF")
+        for member in reaction.message.mentions:
+            if user.id != member.id and reaction.message.author.id != member.id and member.bot == False:
+                if str(member.id) not in notifyList:
+                    try:
+                        await member.send(f'{EMOJI_MONEYFACE} You got a {EMOJI_TIP} of  {num_format_coin(real_amount, COIN_NAME)} '
+                                          f'{COIN_NAME} from {user.name}#{user.discriminator} in server `{reaction.message.guild.name}`\n'
+                                          f'{tip_tx_tipper}\n'
+                                          f'{NOTIFICATION_OFF_CMD}')
+                    except (discord.Forbidden, discord.errors.Forbidden) as e:
+                        await store.sql_toggle_tipnotify(str(member.id), "OFF")
+        return
+    else:
+        msg = await user.send(f'{EMOJI_RED_NO} {user.mention} Try again for {EMOJI_TIP}.')
+        await botLogChan.send(f'A user failed to _tip_react `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`.')
+        await msg.add_reaction(EMOJI_OK_BOX)
+        # add to failed tx table
+        await store.sql_add_failed_tx(COIN_NAME, str(user.id), user.name, real_amount, "REACTTIP")
         return
 
 

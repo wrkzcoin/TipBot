@@ -8759,7 +8759,7 @@ async def tip(ctx, amount: str, *args):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
         return
 
-    if len(ctx.message.mentions) == 0:
+    if len(ctx.message.mentions) == 0 and len(ctx.message.role_mentions) == 0:
         # Use how time.
         if len(args) >= 2:
             time_given = None
@@ -8953,10 +8953,22 @@ async def tip(ctx, amount: str, *args):
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Tip me if you want.')
             return
         pass
+    elif len(ctx.message.role_mentions) >= 1:
+        mention_roles = ctx.message.role_mentions
+        if "@everyone" in mention_roles:
+            mention_roles.remove("@everyone")
+            if len(mention_roles) < 1:
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Can not find user to tip to.')
+                return
+        async with ctx.typing():
+            await _tip(ctx, amount, COIN_NAME)
+            return
     elif len(ctx.message.mentions) > 1:
         async with ctx.typing():
             await _tip(ctx, amount, COIN_NAME)
             return
+
 
     # Check flood of tip
     floodTip = await store.sql_get_countLastTip(str(ctx.message.author.id), config.floodTipDuration)
@@ -9000,7 +9012,7 @@ async def tip(ctx, amount: str, *args):
         user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
 
     COIN_DEC = get_decimal(COIN_NAME)
-    real_amount = int(amount * COIN_DEC)
+    real_amount = int(Decimal(amount) * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
     MinTx = get_min_mv_amount(COIN_NAME)
     MaxTX = get_max_mv_amount(COIN_NAME)
     NetFee = 0
@@ -9166,7 +9178,7 @@ async def mtip(ctx, amount: str, *args):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
         return
 
-    if len(ctx.message.mentions) == 0:
+    if len(ctx.message.mentions) == 0 and len(ctx.message.role_mentions) == 0:
         # Use how time.
         if len(args) >= 2:
             time_given = None
@@ -9359,10 +9371,20 @@ async def mtip(ctx, amount: str, *args):
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Tip me if you want.')
             return
-        pass
+    elif len(ctx.message.role_mentions) >= 1:
+        mention_roles = ctx.message.role_mentions
+        if "@everyone" in mention_roles:
+            mention_roles.remove("@everyone")
+            if len(mention_roles) < 1:
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Can not find user to tip to.')
+                return
+        async with ctx.typing():
+            await _tip(ctx, amount, COIN_NAME, True)
+            return
     elif len(ctx.message.mentions) > 1:
         async with ctx.typing():
-            await _tip(ctx, amount, COIN_NAME)
+            await _tip(ctx, amount, COIN_NAME, True)
             return
 
     # Check flood of tip
@@ -9407,7 +9429,7 @@ async def mtip(ctx, amount: str, *args):
         user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
 
     COIN_DEC = get_decimal(COIN_NAME)
-    real_amount = int(amount * COIN_DEC)
+    real_amount = int(Decimal(amount) * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
     MinTx = get_min_mv_amount(COIN_NAME)
     MaxTX = get_max_mv_amount(COIN_NAME)
 
@@ -9578,7 +9600,7 @@ async def tipall(ctx, amount: str, *args):
     notifyList = await store.sql_get_tipnotify()
 
     COIN_DEC = get_decimal(COIN_NAME)
-    real_amount = int(amount * COIN_DEC)
+    real_amount = int(Decimal(amount) * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
     MinTx = get_min_mv_amount(COIN_NAME)
     MaxTX = get_max_mv_amount(COIN_NAME)
     NetFee = 0
@@ -12887,7 +12909,7 @@ async def _tip(ctx, amount, coin: str, if_guild: bool=False):
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
 
     COIN_DEC = get_decimal(COIN_NAME)
-    real_amount = int(Decimal(amount) * COIN_DEC)
+    real_amount = int(Decimal(amount) * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
     MinTx = get_min_mv_amount(COIN_NAME)
     MaxTX = get_max_mv_amount(COIN_NAME)
     NetFee = 0
@@ -12897,16 +12919,16 @@ async def _tip(ctx, amount, coin: str, if_guild: bool=False):
         user_from = await store.sql_get_userwallet(id_tipper, COIN_NAME)
 
     if coin_family in ["TRTL", "BCN"]:
-        userdata_balance = await store.sql_cnoff_balance(str(ctx.message.author.id), COIN_NAME)
+        userdata_balance = await store.sql_cnoff_balance(id_tipper, COIN_NAME)
         user_from['actual_balance'] = int(user_from['actual_balance']) + int(userdata_balance['Adjust'])
     elif coin_family == "XMR":
-        userdata_balance = await store.sql_xmr_balance(str(ctx.message.author.id), COIN_NAME)
+        userdata_balance = await store.sql_xmr_balance(id_tipper, COIN_NAME)
         user_from['actual_balance'] = int(user_from['actual_balance']) + int(userdata_balance['Adjust'])
     elif coin_family == "NANO":
-        userdata_balance = await store.sql_nano_balance(str(ctx.message.author.id), COIN_NAME)
+        userdata_balance = await store.sql_nano_balance(id_tipper, COIN_NAME)
         user_from['actual_balance'] = int(user_from['actual_balance']) + int(userdata_balance['Adjust'])
     elif coin_family == "DOGE":
-        userdata_balance = await store.sql_doge_balance(str(ctx.message.author.id), COIN_NAME)
+        userdata_balance = await store.sql_doge_balance(id_tipper, COIN_NAME)
         user_from['actual_balance'] = float(user_from['actual_balance']) + float(userdata_balance['Adjust'])
 
     if real_amount > MaxTX:
@@ -12922,7 +12944,20 @@ async def _tip(ctx, amount, coin: str, if_guild: bool=False):
                        f'{COIN_NAME}.')
         return
 
-    listMembers = ctx.message.mentions
+    listMembers = []
+    if ctx.message.role_mentions and len(ctx.message.role_mentions) >= 1:
+        mention_roles = ctx.message.role_mentions
+        if "@everyone" in mention_roles:
+            mention_roles.remove("@everyone")
+        if len(mention_roles) >= 1:
+            for each_role in mention_roles:
+                role_listMember = [member for member in ctx.guild.members if member.bot == False and each_role in member.roles]
+                if len(role_listMember) >= 1:
+                    for each_member in role_listMember:
+                        if each_member not in listMembers:
+                            listMembers.append(each_member)
+    else:
+        listMembers = ctx.message.mentions
     list_receivers = []
     addresses = []
 
@@ -12933,7 +12968,6 @@ async def _tip(ctx, amount, coin: str, if_guild: bool=False):
             if user_to is None:
                 userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD')
                 user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
-
             list_receivers.append(str(member.id))
 
     TotalAmount = real_amount * len(list_receivers)
@@ -12993,7 +13027,7 @@ async def _tip(ctx, amount, coin: str, if_guild: bool=False):
 
     if tip:
         try:
-            for member in ctx.message.mentions:
+            for member in listMembers:
                 if ctx.message.author.id != member.id and bot.user.id != member.id and str(member.id) not in notifyList:
                     try:
                         await member.send(f'{EMOJI_MONEYFACE} You got a {tip_type_text} of  {num_format_coin(real_amount, COIN_NAME)} '
@@ -13007,12 +13041,28 @@ async def _tip(ctx, amount, coin: str, if_guild: bool=False):
         await ctx.message.add_reaction(get_emoji(COIN_NAME))
         # tipper shall always get DM. Ignore notifyList
         try:
-            await ctx.message.author.send(f'{EMOJI_ARROW_RIGHTHOOK} Total {tip_type_text} of {num_format_coin(TotalAmount, COIN_NAME)} '
-                                    f'{COIN_NAME} '
-                                    f'was sent to ({len(destinations)}) members in server `{ctx.guild.name}`.\n'
-                                    f'Each: `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`'
-                                    f'Total spending: `{num_format_coin(TotalAmount, COIN_NAME)} {COIN_NAME}`')
+            if if_guild == True:
+                await ctx.send(f'{EMOJI_ARROW_RIGHTHOOK} Total {tip_type_text} of {num_format_coin(TotalAmount, COIN_NAME)} '
+                               f'{COIN_NAME} '
+                               f'was sent to ({len(list_receivers)}) members in server `{ctx.guild.name}`.\n'
+                               f'Each: `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`'
+                               f'Total spending: `{num_format_coin(TotalAmount, COIN_NAME)} {COIN_NAME}`')
+            else:
+                await ctx.message.author.send(f'{EMOJI_ARROW_RIGHTHOOK} Total {tip_type_text} of {num_format_coin(TotalAmount, COIN_NAME)} '
+                                        f'{COIN_NAME} '
+                                        f'was sent to ({len(list_receivers)}) members in server `{ctx.guild.name}`.\n'
+                                        f'Each: `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`'
+                                        f'Total spending: `{num_format_coin(TotalAmount, COIN_NAME)} {COIN_NAME}`')
         except (discord.Forbidden, discord.errors.Forbidden) as e:
+            try:
+                if if_guild == True:
+                    await ctx.message.author.send(f'{EMOJI_ARROW_RIGHTHOOK} Total {tip_type_text} of {num_format_coin(TotalAmount, COIN_NAME)} '
+                                            f'{COIN_NAME} '
+                                            f'was sent to ({len(list_receivers)}) members in server `{ctx.guild.name}`.\n'
+                                            f'Each: `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`'
+                                            f'Total spending: `{num_format_coin(TotalAmount, COIN_NAME)} {COIN_NAME}`')
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                await logchanbot(traceback.format_exc())
             await logchanbot(traceback.format_exc())
         return
     else:
@@ -13228,7 +13278,7 @@ async def _tip_react(reaction, user, amount, coin: str):
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
 
     COIN_DEC = get_decimal(COIN_NAME)
-    real_amount = int(Decimal(amount) * COIN_DEC)
+    real_amount = int(Decimal(amount) * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
     MinTx = get_min_mv_amount(COIN_NAME)
     MaxTX = get_max_mv_amount(COIN_NAME)
     NetFee = 0
@@ -13296,7 +13346,7 @@ async def _tip_react(reaction, user, amount, coin: str):
         try:
             await user.send(f'{EMOJI_ARROW_RIGHTHOOK} Total {EMOJI_TIP} of {num_format_coin(TotalAmount, COIN_NAME)} '
                             f'{COIN_NAME} '
-                            f'was sent to ({len(destinations)}) members in server `{reaction.message.guild.name}`.\n'
+                            f'was sent to ({len(list_receivers)}) members in server `{reaction.message.guild.name}`.\n'
                             f'Each: `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`'
                             f'Total spending: `{num_format_coin(TotalAmount, COIN_NAME)} {COIN_NAME}`')
         except (discord.Forbidden, discord.errors.Forbidden) as e:

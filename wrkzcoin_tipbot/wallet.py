@@ -670,3 +670,11 @@ def get_confirm_depth(coin: str):
         return getattr(config,"daemon"+COIN_NAME).confirm_depth
     else:
         return int(getattr(config,"daemon"+COIN_NAME).confirm_depth)
+
+## Section of Trade
+def get_min_sell(coin: str):
+    return getattr(config,"daemon"+coin,config.daemonWRKZ).min_buysell
+
+def get_max_sell(coin: str):
+    return getattr(config,"daemon"+coin,config.daemonWRKZ).max_buysell
+## END OF Section of Trade

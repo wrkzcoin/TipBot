@@ -190,41 +190,172 @@ async def sql_nano_update_balances(coin: str):
     return updated
 
 
-async def sql_nano_balance(userID: str, coin: str, user_server: str = 'DISCORD'):
+async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD'):
     global pool
     user_server = user_server.upper()
     if user_server not in ['DISCORD', 'TELEGRAM']:
         return
     COIN_NAME = coin.upper()
-    if COIN_NAME not in ENABLE_COIN_NANO:
-        return False
+
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     try:
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ SELECT SUM(amount) AS Expense FROM nano_mv_tx WHERE `from_userid`=%s AND `coin_name`=%s AND `user_server`=%s """
-                await cur.execute(sql, (userID, COIN_NAME, user_server))
-                result = await cur.fetchone()
-                if result:
-                    Expense = result['Expense']
-                else:
-                    Expense = 0
+                if coin_family in ["TRTL", "BCN"]:
+                    sql = """ SELECT SUM(amount) AS Expense FROM cnoff_mv_tx WHERE `from_userid`=%s AND `coin_name` = %s AND `user_server` = %s """
+                    await cur.execute(sql, (userID, COIN_NAME, user_server))
+                    result = await cur.fetchone()
+                    if result:
+                        Expense = result['Expense']
+                    else:
+                        Expense = 0
 
-                sql = """ SELECT SUM(amount) AS Income FROM nano_mv_tx WHERE `to_userid`=%s AND `coin_name`=%s AND `user_server`=%s """
-                await cur.execute(sql, (userID, COIN_NAME, user_server))
-                result = await cur.fetchone()
-                if result:
-                    Income = result['Income']
-                else:
-                    Income = 0
+                    sql = """ SELECT SUM(amount) AS Income FROM cnoff_mv_tx WHERE `to_userid`=%s AND `coin_name` = %s AND `user_server` = %s """
+                    await cur.execute(sql, (userID, COIN_NAME, user_server))
+                    result = await cur.fetchone()
+                    if result:
+                        Income = result['Income']
+                    else:
+                        Income = 0
 
-                sql = """ SELECT SUM(amount) AS TxExpense FROM nano_external_tx WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s """
-                await cur.execute(sql, (userID, COIN_NAME, user_server))
-                result = await cur.fetchone()
-                if result:
-                    TxExpense = result['TxExpense']
-                else:
-                    TxExpense = 0
+                    sql = """ SELECT SUM(amount+fee) AS TxExpense FROM cnoff_external_tx WHERE `user_id`=%s AND `coin_name` = %s AND `user_server` = %s """
+                    await cur.execute(sql, (userID, COIN_NAME, user_server))
+                    result = await cur.fetchone()
+                    if result:
+                        TxExpense = result['TxExpense']
+                    else:
+                        TxExpense = 0
+
+                    sql = """ SELECT SUM(amount) AS SwapIn FROM discord_swap_balance WHERE `owner_id`=%s AND `coin_name` = %s and `to` = %s """
+                    await cur.execute(sql, (userID, COIN_NAME, 'TIPBOT'))
+                    result = await cur.fetchone()
+                    if result:
+                        SwapIn = result['SwapIn']
+                    else:
+                        SwapIn = 0
+
+                    sql = """ SELECT SUM(amount) AS SwapOut FROM discord_swap_balance WHERE `owner_id`=%s AND `coin_name` = %s and `from` = %s """
+                    await cur.execute(sql, (userID, COIN_NAME, 'TIPBOT'))
+                    result = await cur.fetchone()
+                    if result:
+                        SwapOut = result['SwapOut']
+                    else:
+                        SwapOut = 0
+                elif coin_family == "XMR":
+                    sql = """ SELECT SUM(amount) AS Expense FROM xmroff_mv_tx WHERE `from_userid`=%s AND `coin_name` = %s """
+                    await cur.execute(sql, (userID, COIN_NAME))
+                    result = await cur.fetchone()
+                    if result:
+                        Expense = result['Expense']
+                    else:
+                        Expense = 0
+
+                    sql = """ SELECT SUM(amount) AS Income FROM xmroff_mv_tx WHERE `to_userid`=%s AND `coin_name` = %s """
+                    await cur.execute(sql, (userID, COIN_NAME))
+                    result = await cur.fetchone()
+                    if result:
+                        Income = result['Income']
+                    else:
+                        Income = 0
+
+                    sql = """ SELECT SUM(amount+fee) AS TxExpense FROM xmroff_external_tx WHERE `user_id`=%s AND `coin_name` = %s """
+                    await cur.execute(sql, (userID, COIN_NAME))
+                    result = await cur.fetchone()
+                    if result:
+                        TxExpense = result['TxExpense']
+                    else:
+                        TxExpense = 0
+
+                    sql = """ SELECT SUM(amount) AS SwapIn FROM discord_swap_balance WHERE `owner_id`=%s AND `coin_name` = %s and `to` = %s """
+                    await cur.execute(sql, (userID, COIN_NAME, 'TIPBOT'))
+                    result = await cur.fetchone()
+                    if result:
+                        SwapIn = result['SwapIn']
+                    else:
+                        SwapIn = 0
+
+                    sql = """ SELECT SUM(amount) AS SwapOut FROM discord_swap_balance WHERE `owner_id`=%s AND `coin_name` = %s and `from` = %s """
+                    await cur.execute(sql, (userID, COIN_NAME, 'TIPBOT'))
+                    result = await cur.fetchone()
+                    if result:
+                        SwapOut = result['SwapOut']
+                    else:
+                        SwapOut = 0
+                elif coin_family == "DOGE":
+                    sql = """ SELECT SUM(amount) AS Expense FROM doge_mv_tx WHERE `from_userid`=%s AND `coin_name`=%s AND `user_server`=%s """
+                    await cur.execute(sql, (userID, COIN_NAME, user_server))
+                    result = await cur.fetchone()
+                    if result:
+                        Expense = result['Expense']
+                    else:
+                        Expense = 0
+
+                    sql = """ SELECT SUM(amount) AS Income FROM doge_mv_tx WHERE `to_userid`=%s AND `coin_name`=%s AND `user_server`=%s """
+                    await cur.execute(sql, (userID, COIN_NAME, user_server))
+                    result = await cur.fetchone()
+                    if result:
+                        Income = result['Income']
+                    else:
+                        Income = 0
+
+                    sql = """ SELECT SUM(amount+fee) AS TxExpense FROM doge_external_tx WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s """
+                    await cur.execute(sql, (userID, COIN_NAME, user_server))
+                    result = await cur.fetchone()
+                    if result:
+                        TxExpense = result['TxExpense']
+                    else:
+                        TxExpense = 0
+
+                    sql = """ SELECT SUM(amount) AS SwapIn FROM discord_swap_balance WHERE `owner_id`=%s AND `coin_name` = %s AND `to` = %s AND `user_server`=%s """
+                    await cur.execute(sql, (userID, COIN_NAME, 'TIPBOT', user_server))
+                    result = await cur.fetchone()
+                    if result:
+                        SwapIn = result['SwapIn']
+                    else:
+                        SwapIn = 0
+
+                    sql = """ SELECT SUM(amount) AS SwapOut FROM discord_swap_balance WHERE `owner_id`=%s AND `coin_name` = %s AND `from` = %s AND `user_server`=%s """
+                    await cur.execute(sql, (userID, COIN_NAME, 'TIPBOT', user_server))
+                    result = await cur.fetchone()
+                    if result:
+                        SwapOut = result['SwapOut']
+                    else:
+                        SwapOut = 0
+                elif coin_family == "NANO":
+                    sql = """ SELECT SUM(amount) AS Expense FROM nano_mv_tx WHERE `from_userid`=%s AND `coin_name`=%s AND `user_server`=%s """
+                    await cur.execute(sql, (userID, COIN_NAME, user_server))
+                    result = await cur.fetchone()
+                    if result:
+                        Expense = result['Expense']
+                    else:
+                        Expense = 0
+
+                    sql = """ SELECT SUM(amount) AS Income FROM nano_mv_tx WHERE `to_userid`=%s AND `coin_name`=%s AND `user_server`=%s """
+                    await cur.execute(sql, (userID, COIN_NAME, user_server))
+                    result = await cur.fetchone()
+                    if result:
+                        Income = result['Income']
+                    else:
+                        Income = 0
+
+                    sql = """ SELECT SUM(amount) AS TxExpense FROM nano_external_tx WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s """
+                    await cur.execute(sql, (userID, COIN_NAME, user_server))
+                    result = await cur.fetchone()
+                    if result:
+                        TxExpense = result['TxExpense']
+                    else:
+                        TxExpense = 0
+
+                    # nano_move_deposit by admin is positive (Positive)
+                    sql = """ SELECT SUM(amount) AS Deposited FROM nano_move_deposit WHERE `coin_name`=%s AND `user_id`=%s 
+                          AND `user_server`=%s """
+                    await cur.execute(sql, (COIN_NAME, userID, user_server))
+                    result = await cur.fetchone()
+                    if result:
+                        Deposited = result['Deposited']
+                    else:
+                        Deposited = 0
 
                 # Credit by admin is positive (Positive)
                 sql = """ SELECT SUM(amount) AS Credited FROM credit_balance WHERE `coin_name`=%s AND `to_userid`=%s 
@@ -235,16 +366,6 @@ async def sql_nano_balance(userID: str, coin: str, user_server: str = 'DISCORD')
                     Credited = result['Credited']
                 else:
                     Credited = 0
-
-                # nano_move_deposit by admin is positive (Positive)
-                sql = """ SELECT SUM(amount) AS Deposited FROM nano_move_deposit WHERE `coin_name`=%s AND `user_id`=%s 
-                      AND `user_server`=%s """
-                await cur.execute(sql, (COIN_NAME, userID, user_server))
-                result = await cur.fetchone()
-                if result:
-                    Deposited = result['Deposited']
-                else:
-                    Deposited = 0
 
                 # Voucher create (Negative)
                 sql = """ SELECT SUM(amount) AS Expended_Voucher FROM cn_voucher 
@@ -266,16 +387,140 @@ async def sql_nano_balance(userID: str, coin: str, user_server: str = 'DISCORD')
                 else:
                     GameCredit = 0
 
+                # Expense (negative)
+                sql = """ SELECT SUM(amount_sell) AS OpenOrder FROM open_order WHERE `coin_sell`=%s AND `userid_sell`=%s 
+                          AND `status`=%s
+                      """
+                await cur.execute(sql, (COIN_NAME, userID, 'OPEN'))
+                result = await cur.fetchone()
+                if result:
+                    OpenOrder = result['OpenOrder']
+                else:
+                    OpenOrder = 0
+
+                # Complete Order could be partial match but data is at the complete_order, they are CompleteOrderAdd (Negative)
+                sql = """ SELECT SUM(amount_sell) AS CompleteOrderMinus FROM open_order WHERE `coin_sell`=%s AND `userid_sell`=%s  
+                          AND `status`=%s
+                      """
+                await cur.execute(sql, (COIN_NAME, userID, 'COMPLETE'))
+                result = await cur.fetchone()
+                CompleteOrderMinus = 0
+                if result and ('CompleteOrderMinus' in result) and (result['CompleteOrderMinus'] is not None):
+                    CompleteOrderMinus = result['CompleteOrderMinus']
+
+                # Complete Order could be partial match but data is at the complete_order, they are CompleteOrderAdd (Negative)
+                sql = """ SELECT SUM(amount_get_after_fee) AS CompleteOrderMinus2 FROM open_order WHERE `coin_get`=%s AND `userid_get`=%s  
+                          AND `status`=%s
+                      """
+                await cur.execute(sql, (COIN_NAME, userID, 'COMPLETE'))
+                result = await cur.fetchone()
+                CompleteOrderMinus2 = 0
+                if result and ('CompleteOrderMinus2' in result) and (result['CompleteOrderMinus2'] is not None):
+                    CompleteOrderMinus2 = result['CompleteOrderMinus2']
+
+                # Complete Order could be partial match but data is at the complete_order, they are CompleteOrderAdd (Positive)
+                sql = """ SELECT SUM(amount_sell_after_fee) AS CompleteOrderAdd FROM open_order WHERE `coin_sell`=%s AND `userid_get`=%s  
+                          AND `status`=%s
+                      """
+                await cur.execute(sql, (COIN_NAME, userID, 'COMPLETE'))
+                result = await cur.fetchone()
+                CompleteOrderAdd = 0
+                if result and ('CompleteOrderAdd' in result) and (result['CompleteOrderAdd'] is not None):
+                    CompleteOrderAdd = result['CompleteOrderAdd']
+
+                # Complete Order could be partial match but data is at the complete_order, they are CompleteOrderAdd (Positive)
+                sql = """ SELECT SUM(amount_get_after_fee) AS CompleteOrderAdd2 FROM open_order WHERE `coin_get`=%s AND `userid_sell`=%s  
+                          AND `status`=%s
+                      """
+                await cur.execute(sql, (COIN_NAME, userID, 'COMPLETE'))
+                result = await cur.fetchone()
+                CompleteOrderAdd2 = 0
+                if result and ('CompleteOrderAdd2' in result) and (result['CompleteOrderAdd2'] is not None):
+                    CompleteOrderAdd2 = result['CompleteOrderAdd2']
+
                 balance = {}
-                balance['Deposited'] = Deposited or 0
-                balance['Expense'] = Expense or 0
-                balance['Income'] = Income or 0
-                balance['TxExpense'] = TxExpense or 0
-                balance['Credited'] = Credited if Credited else 0
-                balance['GameCredit'] = GameCredit if GameCredit else 0
-                balance['Expended_Voucher'] = Expended_Voucher if Expended_Voucher else 0
-                balance['Adjust'] = int(balance['Deposited']) + int(balance['Credited']) + int(balance['GameCredit']) \
-                + int(balance['Income']) - int(balance['Expense']) - int(balance['TxExpense']) - int(balance['Expended_Voucher'])
+                if coin_family == "NANO":
+                    balance['Deposited'] = Deposited or 0
+                    balance['Expense'] = Expense or 0
+                    balance['Income'] = Income or 0
+                    balance['TxExpense'] = TxExpense or 0
+                    balance['Credited'] = Credited if Credited else 0
+                    balance['GameCredit'] = GameCredit if GameCredit else 0
+                    balance['Expended_Voucher'] = Expended_Voucher if Expended_Voucher else 0
+
+                    balance['OpenOrder'] = OpenOrder if OpenOrder else 0
+                    balance['CompleteOrderMinus'] = CompleteOrderMinus if CompleteOrderMinus else 0
+                    balance['CompleteOrderMinus2'] = CompleteOrderMinus2 if CompleteOrderMinus2 else 0
+                    balance['CompleteOrderAdd'] = CompleteOrderAdd if CompleteOrderAdd else 0
+                    balance['CompleteOrderAdd2'] = CompleteOrderAdd2 if CompleteOrderAdd2 else 0
+
+                    balance['Adjust'] = int(balance['Deposited']) + int(balance['Credited']) + int(balance['GameCredit']) \
+                    + int(balance['Income']) - int(balance['Expense']) - int(balance['TxExpense']) - int(balance['Expended_Voucher']) \
+                    - balance['OpenOrder'] - balance['CompleteOrderMinus'] - balance['CompleteOrderMinus2'] \
+                    + balance['CompleteOrderAdd'] + balance['CompleteOrderAdd2']
+                elif coin_family == "DOGE":
+                    balance['Expense'] = Expense or 0
+                    balance['Expense'] = round(balance['Expense'], 4)
+                    balance['Income'] = Income or 0
+                    balance['TxExpense'] = TxExpense or 0
+                    balance['SwapIn'] = SwapIn or 0
+                    balance['SwapOut'] = SwapOut or 0
+                    balance['Credited'] = Credited if Credited else 0
+                    balance['GameCredit'] = GameCredit if GameCredit else 0
+                    balance['Expended_Voucher'] = Expended_Voucher if Expended_Voucher else 0
+
+                    balance['OpenOrder'] = OpenOrder if OpenOrder else 0
+                    balance['CompleteOrderMinus'] = CompleteOrderMinus if CompleteOrderMinus else 0
+                    balance['CompleteOrderMinus2'] = CompleteOrderMinus2 if CompleteOrderMinus2 else 0
+                    balance['CompleteOrderAdd'] = CompleteOrderAdd if CompleteOrderAdd else 0
+                    balance['CompleteOrderAdd2'] = CompleteOrderAdd2 if CompleteOrderAdd2 else 0
+
+                    balance['Adjust'] = float(balance['Credited']) + float(balance['GameCredit']) + float(balance['Income']) + float(balance['SwapIn']) - float(balance['Expense']) \
+                    - float(balance['TxExpense']) - float(balance['SwapOut']) - float(balance['Expended_Voucher']) \
+                    - float(balance['OpenOrder']) - float(balance['CompleteOrderMinus']) - float(balance['CompleteOrderMinus2']) \
+                    + float(balance['CompleteOrderAdd']) + float(balance['CompleteOrderAdd2'])
+                elif coin_family == "XMR":
+                    balance['Expense'] = float(Expense) if Expense else 0
+                    balance['Expense'] = float(round(balance['Expense'], 4))
+                    balance['Income'] = float(Income) if Income else 0
+                    balance['TxExpense'] = float(TxExpense) if TxExpense else 0
+                    balance['Credited'] = float(Credited) if Credited else 0
+                    balance['GameCredit'] = float(GameCredit) if GameCredit else 0
+                    balance['SwapIn'] = float(SwapIn) if SwapIn else 0
+                    balance['SwapOut'] = float(SwapOut) if SwapOut else 0
+                    balance['Expended_Voucher'] = float(Expended_Voucher) if Expended_Voucher else 0
+
+                    balance['OpenOrder'] = OpenOrder if OpenOrder else 0
+                    balance['CompleteOrderMinus'] = CompleteOrderMinus if CompleteOrderMinus else 0
+                    balance['CompleteOrderMinus2'] = CompleteOrderMinus2 if CompleteOrderMinus2 else 0
+                    balance['CompleteOrderAdd'] = CompleteOrderAdd if CompleteOrderAdd else 0
+                    balance['CompleteOrderAdd2'] = CompleteOrderAdd2 if CompleteOrderAdd2 else 0
+
+                    balance['Adjust'] = balance['Credited'] + balance['GameCredit'] + balance['Income'] + balance['SwapIn'] - balance['Expense'] - balance['TxExpense'] \
+                    - balance['SwapOut'] - balance['Expended_Voucher'] \
+                    - int(balance['OpenOrder']) - int(balance['CompleteOrderMinus']) - int(balance['CompleteOrderMinus2']) \
+                    + int(balance['CompleteOrderAdd']) + int(balance['CompleteOrderAdd2'])
+                elif coin_family in ["TRTL", "BCN"]:
+                    balance['Expense'] = float(Expense) if Expense else 0
+                    balance['Expense'] = float(round(balance['Expense'], 4))
+                    balance['Income'] = float(Income) if Income else 0
+                    balance['TxExpense'] = float(TxExpense) if TxExpense else 0
+                    balance['SwapIn'] = float(SwapIn) if SwapIn else 0
+                    balance['SwapOut'] = float(SwapOut) if SwapOut else 0
+                    balance['Credited'] = float(Credited) if Credited else 0
+                    balance['GameCredit'] = float(GameCredit) if GameCredit else 0
+                    balance['Expended_Voucher'] = float(Expended_Voucher) if Expended_Voucher else 0
+
+                    balance['OpenOrder'] = OpenOrder if OpenOrder else 0
+                    balance['CompleteOrderMinus'] = CompleteOrderMinus if CompleteOrderMinus else 0
+                    balance['CompleteOrderMinus2'] = CompleteOrderMinus2 if CompleteOrderMinus2 else 0
+                    balance['CompleteOrderAdd'] = CompleteOrderAdd if CompleteOrderAdd else 0
+                    balance['CompleteOrderAdd2'] = CompleteOrderAdd2 if CompleteOrderAdd2 else 0
+
+                    balance['Adjust'] = balance['Credited'] + balance['GameCredit'] + balance['Income'] + balance['SwapIn'] - balance['Expense'] \
+                    - balance['TxExpense'] - balance['SwapOut'] - balance['Expended_Voucher'] \
+                    - int(balance['OpenOrder']) - int(balance['CompleteOrderMinus']) - int(balance['CompleteOrderMinus2']) \
+                    + int(balance['CompleteOrderAdd']) + int(balance['CompleteOrderAdd2'])
                 return balance
     except Exception as e:
         await logchanbot(traceback.format_exc())
@@ -2431,105 +2676,6 @@ async def sql_external_doge_single(user_from: str, amount: float, fee: float, to
     return False
 
 
-async def sql_doge_balance(userID: str, coin: str, user_server: str = 'DISCORD'):
-    global pool
-    user_server = user_server.upper()
-    if user_server not in ['DISCORD', 'TELEGRAM']:
-        return
-    COIN_NAME = coin.upper()
-    if COIN_NAME not in ENABLE_COIN_DOGE:
-        return False
-    try:
-        await openConnection()
-        async with pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                sql = """ SELECT SUM(amount) AS Expense FROM doge_mv_tx WHERE `from_userid`=%s AND `coin_name`=%s AND `user_server`=%s """
-                await cur.execute(sql, (userID, COIN_NAME, user_server))
-                result = await cur.fetchone()
-                if result:
-                    Expense = result['Expense']
-                else:
-                    Expense = 0
-
-                sql = """ SELECT SUM(amount) AS Income FROM doge_mv_tx WHERE `to_userid`=%s AND `coin_name`=%s AND `user_server`=%s """
-                await cur.execute(sql, (userID, COIN_NAME, user_server))
-                result = await cur.fetchone()
-                if result:
-                    Income = result['Income']
-                else:
-                    Income = 0
-
-                sql = """ SELECT SUM(amount+fee) AS TxExpense FROM doge_external_tx WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s """
-                await cur.execute(sql, (userID, COIN_NAME, user_server))
-                result = await cur.fetchone()
-                if result:
-                    TxExpense = result['TxExpense']
-                else:
-                    TxExpense = 0
-
-                sql = """ SELECT SUM(amount) AS SwapIn FROM discord_swap_balance WHERE `owner_id`=%s AND `coin_name` = %s AND `to` = %s AND `user_server`=%s """
-                await cur.execute(sql, (userID, COIN_NAME, 'TIPBOT', user_server))
-                result = await cur.fetchone()
-                if result:
-                    SwapIn = result['SwapIn']
-                else:
-                    SwapIn = 0
-
-                sql = """ SELECT SUM(amount) AS SwapOut FROM discord_swap_balance WHERE `owner_id`=%s AND `coin_name` = %s AND `from` = %s AND `user_server`=%s """
-                await cur.execute(sql, (userID, COIN_NAME, 'TIPBOT', user_server))
-                result = await cur.fetchone()
-                if result:
-                    SwapOut = result['SwapOut']
-                else:
-                    SwapOut = 0
-
-                # Credit by admin is positive (Positive)
-                sql = """ SELECT SUM(amount) AS Credited FROM credit_balance WHERE `coin_name`=%s AND `to_userid`=%s 
-                      AND `user_server`=%s """
-                await cur.execute(sql, (COIN_NAME, userID, user_server))
-                result = await cur.fetchone()
-                if result:
-                    Credited = result['Credited']
-                else:
-                    Credited = 0
-
-                # Voucher create (Negative)
-                sql = """ SELECT SUM(amount+reserved_fee) AS Expended_Voucher FROM cn_voucher 
-                          WHERE `coin_name`=%s AND `user_id`=%s AND `user_server`=%s """
-                await cur.execute(sql, (COIN_NAME, userID, user_server))
-                result = await cur.fetchone()
-                if result:
-                    Expended_Voucher = result['Expended_Voucher']
-                else:
-                    Expended_Voucher = 0
-
-                # Game Credit
-                sql = """ SELECT SUM(won_amount) AS GameCredit FROM discord_game WHERE `coin_name`=%s AND `played_user`=%s 
-                      AND `user_server`=%s """
-                await cur.execute(sql, (COIN_NAME, userID, user_server))
-                result = await cur.fetchone()
-                if result:
-                    GameCredit = result['GameCredit']
-                else:
-                    GameCredit = 0
-
-                balance = {}
-                balance['Expense'] = Expense or 0
-                balance['Expense'] = round(balance['Expense'], 4)
-                balance['Income'] = Income or 0
-                balance['TxExpense'] = TxExpense or 0
-                balance['SwapIn'] = SwapIn or 0
-                balance['SwapOut'] = SwapOut or 0
-                balance['Credited'] = Credited if Credited else 0
-                balance['GameCredit'] = GameCredit if GameCredit else 0
-                balance['Expended_Voucher'] = Expended_Voucher if Expended_Voucher else 0
-                balance['Adjust'] = float(balance['Credited']) + float(balance['GameCredit']) + float(balance['Income']) + float(balance['SwapIn']) - float(balance['Expense']) \
-                - float(balance['TxExpense']) - float(balance['SwapOut']) - float(balance['Expended_Voucher'])
-                return balance
-    except Exception as e:
-        await logchanbot(traceback.format_exc())
-
-
 # XMR Based
 async def sql_mv_xmr_single(user_from: str, to_user: str, amount: float, coin: str, tiptype: str):
     global pool
@@ -2606,222 +2752,6 @@ async def sql_external_xmr_single(user_from: str, amount: float, to_address: str
     except Exception as e:
         await logchanbot(traceback.format_exc())
     return None
-
-
-async def sql_cnoff_balance(userID: str, coin: str, user_server: str = 'DISCORD'):
-    global pool, redis_conn, redis_expired
-    user_server = user_server.upper()
-    if user_server not in ['DISCORD', 'TELEGRAM']:
-        return
-    COIN_NAME = coin.upper()
-    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-    if coin_family not in ["TRTL", "BCN"]:
-        return False
-
-    try:
-        await openConnection()
-        async with pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                sql = """ SELECT SUM(amount) AS Expense FROM cnoff_mv_tx WHERE `from_userid`=%s AND `coin_name` = %s AND `user_server` = %s """
-                await cur.execute(sql, (userID, COIN_NAME, user_server))
-                result = await cur.fetchone()
-                if result:
-                    Expense = result['Expense']
-                else:
-                    Expense = 0
-
-                sql = """ SELECT SUM(amount) AS Income FROM cnoff_mv_tx WHERE `to_userid`=%s AND `coin_name` = %s AND `user_server` = %s """
-                await cur.execute(sql, (userID, COIN_NAME, user_server))
-                result = await cur.fetchone()
-                if result:
-                    Income = result['Income']
-                else:
-                    Income = 0
-
-                sql = """ SELECT SUM(amount+fee) AS TxExpense FROM cnoff_external_tx WHERE `user_id`=%s AND `coin_name` = %s AND `user_server` = %s """
-                await cur.execute(sql, (userID, COIN_NAME, user_server))
-                result = await cur.fetchone()
-                if result:
-                    TxExpense = result['TxExpense']
-                else:
-                    TxExpense = 0
-
-                sql = """ SELECT SUM(amount) AS SwapIn FROM discord_swap_balance WHERE `owner_id`=%s AND `coin_name` = %s and `to` = %s """
-                await cur.execute(sql, (userID, COIN_NAME, 'TIPBOT'))
-                result = await cur.fetchone()
-                if result:
-                    SwapIn = result['SwapIn']
-                else:
-                    SwapIn = 0
-
-                sql = """ SELECT SUM(amount) AS SwapOut FROM discord_swap_balance WHERE `owner_id`=%s AND `coin_name` = %s and `from` = %s """
-                await cur.execute(sql, (userID, COIN_NAME, 'TIPBOT'))
-                result = await cur.fetchone()
-                if result:
-                    SwapOut = result['SwapOut']
-                else:
-                    SwapOut = 0
-
-                # Credit by admin is positive (Positive)
-                sql = """ SELECT SUM(amount) AS Credited FROM credit_balance WHERE `coin_name`=%s AND `to_userid`=%s 
-                      AND `user_server`=%s """
-                await cur.execute(sql, (COIN_NAME, userID, user_server))
-                result = await cur.fetchone()
-                if result:
-                    Credited = result['Credited']
-                else:
-                    Credited = 0
-
-                # Voucher create (Negative)
-                sql = """ SELECT SUM(amount+reserved_fee) AS Expended_Voucher FROM cn_voucher 
-                          WHERE `coin_name`=%s AND `user_id`=%s AND `user_server`=%s """
-                await cur.execute(sql, (COIN_NAME, userID, user_server))
-                result = await cur.fetchone()
-                if result:
-                    Expended_Voucher = result['Expended_Voucher']
-                else:
-                    Expended_Voucher = 0
-
-                # Game Credit
-                sql = """ SELECT SUM(won_amount) AS GameCredit FROM discord_game WHERE `coin_name`=%s AND `played_user`=%s 
-                      AND `user_server`=%s """
-                await cur.execute(sql, (COIN_NAME, userID, user_server))
-                result = await cur.fetchone()
-                if result:
-                    GameCredit = result['GameCredit']
-                else:
-                    GameCredit = 0
-
-                balance = {}
-                balance['Expense'] = float(Expense) if Expense else 0
-                balance['Expense'] = float(round(balance['Expense'], 4))
-                balance['Income'] = float(Income) if Income else 0
-                balance['TxExpense'] = float(TxExpense) if TxExpense else 0
-                balance['SwapIn'] = float(SwapIn) if SwapIn else 0
-                balance['SwapOut'] = float(SwapOut) if SwapOut else 0
-                balance['Credited'] = float(Credited) if Credited else 0
-                balance['GameCredit'] = float(GameCredit) if GameCredit else 0
-                balance['Expended_Voucher'] = float(Expended_Voucher) if Expended_Voucher else 0
-                balance['Adjust'] = balance['Credited'] + balance['GameCredit'] + balance['Income'] + balance['SwapIn'] - balance['Expense'] \
-                - balance['TxExpense'] - balance['SwapOut'] - balance['Expended_Voucher']
-
-                return balance
-    except Exception as e:
-        await logchanbot(traceback.format_exc())
-
-
-async def sql_xmr_balance(userID: str, coin: str, redis_reset: bool = True):
-    global pool, redis_conn, redis_expired
-    COIN_NAME = coin.upper()
-    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-    if coin_family != "XMR":
-        return False
-    # Check if exist in redis
-    try:
-        openRedis()
-        if redis_conn and redis_conn.exists(f'TIPBOT:BALANCE_{str(userID)}_{COIN_NAME}'):
-            if redis_reset == False:
-                return json.loads(redis_conn.get(f'TIPBOT:BALANCE_{str(userID)}_{COIN_NAME}').decode())
-            else:
-                redis_conn.delete(f'TIPBOT:BALANCE_{str(userID)}_{COIN_NAME}')
-    except Exception as e:
-        await logchanbot(traceback.format_exc())
-
-    try:
-        await openConnection()
-        async with pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                sql = """ SELECT SUM(amount) AS Expense FROM xmroff_mv_tx WHERE `from_userid`=%s AND `coin_name` = %s """
-                await cur.execute(sql, (userID, COIN_NAME))
-                result = await cur.fetchone()
-                if result:
-                    Expense = result['Expense']
-                else:
-                    Expense = 0
-
-                sql = """ SELECT SUM(amount) AS Income FROM xmroff_mv_tx WHERE `to_userid`=%s AND `coin_name` = %s """
-                await cur.execute(sql, (userID, COIN_NAME))
-                result = await cur.fetchone()
-                if result:
-                    Income = result['Income']
-                else:
-                    Income = 0
-
-                sql = """ SELECT SUM(amount+fee) AS TxExpense FROM xmroff_external_tx WHERE `user_id`=%s AND `coin_name` = %s """
-                await cur.execute(sql, (userID, COIN_NAME))
-                result = await cur.fetchone()
-                if result:
-                    TxExpense = result['TxExpense']
-                else:
-                    TxExpense = 0
-
-                sql = """ SELECT SUM(amount) AS SwapIn FROM discord_swap_balance WHERE `owner_id`=%s AND `coin_name` = %s and `to` = %s """
-                await cur.execute(sql, (userID, COIN_NAME, 'TIPBOT'))
-                result = await cur.fetchone()
-                if result:
-                    SwapIn = result['SwapIn']
-                else:
-                    SwapIn = 0
-
-                sql = """ SELECT SUM(amount) AS SwapOut FROM discord_swap_balance WHERE `owner_id`=%s AND `coin_name` = %s and `from` = %s """
-                await cur.execute(sql, (userID, COIN_NAME, 'TIPBOT'))
-                result = await cur.fetchone()
-                if result:
-                    SwapOut = result['SwapOut']
-                else:
-                    SwapOut = 0
-
-                # Credit by admin is positive (Positive)
-                sql = """ SELECT SUM(amount) AS Credited FROM credit_balance WHERE `coin_name`=%s AND `to_userid`=%s  
-                      """
-                await cur.execute(sql, (COIN_NAME, userID))
-                result = await cur.fetchone()
-                if result:
-                    Credited = result['Credited']
-                else:
-                    Credited = 0
-
-                # Voucher create (Negative)
-                sql = """ SELECT SUM(amount+reserved_fee) AS Expended_Voucher FROM cn_voucher 
-                          WHERE `coin_name`=%s AND `user_id`=%s """
-                await cur.execute(sql, (COIN_NAME, userID))
-                result = await cur.fetchone()
-                if result:
-                    Expended_Voucher = result['Expended_Voucher']
-                else:
-                    Expended_Voucher = 0
-
-                # Game Credit
-                sql = """ SELECT SUM(won_amount) AS GameCredit FROM discord_game WHERE `coin_name`=%s AND `played_user`=%s """
-                await cur.execute(sql, (COIN_NAME, userID))
-                result = await cur.fetchone()
-                if result:
-                    GameCredit = result['GameCredit']
-                else:
-                    GameCredit = 0
-
-                balance = {}
-                balance['Expense'] = float(Expense) if Expense else 0
-                balance['Expense'] = float(round(balance['Expense'], 4))
-                balance['Income'] = float(Income) if Income else 0
-                balance['TxExpense'] = float(TxExpense) if TxExpense else 0
-                balance['Credited'] = float(Credited) if Credited else 0
-                balance['GameCredit'] = float(GameCredit) if GameCredit else 0
-                balance['SwapIn'] = float(SwapIn) if SwapIn else 0
-                balance['SwapOut'] = float(SwapOut) if SwapOut else 0
-                balance['Expended_Voucher'] = float(Expended_Voucher) if Expended_Voucher else 0
-                balance['Adjust'] = balance['Credited'] + balance['GameCredit'] + balance['Income'] + balance['SwapIn'] - balance['Expense'] - balance['TxExpense'] \
-                - balance['SwapOut'] - balance['Expended_Voucher']
-                # add to redis
-                try:
-                    if redis_conn:
-                        redis_conn.set(f'TIPBOT:BALANCE_{str(userID)}_{COIN_NAME}', json.dumps(balance), ex=redis_expired)
-                except Exception as e:
-                    await logchanbot(traceback.format_exc())
-                return balance
-    except Exception as e:
-        await logchanbot(traceback.format_exc())
-
 
 
 async def sql_get_userwallet_by_paymentid(paymentid: str, coin: str, user_server: str = 'DISCORD'):
@@ -3483,6 +3413,270 @@ async def sql_help_doc_search(term: str, max_result: int=10):
         await logchanbot(traceback.format_exc())
     return None
 
+
+## Section of Trade
+async def sql_count_open_order_by_sellerid(userID: str, user_server: str, status: str = None):
+    global pool
+    user_server = user_server.upper()
+    if user_server not in ['DISCORD', 'TELEGRAM']:
+        return
+
+    if status is None: status = 'OPEN'
+    if status: status = status.upper()
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT COUNT(*) FROM `open_order` WHERE `userid_sell` = %s 
+                          AND `status`=%s AND `sell_user_server`=%s """
+                await cur.execute(sql, (userID, status, user_server))
+                result = await cur.fetchone()
+                return int(result['COUNT(*)']) if 'COUNT(*)' in result else 0
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+        traceback.print_exc(file=sys.stdout)
+
+
+# use if same rate, then update them up.
+async def sql_get_order_by_sellerid_pair_rate(sell_user_server: str, userid_sell: str, coin_sell: str, coin_get: str, sell_div_get: float, 
+                                              real_amount_sell, real_amount_buy, fee_sell, fee_buy, status: str = 'OPEN'):
+    global pool
+    sell_user_server = sell_user_server.upper()
+    if sell_user_server not in ['DISCORD', 'TELEGRAM']:
+        return
+
+    if real_amount_sell == 0 or real_amount_buy == 0 or fee_sell == 0 \
+    or fee_buy == 0 or sell_div_get == 0:
+        print("Catch zero amount in {sql_get_order_by_sellerid_pair_rate}!!!")
+        return False
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM `open_order` WHERE `userid_sell`=%s AND `coin_sell` = %s 
+                          AND coin_get=%s AND sell_div_get=%s AND `status`=%s AND `sell_user_server`=%s ORDER BY order_created_date DESC LIMIT 1"""
+                await cur.execute(sql, (userid_sell, coin_sell, coin_get, sell_div_get, status, sell_user_server))
+                result = await cur.fetchone()
+                if result:
+                    # then update by adding more amount to it
+                    sql = """ UPDATE open_order SET amount_sell=amount_sell+%s, amount_sell_after_fee=amount_sell_after_fee+%s,
+                              amount_get=amount_get+%s, amount_get_after_fee=amount_get_after_fee+%s
+                              WHERE order_id=%s AND `sell_user_server`=%s LIMIT 1 """
+                    await cur.execute(sql, (real_amount_sell, real_amount_sell-fee_sell, real_amount_buy, real_amount_buy-fee_buy, result['order_id'], sell_user_server))
+                    await conn.commit()
+                    return {"error": False, "msg": f"We added order to your existing one #{result['order_id']}"}
+                else:
+                    return {"error": True, "msg": None}
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+        traceback.print_exc(file=sys.stdout)
+    return {"error": True, "msg": "Error with database {sql_get_order_by_sellerid_pair_rate}"}
+
+
+# use to store data
+async def sql_store_openorder(msg_id: str, msg_content: str, coin_sell: str, real_amount_sell: float, 
+                              amount_sell_after_fee: float, userid_sell: str, coin_get: str, 
+                              real_amount_get: float, amount_get_after_fee: float, sell_div_get: float, 
+                              sell_user_server: str = 'DISCORD'):
+    global pool
+    sell_user_server = sell_user_server.upper()
+    if sell_user_server not in ['DISCORD', 'TELEGRAM']:
+        return
+
+    coin_sell = coin_sell.upper()
+    coin_get = coin_get.upper()
+    if real_amount_sell == 0 or amount_sell_after_fee == 0 or real_amount_get == 0 \
+    or amount_get_after_fee == 0 or sell_div_get == 0:
+        print("Catch zero amount in {sql_store_openorder}!!!")
+        return False
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ INSERT INTO open_order (`msg_id`, `msg_content`, `coin_sell`, `coin_sell_decimal`, 
+                          `amount_sell`, `amount_sell_after_fee`, `userid_sell`, `coin_get`, `coin_get_decimal`, 
+                          `amount_get`, `amount_get_after_fee`, `sell_div_get`, `order_created_date`, `pair_name`, 
+                          `status`, `sell_user_server`) 
+                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                await cur.execute(sql, (str(msg_id), msg_content, coin_sell, wallet.get_decimal(coin_sell),
+                                  real_amount_sell, amount_sell_after_fee, userid_sell, coin_get, wallet.get_decimal(coin_get),
+                                  real_amount_get, amount_get_after_fee, sell_div_get, float("%.3f" % time.time()), coin_sell + "-" + coin_get, 
+                                  'OPEN', sell_user_server))
+                await conn.commit()
+                return cur.lastrowid
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+        traceback.print_exc(file=sys.stdout)
+    return False
+
+
+async def sql_get_open_order_by_alluser_by_coins(coin1: str, coin2: str, status: str = 'OPEN'):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                if coin2.upper() == "ALL":
+                    sql = """ SELECT * FROM open_order WHERE `status`=%s AND `coin_sell`=%s 
+                              ORDER BY sell_div_get ASC LIMIT 50 """
+                    await cur.execute(sql, (status, coin1.upper()))
+                    result = await cur.fetchall()
+                    return result
+                else:
+                    sql = """ SELECT * FROM open_order WHERE `status`=%s AND `coin_sell`=%s AND `coin_get`=%s 
+                              ORDER BY sell_div_get ASC LIMIT 50 """
+                    await cur.execute(sql, (status, coin1.upper(), coin2.upper()))
+                    result = await cur.fetchall()
+                    return result
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+        traceback.print_exc(file=sys.stdout)
+    return False
+
+
+async def sql_get_order_numb(order_num: str, status: str = None):
+    global pool
+    if status is None: status = 'OPEN'
+    if status: status = status.upper()
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                result = None
+                if status == "ANY":
+                    sql = """ SELECT * FROM `open_order` WHERE `order_id` = %s LIMIT 1 """
+                    await cur.execute(sql, (order_num))
+                    result = await cur.fetchone()
+                else:
+                    sql = """ SELECT * FROM `open_order` WHERE `order_id` = %s 
+                              AND `status`=%s LIMIT 1 """
+                    await cur.execute(sql, (order_num, status))
+                    result = await cur.fetchone()
+                return result
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+        traceback.print_exc(file=sys.stdout)
+
+
+async def sql_match_order_by_sellerid(userid_get: str, ref_numb: str, buy_user_server: str):
+    global pool
+    buy_user_server = buy_user_server.upper()
+    if buy_user_server not in ['DISCORD', 'TELEGRAM']:
+        return
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                try:
+                    ref_numb = int(ref_numb)
+                    sql = """ UPDATE `open_order` SET `status`=%s, `order_completed_date`=%s, 
+                              `userid_get` = %s, `buy_user_server`=%s 
+                              WHERE `order_id`=%s AND `status`=%s """
+                    await cur.execute(sql, ('COMPLETE', float("%.3f" % time.time()), userid_get, buy_user_server, ref_numb, 'OPEN'))
+                    await conn.commit()
+                    return True
+                except ValueError:
+                    return False
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+        traceback.print_exc(file=sys.stdout)
+    return False
+
+
+async def sql_get_open_order_by_alluser(coin: str, status: str, need_to_buy: bool = False):
+    global pool
+    COIN_NAME = coin.upper()
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                if need_to_buy: 
+                    sql = """ SELECT * FROM `open_order` WHERE `status`=%s AND `coin_get`=%s ORDER BY sell_div_get ASC LIMIT 50 """
+                    await cur.execute(sql, (status, COIN_NAME))
+                elif COIN_NAME == 'ALL':
+                    sql = """ SELECT * FROM `open_order` WHERE `status`=%s ORDER BY order_created_date DESC LIMIT 50 """
+                    await cur.execute(sql, (status))
+                else:
+                    sql = """ SELECT * FROM `open_order` WHERE `status`=%s AND `coin_sell`=%s ORDER BY sell_div_get ASC LIMIT 50 """
+                    await cur.execute(sql, (status, COIN_NAME))
+                result = await cur.fetchall()
+                return result
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+        traceback.print_exc(file=sys.stdout)
+    return False
+
+
+async def sql_get_open_order_by_sellerid_all(userid_sell: str, status: str = 'OPEN'):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM `open_order` WHERE `userid_sell`=%s 
+                          AND `status`=%s ORDER BY order_created_date DESC LIMIT 20 """
+                await cur.execute(sql, (userid_sell, status))
+                result = await cur.fetchall()
+                return result
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+        traceback.print_exc(file=sys.stdout)
+    return False
+
+
+async def sql_cancel_open_order_by_sellerid(userid_sell: str, coin: str = 'ALL'):
+    global pool
+    COIN_NAME = coin.upper()
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                if len(coin) < 6:
+                    if COIN_NAME == 'ALL':
+                        sql = """ UPDATE open_order SET `status`=%s, `cancel_date`=%s WHERE `userid_sell`=%s 
+                                  AND `status`=%s """
+                        await cur.execute(sql, ('CANCEL', float("%.3f" % time.time()), userid_sell, 'OPEN'))
+                        await conn.commit()
+                        return True
+                    else:
+                        sql = """ UPDATE open_order SET `status`=%s, `cancel_date`=%s WHERE `userid_sell`=%s 
+                                  AND `status`=%s AND `coin_sell`=%s """
+                        await cur.execute(sql, ('CANCEL', float("%.3f" % time.time()), userid_sell, 'OPEN', COIN_NAME))
+                        await conn.commit()
+                        return True
+                else:
+                    try:
+                        ref_numb = int(coin)
+                        sql = """ UPDATE open_order SET `status`=%s, `cancel_date`=%s WHERE `userid_sell`=%s 
+                                  AND `status`=%s AND `order_id`=%s """
+                        await cur.execute(sql, ('CANCEL', float("%.3f" % time.time()), userid_sell, 'OPEN', ref_numb))
+                        await conn.commit()
+                        return True
+                    except ValueError:
+                        return False
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+        traceback.print_exc(file=sys.stdout)
+    return False
+
+
+async def sql_get_open_order_by_sellerid(userid_sell: str, coin: str, status: str = 'OPEN'):
+    global pool
+    COIN_NAME = coin.upper()
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM `open_order` WHERE `userid_sell`=%s AND `coin_sell` = %s 
+                          AND `status`=%s ORDER BY order_created_date DESC LIMIT 20 """
+                await cur.execute(sql, (userid_sell, COIN_NAME, status))
+                result = await cur.fetchall()
+                return result
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+        traceback.print_exc(file=sys.stdout)
+    return False
+## END OF Section of Trade
 
 # Steal from https://nitratine.net/blog/post/encryption-and-decryption-in-python/
 def encrypt_string(to_encrypt: str):

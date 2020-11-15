@@ -692,7 +692,7 @@ async def on_reaction_add(reaction, user):
                 if user_from is None:
                     return
                 userdata_balance = await store.sql_user_balance(str(user.id), COIN_NAME)
-                user_from['actual_balance'] = user_from['actual_balance'] + int(userdata_balance['Adjust'])
+                user_from['actual_balance'] = int(user_from['actual_balance']) + int(userdata_balance['Adjust'])
                 user_to = await store.sql_get_userwallet(str(reaction.message.author.id), COIN_NAME)
                 if user_to is None:
                     userregister = await store.sql_register_user(str(reaction.message.author.id), COIN_NAME, 'DISCORD')
@@ -4839,8 +4839,7 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
                 wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
             if wallet:
                 userdata_balance = await store.sql_user_balance(str(user_id), COIN_NAME)
-                wallet['actual_balance'] = wallet['actual_balance'] + int(userdata_balance['Adjust'])
-                balance_actual = num_format_coin(wallet['actual_balance'], COIN_NAME)
+                balance_actual = num_format_coin(int(wallet['actual_balance']) + int(userdata_balance['Adjust']), COIN_NAME)
                 table_data.append([COIN_NAME, balance_actual])
                 pass
             else:
@@ -4871,9 +4870,8 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
                 userregister = await store.sql_register_user(str(user_id), COIN_NAME, 'DISCORD')
                 wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
             if wallet:
-                actual = wallet['actual_balance']
                 userdata_balance = await store.sql_user_balance(str(user_id), COIN_NAME)
-                balance_actual = num_format_coin(actual + int(userdata_balance['Adjust']), COIN_NAME)
+                balance_actual = num_format_coin(int(wallet['actual_balance']) + int(userdata_balance['Adjust']), COIN_NAME)
 
                 if wallet['user_wallet_address'] is None:
                     COIN_NAME += '*'
@@ -6475,9 +6473,8 @@ async def balance(ctx, coin: str = None):
                     userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
                     wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
                 if wallet:
-                    
                     userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME)
-                    actual = wallet['actual_balance'] + float(userdata_balance['Adjust'])
+                    actual = int(wallet['actual_balance']) + int(userdata_balance['Adjust'])
                     balance_actual = num_format_coin(actual, COIN_NAME)
                     if wallet['user_wallet_address'] is None:
                         COIN_NAME += '*'
@@ -6565,9 +6562,8 @@ async def balance(ctx, coin: str = None):
             userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
             wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if wallet:
-            actual = wallet['actual_balance']
             userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME)
-            balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
+            balance_actual = num_format_coin(int(wallet['actual_balance']) + int(userdata_balance['Adjust']), COIN_NAME)
             await ctx.message.add_reaction(EMOJI_OK_HAND)
             msg = await ctx.message.author.send(f'**[YOUR {COIN_NAME} BALANCE]**\n\n'
                 f'{EMOJI_MONEYBAG} Available: {balance_actual} '
@@ -6744,7 +6740,7 @@ async def mbalance(ctx, coin: str = None):
                 if wallet:
                     
                     userdata_balance = await store.sql_user_balance(str(ctx.guild.id), COIN_NAME)
-                    actual = wallet['actual_balance'] + float(userdata_balance['Adjust'])
+                    actual = wallet['actual_balance'] + int(userdata_balance['Adjust'])
                     balance_actual = num_format_coin(actual, COIN_NAME)
                     if wallet['user_wallet_address'] is None:
                         COIN_NAME += '*'
@@ -6804,9 +6800,8 @@ async def mbalance(ctx, coin: str = None):
             userregister = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD')
             wallet = await store.sql_get_userwallet(str(ctx.guild.id), COIN_NAME)
         if wallet:
-            actual = wallet['actual_balance']
             userdata_balance = await store.sql_user_balance(str(ctx.guild.id), COIN_NAME)
-            balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
+            balance_actual = num_format_coin(int(wallet['actual_balance']) + int(userdata_balance['Adjust']), COIN_NAME)
             await ctx.message.add_reaction(EMOJI_OK_HAND)
             msg = await ctx.send(f'**[GUILD {ctx.guild.name} - {COIN_NAME} BALANCE ]**\n\n'
                 f'{EMOJI_MONEYBAG} Available: {balance_actual} '
@@ -6824,9 +6819,8 @@ async def mbalance(ctx, coin: str = None):
             userwallet = await store.sql_get_userwallet(str(ctx.guild.id), COIN_NAME)
 
         depositAddress = userwallet['balance_wallet_address']
-        actual = userwallet['actual_balance']
         userdata_balance = await store.sql_user_balance(str(ctx.guild.id), COIN_NAME)
-        balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']) , COIN_NAME)
+        balance_actual = num_format_coin(float(userwallet['actual_balance']) + float(userdata_balance['Adjust']) , COIN_NAME)
 
         await ctx.message.add_reaction(EMOJI_OK_HAND)
         msg = await ctx.send(
@@ -6887,9 +6881,6 @@ async def mbalance(ctx, coin: str = None):
     if wallet is None:
         userregister = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD')
         wallet = await store.sql_get_userwallet(str(ctx.guild.id), COIN_NAME)
-    if wallet is None:
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} Internal Error for `.balance`')
-        return
     ago = ""
     if 'lastUpdate' in wallet:
         await ctx.message.add_reaction(EMOJI_OK_HAND)
@@ -6901,9 +6892,9 @@ async def mbalance(ctx, coin: str = None):
 
     userdata_balance = await store.sql_user_balance(str(ctx.guild.id), COIN_NAME)
     if coin_family in ["TRTL", "BCN", "XMR", "NANO"]:
-        wallet['actual_balance'] = wallet['actual_balance'] + int(userdata_balance['Adjust'])
+        wallet['actual_balance'] = int(wallet['actual_balance']) + int(userdata_balance['Adjust'])
     elif coin_family == "DOGE":
-        wallet['actual_balance'] = wallet['actual_balance'] + float(userdata_balance['Adjust'])
+        wallet['actual_balance'] = float(wallet['actual_balance']) + float(userdata_balance['Adjust'])
 
     balance_actual = num_format_coin(wallet['actual_balance'], COIN_NAME)
 
@@ -7970,7 +7961,7 @@ async def take(ctx, info: str=None):
             user_from = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
 
         userdata_balance = await store.sql_user_balance(str(bot.user.id), COIN_NAME)
-        if real_amount > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
+        if real_amount > int(user_from['actual_balance']) + int(userdata_balance['Adjust']):
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{ctx.author.mention} Please try again later. Bot runs out of **{COIN_NAME}**')
             return
@@ -9812,7 +9803,7 @@ async def send(ctx, amount: str, CoinAddress: str):
             return
 
         userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME)
-        user_from['actual_balance'] = user_from['actual_balance'] + int(userdata_balance['Adjust'])
+        user_from['actual_balance'] = int(user_from['actual_balance']) + int(userdata_balance['Adjust'])
 
         if real_amount + NetFee > user_from['actual_balance']:
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -9963,7 +9954,7 @@ async def send(ctx, amount: str, CoinAddress: str):
             user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME)
         # If balance 0, no need to check anything
-        if float(user_from['actual_balance']) + float(userdata_balance['Adjust']) <= 0:
+        if int(user_from['actual_balance']) + int(userdata_balance['Adjust']) <= 0:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Please check your **{COIN_NAME}** balance.')
             return
@@ -9974,7 +9965,7 @@ async def send(ctx, amount: str, CoinAddress: str):
                            f'{num_format_coin(real_amount, COIN_NAME)} '
                            f'{COIN_NAME}. Please try again later in a few minutes.')
             return
-        if real_amount + NetFee > float(user_from['actual_balance']) + float(userdata_balance['Adjust']):
+        if real_amount + NetFee > int(user_from['actual_balance']) + int(userdata_balance['Adjust']):
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send out '
                            f'{num_format_coin(real_amount, COIN_NAME)} '
@@ -12212,10 +12203,12 @@ async def sell(ctx, sell_amount: str, sell_ticker: str, buy_amount: str, buy_tic
         if wallet is None:
             userregister = await store.sql_register_user(str(ctx.message.author.id), sell_ticker, 'DISCORD')
             wallet = await store.sql_get_userwallet(str(ctx.message.author.id), sell_ticker, 'DISCORD')
-        if wallet:
-            userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), sell_ticker, 'DISCORD')
-            balance_actual = wallet['actual_balance'] + float(userdata_balance['Adjust'])
-        balance_actual = int(balance_actual) if sell_ticker not in ["DOGE", "LTC", "BTC", "DASH", "BCH"] else balance_actual
+        userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), sell_ticker, 'DISCORD')
+        if coin_family_sell in ["TRTL", "BCN", "XMR", "NANO"]:
+            balance_actual = int(wallet['actual_balance']) + int(userdata_balance['Adjust'])
+        elif coin_family_sell == "DOGE":
+            balance_actual = float(wallet['actual_balance']) + float(userdata_balance['Adjust'])
+
         if balance_actual < real_amount_sell:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You do not have enough '
@@ -12233,9 +12226,15 @@ async def sell_process(ctx, real_amount_sell: float, sell_ticker: str, real_amou
     global NOTIFY_TRADE_CHAN
     sell_ticker = sell_ticker.upper()
     buy_ticker = buy_ticker.upper()
-    real_amount_sell = round(real_amount_sell, 8)
-    real_amount_buy = round(real_amount_buy, 8)
-    sell_div_get = round(real_amount_sell / real_amount_buy, 16)
+    if sell_ticker in ["NANO", "BAN"]:
+        real_amount_sell = round(real_amount_sell, 20)
+    else:
+        real_amount_sell = round(real_amount_sell, 8)
+    if buy_ticker in ["NANO", "BAN"]:
+        real_amount_buy = round(real_amount_buy, 20)
+    else:
+        real_amount_buy = round(real_amount_buy, 8)
+    sell_div_get = round(real_amount_sell / real_amount_buy, 32)
     fee_sell = round(TRADE_PERCENT * real_amount_sell, 8)
     fee_buy = round(TRADE_PERCENT * real_amount_buy, 8)
     if fee_sell == 0: fee_sell = 0.00000100
@@ -12253,6 +12252,11 @@ async def sell_process(ctx, real_amount_sell: float, sell_ticker: str, real_amou
         get_message = check_if_same_rate['msg']
         await ctx.message.add_reaction(EMOJI_OK_BOX)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {get_message}')
+        return
+    elif check_if_same_rate == False:
+        await logchanbot(f'Interal error: selling real amount {real_amount_sell}{sell_ticker} '
+                         f'for real amount {real_amount_buy}{buy_ticker} and sell_div_get {sell_div_get}')
+        await ctx.send(f'{EMOJI_INFORMATION} {ctx.author.mention} internal error to create open order, please report this.')
         return
 
     order_add = await store.sql_store_openorder(str(ctx.message.id), (ctx.message.content)[:120], sell_ticker, 
@@ -12363,9 +12367,12 @@ async def buy(ctx, ref_number: str):
                     userregister = await store.sql_register_user(str(ctx.message.author.id), get_order_num['coin_get'], 'DISCORD')
                     wallet = await store.sql_get_userwallet(str(ctx.message.author.id), get_order_num['coin_get'], 'DISCORD')
                 if wallet:
-                    actual = wallet['actual_balance']
+                    coin_family = getattr(getattr(config,"daemon"+get_order_num['coin_get']),"coin_family","TRTL")
                     userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), get_order_num['coin_get'], 'DISCORD')
-                    balance_actual = actual + float(userdata_balance['Adjust'])
+                    if coin_family in ["TRTL", "BCN", "XMR", "NANO"]:
+                        balance_actual = int(wallet['actual_balance']) + int(userdata_balance['Adjust'])
+                    elif coin_family == "DOGE":
+                        balance_actual = float(wallet['actual_balance']) + float(userdata_balance['Adjust'])
                 if balance_actual < get_order_num['amount_get_after_fee']:
                     await ctx.message.add_reaction(EMOJI_ERROR)
                     await ctx.send('{} {} You do not have sufficient balance.'
@@ -14125,93 +14132,37 @@ async def bot_faucet(ctx):
         ['TICKER', 'Available', 'Claimed / Game']
     ]
     for COIN_NAME in [coinItem.upper() for coinItem in FAUCET_COINS]:
-        coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-        if (not is_maintenance_coin(COIN_NAME)) and coin_family in ["TRTL", "BCN"]:
-            sum_sub = 0
-            COIN_DEC = get_decimal(COIN_NAME)
-            wallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
-            if wallet is None:
-                wallet = await store.sql_register_user(str(bot.user.id), COIN_NAME, 'DISCORD')
-                wallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
-            userdata_balance = await store.sql_user_balance(str(bot.user.id), COIN_NAME)
-            wallet['actual_balance'] = wallet['actual_balance'] + int(userdata_balance['Adjust'])
-            try:
-                if COIN_NAME in get_game_stat:
-                    wallet['actual_balance'] = wallet['actual_balance'] - int(get_game_stat[COIN_NAME])
-                    sum_sub = int(get_game_stat[COIN_NAME])
-            except Exception as e:
-                await logchanbot(traceback.format_exc())
-            balance_actual = num_format_coin(wallet['actual_balance'], COIN_NAME)
-            get_claimed_count = await store.sql_faucet_sum_count_claimed(COIN_NAME)
-            sub_claim = num_format_coin(int(get_claimed_count['claimed'] + sum_sub), COIN_NAME) if get_claimed_count['count'] > 0 else f"0.00{COIN_NAME}"
-            if wallet['actual_balance'] != 0:
-                table_data.append([COIN_NAME, balance_actual, sub_claim])
-            else:
-                table_data.append([COIN_NAME, '0', sub_claim])
-        elif (not is_maintenance_coin(COIN_NAME)) and coin_family == "XMR":
-            sum_sub = 0
-            COIN_DEC = get_decimal(COIN_NAME)
-            wallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
-            if wallet is None:
-                wallet = await store.sql_register_user(str(bot.user.id), COIN_NAME, 'DISCORD')
-                wallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
-            userdata_balance = await store.sql_user_balance(str(bot.user.id), COIN_NAME)
-            wallet['actual_balance'] = wallet['actual_balance'] + userdata_balance['Adjust']
-            try:
-                if COIN_NAME in get_game_stat:
-                    wallet['actual_balance'] = int(wallet['actual_balance']) - int(get_game_stat[COIN_NAME])
-                    sum_sub = int(get_game_stat[COIN_NAME])
-            except Exception as e:
-                await logchanbot(traceback.format_exc())
-            balance_actual = num_format_coin(wallet['actual_balance'], COIN_NAME)
-            get_claimed_count = await store.sql_faucet_sum_count_claimed(COIN_NAME)
-            sub_claim = num_format_coin(int(get_claimed_count['claimed'] + sum_sub), COIN_NAME) if get_claimed_count['count'] > 0 else f"0.00{COIN_NAME}"
-            if wallet['actual_balance'] != 0:
-                table_data.append([COIN_NAME, balance_actual, sub_claim])
-            else:
-                table_data.append([COIN_NAME, '0', sub_claim])
-        elif (not is_maintenance_coin(COIN_NAME)) and coin_family == "NANO":
-            sum_sub = 0
-            COIN_DEC = get_decimal(COIN_NAME)
-            wallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
-            if wallet is None:
-                wallet = await store.sql_register_user(str(bot.user.id), COIN_NAME, 'DISCORD')
-                wallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
-            userdata_balance = await store.sql_user_balance(str(bot.user.id), COIN_NAME)
-            wallet['actual_balance'] = int(wallet['actual_balance']) + int(userdata_balance['Adjust'])
-            try:
-                if COIN_NAME in get_game_stat:
-                    wallet['actual_balance'] = wallet['actual_balance'] - int(get_game_stat[COIN_NAME])
-                    sum_sub = int(get_game_stat[COIN_NAME])
-            except Exception as e:
-                await logchanbot(traceback.format_exc())
-            balance_actual = num_format_coin(wallet['actual_balance'], COIN_NAME)
-            get_claimed_count = await store.sql_faucet_sum_count_claimed(COIN_NAME)
-            sub_claim = num_format_coin(int(get_claimed_count['claimed'] + sum_sub), COIN_NAME) if get_claimed_count['count'] > 0 else f"0.00{COIN_NAME}"
-            if wallet['actual_balance'] != 0:
-                table_data.append([COIN_NAME, balance_actual, sub_claim])
-            else:
-                table_data.append([COIN_NAME, '0', sub_claim])
-    # Add DOGE
-    COIN_NAME = "DOGE"
-    if (not is_maintenance_coin(COIN_NAME)) and (COIN_NAME in FAUCET_COINS):
         sum_sub = 0
-        userwallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
-        if userwallet is None:
-            userwallet = await store.sql_register_user(str(bot.user.id), COIN_NAME, 'DISCORD')
-            userwallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
-        actual = userwallet['actual_balance']
+        COIN_DEC = get_decimal(COIN_NAME)
+        wallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
+        if wallet is None:
+            wallet = await store.sql_register_user(str(bot.user.id), COIN_NAME, 'DISCORD')
+            wallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
+        userdata_balance = await store.sql_user_balance(str(bot.user.id), COIN_NAME)
+        coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+        if (not is_maintenance_coin(COIN_NAME)) and coin_family in ["TRTL", "BCN", "XMR", "NANO"]:
+            wallet['actual_balance'] = int(wallet['actual_balance']) + int(userdata_balance['Adjust'])
+        elif (not is_maintenance_coin(COIN_NAME)) and coin_family == "DOGE":
+            wallet['actual_balance'] = float(wallet['actual_balance']) + float(userdata_balance['Adjust'])            
         try:
-            if COIN_NAME in get_game_stat:
-                actual = actual - float(get_game_stat[COIN_NAME])
+            if COIN_NAME in get_game_stat and coin_family in ["TRTL", "BCN", "XMR", "NANO"]:
+                wallet['actual_balance'] = wallet['actual_balance'] - int(get_game_stat[COIN_NAME])
+                sum_sub = int(get_game_stat[COIN_NAME])
+            elif COIN_NAME in get_game_stat and coin_family == "DOGE":
+                wallet['actual_balance'] = wallet['actual_balance'] - float(get_game_stat[COIN_NAME])
                 sum_sub = float(get_game_stat[COIN_NAME])
         except Exception as e:
             await logchanbot(traceback.format_exc())
-        userdata_balance = await store.sql_user_balance(str(bot.user.id), COIN_NAME)
-        balance_actual = num_format_coin(actual + float(userdata_balance['Adjust']), COIN_NAME)
+        balance_actual = num_format_coin(wallet['actual_balance'], COIN_NAME)
         get_claimed_count = await store.sql_faucet_sum_count_claimed(COIN_NAME)
-        sub_claim = num_format_coin(float(get_claimed_count['claimed']) + sum_sub, COIN_NAME) if get_claimed_count['count'] > 0 else f"0.00{COIN_NAME}"
-        table_data.append([COIN_NAME, balance_actual, sub_claim])
+        if coin_family in ["TRTL", "BCN", "XMR", "NANO"]:
+            sub_claim = num_format_coin(int(get_claimed_count['claimed']) + sum_sub, COIN_NAME) if get_claimed_count['count'] > 0 else f"0.00{COIN_NAME}"
+        elif coin_family == "DOGE":
+            sub_claim = num_format_coin(float(get_claimed_count['claimed']) + sum_sub, COIN_NAME) if get_claimed_count['count'] > 0 else f"0.00{COIN_NAME}"
+        if wallet['actual_balance'] != 0:
+            table_data.append([COIN_NAME, balance_actual, sub_claim])
+        else:
+            table_data.append([COIN_NAME, '0', sub_claim])
     table = AsciiTable(table_data)
     table.padding_left = 0
     table.padding_right = 0

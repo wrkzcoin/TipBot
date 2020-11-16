@@ -11625,17 +11625,29 @@ async def setting(ctx, *args):
         if args[0].upper() == "TIPONLY":
             await ctx.send(f'{ctx.author.mention} Please tell what coins to be allowed here. Separated by space.')
             return
+        # enable / disable trade
+        elif args[0].upper() == "TRADE":
+            if serverinfo['enable_trade'] == "YES":
+                changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_trade', 'NO')
+                await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} DISABLE trade in their guild {ctx.guild.name} / {ctx.guild.id}')
+                await ctx.send(f'{ctx.author.mention} DISABLE TRADE feature in this guild {ctx.guild.name}.')
+                return
+            elif serverinfo['enable_trade'] == "NO":
+                changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_trade', 'YES')
+                await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} ENABLE trade in their guild {ctx.guild.name} / {ctx.guild.id}')
+                await ctx.send(f'{ctx.author.mention} ENABLE TRADE feature in this guild {ctx.guild.name}.')
+            return
         # enable / disable game
         elif args[0].upper() == "GAME":
             if serverinfo['enable_game'] == "YES":
                 changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_game', 'NO')
                 await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} DISABLE game in their guild {ctx.guild.name} / {ctx.guild.id}')
-                await ctx.send(f'{ctx.author.mention} DISABLE GAME feature in this gUILD {ctx.guild.name}.')
+                await ctx.send(f'{ctx.author.mention} DISABLE GAME feature in this guild {ctx.guild.name}.')
                 return
             elif serverinfo['enable_game'] == "NO":
                 changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_game', 'YES')
                 await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} ENABLE game in their guild {ctx.guild.name} / {ctx.guild.id}')
-                await ctx.send(f'{ctx.author.mention} ENABLE GAME feature in this gUILD {ctx.guild.name}.')
+                await ctx.send(f'{ctx.author.mention} ENABLE GAME feature in this guild {ctx.guild.name}.')
             return
         # enable / disable game
         elif args[0].upper() == "MARKET":
@@ -11647,7 +11659,7 @@ async def setting(ctx, *args):
             elif serverinfo['enable_market'] == "NO":
                 changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_market', 'YES')
                 await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} ENABLE market command in their guild {ctx.guild.name} / {ctx.guild.id}')
-                await ctx.send(f'{ctx.author.mention} ENABLE market command in this gUILD {ctx.guild.name}.')
+                await ctx.send(f'{ctx.author.mention} ENABLE market command in this guild {ctx.guild.name}.')
             return
         elif args[0].upper() == "IGNORE_CHAN" or args[0].upper() == "IGNORECHAN":
             if LIST_IGNORECHAN is None:
@@ -12100,6 +12112,7 @@ async def sell(ctx, sell_amount: str, sell_ticker: str, buy_amount: str, buy_tic
     if isinstance(ctx.message.channel, discord.DMChannel) == False and ctx.guild and ctx.guild.id == TRTL_DISCORD:
         return
 
+    botLogChan = bot.get_channel(id=LOG_CHAN)
     try:
         if isinstance(ctx.message.channel, discord.DMChannel) == True:
             pass
@@ -12107,10 +12120,10 @@ async def sell(ctx, sell_amount: str, sell_ticker: str, buy_amount: str, buy_tic
             serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
             if isinstance(ctx.message.channel, discord.DMChannel) == False and serverinfo \
             and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
-                #prefix = serverinfo['prefix']
-                #await ctx.message.add_reaction(EMOJI_ERROR)
-                #await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Market Command is not ENABLE yet in this guild. Please request Guild owner to enable by `{prefix}SETTING MARKET`')
-                #await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}cg** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+                prefix = serverinfo['prefix']
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Trade Command is not ENABLE yet in this guild. Please request Guild owner to enable by `{prefix}SETTING TRADE`')
+                await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}sell command** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
                 return
     except Exception as e:
         await logchanbot(traceback.format_exc())
@@ -12221,6 +12234,8 @@ async def sell(ctx, sell_amount: str, sell_ticker: str, buy_amount: str, buy_tic
 
 async def sell_process(ctx, real_amount_sell: float, sell_ticker: str, real_amount_buy: float, buy_ticker: str):
     global NOTIFY_TRADE_CHAN
+    botLogChan = bot.get_channel(id=LOG_CHAN)
+
     sell_ticker = sell_ticker.upper()
     buy_ticker = buy_ticker.upper()
     if sell_ticker in ["NANO", "BAN"]:
@@ -12283,6 +12298,7 @@ async def buy(ctx, ref_number: str):
     if isinstance(ctx.message.channel, discord.DMChannel) == False and ctx.guild and ctx.guild.id == TRTL_DISCORD:
         return
 
+    botLogChan = bot.get_channel(id=LOG_CHAN)
     try:
         if isinstance(ctx.message.channel, discord.DMChannel) == True:
             pass
@@ -12290,10 +12306,10 @@ async def buy(ctx, ref_number: str):
             serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
             if isinstance(ctx.message.channel, discord.DMChannel) == False and serverinfo \
             and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
-                #prefix = serverinfo['prefix']
-                #await ctx.message.add_reaction(EMOJI_ERROR)
-                #await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Market Command is not ENABLE yet in this guild. Please request Guild owner to enable by `{prefix}SETTING MARKET`')
-                #await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}cg** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+                prefix = serverinfo['prefix']
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Trade Command is not ENABLE yet in this guild. Please request Guild owner to enable by `{prefix}SETTING TRADE`')
+                await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}buy command** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
                 return
     except Exception as e:
         await logchanbot(traceback.format_exc())
@@ -12435,6 +12451,7 @@ async def trade(ctx, coin: str = None):
     if isinstance(ctx.message.channel, discord.DMChannel) == False and ctx.guild and ctx.guild.id == TRTL_DISCORD:
         return
 
+    botLogChan = bot.get_channel(id=LOG_CHAN)
     try:
         if isinstance(ctx.message.channel, discord.DMChannel) == True:
             pass
@@ -12442,10 +12459,10 @@ async def trade(ctx, coin: str = None):
             serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
             if isinstance(ctx.message.channel, discord.DMChannel) == False and serverinfo \
             and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
-                #prefix = serverinfo['prefix']
-                #await ctx.message.add_reaction(EMOJI_ERROR)
-                #await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Market Command is not ENABLE yet in this guild. Please request Guild owner to enable by `{prefix}SETTING MARKET`')
-                #await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}cg** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+                prefix = serverinfo['prefix']
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Trade Command is not ENABLE yet in this guild. Please request Guild owner to enable by `{prefix}SETTING TRADE`')
+                await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}trade/market command** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
                 return
     except Exception as e:
         await logchanbot(traceback.format_exc())
@@ -12589,6 +12606,7 @@ async def cancel(ctx, order_num: str = 'ALL'):
     if isinstance(ctx.message.channel, discord.DMChannel) == False and ctx.guild and ctx.guild.id == TRTL_DISCORD:
         return
 
+    botLogChan = bot.get_channel(id=LOG_CHAN)
     try:
         if isinstance(ctx.message.channel, discord.DMChannel) == True:
             pass
@@ -12596,10 +12614,10 @@ async def cancel(ctx, order_num: str = 'ALL'):
             serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
             if isinstance(ctx.message.channel, discord.DMChannel) == False and serverinfo \
             and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
-                #prefix = serverinfo['prefix']
-                #await ctx.message.add_reaction(EMOJI_ERROR)
-                #await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Market Command is not ENABLE yet in this guild. Please request Guild owner to enable by `{prefix}SETTING MARKET`')
-                #await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}cg** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+                prefix = serverinfo['prefix']
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Trade Command is not ENABLE yet in this guild. Please request Guild owner to enable by `{prefix}SETTING TRADE`')
+                await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}cancel trade command** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
                 return
     except Exception as e:
         await logchanbot(traceback.format_exc())
@@ -12665,6 +12683,7 @@ async def order(ctx, order_num: str):
     if isinstance(ctx.message.channel, discord.DMChannel) == False and ctx.guild and ctx.guild.id == TRTL_DISCORD:
         return
 
+    botLogChan = bot.get_channel(id=LOG_CHAN)
     try:
         if isinstance(ctx.message.channel, discord.DMChannel) == True:
             pass
@@ -12672,10 +12691,10 @@ async def order(ctx, order_num: str):
             serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
             if isinstance(ctx.message.channel, discord.DMChannel) == False and serverinfo \
             and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
-                #prefix = serverinfo['prefix']
-                #await ctx.message.add_reaction(EMOJI_ERROR)
-                #await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Market Command is not ENABLE yet in this guild. Please request Guild owner to enable by `{prefix}SETTING MARKET`')
-                #await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}cg** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+                prefix = serverinfo['prefix']
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Trade Command is not ENABLE yet in this guild. Please request Guild owner to enable by `{prefix}SETTING TRADE`')
+                await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}order command** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
                 return
     except Exception as e:
         await logchanbot(traceback.format_exc())
@@ -12729,6 +12748,7 @@ async def myorder(ctx, ticker: str = None):
     if isinstance(ctx.message.channel, discord.DMChannel) == False and ctx.guild and ctx.guild.id == TRTL_DISCORD:
         return
 
+    botLogChan = bot.get_channel(id=LOG_CHAN)
     try:
         if isinstance(ctx.message.channel, discord.DMChannel) == True:
             pass
@@ -12736,10 +12756,10 @@ async def myorder(ctx, ticker: str = None):
             serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
             if isinstance(ctx.message.channel, discord.DMChannel) == False and serverinfo \
             and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
-                #prefix = serverinfo['prefix']
-                #await ctx.message.add_reaction(EMOJI_ERROR)
-                #await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Market Command is not ENABLE yet in this guild. Please request Guild owner to enable by `{prefix}SETTING MARKET`')
-                #await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}cg** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+                prefix = serverinfo['prefix']
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Trade Command is not ENABLE yet in this guild. Please request Guild owner to enable by `{prefix}SETTING TRADE`')
+                await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}myorder command** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
                 return
     except Exception as e:
         await logchanbot(traceback.format_exc())

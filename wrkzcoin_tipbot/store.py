@@ -2169,7 +2169,7 @@ async def sql_get_messages(server_id: str, channel_id: str, time_int: int, num_u
 async def sql_changeinfo_by_server(server_id: str, what: str, value: str):
     global pool
     if what.lower() in ["servername", "prefix", "default_coin", "tiponly", "numb_user", "numb_bot", "numb_channel", \
-    "react_tip", "react_tip_100", "lastUpdate", "botchan", "enable_faucet", "enable_game", "enable_market"]:
+    "react_tip", "react_tip_100", "lastUpdate", "botchan", "enable_faucet", "enable_game", "enable_market", "enable_trade"]:
         try:
             #print(f"ok try to change {what} to {value}")
             await openConnection()

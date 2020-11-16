@@ -551,7 +551,7 @@ async def on_raw_reaction_add(payload):
             try:
                 # do not delete maze or blackjack message
                 if 'MAZE' in message.content.upper() or 'BLACKJACK' in message.content.upper() or 'YOUR SCORE' in message.content.upper() \
-                or 'SOKOBAN ' in message.content.upper():
+                or 'SOKOBAN ' in message.content.upper() or 'GAME 2048' in message.content.upper():
                     return
                 try:
                     await message.delete()
@@ -576,6 +576,11 @@ async def on_reaction_add(reaction, user):
             # do not delete maze or blackjack message
             if 'MAZE' in reaction.message.content.upper() or 'BLACKJACK' in reaction.message.content.upper():
                 return
+            # do not delete some embed message
+            if reaction.message.embeds and len(reaction.message.embeds) > 0:
+                title = reaction.message.embeds[0].title
+                if 'SOKOBAN' in title:
+                    return
             try:
                 await reaction.message.delete()
             except Exception as e:
@@ -3440,7 +3445,7 @@ You lose if the board fills up the tiles before then.'''
     try:
         board = g2048_drawBoard(gameBoard) # string
         try:
-            msg = await ctx.send(f'**2048 game starts**...')
+            msg = await ctx.send(f'**GAME 2048 starts**...')
         except Exception as e:
             if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
                 GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
@@ -3456,7 +3461,7 @@ You lose if the board fills up the tiles before then.'''
         time_start = int(time.time())
 
         while not game_over:
-            await msg.edit(content=f'{ctx.author.mention}```{board}```Your score: **{score}**')
+            await msg.edit(content=f'{ctx.author.mention}```GAME 2048\n{board}```Your score: **{score}**')
             score = g2048_getScore(gameBoard)
             if IS_RESTARTING:
                 await ctx.message.add_reaction(EMOJI_REFRESH)
@@ -3467,8 +3472,8 @@ You lose if the board fills up the tiles before then.'''
                 in (EMOJI_UP, EMOJI_DOWN, EMOJI_LEFT, EMOJI_RIGHT, EMOJI_OK_BOX)
 
             done, pending = await asyncio.wait([
-                                bot.wait_for('reaction_remove', timeout=60, check=check),
-                                bot.wait_for('reaction_add', timeout=60, check=check)
+                                bot.wait_for('reaction_remove', timeout=120, check=check),
+                                bot.wait_for('reaction_add', timeout=120, check=check)
                             ], return_when=asyncio.FIRST_COMPLETED)
             try:
                 # stuff = done.pop().result()
@@ -3487,10 +3492,6 @@ You lose if the board fills up the tiles before then.'''
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
                 await ctx.send(f'{ctx.author.mention} **2048 GAME** has waited you too long. Game exits. Your score **{score}**.')
-                try:
-                    await msg.delete()
-                except Exception as e:
-                    pass
                 game_over = True
                 return
             for future in pending:
@@ -3886,8 +3887,8 @@ respectively. You can also reload game level.'''
                 in (EMOJI_UP, EMOJI_DOWN, EMOJI_LEFT, EMOJI_RIGHT, EMOJI_OK_BOX, EMOJI_REFRESH)
 
             done, pending = await asyncio.wait([
-                                bot.wait_for('reaction_remove', timeout=60, check=check),
-                                bot.wait_for('reaction_add', timeout=60, check=check)
+                                bot.wait_for('reaction_remove', timeout=120, check=check),
+                                bot.wait_for('reaction_add', timeout=120, check=check)
                             ], return_when=asyncio.FIRST_COMPLETED)
             try:
                 # stuff = done.pop().result()
@@ -3908,10 +3909,6 @@ respectively. You can also reload game level.'''
                         reward = await store.sql_game_add(str(level), str(ctx.message.author.id), 'None', 'WIN' if won else 'LOSE', 0, 0, str(ctx.guild.id), 'SOKOBAN', int(time.time()) - time_start, 'DISCORD')
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
-                try:
-                    await msg.delete()
-                except Exception as e:
-                    pass
                 return
             for future in pending:
                 future.cancel()  # we don't need these anymore

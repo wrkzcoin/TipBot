@@ -190,6 +190,70 @@ async def sql_nano_update_balances(coin: str):
     return updated
 
 
+async def sql_user_balance_get_xfer_in(userID: str, coin: str, user_server: str = 'DISCORD'):
+    global pool, redis_pool, redis_conn, redis_expired
+    COIN_NAME = coin.upper()
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+
+    key = "TIPBOT:XFER_IN:" + userID + ":" + COIN_NAME
+    try:
+        if redis_conn is None: redis_conn = redis.Redis(connection_pool=redis_pool)
+        if redis_conn and redis_conn.exists(key):
+            xfer_in = redis_conn.get(key).decode()
+            if coin_family == "DOGE":
+                return float(xfer_in)
+            else:
+                return int(float(xfer_in))
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    # redis_conn.set(key, json.dumps(decoded_data), ex=config.miningpoolstat.expired)
+    user_server = user_server.upper()
+    if user_server not in ['DISCORD', 'TELEGRAM']:
+        return
+    userwallet = await sql_get_userwallet(userID, COIN_NAME)
+    # assume insert time 2mn
+    confirmed_inserted = 3*60
+    IncomingTx = 0
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                if coin_family in ["TRTL", "BCN"]:
+                    sql = """ SELECT SUM(amount) AS IncomingTx FROM cnoff_get_transfers WHERE `payment_id`=%s AND `coin_name` = %s 
+                              AND `amount`>0 AND `time_insert`< %s """
+                    await cur.execute(sql, (userwallet['paymentid'], COIN_NAME, int(time.time())-confirmed_inserted))
+                    result = await cur.fetchone()
+                    if result and result['IncomingTx']: IncomingTx = result['IncomingTx']
+                elif coin_family == "XMR":
+                    sql = """ SELECT SUM(amount) AS IncomingTx FROM xmroff_get_transfers WHERE `payment_id`=%s AND `coin_name` = %s 
+                              AND `amount`>0 AND `time_insert`<%s """
+                    await cur.execute(sql, (userwallet['paymentid'], COIN_NAME, int(time.time())-confirmed_inserted))
+                    result = await cur.fetchone()
+                    if result and result['IncomingTx']: IncomingTx = result['IncomingTx']
+                elif coin_family == "DOGE":
+                    sql = """ SELECT SUM(amount) AS IncomingTx FROM doge_get_transfers WHERE `address`=%s AND `coin_name` = %s AND `category` = %s 
+                              AND `confirmations`>%s AND `amount`>0 AND `time_insert`< %s """
+                    await cur.execute(sql, (userwallet['balance_wallet_address'], COIN_NAME, 'receive', wallet.get_confirm_depth(COIN_NAME), int(time.time())-confirmed_inserted))
+                    result = await cur.fetchone()
+                    if result and result['IncomingTx']: IncomingTx = result['IncomingTx']
+                elif coin_family == "NANO":
+                    sql = """ SELECT SUM(amount) AS IncomingTx FROM nano_move_deposit WHERE `user_id`=%s AND `coin_name` = %s 
+                              AND `amount`>0 AND `time_insert`< %s """
+                    await cur.execute(sql, (userID, COIN_NAME, int(time.time())-confirmed_inserted))
+                    result = await cur.fetchone()
+                    if result and result['IncomingTx']: IncomingTx = result['IncomingTx']
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+
+    # store in redis
+    try:
+        if redis_conn is None: redis_conn = redis.Redis(connection_pool=redis_pool)
+        if redis_conn: redis_conn.set(key, str(IncomingTx), ex=redis_expired)
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return IncomingTx
+
+
 async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD'):
     global pool
     user_server = user_server.upper()
@@ -282,6 +346,7 @@ async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD')
                         SwapOut = result['SwapOut']
                     else:
                         SwapOut = 0
+                # DOGE
                 elif coin_family == "DOGE":
                     sql = """ SELECT SUM(amount) AS Expense FROM doge_mv_tx WHERE `from_userid`=%s AND `coin_name`=%s AND `user_server`=%s """
                     await cur.execute(sql, (userID, COIN_NAME, user_server))
@@ -322,6 +387,7 @@ async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD')
                         SwapOut = result['SwapOut']
                     else:
                         SwapOut = 0
+                # NANO
                 elif coin_family == "NANO":
                     sql = """ SELECT SUM(amount) AS Expense FROM nano_mv_tx WHERE `from_userid`=%s AND `coin_name`=%s AND `user_server`=%s """
                     await cur.execute(sql, (userID, COIN_NAME, user_server))
@@ -339,13 +405,8 @@ async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD')
                     else:
                         Income = 0
 
-                    sql = """ SELECT SUM(amount) AS TxExpense FROM nano_external_tx WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s """
-                    await cur.execute(sql, (userID, COIN_NAME, user_server))
-                    result = await cur.fetchone()
-                    if result:
-                        TxExpense = result['TxExpense']
-                    else:
-                        TxExpense = 0
+                    # Nano TxExpense=0
+                    TxExpense = 0
 
                     # nano_move_deposit by admin is positive (Positive)
                     sql = """ SELECT SUM(amount) AS Deposited FROM nano_move_deposit WHERE `coin_name`=%s AND `user_id`=%s 

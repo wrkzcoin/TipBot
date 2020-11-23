@@ -108,7 +108,7 @@ async def call_aiohttp_wallet(method_name: str, coin: str, time_out: int = None,
 
 async def call_doge(method_name: str, coin: str, payload: str = None) -> Dict:
     global ENABLE_COIN_DOGE
-    timeout = 64
+    timeout = 100
     COIN_NAME = coin.upper()
     headers = {
         'content-type': 'text/plain;',
@@ -138,7 +138,7 @@ async def call_doge(method_name: str, coin: str, payload: str = None) -> Dict:
 
 async def call_nano(coin: str, payload: str) -> Dict:
     global ENABLE_COIN_NANO
-    timeout = 64
+    timeout = 100
     COIN_NAME = coin.upper()
     url = None
     if COIN_NAME in ENABLE_COIN_NANO:
@@ -154,8 +154,10 @@ async def call_nano(coin: str, payload: str) -> Dict:
                     return decoded_data
     except asyncio.TimeoutError:
         print('TIMEOUT: COIN: {} - timeout {}'.format(coin.upper(), timeout))
+        await logchanbot('TIMEOUT: call_nano COIN: {} - timeout {}'.format(coin.upper(), timeout))
     except Exception as e:
         await logchanbot(traceback.format_exc())
+    return None
 
 
 def get_wallet_rpc_url(coin: str = None):

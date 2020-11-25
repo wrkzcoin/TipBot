@@ -405,8 +405,13 @@ async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD')
                     else:
                         Income = 0
 
-                    # Nano TxExpense=0
-                    TxExpense = 0
+                    sql = """ SELECT SUM(amount) AS TxExpense FROM nano_external_tx WHERE `user_id`=%s AND `coin_name` = %s AND `user_server`=%s """
+                    await cur.execute(sql, (userID, COIN_NAME, user_server))
+                    result = await cur.fetchone()
+                    if result:
+                        TxExpense = result['TxExpense']
+                    else:
+                        TxExpense = 0
 
                     # nano_move_deposit by admin is positive (Positive)
                     sql = """ SELECT SUM(amount) AS Deposited FROM nano_move_deposit WHERE `coin_name`=%s AND `user_id`=%s 

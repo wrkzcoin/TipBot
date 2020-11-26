@@ -610,11 +610,10 @@ async def on_reaction_add(reaction, user):
 
                 user_from = await store.sql_get_userwallet(str(user.id), COIN_NAME)
                 if user_from is None:
-                    return
+                    userregister = await store.sql_register_user(str(user.id), COIN_NAME, 'DISCORD')
                 user_to = await store.sql_get_userwallet(str(reaction.message.author.id), COIN_NAME)
                 if user_to is None:
                     userregister = await store.sql_register_user(str(reaction.message.author.id), COIN_NAME, 'DISCORD')
-                    user_to = await store.sql_get_userwallet(str(reaction.message.author.id), COIN_NAME)
                 userdata_balance = await store.sql_user_balance(str(user.id), COIN_NAME)
                 xfer_in = await store.sql_user_balance_get_xfer_in(str(user.id), COIN_NAME)
                 if COIN_NAME in ENABLE_COIN_DOGE:
@@ -711,7 +710,7 @@ async def on_reaction_add(reaction, user):
 
                 user_from = await store.sql_get_userwallet(str(user.id), COIN_NAME)
                 if user_from is None:
-                    return
+                    userregister = await store.sql_register_user(str(user.id), COIN_NAME, 'DISCORD')
 
                 userdata_balance = await store.sql_user_balance(str(user.id), COIN_NAME)
                 xfer_in = await store.sql_user_balance_get_xfer_in(str(user.id), COIN_NAME)
@@ -732,7 +731,6 @@ async def on_reaction_add(reaction, user):
                 user_to = await store.sql_get_userwallet(str(reaction.message.author.id), COIN_NAME)
                 if user_to is None:
                     userregister = await store.sql_register_user(str(reaction.message.author.id), COIN_NAME, 'DISCORD')
-                    user_to = await store.sql_get_userwallet(str(reaction.message.author.id), COIN_NAME)
                 # process other check balance
                 if real_amount > actual_balance or \
                     real_amount > MaxTX or real_amount < MinTx:
@@ -8660,6 +8658,8 @@ async def tip(ctx, amount: str, *args):
     notifyList = await store.sql_get_tipnotify()
 
     user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+    if user_from is None:
+        user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
     userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME)
     xfer_in = await store.sql_user_balance_get_xfer_in(str(ctx.message.author.id), COIN_NAME)
     if COIN_NAME in ENABLE_COIN_DOGE:
@@ -9080,6 +9080,8 @@ async def mtip(ctx, amount: str, *args):
     address_to = None
 
     user_from = await store.sql_get_userwallet(str(ctx.guild.id), COIN_NAME)
+    if user_from is None:
+        user_from = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD')
     # get user balance
     userdata_balance = await store.sql_user_balance(str(ctx.guild.id), COIN_NAME)
     xfer_in = await store.sql_user_balance_get_xfer_in(str(ctx.guild.id), COIN_NAME)
@@ -12145,7 +12147,6 @@ async def sell(ctx, sell_amount: str, sell_ticker: str, buy_amount: str, buy_tic
         wallet = await store.sql_get_userwallet(str(ctx.message.author.id), sell_ticker, 'DISCORD')
         if wallet is None:
             userregister = await store.sql_register_user(str(ctx.message.author.id), sell_ticker, 'DISCORD')
-            wallet = await store.sql_get_userwallet(str(ctx.message.author.id), sell_ticker, 'DISCORD')
         userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), sell_ticker)
         xfer_in = await store.sql_user_balance_get_xfer_in(str(ctx.message.author.id), sell_ticker)
         if sell_ticker in ENABLE_COIN_DOGE:
@@ -13775,7 +13776,23 @@ async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str 
             await ctx.send(f'{discord.utils.escape_markdown(mention_list_name)}\n\n**({len(list_receivers)})** members got {tip_type_text} :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
             await ctx.message.add_reaction(EMOJI_SPEAK)
         except discord.errors.Forbidden:
-            await ctx.message.add_reaction(EMOJI_SPEAK)
+            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            if serverinfo and 'botchan' in serverinfo and serverinfo['botchan']:
+                bot_channel = bot.get_channel(id=int(serverinfo['botchan']))
+                try:
+                    msg = await bot_channel.send(f'{discord.utils.escape_markdown(mention_list_name)}\n\n**({len(list_receivers)})** members got {tip_type_text} :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
+                    await msg.add_reaction(EMOJI_OK_BOX)
+                    await ctx.message.add_reaction(EMOJI_SPEAK)
+                except Exception as e:
+                    await logchanbot(traceback.format_exc())
+                    await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
+                except discord.errors.HTTPException:
+                    msg = await bot_channel.send(f'**({len(list_receivers)})** members got {tip_type_text} :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
+                    await msg.add_reaction(EMOJI_OK_BOX)
+                    await ctx.message.add_reaction(EMOJI_SPEAK)
+            else:
+                await ctx.message.add_reaction(EMOJI_SPEAK)
+                await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
         except discord.errors.HTTPException:
             await ctx.message.add_reaction(EMOJI_SPEAK)
             await ctx.send(f'**({len(list_receivers)})** members got {tip_type_text} :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')

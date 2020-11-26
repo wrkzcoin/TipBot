@@ -1471,6 +1471,24 @@ async def tool(ctx):
         return
 
 
+@tool.command(name='prime', help='Check a given number if it is a prime number')
+async def prime(ctx, number_test: str):
+    number_test = number_test.replace(",", "")
+    if len(number_test) >= 2000:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{ctx.author.mention} **{number_test}** too long.')
+        return
+    try:
+        value = is_prime(int(number_test))
+        if value:
+            await ctx.message.add_reaction(EMOJI_CHECKMARK)
+        else:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+    except ValueError:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+    return
+
+
 @tool.command(name='emoji', help='Get emoji value by re-acting')
 async def emoji(ctx):
     try:
@@ -14294,6 +14312,21 @@ async def get_miningpoolstat_coin(coin: str):
 # function to return if input string is ascii
 def is_ascii(s):
     return all(ord(c) < 128 for c in s)
+
+
+# https://en.wikipedia.org/wiki/Primality_test
+def is_prime(n: int) -> bool:
+    """Primality test using 6k+-1 optimization."""
+    if n <= 3:
+        return n > 1
+    if n % 2 == 0 or n % 3 == 0:
+        return False
+    i = 5
+    while i ** 2 <= n:
+        if n % i == 0 or n % (i + 2) == 0:
+            return False
+        i += 6
+    return True
 
 
 # json.dumps for turple

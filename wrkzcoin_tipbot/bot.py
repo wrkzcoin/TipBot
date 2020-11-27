@@ -6567,13 +6567,26 @@ async def balance(ctx, coin: str = None):
             await logchanbot(traceback.format_exc())
 
         balance_actual = num_format_coin(actual_balance, COIN_NAME)
-        await ctx.message.add_reaction(EMOJI_OK_HAND)
-        msg = await ctx.message.author.send(f'**[YOUR {COIN_NAME} BALANCE]**\n\n'
-                f'{EMOJI_MONEYBAG} Available: {balance_actual} '
-                f'{COIN_NAME}\n'
-                f'{get_notice_txt(COIN_NAME)}')
-        await msg.add_reaction(EMOJI_OK_BOX)
-        return
+        locked_openorder = userdata_balance['OpenOrder']
+        embed = discord.Embed(title=f'[ YOUR {COIN_NAME} BALANCE ]', timestamp=datetime.utcnow())
+        embed.add_field(name="Spendable", value=balance_actual+COIN_NAME, inline=True)
+        if locked_openorder > 0:
+            embed.add_field(name="Opened Order", value=num_format_coin(locked_openorder, COIN_NAME)+COIN_NAME, inline=True)
+            embed.add_field(name="Total", value=num_format_coin(actual_balance+locked_openorder, COIN_NAME)+COIN_NAME, inline=True)
+        embed.add_field(name='Related commands', value=f'`{prefix}balance` or `{prefix}deposit {COIN_NAME}` or `{prefix}balance LIST`', inline=False)
+        embed.set_footer(text=f"{get_notice_txt(COIN_NAME)}")
+        try:
+            msg = await ctx.message.author.send(embed=embed)
+            await ctx.message.add_reaction(EMOJI_OK_HAND)
+            await msg.add_reaction(EMOJI_OK_BOX)
+        except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+            try:
+                msg = await ctx.send(embed=embed)
+                await ctx.message.add_reaction(EMOJI_OK_HAND)
+                await msg.add_reaction(EMOJI_OK_BOX)
+            except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+                await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
+            return
     else:
         msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is no such ticker {COIN_NAME}.')
         await msg.add_reaction(EMOJI_OK_BOX)

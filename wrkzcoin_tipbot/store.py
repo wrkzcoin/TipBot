@@ -1027,7 +1027,7 @@ async def sql_update_balances(coin: str = None):
                                     await logchanbot(traceback.format_exc())
                                 except Exception as e:
                                     await logchanbot(traceback.format_exc())
-                            if wallet.get_confirm_depth(COIN_NAME) > int(tx['confirmations']) and tx['amount'] >= wallet.get_min_deposit_amount(COIN_NAME):
+                            if wallet.get_confirm_depth(COIN_NAME) > int(tx['confirmations']) > 0 and tx['amount'] >= wallet.get_min_deposit_amount(COIN_NAME):
                                 # add notify to redis and alert deposit. Can be clean later?
                                 if config.notify_new_tx.enable_new_no_confirm == 1:
                                     key_tx_new = 'TIPBOT:NEWTX:NOCONFIRM'

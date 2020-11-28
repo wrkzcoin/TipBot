@@ -581,7 +581,7 @@ async def on_reaction_add(reaction, user):
             if reaction.message.embeds and len(reaction.message.embeds) > 0:
                 title = reaction.message.embeds[0].title
                 try:
-                    if title and 'SOKOBAN' in str(title):
+                    if title and ('SOKOBAN' in str(title.upper()) or 'FREE TIP' in str(title.upper())):
                         return
                 except Exception as e:
                     pass
@@ -5023,19 +5023,46 @@ async def roachadd(ctx, main_id: str, user_id: str):
 @commands.is_owner()
 @admin.command(help=bot_help_admin_cleartx)
 async def cleartx(ctx):
+    global TX_IN_PROCESS
     if isinstance(ctx.channel, discord.DMChannel) == False:
         await ctx.message.add_reaction(EMOJI_ERROR) 
         await ctx.send(f'{ctx.author.mention} This command can not be in public.')
         return
 
-    global TX_IN_PROCESS
     if len(TX_IN_PROCESS) == 0:
         await ctx.message.author.send(f'{ctx.author.mention} Nothing in tx pending to clear.')
     else:
-        list_pending = '{' + ', '.join(TX_IN_PROCESS) + '}'
-        await ctx.message.add_reaction(EMOJI_WARNING)
-        await ctx.message.author.send(f'{ctx.author.mention} Clearing {len(TX_IN_PROCESS)} {list_pending} in pending...')
+        try:
+            string_ints = [str(num) for num in TX_IN_PROCESS]
+            list_pending = '{' + ', '.join(string_ints) + '}'
+            await ctx.message.add_reaction(EMOJI_WARNING)
+            await ctx.message.author.send(f'{ctx.author.mention} Clearing {str(len(TX_IN_PROCESS))} {list_pending} in pending...')
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
         TX_IN_PROCESS = [] 
+    return
+
+
+@commands.is_owner()
+@admin.command(help='Check pending things')
+async def pending(ctx):
+    if isinstance(ctx.channel, discord.DMChannel) == False:
+        await ctx.message.add_reaction(EMOJI_ERROR) 
+        await ctx.send(f'{ctx.author.mention} This command can not be in public.')
+        return
+    ts = datetime.utcnow()
+    embed = discord.Embed(title='Pending Actions', timestamp=ts)
+    embed.add_field(name="TX_IN_PROCESS", value=str(len(TX_IN_PROCESS)), inline=True)
+    embed.add_field(name="GAME_INTERACTIVE_PRGORESS", value=str(len(GAME_INTERACTIVE_PRGORESS)), inline=True)
+    embed.add_field(name="GAME_SLOT_IN_PRGORESS", value=str(len(GAME_SLOT_IN_PRGORESS)), inline=True)
+    embed.add_field(name="GAME_DICE_IN_PRGORESS", value=str(len(GAME_DICE_IN_PRGORESS)), inline=True)
+    embed.add_field(name="GAME_MAZE_IN_PROCESS", value=str(len(GAME_MAZE_IN_PROCESS)), inline=True)
+    embed.set_footer(text=f"Pending requested by {ctx.message.author.name}#{ctx.message.author.discriminator}")
+    try:
+        msg = await ctx.send(embed=embed)
+        await msg.add_reaction(EMOJI_OK_BOX)
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
     return
 
 
@@ -8119,7 +8146,7 @@ async def randtip(ctx, amount: str, coin: str, *, rand_option: str=None):
 
 
 @bot.command(pass_context=True, help=bot_help_freetip)
-async def freetip(ctx, amount: str, coin: str):
+async def freetip(ctx, amount: str, coin: str, duration: str='60s', *, comment: str=None):
     global TRTL_DISCORD, IS_RESTARTING
     # check if bot is going to restart
     if IS_RESTARTING:
@@ -8151,8 +8178,42 @@ async def freetip(ctx, amount: str, coin: str):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid amount.')
         return
 
+    def hms_to_seconds(time_string):
+        duration_in_second = 0
+        try:
+            time_string = time_string.replace("hours", "h")
+            time_string = time_string.replace("hour", "h")
+            time_string = time_string.replace("hrs", "h")
+            time_string = time_string.replace("hr", "h")
+
+            time_string = time_string.replace("minutes", "mn")
+            time_string = time_string.replace("mns", "mn")
+            time_string = time_string.replace("mins", "mn")
+            time_string = time_string.replace("min", "mn")
+            time_string = time_string.replace("m", "mn")
+            mult = {'h': 60*60, 'mn': 60}
+            duration_in_second = sum(int(num) * mult.get(val, 1) for num, val in re.findall('(\d+)(\w+)', time_string))
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return duration_in_second
+
+    duration_s = 0
+    try:
+        duration_s = hms_to_seconds(duration)
+    except Exception as e:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid duration.')
+        return
+
     if isinstance(ctx.channel, discord.DMChannel):
         await ctx.send(f'{EMOJI_RED_NO} This command can not be in private.')
+        return
+
+    if duration_s == 0:
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid time given. Please use time format: XXs')
+        return
+    elif duration_s < config.freetip.duration_min or duration_s > config.freetip.duration_max:
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid duration. Please use between {str(config.freetip.duration_min)}s to {str(config.freetip.duration_max)}s.')
         return
 
     serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
@@ -8214,6 +8275,9 @@ async def freetip(ctx, amount: str, coin: str):
     real_amount = int(amount * COIN_DEC) if coin_family in ["XMR", "TRTL", "BCN", "NANO"] else float(amount)
     MinTx = get_min_mv_amount(COIN_NAME)
     MaxTX = get_max_mv_amount(COIN_NAME)
+    if comment and len(comment) > 0:
+        MinTx = MinTx * config.freetip.with_comment_x_amount
+        MaxTX = MaxTX * config.freetip.with_comment_x_amount
 
     user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
     if user_from is None:
@@ -8254,31 +8318,60 @@ async def freetip(ctx, amount: str, coin: str):
                        f'{num_format_coin(real_amount, COIN_NAME)} '
                        f'{COIN_NAME}.')
         return
+
+    attend_list_id = []
+    attend_list_names = []
+    ts = timestamp=datetime.utcnow()
+
+    if ctx.message.author.id not in TX_IN_PROCESS:
+        TX_IN_PROCESS.append(ctx.message.author.id)
     try:
-        embed = discord.Embed(title=f"Free Tip appears {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}", description=f"Re-act {EMOJI_PARTY} to collect", color=0x00ff00)
+        embed = discord.Embed(title=f"Free Tip appears {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}", description=f"Re-act {EMOJI_PARTY} to collect", timestamp=ts, color=0x00ff00)
         msg = await ctx.send(embed=embed)
         await msg.add_reaction(EMOJI_PARTY)
-        embed.add_field(name="Message ID", value=msg.id, inline=True)
-        embed.add_field(name="Guild ID", value=msg.guild.id, inline=True)
-        embed.set_footer(text=f"Free tip by {ctx.message.author.name}#{ctx.message.author.discriminator}, timeout: 60s")
+        if comment and len(comment) > 0:
+            embed.add_field(name="Comment", value=comment, inline=False)
+        embed.set_footer(text=f"Free tip by {ctx.message.author.name}#{ctx.message.author.discriminator}, timeout: {seconds_str(duration_s)}")
         await msg.edit(embed=embed)
         await ctx.message.add_reaction(EMOJI_OK_HAND)
     except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+        if ctx.message.author.id in TX_IN_PROCESS:
+            TX_IN_PROCESS.remove(ctx.message.author.id)
         await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
         return
     def check(reaction, user):
         return user != ctx.message.author and user.bot == False and reaction.message.author == bot.user and reaction.message.id == msg.id and str(reaction.emoji) == EMOJI_PARTY
-    try:
-        reaction, user = await bot.wait_for('reaction_add', timeout=60, check=check)
-    except asyncio.TimeoutError:
-        embed = discord.Embed(title=f"Free Tip appears {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}", description=f"Already expired", color=0x00ff00)
-        embed.add_field(name="Message ID", value=msg.id, inline=True)
-        embed.add_field(name="Guild ID", value=msg.guild.id, inline=True)
-        embed.set_footer(text=f"Free tip by {ctx.message.author.name}#{ctx.message.author.discriminator}, and no one collected!")
-        await msg.edit(embed=embed)
-        await msg.add_reaction(EMOJI_OK_BOX)
-        return
-    if str(reaction.emoji) == EMOJI_PARTY:
+    
+    if comment and len(comment) > 0:
+        # multiple free tip
+        while True:
+            start_time = int(time.time())
+            try:
+                reaction, user = await bot.wait_for('reaction_add', timeout=duration_s, check=check)
+            except asyncio.TimeoutError:
+                if ctx.message.author.id in TX_IN_PROCESS:
+                    TX_IN_PROCESS.remove(ctx.message.author.id)
+                if len(attend_list_id) == 0:
+                    embed = discord.Embed(title=f"Free Tip appears {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}", description=f"Already expired", timestamp=ts, color=0x00ff00)
+                    embed.add_field(name="Comment", value=comment, inline=False)
+                    embed.set_footer(text=f"Free tip by {ctx.message.author.name}#{ctx.message.author.discriminator}, and no one collected!")
+                    await msg.edit(embed=embed)
+                    await msg.add_reaction(EMOJI_OK_BOX)
+                    return
+                break
+
+            if str(reaction.emoji) == EMOJI_PARTY and user.id not in attend_list_id:
+                attend_list_id.append(user.id)
+                attend_list_names.append('{}#{}'.format(user.name, user.discriminator))
+                embed = discord.Embed(title=f"Free Tip appears {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}", description=f"Re-act {EMOJI_PARTY} to collect", timestamp=ts, color=0x00ff00)
+                embed.add_field(name="Comment", value=comment, inline=False)
+                embed.add_field(name="Attendees", value=", ".join(attend_list_names), inline=False)
+                embed.set_footer(text=f"Free tip by {ctx.message.author.name}#{ctx.message.author.discriminator}, timeout: {seconds_str(duration_s)}")
+                await msg.edit(embed=embed)
+                duration_s -= int(time.time()) - start_time
+                if duration_s <= 1:
+                    break
+
         # re-check balance
         userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME)
         xfer_in = await store.sql_user_balance_get_xfer_in(str(ctx.message.author.id), COIN_NAME)
@@ -8290,14 +8383,6 @@ async def freetip(ctx, amount: str, coin: str):
         else:
             actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
 
-        # Negative check
-        try:
-            if actual_balance < 0:
-                msg_negative = 'Negative balance detected:\nUser: '+str(ctx.message.author.id)+'\nCoin: '+COIN_NAME+'\nAtomic Balance: '+str(actual_balance)
-                await logchanbot(msg_negative)
-        except Exception as e:
-            await logchanbot(traceback.format_exc())
-
         if real_amount > actual_balance:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to do a free tip of '
@@ -8306,57 +8391,161 @@ async def freetip(ctx, amount: str, coin: str):
             return
         # end of re-check balance
 
-        # add queue also freetip
-        if ctx.message.author.id not in TX_IN_PROCESS:
-            TX_IN_PROCESS.append(ctx.message.author.id)
-        else:
-            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
-            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
-            await msg.add_reaction(EMOJI_OK_BOX)
+        # Multiple tip here
+        notifyList = await store.sql_get_tipnotify()
+
+        if len(attend_list_id) == 0:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} divided by 0!!!')
             return
 
-        tip = None
-        user_to = await store.sql_get_userwallet(str(user.id), COIN_NAME)
-        if user_to is None:
-            userregister = await store.sql_register_user(str(user.id), COIN_NAME, 'DISCORD')
-            user_to = await store.sql_get_userwallet(str(user.id), COIN_NAME)
-        if coin_family in ["TRTL", "BCN"]:
-            tip = await store.sql_send_tip(str(ctx.message.author.id), str(user.id), real_amount, 'FREETIP', COIN_NAME)
-        elif coin_family == "XMR":
-            tip = await store.sql_mv_xmr_single(str(ctx.message.author.id), str(user.id), real_amount, COIN_NAME, "FREETIP")
-        elif coin_family == "NANO":
-            tip = await store.sql_mv_nano_single(str(ctx.message.author.id), str(user.id), real_amount, COIN_NAME, "FREETIP")
-        elif coin_family == "DOGE":
-            tip = await store.sql_mv_doge_single(str(ctx.message.author.id), str(user.id), real_amount, COIN_NAME, "FREETIP")
+        amountDiv = int(round(real_amount / len(attend_list_id), 2))  # cut 2 decimal only
+        if coin_family == "DOGE":
+            amountDiv = round(real_amount / len(attend_list_id), 4)
 
-        # remove queue from freetip
+        tip = None
+        try:
+            if coin_family in ["TRTL", "BCN"]:
+                tip = await store.sql_send_tipall(str(ctx.message.author.id), real_amount, amountDiv, attend_list_id, 'TIPALL', COIN_NAME)
+            elif coin_family == "XMR":
+                tip = await store.sql_mv_xmr_multiple(str(ctx.message.author.id), attend_list_id, amountDiv, COIN_NAME, "TIPALL")
+            elif coin_family == "NANO":
+                tip = await store.sql_mv_nano_multiple(str(ctx.message.author.id), attend_list_id, amountDiv, COIN_NAME, "TIPALL")
+            elif coin_family == "DOGE":
+                tip = await store.sql_mv_doge_multiple(str(ctx.message.author.id), attend_list_id, amountDiv, COIN_NAME, "TIPALL")
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
+        await asyncio.sleep(config.interval.tx_lap_each)
+
+        # remove queue from tipall
         if ctx.message.author.id in TX_IN_PROCESS:
             TX_IN_PROCESS.remove(ctx.message.author.id)
-
         if tip:
-            embed = discord.Embed(title=f"Free Tip appeared {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}", description=f"Already collected", color=0x00ff00)
-            embed.add_field(name="Message ID", value=msg.id, inline=True)
-            embed.add_field(name="Guild ID", value=msg.guild.id, inline=True)
-            embed.set_footer(text=f"Free tip by {ctx.message.author.name}#{ctx.message.author.discriminator}, collected by: {user.name}#{user.discriminator}")
-            await msg.edit(embed=embed)
+            tipAmount = num_format_coin(real_amount, COIN_NAME)
+            ActualSpend_str = num_format_coin(amountDiv * len(attend_list_id), COIN_NAME)
+            amountDiv_str = num_format_coin(amountDiv, COIN_NAME)
+            await ctx.message.add_reaction(get_emoji(COIN_NAME))
             # tipper shall always get DM. Ignore notifyList
             try:
                 await ctx.message.author.send(
-                    f'{EMOJI_ARROW_RIGHTHOOK} Tip of {num_format_coin(real_amount, COIN_NAME)} '
+                    f'{EMOJI_ARROW_RIGHTHOOK} Free Tip of {tipAmount} '
                     f'{COIN_NAME} '
-                    f'has been collected by {user.name}#{user.discriminator} in server `{ctx.guild.name}`')
+                    f'was collected by ({len(attend_list_id)}) members in server `{ctx.guild.name}`.\n'
+                    f'Each member got: `{amountDiv_str}{COIN_NAME}`\n'
+                    f'Actual spending: `{ActualSpend_str}{COIN_NAME}`')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
                 await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
-            if str(user.id) not in notifyList:
-                try:
-                    await user.send(
-                        f'{EMOJI_MONEYFACE} You had collected a tip of {num_format_coin(real_amount, COIN_NAME)} '
-                        f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{ctx.guild.name}`\n'
-                        f'{NOTIFICATION_OFF_CMD}')
-                except (discord.Forbidden, discord.errors.Forbidden) as e:
-                    await store.sql_toggle_tipnotify(str(user.id), "OFF")
+            numMsg = 0
+            for member_id in attend_list_id:
+                member = bot.get_user(id=member_id)
+                if ctx.message.author.id != member.id and member.id != bot.user.id:
+                    if str(member.id) not in notifyList:
+                        # random user to DM
+                        dm_user = bool(random.getrandbits(1)) if len(attend_list_id) > config.tipallMax_LimitDM else True
+                        if dm_user:
+                            try:
+                                await member.send(
+                                    f'{EMOJI_MONEYFACE} You collected a free tip of {amountDiv_str} '
+                                    f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{ctx.guild.name}` #{ctx.channel.name}\n'
+                                    f'{NOTIFICATION_OFF_CMD}')
+                                numMsg += 1
+                            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                                await store.sql_toggle_tipnotify(str(member.id), "OFF")
+                if numMsg >= config.tipallMax_LimitDM:
+                    # stop DM if reaches
+                    break
+            # Edit embed
+            try:
+                embed = discord.Embed(title=f"Free Tip appears {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}", description=f"Re-act {EMOJI_PARTY} to collect", timestamp=ts, color=0x00ff00)
+                embed.add_field(name="Comment", value=comment, inline=False)
+                embed.add_field(name="Attendees", value=", ".join(attend_list_names), inline=False)
+                embed.set_footer(text=f"Free tip by {ctx.message.author.name}#{ctx.message.author.discriminator}, completed! Collected by {len(attend_list_id)} member(s)")
+                await msg.edit(embed=embed)
+                await msg.add_reaction(EMOJI_OK_BOX)
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            await ctx.message.add_reaction(EMOJI_OK_HAND)
+            return
+    else:
+        # single free tip
+        try:
+            reaction, user = await bot.wait_for('reaction_add', timeout=duration_s, check=check)
+        except asyncio.TimeoutError:
+            if ctx.message.author.id in TX_IN_PROCESS:
+                TX_IN_PROCESS.remove(ctx.message.author.id)
+            embed = discord.Embed(title=f"Free Tip appears {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}", description=f"Already expired", timestamp=ts, color=0x00ff00)
+            embed.set_footer(text=f"Free tip by {ctx.message.author.name}#{ctx.message.author.discriminator}, and no one collected!")
+            await msg.edit(embed=embed)
             await msg.add_reaction(EMOJI_OK_BOX)
             return
+        if str(reaction.emoji) == EMOJI_PARTY:
+            # re-check balance
+            userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME)
+            xfer_in = await store.sql_user_balance_get_xfer_in(str(ctx.message.author.id), COIN_NAME)
+            if COIN_NAME in ENABLE_COIN_DOGE:
+                actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
+            elif COIN_NAME in ENABLE_COIN_NANO:
+                actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
+                actual_balance = round(actual_balance / get_decimal(COIN_NAME), 6) * get_decimal(COIN_NAME)
+            else:
+                actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
+
+            # Negative check
+            try:
+                if actual_balance < 0:
+                    msg_negative = 'Negative balance detected:\nUser: '+str(ctx.message.author.id)+'\nCoin: '+COIN_NAME+'\nAtomic Balance: '+str(actual_balance)
+                    await logchanbot(msg_negative)
+            except Exception as e:
+                await logchanbot(traceback.format_exc())
+
+            if real_amount > actual_balance:
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to do a free tip of '
+                               f'{num_format_coin(real_amount, COIN_NAME)} '
+                               f'{COIN_NAME}.')
+                return
+            # end of re-check balance
+
+            tip = None
+            user_to = await store.sql_get_userwallet(str(user.id), COIN_NAME)
+            if user_to is None:
+                userregister = await store.sql_register_user(str(user.id), COIN_NAME, 'DISCORD')
+                user_to = await store.sql_get_userwallet(str(user.id), COIN_NAME)
+            if coin_family in ["TRTL", "BCN"]:
+                tip = await store.sql_send_tip(str(ctx.message.author.id), str(user.id), real_amount, 'FREETIP', COIN_NAME)
+            elif coin_family == "XMR":
+                tip = await store.sql_mv_xmr_single(str(ctx.message.author.id), str(user.id), real_amount, COIN_NAME, "FREETIP")
+            elif coin_family == "NANO":
+                tip = await store.sql_mv_nano_single(str(ctx.message.author.id), str(user.id), real_amount, COIN_NAME, "FREETIP")
+            elif coin_family == "DOGE":
+                tip = await store.sql_mv_doge_single(str(ctx.message.author.id), str(user.id), real_amount, COIN_NAME, "FREETIP")
+
+            # remove queue from freetip
+            if ctx.message.author.id in TX_IN_PROCESS:
+                TX_IN_PROCESS.remove(ctx.message.author.id)
+
+            if tip:
+                embed = discord.Embed(title=f"Free Tip appeared {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}", description=f"Already collected", color=0x00ff00)
+                embed.set_footer(text=f"Free tip by {ctx.message.author.name}#{ctx.message.author.discriminator}, collected by: {user.name}#{user.discriminator}")
+                await msg.edit(embed=embed)
+                # tipper shall always get DM. Ignore notifyList
+                try:
+                    await ctx.message.author.send(
+                        f'{EMOJI_ARROW_RIGHTHOOK} Tip of {num_format_coin(real_amount, COIN_NAME)} '
+                        f'{COIN_NAME} '
+                        f'has been collected by {user.name}#{user.discriminator} in server `{ctx.guild.name}`')
+                except (discord.Forbidden, discord.errors.Forbidden) as e:
+                    await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
+                if str(user.id) not in notifyList:
+                    try:
+                        await user.send(
+                            f'{EMOJI_MONEYFACE} You had collected a tip of {num_format_coin(real_amount, COIN_NAME)} '
+                            f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{ctx.guild.name}`\n'
+                            f'{NOTIFICATION_OFF_CMD}')
+                    except (discord.Forbidden, discord.errors.Forbidden) as e:
+                        await store.sql_toggle_tipnotify(str(user.id), "OFF")
+                await msg.add_reaction(EMOJI_OK_BOX)
+                return
         
 
 @bot.command(pass_context=True, help=bot_help_tip)

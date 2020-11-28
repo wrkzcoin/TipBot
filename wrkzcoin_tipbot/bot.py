@@ -6568,7 +6568,7 @@ async def balance(ctx, coin: str = None):
 
         balance_actual = num_format_coin(actual_balance, COIN_NAME)
         locked_openorder = userdata_balance['OpenOrder']
-        embed = discord.Embed(title=f'[ YOUR {COIN_NAME} BALANCE ]', timestamp=datetime.utcnow())
+        embed = discord.Embed(title=f'[ {ctx.author.name}#{ctx.author.discriminator}\'s {COIN_NAME} balance ]', timestamp=datetime.utcnow())
         embed.add_field(name="Spendable", value=balance_actual+COIN_NAME, inline=True)
         if locked_openorder > 0:
             embed.add_field(name="Opened Order", value=num_format_coin(locked_openorder, COIN_NAME)+COIN_NAME, inline=True)
@@ -7904,6 +7904,7 @@ async def randtip(ctx, amount: str, coin: str, *, rand_option: str=None):
     # Get a random user in the guild, except bots. At least 3 members for random.
     has_last = False
     message_talker = None
+    listMembers = None
     minimum_users = 3
     try:
         # Check random option

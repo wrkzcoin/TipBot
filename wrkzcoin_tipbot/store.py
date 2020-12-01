@@ -113,7 +113,7 @@ async def get_coingecko_coin(coin: str):
         await openConnection_cmc()
         async with pool_cmc.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ SELECT * FROM coingecko_v2 WHERE `symbol`=%s ORDER BY `id` DESC LIMIT 1 """
+                sql = """ SELECT * FROM coingecko_v2 WHERE `symbol`=%s ORDER BY `last_updated` DESC LIMIT 1 """
                 await cur.execute(sql, (coin.lower()))
                 result = await cur.fetchone()
                 return result
@@ -3248,11 +3248,11 @@ async def market_value_in_usd(amount, ticker) -> str:
         async with pool_cmc.acquire() as conn:
             async with conn.cursor() as cur:
                 # Read a single record from cmc_v2
-                sql = """ SELECT * FROM `cmc_v2` WHERE `symbol`=%s ORDER BY `id` DESC LIMIT 1 """
+                sql = """ SELECT * FROM `cmc_v2` WHERE `symbol`=%s ORDER BY `last_updated` DESC LIMIT 1 """
                 await cur.execute(sql, (ticker.upper()))
                 result = await cur.fetchone()
 
-                sql = """ SELECT * FROM `coingecko_v2` WHERE `symbol`=%s ORDER BY `id` DESC LIMIT 1 """
+                sql = """ SELECT * FROM `coingecko_v2` WHERE `symbol`=%s ORDER BY `last_updated` DESC LIMIT 1 """
                 await cur.execute(sql, (ticker.lower()))
                 result2 = await cur.fetchone()
 
@@ -3292,7 +3292,7 @@ async def market_value_cmc_usd(ticker) -> float:
         async with pool_cmc.acquire() as conn:
             async with conn.cursor() as cur:
                 # Read a single record from cmc_v2
-                sql = """ SELECT * FROM `cmc_v2` WHERE `symbol`=%s ORDER BY `id` DESC LIMIT 1 """
+                sql = """ SELECT * FROM `cmc_v2` WHERE `symbol`=%s ORDER BY `last_updated` DESC LIMIT 1 """
                 await cur.execute(sql, (ticker.upper()))
                 result = await cur.fetchone()
                 if result and 'priceUSD' in result and result['priceUSD']: return float(result['priceUSD'])
@@ -3309,7 +3309,7 @@ async def market_value_cg_usd(ticker) -> float:
         async with pool_cmc.acquire() as conn:
             async with conn.cursor() as cur:
                 # Read a single record from cmc_v2
-                sql = """ SELECT * FROM `coingecko_v2` WHERE `symbol`=%s ORDER BY `id` DESC LIMIT 1 """
+                sql = """ SELECT * FROM `coingecko_v2` WHERE `symbol`=%s ORDER BY `last_updated` DESC LIMIT 1 """
                 await cur.execute(sql, (ticker.lower()))
                 result = await cur.fetchone()
                 if result and 'marketprice_USD' in result and result['marketprice_USD']: return float(result['marketprice_USD'])

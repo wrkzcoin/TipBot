@@ -10,7 +10,7 @@ from discord.utils import get
 import time, timeago, json
 import pyotp
 
-import store, daemonrpc_client, addressvalidation, walletapi
+import store, daemonrpc_client, addressvalidation, walletapi, coin360
 
 from generic_xmr.address_msr import address_msr as address_msr
 from generic_xmr.address_xmr import address_xmr as address_xmr
@@ -5029,17 +5029,49 @@ async def cleartx(ctx):
         await ctx.send(f'{ctx.author.mention} This command can not be in public.')
         return
 
-    if len(TX_IN_PROCESS) == 0:
-        await ctx.message.author.send(f'{ctx.author.mention} Nothing in tx pending to clear.')
+    if len(TX_IN_PROCESS) == 0 and len(GAME_INTERACTIVE_PRGORESS) == 0 and len(GAME_SLOT_IN_PRGORESS) == 0 \
+and len(GAME_DICE_IN_PRGORESS) == 0 and len(GAME_MAZE_IN_PROCESS) == 0:
+        await ctx.message.author.send(f'{ctx.author.mention} Nothing in pending to clear.')
     else:
         try:
-            string_ints = [str(num) for num in TX_IN_PROCESS]
-            list_pending = '{' + ', '.join(string_ints) + '}'
+            pending_msg = []
+            count = 0
+            if len(TX_IN_PROCESS) > 0:
+                string_ints = [str(num) for num in TX_IN_PROCESS]
+                list_pending += ', '.join(string_ints)
+                pending_msg.append(f"TX_IN_PROCESS: {list_pending}")
+                count += len(TX_IN_PROCESS)
+            if len(GAME_INTERACTIVE_PRGORESS) > 0:
+                string_ints = [str(num) for num in GAME_INTERACTIVE_PRGORESS]
+                list_pending += ', '.join(string_ints)
+                pending_msg.append(f"GAME_INTERACTIVE_PRGORESS: {list_pending}")
+                count += len(GAME_INTERACTIVE_PRGORESS)
+            if len(GAME_SLOT_IN_PRGORESS) > 0:
+                string_ints = [str(num) for num in GAME_SLOT_IN_PRGORESS]
+                list_pending += ', '.join(string_ints)
+                pending_msg.append(f"GAME_SLOT_IN_PRGORESS: {list_pending}")
+                count += len(GAME_SLOT_IN_PRGORESS)
+            if len(GAME_DICE_IN_PRGORESS) > 0:
+                string_ints = [str(num) for num in GAME_DICE_IN_PRGORESS]
+                list_pending += ', '.join(string_ints)
+                pending_msg.append(f"GAME_DICE_IN_PRGORESS: {list_pending}")
+                count += len(GAME_DICE_IN_PRGORESS)
+            if len(GAME_MAZE_IN_PROCESS) > 0:
+                string_ints = [str(num) for num in GAME_MAZE_IN_PROCESS]
+                list_pending += ', '.join(string_ints)
+                pending_msg.append(f"GAME_MAZE_IN_PROCESS: {list_pending}")
+                count += len(GAME_MAZE_IN_PROCESS)
+            pending_all = '\n'.join(pending_msg)
             await ctx.message.add_reaction(EMOJI_WARNING)
-            await ctx.message.author.send(f'{ctx.author.mention} Clearing {str(len(TX_IN_PROCESS))} {list_pending} in pending...')
+            await ctx.message.author.send(f'{ctx.author.mention} Clearing:\n```{pending_all}```\nTotal: {str(count)}')
         except Exception as e:
+            traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         TX_IN_PROCESS = [] 
+        GAME_INTERACTIVE_PRGORESS = []
+        GAME_SLOT_IN_PRGORESS = []
+        GAME_DICE_IN_PRGORESS = []
+        GAME_MAZE_IN_PROCESS = []
     return
 
 
@@ -6374,6 +6406,27 @@ async def info(ctx, coin: str = None):
     if COIN_NAME:
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Please use **DEPOSIT** command instead.')
         return
+
+
+@bot.command(pass_context=True, name='coinmap', aliases=['coin360', 'c360', 'cmap'], help='')
+async def coinmap(ctx):
+    global TRTL_DISCORD
+    if isinstance(ctx.channel, discord.DMChannel) == False and ctx.guild.id == TRTL_DISCORD:
+        return
+
+    async with ctx.typing():
+        try:
+            map_image = await bot.loop.run_in_executor(None, coin360.get_coin360)
+            if map_image:
+                msg = await ctx.send(f'{config.coin360.static_coin360_link + map_image}')
+                await msg.add_reaction(EMOJI_OK_BOX)
+                return
+            else:
+                msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Internal error during fetch image.')
+                await msg.add_reaction(EMOJI_OK_BOX)
+                return
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
 
 
 @bot.command(pass_context=True, name='coininfo', aliases=['coinf_info', 'coin'], help=bot_help_coininfo)

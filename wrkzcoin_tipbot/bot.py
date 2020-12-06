@@ -10,7 +10,7 @@ from discord.utils import get
 import time, timeago, json
 import pyotp
 
-import store, daemonrpc_client, addressvalidation, walletapi, coin360
+import store, daemonrpc_client, addressvalidation, walletapi, coin360, chart_pair_snapshot
 
 from generic_xmr.address_msr import address_msr as address_msr
 from generic_xmr.address_xmr import address_xmr as address_xmr
@@ -172,7 +172,7 @@ GAME_INTERACTIVE_PRGORESS = []
 GAME_SLOT_IN_PRGORESS = []
 GAME_DICE_IN_PRGORESS = []
 GAME_MAZE_IN_PROCESS = []
-
+CHART_TRADEVIEW_IN_PROCESS = []
 # miningpoolstat_progress
 MINGPOOLSTAT_IN_PROCESS = []
 
@@ -269,11 +269,8 @@ MAINTENANCE_COIN = config.Maintenance_Coin.split(",")
 COIN_REPR = "COIN"
 DEFAULT_TICKER = "WRKZ"
 ENABLE_COIN_VOUCHER = config.Enable_Coin_Voucher.split(",")
-ENABLE_SWAP = config.Enabe_Swap_Coin.split(",")
-ENABLE_SWAP_GUILD = config.Enabe_Swap_Guild.split(",")
 HIGH_DECIMAL_COIN = config.ManyDecimalCoin.split(",")
 
-# Some notice about coin that going to swap or take out.
 NOTICE_COIN = {}
 for each in ENABLE_COIN+ENABLE_XMR+ENABLE_COIN_DOGE+ENABLE_COIN_NANO:
     try:
@@ -335,7 +332,6 @@ bot_help_voucher = "Make a voucher image and your friend can claim via QR code."
 bot_help_take = "Get random faucet tip."
 bot_help_cal = "Use built-in calculator."
 bot_help_coininfo = "List of coin status."
-bot_help_swap = "Swap balance amount between our bot to our bot"
 bot_help_feedback = "Share your feedback or inquiry about TipBot to dev team"
 bot_help_view_feedback = "View feedback submit by you"
 bot_help_view_feedback_list = "List of your recent feedback."
@@ -5030,7 +5026,7 @@ async def cleartx(ctx):
         return
 
     if len(TX_IN_PROCESS) == 0 and len(GAME_INTERACTIVE_PRGORESS) == 0 and len(GAME_SLOT_IN_PRGORESS) == 0 \
-and len(GAME_DICE_IN_PRGORESS) == 0 and len(GAME_MAZE_IN_PROCESS) == 0:
+and len(GAME_DICE_IN_PRGORESS) == 0 and len(GAME_MAZE_IN_PROCESS) == 0 and len(CHART_TRADEVIEW_IN_PROCESS) == 0:
         await ctx.message.author.send(f'{ctx.author.mention} Nothing in pending to clear.')
     else:
         try:
@@ -5061,6 +5057,11 @@ and len(GAME_DICE_IN_PRGORESS) == 0 and len(GAME_MAZE_IN_PROCESS) == 0:
                 list_pending += ', '.join(string_ints)
                 pending_msg.append(f"GAME_MAZE_IN_PROCESS: {list_pending}")
                 count += len(GAME_MAZE_IN_PROCESS)
+            if len(CHART_TRADEVIEW_IN_PROCESS) > 0:
+                string_ints = [str(num) for num in CHART_TRADEVIEW_IN_PROCESS]
+                list_pending += ', '.join(string_ints)
+                pending_msg.append(f"CHART_TRADEVIEW_IN_PROCESS: {list_pending}")
+                count += len(CHART_TRADEVIEW_IN_PROCESS)
             pending_all = '\n'.join(pending_msg)
             await ctx.message.add_reaction(EMOJI_WARNING)
             await ctx.message.author.send(f'{ctx.author.mention} Clearing:\n```{pending_all}```\nTotal: {str(count)}')
@@ -5255,6 +5256,92 @@ async def userinfo(ctx, member: discord.Member = None):
         await ctx.send(embed=error)
 
 
+@bot.command(pass_context=True, name='tradeview', aliases=['tv'], help='View market trade view')
+async def tradeview(ctx, market: str, pair: str):
+    global TRTL_DISCORD, CHART_TRADEVIEW_IN_PROCESS
+    # TRTL discord
+    if isinstance(ctx.message.channel, discord.DMChannel) == False and ctx.guild and ctx.guild.id == TRTL_DISCORD:
+        return
+
+    # Check if tx in progress
+    if ctx.message.author.id in CHART_TRADEVIEW_IN_PROCESS:
+        await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+        msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another chart in progress.')
+        await msg.add_reaction(EMOJI_OK_BOX)
+        return
+
+    try:
+        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        if isinstance(ctx.message.channel, discord.DMChannel) == False and serverinfo \
+        and 'enable_market' in serverinfo and serverinfo['enable_market'] == "NO":
+            prefix = serverinfo['prefix']
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Market Command is not ENABLE yet in this guild. Please request Guild owner to enable by `{prefix}SETTING MARKET`')
+            await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}cg** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+            return
+    except Exception as e:
+        if isinstance(ctx.message.channel, discord.DMChannel) == False:
+            return
+        pass
+    
+    market = market.upper()
+    if market == "ALT": market = "ALTILLY"
+    if market not in config.chart.market_enable.split(","):
+        msg = await ctx.send(f'{ctx.author.mention} market **{market}** is not available right now. Available **{config.chart.market_enable}**')
+        await msg.add_reaction(EMOJI_OK_BOX)
+        return
+    
+    # Check if ticker in DB
+    separator = "."
+    if '/' in pair:
+        separator = "/"
+    elif '-' in pair:
+        separator = "-"
+    elif ',' in pair:
+        separator = ","
+    
+    pairs = pair.split(separator)
+    if len(pairs) != 2:
+        msg = await ctx.send(f'{ctx.author.mention} Invalid given separator between coin pairs.')
+        await msg.add_reaction(EMOJI_OK_BOX)
+        return
+    else:
+        get_market_setting = await store.sql_get_tradeview_market_setting(market)
+        get_link_pair = await store.sql_get_tradeview_available(market, pairs[0], pairs[1])
+        if get_market_setting and get_link_pair:
+            async with ctx.typing():
+                try:
+                    if ctx.message.author.id not in CHART_TRADEVIEW_IN_PROCESS:
+                        CHART_TRADEVIEW_IN_PROCESS.append(ctx.message.author.id )
+                    run_snap = functools.partial(chart_pair_snapshot.get_snapshot_market, market, \
+get_link_pair['pair_url_snap'], get_market_setting['filter_by'], get_market_setting['select_area_id_name'], \
+get_market_setting['visible_list'], pairs[0]+pairs[1])
+                    fetch_image = await bot.loop.run_in_executor(None, run_snap)
+                    if fetch_image:
+                        try:
+                            msg = await ctx.send(f'{config.chart.static_chart_image_link + fetch_image}')
+                            await ctx.message.add_reaction(EMOJI_OK_HAND)
+                            await msg.add_reaction(EMOJI_OK_BOX)
+                            insert_fetch = await store.sql_get_tradeview_insert_fetch(market, pair.upper(), get_link_pair['pair_url_snap'], str(ctx.author.id), fetch_image)
+                        except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+                            if ctx.message.author.id in CHART_TRADEVIEW_IN_PROCESS:
+                                CHART_TRADEVIEW_IN_PROCESS.remove(ctx.message.author.id)
+                            await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
+                    else:
+                        msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Internal error during fetch image.')
+                        await msg.add_reaction(EMOJI_OK_BOX)
+                        if ctx.message.author.id in CHART_TRADEVIEW_IN_PROCESS:
+                            CHART_TRADEVIEW_IN_PROCESS.remove(ctx.message.author.id)
+                except Exception as e:
+                    await logchanbot(traceback.format_exc())
+                if ctx.message.author.id in CHART_TRADEVIEW_IN_PROCESS:
+                    CHART_TRADEVIEW_IN_PROCESS.remove(ctx.message.author.id)
+        else:
+            msg = await ctx.send(f'{ctx.author.mention} can not find pair **{pair}** in market **{market}** or it is not enabled.')
+            await msg.add_reaction(EMOJI_OK_BOX)
+            return
+
+
 @bot.command(pass_context=True, name='cg', aliases=['coingecko'], help='Get coin information from CoinGecko')
 async def cg(ctx, ticker: str):
     global TRTL_DISCORD
@@ -5272,6 +5359,8 @@ async def cg(ctx, ticker: str):
             await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}cg** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
             return
     except Exception as e:
+        if isinstance(ctx.message.channel, discord.DMChannel) == False:
+            return
         pass
 
     get_cg = await store.get_coingecko_coin(ticker)
@@ -5359,12 +5448,14 @@ async def price(ctx, *args):
     try:
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if isinstance(ctx.message.channel, discord.DMChannel) == False and serverinfo \
-        and 'enable_market' in serverinfo and serverinfo['enable_market'] == "NO" or ():
+        and 'enable_market' in serverinfo and serverinfo['enable_market'] == "NO":
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Market command is not ENABLE yet in this guild. Please request Guild owner to enable by `{prefix}SETTING MARKET`')
             await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}price** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
             return
     except Exception as e:
+        if isinstance(ctx.message.channel, discord.DMChannel) == False:
+            return
         pass
 
     def format_amount(amount: float):
@@ -5916,7 +6007,7 @@ async def help_main_embed(ctx, prefix, section: str='MAIN'):
         cmd_tip = ["mtip|gtip <amount> [coin_name] @mention1 @mention2", "mtip|gtip <amount> [coin_name] [last 2h]",  "mtip|gtip <amount> [coin_name] [last 10u]", "(Required permission)"]
         embed.add_field(name="GUILD TIP COMMAND", value="`{}`".format(", ".join(cmd_tip)), inline=False)
 
-        cmd_user = ["balance [list]", "botbalance @mention_bot <coin_name>", "deposit <coin_name>", "notifytip <on/off>", "reg <coin_address>", "send <amount> <coin_address>", "withdraw <amount> <coin_name>", "swap <amount> <coin_name> <MARKETBOT>", "account deposit"]
+        cmd_user = ["balance [list]", "botbalance @mention_bot <coin_name>", "deposit <coin_name>", "notifytip <on/off>", "reg <coin_address>", "send <amount> <coin_address>", "withdraw <amount> <coin_name>", "account deposit"]
         embed.add_field(name="USER", value="`{}`".format(", ".join(cmd_user)), inline=False)
 
         cmd_voucher = ["voucher claim", "voucher fee", "voucher getclaim", "voucher getunclaim", "voucher make <amount> <coin_name> <comment>"]
@@ -7554,180 +7645,19 @@ async def notifytip(ctx, onoff: str):
             return
 
 
-@bot.command(pass_context=True, help=bot_help_swap)
-async def swap(ctx, amount: str, coin: str, to: str):
-    global IS_RESTARTING, TRTL_DISCORD, TX_IN_PROCESS
-
-    # disable swap for TRTL discord
-    if ctx.guild and ctx.guild.id == TRTL_DISCORD:
-        await ctx.message.add_reaction(EMOJI_LOCKED)
-        return
-
-    botLogChan = bot.get_channel(id=LOG_CHAN)
-    
-    to = to.upper()
-    if to != "MARKETBOT":
-        await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} supporting to **MARKETBOT** only right now.')
-        return
-
-    # Swap disable, we will remove this
-    await ctx.message.add_reaction(EMOJI_ERROR)
-    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Command is disable and will not be available.')
-    return
-
-    # check if bot is going to restart
-    if IS_RESTARTING:
-        await ctx.message.add_reaction(EMOJI_REFRESH)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is going to restart soon. Wait until it is back for using this.')
-        return
-    # check if account locked
-    account_lock = await alert_if_userlock(ctx, 'swap')
-    if account_lock:
-        await ctx.message.add_reaction(EMOJI_LOCKED) 
-        await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
-        return
-    # end of check if account locked
-
-    # Check if tx in progress
-    if ctx.message.author.id in TX_IN_PROCESS:
-        await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
-        msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
-        await msg.add_reaction(EMOJI_OK_BOX)
-        return
-
-    amount = amount.replace(",", "")
-    try:
-        amount = Decimal(amount)
-    except ValueError:
-        await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid amount.')
-        return
-
-    # Check if maintenance
-    if IS_MAINTENANCE == 1:
-        if int(ctx.message.author.id) in MAINTENANCE_OWNER:
-            pass
-        else:
-            await ctx.message.add_reaction(EMOJI_WARNING)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {config.maintenance_msg}')
-            return
-    else:
-        pass
-    # End Check if maintenance
-
-    COIN_NAME = coin.upper()
-    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-
-    if COIN_NAME not in ENABLE_SWAP:
-        await ctx.send(f'{EMOJI_ERROR} **{COIN_NAME}** is not in swap list.')
-        return
-
-    if is_maintenance_coin(COIN_NAME):
-        await ctx.message.add_reaction(EMOJI_MAINTENANCE)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
-        return
-
-    in_swappable_guild = False
-    try:
-        for each_guild in ENABLE_SWAP_GUILD:
-            guild = bot.get_guild(id=int(each_guild))
-            if guild and guild.get_member(ctx.message.author.id) is not None:
-                in_swappable_guild = True
-                break
-    except Exception as e:
-        await logchanbot(traceback.format_exc())
-
-    if in_swappable_guild == False:
-        await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You are not in any of support swap guild.')
-        return
-
-    user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
-    if user_from is None:
-        user_reg = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
-    COIN_DEC = get_decimal(COIN_NAME)
-    real_amount = int(amount * COIN_DEC) if coin_family in ["TRTL", "XMR"] else amount
-    MinTx = get_min_mv_amount(COIN_NAME)
-    MaxTX = get_max_mv_amount(COIN_NAME)
-
-    userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME)
-    xfer_in = await store.sql_user_balance_get_xfer_in(str(ctx.message.author.id), COIN_NAME)
-    if COIN_NAME in ENABLE_COIN_DOGE:
-        actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
-    elif COIN_NAME in ENABLE_COIN_NANO:
-        actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
-        actual_balance = round(actual_balance / get_decimal(COIN_NAME), 6) * get_decimal(COIN_NAME)
-    else:
-        actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
-
-    # Negative check
-    try:
-        if actual_balance < 0:
-            msg_negative = 'Negative balance detected:\nUser: '+str(ctx.message.author.id)+'\nCoin: '+COIN_NAME+'\nAtomic Balance: '+str(actual_balance)
-            await logchanbot(msg_negative)
-    except Exception as e:
-        await logchanbot(traceback.format_exc())
-
-    if real_amount > actual_balance:
-        await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to swap '
-                       f'{num_format_coin(real_amount, COIN_NAME)} '
-                       f'{COIN_NAME} to {to.upper()}.')
-        return
-
-    if real_amount > MaxTX:
-        await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transaction cannot be bigger than '
-                       f'{num_format_coin(MaxTX, COIN_NAME)} '
-                       f'{COIN_NAME}.')
-        return
-    elif real_amount < MinTx:
-        await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transaction cannot be smaller than '
-                       f'{num_format_coin(MinTx, COIN_NAME)} '
-                       f'{COIN_NAME}.')
-        return
-    swapit = None
-    try:
-        if ctx.message.author.id not in TX_IN_PROCESS:
-            TX_IN_PROCESS.append(ctx.message.author.id)
-            swapit = await store.sql_swap_balance(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, 'TIPBOT', to.upper(), real_amount)
-            await asyncio.sleep(config.interval.tx_lap_each)
-            TX_IN_PROCESS.remove(ctx.message.author.id)
-        else:
-            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
-            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
-            await msg.add_reaction(EMOJI_OK_BOX)
-            return
-    except Exception as e:
-        await logchanbot(traceback.format_exc())
-    if swapit:
-        await ctx.message.add_reaction(EMOJI_OK_BOX)
-        await ctx.message.author.send(
-                f'{EMOJI_ARROW_RIGHTHOOK} You swap {num_format_coin(real_amount, COIN_NAME)} '
-                f'{COIN_NAME} to **{to.upper()}**.')
-        return
-    else:
-        await ctx.message.add_reaction(EMOJI_ERROR)
-        await botLogChan.send(f'A user call failed to swap {COIN_NAME} to {to.upper()}')
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Internal error during swap.')
-        return
-
-
 @bot.command(pass_context=True, help=bot_help_take)
 async def take(ctx, info: str=None):
     global FAUCET_COINS, FAUCET_MINMAX, TRTL_DISCORD, TX_IN_PROCESS, IS_RESTARTING
     botLogChan = bot.get_channel(id=LOG_CHAN)
     # bot check in the first place
-    if ctx.message.author.bot == True:
+    if ctx.author.bot == True:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is not allowed using this.')
-        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} (Bot) using **take** {ctx.guild.name} / {ctx.guild.id}')
+        await botLogChan.send(f'{ctx.author.name} / {ctx.author.id} (Bot) using **take** {ctx.guild.name} / {ctx.guild.id}')
         return
 
     # Check if tx in progress
-    if ctx.message.author.id in TX_IN_PROCESS:
+    if ctx.author.id in TX_IN_PROCESS:
         await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
         msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
         await msg.add_reaction(EMOJI_OK_BOX)
@@ -7781,7 +7711,7 @@ async def take(ctx, info: str=None):
 
     # check if bot channel is set:
     serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
-    if serverinfo['botchan']:
+    if serverinfo and 'botchan' in serverinfo['botchan']:
         try: 
             if ctx.channel.id != int(serverinfo['botchan']):
                 await ctx.message.add_reaction(EMOJI_ERROR)
@@ -7873,7 +7803,6 @@ async def take(ctx, info: str=None):
                     tip = await store.sql_mv_doge_single(str(bot.user.id), str(ctx.message.author.id), real_amount, COIN_NAME, "FAUCET")
             except Exception as e:
                 await logchanbot(traceback.format_exc())
-            await asyncio.sleep(config.interval.tx_lap_each)
             TX_IN_PROCESS.remove(ctx.message.author.id)
         else:
             await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
@@ -8468,7 +8397,6 @@ async def freetip(ctx, amount: str, coin: str, duration: str='60s', *, comment: 
                 tip = await store.sql_mv_doge_multiple(str(ctx.message.author.id), attend_list_id, amountDiv, COIN_NAME, "TIPALL")
         except Exception as e:
             await logchanbot(traceback.format_exc())
-        await asyncio.sleep(config.interval.tx_lap_each)
 
         # remove queue from tipall
         if ctx.message.author.id in TX_IN_PROCESS:
@@ -12317,6 +12245,8 @@ async def sell(ctx, sell_amount: str, sell_ticker: str, buy_amount: str, buy_tic
                 await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}sell command** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
                 return
     except Exception as e:
+        if isinstance(ctx.message.channel, discord.DMChannel) == False:
+            return
         await logchanbot(traceback.format_exc())
         return
 
@@ -12514,6 +12444,8 @@ async def buy(ctx, ref_number: str):
                 await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}buy command** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
                 return
     except Exception as e:
+        if isinstance(ctx.message.channel, discord.DMChannel) == False:
+            return
         await logchanbot(traceback.format_exc())
         return
 
@@ -12677,6 +12609,8 @@ async def trade(ctx, coin: str = None):
                 await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}trade/market command** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
                 return
     except Exception as e:
+        if isinstance(ctx.message.channel, discord.DMChannel) == False:
+            return
         await logchanbot(traceback.format_exc())
         return
 
@@ -12832,6 +12766,8 @@ async def cancel(ctx, order_num: str = 'ALL'):
                 await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}cancel trade command** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
                 return
     except Exception as e:
+        if isinstance(ctx.message.channel, discord.DMChannel) == False:
+            return
         await logchanbot(traceback.format_exc())
         return
 
@@ -12909,6 +12845,8 @@ async def order(ctx, order_num: str):
                 await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}order command** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
                 return
     except Exception as e:
+        if isinstance(ctx.message.channel, discord.DMChannel) == False:
+            return
         await logchanbot(traceback.format_exc())
         return
 
@@ -12974,6 +12912,8 @@ async def myorder(ctx, ticker: str = None):
                 await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}myorder command** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
                 return
     except Exception as e:
+        if isinstance(ctx.message.channel, discord.DMChannel) == False:
+            return
         await logchanbot(traceback.format_exc())
         return
 

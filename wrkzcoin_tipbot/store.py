@@ -48,10 +48,6 @@ ENABLE_XMR = config.Enable_Coin_XMR.split(",")
 ENABLE_COIN_DOGE = config.Enable_Coin_Doge.split(",")
 ENABLE_COIN_NANO = config.Enable_Coin_Nano.split(",")
 
-XS_COIN = ["DEGO"]
-ENABLE_SWAP = config.Enabe_Swap_Coin.split(",")
-
-
 # Coin using wallet-api
 WALLET_API_COIN = config.Enable_Coin_WalletApi.split(",")
 
@@ -2885,25 +2881,6 @@ async def sql_update_notify_tx_table(payment_id: str, owner_id: str, owner_name:
     return False
 
 
-async def sql_swap_balance(coin: str, owner_id: str, owner_name: str, from_: str, to_: str, amount: float):
-    global pool, ENABLE_SWAP
-    COIN_NAME = coin.upper()
-    if COIN_NAME not in ENABLE_SWAP:
-        return False
-    try:
-        await openConnection()
-        async with pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                sql = """ INSERT INTO discord_swap_balance (`coin_name`, `owner_id`, `owner_name`, `from`, `to`, `amount`, `decimal`) 
-                          VALUES (%s, %s, %s, %s, %s, %s, %s) """
-                await cur.execute(sql, (COIN_NAME, owner_id, owner_name, from_, to_, amount, wallet.get_decimal(COIN_NAME)))
-                await conn.commit()
-                return True
-    except Exception as e:
-        await logchanbot(traceback.format_exc())
-    return False
-
-
 async def sql_get_new_swap_table(notified: str = 'NO', failed_notify: str = 'NO'):
     global pool
     try:
@@ -3743,6 +3720,63 @@ async def sql_get_open_order_by_sellerid(userid_sell: str, coin: str, status: st
         traceback.print_exc(file=sys.stdout)
     return False
 ## END OF Section of Trade
+
+
+## TradeView
+async def sql_get_tradeview_available(market: str, pair1: str, pair2: str, enable:str='ENABLE'):
+    global pool
+    enable = enable.upper()
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM `market_chart_pair` WHERE UPPER(`market_name`)=UPPER(%s) AND UPPER(`pair1`) = UPPER(%s) 
+                          AND UPPER(`pair2`)=UPPER(%s) AND `enable_disable`=%s LIMIT 1 """
+                await cur.execute(sql, (market, pair1, pair2, enable))
+                result = await cur.fetchone()
+                return result
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+
+async def sql_get_tradeview_market_setting(market: str, enable:str='ENABLE'):
+    global pool
+    enable = enable.upper()
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM `market_chart_setting` WHERE UPPER(`market_name`)=UPPER(%s)
+                          AND `enable_disable`=%s LIMIT 1 """
+                await cur.execute(sql, (market, enable))
+                result = await cur.fetchone()
+                return result
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+
+async def sql_get_tradeview_insert_fetch(market_name: str, pair_name: str, pair_url: str, by_userid: str, image_name: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ INSERT INTO market_chart_fetch (`market_name`, `pair_name`, `pair_url`, `by_userid`, `requested_date`, `image_name`) 
+                          VALUES (%s, %s, %s, %s, %s, %s) """
+                await cur.execute(sql, (market_name, pair_name, pair_url, by_userid, int(time.time()), image_name))
+                await conn.commit()
+                return True
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+        traceback.print_exc(file=sys.stdout)
+    return False
+
+## TradeView
+
 
 # Steal from https://nitratine.net/blog/post/encryption-and-decryption-in-python/
 def encrypt_string(to_encrypt: str):

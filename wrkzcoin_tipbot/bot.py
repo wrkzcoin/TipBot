@@ -6118,7 +6118,7 @@ async def help(ctx, *, section: str='MAIN'):
             try:
                 # stuff = done.pop().result()
                 reaction, user = done.pop().result()
-            except (asyncio.TimeoutError, asyncio.exceptions.TimeoutError) as e:
+            except Exception as e:
                 # timeout pass, just let it pass
                 pass
                 return
@@ -7649,8 +7649,12 @@ async def notifytip(ctx, onoff: str):
 async def take(ctx, info: str=None):
     global FAUCET_COINS, FAUCET_MINMAX, TRTL_DISCORD, TX_IN_PROCESS, IS_RESTARTING
     botLogChan = bot.get_channel(id=LOG_CHAN)
+    if isinstance(ctx.channel, discord.DMChannel):
+        await ctx.send(f'{EMOJI_RED_NO} This command can not be in private.')
+        return
+
     # bot check in the first place
-    if ctx.author.bot == True:
+    if ctx.message.author.bot == True:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is not allowed using this.')
         await botLogChan.send(f'{ctx.author.name} / {ctx.author.id} (Bot) using **take** {ctx.guild.name} / {ctx.guild.id}')
@@ -7682,10 +7686,6 @@ async def take(ctx, info: str=None):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is going to restart soon. Wait until it is back for using this.')
         return
 
-    if isinstance(ctx.channel, discord.DMChannel):
-        await ctx.send(f'{EMOJI_RED_NO} This command can not be in private.')
-        return
-
     # disable faucet for TRTL discord
     if ctx.guild.id == TRTL_DISCORD:
         await ctx.message.add_reaction(EMOJI_LOCKED)
@@ -7709,36 +7709,43 @@ async def take(ctx, info: str=None):
     except Exception as e:
         await logchanbot(traceback.format_exc())
 
-    # check if bot channel is set:
-    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
-    if serverinfo and 'botchan' in serverinfo['botchan']:
-        try: 
+    try: 
+        # check if bot channel is set:
+        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        if serverinfo and serverinfo['botchan']:
             if ctx.channel.id != int(serverinfo['botchan']):
                 await ctx.message.add_reaction(EMOJI_ERROR)
                 botChan = bot.get_channel(id=int(serverinfo['botchan']))
                 await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} is the bot channel!!!')
                 return
-        except ValueError:
-            pass
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     # end of bot channel check
 
-    # check user claim:
-    claim_interval = 24
-    check_claimed = await store.sql_faucet_checkuser(str(ctx.message.author.id), 'DISCORD')
-    if check_claimed:
-        # limit 12 hours
-        if int(time.time()) - check_claimed['claimed_at'] <= claim_interval*3600:
-            time_waiting = seconds_str(claim_interval*3600 - int(time.time()) + check_claimed['claimed_at'])
-            user_claims = await store.sql_faucet_count_user(str(ctx.message.author.id))
-            number_user_claimed = '{:,.0f}'.format(user_claims, 'DISCORD')
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You just claimed within last {claim_interval}h. '
-                                 f'Waiting time {time_waiting} for next **take**. Faucet balance:\n```{remaining}```'
-                                 f'Total user claims: **{total_claimed}** times. '
-                                 f'You have claimed: **{number_user_claimed}** time(s). '
-                                 f'Tip me if you want to feed these faucets.')
-            await msg.add_reaction(EMOJI_OK_BOX)
-            return
+    try:
+        # check user claim:
+        claim_interval = 24
+        check_claimed = await store.sql_faucet_checkuser(str(ctx.message.author.id), 'DISCORD')
+        if check_claimed:
+            # limit 12 hours
+            if int(time.time()) - check_claimed['claimed_at'] <= claim_interval*3600:
+                time_waiting = seconds_str(claim_interval*3600 - int(time.time()) + check_claimed['claimed_at'])
+                user_claims = await store.sql_faucet_count_user(str(ctx.message.author.id))
+                number_user_claimed = '{:,.0f}'.format(user_claims, 'DISCORD')
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You just claimed within last {claim_interval}h. '
+                                     f'Waiting time {time_waiting} for next **take**. Faucet balance:\n```{remaining}```'
+                                     f'Total user claims: **{total_claimed}** times. '
+                                     f'You have claimed: **{number_user_claimed}** time(s). '
+                                     f'Tip me if you want to feed these faucets.')
+                await msg.add_reaction(EMOJI_OK_BOX)
+                return
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+        return
+
 
     COIN_NAME = random.choice(FAUCET_COINS)
     while is_maintenance_coin(COIN_NAME):
@@ -7746,7 +7753,6 @@ async def take(ctx, info: str=None):
 
     amount = random.randint(FAUCET_MINMAX[COIN_NAME][0]*get_decimal(COIN_NAME), FAUCET_MINMAX[COIN_NAME][1]*get_decimal(COIN_NAME))
 
-    wallet = None
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     if COIN_NAME == "DOGE":
         amount = float(amount / 50)
@@ -7810,11 +7816,13 @@ async def take(ctx, info: str=None):
             await msg.add_reaction(EMOJI_OK_BOX)
             return
         if tip:
-            faucet_add = await store.sql_faucet_add(str(ctx.message.author.id), str(ctx.guild.id), COIN_NAME, real_amount, COIN_DEC, 'DISCORD')
-            await ctx.message.add_reaction(get_emoji(COIN_NAME))
-            msg = await ctx.send(f'{EMOJI_MONEYFACE} {ctx.author.mention} You got a random faucet {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
-            await msg.add_reaction(EMOJI_OK_BOX)
-            return
+            try:
+                faucet_add = await store.sql_faucet_add(str(ctx.message.author.id), str(ctx.guild.id), COIN_NAME, real_amount, COIN_DEC, 'DISCORD')
+                await ctx.message.add_reaction(get_emoji(COIN_NAME))
+                msg = await ctx.send(f'{EMOJI_MONEYFACE} {ctx.author.mention} You got a random faucet {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
+                await msg.add_reaction(EMOJI_OK_BOX)
+            except Exception as e:
+                await logchanbot(traceback.format_exc())
         else:
             await ctx.send(f'{ctx.author.mention} Please try again later. Failed during executing tx **{COIN_NAME}**.')
             await ctx.message.add_reaction(EMOJI_ERROR)

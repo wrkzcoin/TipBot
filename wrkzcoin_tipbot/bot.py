@@ -5436,6 +5436,88 @@ async def cg(ctx, ticker: str):
     return
 
 
+@bot.command(pass_context=True, name='pricelist', aliases=['pricetable', 'pt', 'pl'], help='Get price list')
+async def pricelist(ctx, *, coin_list):
+    prefix = await get_guild_prefix(ctx)
+    coin_list = ' '.join(coin_list.split())
+
+    # disable game for TRTL discord
+    if isinstance(ctx.message.channel, discord.DMChannel) == False and ctx.guild and ctx.guild.id == TRTL_DISCORD:
+        return
+
+    try:
+        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        if isinstance(ctx.message.channel, discord.DMChannel) == False and serverinfo \
+        and 'enable_market' in serverinfo and serverinfo['enable_market'] == "NO":
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Market command is not ENABLE yet in this guild. Please request Guild owner to enable by `{prefix}SETTING MARKET`')
+            await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}price** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+            return
+    except Exception as e:
+        if isinstance(ctx.message.channel, discord.DMChannel) == False:
+            return
+        pass
+
+    def format_amount(amount: float):
+        if amount > 1:
+            return '{:,.2f}'.format(amount)
+        elif amount > 0.01:
+            return '{:,.4f}'.format(amount)
+        elif amount > 0.0001:
+            return '{:,.6f}'.format(amount)
+        else:
+            return '{:,.8f}'.format(amount)
+
+    has_none = True
+    coin_list_call = coin_list.split(" ")
+    if 10 >= len(coin_list_call) >= 1:
+        table_data = [
+            ["COIN", "CMC [USD]", "CG [USD]", "Remark"]
+            ]
+        for each_coin in coin_list_call:
+            ticker = each_coin.upper()
+            market_price = await store.market_value_in_usd(1, ticker)
+            if market_price:
+                has_none = False
+                cmc_p = "N/A"
+                cg_p = "N/A"
+                if 'cmc_price' in market_price and market_price['cmc_price'] > 0.00000001:
+                    cmc_p = format_amount(market_price['cmc_price'])
+                    update = datetime.strptime(market_price['cmc_update'].split(".")[0], '%Y-%m-%dT%H:%M:%S')
+                    cmc_ago = timeago.format(update, datetime.utcnow())
+                if 'cg_price' in market_price and market_price['cg_price'] > 0.00000001:
+                    cg_p = format_amount(market_price['cg_price'])
+                    update = datetime.strptime(market_price['cg_update'].split(".")[0], '%Y-%m-%dT%H:%M:%S')
+                    cg_ago = timeago.format(update, datetime.utcnow())
+                table_data.append([ticker, cmc_p, cg_p, ""])
+        table = AsciiTable(table_data)
+        table.padding_left = 0
+        table.padding_right = 0
+        try:
+            embed = discord.Embed(title='Price List Command', description='Price Information', timestamp=datetime.utcnow(), colour=7047495)
+            if has_none == True:
+                embed.add_field(name=coin_list.upper(), value='```N/A for {}```'.format(coin_list), inline=False)
+            else:
+                embed.add_field(name=coin_list.upper(), value='```{}```'.format(table.table), inline=False)
+                embed.add_field(name="INFO", value='```CMC updated: {}\nCG updated: {}```'.format(cmc_ago, cg_ago), inline=False)
+            embed.add_field(name="OTHER LINKS", value="{} / {} / {}".format("[Invite TipBot](http://invite.discord.bot.tips)", "[Support Server](https://discord.com/invite/GpHzURM)", "[TipBot Github](https://github.com/wrkzcoin/TipBot)"), inline=False)
+            embed.set_footer(text=f"Market command requested by {ctx.message.author.name}#{ctx.message.author.discriminator}. To disable Market Command, {prefix}setting market")
+            try:
+                msg = await ctx.send(embed=embed)
+                await ctx.message.add_reaction(EMOJI_OK_HAND)
+                await msg.add_reaction(EMOJI_OK_BOX)
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
+                await logchanbot(traceback.format_exc())
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
+        return
+    else:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} Too many tickers.')
+        return
+
+
 @bot.command(pass_context=True)
 async def price(ctx, *args):
     prefix = await get_guild_prefix(ctx)
@@ -6028,7 +6110,7 @@ async def help_main_embed(ctx, prefix, section: str='MAIN'):
         embed.add_field(name="OTHER COMMAND", value="`{}`".format(", ".join(cmd_other)), inline=False)
 
     elif section.upper() == "MARKETING":
-        cmd_market = ["cg <ticker>", "price <ticker>", "price <amount> <ticker>", "price <amount> <coin1> in <coin2>"]
+        cmd_market = ["cg <ticker>", "price <ticker>", "price <amount> <ticker>", "price <amount> <coin1> in <coin2>", "pricelist <ticker1> [ticker2].."]
         embed.add_field(name="MARKET COMMAND", value="`{}`".format(", ".join(cmd_market)), inline=False)
 
     elif section.upper() == "DISCLAIMER":

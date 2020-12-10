@@ -409,16 +409,6 @@ async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD')
                     else:
                         TxExpense = 0
 
-                    # nano_move_deposit by admin is positive (Positive)
-                    sql = """ SELECT SUM(amount) AS Deposited FROM nano_move_deposit WHERE `coin_name`=%s AND `user_id`=%s 
-                          AND `user_server`=%s """
-                    await cur.execute(sql, (COIN_NAME, userID, user_server))
-                    result = await cur.fetchone()
-                    if result:
-                        Deposited = result['Deposited']
-                    else:
-                        Deposited = 0
-
                 # Credit by admin is positive (Positive)
                 sql = """ SELECT SUM(amount) AS Credited FROM credit_balance WHERE `coin_name`=%s AND `to_userid`=%s 
                       AND `user_server`=%s """
@@ -502,7 +492,6 @@ async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD')
 
                 balance = {}
                 if coin_family == "NANO":
-                    balance['Deposited'] = Deposited or 0
                     balance['Expense'] = Expense or 0
                     balance['Income'] = Income or 0
                     balance['TxExpense'] = TxExpense or 0
@@ -516,7 +505,7 @@ async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD')
                     balance['CompleteOrderAdd'] = CompleteOrderAdd if CompleteOrderAdd else 0
                     balance['CompleteOrderAdd2'] = CompleteOrderAdd2 if CompleteOrderAdd2 else 0
 
-                    balance['Adjust'] = int(balance['Deposited']) + int(balance['Credited']) + int(balance['GameCredit']) \
+                    balance['Adjust'] = int(balance['Credited']) + int(balance['GameCredit']) \
                     + int(balance['Income']) - int(balance['Expense']) - int(balance['TxExpense']) - int(balance['Expended_Voucher']) \
                     - balance['OpenOrder'] - balance['CompleteOrderMinus'] - balance['CompleteOrderMinus2'] \
                     + balance['CompleteOrderAdd'] + balance['CompleteOrderAdd2']

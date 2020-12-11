@@ -1360,7 +1360,7 @@ async def sql_get_countLastTip(userID, lastDuration: int):
         await logchanbot(traceback.format_exc())
 
 
-async def sql_send_tip(user_from: str, user_to: str, amount: int, tiptype: str, coin: str, user_server: str = 'DISCORD'):
+async def sql_mv_cn_single(user_from: str, user_to: str, amount: int, tiptype: str, coin: str, user_server: str = 'DISCORD'):
     global pool
     user_server = user_server.upper()
     if user_server not in ['DISCORD', 'TELEGRAM']:
@@ -1394,7 +1394,7 @@ async def sql_send_tip(user_from: str, user_to: str, amount: int, tiptype: str, 
     return False
 
 
-async def sql_send_tipall(user_from: str, amount: int, amount_div: int, user_ids, tiptype: str, coin: str, user_server: str = 'DISCORD'):
+async def sql_mv_cn_multiple(user_from: str, amount_div: int, user_ids, tiptype: str, coin: str, user_server: str = 'DISCORD'):
     global pool
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
@@ -1428,7 +1428,7 @@ async def sql_send_tipall(user_from: str, amount: int, amount_div: int, user_ids
     return False
 
 
-async def sql_send_tip_Ex(user_from: str, address_to: str, amount: int, coin: str, user_server: str = 'DISCORD'):
+async def sql_external_cn_single(user_from: str, address_to: str, amount: int, coin: str, user_server: str = 'DISCORD'):
     global pool
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
@@ -1474,7 +1474,7 @@ async def sql_send_tip_Ex(user_from: str, address_to: str, amount: int, coin: st
     return False
 
 
-async def sql_send_tip_Ex_id(user_from: str, address_to: str, amount: int, paymentid, coin: str, user_server: str = 'DISCORD'):
+async def sql_external_cn_single_id(user_from: str, address_to: str, amount: int, paymentid, coin: str, user_server: str = 'DISCORD'):
     global pool
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
@@ -1515,7 +1515,7 @@ async def sql_send_tip_Ex_id(user_from: str, address_to: str, amount: int, payme
     return False
 
 
-async def sql_withdraw(user_from: str, amount: int, coin: str, user_server: str = 'DISCORD'):
+async def sql_external_cn_single_withdraw(user_from: str, amount: int, coin: str, user_server: str = 'DISCORD'):
     global pool
     user_server = user_server.upper()
     if user_server not in ['DISCORD', 'TELEGRAM']:

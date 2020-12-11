@@ -644,7 +644,7 @@ async def on_reaction_add(reaction, user):
                         return
                     tip = None
                     try:
-                        tip = await store.sql_send_tip(str(user.id), str(reaction.message.author.id), real_amount, 'REACTTIP', COIN_NAME)
+                        tip = await store.sql_mv_cn_single(str(user.id), str(reaction.message.author.id), real_amount, 'REACTTIP', COIN_NAME)
                         tip_tx_tipper = "Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
@@ -744,7 +744,7 @@ async def on_reaction_add(reaction, user):
 
                     tip = None
                     try:
-                        tip = await store.sql_send_tip(str(user.id), str(reaction.message.author.id), real_amount, 'REACTTIP', COIN_NAME)
+                        tip = await store.sql_mv_cn_single(str(user.id), str(reaction.message.author.id), real_amount, 'REACTTIP', COIN_NAME)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
 
@@ -7474,7 +7474,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
         return
     try:
         if coin_family in ["TRTL", "BCN"]:
-            withdrawTx = await store.sql_withdraw(str(ctx.message.author.id), real_amount, COIN_NAME)
+            withdrawTx = await store.sql_external_cn_single_withdraw(str(ctx.message.author.id), real_amount, COIN_NAME)
             withdraw_txt = "Transaction hash: `{}`".format(withdrawTx['transactionHash'])
             withdraw_txt += "\nTx Fee: `{}{}`".format(num_format_coin(withdrawTx['fee'], COIN_NAME), COIN_NAME)
         elif coin_family == "XMR":
@@ -7882,7 +7882,7 @@ async def take(ctx, info: str=None):
             TX_IN_PROCESS.append(ctx.message.author.id)
             try:
                 if coin_family in ["TRTL", "BCN"]:
-                    tip = await store.sql_send_tip(str(bot.user.id), str(ctx.message.author.id), real_amount, 'FAUCET', COIN_NAME)
+                    tip = await store.sql_mv_cn_single(str(bot.user.id), str(ctx.message.author.id), real_amount, 'FAUCET', COIN_NAME)
                 elif coin_family == "XMR":
                     tip = await store.sql_mv_xmr_single(str(bot.user.id), str(ctx.message.author.id), real_amount, COIN_NAME, "FAUCET")
                 elif coin_family == "NANO":
@@ -8164,7 +8164,7 @@ async def randtip(ctx, amount: str, coin: str, *, rand_option: str=None):
         user_to = await store.sql_get_userwallet(str(rand_user.id), COIN_NAME)
 
     if coin_family in ["TRTL", "BCN"]:
-        tip = await store.sql_send_tip(str(ctx.message.author.id), str(rand_user.id), real_amount, 'RANDTIP', COIN_NAME)
+        tip = await store.sql_mv_cn_single(str(ctx.message.author.id), str(rand_user.id), real_amount, 'RANDTIP', COIN_NAME)
     elif coin_family == "XMR":
         tip = await store.sql_mv_xmr_single(str(ctx.message.author.id), str(rand_user.id), real_amount, COIN_NAME, "RANDTIP")
     elif coin_family == "NANO":
@@ -8478,7 +8478,7 @@ async def freetip(ctx, amount: str, coin: str, duration: str='60s', *, comment: 
         tip = None
         try:
             if coin_family in ["TRTL", "BCN"]:
-                tip = await store.sql_send_tipall(str(ctx.message.author.id), real_amount, amountDiv, attend_list_id, 'TIPALL', COIN_NAME)
+                tip = await store.sql_mv_cn_multiple(str(ctx.message.author.id), amountDiv, attend_list_id, 'TIPALL', COIN_NAME)
             elif coin_family == "XMR":
                 tip = await store.sql_mv_xmr_multiple(str(ctx.message.author.id), attend_list_id, amountDiv, COIN_NAME, "TIPALL")
             elif coin_family == "NANO":
@@ -8583,7 +8583,7 @@ async def freetip(ctx, amount: str, coin: str, duration: str='60s', *, comment: 
                 userregister = await store.sql_register_user(str(user.id), COIN_NAME, 'DISCORD')
                 user_to = await store.sql_get_userwallet(str(user.id), COIN_NAME)
             if coin_family in ["TRTL", "BCN"]:
-                tip = await store.sql_send_tip(str(ctx.message.author.id), str(user.id), real_amount, 'FREETIP', COIN_NAME)
+                tip = await store.sql_mv_cn_single(str(ctx.message.author.id), str(user.id), real_amount, 'FREETIP', COIN_NAME)
             elif coin_family == "XMR":
                 tip = await store.sql_mv_xmr_single(str(ctx.message.author.id), str(user.id), real_amount, COIN_NAME, "FREETIP")
             elif coin_family == "NANO":
@@ -8901,13 +8901,11 @@ async def tip(ctx, amount: str, *args):
                 await ctx.message.add_reaction(EMOJI_ERROR)
                 await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Can not find user to tip to.')
                 return
-        async with ctx.typing():
-            await _tip(ctx, amount, COIN_NAME)
-            return
+        await _tip(ctx, amount, COIN_NAME)
+        return
     elif len(ctx.message.mentions) > 1:
-        async with ctx.typing():
-            await _tip(ctx, amount, COIN_NAME)
-            return
+        await _tip(ctx, amount, COIN_NAME)
+        return
 
 
     # Check flood of tip
@@ -8993,7 +8991,7 @@ async def tip(ctx, amount: str, *args):
     tip = None
     try:
         if coin_family in ["TRTL", "BCN"]:
-            tip = await store.sql_send_tip(str(ctx.message.author.id), str(member.id), real_amount, 'TIP', COIN_NAME)
+            tip = await store.sql_mv_cn_single(str(ctx.message.author.id), str(member.id), real_amount, 'TIP', COIN_NAME)
         elif coin_family == "XMR":
             tip = await store.sql_mv_xmr_single(str(ctx.message.author.id), str(member.id), real_amount, COIN_NAME, "TIP")
         elif coin_family == "DOGE":
@@ -9323,13 +9321,11 @@ async def mtip(ctx, amount: str, *args):
                 await ctx.message.add_reaction(EMOJI_ERROR)
                 await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Can not find user to tip to.')
                 return
-        async with ctx.typing():
-            await _tip(ctx, amount, COIN_NAME, True)
-            return
+        await _tip(ctx, amount, COIN_NAME, True)
+        return
     elif len(ctx.message.mentions) > 1:
-        async with ctx.typing():
-            await _tip(ctx, amount, COIN_NAME, True)
-            return
+        await _tip(ctx, amount, COIN_NAME, True)
+        return
 
     # Check flood of tip
     floodTip = await store.sql_get_countLastTip(str(ctx.guild.id), config.floodTipDuration)
@@ -9407,7 +9403,7 @@ async def mtip(ctx, amount: str, *args):
     tip = None
     try:
         if coin_family in ["TRTL", "BCN"]:
-            tip = await store.sql_send_tip(str(ctx.guild.id), str(member.id), real_amount, 'TIP', COIN_NAME)
+            tip = await store.sql_mv_cn_single(str(ctx.guild.id), str(member.id), real_amount, 'TIP', COIN_NAME)
         elif coin_family == "XMR":
             tip = await store.sql_mv_xmr_single(str(ctx.guild.id), str(member.id), real_amount, COIN_NAME, "TIP")
         elif coin_family == "DOGE":
@@ -9655,7 +9651,7 @@ async def tipall(ctx, amount: str, *args):
     tip = None
     try:
         if coin_family in ["TRTL", "BCN"]:
-            tip = await store.sql_send_tipall(str(ctx.message.author.id), real_amount, amountDiv, list_receivers, 'TIPALL', COIN_NAME)
+            tip = await store.sql_mv_cn_multiple(str(ctx.message.author.id), amountDiv, list_receivers, 'TIPALL', COIN_NAME)
         elif coin_family == "XMR":
             tip = await store.sql_mv_xmr_multiple(str(ctx.message.author.id), list_receivers, amountDiv, COIN_NAME, "TIPALL")
         elif coin_family == "NANO":
@@ -10019,7 +10015,7 @@ async def send(ctx, amount: str, CoinAddress: str):
                 if ctx.message.author.id not in TX_IN_PROCESS:
                     TX_IN_PROCESS.append(ctx.message.author.id)
                     try:
-                        tip = await store.sql_send_tip_Ex_id(str(ctx.message.author.id), CoinAddress, real_amount, paymentid, COIN_NAME)
+                        tip = await store.sql_external_cn_single_id(str(ctx.message.author.id), CoinAddress, real_amount, paymentid, COIN_NAME)
                         tip_tx_tipper = "Transaction hash: `{}`".format(tip['transactionHash'])
                         tip_tx_tipper += "\nTx Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
                     except Exception as e:
@@ -10056,7 +10052,7 @@ async def send(ctx, amount: str, CoinAddress: str):
                 if ctx.message.author.id not in TX_IN_PROCESS:
                     TX_IN_PROCESS.append(ctx.message.author.id)
                     try:
-                        tip = await store.sql_send_tip_Ex(str(ctx.message.author.id), CoinAddress, real_amount, COIN_NAME)
+                        tip = await store.sql_external_cn_single(str(ctx.message.author.id), CoinAddress, real_amount, COIN_NAME)
                         tip_tx_tipper = "Transaction hash: `{}`".format(tip['transactionHash'])
                         tip_tx_tipper += "\nTx Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
                     except Exception as e:
@@ -13751,13 +13747,15 @@ async def _tip(ctx, amount, coin: str, if_guild: bool=False):
         return
 
     listMembers = []
+
+    guild_members = ctx.guild.members
     if ctx.message.role_mentions and len(ctx.message.role_mentions) >= 1:
         mention_roles = ctx.message.role_mentions
         if "@everyone" in mention_roles:
             mention_roles.remove("@everyone")
         if len(mention_roles) >= 1:
             for each_role in mention_roles:
-                role_listMember = [member for member in ctx.guild.members if member.bot == False and each_role in member.roles]
+                role_listMember = [member for member in guild_members if member.bot == False and each_role in member.roles]
                 if len(role_listMember) >= 1:
                     for each_member in role_listMember:
                         if each_member not in listMembers:
@@ -13765,11 +13763,10 @@ async def _tip(ctx, amount, coin: str, if_guild: bool=False):
     else:
         listMembers = ctx.message.mentions
     list_receivers = []
-    addresses = []
 
     for member in listMembers:
         # print(member.name) # you'll just print out Member objects your way.
-        if ctx.message.author.id != member.id and member in ctx.guild.members:
+        if ctx.message.author.id != member.id and member in guild_members:
             user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
             if user_to is None:
                 userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD')
@@ -13777,6 +13774,7 @@ async def _tip(ctx, amount, coin: str, if_guild: bool=False):
             list_receivers.append(str(member.id))
 
     TotalAmount = real_amount * len(list_receivers)
+    print('_tip TotalAmount: {}'.format(TotalAmount))
     if TotalAmount > MaxTX:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Total transactions cannot be bigger than '
@@ -13812,7 +13810,7 @@ async def _tip(ctx, amount, coin: str, if_guild: bool=False):
         return
     try:
         if coin_family in ["TRTL", "BCN"]:
-            tip = await store.sql_send_tipall(id_tipper, real_amount, real_amount, list_receivers, guild_or_tip, COIN_NAME)
+            tip = await store.sql_mv_cn_multiple(id_tipper, real_amount, list_receivers, guild_or_tip, COIN_NAME)
         elif coin_family == "XMR":
             tip = await store.sql_mv_xmr_multiple(id_tipper, list_receivers, real_amount, COIN_NAME, guild_or_tip)
         elif coin_family == "NANO":
@@ -13954,10 +13952,11 @@ async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str 
 
     list_receivers = []
     addresses = []
+    guild_members = ctx.guild.members
     for member_id in list_talker:
         try:
             member = bot.get_user(id=int(member_id))
-            if member and member in ctx.guild.members and ctx.message.author.id != member.id:
+            if member and member in guild_members and ctx.message.author.id != member.id:
                 user_to = await store.sql_get_userwallet(str(member_id), COIN_NAME)
                 if user_to is None:
                     userregister = await store.sql_register_user(str(member_id), COIN_NAME, 'DISCORD')
@@ -14018,7 +14017,7 @@ async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str 
     tip = None
     try:
         if coin_family in ["TRTL", "BCN"]:
-            tip = await store.sql_send_tipall(id_tipper, real_amount, real_amount, list_receivers, guild_or_tip, COIN_NAME)
+            tip = await store.sql_mv_cn_multiple(id_tipper, real_amount, list_receivers, guild_or_tip, COIN_NAME)
         elif coin_family == "XMR":
             tip = await store.sql_mv_xmr_multiple(id_tipper, list_receivers, real_amount, COIN_NAME, guild_or_tip)
         elif coin_family == "NANO":
@@ -14043,11 +14042,12 @@ async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str 
         except (discord.Forbidden, discord.errors.Forbidden) as e:
             await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
         mention_list_name = ''
+        guild_members = ctx.guild.members
         for member_id in list_talker:
             # print(member.name) # you'll just print out Member objects your way.
             if ctx.message.author.id != int(member_id):
                 member = bot.get_user(id=int(member_id))
-                if member and member.bot == False and member in ctx.guild.members:
+                if member and member.bot == False and member in guild_members:
                     mention_list_name += '{}#{} '.format(member.name, member.discriminator)
                     if str(member_id) not in notifyList:
                         try:
@@ -14160,7 +14160,7 @@ async def _tip_react(reaction, user, amount, coin: str):
         return
     try:
         if coin_family in ["TRTL", "BCN"]:
-            tip = await store.sql_send_tipall(str(user.id), real_amount, real_amount, list_receivers, 'TIPS', COIN_NAME)
+            tip = await store.sql_mv_cn_multiple(str(user.id), real_amount, list_receivers, 'TIPS', COIN_NAME)
         elif coin_family == "XMR":
             tip = await store.sql_mv_xmr_multiple(str(user.id), list_receivers, real_amount, COIN_NAME, "TIPS")
         elif coin_family == "NANO":

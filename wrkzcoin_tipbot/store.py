@@ -1023,6 +1023,9 @@ async def sql_update_balances(coin: str = None):
                         list_balance_user = {}
                         for tx in get_transfers:
                             # add to balance only confirmation depth meet
+                            if COIN_NAME in POS_COIN and 'generated' in tx and tx['generated']:
+                                # Skip PoS tx
+                                continue
                             if wallet.get_confirm_depth(COIN_NAME) <= int(tx['confirmations']) and tx['amount'] >= wallet.get_min_deposit_amount(COIN_NAME):
                                 if ('address' in tx) and (tx['address'] in list_balance_user) and (tx['amount'] > 0):
                                     list_balance_user[tx['address']] += tx['amount']

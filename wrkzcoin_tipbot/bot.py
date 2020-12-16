@@ -144,6 +144,7 @@ FAUCET_MINMAX = {
     "DEGO": [config.Faucet_min_max.dego_min, config.Faucet_min_max.dego_max],
     "TRTL": [config.Faucet_min_max.trtl_min, config.Faucet_min_max.trtl_max],
     "DOGE": [config.Faucet_min_max.doge_min, config.Faucet_min_max.doge_max],
+    "PGO": [config.Faucet_min_max.pgo_min, config.Faucet_min_max.pgo_max],
     "BTCMZ": [config.Faucet_min_max.btcmz_min, config.Faucet_min_max.btcmz_max],
     "NBXC": [config.Faucet_min_max.nbxc_min, config.Faucet_min_max.nbxc_max],
     "XFG": [config.Faucet_min_max.xfg_min, config.Faucet_min_max.xfg_max],
@@ -163,6 +164,7 @@ GAME_SLOT_REWARD = {
     "NBXC": config.game_reward.nbxc,
     "XFG": config.game_reward.xfg,
     "DOGE": config.game_reward.doge,
+    "PGO": config.game_reward.pgo,
     "WOW": config.game_reward.wow,
     "BAN": config.game_reward.ban,
     "NANO": config.game_reward.nano
@@ -4905,7 +4907,12 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
                 except Exception as e:
                     print(traceback.format_exc())
                     await logchanbot(traceback.format_exc())
+                #print('{} for {}'.format(COIN_NAME, user_id))
+                #print('xfer_in:')
+                #print(xfer_in)
                 userdata_balance = await store.sql_user_balance(str(user_id), COIN_NAME)
+                #print('userdata_balance:')
+                #print(userdata_balance)
                 if COIN_NAME in ENABLE_COIN_DOGE:
                     actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
                 elif COIN_NAME in ENABLE_COIN_NANO:
@@ -7086,7 +7093,7 @@ async def botbalance(ctx, member: discord.Member, coin: str):
 
 @bot.command(pass_context=True, name='register', aliases=['registerwallet', 'reg', 'updatewallet'],
              help=bot_help_register)
-async def register(ctx, wallet_address: str):
+async def register(ctx, wallet_address: str, coin_name: str=None):
     global IS_RESTARTING
     # check if bot is going to restart
     if IS_RESTARTING:
@@ -9703,7 +9710,7 @@ async def tipall(ctx, amount: str, *args):
 
 
 @bot.command(pass_context=True, help=bot_help_send)
-async def send(ctx, amount: str, CoinAddress: str):
+async def send(ctx, amount: str, CoinAddress: str, coin_name: str=None):
     global TX_IN_PROCESS, IS_RESTARTING
     # check if bot is going to restart
     if IS_RESTARTING:
@@ -10524,6 +10531,24 @@ async def address(ctx, *args):
                                 'Checked: Invalid.')
                 return
         elif COIN_NAME == "LTC":
+            valid_address = await doge_validaddress(str(CoinAddress), COIN_NAME)
+            if 'isvalid' in valid_address:
+                if str(valid_address['isvalid']) == "True":
+                    await ctx.message.add_reaction(EMOJI_CHECK)
+                    await ctx.send(f'Address: `{CoinAddress}`\n'
+                                    f'Checked: Valid {COIN_NAME}.')
+                    return
+                else:
+                    await ctx.message.add_reaction(EMOJI_ERROR)
+                    await ctx.send(f'{EMOJI_RED_NO} Address: `{CoinAddress}`\n'
+                                    'Checked: Invalid.')
+                    return
+            else:
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                await ctx.send(f'{EMOJI_RED_NO} Address: `{CoinAddress}`\n'
+                                'Checked: Invalid.')
+                return
+        elif COIN_NAME == "PGO":
             valid_address = await doge_validaddress(str(CoinAddress), COIN_NAME)
             if 'isvalid' in valid_address:
                 if str(valid_address['isvalid']) == "True":
@@ -13226,6 +13251,8 @@ def get_cn_coin_from_address(CoinAddress: str):
         COIN_NAME = "DOGE"
     elif (CoinAddress[0] in ["M", "L"]) and len(CoinAddress) == 34:
         COIN_NAME = "LTC"
+    elif (CoinAddress[0] in ["P", "Q"]) and len(CoinAddress) == 34:
+        COIN_NAME = "PGO"
     elif (CoinAddress[0] in ["3", "1"]) and len(CoinAddress) == 34:
         COIN_NAME = "BTC"
     elif (CoinAddress[0] in ["X"]) and len(CoinAddress) == 34:
@@ -13501,13 +13528,32 @@ async def update_user_guild():
 
 
 
+async def update_block_height():
+    sleep_time = 5
+    while True:
+        for coinItem in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR:
+            if is_maintenance_coin(coinItem):
+                pass
+            elif not is_coin_depositable(coinItem):
+                pass
+            else:
+                start = time.time()
+                try:
+                    await store.sql_block_height(coinItem)
+                except Exception as e:
+                    await logchanbot(traceback.format_exc())
+                end = time.time()
+            if end - start > config.interval.log_longduration:
+                await logchanbot('update_block_height {} longer than {}s'.format(coinItem, config.interval.log_longduration))
+        await asyncio.sleep(sleep_time)
+
+
 # Let's run balance update by a separate process
 async def update_balance():
     INTERVAL_EACH = config.interval.update_balance
     while True:
         # print('BOT.PY: sleep in second: '+str(INTERVAL_EACH))
         for coinItem in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR:
-            long_coinItem = 10 # if a coin longer than 10s process, log it to check performance
             if is_maintenance_coin(coinItem):
                 # print("BOT.PY: {} is on maintenance. No need update balance.".format(coinItem))
                 pass
@@ -13521,8 +13567,11 @@ async def update_balance():
                 try:
                     await store.sql_update_balances(coinItem)
                 except Exception as e:
-                    print(e)
+                    await logchanbot(traceback.format_exc())
                 end = time.time()
+                if end - start > config.interval.log_longduration:
+                    await logchanbot('update_balance {} longer than {}s'.format(coinItem, config.interval.log_longduration))
+
 
 # notify_new_tx_user_noconfirmation
 async def notify_new_tx_user_noconfirmation():
@@ -14669,6 +14718,7 @@ def main():
     bot.loop.create_task(saving_wallet())
     bot.loop.create_task(update_user_guild())
     bot.loop.create_task(update_balance())
+    bot.loop.create_task(update_block_height())
     bot.loop.create_task(notify_new_tx_user())
     bot.loop.create_task(notify_new_tx_user_noconfirmation())
     bot.loop.create_task(store_action_list())

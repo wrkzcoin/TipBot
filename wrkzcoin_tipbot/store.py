@@ -47,6 +47,7 @@ ENABLE_COIN = config.Enable_Coin.split(",")
 ENABLE_XMR = config.Enable_Coin_XMR.split(",")
 ENABLE_COIN_DOGE = config.Enable_Coin_Doge.split(",")
 ENABLE_COIN_NANO = config.Enable_Coin_Nano.split(",")
+POS_COIN = config.PoS_Coin.split(",")
 
 # Coin using wallet-api
 WALLET_API_COIN = config.Enable_Coin_WalletApi.split(",")
@@ -208,7 +209,8 @@ async def sql_user_balance_get_xfer_in(userID: str, coin: str, user_server: str 
         return
     userwallet = await sql_get_userwallet(userID, COIN_NAME)
     # assume insert time 2mn
-    confirmed_inserted = 3*60
+    confirmed_inserted = 8*60
+    confirmed_inserted_doge_fam = 45*60
     IncomingTx = 0
     try:
         await openConnection()
@@ -228,8 +230,8 @@ async def sql_user_balance_get_xfer_in(userID: str, coin: str, user_server: str 
                     if result and result['IncomingTx']: IncomingTx = result['IncomingTx']
                 elif coin_family == "DOGE":
                     sql = """ SELECT SUM(amount) AS IncomingTx FROM doge_get_transfers WHERE `address`=%s AND `coin_name` = %s AND `category` = %s 
-                              AND `confirmations`>%s AND `amount`>0 AND `time_insert`< %s """
-                    await cur.execute(sql, (userwallet['balance_wallet_address'], COIN_NAME, 'receive', wallet.get_confirm_depth(COIN_NAME), int(time.time())-confirmed_inserted))
+                              AND (`confirmations`>=%s OR `time_insert`< %s) AND `amount`>0 """
+                    await cur.execute(sql, (userwallet['balance_wallet_address'], COIN_NAME, 'receive', wallet.get_confirm_depth(COIN_NAME), int(time.time())-confirmed_inserted_doge_fam))
                     result = await cur.fetchone()
                     if result and result['IncomingTx']: IncomingTx = result['IncomingTx']
                 elif coin_family == "NANO":
@@ -670,6 +672,41 @@ async def sql_external_nano_single(user_from: str, amount: int, to_address: str,
     except Exception as e:
         await logchanbot(traceback.format_exc())
     return None
+
+
+async def sql_block_height(coin: str):
+    global pool, redis_conn
+    updateTime = int(time.time())
+    COIN_NAME = coin.upper()
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+
+    gettopblock = None
+    timeout = 60
+    try:
+        if COIN_NAME not in ENABLE_COIN_DOGE:
+            gettopblock = await daemonrpc_client.gettopblock(COIN_NAME, time_out=timeout)
+        else:
+            gettopblock = await rpc_client.call_doge('getblockchaininfo', COIN_NAME)
+    except asyncio.TimeoutError:
+        pass
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+
+    height = None
+    if gettopblock:
+        if COIN_NAME == "TRTL":
+            height = int(gettopblock['height'])
+        elif coin_family in ["TRTL", "BCN", "XMR"]:
+            height = int(gettopblock['block_header']['height'])
+        elif coin_family == "DOGE":
+            height = int(gettopblock['blocks'])
+        # store in redis
+        try:
+            openRedis()
+            if redis_conn:
+                redis_conn.set(f'TIPBOT:DAEMON_HEIGHT_{COIN_NAME}', str(height))
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
 
 
 async def sql_update_balances(coin: str = None):

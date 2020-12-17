@@ -1447,42 +1447,59 @@ async def sql_get_userwallet(userID, coin: str, user_server: str = 'DISCORD'):
 async def sql_get_countLastTip(userID, lastDuration: int):
     global pool
     lapDuration = int(time.time()) - lastDuration
+    count = 0
     try:
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ (SELECT `coin_name`, `from_user`,`amount`,`date` FROM cn_tip WHERE `from_user` = %s AND `date`>%s )
-                          UNION
-                          (SELECT `coin_name`, `from_user`,`amount_total`,`date` FROM cn_tipall WHERE `from_user` = %s AND `date`>%s )
-                          UNION
-                          (SELECT `coin_name`, `from_user`,`amount`,`date` FROM cn_send WHERE `from_user` = %s AND `date`>%s )
-                          UNION
-                          (SELECT `coin_name`, `user_id`,`amount`,`date` FROM cn_withdraw WHERE `user_id` = %s AND `date`>%s )
-                          UNION
-                          (SELECT `coin_name`, `from_user`,`amount`,`date` FROM cn_donate WHERE `from_user` = %s AND `date`>%s )
-                          ORDER BY `date` DESC LIMIT 10 """
+                sql = """ SELECT SUM(
+                          (SELECT COUNT(*) FROM cn_tip WHERE `from_user` = %s AND `date`>%s )
+                          +
+                          (SELECT COUNT(*) FROM cn_tipall WHERE `from_user` = %s AND `date`>%s )
+                          +
+                          (SELECT COUNT(*) FROM cn_send WHERE `from_user` = %s AND `date`>%s )
+                          +
+                          (SELECT COUNT(*) FROM cn_withdraw WHERE `user_id` = %s AND `date`>%s )
+                          +
+                          (SELECT COUNT(*) FROM cn_donate WHERE `from_user` = %s AND `date`>%s )
+                          ) as OLD_CN"""
                 await cur.execute(sql, (str(userID), lapDuration, str(userID), lapDuration, str(userID), lapDuration,
                                         str(userID), lapDuration, str(userID), lapDuration,))
-                result = await cur.fetchall()
+                result = await cur.fetchone()
+                count += int(result['OLD_CN']) if result and result['OLD_CN'] else 0
 
                 # Can be tipall or tip many, let's count all
-                sql = """ SELECT `coin_name`, `from_userid`,`amount`,`date` FROM cnoff_mv_tx WHERE `from_userid` = %s AND `date`>%s 
-                          ORDER BY `date` DESC LIMIT 100 """
+                sql = """ SELECT COUNT(*) as CNOFF FROM cnoff_mv_tx WHERE `from_userid` = %s AND `date`>%s """
                 await cur.execute(sql, (str(userID), lapDuration,))
-                result2 = await cur.fetchall()
+                result = await cur.fetchone()
+                count += int(result['CNOFF']) if result and result['CNOFF'] else 0
 
                 # doge table
-                sql = """ SELECT `coin_name`, `from_userid`,`amount`,`date` FROM doge_mv_tx WHERE `from_userid` = %s AND `date`>%s 
-                          ORDER BY `date` DESC LIMIT 100 """
+                sql = """ SELECT COUNT(*) as DOGE FROM doge_mv_tx WHERE `from_userid` = %s AND `date`>%s """
                 await cur.execute(sql, (str(userID), lapDuration,))
-                result3 = await cur.fetchall()
+                result = await cur.fetchone()
+                count += int(result['DOGE']) if result and result['DOGE'] else 0
 
-                if (result is None) and (result2 is None) and (result3 is None):
-                    return 0
-                else:
-                    return (len(result) if result else 0) + (len(result2) if result2 else 0) + (len(result3) if result3 else 0)
+                # erc table
+                sql = """ SELECT COUNT(*) as ERC FROM erc_mv_tx WHERE `from_userid` = %s AND `date`>%s """
+                await cur.execute(sql, (str(userID), lapDuration,))
+                result = await cur.fetchone()
+                count += int(result['ERC']) if result and result['ERC'] else 0
+
+                # xmr table
+                sql = """ SELECT COUNT(*) as XMR FROM xmroff_mv_tx WHERE `from_userid` = %s AND `date`>%s """
+                await cur.execute(sql, (str(userID), lapDuration,))
+                result = await cur.fetchone()
+                count += int(result['XMR']) if result and result['XMR'] else 0
+
+                # nano table
+                sql = """ SELECT COUNT(*) as NANO FROM nano_mv_tx WHERE `from_userid` = %s AND `date`>%s """
+                await cur.execute(sql, (str(userID), lapDuration,))
+                result = await cur.fetchone()
+                count += int(result['NANO']) if result and result['NANO'] else 0
     except Exception as e:
         await logchanbot(traceback.format_exc())
+    return count
 
 
 async def sql_mv_cn_single(user_from: str, user_to: str, amount: int, tiptype: str, coin: str, user_server: str = 'DISCORD'):

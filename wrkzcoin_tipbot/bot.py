@@ -11731,7 +11731,14 @@ async def stats(ctx, coin: str = None):
         embed.add_field(name="Users", value='{:,.0f}'.format(sum([x.member_count for x in bot.guilds])), inline=True)
         embed.add_field(name="Channels", value='{:,.0f}'.format(sum(1 for g in bot.guilds for _ in g.channels)), inline=True)
         embed.add_field(name="Total faucet claims", value=total_claimed, inline=True)
-        embed.add_field(name="Total tip operations", value='{:,.0f} off-chain, {:,.0f} on-chain'.format(total_tx['off_chain'], total_tx['on_chain']), inline=True)
+        embed.add_field(name="Total tip operations", value='{:,.0f} off-chain, {:,.0f} on-chain'.format(total_tx['off_chain'], total_tx['on_chain']), inline=False)
+        try:
+            your_tip_count_24h = await store.sql_get_countLastTip(str(ctx.message.author.id), 24*3600)
+            your_tip_count_7d = await store.sql_get_countLastTip(str(ctx.message.author.id), 7*24*3600)
+            your_tip_count_30d = await store.sql_get_countLastTip(str(ctx.message.author.id), 30*24*3600)
+            embed.add_field(name="You have tipped", value='24h: {:,.0f}, 7d: {:,.0f}, 30d: {:,.0f}'.format(your_tip_count_24h, your_tip_count_7d, your_tip_count_30d), inline=False)
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
         embed.add_field(name="OTHER LINKS", value="{} / {} / {}".format("[Invite TipBot](http://invite.discord.bot.tips)", "[Support Server](https://discord.com/invite/GpHzURM)", "[TipBot Github](https://github.com/wrkzcoin/TipBot)"), inline=False)
         try:
             msg = await ctx.send(embed=embed)

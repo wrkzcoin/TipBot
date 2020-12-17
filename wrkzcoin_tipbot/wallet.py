@@ -376,6 +376,8 @@ async def doge_sendtoaddress(to_address: str, amount: float, comment: str, coin:
     if comment_to is None:
         comment_to = "tipbot"
     payload = f'"{to_address}", {amount}, "{comment}", "{comment_to}", true'
+    if COIN_NAME in ["PGO"]:
+        payload = f'"{to_address}", {amount}, "{comment}", "{comment_to}"'
     valid_call = await rpc_client.call_doge('sendtoaddress', COIN_NAME, payload=payload)
     return valid_call
 
@@ -570,8 +572,12 @@ def num_format_coin(amount, coin: str):
         coin_decimal = get_decimal(COIN_NAME)
     amount_str = 'Invalid.'
     if COIN_NAME in ["DOGE", "LTC", "BTC", "DASH", "BCH"]:
+        return '{:,.6f}'.format(amount)
+        #return '{:,}'.format(float('%.8g' % (amount)))
+    elif COIN_NAME in config.Enable_Coin_ERC.split(","):
+        # Use amount real
         # return '{:,.6f}'.format(amount)
-        return '{:,}'.format(float('%.8g' % (amount)))
+        return '{:.4f}'.format(amount)
     elif COIN_NAME in ["NANO", "BAN"]:
         return '{:,.8f}'.format(amount / coin_decimal)
     else:

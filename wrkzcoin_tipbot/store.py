@@ -6,6 +6,7 @@ from datetime import datetime
 import time
 import json
 import asyncio
+import aiohttp
 import aiomysql
 from aiomysql.cursors import DictCursor
 
@@ -31,6 +32,13 @@ import pymysql
 # redis
 import redis
 
+from web3 import Web3
+from web3.middleware import geth_poa_middleware
+from ethtoken.abi import EIP20_ABI
+
+from eth_account import Account
+Account.enable_unaudited_hdwallet_features()
+
 redis_pool = None
 redis_conn = None
 redis_expired = 120
@@ -47,6 +55,7 @@ ENABLE_COIN = config.Enable_Coin.split(",")
 ENABLE_XMR = config.Enable_Coin_XMR.split(",")
 ENABLE_COIN_DOGE = config.Enable_Coin_Doge.split(",")
 ENABLE_COIN_NANO = config.Enable_Coin_Nano.split(",")
+ENABLE_COIN_ERC = config.Enable_Coin_ERC.split(",")
 POS_COIN = config.PoS_Coin.split(",")
 
 # Coin using wallet-api
@@ -258,8 +267,10 @@ async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD')
     if user_server not in ['DISCORD', 'TELEGRAM']:
         return
     COIN_NAME = coin.upper()
-
-    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    if COIN_NAME in ENABLE_COIN_ERC:
+        coin_family = "ERC-20"
+    else:
+        coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     try:
         await openConnection()
         async with pool.acquire() as conn:
@@ -410,7 +421,43 @@ async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD')
                         TxExpense = result['TxExpense']
                     else:
                         TxExpense = 0
+                elif coin_family == "ERC-20":
+                    token_info = await get_token_info(COIN_NAME)
+                    confirmed_depth = token_info['deposit_confirm_depth']
+                    # When sending tx out, (negative)
+                    sql = """ SELECT SUM(real_amount+real_external_fee) AS TxExpense FROM erc_external_tx 
+                              WHERE `user_id`=%s AND `token_name` = %s AND `user_server`=%s """
+                    await cur.execute(sql, (userID, COIN_NAME, user_server))
+                    result = await cur.fetchone()
+                    if result:
+                        TxExpense = result['TxExpense']
+                    else:
+                        TxExpense = 0
 
+                    sql = """ SELECT SUM(real_amount) AS Expense FROM erc_mv_tx WHERE `from_userid`=%s AND `token_name` = %s """
+                    await cur.execute(sql, (userID, COIN_NAME))
+                    result = await cur.fetchone()
+                    if result:
+                        Expense = result['Expense']
+                    else:
+                        Expense = 0
+
+                    sql = """ SELECT SUM(real_amount) AS Income FROM erc_mv_tx WHERE `to_userid`=%s AND `token_name` = %s """
+                    await cur.execute(sql, (userID, COIN_NAME))
+                    result = await cur.fetchone()
+                    if result:
+                        Income = result['Income']
+                    else:
+                        Income = 0
+                    # in case deposit fee -real_deposit_fee
+                    sql = """ SELECT SUM(real_amount) AS Deposit FROM erc_move_deposit WHERE `user_id`=%s 
+                              AND `token_name` = %s AND `confirmed_depth`>= %s """
+                    await cur.execute(sql, (userID, COIN_NAME, confirmed_depth))
+                    result = await cur.fetchone()
+                    if result:
+                        Deposit = result['Deposit']
+                    else:
+                        Deposit = 0
                 # Credit by admin is positive (Positive)
                 sql = """ SELECT SUM(amount) AS Credited FROM credit_balance WHERE `coin_name`=%s AND `to_userid`=%s 
                       AND `user_server`=%s """
@@ -553,6 +600,25 @@ async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD')
                     - balance['SwapOut'] - balance['Expended_Voucher'] \
                     - int(balance['OpenOrder']) - int(balance['CompleteOrderMinus']) - int(balance['CompleteOrderMinus2']) \
                     + int(balance['CompleteOrderAdd']) + int(balance['CompleteOrderAdd2'])
+                elif coin_family == "ERC-20":
+                    balance['Deposit'] = float("%.3f" % Deposit) if Deposit else 0
+                    balance['Expense'] = float("%.3f" % Expense) if Expense else 0
+                    balance['Income'] = float("%.3f" % Income) if Income else 0
+                    balance['TxExpense'] = float("%.3f" % TxExpense) if TxExpense else 0
+                    balance['Credited'] = float("%.3f" % Credited) if Credited else 0
+                    balance['GameCredit'] = float("%.3f" % GameCredit) if GameCredit else 0
+                    balance['Expended_Voucher'] = float("%.3f" % Expended_Voucher) if Expended_Voucher else 0
+
+                    balance['OpenOrder'] = float("%.3f" % OpenOrder) if OpenOrder else 0
+                    balance['CompleteOrderMinus'] = float("%.3f" % CompleteOrderMinus) if CompleteOrderMinus else 0
+                    balance['CompleteOrderMinus2'] = float("%.3f" % CompleteOrderMinus2) if CompleteOrderMinus2 else 0
+                    balance['CompleteOrderAdd'] = float("%.3f" % CompleteOrderAdd) if CompleteOrderAdd else 0
+                    balance['CompleteOrderAdd2'] = float("%.3f" % CompleteOrderAdd2) if CompleteOrderAdd2 else 0
+
+                    balance['Adjust'] = float("%.3f" % (balance['Deposit'] + balance['Credited'] + balance['GameCredit'] + balance['Income'] - balance['Expense'] \
+                    - balance['TxExpense'] - balance['Expended_Voucher'] \
+                    - balance['OpenOrder'] - balance['CompleteOrderMinus'] - balance['CompleteOrderMinus2'] \
+                    + balance['CompleteOrderAdd'] + balance['CompleteOrderAdd2']))
                 elif coin_family in ["TRTL", "BCN"]:
                     balance['Expense'] = float(Expense) if Expense else 0
                     balance['Expense'] = float(round(balance['Expense'], 4))
@@ -1166,7 +1232,7 @@ async def sql_get_alluser_balance(coin: str, filename: str):
     return False
 
 
-async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD', chat_id: int = 0):
+async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD', chat_id: int = 0, w=None):
     global pool
     user_server = user_server.upper()
     if user_server not in ['DISCORD', 'TELEGRAM']:
@@ -1174,7 +1240,11 @@ async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD', cha
     if user_server == "TELEGRAM" and chat_id == 0:
         return
     COIN_NAME = coin.upper()
-    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    coin_family = "TRTL"
+    if COIN_NAME in ENABLE_COIN_ERC:
+        coin_family = "ERC-20"
+    else:
+        coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     try:
         await openConnection()
         async with pool.acquire() as conn:
@@ -1197,6 +1267,10 @@ async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD', cha
                     sql = """ SELECT * FROM nano_user WHERE `user_id`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """
                     await cur.execute(sql, (str(userID), COIN_NAME, user_server))
                     result = await cur.fetchone()
+                elif coin_family == "ERC-20":
+                    sql = """ SELECT * FROM erc_user WHERE `user_id`=%s AND `token_name` = %s AND `user_server`=%s LIMIT 1 """
+                    await cur.execute(sql, (str(userID), COIN_NAME, user_server))
+                    result = await cur.fetchone()
                 if result is None:
                     balance_address = None
                     main_address = None
@@ -1213,6 +1287,8 @@ async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD', cha
                     elif coin_family == "NANO":
                         # No need ID
                         balance_address = await wallet.nano_register(COIN_NAME, user_server)
+                    elif coin_family == "ERC-20":
+                        balance_address = w['address']
                     if balance_address is None:
                         print('Internal error during call register wallet-api')
                         return
@@ -1245,6 +1321,14 @@ async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD', cha
                             await cur.execute(sql, (COIN_NAME, str(userID), balance_address['address'], int(time.time()), 
                                                     user_server, chat_id))
                             await conn.commit()
+                        elif coin_family == "ERC-20":
+                            token_info = await get_token_info(COIN_NAME)
+                            sql = """ INSERT INTO erc_user (`token_name`, `contract`, `user_id`, `balance_wallet_address`, `address_ts`, 
+                                      `token_decimal`, `seed`, `private_key`, `user_server`) 
+                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                            await cur.execute(sql, (COIN_NAME, token_info['contract'].lower(), str(userID), w['address'].lower(), int(time.time()), 
+                                              token_info['token_decimal'], encrypt_string(w['seed']), encrypt_string(w['private_key']), user_server))
+                            await conn.commit()
                     return balance_address
                 else:
                     return result
@@ -1259,15 +1343,11 @@ async def sql_update_user(userID, user_wallet_address, coin: str, user_server: s
     user_server = user_server.upper()
     if user_server not in ['DISCORD', 'TELEGRAM']:
         return
-    # Check if exist in redis
-    try:
-        openRedis()
-        if redis_conn and redis_conn.exists(f'TIPBOT:WALLET_{str(userID)}_{COIN_NAME}'):
-            redis_conn.delete(f'TIPBOT:WALLET_{str(userID)}_{COIN_NAME}')
-    except Exception as e:
-        await logchanbot(traceback.format_exc())
 
-    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    if COIN_NAME in ENABLE_COIN_ERC:
+        coin_family = "ERC-20"
+    else:
+        coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     try:
         await openConnection()
         async with pool.acquire() as conn:
@@ -1288,6 +1368,10 @@ async def sql_update_user(userID, user_wallet_address, coin: str, user_server: s
                     sql = """ UPDATE nano_user SET user_wallet_address=%s WHERE `user_id`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """               
                     await cur.execute(sql, (user_wallet_address, str(userID), COIN_NAME, user_server))
                     await conn.commit()
+                elif coin_family == "ERC-20":
+                    sql = """ UPDATE erc_user SET user_wallet_address=%s WHERE `user_id`=%s AND `token_name` = %s AND `user_server`=%s LIMIT 1 """               
+                    await cur.execute(sql, (user_wallet_address, str(userID), COIN_NAME, user_server))
+                    await conn.commit()
                 return user_wallet_address  # return userwallet
     except Exception as e:
         await logchanbot(traceback.format_exc())
@@ -1300,15 +1384,10 @@ async def sql_get_userwallet(userID, coin: str, user_server: str = 'DISCORD'):
     user_server = user_server.upper()
     if user_server not in ['DISCORD', 'TELEGRAM']:
         return
-    # Check if exist in redis
-    try:
-        openRedis()
-        if redis_conn and redis_conn.exists(f'TIPBOT:WALLET_{str(userID)}_{COIN_NAME}'):
-            return json.loads(redis_conn.get(f'TIPBOT:WALLET_{str(userID)}_{COIN_NAME}').decode())
-    except Exception as e:
-        await logchanbot(traceback.format_exc())
-
-    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    if COIN_NAME in ENABLE_COIN_ERC:
+        coin_family = "ERC-20"
+    else:
+        coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     try:
         await openConnection()
         async with pool.acquire() as conn:
@@ -1331,6 +1410,10 @@ async def sql_get_userwallet(userID, coin: str, user_server: str = 'DISCORD'):
                     sql = """ SELECT * FROM nano_user WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s LIMIT 1 """
                     await cur.execute(sql, (str(userID), COIN_NAME, user_server))
                     result = await cur.fetchone()
+                elif coin_family == "ERC-20":
+                    sql = """ SELECT * FROM erc_user WHERE `user_id`=%s AND `token_name`=%s AND `user_server`=%s LIMIT 1 """
+                    await cur.execute(sql, (str(userID), COIN_NAME, user_server))
+                    result = await cur.fetchone()
                 if result:
                     userwallet = result
                     if coin_family == "XMR":
@@ -1350,6 +1433,8 @@ async def sql_get_userwallet(userID, coin: str, user_server: str = 'DISCORD'):
                                 userwallet['locked_balance'] = 0 # There shall not be locked balance
                                 userwallet['lastUpdate'] = result['lastUpdate']
                     elif coin_family == "NANO":
+                        return userwallet
+                    elif coin_family == "ERC-20":
                         return userwallet
                     if result['lastUpdate'] == 0 and (coin_family in ["TRTL", "BCN"] or coin_family == "XMR"):
                         userwallet['lastUpdate'] = result['paymentid_ts']
@@ -3806,6 +3891,518 @@ async def sql_get_tradeview_insert_fetch(market_name: str, pair_name: str, pair_
 
 ## TradeView
 
+
+## Start of Dai
+async def get_token_info(coin: str):
+    global pool
+    TOKEN_NAME = coin.upper()
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            await conn.ping(reconnect=True)
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM erc_contract WHERE `token_name`=%s LIMIT 1 """
+                await cur.execute(sql, (TOKEN_NAME))
+                result = await cur.fetchone()
+                if result: return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return None
+
+
+async def erc_validate_address(address: str, coin: str):
+    TOKEN_NAME = coin.upper()
+    token_info = await get_token_info(TOKEN_NAME)
+    try:
+        # HTTPProvider:
+        w3 = Web3(Web3.HTTPProvider(token_info['http_address']))
+
+        # inject the poa compatibility middleware to the innermost layer
+        w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+
+        return w3.toChecksumAddress(address)
+    except ValueError:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return None
+
+
+async def http_wallet_getbalance(address: str, coin: str) -> Dict:
+    TOKEN_NAME = coin.upper()
+    timeout = 64
+    token_info = await get_token_info(TOKEN_NAME)
+
+    contract = token_info['contract']
+    url = token_info['http_address']
+    if TOKEN_NAME == "XDAI" or TOKEN_NAME == "ETH":
+        data = '{"jsonrpc":"2.0","method":"eth_getBalance","params":["'+address+'", "latest"],"id":1}'
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, headers={'Content-Type': 'application/json'}, json=json.loads(data), timeout=timeout) as response:
+                    if response.status == 200:
+                        res_data = await response.read()
+                        res_data = res_data.decode('utf-8')
+                        await session.close()
+                        decoded_data = json.loads(res_data)
+                        if decoded_data and 'result' in decoded_data:
+                            return int(decoded_data['result'], 16)
+        except asyncio.TimeoutError:
+            print('TIMEOUT: get balance {} for {}s'.format(TOKEN_NAME, timeout))
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+    else:
+        data = '{"jsonrpc":"2.0","method":"eth_call","params":[{"to": "'+contract+'", "data": "0x70a08231000000000000000000000000'+address[2:]+'"}, "latest"],"id":1}'        
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, headers={'Content-Type': 'application/json'}, json=json.loads(data), timeout=timeout) as response:
+                    if response.status == 200:
+                        res_data = await response.read()
+                        res_data = res_data.decode('utf-8')
+                        await session.close()
+                        decoded_data = json.loads(res_data)
+                        if decoded_data and 'result' in decoded_data:
+                            return int(decoded_data['result'], 16)
+        except asyncio.TimeoutError:
+            print('TIMEOUT: get balance {} for {}s'.format(TOKEN_NAME, timeout))
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+    return None
+
+
+async def sql_mv_erc_single(user_from: str, to_user: str, amount: float, coin: str, tiptype: str, contract: str):
+    global pool
+    TOKEN_NAME = coin.upper()
+    token_info = await get_token_info(TOKEN_NAME)
+    if tiptype.upper() not in ["TIP", "DONATE", "FAUCET", "FREETIP", "FREETIPS", "RANDTIP", "GUILDTIP"]:
+        return False
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            await conn.ping(reconnect=True)
+            async with conn.cursor() as cur:
+                sql = """ INSERT INTO erc_mv_tx (`token_name`, `contract`, `from_userid`, `to_userid`, `real_amount`, `token_decimal`, `type`, `date`) 
+                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                await cur.execute(sql, (TOKEN_NAME, contract, user_from, to_user, amount, token_info['token_decimal'], tiptype.upper(), int(time.time()),))
+                await conn.commit()
+                return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return False
+
+
+async def sql_mv_erc_multiple(user_from: str, user_tos, amount_each: float, coin: str, tiptype: str, contract: str):
+    # user_tos is array "account1", "account2", ....
+    global pool
+    TOKEN_NAME = coin.upper()
+    token_info = await get_token_info(TOKEN_NAME)
+    token_decimal = token_info['token_decimal']
+    TOKEN_NAME = coin.upper()
+    if tiptype.upper() not in ["TIPS", "TIPALL", "FREETIP", "FREETIPS"]:
+        return False
+    values_str = []
+    currentTs = int(time.time())
+    for item in user_tos:
+        values_str.append(f"('{TOKEN_NAME}', '{contract}', '{user_from}', '{item}', {amount_each}, {token_decimal}, '{tiptype.upper()}', {currentTs})\n")
+    values_sql = "VALUES " + ",".join(values_str)
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            await conn.ping(reconnect=True)
+            async with conn.cursor() as cur:
+                sql = """ INSERT INTO erc_mv_tx (`token_name`, `contract`, `from_userid`, `to_userid`, `real_amount`, `token_decimal`, `type`, `date`) 
+                          """+values_sql+""" """
+                await cur.execute(sql,)
+                await conn.commit()
+                return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return False
+
+
+async def sql_external_erc_single(user_id: str, to_address: str, amount: float, coin: str, tiptype: str, user_server: str='DISCORD'):
+    global pool
+    TOKEN_NAME = coin.upper()
+    if tiptype.upper() not in ["SEND", "WITHDRAW"]:
+        return False
+    token_info = await get_token_info(TOKEN_NAME)
+    user_server = user_server.upper()
+    url = token_info['http_address']
+    try:
+        # HTTPProvider:
+        w3 = Web3(Web3.HTTPProvider(url))
+
+        # inject the poa compatibility middleware to the innermost layer
+        w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+
+        unicorns = w3.eth.contract(address=w3.toChecksumAddress(token_info['contract']), abi=EIP20_ABI)
+        nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(token_info['withdraw_address']))
+                        
+        unicorn_txn = unicorns.functions.transfer(
+            w3.toChecksumAddress(to_address),
+            int(amount * 10**token_info['token_decimal']) # amount to send
+         ).buildTransaction({
+            'from': w3.toChecksumAddress(token_info['withdraw_address']),
+            'gasPrice': w3.eth.gasPrice,
+            'nonce': nonce
+         })
+
+        signed_txn = w3.eth.account.signTransaction(unicorn_txn, private_key=decrypt_string(token_info['withdraw_key']))
+        sent_tx = w3.eth.sendRawTransaction(signed_txn.rawTransaction)
+        if signed_txn and sent_tx:
+            # Add to SQL
+            try:
+                await openConnection()
+                async with pool.acquire() as conn:
+                    await conn.ping(reconnect=True)
+                    async with conn.cursor() as cur:
+                        sql = """ INSERT INTO erc_external_tx (`token_name`, `contract`, `user_id`, `real_amount`, 
+                                  `real_external_fee`, `token_decimal`, `to_address`, `date`, `txn`, 
+                                  `type`, `user_server`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                        await cur.execute(sql, (TOKEN_NAME, token_info['contract'], user_id, amount, token_info['real_withdraw_fee'], token_info['token_decimal'], 
+                                                to_address, int(time.time()), sent_tx.hex(), tiptype.upper(), user_server))
+                        await conn.commit()
+                        return sent_tx.hex()
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+
+
+async def erc_check_minimum_deposit(coin: str):
+    global pool
+    TOKEN_NAME = coin.upper()
+    if TOKEN_NAME not in ENABLE_COIN_ERC:
+        return
+
+    token_info = await get_token_info(TOKEN_NAME)
+
+    url = token_info['http_address']
+    list_user_addresses = await sql_get_all_erc_user(TOKEN_NAME)
+
+    # get withdraw gas balance
+    gas_main_balance = None
+    try:
+        gas_main_balance = await http_wallet_getbalance(token_info['withdraw_address'], "XDAI")
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    # main balance has gas?
+    main_balance_gas_sufficient = True
+    if gas_main_balance and gas_main_balance / 10**token_info['token_decimal'] >= token_info['min_gas_tx']:
+        #print(f"Main gas balance for {TOKEN_NAME} sufficient. Having {gas_main_balance / 10**18}")
+        pass
+    else:
+        main_balance_gas_sufficient = False
+        #print(f"Main gas balance for {TOKEN_NAME} not sufficient!!! Need {token_info['min_gas_tx']}, having only {gas_main_balance}")
+        await logchanbot(f"Main gas balance for {TOKEN_NAME} not sufficient!!! Need {token_info['min_gas_tx']}, having only {gas_main_balance}.")
+        pass
+    if list_user_addresses and len(list_user_addresses) > 0:
+        # OK check them one by one
+        for each_address in list_user_addresses:
+            deposited_balance = await http_wallet_getbalance(each_address['balance_wallet_address'], TOKEN_NAME)
+            real_deposited_balance = deposited_balance / 10**token_info['token_decimal']
+            if real_deposited_balance < token_info['min_move_deposit']:
+                pass
+            else:
+                # Check if there is gas remaining to spend there
+                gas_of_address = await http_wallet_getbalance(each_address['balance_wallet_address'], "XDAI")
+                if gas_of_address / 10**18 >= token_info['min_gas_tx']:
+                    # print('Address {} still has gas {}{}'.format(each_address['balance_wallet_address'], gas_of_address / 10**18, "ETH/DAI"))
+                    # TODO: Let's move balance from there to withdraw address and save Tx
+                    # HTTPProvider:
+                    w3 = Web3(Web3.HTTPProvider(url))
+
+                    # inject the poa compatibility middleware to the innermost layer
+                    w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+
+                    unicorns = w3.eth.contract(address=w3.toChecksumAddress(token_info['contract']), abi=EIP20_ABI)
+                    nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(each_address['balance_wallet_address']))
+                    
+                    unicorn_txn = unicorns.functions.transfer(
+                         w3.toChecksumAddress(token_info['withdraw_address']),
+                         deposited_balance # amount to send
+                     ).buildTransaction({
+                         'from': w3.toChecksumAddress(each_address['balance_wallet_address']),
+                         'gasPrice': w3.eth.gasPrice,
+                         'nonce': nonce
+                     })
+
+                    try:
+                        signed_txn = w3.eth.account.signTransaction(unicorn_txn, private_key=decrypt_string(each_address['private_key']))
+                        sent_tx = w3.eth.sendRawTransaction(signed_txn.rawTransaction)
+                        if signed_txn and sent_tx:
+                            # Add to SQL
+                            try:
+                                inserted = await erc_move_deposit_for_spendable(TOKEN_NAME, token_info['contract'], each_address['user_id'], each_address['balance_wallet_address'], 
+                                                                                token_info['withdraw_address'], real_deposited_balance, token_info['real_deposit_fee'],  token_info['token_decimal'],
+                                                                                sent_tx.hex())
+                            except Exception as e:
+                                traceback.print_exc(file=sys.stdout)
+                                await logchanbot(traceback.format_exc())
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                elif gas_of_address / 10**18 < token_info['min_gas_tx'] and main_balance_gas_sufficient:
+                    # HTTPProvider:
+                    w3 = Web3(Web3.HTTPProvider(url))
+
+                    # inject the poa compatibility middleware to the innermost layer
+                    # w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+                    # TODO: Let's move gas from main to have sufficient to move
+                    nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(token_info['withdraw_address']))
+
+                    # get gas price
+                    gasPrice = w3.eth.gasPrice
+
+                    estimateGas = w3.eth.estimateGas({'to': w3.toChecksumAddress(each_address['balance_wallet_address']), 'from': w3.toChecksumAddress(token_info['withdraw_address']), 'value':  int(token_info['move_gas_amount'] * 10**token_info['token_decimal'])})
+
+                    amount_gas_move = int(token_info['move_gas_amount'] * 10**18)
+                    transaction = {
+                            'from': w3.toChecksumAddress(token_info['withdraw_address']),
+                            'to': w3.toChecksumAddress(each_address['balance_wallet_address']),
+                            'value': amount_gas_move,
+                            'nonce': nonce,
+                            'gasPrice': gasPrice,
+                            'gas': estimateGas,
+                            'chainId': token_info['chain_id']
+                        }
+                    try:
+                        signed = w3.eth.account.sign_transaction(transaction, private_key=decrypt_string(token_info['withdraw_key']))
+                        # send Transaction for gas:
+                        send_gas_tx = w3.eth.sendRawTransaction(signed.rawTransaction)
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                elif gas_of_address / 10**18 < token_info['move_gas_amount'] and main_balance_gas_sufficient == False:
+                    await logchanbot('Main address has no sufficient balance to supply gas {}. Main address for gas deposit {}'.format(each_address['balance_wallet_address'], token_info['withdraw_address']))
+                else:
+                    print('Internal error for gas checking {}'.format(each_address['balance_wallet_address']))
+
+
+async def erc_move_deposit_for_spendable(token_name: str, contract: str, user_id: str, balance_wallet_address: str, to_main_address: str, \
+real_amount: float, real_deposit_fee: float, token_decimal: int, txn: str, user_server: str='DISCORD'):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            await conn.ping(reconnect=True)
+            async with conn.cursor() as cur:
+                sql = """ INSERT INTO erc_move_deposit (`token_name`, `contract`, `user_id`, `balance_wallet_address`, 
+                          `to_main_address`, `real_amount`, `real_deposit_fee`, `token_decimal`, `txn`, `time_insert`, 
+                          `user_server`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                await cur.execute(sql, (token_name, contract, user_id, balance_wallet_address, to_main_address, real_amount, 
+                                        real_deposit_fee, token_decimal, txn, int(time.time()), user_server.upper()))
+                await conn.commit()
+                return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return False
+
+
+async def erc_check_pending_move_deposit(coin: str):
+    global pool
+    TOKEN_NAME = coin.upper()
+
+    topBlock = await erc_get_block_number(TOKEN_NAME)
+    if topBlock is None:
+        await logchanbot('Can not get top block for {}.'.format(TOKEN_NAME))
+        return
+
+    token_info = await get_token_info(TOKEN_NAME)
+    list_pending = await sql_get_pending_move_deposit(TOKEN_NAME)
+
+    #print(f'list_pending {TOKEN_NAME}:')
+    #print('Number: {}'.format(len(list_pending) if list_pending else 0))
+    if list_pending and len(list_pending) > 0:
+        # Have pending, let's check
+        for each_tx in list_pending:
+            # Check tx from RPC
+            check_tx = await erc_get_tx_info(each_tx['txn'], TOKEN_NAME)
+            if check_tx:
+                tx_block_number = int(check_tx['blockNumber'], 16)
+                if topBlock - token_info['deposit_confirm_depth'] > tx_block_number:
+                    confirming_tx = await erc_update_confirming_move_tx(each_tx['txn'], tx_block_number, topBlock - tx_block_number, TOKEN_NAME)
+
+
+async def erc_update_confirming_move_tx(tx: str, blockNumber: int, confirmed_depth: int, coin: str):
+    global pool
+    TOKEN_NAME = coin.upper()
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            await conn.ping(reconnect=True)
+            async with conn.cursor() as cur:
+                sql = """ UPDATE erc_move_deposit SET `status`=%s, `blockNumber`=%s, `confirmed_depth`=%s WHERE `txn`=%s AND `token_name`=%s """
+                await cur.execute(sql, ('CONFIRMED', blockNumber, confirmed_depth, tx, TOKEN_NAME))
+                await conn.commit()
+                return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return None
+
+
+async def erc_get_tx_info(tx: str, coin: str):
+    TOKEN_NAME = coin.upper()
+    timeout = 64
+    token_info = await get_token_info(TOKEN_NAME)
+    data = '{"jsonrpc":"2.0", "method": "eth_getTransactionByHash", "params":["'+tx+'"], "id":1}'
+    url = token_info['http_address']
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, headers={'Content-Type': 'application/json'}, json=json.loads(data), timeout=timeout) as response:
+                if response.status == 200:
+                    res_data = await response.read()
+                    res_data = res_data.decode('utf-8')
+                    await session.close()
+                    decoded_data = json.loads(res_data)
+                    if decoded_data and 'result' in decoded_data:
+                        return decoded_data['result']
+    except asyncio.TimeoutError:
+        print('TIMEOUT: get block number {}s for TOKEN {}'.format(timeout, TOKEN_NAME))
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return None
+
+
+async def erc_get_block_number(coin: str):
+    TOKEN_NAME = coin.upper()
+    if TOKEN_NAME not in ENABLE_COIN_ERC:
+        return
+    token_info = await get_token_info(TOKEN_NAME)
+    timeout = 64
+    data = '{"jsonrpc":"2.0", "method":"eth_blockNumber", "params":[], "id":1}'
+    url = token_info['http_address']
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, headers={'Content-Type': 'application/json'}, json=json.loads(data), timeout=timeout) as response:
+                if response.status == 200:
+                    res_data = await response.read()
+                    res_data = res_data.decode('utf-8')
+                    await session.close()
+                    decoded_data = json.loads(res_data)
+                    if decoded_data and 'result' in decoded_data:
+                        # store in redis
+                        try:
+                            openRedis()
+                            if redis_conn:
+                                redis_conn.set(f'TIPBOT:DAEMON_HEIGHT_{TOKEN_NAME}', str(int(decoded_data['result'], 16)))
+                        except Exception as e:
+                            await logchanbot(traceback.format_exc())
+                        return int(decoded_data['result'], 16)
+    except asyncio.TimeoutError:
+        print('TIMEOUT: get block number {}s for TOKEN {}'.format(timeout, TOKEN_NAME))
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return None
+
+
+async def sql_get_pending_move_deposit(coin: str):
+    global pool
+    TOKEN_NAME = coin.upper()
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            await conn.ping(reconnect=True)
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM erc_move_deposit 
+                          WHERE `status`=%s AND `token_name`=%s 
+                          AND `notified_confirmation`=%s """
+                await cur.execute(sql, ('PENDING', TOKEN_NAME, 'NO'))
+                result = await cur.fetchall()
+                if result: return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return None
+
+
+async def erc_get_pending_notification_users(coin: str):
+    global pool
+    TOKEN_NAME = coin.upper()
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            await conn.ping(reconnect=True)
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM erc_move_deposit 
+                          WHERE `status`=%s AND `token_name`=%s 
+                          AND `notified_confirmation`=%s """
+                await cur.execute(sql, ('CONFIRMED', TOKEN_NAME, 'NO'))
+                result = await cur.fetchall()
+                if result: return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return None
+
+
+async def erc_updating_pending_move_deposit(notified_confirmation: bool, failed_notification: bool, txn: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            await conn.ping(reconnect=True)
+            async with conn.cursor() as cur:
+                sql = """ UPDATE erc_move_deposit 
+                          SET `notified_confirmation`=%s, `failed_notification`=%s, `time_notified`=%s
+                          WHERE `txn`=%s """
+                await cur.execute(sql, ('YES' if notified_confirmation else 'NO', 'YES' if failed_notification else 'NO', int(time.time()), txn))
+                await conn.commit()
+                return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return None
+
+
+async def sql_get_all_erc_user(coin: str):
+    global pool
+    TOKEN_NAME = coin.upper()
+    if TOKEN_NAME not in ENABLE_COIN_ERC:
+        return
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            await conn.ping(reconnect=True)
+            async with conn.cursor() as cur:
+                sql = """ SELECT `user_id`, `token_name`, `contract`, `balance_wallet_address`, `seed`, `private_key` FROM erc_user 
+                          WHERE `user_id`<>%s AND `token_name`=%s """
+                await cur.execute(sql, ('WITHDRAW', TOKEN_NAME))
+                result = await cur.fetchall()
+                if result: return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return None
+
+
+async def erc_check_balance_address_in_users(address: str, coin: str):
+    global pool
+    TOKEN_NAME = coin.upper()
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            await conn.ping(reconnect=True)
+            async with conn.cursor() as cur:
+                sql = """ SELECT `balance_wallet_address` FROM erc_user 
+                          WHERE `token_name`=%s AND LOWER(`balance_wallet_address`)=LOWER(%s) LIMIT 1 """
+                await cur.execute(sql, (TOKEN_NAME, address))
+                result = await cur.fetchone()
+                if result: return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return None
+
+## End of xDai
 
 # Steal from https://nitratine.net/blog/post/encryption-and-decryption-in-python/
 def encrypt_string(to_encrypt: str):

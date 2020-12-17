@@ -129,6 +129,8 @@ async def call_doge(method_name: str, coin: str, payload: str = None) -> Dict:
                     await session.close()
                     decoded_data = json.loads(res_data)
                     return decoded_data['result']
+                else:
+                    await logchanbot(f'Call {COIN_NAME} returns {str(response.status)} with method {method_name}')
     except asyncio.TimeoutError:
         print('TIMEOUT: method_name: {} - COIN: {} - timeout {}'.format(method_name, coin.upper(), timeout))
         await logchanbot('call_doge: method_name: {} - COIN: {} - timeout {}'.format(method_name, coin.upper(), timeout))

@@ -1778,6 +1778,14 @@ async def sql_get_donate_list():
                         donate_list.update({coin: 0})
                     else:
                         donate_list.update({coin: float(result['donate'])})
+                for coin in ENABLE_COIN_ERC:
+                    sql = """ SELECT SUM(real_amount) AS donate FROM erc_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
+                    await cur.execute(sql, (coin.upper()))
+                    result = await cur.fetchone()
+                    if result['donate'] is None:
+                        donate_list.update({coin: 0})
+                    else:
+                        donate_list.update({coin: float(result['donate'])})
             return donate_list
     except Exception as e:
         await logchanbot(traceback.format_exc())
@@ -3933,7 +3941,7 @@ async def erc_validate_address(address: str, coin: str):
     token_info = await get_token_info(TOKEN_NAME)
     try:
         # HTTPProvider:
-        w3 = Web3(Web3.HTTPProvider(token_info['http_address']))
+        w3 = Web3(Web3.HTTPProvider(token_info[token_info['http_using']]))
 
         # inject the poa compatibility middleware to the innermost layer
         w3.middleware_onion.inject(geth_poa_middleware, layer=0)
@@ -3946,13 +3954,39 @@ async def erc_validate_address(address: str, coin: str):
 
 
 async def http_wallet_getbalance(address: str, coin: str) -> Dict:
+    global redis_conn
     TOKEN_NAME = coin.upper()
+    key = f'TIPBOT:BAL_TOKEN_{TOKEN_NAME}:{address}'
+    balance = 0
+    try:
+        openRedis()
+        if redis_conn and redis_conn.exists(key):
+            return int(redis_conn.get(key))
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+
     timeout = 64
     token_info = await get_token_info(TOKEN_NAME)
-
     contract = token_info['contract']
-    url = token_info['http_address']
-    if TOKEN_NAME == "XDAI" or TOKEN_NAME == "ETH":
+    url = token_info[token_info['http_using']]
+    if TOKEN_NAME == "XDAI":
+        url = token_info['api_url'] + "?module=account&action=eth_get_balance&address="+address
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, headers={'Content-Type': 'application/json'}, timeout=timeout) as response:
+                    if response.status == 200:
+                        res_data = await response.read()
+                        res_data = res_data.decode('utf-8')
+                        await session.close()
+                        decoded_data = json.loads(res_data)
+                        if decoded_data and 'result' in decoded_data:
+                            balance = int(decoded_data['result'], 16)
+        except asyncio.TimeoutError:
+            print('TIMEOUT: get balance {} for {}s'.format(TOKEN_NAME, timeout))
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+    elif TOKEN_NAME == "ETH":
         data = '{"jsonrpc":"2.0","method":"eth_getBalance","params":["'+address+'", "latest"],"id":1}'
         try:
             async with aiohttp.ClientSession() as session:
@@ -3963,7 +3997,7 @@ async def http_wallet_getbalance(address: str, coin: str) -> Dict:
                         await session.close()
                         decoded_data = json.loads(res_data)
                         if decoded_data and 'result' in decoded_data:
-                            return int(decoded_data['result'], 16)
+                            balance = int(decoded_data['result'], 16)
         except asyncio.TimeoutError:
             print('TIMEOUT: get balance {} for {}s'.format(TOKEN_NAME, timeout))
         except Exception as e:
@@ -3980,13 +4014,22 @@ async def http_wallet_getbalance(address: str, coin: str) -> Dict:
                         await session.close()
                         decoded_data = json.loads(res_data)
                         if decoded_data and 'result' in decoded_data:
-                            return int(decoded_data['result'], 16)
+                            balance = int(decoded_data['result'], 16)
         except asyncio.TimeoutError:
             print('TIMEOUT: get balance {} for {}s'.format(TOKEN_NAME, timeout))
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
-    return None
+
+    # store in redis if balance equal to 0, else no need.
+    if balance == 0:
+        try:
+            openRedis()
+            if redis_conn:
+                redis_conn.set(key, str(balance), ex=60)
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
+    return balance
 
 
 async def sql_mv_erc_single(user_from: str, to_user: str, amount: float, coin: str, tiptype: str, contract: str):
@@ -4048,28 +4091,54 @@ async def sql_external_erc_single(user_id: str, to_address: str, amount: float, 
         return False
     token_info = await get_token_info(TOKEN_NAME)
     user_server = user_server.upper()
-    url = token_info['http_address']
+    url = token_info[token_info['http_using']]
     try:
         # HTTPProvider:
         w3 = Web3(Web3.HTTPProvider(url))
+        signed_txn = None
+        sent_tx = None
 
-        # inject the poa compatibility middleware to the innermost layer
-        w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+        if TOKEN_NAME == "XDAI" or TOKEN_NAME == "ETH":
+            nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(token_info['withdraw_address']))
 
-        unicorns = w3.eth.contract(address=w3.toChecksumAddress(token_info['contract']), abi=EIP20_ABI)
-        nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(token_info['withdraw_address']))
-                        
-        unicorn_txn = unicorns.functions.transfer(
-            w3.toChecksumAddress(to_address),
-            int(amount * 10**token_info['token_decimal']) # amount to send
-         ).buildTransaction({
-            'from': w3.toChecksumAddress(token_info['withdraw_address']),
-            'gasPrice': w3.eth.gasPrice,
-            'nonce': nonce
-         })
+            # get gas price
+            gasPrice = w3.eth.gasPrice
 
-        signed_txn = w3.eth.account.signTransaction(unicorn_txn, private_key=decrypt_string(token_info['withdraw_key']))
-        sent_tx = w3.eth.sendRawTransaction(signed_txn.rawTransaction)
+            estimateGas = w3.eth.estimateGas({'to': w3.toChecksumAddress(to_address), 'from': w3.toChecksumAddress(token_info['withdraw_address']), 'value':  int(amount * 10**token_info['token_decimal'])})
+
+            atomic_amount = int(amount * 10**18)
+            transaction = {
+                    'from': w3.toChecksumAddress(token_info['withdraw_address']),
+                    'to': w3.toChecksumAddress(to_address),
+                    'value': atomic_amount,
+                    'nonce': nonce,
+                    'gasPrice': gasPrice,
+                    'gas': estimateGas,
+                    'chainId': token_info['chain_id']
+                }
+            try:
+                signed_txn = w3.eth.account.sign_transaction(transaction, private_key=decrypt_string(token_info['withdraw_key']))
+                # send Transaction for gas:
+                sent_tx = w3.eth.sendRawTransaction(signed_txn.rawTransaction)
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+        else:
+            # inject the poa compatibility middleware to the innermost layer
+            w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+            unicorns = w3.eth.contract(address=w3.toChecksumAddress(token_info['contract']), abi=EIP20_ABI)
+            nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(token_info['withdraw_address']))
+                            
+            unicorn_txn = unicorns.functions.transfer(
+                w3.toChecksumAddress(to_address),
+                int(amount * 10**token_info['token_decimal']) # amount to send
+             ).buildTransaction({
+                'from': w3.toChecksumAddress(token_info['withdraw_address']),
+                'gasPrice': w3.eth.gasPrice,
+                'nonce': nonce
+             })
+
+            signed_txn = w3.eth.account.signTransaction(unicorn_txn, private_key=decrypt_string(token_info['withdraw_key']))
+            sent_tx = w3.eth.sendRawTransaction(signed_txn.rawTransaction)
         if signed_txn and sent_tx:
             # Add to SQL
             try:
@@ -4100,58 +4169,50 @@ async def erc_check_minimum_deposit(coin: str):
 
     token_info = await get_token_info(TOKEN_NAME)
 
-    url = token_info['http_address']
+    url = token_info[token_info['http_using']]
     list_user_addresses = await sql_get_all_erc_user(TOKEN_NAME)
 
-    # get withdraw gas balance
-    gas_main_balance = None
-    try:
-        gas_main_balance = await http_wallet_getbalance(token_info['withdraw_address'], "XDAI")
-    except Exception as e:
-        traceback.print_exc(file=sys.stdout)
-    # main balance has gas?
-    main_balance_gas_sufficient = True
-    if gas_main_balance and gas_main_balance / 10**token_info['token_decimal'] >= token_info['min_gas_tx']:
-        #print(f"Main gas balance for {TOKEN_NAME} sufficient. Having {gas_main_balance / 10**18}")
-        pass
-    else:
-        main_balance_gas_sufficient = False
-        #print(f"Main gas balance for {TOKEN_NAME} not sufficient!!! Need {token_info['min_gas_tx']}, having only {gas_main_balance}")
-        await logchanbot(f"Main gas balance for {TOKEN_NAME} not sufficient!!! Need {token_info['min_gas_tx']}, having only {gas_main_balance}.")
-        pass
-    if list_user_addresses and len(list_user_addresses) > 0:
-        # OK check them one by one
-        for each_address in list_user_addresses:
-            deposited_balance = await http_wallet_getbalance(each_address['balance_wallet_address'], TOKEN_NAME)
-            real_deposited_balance = deposited_balance / 10**token_info['token_decimal']
-            if real_deposited_balance < token_info['min_move_deposit']:
-                pass
-            else:
-                # Check if there is gas remaining to spend there
-                gas_of_address = await http_wallet_getbalance(each_address['balance_wallet_address'], "XDAI")
-                if gas_of_address / 10**18 >= token_info['min_gas_tx']:
-                    # print('Address {} still has gas {}{}'.format(each_address['balance_wallet_address'], gas_of_address / 10**18, "ETH/DAI"))
-                    # TODO: Let's move balance from there to withdraw address and save Tx
-                    # HTTPProvider:
-                    w3 = Web3(Web3.HTTPProvider(url))
-
-                    # inject the poa compatibility middleware to the innermost layer
-                    w3.middleware_onion.inject(geth_poa_middleware, layer=0)
-
-                    unicorns = w3.eth.contract(address=w3.toChecksumAddress(token_info['contract']), abi=EIP20_ABI)
-                    nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(each_address['balance_wallet_address']))
-                    
-                    unicorn_txn = unicorns.functions.transfer(
-                         w3.toChecksumAddress(token_info['withdraw_address']),
-                         deposited_balance # amount to send
-                     ).buildTransaction({
-                         'from': w3.toChecksumAddress(each_address['balance_wallet_address']),
-                         'gasPrice': w3.eth.gasPrice,
-                         'nonce': nonce
-                     })
-
+    if TOKEN_NAME == "XDAI" or TOKEN_NAME == "ETH":
+        # we do not need gas, we move straight
+        if list_user_addresses and len(list_user_addresses) > 0:
+            # OK check them one by one
+            for each_address in list_user_addresses:
+                deposited_balance = await http_wallet_getbalance(each_address['balance_wallet_address'], TOKEN_NAME)
+                if deposited_balance is None:
+                    continue
+                real_deposited_balance = float("%.6f" % (int(deposited_balance) / 10**token_info['token_decimal']))
+                if real_deposited_balance < token_info['min_move_deposit']:
+                    # skip balance move below this
+                    # print("Skipped {}, {}. Having {}, minimum {}".format(TOKEN_NAME, each_address['balance_wallet_address'], real_deposited_balance, token_info['min_move_deposit']))
+                    pass
+                # token_info['withdraw_address'] => each_address['balance_wallet_address']
+                else:
                     try:
-                        signed_txn = w3.eth.account.signTransaction(unicorn_txn, private_key=decrypt_string(each_address['private_key']))
+                        w3 = Web3(Web3.HTTPProvider(url))
+
+                        # inject the poa compatibility middleware to the innermost layer
+                        # w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+
+                        nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(each_address['balance_wallet_address']))
+
+                        # get gas price
+                        gasPrice = w3.eth.gasPrice
+
+                        estimateGas = w3.eth.estimateGas({'to': w3.toChecksumAddress(token_info['withdraw_address']), 'from': w3.toChecksumAddress(each_address['balance_wallet_address']), 'value':  int(real_deposited_balance * 10**token_info['token_decimal'])})
+
+                        atomic_amount = deposited_balance
+                        transaction = {
+                                'from': w3.toChecksumAddress(each_address['balance_wallet_address']),
+                                'to': w3.toChecksumAddress(token_info['withdraw_address']),
+                                'value': atomic_amount - gasPrice*estimateGas,
+                                'nonce': nonce,
+                                'gasPrice': gasPrice,
+                                'gas': estimateGas,
+                                'chainId': token_info['chain_id']
+                            }
+                    
+                        signed_txn = w3.eth.account.sign_transaction(transaction, private_key=decrypt_string(each_address['private_key']))
+                        # send Transaction for gas:
                         sent_tx = w3.eth.sendRawTransaction(signed_txn.rawTransaction)
                         if signed_txn and sent_tx:
                             # Add to SQL
@@ -4161,43 +4222,110 @@ async def erc_check_minimum_deposit(coin: str):
                                                                                 sent_tx.hex())
                             except Exception as e:
                                 traceback.print_exc(file=sys.stdout)
-                                await logchanbot(traceback.format_exc())
+                                #await logchanbot(traceback.format_exc())
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
-                elif gas_of_address / 10**18 < token_info['min_gas_tx'] and main_balance_gas_sufficient:
-                    # HTTPProvider:
-                    w3 = Web3(Web3.HTTPProvider(url))
-
-                    # inject the poa compatibility middleware to the innermost layer
-                    # w3.middleware_onion.inject(geth_poa_middleware, layer=0)
-                    # TODO: Let's move gas from main to have sufficient to move
-                    nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(token_info['withdraw_address']))
-
-                    # get gas price
-                    gasPrice = w3.eth.gasPrice
-
-                    estimateGas = w3.eth.estimateGas({'to': w3.toChecksumAddress(each_address['balance_wallet_address']), 'from': w3.toChecksumAddress(token_info['withdraw_address']), 'value':  int(token_info['move_gas_amount'] * 10**token_info['token_decimal'])})
-
-                    amount_gas_move = int(token_info['move_gas_amount'] * 10**18)
-                    transaction = {
-                            'from': w3.toChecksumAddress(token_info['withdraw_address']),
-                            'to': w3.toChecksumAddress(each_address['balance_wallet_address']),
-                            'value': amount_gas_move,
-                            'nonce': nonce,
-                            'gasPrice': gasPrice,
-                            'gas': estimateGas,
-                            'chainId': token_info['chain_id']
-                        }
-                    try:
-                        signed = w3.eth.account.sign_transaction(transaction, private_key=decrypt_string(token_info['withdraw_key']))
-                        # send Transaction for gas:
-                        send_gas_tx = w3.eth.sendRawTransaction(signed.rawTransaction)
-                    except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
-                elif gas_of_address / 10**18 < token_info['move_gas_amount'] and main_balance_gas_sufficient == False:
-                    await logchanbot('Main address has no sufficient balance to supply gas {}. Main address for gas deposit {}'.format(each_address['balance_wallet_address'], token_info['withdraw_address']))
+                        #await logchanbot(traceback.format_exc())
+    else:
+        # get withdraw gas balance
+        gas_main_balance = None
+        try:
+            gas_main_balance = await http_wallet_getbalance(token_info['withdraw_address'], "XDAI")
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        # main balance has gas?
+        main_balance_gas_sufficient = True
+        if gas_main_balance and gas_main_balance / 10**token_info['token_decimal'] >= token_info['min_gas_tx']:
+            #print(f"Main gas balance for {TOKEN_NAME} sufficient. Having {gas_main_balance / 10**18}")
+            pass
+        else:
+            main_balance_gas_sufficient = False
+            #print(f"Main gas balance for {TOKEN_NAME} not sufficient!!! Need {token_info['min_gas_tx']}, having only {gas_main_balance}")
+            await logchanbot(f"Main gas balance for {TOKEN_NAME} not sufficient!!! Need {token_info['min_gas_tx']}, having only {gas_main_balance}.")
+            pass
+        if list_user_addresses and len(list_user_addresses) > 0:
+            # OK check them one by one
+            for each_address in list_user_addresses:
+                deposited_balance = await http_wallet_getbalance(each_address['balance_wallet_address'], TOKEN_NAME)
+                if deposited_balance is None:
+                    continue
+                real_deposited_balance = int(deposited_balance) / 10**token_info['token_decimal']
+                if real_deposited_balance < token_info['min_move_deposit']:
+                    pass
                 else:
-                    print('Internal error for gas checking {}'.format(each_address['balance_wallet_address']))
+                    # Check if there is gas remaining to spend there
+                    gas_of_address = await http_wallet_getbalance(each_address['balance_wallet_address'], "XDAI")
+                    if gas_of_address / 10**18 >= token_info['min_gas_tx']:
+                        # print('Address {} still has gas {}{}'.format(each_address['balance_wallet_address'], gas_of_address / 10**18, "ETH/DAI"))
+                        # TODO: Let's move balance from there to withdraw address and save Tx
+                        # HTTPProvider:
+                        w3 = Web3(Web3.HTTPProvider(url))
+
+                        # inject the poa compatibility middleware to the innermost layer
+                        w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+
+                        unicorns = w3.eth.contract(address=w3.toChecksumAddress(token_info['contract']), abi=EIP20_ABI)
+                        nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(each_address['balance_wallet_address']))
+                        
+                        unicorn_txn = unicorns.functions.transfer(
+                             w3.toChecksumAddress(token_info['withdraw_address']),
+                             deposited_balance # amount to send
+                         ).buildTransaction({
+                             'from': w3.toChecksumAddress(each_address['balance_wallet_address']),
+                             'gasPrice': w3.eth.gasPrice,
+                             'nonce': nonce
+                         })
+
+                        try:
+                            signed_txn = w3.eth.account.signTransaction(unicorn_txn, private_key=decrypt_string(each_address['private_key']))
+                            sent_tx = w3.eth.sendRawTransaction(signed_txn.rawTransaction)
+                            if signed_txn and sent_tx:
+                                # Add to SQL
+                                try:
+                                    inserted = await erc_move_deposit_for_spendable(TOKEN_NAME, token_info['contract'], each_address['user_id'], each_address['balance_wallet_address'], 
+                                                                                    token_info['withdraw_address'], real_deposited_balance, token_info['real_deposit_fee'],  token_info['token_decimal'],
+                                                                                    sent_tx.hex())
+                                except Exception as e:
+                                    traceback.print_exc(file=sys.stdout)
+                                    await logchanbot(traceback.format_exc())
+                        except Exception as e:
+                            traceback.print_exc(file=sys.stdout)
+                            await logchanbot(traceback.format_exc())
+                    elif gas_of_address / 10**18 < token_info['min_gas_tx'] and main_balance_gas_sufficient:
+                        # HTTPProvider:
+                        w3 = Web3(Web3.HTTPProvider(url))
+
+                        # inject the poa compatibility middleware to the innermost layer
+                        # w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+                        # TODO: Let's move gas from main to have sufficient to move
+                        nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(token_info['withdraw_address']))
+
+                        # get gas price
+                        gasPrice = w3.eth.gasPrice
+
+                        estimateGas = w3.eth.estimateGas({'to': w3.toChecksumAddress(each_address['balance_wallet_address']), 'from': w3.toChecksumAddress(token_info['withdraw_address']), 'value':  int(token_info['move_gas_amount'] * 10**token_info['token_decimal'])})
+
+                        amount_gas_move = int(token_info['move_gas_amount'] * 10**18)
+                        transaction = {
+                                'from': w3.toChecksumAddress(token_info['withdraw_address']),
+                                'to': w3.toChecksumAddress(each_address['balance_wallet_address']),
+                                'value': amount_gas_move,
+                                'nonce': nonce,
+                                'gasPrice': gasPrice,
+                                'gas': estimateGas,
+                                'chainId': token_info['chain_id']
+                            }
+                        try:
+                            signed = w3.eth.account.sign_transaction(transaction, private_key=decrypt_string(token_info['withdraw_key']))
+                            # send Transaction for gas:
+                            send_gas_tx = w3.eth.sendRawTransaction(signed.rawTransaction)
+                        except Exception as e:
+                            traceback.print_exc(file=sys.stdout)
+                            await logchanbot(traceback.format_exc())
+                    elif gas_of_address / 10**18 < token_info['move_gas_amount'] and main_balance_gas_sufficient == False:
+                        await logchanbot('Main address has no sufficient balance to supply gas {}. Main address for gas deposit {}'.format(each_address['balance_wallet_address'], token_info['withdraw_address']))
+                    else:
+                        print('Internal error for gas checking {}'.format(each_address['balance_wallet_address']))
 
 
 async def erc_move_deposit_for_spendable(token_name: str, contract: str, user_id: str, balance_wallet_address: str, to_main_address: str, \
@@ -4233,17 +4361,19 @@ async def erc_check_pending_move_deposit(coin: str):
     token_info = await get_token_info(TOKEN_NAME)
     list_pending = await sql_get_pending_move_deposit(TOKEN_NAME)
 
-    #print(f'list_pending {TOKEN_NAME}:')
-    #print('Number: {}'.format(len(list_pending) if list_pending else 0))
     if list_pending and len(list_pending) > 0:
         # Have pending, let's check
         for each_tx in list_pending:
             # Check tx from RPC
-            check_tx = await erc_get_tx_info(each_tx['txn'], TOKEN_NAME)
-            if check_tx:
-                tx_block_number = int(check_tx['blockNumber'], 16)
-                if topBlock - token_info['deposit_confirm_depth'] > tx_block_number:
-                    confirming_tx = await erc_update_confirming_move_tx(each_tx['txn'], tx_block_number, topBlock - tx_block_number, TOKEN_NAME)
+            try:
+                check_tx = await erc_get_tx_info(each_tx['txn'], TOKEN_NAME)
+                if check_tx:
+                    tx_block_number = int(check_tx['blockNumber'])
+                    if topBlock - token_info['deposit_confirm_depth'] > tx_block_number:
+                        confirming_tx = await erc_update_confirming_move_tx(each_tx['txn'], tx_block_number, topBlock - tx_block_number, TOKEN_NAME)
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
 
 
 async def erc_update_confirming_move_tx(tx: str, blockNumber: int, confirmed_depth: int, coin: str):
@@ -4269,17 +4399,31 @@ async def erc_get_tx_info(tx: str, coin: str):
     timeout = 64
     token_info = await get_token_info(TOKEN_NAME)
     data = '{"jsonrpc":"2.0", "method": "eth_getTransactionByHash", "params":["'+tx+'"], "id":1}'
-    url = token_info['http_address']
+    url = token_info[token_info['http_using']]
+    
+    # https://rpc.xdaichain.com/?module=transaction&action=gettxinfo&txhash=0x9a585c14c3ff94e517968fef59857e0df441b7e2263a6fdef45da9b3514b60b3
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, headers={'Content-Type': 'application/json'}, json=json.loads(data), timeout=timeout) as response:
-                if response.status == 200:
-                    res_data = await response.read()
-                    res_data = res_data.decode('utf-8')
-                    await session.close()
-                    decoded_data = json.loads(res_data)
-                    if decoded_data and 'result' in decoded_data:
-                        return decoded_data['result']
+        if token_info['method'] == "HTTP":
+            url = token_info['api_url'] + "?module=transaction&action=gettxinfo&txhash="+tx
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, headers={'Content-Type': 'application/json'}, timeout=timeout) as response:
+                    if response.status == 200:
+                        res_data = await response.read()
+                        res_data = res_data.decode('utf-8')
+                        await session.close()
+                        decoded_data = json.loads(res_data)
+                        if decoded_data and 'result' in decoded_data:
+                            return decoded_data['result']
+        elif token_info['method'] == "RPC":
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, headers={'Content-Type': 'application/json'}, json=json.loads(data), timeout=timeout) as response:
+                    if response.status == 200:
+                        res_data = await response.read()
+                        res_data = res_data.decode('utf-8')
+                        await session.close()
+                        decoded_data = json.loads(res_data)
+                        if decoded_data and 'result' in decoded_data:
+                            return int(decoded_data['result'], 16)
     except asyncio.TimeoutError:
         print('TIMEOUT: get block number {}s for TOKEN {}'.format(timeout, TOKEN_NAME))
     except Exception as e:
@@ -4294,31 +4438,57 @@ async def erc_get_block_number(coin: str):
         return
     token_info = await get_token_info(TOKEN_NAME)
     timeout = 64
-    data = '{"jsonrpc":"2.0", "method":"eth_blockNumber", "params":[], "id":1}'
-    url = token_info['http_address']
+    height = 0
+    if token_info['method'] == "HTTP":
+        url = token_info['api_url'] + "?module=block&action=eth_block_number"
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, headers={'Content-Type': 'application/json'}, timeout=timeout) as response:
+                    if response.status == 200:
+                        res_data = await response.read()
+                        res_data = res_data.decode('utf-8')
+                        await session.close()
+                        decoded_data = json.loads(res_data)
+                        if decoded_data and 'result' in decoded_data:
+                            height = int(decoded_data['result'], 16)
+        except asyncio.TimeoutError:
+            print('TIMEOUT: get balance {} for {}s'.format(TOKEN_NAME, timeout))
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+    elif token_info['method'] == "RPC":
+        data = '{"jsonrpc":"2.0", "method":"eth_blockNumber", "params":[], "id":1}'
+        url = token_info[token_info['http_using']]
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, headers={'Content-Type': 'application/json'}, json=json.loads(data), timeout=timeout) as response:
+                    if response.status == 200:
+                        res_data = await response.read()
+                        res_data = res_data.decode('utf-8')
+                        await session.close()
+                        decoded_data = json.loads(res_data)
+                        if decoded_data and 'result' in decoded_data:
+                            # store in redis
+                            try:
+                                openRedis()
+                                if redis_conn:
+                                    redis_conn.set(f'TIPBOT:DAEMON_HEIGHT_{TOKEN_NAME}', str(int(decoded_data['result'], 16)))
+                            except Exception as e:
+                                await logchanbot(traceback.format_exc())
+                            height = int(decoded_data['result'], 16)
+        except asyncio.TimeoutError:
+            print('TIMEOUT: get block number {}s for TOKEN {}'.format(timeout, TOKEN_NAME))
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+    # store in redis
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, headers={'Content-Type': 'application/json'}, json=json.loads(data), timeout=timeout) as response:
-                if response.status == 200:
-                    res_data = await response.read()
-                    res_data = res_data.decode('utf-8')
-                    await session.close()
-                    decoded_data = json.loads(res_data)
-                    if decoded_data and 'result' in decoded_data:
-                        # store in redis
-                        try:
-                            openRedis()
-                            if redis_conn:
-                                redis_conn.set(f'TIPBOT:DAEMON_HEIGHT_{TOKEN_NAME}', str(int(decoded_data['result'], 16)))
-                        except Exception as e:
-                            await logchanbot(traceback.format_exc())
-                        return int(decoded_data['result'], 16)
-    except asyncio.TimeoutError:
-        print('TIMEOUT: get block number {}s for TOKEN {}'.format(timeout, TOKEN_NAME))
+        openRedis()
+        if redis_conn:
+            redis_conn.set(f'TIPBOT:DAEMON_HEIGHT_{TOKEN_NAME}', str(height))
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
         await logchanbot(traceback.format_exc())
-    return None
+    return height
 
 
 async def sql_get_pending_move_deposit(coin: str):

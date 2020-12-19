@@ -4884,17 +4884,26 @@ async def delhelp(ctx, section: str, what: str):
 @admin.command()
 async def update_balance(ctx, coin: str):
     COIN_NAME = coin.upper()
-    if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR:
-        await ctx.message.author.send(f'{ctx.author.mention} COIN **{COIN_NAME}** NOT SUPPORTED.')
+    if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_ERC:
+        await ctx.author.send(f'{ctx.author.mention} COIN **{COIN_NAME}** NOT SUPPORTED.')
         return
 
-    start = time.time()
-    try:
-        await store.sql_update_balances(COIN_NAME)
-    except Exception as e:
-        await logchanbot(traceback.format_exc())
-    end = time.time()
-    await ctx.message.author.send(f'{ctx.author.mention} Done update balance: ' + COIN_NAME+ ' duration (s): '+str(end - start))
+    if COIN_NAME in ENABLE_COIN_ERC:
+        start = time.time()
+        try:
+            await store.erc_check_pending_move_deposit(COIN_NAME, 'ALL')
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
+        end = time.time()
+        await ctx.author.send(f'{ctx.author.mention} Done update balance: ' + COIN_NAME+ ' duration (s): '+str(end - start))
+    else:
+        start = time.time()
+        try:
+            await store.sql_update_balances(COIN_NAME)
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
+        end = time.time()
+        await ctx.author.send(f'{ctx.author.mention} Done update balance: ' + COIN_NAME+ ' duration (s): '+str(end - start))
     return
 
 
@@ -4923,60 +4932,83 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
     table_data = [
         ['TICKER', 'Available']
     ]
-    if create_wallet and create_wallet.upper() == "ON":
-        create_acc = True
-    for COIN_NAME in [coinItem.upper() for coinItem in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC]:
-        if not is_maintenance_coin(COIN_NAME):
-            wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
-            if wallet is None and create_acc:
-                if COIN_NAME in ENABLE_COIN_ERC:
-                    w = await create_address_eth()
-                    userregister = await store.sql_register_user(str(user_id), COIN_NAME, 'DISCORD', 0, w)
-                else:
-                    userregister = await store.sql_register_user(str(user_id), COIN_NAME, 'DISCORD', 0)
+    if create_wallet:
+        if create_wallet.upper() == "ON":
+            create_acc = True
+        else:
+            COIN_NAME = create_wallet.upper()
+            if COIN_NAME in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC:
                 wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
-            if wallet:
                 try:
                     xfer_in = 0
                     if COIN_NAME not in ENABLE_COIN_ERC:
                         xfer_in = await store.sql_user_balance_get_xfer_in(str(user_id), COIN_NAME)
+                    userdata_balance = await store.sql_user_balance(str(user_id), COIN_NAME)
+                    msg_balance = f"Balance User ID **{str(user_id)}** for: " + COIN_NAME + "\n"
+                    msg_balance += "```"
+                    msg_balance += "xfer_in: " + str(xfer_in) + "\n"
+                    msg_balance += "userdata_balance:\n" + str(userdata_balance)
+                    msg_balance += "```"
+                    await ctx.author.send(msg_balance)
                 except Exception as e:
                     print(traceback.format_exc())
                     await logchanbot(traceback.format_exc())
-
-                userdata_balance = await store.sql_user_balance(str(user_id), COIN_NAME)
-                if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
-                    actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
-                elif COIN_NAME in ENABLE_COIN_NANO:
-                    actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
-                    actual_balance = round(actual_balance / get_decimal(COIN_NAME), 6) * get_decimal(COIN_NAME)
-                else:
-                    actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
-                # Negative check
-                try:
-                    if actual_balance < 0:
-                        msg_negative = 'Negative balance detected:\nUser: '+str(user_id)+'\nCoin: '+COIN_NAME+'\nAtomic Balance: '+str(actual_balance)
-                        await logchanbot(msg_negative)
-                except Exception as e:
-                    await logchanbot(traceback.format_exc())
-                if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN+ENABLE_XMR+ENABLE_COIN_ERC:
-                    balance_actual = num_format_coin(actual_balance, COIN_NAME)
-                elif COIN_NAME in ENABLE_COIN_NANO:
-                    actual = round(actual_balance / get_decimal(COIN_NAME), 6) * get_decimal(COIN_NAME)
-                    balance_actual = num_format_coin(actual, COIN_NAME)
-                if wallet['user_wallet_address'] is None:
-                    COIN_NAME += '*'
-                table_data.append([COIN_NAME, balance_actual])
             else:
-                table_data.append([COIN_NAME, "N/A"])
-        else:
-            table_data.append([COIN_NAME, "***"])
-    table = AsciiTable(table_data)
-    table.padding_left = 0
-    table.padding_right = 0
-    await ctx.message.add_reaction(EMOJI_OK_HAND)
-    await ctx.message.author.send(f'**[ BALANCE LIST OF {user_id} ]**\n'
-                                  f'```{table.table}```\n')
+                await ctx.author.send(f'{EMOJI_ERROR} {ctx.author.mention} Unknown COIN_NAME **{COIN_NAME}**.')
+            return
+    else:
+        for COIN_NAME in [coinItem.upper() for coinItem in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC]:
+            if not is_maintenance_coin(COIN_NAME):
+                wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
+                if wallet is None and create_acc:
+                    if COIN_NAME in ENABLE_COIN_ERC:
+                        w = await create_address_eth()
+                        userregister = await store.sql_register_user(str(user_id), COIN_NAME, 'DISCORD', 0, w)
+                    else:
+                        userregister = await store.sql_register_user(str(user_id), COIN_NAME, 'DISCORD', 0)
+                    wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
+                if wallet:
+                    try:
+                        xfer_in = 0
+                        if COIN_NAME not in ENABLE_COIN_ERC:
+                            xfer_in = await store.sql_user_balance_get_xfer_in(str(user_id), COIN_NAME)
+                    except Exception as e:
+                        print(traceback.format_exc())
+                        await logchanbot(traceback.format_exc())
+
+                    userdata_balance = await store.sql_user_balance(str(user_id), COIN_NAME)
+                    if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
+                        actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
+                    elif COIN_NAME in ENABLE_COIN_NANO:
+                        actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
+                        actual_balance = round(actual_balance / get_decimal(COIN_NAME), 6) * get_decimal(COIN_NAME)
+                    else:
+                        actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
+                    # Negative check
+                    try:
+                        if actual_balance < 0:
+                            msg_negative = 'Negative balance detected:\nUser: '+str(user_id)+'\nCoin: '+COIN_NAME+'\nAtomic Balance: '+str(actual_balance)
+                            await logchanbot(msg_negative)
+                    except Exception as e:
+                        await logchanbot(traceback.format_exc())
+                    if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN+ENABLE_XMR+ENABLE_COIN_ERC:
+                        balance_actual = num_format_coin(actual_balance, COIN_NAME)
+                    elif COIN_NAME in ENABLE_COIN_NANO:
+                        actual = round(actual_balance / get_decimal(COIN_NAME), 6) * get_decimal(COIN_NAME)
+                        balance_actual = num_format_coin(actual, COIN_NAME)
+                    if wallet['user_wallet_address'] is None:
+                        COIN_NAME += '*'
+                    table_data.append([COIN_NAME, balance_actual])
+                else:
+                    table_data.append([COIN_NAME, "N/A"])
+            else:
+                table_data.append([COIN_NAME, "***"])
+        table = AsciiTable(table_data)
+        table.padding_left = 0
+        table.padding_right = 0
+        await ctx.message.add_reaction(EMOJI_OK_HAND)
+        await ctx.message.author.send(f'**[ BALANCE LIST OF {user_id} ]**\n'
+                                      f'```{table.table}```\n')
     return
 
 

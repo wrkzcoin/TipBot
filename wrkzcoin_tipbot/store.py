@@ -4251,7 +4251,7 @@ async def erc_check_minimum_deposit(coin: str):
         else:
             main_balance_gas_sufficient = False
             #print(f"Main gas balance for {TOKEN_NAME} not sufficient!!! Need {token_info['min_gas_tx']}, having only {gas_main_balance}")
-            await logchanbot(f"Main gas balance for {TOKEN_NAME} not sufficient!!! Need {token_info['min_gas_tx']}, having only {gas_main_balance}.")
+            await logchanbot(f"Main gas balance for {TOKEN_NAME} not sufficient!!! Need {token_info['min_gas_tx']}, having only {gas_main_balance/10**token_info['token_decimal']}.")
             pass
         if list_user_addresses and len(list_user_addresses) > 0:
             # OK check them one by one
@@ -4266,7 +4266,7 @@ async def erc_check_minimum_deposit(coin: str):
                     # Check if there is gas remaining to spend there
                     gas_of_address = await http_wallet_getbalance(each_address['balance_wallet_address'], token_info['net_name'].upper())
                     if gas_of_address / 10**18 >= token_info['min_gas_tx']:
-                        # print('Address {} still has gas {}{}'.format(each_address['balance_wallet_address'], gas_of_address / 10**18, "ETH/DAI"))
+                        print('Address {} still has gas {}{}'.format(each_address['balance_wallet_address'], gas_of_address / 10**18, "ETH/DAI"))
                         # TODO: Let's move balance from there to withdraw address and save Tx
                         # HTTPProvider:
                         w3 = Web3(Web3.HTTPProvider(url))
@@ -4359,7 +4359,7 @@ real_amount: float, real_deposit_fee: float, token_decimal: int, txn: str, user_
     return False
 
 
-async def erc_check_pending_move_deposit(coin: str):
+async def erc_check_pending_move_deposit(coin: str, option: str='PENDING'):
     global pool
     TOKEN_NAME = coin.upper()
 
@@ -4369,7 +4369,7 @@ async def erc_check_pending_move_deposit(coin: str):
         return
 
     token_info = await get_token_info(TOKEN_NAME)
-    list_pending = await sql_get_pending_move_deposit(TOKEN_NAME)
+    list_pending = await sql_get_pending_move_deposit(TOKEN_NAME, option.upper())
 
     if list_pending and len(list_pending) > 0:
         # Have pending, let's check
@@ -4379,6 +4379,9 @@ async def erc_check_pending_move_deposit(coin: str):
                 check_tx = await erc_get_tx_info(each_tx['txn'], TOKEN_NAME)
                 if check_tx:
                     tx_block_number = int(check_tx['blockNumber'], 16)
+                    if option.upper() == "ALL":
+                        print("Checking tx: {}... for {}".format(each_tx['txn'][0:10], TOKEN_NAME))
+                        print("topBlock: {}, Conf Depth: {}, Tx Block Numb: {}".format(topBlock, token_info['deposit_confirm_depth'] , tx_block_number))
                     if topBlock - token_info['deposit_confirm_depth'] > tx_block_number:
                         confirming_tx = await erc_update_confirming_move_tx(each_tx['txn'], tx_block_number, topBlock - tx_block_number, TOKEN_NAME)
             except Exception as e:
@@ -4500,7 +4503,7 @@ async def erc_get_block_number(coin: str):
     return height
 
 
-async def sql_get_pending_move_deposit(coin: str):
+async def sql_get_pending_move_deposit(coin: str, option: str='PENDING'):
     global pool
     TOKEN_NAME = coin.upper()
     try:
@@ -4508,12 +4511,19 @@ async def sql_get_pending_move_deposit(coin: str):
         async with pool.acquire() as conn:
             await conn.ping(reconnect=True)
             async with conn.cursor() as cur:
-                sql = """ SELECT * FROM erc_move_deposit 
-                          WHERE `status`=%s AND `token_name`=%s 
-                          AND `notified_confirmation`=%s """
-                await cur.execute(sql, ('PENDING', TOKEN_NAME, 'NO'))
-                result = await cur.fetchall()
-                if result: return result
+                if option.upper() == "PENDING":
+                    sql = """ SELECT * FROM erc_move_deposit 
+                              WHERE `status`=%s AND `token_name`=%s 
+                              AND `notified_confirmation`=%s """
+                    await cur.execute(sql, (option.upper(), TOKEN_NAME, 'NO'))
+                    result = await cur.fetchall()
+                    if result: return result
+                elif option.upper() == "ALL":
+                    sql = """ SELECT * FROM erc_move_deposit 
+                              WHERE `token_name`=%s """
+                    await cur.execute(sql, (TOKEN_NAME,))
+                    result = await cur.fetchall()
+                    if result: return result
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         await logchanbot(traceback.format_exc())

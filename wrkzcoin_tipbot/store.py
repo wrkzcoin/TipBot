@@ -2370,7 +2370,8 @@ async def sql_get_messages(server_id: str, channel_id: str, time_int: int, num_u
 async def sql_changeinfo_by_server(server_id: str, what: str, value: str):
     global pool
     if what.lower() in ["servername", "prefix", "default_coin", "tiponly", "numb_user", "numb_bot", "numb_channel", \
-    "react_tip", "react_tip_100", "lastUpdate", "botchan", "enable_faucet", "enable_game", "enable_market", "enable_trade"]:
+    "react_tip", "react_tip_100", "lastUpdate", "botchan", "enable_faucet", "enable_game", "enable_market", "enable_trade", "tip_message", \
+    "tip_message_by", "tip_notifying_acceptance"]:
         try:
             #print(f"ok try to change {what} to {value}")
             await openConnection()
@@ -3980,13 +3981,16 @@ async def http_wallet_getbalance(address: str, coin: str) -> Dict:
                         await session.close()
                         decoded_data = json.loads(res_data)
                         if decoded_data and 'result' in decoded_data:
-                            balance = int(decoded_data['result'], 16)
+                            if decoded_data['result'] == "0x":
+                                balance = 0
+                            else:
+                                balance = int(decoded_data['result'], 16)
         except asyncio.TimeoutError:
             print('TIMEOUT: get balance {} for {}s'.format(TOKEN_NAME, timeout))
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
-    elif TOKEN_NAME == "ETH":
+    elif TOKEN_NAME == "ETH" or TOKEN_NAME == "BNB":
         data = '{"jsonrpc":"2.0","method":"eth_getBalance","params":["'+address+'", "latest"],"id":1}'
         try:
             async with aiohttp.ClientSession() as session:
@@ -3997,7 +4001,10 @@ async def http_wallet_getbalance(address: str, coin: str) -> Dict:
                         await session.close()
                         decoded_data = json.loads(res_data)
                         if decoded_data and 'result' in decoded_data:
-                            balance = int(decoded_data['result'], 16)
+                            if decoded_data['result'] == "0x":
+                                balance = 0
+                            else:
+                                balance = int(decoded_data['result'], 16)
         except asyncio.TimeoutError:
             print('TIMEOUT: get balance {} for {}s'.format(TOKEN_NAME, timeout))
         except Exception as e:
@@ -4014,7 +4021,10 @@ async def http_wallet_getbalance(address: str, coin: str) -> Dict:
                         await session.close()
                         decoded_data = json.loads(res_data)
                         if decoded_data and 'result' in decoded_data:
-                            balance = int(decoded_data['result'], 16)
+                            if decoded_data['result'] == "0x":
+                                balance = 0
+                            else:
+                                balance = int(decoded_data['result'], 16)
         except asyncio.TimeoutError:
             print('TIMEOUT: get balance {} for {}s'.format(TOKEN_NAME, timeout))
         except Exception as e:
@@ -4098,7 +4108,7 @@ async def sql_external_erc_single(user_id: str, to_address: str, amount: float, 
         signed_txn = None
         sent_tx = None
 
-        if TOKEN_NAME == "XDAI" or TOKEN_NAME == "ETH":
+        if TOKEN_NAME == "XDAI" or TOKEN_NAME == "ETH" or TOKEN_NAME == "BNB":
             nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(token_info['withdraw_address']))
 
             # get gas price
@@ -4172,7 +4182,7 @@ async def erc_check_minimum_deposit(coin: str):
     url = token_info[token_info['http_using']]
     list_user_addresses = await sql_get_all_erc_user(TOKEN_NAME)
 
-    if TOKEN_NAME == "XDAI" or TOKEN_NAME == "ETH":
+    if TOKEN_NAME == "XDAI" or TOKEN_NAME == "ETH" or TOKEN_NAME == "BNB":
         # we do not need gas, we move straight
         if list_user_addresses and len(list_user_addresses) > 0:
             # OK check them one by one
@@ -4230,7 +4240,7 @@ async def erc_check_minimum_deposit(coin: str):
         # get withdraw gas balance
         gas_main_balance = None
         try:
-            gas_main_balance = await http_wallet_getbalance(token_info['withdraw_address'], "XDAI")
+            gas_main_balance = await http_wallet_getbalance(token_info['withdraw_address'], token_info['net_name'].upper())
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         # main balance has gas?
@@ -4254,7 +4264,7 @@ async def erc_check_minimum_deposit(coin: str):
                     pass
                 else:
                     # Check if there is gas remaining to spend there
-                    gas_of_address = await http_wallet_getbalance(each_address['balance_wallet_address'], "XDAI")
+                    gas_of_address = await http_wallet_getbalance(each_address['balance_wallet_address'], token_info['net_name'].upper())
                     if gas_of_address / 10**18 >= token_info['min_gas_tx']:
                         # print('Address {} still has gas {}{}'.format(each_address['balance_wallet_address'], gas_of_address / 10**18, "ETH/DAI"))
                         # TODO: Let's move balance from there to withdraw address and save Tx
@@ -4368,7 +4378,7 @@ async def erc_check_pending_move_deposit(coin: str):
             try:
                 check_tx = await erc_get_tx_info(each_tx['txn'], TOKEN_NAME)
                 if check_tx:
-                    tx_block_number = int(check_tx['blockNumber'])
+                    tx_block_number = int(check_tx['blockNumber'], 16)
                     if topBlock - token_info['deposit_confirm_depth'] > tx_block_number:
                         confirming_tx = await erc_update_confirming_move_tx(each_tx['txn'], tx_block_number, topBlock - tx_block_number, TOKEN_NAME)
             except Exception as e:
@@ -4400,8 +4410,7 @@ async def erc_get_tx_info(tx: str, coin: str):
     token_info = await get_token_info(TOKEN_NAME)
     data = '{"jsonrpc":"2.0", "method": "eth_getTransactionByHash", "params":["'+tx+'"], "id":1}'
     url = token_info[token_info['http_using']]
-    
-    # https://rpc.xdaichain.com/?module=transaction&action=gettxinfo&txhash=0x9a585c14c3ff94e517968fef59857e0df441b7e2263a6fdef45da9b3514b60b3
+
     try:
         if token_info['method'] == "HTTP":
             url = token_info['api_url'] + "?module=transaction&action=gettxinfo&txhash="+tx
@@ -4423,7 +4432,7 @@ async def erc_get_tx_info(tx: str, coin: str):
                         await session.close()
                         decoded_data = json.loads(res_data)
                         if decoded_data and 'result' in decoded_data:
-                            return int(decoded_data['result'], 16)
+                            return decoded_data['result']
     except asyncio.TimeoutError:
         print('TIMEOUT: get block number {}s for TOKEN {}'.format(timeout, TOKEN_NAME))
     except Exception as e:

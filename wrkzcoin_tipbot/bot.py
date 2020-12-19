@@ -415,8 +415,7 @@ def get_round_amount(coin: str, amount: int):
             return amount // n * n
         else:
             # less than define, cut only decimal
-            COIN_DEC = get_decimal(COIN_NAME)
-            return amount // COIN_DEC * COIN_DEC
+            return amount // get_decimal(COIN_NAME) * get_decimal(COIN_NAME)
     else:
         return amount
 
@@ -627,8 +626,7 @@ async def on_reaction_add(reaction, user):
                     return
                 # get the amount of 100 from defined
                 COIN_NAME = serverinfo['default_coin']
-                COIN_DEC = get_decimal(COIN_NAME)
-                real_amount = int(serverinfo['react_tip_100']) * COIN_DEC
+                real_amount = int(serverinfo['react_tip_100']) * get_decimal(COIN_NAME)
                 MinTx = get_min_mv_amount(COIN_NAME)
                 MaxTX = get_max_mv_amount(COIN_NAME)
 
@@ -729,8 +727,7 @@ async def on_reaction_add(reaction, user):
                     return
                 # get the amount of 100 from defined
                 COIN_NAME = "TRTL"
-                COIN_DEC = get_decimal(COIN_NAME)
-                real_amount = 99 * COIN_DEC
+                real_amount = 99 * get_decimal(COIN_NAME)
                 MinTx = get_min_mv_amount(COIN_NAME)
                 MaxTX = get_max_mv_amount(COIN_NAME)
 
@@ -1965,8 +1962,7 @@ Rules:
     COIN_NAME = random.choice(GAME_COIN)
     amount = GAME_SLOT_REWARD[COIN_NAME]
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-    COIN_DEC = get_decimal(COIN_NAME)
-    real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
+    real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
     result = f'You got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
     if free_game == True:
         result = f'You do not get any reward because it is a free game! Waiting to refresh your paid plays (24h max).'
@@ -1994,7 +1990,7 @@ Rules:
     else:
         try:
             reward = await store.sql_game_add('BLACKJACK: PLAYER={}, DEALER={}'.format(playerValue, dealerValue), str(ctx.message.author.id), \
-            COIN_NAME, 'WIN' if won else 'LOSE', real_amount if won else 0, COIN_DEC if won else 0, str(ctx.guild.id), 'BLACKJACK', int(time.time()) - time_start, 'DISCORD')
+            COIN_NAME, 'WIN' if won else 'LOSE', real_amount if won else 0, get_decimal(COIN_NAME) if won else 0, str(ctx.guild.id), 'BLACKJACK', int(time.time()) - time_start, 'DISCORD')
         except Exception as e:
             await logchanbot(traceback.format_exc())
                         
@@ -2078,9 +2074,8 @@ async def slot(ctx):
                 COIN_NAME = random.choice(GAME_COIN)
                 amount = GAME_SLOT_REWARD[COIN_NAME] * won_x
                 coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-                COIN_DEC = get_decimal(COIN_NAME)
-                real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
-                reward = await store.sql_game_add(slotOutput, str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, COIN_DEC, str(ctx.guild.id), 'SLOT', int(time.time()) - time_start, 'DISCORD')
+                real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
+                reward = await store.sql_game_add(slotOutput, str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, get_decimal(COIN_NAME), str(ctx.guild.id), 'SLOT', int(time.time()) - time_start, 'DISCORD')
                 result = f'You won! {ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
             else:
                 reward = await store.sql_game_add(slotOutput, str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'SLOT', int(time.time()) - time_start, 'DISCORD')
@@ -2264,9 +2259,8 @@ clues would be Fermi Pico.'''.format(NUM_DIGITS)
                                 COIN_NAME = random.choice(GAME_COIN)
                                 amount = GAME_SLOT_REWARD[COIN_NAME] * won_x
                                 coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-                                COIN_DEC = get_decimal(COIN_NAME)
-                                real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
-                                reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, COIN_DEC, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
+                                real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
+                                reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, get_decimal(COIN_NAME), str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
                                 result = f'{ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
                             elif won == False and free_game == True:
                                 reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
@@ -2471,9 +2465,8 @@ Hints:
                                 COIN_NAME = random.choice(GAME_COIN)
                                 amount = GAME_SLOT_REWARD[COIN_NAME] * won_x
                                 coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-                                COIN_DEC = get_decimal(COIN_NAME)
-                                real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
-                                reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, COIN_DEC, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
+                                real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
+                                reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, get_decimal(COIN_NAME), str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
                                 result = f'{ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
                             elif won == False and free_game == True:
                                 reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
@@ -2686,9 +2679,8 @@ Hints:
                                 COIN_NAME = random.choice(GAME_COIN)
                                 amount = GAME_SLOT_REWARD[COIN_NAME] * won_x
                                 coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-                                COIN_DEC = get_decimal(COIN_NAME)
-                                real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
-                                reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, COIN_DEC, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
+                                real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
+                                reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, get_decimal(COIN_NAME), str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
                                 result = f'{ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
                             elif won == False and free_game == True:
                                 reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
@@ -2916,8 +2908,7 @@ async def maze(ctx):
             COIN_NAME = random.choice(GAME_COIN)
             amount = GAME_SLOT_REWARD[COIN_NAME]
             coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-            COIN_DEC = get_decimal(COIN_NAME)
-            real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
+            real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
             result = f'You got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
             if free_game == True:
                 result = f'You do not get any reward because it is a free game!'
@@ -2927,7 +2918,7 @@ async def maze(ctx):
                     await logchanbot(traceback.format_exc())
             else:
                 try:
-                    reward = await store.sql_game_add(json.dumps(remap_keys(maze_data)), str(ctx.message.author.id), COIN_NAME, 'WIN' if won else 'LOSE', real_amount if won else 0, COIN_DEC if won else 0, str(ctx.guild.id), 'MAZE', int(time.time()) - time_start, 'DISCORD')
+                    reward = await store.sql_game_add(json.dumps(remap_keys(maze_data)), str(ctx.message.author.id), COIN_NAME, 'WIN' if won else 'LOSE', real_amount if won else 0, get_decimal(COIN_NAME) if won else 0, str(ctx.guild.id), 'MAZE', int(time.time()) - time_start, 'DISCORD')
                 except Exception as e:
                     await logchanbot(traceback.format_exc())
             duration = seconds_str(int(time.time()) - time_start)
@@ -3075,9 +3066,8 @@ async def hangman(ctx):
                         COIN_NAME = random.choice(GAME_COIN)
                         amount = GAME_SLOT_REWARD[COIN_NAME]
                         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-                        COIN_DEC = get_decimal(COIN_NAME)
-                        real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
-                        reward = await store.sql_game_add(secretWord, str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, COIN_DEC, str(ctx.guild.id), 'HANGMAN', int(time.time()) - time_start, 'DISCORD')
+                        real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
+                        reward = await store.sql_game_add(secretWord, str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, get_decimal(COIN_NAME), str(ctx.guild.id), 'HANGMAN', int(time.time()) - time_start, 'DISCORD')
                         result = f'{ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
                     elif foundAllLetters and free_game == True:
                         reward = await store.sql_game_free_add(secretWord, str(ctx.message.author.id), 'WIN', str(ctx.guild.id), 'HANGMAN', int(time.time()) - time_start, 'DISCORD')
@@ -3234,9 +3224,8 @@ To win, you must continue rolling the dice until you "make your point."
                     COIN_NAME = random.choice(GAME_COIN)
                     amount = GAME_SLOT_REWARD[COIN_NAME] * won_x
                     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-                    COIN_DEC = get_decimal(COIN_NAME)
-                    real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
-                    reward = await store.sql_game_add('{}:{}:{}:{}'.format(dice_time, sum_dice, dice1, dice2), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, COIN_DEC, str(ctx.guild.id), 'DICE', int(time.time()) - time_start, 'DISCORD')
+                    real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
+                    reward = await store.sql_game_add('{}:{}:{}:{}'.format(dice_time, sum_dice, dice1, dice2), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, get_decimal(COIN_NAME), str(ctx.guild.id), 'DICE', int(time.time()) - time_start, 'DISCORD')
                     result = f'You won! {ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
                 else:
                     reward = await store.sql_game_add('{}:{}:{}:{}'.format(dice_time, sum_dice, dice1, dice2), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'DICE', int(time.time()) - time_start, 'DISCORD')
@@ -3398,9 +3387,8 @@ Fast-paced snail racing action!'''
                                         COIN_NAME = random.choice(GAME_COIN)
                                         amount = GAME_SLOT_REWARD[COIN_NAME] * won_x
                                         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-                                        COIN_DEC = get_decimal(COIN_NAME)
-                                        real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
-                                        reward = await store.sql_game_add('BET:#{}/WINNER:{}'.format(your_snail, randomSnailName), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, COIN_DEC, str(ctx.guild.id), 'SNAIL', int(time.time()) - time_start, 'DISCORD')
+                                        real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
+                                        reward = await store.sql_game_add('BET:#{}/WINNER:{}'.format(your_snail, randomSnailName), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, get_decimal(COIN_NAME), str(ctx.guild.id), 'SNAIL', int(time.time()) - time_start, 'DISCORD')
                                         result = f'You won **snail#{str(your_snail)}**! {ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
                                     else:
                                         reward = await store.sql_game_add('BET:#{}/WINNER:{}'.format(your_snail, randomSnailName), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'SNAIL', int(time.time()) - time_start, 'DISCORD')
@@ -3621,8 +3609,7 @@ You lose if the board fills up the tiles before then.'''
                 COIN_NAME = random.choice(GAME_COIN)
                 amount = GAME_SLOT_REWARD[COIN_NAME] * (int(score / 100) if score / 100 > 1 else 1) # testing first
                 coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-                COIN_DEC = get_decimal(COIN_NAME)
-                real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
+                real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
                 result = f'You got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
                 duration = seconds_str(int(time.time()) - time_start)
                 if free_game == True:
@@ -3633,7 +3620,7 @@ You lose if the board fills up the tiles before then.'''
                         await logchanbot(traceback.format_exc())
                 else:
                     try:
-                        reward = await store.sql_game_add(board, str(ctx.message.author.id), COIN_NAME, 'WIN' if won else 'LOSE', real_amount if won else 0, COIN_DEC if won else 0, str(ctx.guild.id), '2048', int(time.time()) - time_start, 'DISCORD')
+                        reward = await store.sql_game_add(board, str(ctx.message.author.id), COIN_NAME, 'WIN' if won else 'LOSE', real_amount if won else 0, get_decimal(COIN_NAME) if won else 0, str(ctx.guild.id), '2048', int(time.time()) - time_start, 'DISCORD')
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
                 await msg.edit(content=f'**{ctx.author.mention} Game Over**```{board}```Your score: **{score}**\nYou have spent time: **{duration}**\n{result}')
@@ -4098,9 +4085,8 @@ respectively. You can also reload game level.'''
                             COIN_NAME = random.choice(GAME_COIN)
                             amount = GAME_SLOT_REWARD[COIN_NAME] * won_x
                             coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-                            COIN_DEC = get_decimal(COIN_NAME)
-                            real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
-                            reward = await store.sql_game_add(str(level), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, COIN_DEC, str(ctx.guild.id), 'SOKOBAN', int(time.time()) - time_start, 'DISCORD')
+                            real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
+                            reward = await store.sql_game_add(str(level), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, get_decimal(COIN_NAME), str(ctx.guild.id), 'SOKOBAN', int(time.time()) - time_start, 'DISCORD')
                             result = f'You won! {ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
                         else:
                             reward = await store.sql_game_add(str(level), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'SOKOBAN', int(time.time()) - time_start, 'DISCORD')
@@ -4615,10 +4601,8 @@ async def credit(ctx, amount: str, coin: str, to_userid: str):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} not support ticker **{COIN_NAME}**')
         return
 
-    COIN_DEC = get_decimal(COIN_NAME)
-
     try:
-        real_amount = int(Decimal(amount) * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else Decimal(amount)
+        real_amount = int(Decimal(amount) * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else Decimal(amount)
         credit_to = await store.sql_credit(str(ctx.message.author.id), to_userid, real_amount, COIN_NAME, ctx.message.content)
         if credit_to:
             msg = await ctx.send(f'{ctx.author.mention} amount **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** has been credited to userid **{to_userid}**.')
@@ -5198,11 +5182,71 @@ async def checkcoin(ctx, coin: str):
         return
 
 
-@commands.is_owner()
-@admin.command()
+@bot.group(name='guild')
+@commands.has_permissions(manage_channels=True)
 async def guild(ctx):
-    # TODO
-    return
+    if isinstance(ctx.channel, discord.DMChannel):
+        await ctx.message.add_reaction(EMOJI_ERROR) 
+        await ctx.send(f'{ctx.author.mention} This command can not be DM.')
+        return
+
+    prefix = await get_guild_prefix(ctx)
+    if ctx.invoked_subcommand is None:
+        await ctx.send(f'{ctx.author.mention} Invalid {prefix}guild command.\n Please use {prefix}help guild')
+        return
+
+
+@guild.command(name='tipmsg', aliases=['tipmessage'])
+@commands.has_permissions(manage_channels=True)
+async def tipmsg(ctx, *, tipmessage):
+    if isinstance(ctx.channel, discord.DMChannel):
+        await ctx.message.add_reaction(EMOJI_ERROR) 
+        await ctx.send(f'{ctx.author.mention} This command can not be DM.')
+        return
+
+    if 1000 <= len(tipmessage) <= 5:
+        await ctx.send(f'{ctx.author.mention} Tip message is too short or too long.')
+        return
+    else:
+        changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'tip_message', tipmessage)
+        changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'tip_message_by', "{}#{}".format(ctx.author.name, ctx.author.discriminator))
+        botLogChan = bot.get_channel(id=LOG_CHAN)
+        try:
+            await ctx.send(f'{ctx.author.mention} Tip message for this guild is updated.')
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
+        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} changed tipmessage in {str(ctx.guild.id)}/{ctx.guild.name}.')
+        return
+
+
+@guild.command(name='botchan', aliases=['botchannel', 'bot_chan'])
+@commands.has_permissions(manage_channels=True)
+async def botchan(ctx):
+    if isinstance(ctx.channel, discord.DMChannel):
+        await ctx.message.add_reaction(EMOJI_ERROR) 
+        await ctx.send(f'{ctx.author.mention} This command can not be DM.')
+        return
+
+    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+    if serverinfo['botchan']:
+        try: 
+            if ctx.channel.id == int(serverinfo['botchan']):
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.channel.mention} is already the bot channel here!')
+                return
+            else:
+                # change channel info
+                changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'botchan', str(ctx.channel.id))
+                await ctx.send(f'Bot channel has set to {ctx.channel.mention}.')
+                await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} change bot channel {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.')
+                return
+        except ValueError:
+            return
+    else:
+        # change channel info
+        changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'botchan', str(ctx.channel.id))
+        await ctx.send(f'Bot channel has set to {ctx.channel.mention}.')
+        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} changed bot channel {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.')
+        return
 
 
 @commands.is_owner()
@@ -5536,6 +5580,8 @@ async def pricelist(ctx, *, coin_list):
                 has_none = False
                 cmc_p = "N/A"
                 cg_p = "N/A"
+                cmc_ago = "N/A"
+                cg_ago = "N/A"
                 if 'cmc_price' in market_price and market_price['cmc_price'] > 0.00000001:
                     cmc_p = format_amount(market_price['cmc_price'])
                     update = datetime.strptime(market_price['cmc_update'].split(".")[0], '%Y-%m-%dT%H:%M:%S')
@@ -6593,8 +6639,6 @@ async def info(ctx, coin: str = None):
                 server_tiponly = serverinfo['tiponly'].upper()
                 if serverinfo['react_tip'].upper() == "ON":
                     COIN_NAME = serverinfo['default_coin'].upper()
-                    # COIN_DEC = get_decimal(COIN_NAME)
-                    # real_amount = int(amount * COIN_DEC)
                     react_tip_value = str(serverinfo['react_tip_100']) + COIN_NAME
             try:
                 MUTE_CHANNEL = await store.sql_list_mutechan()
@@ -6724,7 +6768,7 @@ async def coininfo(ctx, coin: str = None):
             Max_Tip = token_info['real_max_tip']
             Min_Tx = token_info['real_min_tx']
             Max_Tx = token_info['real_max_tx']
-        else:
+        elif COIN_NAME in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO:
             confim_depth = get_confirm_depth(COIN_NAME)
             Min_Tip = get_min_mv_amount(COIN_NAME)
             Max_Tip = get_max_mv_amount(COIN_NAME)
@@ -7576,8 +7620,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
         real_amount = float(amount)
     else:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-        COIN_DEC = get_decimal(COIN_NAME)
-        real_amount = int(amount * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
+        real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
         MinTx = get_min_tx_amount(COIN_NAME)
         MaxTX = get_max_tx_amount(COIN_NAME)
     if is_maintenance_coin(COIN_NAME):
@@ -8055,7 +8098,10 @@ async def take(ctx, info: str=None):
 
     amount = random.randint(FAUCET_MINMAX[COIN_NAME][0]*get_decimal(COIN_NAME), FAUCET_MINMAX[COIN_NAME][1]*get_decimal(COIN_NAME))
 
-    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    if COIN_NAME in ENABLE_COIN_ERC:
+        coin_family = "ERC-20"
+    else:
+        coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     if COIN_NAME == "DOGE":
         amount = float(amount / 50)
     elif COIN_NAME in HIGH_DECIMAL_COIN:
@@ -8094,7 +8140,11 @@ async def take(ctx, info: str=None):
             await logchanbot(traceback.format_exc())
         
         if user_to is None:
-            userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
+            if COIN_NAME in ENABLE_COIN_ERC:
+                w = await create_address_eth()
+                userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, w)
+            else:
+                userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
             user_to = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
 
         if real_amount > actual_balance:
@@ -8114,6 +8164,9 @@ async def take(ctx, info: str=None):
                     tip = await store.sql_mv_nano_single(str(bot.user.id), str(ctx.message.author.id), real_amount, COIN_NAME, "FAUCET")
                 elif coin_family == "DOGE":
                     tip = await store.sql_mv_doge_single(str(bot.user.id), str(ctx.message.author.id), real_amount, COIN_NAME, "FAUCET")
+                elif coin_family == "ERC-20":
+                    token_info = await store.get_token_info(COIN_NAME)
+                    tip = await store.sql_mv_erc_single(str(bot.user.id), str(ctx.message.author.id), real_amount, COIN_NAME, "FAUCET", token_info['contract'])
             except Exception as e:
                 await logchanbot(traceback.format_exc())
             TX_IN_PROCESS.remove(ctx.message.author.id)
@@ -8407,7 +8460,8 @@ async def randtip(ctx, amount: str, coin: str, *, rand_option: str=None):
         tip = await store.sql_mv_nano_single(str(ctx.message.author.id), str(rand_user.id), real_amount, COIN_NAME, "RANDTIP")
     elif coin_family == "DOGE":
         tip = await store.sql_mv_doge_single(str(ctx.message.author.id), str(rand_user.id), real_amount, COIN_NAME, "RANDTIP")
-
+    elif coin_family == "ERC-20":
+        tip = await store.sql_mv_erc_single(str(ctx.message.author.id), str(rand_user.id), real_amount, COIN_NAME, "RANDTIP", token_info['contract'])
     # remove queue from randtip
     if ctx.message.author.id in TX_IN_PROCESS:
         TX_IN_PROCESS.remove(ctx.message.author.id)
@@ -9238,8 +9292,7 @@ async def tip(ctx, amount: str, *args):
         MinTx = token_info['real_min_tip']
         MaxTX = token_info['real_max_tip']
     else:
-        COIN_DEC = get_decimal(COIN_NAME)
-        real_amount = int(Decimal(amount) * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
+        real_amount = int(Decimal(amount) * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
         MinTx = get_min_mv_amount(COIN_NAME)
         MaxTX = get_max_mv_amount(COIN_NAME)
 
@@ -9307,7 +9360,7 @@ async def tip(ctx, amount: str, *args):
                 await member.send(
                     f'{EMOJI_MONEYFACE} You got a tip of {num_format_coin(real_amount, COIN_NAME)} '
                     f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{ctx.guild.name}` #{ctx.channel.name}\n'
-                    f'{NOTIFICATION_OFF_CMD}')
+                    f'{NOTIFICATION_OFF_CMD}\n')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
                 await store.sql_toggle_tipnotify(str(member.id), "OFF")
         return
@@ -9662,9 +9715,8 @@ async def mtip(ctx, amount: str, *args):
     if user_to is None:
         userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0)
         user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
-
-    COIN_DEC = get_decimal(COIN_NAME)
-    real_amount = int(Decimal(amount) * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
+ 
+    real_amount = int(Decimal(amount) * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
     MinTx = get_min_mv_amount(COIN_NAME)
     MaxTX = get_max_mv_amount(COIN_NAME)
 
@@ -9687,6 +9739,12 @@ async def mtip(ctx, amount: str, *args):
                        f'{COIN_NAME}.')
         return
 
+    tipmsg = ""
+    try:
+        if serverinfo['tip_message']: tipmsg = "**Guild Message:**\n" + serverinfo['tip_message']
+    except Exception as e:
+        pass
+
     tip = None
     try:
         if coin_family in ["TRTL", "BCN"]:
@@ -9697,6 +9755,9 @@ async def mtip(ctx, amount: str, *args):
             tip = await store.sql_mv_doge_single(str(ctx.guild.id), str(member.id), real_amount, COIN_NAME, "TIP")
         elif coin_family == "NANO":
             tip = await store.sql_mv_nano_single(str(ctx.guild.id), str(member.id), real_amount, COIN_NAME, "TIP")
+        elif coin_family == "ERC-20":
+            token_info = await store.get_token_info(COIN_NAME)
+            tip = await store.sql_mv_erc_single(str(ctx.guild.id), str(member.id), real_amount, COIN_NAME, "TIP", token_info['contract'])
         if ctx.message.author.bot == False and serverinfo['react_tip'] == "ON":
             await ctx.message.add_reaction(EMOJI_TIP)
     except Exception as e:
@@ -9716,7 +9777,7 @@ async def mtip(ctx, amount: str, *args):
                 await member.send(
                     f'{EMOJI_MONEYFACE} You got a guild tip of {num_format_coin(real_amount, COIN_NAME)} '
                     f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{ctx.guild.name}` #{ctx.channel.name}\n'
-                    f'{NOTIFICATION_OFF_CMD}')
+                    f'{NOTIFICATION_OFF_CMD}\n{tipmsg}')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
                 await store.sql_toggle_tipnotify(str(member.id), "OFF")
         return
@@ -9844,8 +9905,7 @@ async def tipall(ctx, amount: str, *args):
         MinTx = token_info['real_min_tip']
         MaxTX = token_info['real_max_tip']
     else:
-        COIN_DEC = get_decimal(COIN_NAME)
-        real_amount = int(Decimal(amount) * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
+        real_amount = int(Decimal(amount) * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
         MinTx = get_min_mv_amount(COIN_NAME)
         MaxTX = get_max_mv_amount(COIN_NAME)
 
@@ -10146,10 +10206,9 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
     await add_tx_action_redis(json.dumps([random_string, "SEND", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, "DISCORD", "START"]), False)
 
     if coin_family in ["TRTL", "BCN"]:
-        COIN_DEC = get_decimal(COIN_NAME)
         MinTx = get_min_tx_amount(COIN_NAME)
         MaxTX = get_max_tx_amount(COIN_NAME)
-        real_amount = int(amount * COIN_DEC)
+        real_amount = int(amount * get_decimal(COIN_NAME))
         addressLength = get_addrlen(COIN_NAME)
         IntaddressLength = get_intaddrlen(COIN_NAME)
         NetFee = get_reserved_fee(coin = COIN_NAME)
@@ -10434,10 +10493,9 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
                 await store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "SEND")
                 return
     elif coin_family == "XMR":
-        COIN_DEC = get_decimal(COIN_NAME)
         MinTx = get_min_tx_amount(COIN_NAME)
         MaxTX = get_max_tx_amount(COIN_NAME)
-        real_amount = int(amount * COIN_DEC)
+        real_amount = int(amount * get_decimal(COIN_NAME))
         addressLength = get_addrlen(COIN_NAME)
         IntaddressLength = get_intaddrlen(COIN_NAME)
 
@@ -10535,10 +10593,9 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
             return
         return
     elif coin_family == "NANO":
-        COIN_DEC = get_decimal(COIN_NAME)
         MinTx = get_min_tx_amount(COIN_NAME)
         MaxTX = get_max_tx_amount(COIN_NAME)
-        real_amount = int(amount * COIN_DEC)
+        real_amount = int(amount * get_decimal(COIN_NAME))
         addressLength = get_addrlen(COIN_NAME)
 
         # Validate address
@@ -11257,9 +11314,8 @@ async def make(ctx, amount: str, coin: str, *, comment):
             return
 
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-    COIN_DEC = get_decimal(COIN_NAME)
-    real_amount = int(voucher_each * COIN_DEC) if coin_family in ["XMR", "TRTL", "BCN", "NANO"] else float(voucher_each)
-    total_real_amount = int(total_amount * COIN_DEC) if coin_family in ["XMR", "TRTL", "BCN", "NANO"] else float(total_amount)
+    real_amount = int(voucher_each * get_decimal(COIN_NAME)) if coin_family in ["XMR", "TRTL", "BCN", "NANO"] else float(voucher_each)
+    total_real_amount = int(total_amount * get_decimal(COIN_NAME)) if coin_family in ["XMR", "TRTL", "BCN", "NANO"] else float(total_amount)
     secret_string = str(uuid.uuid4())
     unique_filename = str(uuid.uuid4())
 
@@ -11809,7 +11865,6 @@ async def stats(ctx, coin: str = None):
         except Exception as e:
             await logchanbot(traceback.format_exc())
     if gettopblock:
-        COIN_DEC = get_decimal(COIN_NAME)
         COIN_DIFF = get_diff_target(COIN_NAME)
         if COIN_NAME != "TRTL":
             blockfound = datetime.utcfromtimestamp(int(gettopblock['block_header']['timestamp'])).strftime("%Y-%m-%d %H:%M:%S")
@@ -11817,7 +11872,7 @@ async def stats(ctx, coin: str = None):
             difficulty = "{:,}".format(gettopblock['block_header']['difficulty'])
             hashrate = str(hhashes(int(gettopblock['block_header']['difficulty']) / int(COIN_DIFF)))
             height = "{:,}".format(gettopblock['block_header']['height'])
-            reward = "{:,}".format(int(gettopblock['block_header']['reward'])/int(COIN_DEC))
+            reward = "{:,}".format(int(gettopblock['block_header']['reward'])/int(get_decimal(COIN_NAME)))
         else:
             # TRTL use daemon API
             blockfound = datetime.utcfromtimestamp(int(gettopblock['timestamp'])).strftime("%Y-%m-%d %H:%M:%S")
@@ -11825,7 +11880,7 @@ async def stats(ctx, coin: str = None):
             difficulty = "{:,}".format(gettopblock['difficulty'])
             hashrate = str(hhashes(int(gettopblock['difficulty']) / int(COIN_DIFF)))
             height = "{:,}".format(gettopblock['height'])
-            reward = "{:,}".format(int(gettopblock['reward'])/int(COIN_DEC))
+            reward = "{:,}".format(int(gettopblock['reward'])/int(get_decimal(COIN_NAME)))
         if coin_family == "XMR":
             desc = f"Tip min/max: {num_format_coin(get_min_mv_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_mv_amount(COIN_NAME), COIN_NAME)}{COIN_NAME}\n"
             desc += f"Tx min/max: {num_format_coin(get_min_tx_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_tx_amount(COIN_NAME), COIN_NAME)}{COIN_NAME}\n"
@@ -12822,10 +12877,9 @@ async def sell(ctx, sell_amount: str, sell_ticker: str, buy_amount: str, buy_tic
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You have maximum opened selling **{config.trade.Max_Open_Order}**. Please cancel some or wait.')
         return
-    
-    COIN_DEC_SELL = get_decimal(sell_ticker)
+
     coin_family_sell = getattr(getattr(config,"daemon"+sell_ticker),"coin_family","TRTL")
-    real_amount_sell = int(sell_amount * COIN_DEC_SELL) if coin_family_sell in ["BCN", "XMR", "TRTL", "NANO"] else float(sell_amount)
+    real_amount_sell = int(sell_amount * get_decimal(sell_ticker)) if coin_family_sell in ["BCN", "XMR", "TRTL", "NANO"] else float(sell_amount)
 
     if real_amount_sell == 0:
         await ctx.message.add_reaction(EMOJI_ERROR)
@@ -12841,9 +12895,8 @@ async def sell(ctx, sell_amount: str, sell_ticker: str, buy_amount: str, buy_tic
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **{sell_amount}{sell_ticker}** above maximum trade **{num_format_coin(get_max_sell(sell_ticker), sell_ticker)}{sell_ticker}**.')
         return
 
-    COIN_DEC_BUY = get_decimal(buy_ticker)
     coin_family_buy = getattr(getattr(config,"daemon"+buy_ticker),"coin_family","TRTL")
-    real_amount_buy = int(buy_amount * COIN_DEC_BUY) if coin_family_buy in ["BCN", "XMR", "TRTL", "NANO"] else float(buy_amount)
+    real_amount_buy = int(buy_amount * get_decimal(buy_ticker)) if coin_family_buy in ["BCN", "XMR", "TRTL", "NANO"] else float(buy_amount)
     if real_amount_buy == 0:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {buy_amount}{buy_ticker} = 0 {buy_ticker} (below smallest unit).')
@@ -13989,18 +14042,15 @@ async def update_balance_erc():
     while True:
         await asyncio.sleep(config.interval.update_balance)
         for coinItem in ENABLE_COIN_ERC:
-            if is_maintenance_coin(coinItem):
-                pass
-            elif not is_coin_depositable(coinItem):
-                pass
-            else:
-                start = time.time()
-                try:
-                    await store.erc_check_minimum_deposit(coinItem)
-                except Exception as e:
-                    print(traceback.format_exc())
-                    await logchanbot(traceback.format_exc())
-                end = time.time()
+            if is_maintenance_coin(coinItem) or not is_coin_depositable(coinItem):
+                continue
+            start = time.time()
+            try:
+                await store.erc_check_minimum_deposit(coinItem)
+            except Exception as e:
+                print(traceback.format_exc())
+                await logchanbot(traceback.format_exc())
+            end = time.time()
         await asyncio.sleep(config.interval.update_balance)
 
 
@@ -14239,11 +14289,16 @@ async def _tip(ctx, amount, coin: str, if_guild: bool=False):
     tip_type_text = 'guild tip' if if_guild == True else 'tip'
     guild_or_tip = 'GUILDTIP' if if_guild == True else 'TIPS'
     id_tipper = str(ctx.guild.id) if if_guild == True else str(ctx.message.author.id)
-
-    botLogChan = bot.get_channel(id=LOG_CHAN)
     serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
-    COIN_NAME = coin.upper()
+    tipmsg = ""
+    if if_guild:
+        try:
+            if serverinfo['tip_message']: tipmsg = "**Guild Message:**\n" + serverinfo['tip_message']
+        except Exception as e:
+            pass
+    botLogChan = bot.get_channel(id=LOG_CHAN)
 
+    COIN_NAME = coin.upper()
     notifyList = await store.sql_get_tipnotify()
     if COIN_NAME in ENABLE_COIN_ERC:
         coin_family = "ERC-20"
@@ -14256,8 +14311,7 @@ async def _tip(ctx, amount, coin: str, if_guild: bool=False):
         MinTx = token_info['real_min_tip']
         MaxTX = token_info['real_max_tip']
     else:
-        COIN_DEC = get_decimal(COIN_NAME)
-        real_amount = int(Decimal(amount) * COIN_DEC) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
+        real_amount = int(Decimal(amount) * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
         MinTx = get_min_mv_amount(COIN_NAME)
         MaxTX = get_max_mv_amount(COIN_NAME)
 
@@ -14398,7 +14452,7 @@ async def _tip(ctx, amount, coin: str, if_guild: bool=False):
                     try:
                         await member.send(f'{EMOJI_MONEYFACE} You got a {tip_type_text} of  {num_format_coin(real_amount, COIN_NAME)} '
                                           f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{ctx.guild.name} #{ctx.channel.name}`\n'
-                                          f'{NOTIFICATION_OFF_CMD}')
+                                          f'{NOTIFICATION_OFF_CMD}\n{tipmsg}')
                     except (discord.Forbidden, discord.errors.Forbidden) as e:
                         await logchanbot(traceback.format_exc())
                         await store.sql_toggle_tipnotify(str(member.id), "OFF")
@@ -14451,6 +14505,12 @@ async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str 
 
     botLogChan = bot.get_channel(id=LOG_CHAN)
     serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+    tipmsg = ""
+    if if_guild:
+        try:
+            if serverinfo['tip_message']: tipmsg = "**Guild Message:**\n" + serverinfo['tip_message']
+        except Exception as e:
+            pass
     COIN_NAME = coin.upper()
     if COIN_NAME in ENABLE_COIN_ERC:
         coin_family = "ERC-20"
@@ -14475,8 +14535,7 @@ async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str 
         MinTx = token_info['real_min_tip']
         MaxTX = token_info['real_max_tip']
     else:
-        COIN_DEC = get_decimal(COIN_NAME)
-        real_amount = int(amount * COIN_DEC) if coin_family in ["XMR", "TRTL", "BCN", "NANO"] else float(amount)
+        real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["XMR", "TRTL", "BCN", "NANO"] else float(amount)
         MinTx = get_min_mv_amount(COIN_NAME)
         MaxTX = get_max_mv_amount(COIN_NAME)
 
@@ -14637,7 +14696,7 @@ async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str 
                             await member.send(
                                 f'{EMOJI_MONEYFACE} You got a {tip_type_text} of `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}` '
                                 f'from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{ctx.guild.name}` #{ctx.channel.name} for active talking.\n'
-                                f'{NOTIFICATION_OFF_CMD}')
+                                f'{NOTIFICATION_OFF_CMD}\n{tipmsg}')
                         except (discord.Forbidden, discord.errors.Forbidden) as e:
                             await store.sql_toggle_tipnotify(str(member.id), "OFF")
         await ctx.message.add_reaction(get_emoji(COIN_NAME))
@@ -15013,7 +15072,6 @@ async def bot_faucet(ctx):
     ]
     for COIN_NAME in [coinItem.upper() for coinItem in FAUCET_COINS]:
         sum_sub = 0
-        COIN_DEC = get_decimal(COIN_NAME)
         wallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
         if wallet is None:
             wallet = await store.sql_register_user(str(bot.user.id), COIN_NAME, 'DISCORD', 0)

@@ -3976,15 +3976,16 @@ async def http_wallet_getbalance(address: str, coin: str) -> Dict:
     TOKEN_NAME = coin.upper()
     key = f'TIPBOT:BAL_TOKEN_{TOKEN_NAME}:{address}'
     balance = 0
-    try:
-        openRedis()
-        if redis_conn and redis_conn.exists(key):
-            return int(redis_conn.get(key))
-    except Exception as e:
-        await logchanbot(traceback.format_exc())
-
     timeout = 64
     token_info = await get_token_info(TOKEN_NAME)
+    # If it is not main address, check in redis.
+    if address.upper() != token_info['withdraw_address'].upper():
+        try:
+            openRedis()
+            if redis_conn and redis_conn.exists(key):
+                return int(redis_conn.get(key))
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
     contract = token_info['contract']
     url = token_info[token_info['http_using']]
     if TOKEN_NAME == "XDAI":

@@ -450,7 +450,7 @@ async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD')
                     else:
                         Income = 0
                     # in case deposit fee -real_deposit_fee
-                    sql = """ SELECT SUM(real_amount) AS Deposit FROM erc_move_deposit WHERE `user_id`=%s 
+                    sql = """ SELECT SUM(real_amount - real_deposit_fee) AS Deposit FROM erc_move_deposit WHERE `user_id`=%s 
                               AND `token_name` = %s AND `confirmed_depth`>= %s """
                     await cur.execute(sql, (userID, COIN_NAME, confirmed_depth))
                     result = await cur.fetchone()
@@ -4444,12 +4444,11 @@ async def erc_get_tx_info(tx: str, coin: str):
     return None
 
 
-async def erc_get_block_number(coin: str):
+async def erc_get_block_number(coin: str, timeout:int = 64):
     TOKEN_NAME = coin.upper()
     if TOKEN_NAME not in ENABLE_COIN_ERC:
         return
     token_info = await get_token_info(TOKEN_NAME)
-    timeout = 64
     height = 0
     if token_info['method'] == "HTTP":
         url = token_info['api_url'] + "?module=block&action=eth_block_number"

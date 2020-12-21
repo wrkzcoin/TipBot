@@ -4551,6 +4551,17 @@ async def eval(ctx, *, code):
     if config.discord.enable_eval != 1:
         return
 
+    no_filter_word = True
+    filterword = config.eval_code.logfilterword.split(",")
+    for each in filterword:
+        if each.lower() in code.lower():
+            no_filter_word = False
+            break
+
+    if no_filter_word == False:
+        await ctx.send(f"```There is some filtered words in your code.```")
+        return
+
     await logchanbot('{}#{} is executing dangerous command of eval:'.format(ctx.author.name, ctx.author.discriminator))
     await logchanbot('py\n{}'.format(code))
     str_obj = io.StringIO() #Retrieves a stream of data
@@ -5157,10 +5168,10 @@ async def pending(ctx):
     ts = datetime.utcnow()
     embed = discord.Embed(title='Pending Actions', timestamp=ts)
     embed.add_field(name="TX_IN_PROCESS", value=str(len(TX_IN_PROCESS)), inline=True)
-    embed.add_field(name="GAME_INTERACTIVE_PRGORESS", value=str(len(GAME_INTERACTIVE_PRGORESS)), inline=True)
-    embed.add_field(name="GAME_SLOT_IN_PRGORESS", value=str(len(GAME_SLOT_IN_PRGORESS)), inline=True)
-    embed.add_field(name="GAME_DICE_IN_PRGORESS", value=str(len(GAME_DICE_IN_PRGORESS)), inline=True)
-    embed.add_field(name="GAME_MAZE_IN_PROCESS", value=str(len(GAME_MAZE_IN_PROCESS)), inline=True)
+    embed.add_field(name="GAME_INTERACTIVE", value=str(len(GAME_INTERACTIVE_PRGORESS)), inline=True)
+    embed.add_field(name="GAME_SLOT", value=str(len(GAME_SLOT_IN_PRGORESS)), inline=True)
+    embed.add_field(name="GAME_DICE", value=str(len(GAME_DICE_IN_PRGORESS)), inline=True)
+    embed.add_field(name="GAME_MAZE", value=str(len(GAME_MAZE_IN_PROCESS)), inline=True)
     embed.set_footer(text=f"Pending requested by {ctx.message.author.name}#{ctx.message.author.discriminator}")
     try:
         msg = await ctx.send(embed=embed)
@@ -5171,7 +5182,7 @@ async def pending(ctx):
 
 
 @commands.is_owner()
-@admin.command()
+@admin.command(aliases=['check_coin'])
 async def checkcoin(ctx, coin: str):
     if isinstance(ctx.channel, discord.DMChannel) == False:
         await ctx.message.add_reaction(EMOJI_ERROR) 
@@ -5181,13 +5192,16 @@ async def checkcoin(ctx, coin: str):
     # Check of wallet in SQL consistence to wallet-service
     botLogChan = bot.get_channel(id=LOG_CHAN)
     COIN_NAME = coin.upper()
-    if COIN_NAME not in (ENABLE_COIN + ENABLE_XMR + ENABLE_COIN_DOGE):
+    if COIN_NAME not in (ENABLE_COIN + ENABLE_XMR + ENABLE_COIN_DOGE + ENABLE_COIN_NANO + ENABLE_COIN_ERC):
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.message.author.send(f'{COIN_NAME} is not in TipBot.')
         return
     if is_maintenance_coin(COIN_NAME):
         await ctx.message.add_reaction(EMOJI_MAINTENANCE)
-    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    if COIN_NAME in ENABLE_COIN_ERC:
+        coin_family = "ERC-20"
+    else:
+        coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     if coin_family in ["TRTL", "BCN"]:
         in_existing = 0
         get_addresses = await store.get_all_user_balance_address(COIN_NAME)
@@ -6844,7 +6858,11 @@ async def coininfo(ctx, coin: str = None):
                 elif COIN_NAME in ENABLE_XMR:
                     response_text += "Withdraw Tx Fee: Dynamic\n"
                 elif COIN_NAME in ENABLE_COIN_ERC:
+                    if token_info['contract'] and len(token_info['contract']) == 42:
+                        response_text += "Contract:\n   {}\n".format(token_info['contract'])
                     response_text += "Withdraw Tx Fee: {}{}\n".format(num_format_coin(token_info['real_withdraw_fee'], COIN_NAME), COIN_NAME)
+                    if token_info['real_deposit_fee'] and token_info['real_deposit_fee'] > 0:
+                        response_text += "Deposit Tx Fee: {}{}\n".format(num_format_coin(token_info['real_deposit_fee'], COIN_NAME), COIN_NAME)
                 elif COIN_NAME in ENABLE_COIN_NANO:
                     # nothing
                     response_text += "Withdraw Tx Fee: Zero\n"
@@ -6854,6 +6872,8 @@ async def coininfo(ctx, coin: str = None):
                 response_text += get_tip_min_max + "\n"
                 get_tx_min_max = "Withdraw Min/Max:\n   " + num_format_coin(Min_Tx, COIN_NAME) + " / " + num_format_coin(Max_Tx, COIN_NAME) + COIN_NAME
                 response_text += get_tx_min_max
+                if COIN_NAME in ENABLE_COIN_ERC and token_info['coininfo_note']:
+                    response_text += "\nNote:\n   {}\n".format(token_info['coininfo_note'])
             except Exception as e:
                 await logchanbot(traceback.format_exc())
             response_text += "```"
@@ -8083,6 +8103,8 @@ async def take(ctx, info: str=None):
             await ctx.message.add_reaction(EMOJI_ERROR)
             msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using .take')
             return
+    except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+        pass
     except Exception as e:
         await logchanbot(traceback.format_exc())
 
@@ -8095,6 +8117,8 @@ async def take(ctx, info: str=None):
                 botChan = bot.get_channel(id=int(serverinfo['botchan']))
                 await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} is the bot channel!!!')
                 return
+    except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+        pass
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         await logchanbot(traceback.format_exc())
@@ -9822,7 +9846,7 @@ async def mtip(ctx, amount: str, *args):
 
 
 @bot.command(pass_context=True, help=bot_help_tipall, hidden = True)
-async def tipall(ctx, amount: str, *args):
+async def tipall(ctx, amount: str, coin: str, option: str=None):
     global IS_RESTARTING, TX_IN_PROCESS
     # check if bot is going to restart
     if IS_RESTARTING:
@@ -9858,40 +9882,39 @@ async def tipall(ctx, amount: str, *args):
         await ctx.send(f'{EMOJI_RED_NO} This command can not be in private.')
         return
 
+    COIN_NAME = coin.upper()
+
+    # TRTL discord
+    if ctx.guild.id == TRTL_DISCORD and COIN_NAME != "TRTL":
+        return
+
+    if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**!')
+        return
+
     serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
-    COIN_NAME = None
-    if len(args) == 0:
-        if 'default_coin' in serverinfo:
-            COIN_NAME = serverinfo['default_coin'].upper()
-        else:
-            COIN_NAME = "WRKZ"
-    else:
-        COIN_NAME = args[0].upper()
-        if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC:
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**!')
-            return
-        if COIN_NAME in ENABLE_COIN_ERC:
-            coin_family = "ERC-20"
-        else:
-            coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-        if coin_family not in ["BCN", "TRTL", "XMR"]:
-            if args[0].upper() in ENABLE_COIN_DOGE+ENABLE_COIN_NANO+ENABLE_COIN_ERC:
-                COIN_NAME = args[0].upper()
-            else:
-                await ctx.message.add_reaction(EMOJI_ERROR)
-                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**!')
-                return
-        else:
-            COIN_NAME = args[0].upper()
-    print('TIPALL COIN_NAME:' + COIN_NAME)
     if COIN_NAME in ENABLE_COIN_ERC:
         coin_family = "ERC-20"
     else:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
 
+    option = option.upper() if option else "ONLINE"
+    option_list = ["ALL", "ONLINE"]
+    if option not in option_list:
+        allow_option = ", ".join(option_list)
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} TIPALL is currently support only option **{allow_option}**.')
+        await msg.add_reaction(EMOJI_OK_BOX)
+        return
+    print('TIPALL COIN_NAME:' + COIN_NAME)
     if not is_coin_tipable(COIN_NAME):
         msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} TIPPING is currently disable for {COIN_NAME}.')
         await msg.add_reaction(EMOJI_OK_BOX)
+        return
+    if is_maintenance_coin(COIN_NAME):
+        await ctx.message.add_reaction(EMOJI_MAINTENANCE)
+        await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} in maintenance.')
         return
 
     # Check allowed coins
@@ -9903,11 +9926,6 @@ async def tipall(ctx, amount: str, *args):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} not in allowed coins set by server manager.')
         return
     # End of checking allowed coins
-
-    if is_maintenance_coin(COIN_NAME):
-        await ctx.message.add_reaction(EMOJI_MAINTENANCE)
-        await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} in maintenance.')
-        return
 
     # Check flood of tip
     floodTip = await store.sql_get_countLastTip(str(ctx.message.author.id), config.floodTipDuration)
@@ -9942,7 +9960,10 @@ async def tipall(ctx, amount: str, *args):
         MaxTX = get_max_mv_amount(COIN_NAME)
 
     # [x.guild for x in [g.members for g in bot.guilds] if x.id = useridyourelookingfor]
-    listMembers = [member for member in ctx.guild.members if member.status != discord.Status.offline and member.bot == False]
+    if option == "ONLINE":
+        listMembers = [member for member in ctx.guild.members if member.status != discord.Status.offline and member.bot == False]
+    elif option == "ALL":
+        listMembers = [member for member in ctx.guild.members if member.bot == False]
     print("Number of tip-all in {}: {}".format(ctx.guild.name, len(listMembers)))
     # Check number of receivers.
     if len(listMembers) > config.tipallMax_Offchain:
@@ -9953,7 +9974,9 @@ async def tipall(ctx, amount: str, *args):
             await ctx.message.author.send(f'{EMOJI_RED_NO} The number of receivers are too many in `{ctx.guild.name}`. This command isn\'t available here.')
         return
     # End of checking receivers numbers.
-
+    await logchanbot("{}#{} issuing TIPALL {}{} in {}/{} with {} users.".format(ctx.author.name, ctx.author.discriminator, 
+                                                                                num_format_coin(real_amount, COIN_NAME), COIN_NAME,
+                                                                                ctx.guild.id, ctx.guild.name, len(listMembers)))
     list_receivers = []
     addresses = []
     for member in listMembers:
@@ -11827,7 +11850,7 @@ async def stats(ctx, coin: str = None):
     elif coin:
         COIN_NAME = coin.upper()
 
-    if COIN_NAME not in (ENABLE_COIN+ENABLE_XMR) and COIN_NAME != "BOT":
+    if COIN_NAME not in (ENABLE_COIN+ENABLE_XMR+ENABLE_COIN_ERC) and COIN_NAME != "BOT":
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{ctx.author.mention} Unsupported or Unknown Ticker: **{COIN_NAME}**')
         return
@@ -11842,7 +11865,6 @@ async def stats(ctx, coin: str = None):
         return
     elif is_maintenance_coin(COIN_NAME) and (ctx.message.author.id in MAINTENANCE_OWNER):
         await ctx.message.add_reaction(EMOJI_MAINTENANCE)
-        pass
 
     if COIN_NAME == "BOT":
         await bot.wait_until_ready()
@@ -11860,10 +11882,11 @@ async def stats(ctx, coin: str = None):
         embed.add_field(name="Total faucet claims", value=total_claimed, inline=True)
         embed.add_field(name="Total tip operations", value='{:,.0f} off-chain, {:,.0f} on-chain'.format(total_tx['off_chain'], total_tx['on_chain']), inline=False)
         try:
+            your_tip_count_10mn = await store.sql_get_countLastTip(str(ctx.message.author.id), 10*60)
             your_tip_count_24h = await store.sql_get_countLastTip(str(ctx.message.author.id), 24*3600)
             your_tip_count_7d = await store.sql_get_countLastTip(str(ctx.message.author.id), 7*24*3600)
             your_tip_count_30d = await store.sql_get_countLastTip(str(ctx.message.author.id), 30*24*3600)
-            embed.add_field(name="You have tipped", value='24h: {:,.0f}, 7d: {:,.0f}, 30d: {:,.0f}'.format(your_tip_count_24h, your_tip_count_7d, your_tip_count_30d), inline=False)
+            embed.add_field(name="You have tipped", value='Last 10mn: {:,.0f}, 24h: {:,.0f}, 7d: {:,.0f}, 30d: {:,.0f}'.format(your_tip_count_10mn, your_tip_count_24h, your_tip_count_7d, your_tip_count_30d), inline=False)
         except Exception as e:
             await logchanbot(traceback.format_exc())
         embed.add_field(name="OTHER LINKS", value="{} / {} / {}".format("[Invite TipBot](http://invite.discord.bot.tips)", "[Support Server](https://discord.com/invite/GpHzURM)", "[TipBot Github](https://github.com/wrkzcoin/TipBot)"), inline=False)
@@ -11878,14 +11901,21 @@ async def stats(ctx, coin: str = None):
     gettopblock = None
     timeout = 60
     try:
-        gettopblock = await daemonrpc_client.gettopblock(COIN_NAME, time_out=timeout)
+        if COIN_NAME in ENABLE_COIN_ERC:
+            gettopblock = await store.erc_get_block_number(COIN_NAME, timeout)
+        else:
+            gettopblock = await daemonrpc_client.gettopblock(COIN_NAME, time_out=timeout)
     except asyncio.TimeoutError:
         msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} connection to daemon timeout after {str(timeout)} seconds. I am checking info from wallet now.')
         await msg.add_reaction(EMOJI_OK_BOX)
     except Exception as e:
         await logchanbot(traceback.format_exc())
+
     walletStatus = None
-    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    if COIN_NAME in ENABLE_COIN_ERC:
+        coin_family = "ERC-20"
+    else:
+        coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     if coin_family in ["TRTL", "BCN"]:
         try:
             walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
@@ -11896,7 +11926,9 @@ async def stats(ctx, coin: str = None):
             walletStatus = await daemonrpc_client.getWalletStatus(COIN_NAME)
         except Exception as e:
             await logchanbot(traceback.format_exc())
-    if gettopblock:
+
+    prefix = await get_guild_prefix(ctx)
+    if gettopblock and COIN_NAME not in ENABLE_COIN_ERC:
         COIN_DIFF = get_diff_target(COIN_NAME)
         if COIN_NAME != "TRTL":
             blockfound = datetime.utcfromtimestamp(int(gettopblock['block_header']['timestamp'])).strftime("%Y-%m-%d %H:%M:%S")
@@ -12018,7 +12050,7 @@ async def stats(ctx, coin: str = None):
                                    '```')
                 await msg.add_reaction(EMOJI_OK_BOX)
             return
-    else:
+    elif COIN_NAME not in ENABLE_COIN_ERC:
         if gettopblock is None and coin_family in ["TRTL", "BCN"] and walletStatus:
             localDaemonBlockCount = int(walletStatus['blockCount'])
             networkBlockCount = int(walletStatus['knownBlockCount'])
@@ -12071,6 +12103,39 @@ async def stats(ctx, coin: str = None):
             msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME}\'s status unavailable.')
             await msg.add_reaction(EMOJI_OK_BOX)
             return
+    elif COIN_NAME in ENABLE_COIN_ERC:
+        try:
+            token_info = await store.get_token_info(COIN_NAME)
+            desc = f"Tip min/max: {num_format_coin(token_info['real_min_tip'], COIN_NAME)}-{num_format_coin(token_info['real_max_tip'], COIN_NAME)}{COIN_NAME}\n"
+            desc += f"Tx min/max: {num_format_coin(token_info['real_min_tx'], COIN_NAME)}-{num_format_coin(token_info['real_max_tx'], COIN_NAME)}{COIN_NAME}\n"
+            embed = discord.Embed(title=f"[ {COIN_NAME} ]", 
+                                  description=desc, 
+                                  timestamp=datetime.utcnow(), color=0xDEADBF)
+            embed.set_author(name=bot.user.name, icon_url=bot.user.avatar_url)
+            topBlock = await store.erc_get_block_number(COIN_NAME)
+            embed.add_field(name="NETWORK", value='{:,}'.format(topBlock), inline=True)
+            try:
+                get_main_balance = await store.http_wallet_getbalance(token_info['withdraw_address'], COIN_NAME)
+                if get_main_balance:
+                    embed.add_field(name="MAIN BALANCE", value=num_format_coin(get_main_balance / 10**token_info['token_decimal'], COIN_NAME) + COIN_NAME, inline=True)
+            except Exception as e:
+                await logchanbot(traceback.format_exc())
+            try:
+                embed.add_field(name="COININFO", value=token_info['coininfo_note'], inline=True)
+                embed.add_field(name="EXPLORER", value=token_info['explorer_link'], inline=True)
+                embed.add_field(name='Related commands', value=f'`{prefix}coininfo {COIN_NAME}`, `{prefix}deposit {COIN_NAME}`, `{prefix}balance {COIN_NAME}`', inline=False)
+            except Exception as e:
+                pass
+            embed.set_footer(text=f"{token_info['deposit_note']}")
+            try:
+                msg = await ctx.send(embed=embed)
+                await msg.add_reaction(EMOJI_OK_BOX)
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                pass
+        except Exception as e:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await logchanbot(traceback.format_exc())
+            print(traceback.format_exc())
 
 
 @bot.group(pass_context=True, aliases=['fb'], help=bot_help_feedback)

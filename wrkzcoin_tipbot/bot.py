@@ -4901,12 +4901,14 @@ async def update_balance(ctx, coin: str):
 
     if COIN_NAME in ENABLE_COIN_ERC:
         start = time.time()
+        check_min = "N/A"
         try:
             await store.erc_check_pending_move_deposit(COIN_NAME, 'ALL')
+            check_min = await store.erc_check_minimum_deposit(COIN_NAME)
         except Exception as e:
             await logchanbot(traceback.format_exc())
         end = time.time()
-        await ctx.author.send(f'{ctx.author.mention} Done update balance: ' + COIN_NAME+ ' duration (s): '+str(end - start))
+        await ctx.author.send(f'{ctx.author.mention} Done update balance: ' + COIN_NAME+ ' duration (s): '+str(end - start) + f"```\n{check_min}\n```")
     else:
         start = time.time()
         try:
@@ -14146,7 +14148,7 @@ async def update_balance_erc():
                 continue
             start = time.time()
             try:
-                await store.erc_check_minimum_deposit(coinItem)
+                check_min = await store.erc_check_minimum_deposit(coinItem)
             except Exception as e:
                 print(traceback.format_exc())
                 await logchanbot(traceback.format_exc())

@@ -4053,7 +4053,8 @@ async def http_wallet_getbalance(address: str, coin: str) -> Dict:
         try:
             openRedis()
             if redis_conn:
-                redis_conn.set(key, str(balance), ex=60)
+                # set it longer. 20mn to store 0 balance
+                redis_conn.set(key, str(balance), ex=30*60)
         except Exception as e:
             await logchanbot(traceback.format_exc())
     return balance
@@ -4195,9 +4196,14 @@ async def erc_check_minimum_deposit(coin: str):
         return
 
     token_info = await get_token_info(TOKEN_NAME)
-
+    msg_deposit = ""
     url = token_info[token_info['http_using']]
     list_user_addresses = await sql_get_all_erc_user(TOKEN_NAME)
+
+    balance_main_gas = 0
+    balance_below_min = 0
+    balance_above_min = 0
+    num_address_moving_gas = 0
 
     if TOKEN_NAME == "XDAI" or TOKEN_NAME == "ETH" or TOKEN_NAME == "BNB":
         # we do not need gas, we move straight
@@ -4209,11 +4215,13 @@ async def erc_check_minimum_deposit(coin: str):
                     continue
                 real_deposited_balance = float("%.6f" % (int(deposited_balance) / 10**token_info['token_decimal']))
                 if real_deposited_balance < token_info['min_move_deposit']:
+                    balance_below_min += 1
                     # skip balance move below this
                     # print("Skipped {}, {}. Having {}, minimum {}".format(TOKEN_NAME, each_address['balance_wallet_address'], real_deposited_balance, token_info['min_move_deposit']))
                     pass
                 # token_info['withdraw_address'] => each_address['balance_wallet_address']
                 else:
+                    balance_above_min += 1
                     try:
                         w3 = Web3(Web3.HTTPProvider(url))
 
@@ -4253,6 +4261,9 @@ async def erc_check_minimum_deposit(coin: str):
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
                         #await logchanbot(traceback.format_exc())
+            msg_deposit += "TOKEN {}: Total deposit address: {}: Below min.: {} Above min. {}".format(TOKEN_NAME, len(list_user_addresses), balance_below_min, balance_above_min)
+        else:
+            msg_deposit += "TOKEN {}: No deposit address.".format(TOKEN_NAME)
     else:
         # get withdraw gas balance
         gas_main_balance = None
@@ -4262,6 +4273,8 @@ async def erc_check_minimum_deposit(coin: str):
             traceback.print_exc(file=sys.stdout)
         # main balance has gas?
         main_balance_gas_sufficient = True
+        if gas_main_balance: balance_main_gas = gas_main_balance / 10**18
+        msg_deposit += "Main Gas: {}{}\n".format(balance_main_gas, token_info['net_name'].upper())
         if gas_main_balance and gas_main_balance / 10**token_info['token_decimal'] >= token_info['min_gas_tx']:
             #print(f"Main gas balance for {TOKEN_NAME} sufficient. Having {gas_main_balance / 10**18}")
             pass
@@ -4278,8 +4291,10 @@ async def erc_check_minimum_deposit(coin: str):
                     continue
                 real_deposited_balance = int(deposited_balance) / 10**token_info['token_decimal']
                 if real_deposited_balance < token_info['min_move_deposit']:
+                    balance_below_min += 1
                     pass
                 else:
+                    balance_above_min += 1
                     # Check if there is gas remaining to spend there
                     gas_of_address = await http_wallet_getbalance(each_address['balance_wallet_address'], token_info['net_name'].upper())
                     if gas_of_address / 10**18 >= token_info['min_gas_tx']:
@@ -4346,13 +4361,21 @@ async def erc_check_minimum_deposit(coin: str):
                             signed = w3.eth.account.sign_transaction(transaction, private_key=decrypt_string(token_info['withdraw_key']))
                             # send Transaction for gas:
                             send_gas_tx = w3.eth.sendRawTransaction(signed.rawTransaction)
+                            num_address_moving_gas += 1
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
                             await logchanbot(traceback.format_exc())
                     elif gas_of_address / 10**18 < token_info['move_gas_amount'] and main_balance_gas_sufficient == False:
                         await logchanbot('Main address has no sufficient balance to supply gas {}. Main address for gas deposit {}'.format(each_address['balance_wallet_address'], token_info['withdraw_address']))
+                        msg_deposit += 'TOKEN {}: Main address has no sufficient balance to supply gas {}. Main address for gas deposit {}\n.'.format(each_address['balance_wallet_address'], token_info['withdraw_address'])
                     else:
                         print('Internal error for gas checking {}'.format(each_address['balance_wallet_address']))
+            msg_deposit += "TOKEN {}: Total deposit address: {}: Below min.: {} Above min. {}".format(TOKEN_NAME, len(list_user_addresses), balance_below_min, balance_above_min)
+        else:
+            msg_deposit += "TOKEN {}: No deposit address.\n".format(TOKEN_NAME)
+        if num_address_moving_gas > 0:
+            msg_deposit += "TOKEN {}: Moving gas to {} adddresses().".format(TOKEN_NAME, num_address_moving_gas)
+    return msg_deposit
 
 
 async def erc_move_deposit_for_spendable(token_name: str, contract: str, user_id: str, balance_wallet_address: str, to_main_address: str, \

@@ -1837,7 +1837,7 @@ async def sql_voucher_get_user(user_id: str, user_server: str='DISCORD', last: i
 
 
 async def sql_faucet_add(claimed_user: str, claimed_server: str, coin_name: str, claimed_amount: float, decimal: int, user_server: str = 'DISCORD'):
-    global pool
+    global pool, redis_conn
     user_server = user_server.upper()
     if user_server not in ['DISCORD', 'TELEGRAM']:
         return
@@ -1851,6 +1851,13 @@ async def sql_faucet_add(claimed_user: str, claimed_server: str, coin_name: str,
                 await cur.execute(sql, (claimed_user, coin_name, claimed_amount, decimal, 
                                         int(time.time()), claimed_server, user_server))
                 await conn.commit()
+                # Faucet: store in redis
+                try:
+                    openRedis()
+                    if redis_conn:
+                        redis_conn.set(f'TIPBOT:FAUCET_{claimed_user}', str(int(time.time())), ex=int(config.faucet.interval*3600))
+                except Exception as e:
+                    await logchanbot(traceback.format_exc())
                 return True
     except Exception as e:
         await logchanbot(traceback.format_exc())
@@ -1858,10 +1865,20 @@ async def sql_faucet_add(claimed_user: str, claimed_server: str, coin_name: str,
 
 
 async def sql_faucet_checkuser(userID: str, user_server: str = 'DISCORD'):
-    global pool
+    global pool, redis_conn, redis_pool
     user_server = user_server.upper()
     if user_server not in ['DISCORD', 'TELEGRAM']:
         return
+    # Check if in redis already:
+    try:
+        key = f"TIPBOT:FAUCET_{userID}"
+        if redis_conn is None: redis_conn = redis.Redis(connection_pool=redis_pool)
+        if redis_conn and redis_conn.exists(key):
+            check_claimed = redis_conn.get(key).decode()
+            return {'claimed_at': int(check_claimed)}
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+
     list_roach = await sql_roach_get_by_id(userID, user_server)
     try:
         await openConnection()

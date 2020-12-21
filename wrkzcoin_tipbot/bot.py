@@ -8126,7 +8126,7 @@ async def take(ctx, info: str=None):
 
     try:
         # check user claim:
-        claim_interval = 24
+        claim_interval = config.faucet.interval
         check_claimed = await store.sql_faucet_checkuser(str(ctx.message.author.id), 'DISCORD')
         if check_claimed:
             # limit 12 hours

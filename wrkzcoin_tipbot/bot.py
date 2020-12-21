@@ -11968,6 +11968,7 @@ async def stats(ctx, coin: str = None):
                 notice_txt = NOTICE_COIN[COIN_NAME]
             else:
                 notice_txt = NOTICE_COIN['default']
+            embed.add_field(name='Related commands', value=f'`{prefix}coininfo {COIN_NAME}`, `{prefix}deposit {COIN_NAME}`, `{prefix}balance {COIN_NAME}`', inline=False)
             embed.set_footer(text=notice_txt)
             try:
                 msg = await ctx.send(embed=embed)
@@ -12015,6 +12016,7 @@ async def stats(ctx, coin: str = None):
                 notice_txt = NOTICE_COIN[COIN_NAME]
             else:
                 notice_txt = NOTICE_COIN['default']
+            embed.add_field(name='Related commands', value=f'`{prefix}coininfo {COIN_NAME}`, `{prefix}deposit {COIN_NAME}`, `{prefix}balance {COIN_NAME}`', inline=False)
             embed.set_footer(text=notice_txt)
             try:
                 msg = await ctx.send(embed=embed)
@@ -12072,6 +12074,7 @@ async def stats(ctx, coin: str = None):
             embed.add_field(name="WALLET SYNC %", value=t_percent + '% (' + '{:,.0f}'.format(localDaemonBlockCount - 1) + ')', inline=True)
             embed.add_field(name="TOTAL UNLOCKED", value=num_format_coin(walletBalance['unlocked'], COIN_NAME) + COIN_NAME, inline=True)
             embed.add_field(name="TOTAL LOCKED", value=num_format_coin(walletBalance['locked'], COIN_NAME) + COIN_NAME, inline=True)
+            embed.add_field(name='Related commands', value=f'`{prefix}coininfo {COIN_NAME}`, `{prefix}deposit {COIN_NAME}`, `{prefix}balance {COIN_NAME}`', inline=False)
             if NOTICE_COIN[COIN_NAME]:
                 notice_txt = NOTICE_COIN[COIN_NAME] + " | Daemon RPC not available"
             else:

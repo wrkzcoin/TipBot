@@ -5667,16 +5667,19 @@ async def userinfo(ctx, member: discord.Member = None):
                     sub_outtip += tipstat['tx_out']
             if sub_intip > 0 and sub_outtip > 0:
                 ratio_tip = float("%.3f" % float(sub_outtip / sub_intip))
-                if ratio_tip < 0.1:
-                    tip_text = "CryptoTip Collecting Factory"
-                elif 0.5 > ratio_tip >= 0.1:
-                    tip_text = "CryptoTip Farmer"
-                elif 1 > ratio_tip >= 0.5:
-                    tip_text = "CryptoTip Collector"
-                elif 5 > ratio_tip >= 1:
-                    tip_text = "CryptoTip Spreader"
-                elif ratio_tip >= 5:
-                    tip_text = "CryptoTip AirDropper"
+                if sub_intip + sub_outtip < 50:
+                    tip_text = "CryptoTip Beginner"
+                else:
+                    if ratio_tip < 0.1:
+                        tip_text = "CryptoTip Rig"
+                    elif 0.5 > ratio_tip >= 0.1:
+                        tip_text = "CryptoTip Excavator"
+                    elif 1 > ratio_tip >= 0.5:
+                        tip_text = "CryptoTip Farmer"
+                    elif 5 > ratio_tip >= 1:
+                        tip_text = "CryptoTip Seeder"
+                    elif ratio_tip >= 5:
+                        tip_text = "CryptoTip AirDropper"
             embed.add_field(name="Tip In/Out", value="{}/{} - {}".format('{:,}'.format(sub_intip), '{:,}'.format(sub_outtip), tip_text), inline=False)
         except Exception as e:
             print(traceback.format_exc())

@@ -261,6 +261,106 @@ async def sql_user_balance_get_xfer_in(userID: str, coin: str, user_server: str 
     return IncomingTx
 
 
+async def sql_user_get_tipstat(userID: str, coin: str, update: bool=False, user_server: str = 'DISCORD'):
+    global pool, redis_pool, redis_conn, redis_expired
+    user_server = user_server.upper()
+    if user_server not in ['DISCORD', 'TELEGRAM']:
+        return
+    COIN_NAME = coin.upper()
+    if COIN_NAME in ENABLE_COIN_ERC:
+        coin_family = "ERC-20"
+    else:
+        coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    key = f"TIPBOT:TIPSTAT_{COIN_NAME}:" + f"{user_server}_{userID}"
+    if update == False:
+        try:
+            if redis_conn is None: redis_conn = redis.Redis(connection_pool=redis_pool)
+            if redis_conn and redis_conn.exists(key):
+                tipstat = redis_conn.get(key).decode()
+                return json.loads(tipstat)
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
+
+    # if not in redis
+    user_stat =  {'tip_out': 0, 'tip_in': 0, 'tx_out': 0, 'tx_in': 0}
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                if coin_family in ["TRTL", "BCN"]:
+                    sql = """ SELECT (SELECT SUM(amount) FROM cnoff_mv_tx WHERE `from_userid` = %s AND `coin_name`=%s ) as expense,
+                                     (SELECT SUM(amount) FROM cnoff_mv_tx WHERE `to_userid` = %s AND `coin_name`=%s ) as income,
+                                     (SELECT COUNT(*) FROM cnoff_mv_tx WHERE `from_userid` = %s AND `coin_name`=%s ) as ex_tip,
+                                     (SELECT COUNT(*) FROM cnoff_mv_tx WHERE `to_userid` = %s AND `coin_name`=%s ) as in_tip """
+                    await cur.execute(sql, (userID, COIN_NAME, userID, COIN_NAME ,userID, COIN_NAME , userID, COIN_NAME,))
+                    result = await cur.fetchone()
+                    if result:
+                        user_stat =  {'tip_out': int(result['expense']) if result['expense'] else 0,
+                                      'tip_in': int(result['income']) if result['income'] else 0,
+                                      'tx_out': result['ex_tip'],
+                                      'tx_in': result['in_tip']}
+                elif coin_family == "XMR":
+                    sql = """ SELECT (SELECT SUM(amount) FROM xmroff_mv_tx WHERE `from_userid` = %s AND `coin_name`=%s ) as expense,
+                                     (SELECT SUM(amount) FROM xmroff_mv_tx WHERE `to_userid` = %s AND `coin_name`=%s ) as income,
+                                     (SELECT COUNT(*) FROM xmroff_mv_tx WHERE `from_userid` = %s AND `coin_name`=%s ) as ex_tip,
+                                     (SELECT COUNT(*) FROM xmroff_mv_tx WHERE `to_userid` = %s AND `coin_name`=%s ) as in_tip """
+                    await cur.execute(sql, (userID, COIN_NAME, userID, COIN_NAME, userID, COIN_NAME, userID, COIN_NAME,))
+                    result = await cur.fetchone()
+                    if result:
+                        user_stat =  {'tip_out': int(result['expense']) if result['expense'] else 0,
+                                      'tip_in': int(result['income']) if result['income'] else 0,
+                                      'tx_out': result['ex_tip'],
+                                      'tx_in': result['in_tip']}
+                elif coin_family == "DOGE":
+                    sql = """ SELECT (SELECT SUM(amount) FROM doge_mv_tx WHERE `from_userid` = %s AND `coin_name`=%s ) as expense,
+                                     (SELECT SUM(amount) FROM doge_mv_tx WHERE `to_userid` = %s AND `coin_name`=%s ) as income,
+                                     (SELECT COUNT(*) FROM doge_mv_tx WHERE `from_userid` = %s AND `coin_name`=%s ) as ex_tip,
+                                     (SELECT COUNT(*) FROM doge_mv_tx WHERE `to_userid` = %s AND `coin_name`=%s ) as in_tip """
+                    await cur.execute(sql, (userID, COIN_NAME, userID, COIN_NAME, userID, COIN_NAME, userID, COIN_NAME,))
+                    result = await cur.fetchone()
+                    if result:
+                        user_stat =  {'tip_out': float(result['expense']) if result['expense'] else 0,
+                                      'tip_in': float(result['income']) if result['income'] else 0,
+                                      'tx_out': result['ex_tip'],
+                                      'tx_in': result['in_tip']}
+                elif coin_family == "NANO":
+                    sql = """ SELECT (SELECT SUM(amount) FROM nano_mv_tx WHERE `from_userid` = %s AND `coin_name`=%s ) as expense,
+                                     (SELECT SUM(amount) FROM nano_mv_tx WHERE `to_userid` = %s AND `coin_name`=%s ) as income,
+                                     (SELECT COUNT(*) FROM nano_mv_tx WHERE `from_userid` = %s AND `coin_name`=%s ) as ex_tip,
+                                     (SELECT COUNT(*) FROM nano_mv_tx WHERE `to_userid` = %s AND `coin_name`=%s ) as in_tip """
+                    await cur.execute(sql, (userID, COIN_NAME, userID, COIN_NAME, userID, COIN_NAME, userID, COIN_NAME,))
+                    result = await cur.fetchone()
+                    if result:
+                        user_stat =  {'tip_out': int(result['expense']) if result['expense'] else 0,
+                                      'tip_in': int(result['income']) if result['income'] else 0,
+                                      'tx_out': result['ex_tip'],
+                                      'tx_in': result['in_tip']}
+                elif coin_family == "ERC-20":
+                    sql = """ SELECT (SELECT SUM(real_amount) FROM erc_mv_tx WHERE `from_userid` = %s AND `token_name`=%s ) as expense,
+                                     (SELECT SUM(real_amount) FROM erc_mv_tx WHERE `to_userid` = %s AND `token_name`=%s ) as income,
+                                     (SELECT COUNT(*) FROM erc_mv_tx WHERE `from_userid` = %s AND `token_name`=%s ) as ex_tip,
+                                     (SELECT COUNT(*) FROM erc_mv_tx WHERE `to_userid` = %s AND `token_name`=%s ) as in_tip """
+                    await cur.execute(sql, (userID, COIN_NAME, userID, COIN_NAME, userID, COIN_NAME, userID, COIN_NAME,))
+                    result = await cur.fetchone()
+                    if result:
+                        user_stat =  {'tip_out': float(result['expense']) if result['expense'] else 0,
+                                      'tip_in': float(result['income']) if result['income'] else 0,
+                                      'tx_out': result['ex_tip'],
+                                      'tx_in': result['in_tip']}
+    except Exception as e:
+        print(traceback.format_exc())
+        await logchanbot(traceback.format_exc())
+    # store in redis
+    try:
+        openRedis()
+        if redis_conn:
+            # set it longer. 20mn to store 0 balance
+            redis_conn.set(key, json.dumps(user_stat), ex=config.redis_setting.tipstat)
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return user_stat
+
+
 async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD'):
     global pool
     user_server = user_server.upper()

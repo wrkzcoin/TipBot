@@ -5641,6 +5641,9 @@ async def userinfo(ctx, member: discord.Member = None):
         return
     if member is None:
         member = ctx.message.author
+        userid = str(ctx.author.id)
+    else:
+        userid = str(member.id)
     try:
         embed = discord.Embed(title="{}'s info".format(member.name), description="Here's what I could find.", color=0x00ff00)
         embed.add_field(name="Name", value="{}#{}".format(member.name, member.discriminator), inline=True)
@@ -5653,6 +5656,31 @@ async def userinfo(ctx, member: discord.Member = None):
             if user_claims and user_claims > 0:
                 take_level = get_roach_level(user_claims)
                 embed.add_field(name="Faucet Taking Level", value=take_level)
+        try:
+            sub_intip = 0
+            sub_outtip = 0
+            tip_text = "N/A"
+            for each_coin in ENABLE_COIN+ENABLE_XMR+ENABLE_COIN_DOGE+ENABLE_COIN_NANO+ENABLE_COIN_ERC:
+                tipstat = await store.sql_user_get_tipstat(userid, each_coin, False, 'DISCORD')
+                if tipstat:
+                    sub_intip += tipstat['tx_in']
+                    sub_outtip += tipstat['tx_out']
+            if sub_intip > 0 and sub_outtip > 0:
+                ratio_tip = float("%.3f" % float(sub_outtip / sub_intip))
+                if ratio_tip < 0.1:
+                    tip_text = "CryptoTip Collecting Factory"
+                elif 0.5 > ratio_tip >= 0.1:
+                    tip_text = "CryptoTip Farmer"
+                elif 1 > ratio_tip >= 0.5:
+                    tip_text = "CryptoTip Collector"
+                elif 5 > ratio_tip >= 1:
+                    tip_text = "CryptoTip Spreader"
+                elif ratio_tip >= 5:
+                    tip_text = "CryptoTip AirDropper"
+            embed.add_field(name="Tip In/Out", value="{}/{} - {}".format('{:,}'.format(sub_intip), '{:,}'.format(sub_outtip), tip_text), inline=False)
+        except Exception as e:
+            print(traceback.format_exc())
+            await logchanbot(traceback.format_exc())
         embed.add_field(name="Joined", value=str(member.joined_at.strftime("%d-%b-%Y") + ': ' + timeago.format(member.joined_at, datetime.utcnow())))
         embed.add_field(name="Created", value=str(member.created_at.strftime("%d-%b-%Y") + ': ' + timeago.format(member.created_at, datetime.utcnow())))
         embed.set_thumbnail(url=member.avatar_url)
@@ -8251,6 +8279,12 @@ async def donate(ctx, amount: str, coin: str=None):
     except Exception as e:
         await logchanbot(traceback.format_exc())
     if donateTx:
+        # Update tipstat
+        try:
+            update_tipstat = await store.sql_user_get_tipstat(str(ctx.message.author.id), COIN_NAME, True, 'DISCORD')
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
+
         await ctx.message.add_reaction(get_emoji(COIN_NAME))
         await botLogChan.send(f'{EMOJI_MONEYFACE} TipBot got donation: {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
         await ctx.message.author.send(
@@ -8494,6 +8528,12 @@ async def take(ctx, info: str=None):
             await msg.add_reaction(EMOJI_OK_BOX)
             return
         if tip:
+            # Update tipstat
+            try:
+                update_tipstat = await store.sql_user_get_tipstat(str(ctx.message.author.id), COIN_NAME, True, 'DISCORD')
+                update_tipstat = await store.sql_user_get_tipstat(str(bot.user.id), COIN_NAME, True, 'DISCORD')
+            except Exception as e:
+                await logchanbot(traceback.format_exc())
             try:
                 faucet_add = await store.sql_faucet_add(str(ctx.message.author.id), str(ctx.guild.id), COIN_NAME, real_amount, get_decimal(COIN_NAME), 'DISCORD')
                 await ctx.message.add_reaction(get_emoji(COIN_NAME))
@@ -8785,6 +8825,13 @@ async def randtip(ctx, amount: str, coin: str, *, rand_option: str=None):
         TX_IN_PROCESS.remove(ctx.message.author.id)
 
     if tip:
+        # Update tipstat
+        try:
+            update_tipstat = await store.sql_user_get_tipstat(str(ctx.message.author.id), COIN_NAME, True, 'DISCORD')
+            update_tipstat = await store.sql_user_get_tipstat(str(rand_user.id), COIN_NAME, True, 'DISCORD')
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
+
         randtip_public_respond = False
         # tipper shall always get DM. Ignore notifyList
         try:
@@ -9118,6 +9165,11 @@ and reaction.message.id == msg.id and str(reaction.emoji) == EMOJI_PARTY
         if ctx.message.author.id in TX_IN_PROCESS:
             TX_IN_PROCESS.remove(ctx.message.author.id)
         if tip:
+            # Update tipstat
+            try:
+                update_tipstat = await store.sql_user_get_tipstat(str(ctx.message.author.id), COIN_NAME, True, 'DISCORD')
+            except Exception as e:
+                await logchanbot(traceback.format_exc())
             tipAmount = num_format_coin(real_amount, COIN_NAME)
             ActualSpend_str = num_format_coin(amountDiv * len(attend_list_id), COIN_NAME)
             amountDiv_str = num_format_coin(amountDiv, COIN_NAME)
@@ -9137,6 +9189,11 @@ and reaction.message.id == msg.id and str(reaction.emoji) == EMOJI_PARTY
                 await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
             numMsg = 0
             for member_id in attend_list_id:
+                # Update tipstat
+                try:
+                    update_tipstat = await store.sql_user_get_tipstat(str(member_id), COIN_NAME, True, 'DISCORD')
+                except Exception as e:
+                    print(traceback.format_exc())
                 member = bot.get_user(id=member_id)
                 if ctx.message.author.id != member.id and member.id != bot.user.id:
                     if str(member.id) not in notifyList:
@@ -9232,6 +9289,12 @@ and reaction.message.id == msg.id and str(reaction.emoji) == EMOJI_PARTY
                 TX_IN_PROCESS.remove(ctx.message.author.id)
 
             if tip:
+                # Update tipstat
+                try:
+                    update_tipstat = await store.sql_user_get_tipstat(str(ctx.message.author.id), COIN_NAME, True, 'DISCORD')
+                    update_tipstat = await store.sql_user_get_tipstat(str(user.id), COIN_NAME, True, 'DISCORD')
+                except Exception as e:
+                    await logchanbot(traceback.format_exc())
                 embed = discord.Embed(title=f"Free Tip appeared {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}", description=f"Already collected", color=0x00ff00)
                 embed.set_footer(text=f"Free tip by {ctx.message.author.name}#{ctx.message.author.discriminator}, collected by: {user.name}#{user.discriminator}")
                 await msg.edit(embed=embed)
@@ -9664,6 +9727,13 @@ async def tip(ctx, amount: str, *args):
         TX_IN_PROCESS.remove(ctx.message.author.id)
 
     if tip:
+        # Update tipstat
+        try:
+            update_tipstat = await store.sql_user_get_tipstat(str(ctx.message.author.id), COIN_NAME, True, 'DISCORD')
+            update_tipstat = await store.sql_user_get_tipstat(str(member.id), COIN_NAME, True, 'DISCORD')
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
+
         await ctx.message.add_reaction(get_emoji(COIN_NAME))
         # tipper shall always get DM. Ignore notifyList
         try:
@@ -10093,7 +10163,17 @@ async def mtip(ctx, amount: str, *args):
     except Exception as e:
         await logchanbot(traceback.format_exc())
     if tip:
-        await ctx.message.add_reaction(get_emoji(COIN_NAME))
+        # Update tipstat
+        try:
+            update_tipstat = await store.sql_user_get_tipstat(str(ctx.guild.id), COIN_NAME, True, 'DISCORD')
+            update_tipstat = await store.sql_user_get_tipstat(str(member.id), COIN_NAME, True, 'DISCORD')
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
+
+        if COIN_NAME in ENABLE_COIN_ERC:
+            await ctx.message.add_reaction(TOKEN_EMOJI)
+        else:
+            await ctx.message.add_reaction(get_emoji(COIN_NAME))
         # tipper shall always get DM. Ignore notifyList
         try:
             await ctx.message.author.send(
@@ -10365,6 +10445,11 @@ async def tipall(ctx, amount: str, coin: str, option: str=None):
         TX_IN_PROCESS.remove(ctx.message.author.id)
 
     if tip:
+        # Update tipstat
+        try:
+            update_tipstat = await store.sql_user_get_tipstat(str(ctx.message.author.id), COIN_NAME, True, 'DISCORD')
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
         tipAmount = num_format_coin(real_amount, COIN_NAME)
         ActualSpend_str = num_format_coin(amountDiv * len(list_receivers), COIN_NAME)
         amountDiv_str = num_format_coin(amountDiv, COIN_NAME)
@@ -10381,6 +10466,11 @@ async def tipall(ctx, amount: str, coin: str, option: str=None):
             await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
         numMsg = 0
         for member in listMembers:
+            # Update tipstat
+            try:
+                update_tipstat = await store.sql_user_get_tipstat(str(member.id), COIN_NAME, True, 'DISCORD')
+            except Exception as e:
+                print(traceback.format_exc())
             if ctx.message.author.id != member.id and member.id != bot.user.id:
                 if str(member.id) not in notifyList:
                     # random user to DM
@@ -14817,10 +14907,20 @@ async def _tip(ctx, amount, coin: str, if_guild: bool=False):
     # remove queue from tip
     if int(id_tipper) in TX_IN_PROCESS:
         TX_IN_PROCESS.remove(int(id_tipper))
-
+ 
     if tip:
+        # Update tipstat
+        try:
+            update_tipstat = await store.sql_user_get_tipstat(id_tipper, COIN_NAME, True, 'DISCORD')
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
         try:
             for member in listMembers:
+                # Update tipstat
+                try:
+                    update_tipstat = await store.sql_user_get_tipstat(str(member.id), COIN_NAME, True, 'DISCORD')
+                except Exception as e:
+                    print(traceback.format_exc())
                 if ctx.message.author.id != member.id and bot.user.id != member.id and str(member.id) not in notifyList:
                     try:
                         await member.send(f'{EMOJI_MONEYFACE} You got a {tip_type_text} of  {num_format_coin(real_amount, COIN_NAME)} '
@@ -15047,6 +15147,11 @@ async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str 
         TX_IN_PROCESS.remove(int(id_tipper))
 
     if tip:
+        # Update tipstat
+        try:
+            update_tipstat = await store.sql_user_get_tipstat(id_tipper, COIN_NAME, True, 'DISCORD')
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
         # tipper shall always get DM. Ignore notifyList
         try:
             await ctx.message.author.send(
@@ -15059,6 +15164,11 @@ async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str 
         mention_list_name = ''
         guild_members = ctx.guild.members
         for member_id in list_talker:
+            # Update tipstat
+            try:
+                update_tipstat = await store.sql_user_get_tipstat(str(member_id), COIN_NAME, True, 'DISCORD')
+            except Exception as e:
+                print(traceback.format_exc())
             # print(member.name) # you'll just print out Member objects your way.
             if ctx.message.author.id != int(member_id):
                 member = bot.get_user(id=int(member_id))

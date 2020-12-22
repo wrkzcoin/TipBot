@@ -2388,7 +2388,8 @@ async def sql_changeinfo_by_server(server_id: str, what: str, value: str):
     global pool
     if what.lower() in ["servername", "prefix", "default_coin", "tiponly", "numb_user", "numb_bot", "numb_channel", \
     "react_tip", "react_tip_100", "lastUpdate", "botchan", "enable_faucet", "enable_game", "enable_market", "enable_trade", "tip_message", \
-    "tip_message_by", "tip_notifying_acceptance"]:
+    "tip_message_by", "tip_notifying_acceptance", "game_2048_channel", "game_bagel_channel", "game_blackjack_channel", "game_dice_channel", \
+    "game_maze_channel", "game_slot_channel", "game_snail_channel", "game_sokoban_channel", "game_hangman_channel"]:
         try:
             #print(f"ok try to change {what} to {value}")
             await openConnection()
@@ -4232,7 +4233,7 @@ async def erc_check_minimum_deposit(coin: str):
                         nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(each_address['balance_wallet_address']))
 
                         # get gas price
-                        gasPrice = w3.eth.gasPrice
+                        gasPrice = int(w3.eth.gasPrice * 1.0)
 
                         estimateGas = w3.eth.estimateGas({'to': w3.toChecksumAddress(token_info['withdraw_address']), 'from': w3.toChecksumAddress(each_address['balance_wallet_address']), 'value':  int(real_deposited_balance * 10**token_info['token_decimal'])})
 
@@ -4315,7 +4316,7 @@ async def erc_check_minimum_deposit(coin: str):
                              deposited_balance # amount to send
                          ).buildTransaction({
                              'from': w3.toChecksumAddress(each_address['balance_wallet_address']),
-                             'gasPrice': w3.eth.gasPrice,
+                             'gasPrice': int(w3.eth.gasPrice*1.0),
                              'nonce': nonce
                          })
 
@@ -4344,7 +4345,7 @@ async def erc_check_minimum_deposit(coin: str):
                         nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(token_info['withdraw_address']))
 
                         # get gas price
-                        gasPrice = w3.eth.gasPrice
+                        gasPrice = int(w3.eth.gasPrice*1.0)
 
                         estimateGas = w3.eth.estimateGas({'to': w3.toChecksumAddress(each_address['balance_wallet_address']), 'from': w3.toChecksumAddress(token_info['withdraw_address']), 'value':  int(token_info['move_gas_amount'] * 10**token_info['token_decimal'])})
 
@@ -4363,6 +4364,7 @@ async def erc_check_minimum_deposit(coin: str):
                             # send Transaction for gas:
                             send_gas_tx = w3.eth.sendRawTransaction(signed.rawTransaction)
                             num_address_moving_gas += 1
+                            await asyncio.sleep(45) # sleep 30s before another tx
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
                             await logchanbot(traceback.format_exc())

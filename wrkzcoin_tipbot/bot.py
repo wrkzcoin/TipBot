@@ -1826,6 +1826,24 @@ async def blackjack(ctx):
     except Exception as e:
         await logchanbot(traceback.format_exc())
 
+    try: 
+        index_game = "game_blackjack_channel"
+        # check if bot channel is set:
+        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        if serverinfo and serverinfo[index_game]:
+            if ctx.channel.id != int(serverinfo[index_game]):
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                gameChan = bot.get_channel(id=int(serverinfo[index_game]))
+                if gameChan:
+                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention}, {gameChan.mention} is for game **blackjack** channel!!!')
+                    return
+    except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+        pass
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    # end of bot channel check
+
     count_played = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', False)
     count_played_free = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', True)
     if count_played and count_played >= config.game.max_daily_play:
@@ -2035,6 +2053,24 @@ async def slot(ctx):
     except Exception as e:
         await logchanbot(traceback.format_exc())
 
+    try: 
+        index_game = "game_slot_channel"
+        # check if bot channel is set:
+        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        if serverinfo and serverinfo[index_game]:
+            if ctx.channel.id != int(serverinfo[index_game]):
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                gameChan = bot.get_channel(id=int(serverinfo[index_game]))
+                if gameChan:
+                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention}, {gameChan.mention} is for game **slot** channel!!!')
+                    return
+    except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+        pass
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    # end of bot channel check
+
     count_played = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', False)
     count_played_free = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', True)
     if count_played and count_played >= config.game.max_daily_play:
@@ -2158,6 +2194,23 @@ async def bagel(ctx):
     except Exception as e:
         await logchanbot(traceback.format_exc())
 
+    try: 
+        index_game = "game_bagel_channel"
+        # check if bot channel is set:
+        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        if serverinfo and serverinfo[index_game]:
+            if ctx.channel.id != int(serverinfo[index_game]):
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                gameChan = bot.get_channel(id=int(serverinfo[index_game]))
+                if gameChan:
+                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention}, {gameChan.mention} is for game **bagel** channel!!!')
+                    return
+    except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+        pass
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    # end of bot channel check
 
     if ctx.message.author.id not in GAME_INTERACTIVE_PRGORESS:
         GAME_INTERACTIVE_PRGORESS.append(ctx.message.author.id)
@@ -2337,6 +2390,23 @@ async def bagel2(ctx):
     except Exception as e:
         await logchanbot(traceback.format_exc())
 
+    try: 
+        index_game = "game_bagel_channel"
+        # check if bot channel is set:
+        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        if serverinfo and serverinfo[index_game]:
+            if ctx.channel.id != int(serverinfo[index_game]):
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                gameChan = bot.get_channel(id=int(serverinfo[index_game]))
+                if gameChan:
+                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention}, {gameChan.mention} is for game **bagel** channel!!!')
+                    return
+    except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+        pass
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    # end of bot channel check
 
     if ctx.message.author.id not in GAME_INTERACTIVE_PRGORESS:
         GAME_INTERACTIVE_PRGORESS.append(ctx.message.author.id)
@@ -2543,6 +2613,23 @@ async def bagel3(ctx):
     except Exception as e:
         await logchanbot(traceback.format_exc())
 
+    try: 
+        index_game = "game_bagel_channel"
+        # check if bot channel is set:
+        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        if serverinfo and serverinfo[index_game]:
+            if ctx.channel.id != int(serverinfo[index_game]):
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                gameChan = bot.get_channel(id=int(serverinfo[index_game]))
+                if gameChan:
+                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention}, {gameChan.mention} is for game **bagel** channel!!!')
+                    return
+    except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+        pass
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    # end of bot channel check
 
     if ctx.message.author.id not in GAME_INTERACTIVE_PRGORESS:
         GAME_INTERACTIVE_PRGORESS.append(ctx.message.author.id)
@@ -2747,6 +2834,24 @@ async def maze(ctx):
     # Credit: https://github.com/asweigart/PythonStdioGames
     free_game = False
     won = False
+
+    try: 
+        index_game = "game_maze_channel"
+        # check if bot channel is set:
+        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        if serverinfo and serverinfo[index_game]:
+            if ctx.channel.id != int(serverinfo[index_game]):
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                gameChan = bot.get_channel(id=int(serverinfo[index_game]))
+                if gameChan:
+                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention}, {gameChan.mention} is for game **maze** channel!!!')
+                    return
+    except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+        pass
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    # end of bot channel check
 
     if ctx.message.author.id not in GAME_INTERACTIVE_PRGORESS:
         GAME_INTERACTIVE_PRGORESS.append(ctx.message.author.id)
@@ -2971,6 +3076,23 @@ async def hangman(ctx):
     except Exception as e:
         await logchanbot(traceback.format_exc())
 
+    try: 
+        index_game = "game_hangman_channel"
+        # check if bot channel is set:
+        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        if serverinfo and serverinfo[index_game]:
+            if ctx.channel.id != int(serverinfo[index_game]):
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                gameChan = bot.get_channel(id=int(serverinfo[index_game]))
+                if gameChan:
+                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention}, {gameChan.mention} is for game **hangman** channel!!!')
+                    return
+    except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+        pass
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    # end of bot channel check
 
     if ctx.message.author.id not in GAME_INTERACTIVE_PRGORESS:
         GAME_INTERACTIVE_PRGORESS.append(ctx.message.author.id)
@@ -3149,6 +3271,23 @@ async def dice(ctx):
     except Exception as e:
         await logchanbot(traceback.format_exc())
 
+    try: 
+        index_game = "game_dice_channel"
+        # check if bot channel is set:
+        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        if serverinfo and serverinfo[index_game]:
+            if ctx.channel.id != int(serverinfo[index_game]):
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                gameChan = bot.get_channel(id=int(serverinfo[index_game]))
+                if gameChan:
+                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention}, {gameChan.mention} is for game **dice** channel!!!')
+                    return
+    except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+        pass
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    # end of bot channel check
 
     if ctx.message.author.id not in GAME_INTERACTIVE_PRGORESS:
         GAME_INTERACTIVE_PRGORESS.append(ctx.message.author.id)
@@ -3293,6 +3432,23 @@ async def snail(ctx, bet_numb: str=None):
     except Exception as e:
         await logchanbot(traceback.format_exc())
 
+    try: 
+        index_game = "game_snail_channel"
+        # check if bot channel is set:
+        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        if serverinfo and serverinfo[index_game]:
+            if ctx.channel.id != int(serverinfo[index_game]):
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                gameChan = bot.get_channel(id=int(serverinfo[index_game]))
+                if gameChan:
+                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention}, {gameChan.mention} is for game **snail** channel!!!')
+                    return
+    except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+        pass
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    # end of bot channel check
 
     if ctx.message.author.id not in GAME_INTERACTIVE_PRGORESS:
         GAME_INTERACTIVE_PRGORESS.append(ctx.message.author.id)
@@ -3477,6 +3633,23 @@ async def g2048(ctx):
     except Exception as e:
         await logchanbot(traceback.format_exc())
 
+    try: 
+        index_game = "game_2048_channel"
+        # check if bot channel is set:
+        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        if serverinfo and serverinfo[index_game]:
+            if ctx.channel.id != int(serverinfo[index_game]):
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                gameChan = bot.get_channel(id=int(serverinfo[index_game]))
+                if gameChan:
+                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention}, {gameChan.mention} is for game **2048** channel!!!')
+                    return
+    except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+        pass
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    # end of bot channel check
 
     if ctx.message.author.id not in GAME_INTERACTIVE_PRGORESS:
         GAME_INTERACTIVE_PRGORESS.append(ctx.message.author.id)
@@ -3786,6 +3959,23 @@ async def sokoban(ctx):
     except Exception as e:
         await logchanbot(traceback.format_exc())
 
+    try: 
+        index_game = "game_sokoban_channel"
+        # check if bot channel is set:
+        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        if serverinfo and serverinfo[index_game]:
+            if ctx.channel.id != int(serverinfo[index_game]):
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                gameChan = bot.get_channel(id=int(serverinfo[index_game]))
+                if gameChan:
+                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention}, {gameChan.mention} is for game **sokoban** channel!!!')
+                    return
+    except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+        pass
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    # end of bot channel check
 
     if ctx.message.author.id not in GAME_INTERACTIVE_PRGORESS:
         GAME_INTERACTIVE_PRGORESS.append(ctx.message.author.id)
@@ -5278,6 +5468,7 @@ async def botchan(ctx):
     serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
     if serverinfo['botchan']:
         try: 
+            botLogChan = bot.get_channel(id=LOG_CHAN)
             if ctx.channel.id == int(serverinfo['botchan']):
                 await ctx.send(f'{EMOJI_RED_NO} {ctx.channel.mention} is already the bot channel here!')
                 return
@@ -5297,6 +5488,74 @@ async def botchan(ctx):
         return
 
 
+@guild.command(name='gamechan', aliases=['gamechannel', 'game_chan'])
+@commands.has_permissions(manage_channels=True)
+async def gamechan(ctx, game: str=None):
+    if isinstance(ctx.channel, discord.DMChannel):
+        await ctx.message.add_reaction(EMOJI_ERROR) 
+        await ctx.send(f'{ctx.author.mention} This command can not be DM.')
+        return
+
+    game_list = config.game.game_list.split(",")
+    if game is None:
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.channel.mention} please mention a game name to set game channel for it. Game list: {config.game.game_list}.')
+        return
+    else:
+        game = game.lower()
+        if game not in game_list:
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.channel.mention} please mention a game name within this list: {config.game.game_list}.')
+            return
+        else:
+            botLogChan = bot.get_channel(id=LOG_CHAN)
+            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            index_game = "game_" + game + "_channel"
+            if serverinfo[index_game]:
+                try: 
+                    if ctx.channel.id == int(serverinfo[index_game]):
+                        await ctx.send(f'{EMOJI_RED_NO} {ctx.channel.mention} is already for game **{game}** channel here!')
+                        return
+                    else:
+                        # change channel info
+                        changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), index_game, str(ctx.channel.id))
+                        await ctx.send(f'{ctx.channel.mention} Game **{game}** channel has set to {ctx.channel.mention}.')
+                        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} changed game **{game}** in channel {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.')
+                        return
+                except ValueError:
+                    return
+            else:
+                # change channel info
+                changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), index_game, str(ctx.channel.id))
+                await ctx.send(f'{ctx.channel.mention} Game **{game}** channel has set to {ctx.channel.mention}.')
+                await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} set game **{game}** channel in {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.')
+                return
+
+
+@guild.command(name='prefix')
+@commands.has_permissions(manage_channels=True)
+async def prefix(ctx, prefix_char: str=None):
+    if isinstance(ctx.channel, discord.DMChannel):
+        await ctx.message.add_reaction(EMOJI_ERROR) 
+        await ctx.send(f'{ctx.author.mention} This command can not be DM.')
+        return
+
+    if prefix_char not in [".", "?", "*", "!", "$", "~"]:
+        await ctx.send(f'{ctx.author.mention} Invalid prefix **{prefix_char}**')
+        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} wanted to changed prefix in {ctx.guild.name} / {ctx.guild.id} to `{prefix_char.lower()}`')
+        return
+    else:
+        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        server_prefix = serverinfo['server_prefix']
+        if server_prefix == prefix_char:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{ctx.author.mention} That\'s the default prefix. Nothing changed.')
+            return
+        else:
+            changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'prefix', prefix_char.lower())
+            await ctx.send(f'{ctx.author.mention} Prefix changed from `{server_prefix}` to `{prefix_char.lower()}`.')
+            await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} changed prefix in {ctx.guild.name} / {ctx.guild.id} to `{prefix_char.lower()}`')
+            return
+
+                    
 @commands.is_owner()
 @admin.command(hidden = True)
 async def dumpinfo(ctx, coin: str):
@@ -6246,8 +6505,9 @@ async def help_main_embed(ctx, prefix, section: str='MAIN'):
     embed = discord.Embed(title="List of commands", description="To avoid spamming other, you can do in Direct Message or Bot Channel", timestamp=datetime.utcnow(), color=0xDEADBF)
     help_specific = False
 
-    if section.upper() == "GUILD":
-        cmd_setting = ["setting prefix <.>", "setting default_coin <coin_name>", "setting tiponly <coin1> [coin2] [coin3] ..", "setting ignorechan", "setting del_ignorechan", "setting <mute/unmute>", "setting game"]
+    if section.upper() == "GUILDSETTING":
+        cmd_setting = ["setting prefix <.>", "setting default_coin <coin_name>", "setting tiponly <coin1> [coin2] [coin3] ..", "setting ignorechan", "setting del_ignorechan", \
+        "setting <mute/unmute>", "setting game", "guild botchan", "guild tipmsg", "guild gamechan [name]"]
         embed.add_field(name="SERVER [GUILD]", value="`{}`".format(", ".join(cmd_setting)), inline=False)
         
         cmd_tag = ["tag", "tag <-add> <tag_name> <tag description>", "tag <-del> <tag_name>", "itag", "itag <itag_name> (need attachement)", "itag -del <tag_name>"]
@@ -6345,7 +6605,7 @@ async def help(ctx, *, section: str='MAIN'):
             msg = await ctx.message.author.send(embed=embed)
         help_item = await store.sql_help_doc_get('help', section.upper())
 
-        if section.upper() in ["MAIN", "GUILD", "TIPPING", "GAMING", "TOOLING", "MARKETING", "DISCLAIMER"] or help_item is None:
+        if section.upper() in ["MAIN", "GUILDSETTING", "TIPPING", "GAMING", "TOOLING", "MARKETING", "DISCLAIMER"] or help_item is None:
             await msg.add_reaction(EMOJI_HELP_HOUSE)    
             await msg.add_reaction(EMOJI_HELP_GUILD)
             await msg.add_reaction(EMOJI_HELP_TIP)
@@ -6386,7 +6646,7 @@ async def help(ctx, *, section: str='MAIN'):
             elif str(reaction.emoji) == EMOJI_HELP_HOUSE:
                 section = "MAIN"
             elif str(reaction.emoji) == EMOJI_HELP_GUILD:
-                section = "GUILD"
+                section = "GUILDSETTING"
             elif str(reaction.emoji) == EMOJI_HELP_TIP:
                 section = "TIPPING"
             elif str(reaction.emoji) == EMOJI_HELP_GAME:
@@ -12582,9 +12842,8 @@ async def setting(ctx, *args):
                     await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} changed prefix in {ctx.guild.name} / {ctx.guild.id} to `{args[1].lower()}`')
                     return
         elif args[0].upper() == "DEFAULT_COIN" or args[0].upper() == "DEFAULTCOIN" or args[0].upper() == "COIN":
-            if args[1].upper() not in (ENABLE_COIN + ENABLE_XMR + ENABLE_COIN_DOGE + ENABLE_COIN_ERC + ENABLE_COIN_NANO):
+            if args[1].upper() not in (ENABLE_COIN + ENABLE_XMR + ENABLE_COIN_DOGE + ENABLE_COIN_ERC + ENABLE_COIN_NANO + ENABLE_COIN_ERC):
                 await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**!')
-                await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} changed default_coin in {ctx.guild.name} / {ctx.guild.id} to `{args[1].upper()}`')
                 return
             else:
                 if server_coin.upper() == args[1].upper():

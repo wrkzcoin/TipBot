@@ -9760,7 +9760,11 @@ async def mtip(ctx, amount: str, *args):
         await msg.add_reaction(EMOJI_OK_BOX)
         return
 
-    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    if COIN_NAME in ENABLE_COIN_ERC:
+        coin_family = "ERC-20"
+        token_info = await store.get_token_info(COIN_NAME)
+    else:
+        coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     # Check allowed coins
     tiponly_coins = serverinfo['tiponly'].split(",")
     if COIN_NAME == serverinfo['default_coin'].upper() or serverinfo['tiponly'].upper() == "ALLCOIN":
@@ -10031,12 +10035,20 @@ async def mtip(ctx, amount: str, *args):
 
     user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
     if user_to is None:
-        userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0)
+        if COIN_NAME in ENABLE_COIN_ERC:
+            w = await create_address_eth()
+            userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0, w)
+        else:
+            userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0)
         user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
  
     real_amount = int(Decimal(amount) * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
-    MinTx = get_min_mv_amount(COIN_NAME)
-    MaxTX = get_max_mv_amount(COIN_NAME)
+    if COIN_NAME in ENABLE_COIN_ERC:
+        MinTx = token_info['real_min_tip']
+        MaxTX = token_info['real_max_tip']
+    else:
+        MinTx = get_min_mv_amount(COIN_NAME)
+        MaxTX = get_max_mv_amount(COIN_NAME)
 
     if real_amount > MaxTX:
         await ctx.message.add_reaction(EMOJI_ERROR)

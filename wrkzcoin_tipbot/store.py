@@ -4,7 +4,7 @@ import discord
 from typing import List, Dict
 from datetime import datetime
 import time
-import json
+import simplejson as json
 import asyncio
 import aiohttp
 import aiomysql
@@ -1283,32 +1283,6 @@ async def sql_credit(user_from: str, to_user: str, amount: float, coin: str, rea
     return False
 
 
-async def sql_get_alluser_balance(coin: str, filename: str):
-    global pool
-    COIN_NAME = coin.upper()
-    if COIN_NAME in ENABLE_COIN:
-        try:
-            await openConnection()
-            async with pool.acquire() as conn:
-                async with conn.cursor() as cur:
-                    sql = """ SELECT user_id, balance_wallet_address, user_wallet_address, user_server FROM cn_user 
-                              WHERE `coin_name` = %s """
-                    await cur.execute(sql, (COIN_NAME,))
-                    result = await cur.fetchall()
-                    write_csv_dumpinfo = open(filename, "w")
-                    for item in result:
-                        getBalance = await sql_get_userwallet(item['user_id'], COIN_NAME)
-                        if getBalance:
-                            user_balance_total = getBalance['actual_balance'] + getBalance['locked_balance']
-                            write_csv_dumpinfo.write(str(item['user_id']) + ';' + wallet.num_format_coin(user_balance_total, COIN_NAME) + ';' + item['balance_wallet_address'] + '\n')
-                    write_csv_dumpinfo.close()
-                    return True
-        except Exception as e:
-            await logchanbot(traceback.format_exc())
-            return False
-    return False
-
-
 async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD', chat_id: int = 0, w=None):
     global pool
     user_server = user_server.upper()
@@ -1521,18 +1495,13 @@ async def sql_get_userwallet(userID: str, coin: str, user_server: str = 'DISCORD
                         userwallet['balance_wallet_address'] = userwallet['int_address']
                     elif coin_family in ["TRTL", "BCN"]:
                         userwallet['balance_wallet_address'] = userwallet['int_address']
-                        userwallet['actual_balance'] = int(result['actual_balance'])
-                        userwallet['locked_balance'] = int(result['locked_balance'])
                         userwallet['lastUpdate'] = int(result['lastUpdate'])
                     elif coin_family == "DOGE":
                         async with conn.cursor() as cur:
                             sql = """ SELECT * FROM doge_user WHERE `user_id`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """
                             await cur.execute(sql, (str(userID), COIN_NAME, user_server))
                             result = await cur.fetchone()
-                            if result:
-                                userwallet['actual_balance'] = result['actual_balance']
-                                userwallet['locked_balance'] = 0 # There shall not be locked balance
-                                userwallet['lastUpdate'] = result['lastUpdate']
+                            if result: userwallet['lastUpdate'] = result['lastUpdate']
                     elif coin_family == "NANO":
                         wallet_res = userwallet
                     elif coin_family == "ERC-20":

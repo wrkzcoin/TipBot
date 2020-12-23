@@ -7,7 +7,8 @@ from discord.ext.commands import Bot, AutoShardedBot, when_mentioned_or, CheckFa
 
 from discord.utils import get
 
-import time, timeago, json
+import time, timeago
+import simplejson as json
 import pyotp
 
 import store, daemonrpc_client, addressvalidation, walletapi, coin360, chart_pair_snapshot
@@ -5555,55 +5556,6 @@ async def prefix(ctx, prefix_char: str=None):
             await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} changed prefix in {ctx.guild.name} / {ctx.guild.id} to `{prefix_char.lower()}`')
             return
 
-                    
-@commands.is_owner()
-@admin.command(hidden = True)
-async def dumpinfo(ctx, coin: str):
-    if isinstance(ctx.channel, discord.DMChannel) == False:
-        await ctx.message.add_reaction(EMOJI_ERROR) 
-        await ctx.send(f'{ctx.author.mention} This command can not be in public.')
-        return
-
-    COIN_NAME = coin.upper()
-    if COIN_NAME not in ENABLE_COIN:
-        await ctx.message.author.send('COIN **{}** NOT SUPPORTED.'.format(COIN_NAME))
-        return
-
-    start = time.time()
-    try:
-        await store.sql_update_balances(COIN_NAME)
-    except Exception as e:
-        await logchanbot(traceback.format_exc())
-    end = time.time()
-    await ctx.message.author.send('Done update balance: '+ COIN_NAME+ ' duration (s): '+str(end - start))
-
-    # get all balance
-    random_filename = str(uuid.uuid4()) + "_" + COIN_NAME + ".csv"
-    write_csv_coin = await store.sql_get_alluser_balance(COIN_NAME, random_filename)
-    if os.path.exists(random_filename) and write_csv_coin:
-        await ctx.message.author.send(f"Dump created for: **{COIN_NAME}**",
-                                      file=discord.File(random_filename))
-        os.remove(random_filename)
-    else:
-        await ctx.message.author.send('Internal Error for dump info - FILE NOT FOUND: **{}**'.format(COIN_NAME))
-        return
-
-    # Saving
-    await ctx.message.author.send('*Calling wallet saving for*: **{}**'.format(COIN_NAME))
-    duration = None
-    if COIN_NAME in ENABLE_COIN:
-        await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
-        if COIN_NAME in WALLET_API_COIN:
-            duration = await walletapi.save_walletapi(COIN_NAME)
-        else:
-            duration = await rpc_cn_wallet_save(COIN_NAME)
-
-        if duration:
-            await ctx.message.author.send(f'{get_emoji(COIN_NAME)} {COIN_NAME} `save` took {round(duration, 3)}s.')
-        else:
-            await ctx.message.author.send(f'{get_emoji(COIN_NAME)} {COIN_NAME} `save` calling error.')
-    return
-
 
 @commands.is_owner()
 @admin.command(hidden = True)
@@ -7567,8 +7519,7 @@ async def botbalance(ctx, member: discord.Member, coin: str):
             depositAddress = userwallet['balance_wallet_address']
         except Exception as e:
             await logchanbot(traceback.format_exc())
-        
-        actual = int(userwallet['actual_balance'])
+
         balance_actual = "0.00"
 
         userdata_balance = await store.sql_user_balance(str(member.id), COIN_NAME)

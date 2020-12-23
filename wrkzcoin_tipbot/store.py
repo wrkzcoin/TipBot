@@ -201,7 +201,7 @@ async def sql_user_balance_get_xfer_in(userID: str, coin: str, user_server: str 
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
 
-    key = "TIPBOT:XFER_IN:" + userID + ":" + COIN_NAME
+    key = config.redis_setting.prefix_xfer_in + userID + ":" + COIN_NAME
     try:
         if redis_conn is None: redis_conn = redis.Redis(connection_pool=redis_pool)
         if redis_conn and redis_conn.exists(key):
@@ -886,7 +886,7 @@ async def sql_block_height(coin: str):
         try:
             openRedis()
             if redis_conn:
-                redis_conn.set(f'TIPBOT:DAEMON_HEIGHT_{COIN_NAME}', str(height))
+                redis_conn.set(f'{config.redis_setting.prefix_daemon_height}{COIN_NAME}', str(height))
         except Exception as e:
             await logchanbot(traceback.format_exc())
 
@@ -921,14 +921,14 @@ async def sql_update_balances(coin: str = None):
         try:
             openRedis()
             if redis_conn:
-                redis_conn.set(f'TIPBOT:DAEMON_HEIGHT_{COIN_NAME}', str(height))
+                redis_conn.set(f'{config.redis_setting.prefix_daemon_height}{COIN_NAME}', str(height))
         except Exception as e:
             await logchanbot(traceback.format_exc())
     else:
         try:
             openRedis()
-            if redis_conn and redis_conn.exists(f'TIPBOT:DAEMON_HEIGHT_{COIN_NAME}'):
-                height = int(redis_conn.get(f'TIPBOT:DAEMON_HEIGHT_{COIN_NAME}'))
+            if redis_conn and redis_conn.exists(f'{config.redis_setting.prefix_daemon_height}{COIN_NAME}'):
+                height = int(redis_conn.get(f'{config.redis_setting.prefix_daemon_height}{COIN_NAME}'))
         except Exception as e:
             await logchanbot(traceback.format_exc())
 
@@ -989,8 +989,8 @@ async def sql_update_balances(coin: str = None):
                                 tx['transfers'][0]['amount'] >= wallet.get_min_deposit_amount(COIN_NAME) and 'paymentID' in tx:
                                     # add notify to redis and alert deposit. Can be clean later?
                                     if config.notify_new_tx.enable_new_no_confirm == 1:
-                                        key_tx_new = 'TIPBOT:NEWTX:NOCONFIRM'
-                                        key_tx_json = 'TIPBOT:NEWTX:' + tx['hash']
+                                        key_tx_new = config.redis_setting.prefix_new_tx + 'NOCONFIRM'
+                                        key_tx_json = config.redis_setting.prefix_new_tx + tx['hash']
                                         try:
                                             openRedis()
                                             if redis_conn and redis_conn.llen(key_tx_new) > 0:
@@ -1081,8 +1081,8 @@ async def sql_update_balances(coin: str = None):
                                     and 'paymentId' in tx:
                                         # add notify to redis and alert deposit. Can be clean later?
                                         if config.notify_new_tx.enable_new_no_confirm == 1:
-                                            key_tx_new = 'TIPBOT:NEWTX:NOCONFIRM'
-                                            key_tx_json = 'TIPBOT:NEWTX:' + tx['transactionHash']
+                                            key_tx_new = config.redis_setting.prefix_new_tx + 'NOCONFIRM'
+                                            key_tx_json = config.redis_setting.prefix_new_tx + tx['transactionHash']
                                             try:
                                                 openRedis()
                                                 if redis_conn and redis_conn.llen(key_tx_new) > 0:
@@ -1161,8 +1161,8 @@ async def sql_update_balances(coin: str = None):
                             and 'payment_id' in tx:
                                 # add notify to redis and alert deposit. Can be clean later?
                                 if config.notify_new_tx.enable_new_no_confirm == 1:
-                                    key_tx_new = 'TIPBOT:NEWTX:NOCONFIRM'
-                                    key_tx_json = 'TIPBOT:NEWTX:' + tx['txid']
+                                    key_tx_new = config.redis_setting.prefix_new_tx + 'NOCONFIRM'
+                                    key_tx_json = config.redis_setting.prefix_new_tx + tx['txid']
                                     try:
                                         openRedis()
                                         if redis_conn and redis_conn.llen(key_tx_new) > 0:
@@ -1237,8 +1237,8 @@ async def sql_update_balances(coin: str = None):
                             if wallet.get_confirm_depth(COIN_NAME) > int(tx['confirmations']) > 0 and tx['amount'] >= wallet.get_min_deposit_amount(COIN_NAME):
                                 # add notify to redis and alert deposit. Can be clean later?
                                 if config.notify_new_tx.enable_new_no_confirm == 1:
-                                    key_tx_new = 'TIPBOT:NEWTX:NOCONFIRM'
-                                    key_tx_json = 'TIPBOT:NEWTX:' + tx['txid']
+                                    key_tx_new = config.redis_setting.prefix_new_tx + 'NOCONFIRM'
+                                    key_tx_json = config.redis_setting.prefix_new_tx + tx['txid']
                                     try:
                                         openRedis()
                                         if redis_conn and redis_conn.llen(key_tx_new) > 0:
@@ -1455,8 +1455,23 @@ async def sql_update_user(userID, user_wallet_address, coin: str, user_server: s
     return False
 
 
-async def sql_get_userwallet(userID, coin: str, user_server: str = 'DISCORD'):
-    global pool, redis_conn, redis_expired
+async def redis_delete_userwallet(userID: str, coin: str, user_server: str = 'DISCORD'):
+    global redis_conn, redis_pool
+    COIN_NAME = coin.upper()
+    user_server = user_server.upper()
+    if user_server not in ['DISCORD', 'TELEGRAM']:
+        return
+    key = config.redis_setting.prefix_get_userwallet + user_server + "_" + userID + ":" + COIN_NAME
+    try:
+        if redis_conn is None: redis_conn = redis.Redis(connection_pool=redis_pool)
+        if redis_conn and redis_conn.exists(key): redis_conn.delete(key)
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return True
+
+
+async def sql_get_userwallet(userID: str, coin: str, user_server: str = 'DISCORD'):
+    global pool, redis_conn, redis_pool, redis_expired
     COIN_NAME = coin.upper()
     user_server = user_server.upper()
     if user_server not in ['DISCORD', 'TELEGRAM']:
@@ -1465,11 +1480,20 @@ async def sql_get_userwallet(userID, coin: str, user_server: str = 'DISCORD'):
         coin_family = "ERC-20"
     else:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+
+    key = config.redis_setting.prefix_get_userwallet + user_server + "_" + userID + ":" + COIN_NAME
+    try:
+        if redis_conn is None: redis_conn = redis.Redis(connection_pool=redis_pool)
+        if redis_conn and redis_conn.exists(key):
+            return json.loads(redis_conn.get(key))
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+
+    wallet_res = None
     try:
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                result = None
                 if coin_family in ["TRTL", "BCN"]:
                     sql = """ SELECT * FROM cnoff_user_paymentid WHERE `user_id`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """
                     await cur.execute(sql, (str(userID), COIN_NAME, user_server))
@@ -1510,15 +1534,22 @@ async def sql_get_userwallet(userID, coin: str, user_server: str = 'DISCORD'):
                                 userwallet['locked_balance'] = 0 # There shall not be locked balance
                                 userwallet['lastUpdate'] = result['lastUpdate']
                     elif coin_family == "NANO":
-                        return userwallet
+                        wallet_res = userwallet
                     elif coin_family == "ERC-20":
-                        return userwallet
+                        wallet_res = userwallet
                     if result['lastUpdate'] == 0 and (coin_family in ["TRTL", "BCN"] or coin_family == "XMR"):
                         userwallet['lastUpdate'] = result['paymentid_ts']
-                    return userwallet
+                    wallet_res = userwallet
     except Exception as e:
         await logchanbot(traceback.format_exc())
-    return None
+    # store in redis
+    try:
+        openRedis()
+        if redis_conn:
+            redis_conn.set(key, json.dumps(wallet_res), ex=config.redis_setting.get_userwallet_time)
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return wallet_res
 
 
 async def sql_get_countLastTip(userID, lastDuration: int):
@@ -3052,10 +3083,21 @@ async def sql_external_xmr_single(user_from: str, amount: float, to_address: str
 
 
 async def sql_get_userwallet_by_paymentid(paymentid: str, coin: str, user_server: str = 'DISCORD'):
-    global pool
+    global pool, redis_conn, redis_pool
     if user_server not in ['DISCORD', 'TELEGRAM']:
         return
     COIN_NAME = coin.upper()
+    user_server = user_server.upper()
+
+    key = config.redis_setting.prefix_paymentid_addr + user_server + "_" + paymentid + ":" + COIN_NAME
+    try:
+        if redis_conn is None: redis_conn = redis.Redis(connection_pool=redis_pool)
+        if redis_conn and redis_conn.exists(key):
+            return json.loads(redis_conn.get(key))
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+
+    result = False
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     try:
         await openConnection()
@@ -3080,10 +3122,16 @@ async def sql_get_userwallet_by_paymentid(paymentid: str, coin: str, user_server
                     sql = """ SELECT * FROM nano_user WHERE `balance_wallet_address`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """
                     await cur.execute(sql, (paymentid, COIN_NAME, user_server))
                     result = await cur.fetchone()
-                return result
     except Exception as e:
         await logchanbot(traceback.format_exc())
-    return False
+    # store in redis
+    try:
+        openRedis()
+        if redis_conn:
+            redis_conn.set(key, json.dumps(result), ex=config.redis_setting.default_time)
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return result
 
 
 async def sql_get_new_tx_table(notified: str = 'NO', failed_notify: str = 'NO'):
@@ -3109,37 +3157,6 @@ async def sql_update_notify_tx_table(payment_id: str, owner_id: str, owner_name:
                 sql = """ UPDATE discord_notify_new_tx SET `owner_id`=%s, `owner_name`=%s, `notified`=%s, `failed_notify`=%s, 
                           `notified_time`=%s WHERE `payment_id`=%s """
                 await cur.execute(sql, (owner_id, owner_name, notified, failed_notify, float("%.3f" % time.time()), payment_id,))
-                await conn.commit()
-                return True
-    except Exception as e:
-        await logchanbot(traceback.format_exc())
-    return False
-
-
-async def sql_get_new_swap_table(notified: str = 'NO', failed_notify: str = 'NO'):
-    global pool
-    try:
-        await openConnection()
-        async with pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                sql = """ SELECT * FROM discord_swap_balance WHERE `notified`=%s AND `failed_notify`=%s AND `to` = %s """
-                await cur.execute(sql, (notified, failed_notify, 'TIPBOT',))
-                result = await cur.fetchall()
-                return result
-    except Exception as e:
-        await logchanbot(traceback.format_exc())
-    return False
-
-
-async def sql_update_notify_swap_table(id: int, notified: str = 'YES', failed_notify: str = 'NO'):
-    global pool
-    try:
-        await openConnection()
-        async with pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                sql = """ UPDATE discord_swap_balance SET `notified`=%s, `failed_notify`=%s, 
-                          `notified_time`=%s WHERE `id`=%s """
-                await cur.execute(sql, (notified, failed_notify, float("%.3f" % time.time()), id,))
                 await conn.commit()
                 return True
     except Exception as e:
@@ -4603,7 +4620,7 @@ async def erc_get_block_number(coin: str, timeout:int = 64):
                             try:
                                 openRedis()
                                 if redis_conn:
-                                    redis_conn.set(f'TIPBOT:DAEMON_HEIGHT_{TOKEN_NAME}', str(int(decoded_data['result'], 16)))
+                                    redis_conn.set(f'{config.redis_setting.prefix_daemon_height}{TOKEN_NAME}', str(int(decoded_data['result'], 16)))
                             except Exception as e:
                                 await logchanbot(traceback.format_exc())
                             height = int(decoded_data['result'], 16)
@@ -4616,7 +4633,7 @@ async def erc_get_block_number(coin: str, timeout:int = 64):
     try:
         openRedis()
         if redis_conn:
-            redis_conn.set(f'TIPBOT:DAEMON_HEIGHT_{TOKEN_NAME}', str(height))
+            redis_conn.set(f'{config.redis_setting.prefix_daemon_height}{TOKEN_NAME}', str(height))
     except Exception as e:
         await logchanbot(traceback.format_exc())
     return height

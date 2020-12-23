@@ -183,8 +183,8 @@ async def start_cmd_handler(message: types.Message):
             response_text = ""
             try:
                 openRedis()
-                if redis_conn and redis_conn.exists(f'TIPBOT:DAEMON_HEIGHT_{COIN_NAME}'):
-                    height = int(redis_conn.get(f'TIPBOT:DAEMON_HEIGHT_{COIN_NAME}'))
+                if redis_conn and redis_conn.exists(f'{config.redis_setting.prefix_daemon_height}{COIN_NAME}'):
+                    height = int(redis_conn.get(f'{config.redis_setting.prefix_daemon_height}{COIN_NAME}'))
                     response_text = "\nHeight: {:,.0f}".format(height) + "\n"
                 response_text += "Confirmation: {} Blocks".format(get_confirm_depth(COIN_NAME)) + "\n"
                 if is_coin_tipable(COIN_NAME): 
@@ -1332,7 +1332,7 @@ def is_maintenance_coin(coin: str):
     # Check if exist in redis
     try:
         openRedis()
-        key = 'TIPBOT:COIN_' + COIN_NAME + '_MAINT'
+        key = config.redis_setting.prefix_coin_setting + COIN_NAME + '_MAINT'
         if redis_conn and redis_conn.exists(key):
             return True
         else:
@@ -1349,7 +1349,7 @@ def is_coin_txable(coin: str):
     # Check if exist in redis
     try:
         openRedis()
-        key = 'TIPBOT:COIN_' + COIN_NAME + '_TX'
+        key = config.redis_setting.prefix_coin_setting + COIN_NAME + '_TX'
         if redis_conn and redis_conn.exists(key):
             return False
         else:
@@ -1366,7 +1366,7 @@ def is_coin_depositable(coin: str):
     # Check if exist in redis
     try:
         openRedis()
-        key = 'TIPBOT:COIN_' + COIN_NAME + '_DEPOSIT'
+        key = config.redis_setting.prefix_coin_setting + COIN_NAME + '_DEPOSIT'
         if redis_conn and redis_conn.exists(key):
             return False
         else:
@@ -1383,7 +1383,7 @@ def is_coin_tipable(coin: str):
     # Check if exist in redis
     try:
         openRedis()
-        key = 'TIPBOT:COIN_' + COIN_NAME + '_TIP'
+        key = config.redis_setting.prefix_coin_setting + COIN_NAME + '_TIP'
         if redis_conn and redis_conn.exists(key):
             return False
         else:
@@ -1395,7 +1395,7 @@ def is_coin_tipable(coin: str):
 async def add_tx_action_redis(action: str, delete_temp: bool = False):
     try:
         openRedis()
-        key = "TIPBOT:ACTIONTX"
+        key = config.redis_setting.prefix_action_tx
         if redis_conn:
             if delete_temp:
                 redis_conn.delete(key)

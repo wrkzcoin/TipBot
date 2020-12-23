@@ -7080,8 +7080,8 @@ async def coininfo(ctx, coin: str = None):
                 confim_depth = get_confirm_depth(COIN_NAME)
             try:
                 openRedis()
-                if redis_conn and redis_conn.exists(f'TIPBOT:DAEMON_HEIGHT_{COIN_NAME}'):
-                    height = int(redis_conn.get(f'TIPBOT:DAEMON_HEIGHT_{COIN_NAME}'))
+                if redis_conn and redis_conn.exists(f'{config.redis_setting.prefix_daemon_height}{COIN_NAME}'):
+                    height = int(redis_conn.get(f'{config.redis_setting.prefix_daemon_height}{COIN_NAME}'))
                     if not is_maintenance_coin(COIN_NAME):
                         table_data.append([COIN_NAME,  '{:,.0f}'.format(height), "ON" if is_coin_tipable(COIN_NAME) else "OFF"\
                         , "ON" if is_coin_txable(COIN_NAME) else "OFF"\
@@ -7121,8 +7121,8 @@ async def coininfo(ctx, coin: str = None):
             response_text += "```"
             try:
                 openRedis()
-                if redis_conn and redis_conn.exists(f'TIPBOT:DAEMON_HEIGHT_{COIN_NAME}'):
-                    height = int(redis_conn.get(f'TIPBOT:DAEMON_HEIGHT_{COIN_NAME}'))
+                if redis_conn and redis_conn.exists(f'{config.redis_setting.prefix_daemon_height}{COIN_NAME}'):
+                    height = int(redis_conn.get(f'{config.redis_setting.prefix_daemon_height}{COIN_NAME}'))
                     response_text += "Height: {:,.0f}".format(height) + "\n"
                 response_text += "Confirmation: {} Blocks".format(confim_depth) + "\n"
                 if is_coin_tipable(COIN_NAME): 
@@ -7846,11 +7846,14 @@ async def register(ctx, wallet_address: str, coin: str=None):
                 await ctx.send(f'Your {COIN_NAME} {ctx.author.mention} withdraw address has changed from:\n'
                                f'`{prev_address}`\n to\n '
                                f'`{wallet_address}`')
-                return
+                try:
+                    await store.redis_delete_userwallet(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
+                except Exception as e:
+                    await logchanbot(traceback.format_exc())
             else:
                 await ctx.message.add_reaction(EMOJI_WARNING)
                 await ctx.send(f'{ctx.author.mention} Your {COIN_NAME} previous and new address is the same.')
-                return
+            return
 
         else:
             if prev_address != valid_address:
@@ -7859,16 +7862,23 @@ async def register(ctx, wallet_address: str, coin: str=None):
                 await ctx.send(f'Your {COIN_NAME} {ctx.author.mention} withdraw address has changed from:\n'
                                f'`{prev_address}`\n to\n '
                                f'`{wallet_address}`')
-                return
+                try:
+                    await store.redis_delete_userwallet(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
+                except Exception as e:
+                    await logchanbot(traceback.format_exc())
             else:
                 await ctx.message.add_reaction(EMOJI_WARNING)
                 await ctx.send(f'{ctx.author.mention} Your {COIN_NAME} previous and new address is the same.')
-                return
+            return
     else:
         await store.sql_update_user(str(ctx.message.author.id), wallet_address, COIN_NAME)
         await ctx.message.add_reaction(EMOJI_OK_HAND)
         await ctx.send(f'{ctx.author.mention} You have registered {COIN_NAME} withdraw address.\n'
                        f'You can use `{server_prefix}withdraw AMOUNT {COIN_NAME}` anytime.')
+        try:
+            await store.redis_delete_userwallet(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
         return
 
 
@@ -14589,8 +14599,8 @@ async def notify_new_tx_user_noconfirmation():
     await bot.wait_until_ready()
     while True:
         if config.notify_new_tx.enable_new_no_confirm == 1:
-            key_tx_new = 'TIPBOT:NEWTX:NOCONFIRM'
-            key_tx_no_confirmed_sent = 'TIPBOT:NEWTX:NOCONFIRM:SENT'
+            key_tx_new = config.redis_setting.prefix_new_tx + 'NOCONFIRM'
+            key_tx_no_confirmed_sent = config.redis_setting.prefix_new_tx + 'NOCONFIRM:SENT'
             try:
                 openRedis()
                 if redis_conn and redis_conn.llen(key_tx_new) > 0:
@@ -14600,7 +14610,7 @@ async def notify_new_tx_user_noconfirmation():
                         try:
                             if tx not in list_new_tx_sent:
                                 tx = tx.decode() # decode byte from b'xxx to xxx
-                                key_tx_json = 'TIPBOT:NEWTX:' + tx
+                                key_tx_json = config.redis_setting.prefix_new_tx + tx
                                 eachTx = None
                                 try:
                                     if redis_conn.exists(key_tx_json): eachTx = json.loads(redis_conn.get(key_tx_json).decode())
@@ -15366,7 +15376,7 @@ def is_maintenance_coin(coin: str):
     # Check if exist in redis
     try:
         openRedis()
-        key = 'TIPBOT:COIN_' + COIN_NAME + '_MAINT'
+        key = config.redis_setting.prefix_coin_setting + COIN_NAME + '_MAINT'
         if redis_conn and redis_conn.exists(key):
             return True
         else:
@@ -15384,7 +15394,7 @@ def set_maintenance_coin(coin: str, set_maint: bool = True):
     # Check if exist in redis
     try:
         openRedis()
-        key = 'TIPBOT:COIN_' + COIN_NAME + '_MAINT'
+        key = config.redis_setting.prefix_coin_setting + COIN_NAME + '_MAINT'
         if set_maint == True:
             if redis_conn and redis_conn.exists(key):
                 return True
@@ -15407,7 +15417,7 @@ def is_coin_txable(coin: str):
     # Check if exist in redis
     try:
         openRedis()
-        key = 'TIPBOT:COIN_' + COIN_NAME + '_TX'
+        key = config.redis_setting.prefix_coin_setting + COIN_NAME + '_TX'
         if redis_conn and redis_conn.exists(key):
             return False
         else:
@@ -15425,7 +15435,7 @@ def set_coin_txable(coin: str, set_txable: bool = True):
     # Check if exist in redis
     try:
         openRedis()
-        key = 'TIPBOT:COIN_' + COIN_NAME + '_TX'
+        key = config.redis_setting.prefix_coin_setting + COIN_NAME + '_TX'
         if set_txable == True:
             if redis_conn and redis_conn.exists(key):
                 redis_conn.delete(key)
@@ -15445,7 +15455,7 @@ def is_coin_depositable(coin: str):
     # Check if exist in redis
     try:
         openRedis()
-        key = 'TIPBOT:COIN_' + COIN_NAME + '_DEPOSIT'
+        key = config.redis_setting.prefix_coin_setting + COIN_NAME + '_DEPOSIT'
         if redis_conn and redis_conn.exists(key):
             return False
         else:
@@ -15463,7 +15473,7 @@ def set_coin_depositable(coin: str, set_deposit: bool = True):
     # Check if exist in redis
     try:
         openRedis()
-        key = 'TIPBOT:COIN_' + COIN_NAME + '_DEPOSIT'
+        key = config.redis_setting.prefix_coin_setting + COIN_NAME + '_DEPOSIT'
         if set_deposit == True:
             if redis_conn and redis_conn.exists(key):
                 redis_conn.delete(key)
@@ -15483,7 +15493,7 @@ def is_coin_tipable(coin: str):
     # Check if exist in redis
     try:
         openRedis()
-        key = 'TIPBOT:COIN_' + COIN_NAME + '_TIP'
+        key = config.redis_setting.prefix_coin_setting + COIN_NAME + '_TIP'
         if redis_conn and redis_conn.exists(key):
             return False
         else:
@@ -15501,7 +15511,7 @@ def set_coin_tipable(coin: str, set_tipable: bool = True):
     # Check if exist in redis
     try:
         openRedis()
-        key = 'TIPBOT:COIN_' + COIN_NAME + '_TIP'
+        key = config.redis_setting.prefix_coin_setting + COIN_NAME + '_TIP'
         if set_tipable == True:
             if redis_conn and redis_conn.exists(key):
                 redis_conn.delete(key)
@@ -15520,7 +15530,7 @@ def is_tradeable_coin(coin: str):
     # Check if exist in redis
     try:
         openRedis()
-        key = 'TIPBOT:COIN_' + COIN_NAME + '_TRADEABLE'
+        key = config.redis_setting.prefix_coin_setting + COIN_NAME + '_TRADEABLE'
         if redis_conn and redis_conn.exists(key):
             return True
         else:
@@ -15536,7 +15546,7 @@ def set_tradeable_coin(coin: str, set_trade: bool = True):
     # Check if exist in redis
     try:
         openRedis()
-        key = 'TIPBOT:COIN_' + COIN_NAME + '_TRADEABLE'
+        key = config.redis_setting.prefix_coin_setting + COIN_NAME + '_TRADEABLE'
         if set_trade == True:
             if redis_conn and redis_conn.exists(key):
                 return True
@@ -15607,7 +15617,7 @@ async def store_action_list():
         interval_action_list = 60
         try:
             openRedis()
-            key = "TIPBOT:ACTIONTX"
+            key = config.redis_setting.prefix_action_tx
             if redis_conn and redis_conn.llen(key) > 0:
                 temp_action_list = []
                 for each in redis_conn.lrange(key, 0, -1):
@@ -15625,7 +15635,7 @@ async def store_action_list():
 async def add_tx_action_redis(action: str, delete_temp: bool = False):
     try:
         openRedis()
-        key = "TIPBOT:ACTIONTX"
+        key = config.redis_setting.prefix_action_tx
         if redis_conn:
             if delete_temp:
                 redis_conn.delete(key)
@@ -15656,7 +15666,7 @@ async def get_guild_prefix_msg(message):
 async def add_msg_redis(msg: str, delete_temp: bool = False):
     try:
         openRedis()
-        key = "TIPBOT:MSG"
+        key = config.redis_setting.prefix_discord_msg
         if redis_conn:
             if delete_temp:
                 redis_conn.delete(key)
@@ -15671,7 +15681,7 @@ async def store_message_list():
         interval_msg_list = 15 # in second
         try:
             openRedis()
-            key = "TIPBOT:MSG"
+            key = config.redis_setting.prefix_discord_msg
             if redis_conn and redis_conn.llen(key) > 0 :
                 temp_msg_list = []
                 for each in redis_conn.lrange(key, 0, -1):

@@ -60,7 +60,7 @@ async def update_balance():
                     # store in redis
                     try:
                         openRedis()
-                        if redis_conn: redis_conn.set(f'TIPBOT:DAEMON_HEIGHT_{coinItem.upper().strip()}', str(height))
+                        if redis_conn: redis_conn.set(f'{config.redis_setting.prefix_daemon_height}{coinItem.upper().strip()}', str(height))
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
             except asyncio.TimeoutError:

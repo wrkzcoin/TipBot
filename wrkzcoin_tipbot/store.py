@@ -336,6 +336,47 @@ async def sql_user_get_tipstat(userID: str, coin: str, update: bool=False, user_
     return user_stat
 
 
+async def sql_user_balance_adjust(userID: str, coin: str, update: bool=False, user_server: str = 'DISCORD'):
+    user_server = user_server.upper()
+    if user_server not in ['DISCORD', 'TELEGRAM']:
+        return
+
+    COIN_NAME = coin.upper()
+    key = f"TIPBOT:TIPBAL_{COIN_NAME}:" + f"{user_server}_{userID}"
+    if update == False:
+        try:
+            if redis_conn is None: redis_conn = redis.Redis(connection_pool=redis_pool)
+            if redis_conn and redis_conn.exists(key):
+                balance = redis_conn.get(key).decode()
+                if COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_DOGE:
+                    return float(balance)
+                elif COIN_NAME in ENABLE_COIN+ENABLE_COIN_NANO+ENABLE_XMR:
+                    return int(balance)
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
+
+    userdata_balance = await sql_user_balance(userID, COIN_NAME, user_server)
+    xfer_in = 0
+    if COIN_NAME not in ENABLE_COIN_ERC:
+        xfer_in = await sql_user_balance_get_xfer_in(userID, COIN_NAME, user_server)
+    if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
+        actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
+    elif COIN_NAME in ENABLE_COIN_NANO:
+        actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
+        actual_balance = round(actual_balance / wallet.get_decimal(COIN_NAME), 6) * wallet.get_decimal(COIN_NAME)
+    else:
+        actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
+
+    # store in redis
+    try:
+        openRedis()
+        if redis_conn:
+            redis_conn.set(key, str(actual_balance), ex=config.redis_setting.balance_in_redis)
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return actual_balance
+
+
 async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD'):
     global pool
     user_server = user_server.upper()
@@ -1239,45 +1280,6 @@ async def sql_credit(user_from: str, to_user: str, amount: float, coin: str, rea
                 return True
     except Exception as e:
         await logchanbot(traceback.format_exc())
-    return False
-
-
-async def sql_update_some_balances(wallet_addresses: List[str], coin: str):
-    global pool
-    COIN_NAME = coin.upper()
-    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-
-    updateTime = int(time.time())
-    if coin_family in ["TRTL", "BCN"]:
-        print('SQL: Updating some wallet balances '+COIN_NAME)
-        if COIN_NAME in WALLET_API_COIN:
-            balances = await walletapi.walletapi_get_some_balances(wallet_addresses, COIN_NAME)
-        else:
-            balances = await wallet.get_some_balances(wallet_addresses, COIN_NAME)
-        try:
-            await openConnection()
-            async with pool.acquire() as conn:
-                async with conn.cursor() as cur:
-                    values_str = []
-                    for details in balances:
-                        address = details['address']
-                        actual_balance = details['unlocked']
-                        locked_balance = details['locked']
-                        decimal = wallet.get_decimal(COIN_NAME)
-                        values_str.append(f"('{COIN_NAME}', '{address}', {actual_balance}, {locked_balance}, {decimal}, {updateTime})\n")
-                    values_sql = "VALUES " + ",".join(values_str)
-                    sql = """ INSERT INTO cn_walletapi (`coin_name`, `balance_wallet_address`, `actual_balance`, 
-                              `locked_balance`, `decimal`, `lastUpdate`) """+values_sql+""" 
-                              ON DUPLICATE KEY UPDATE 
-                              `actual_balance` = VALUES(`actual_balance`),
-                              `locked_balance` = VALUES(`locked_balance`),
-                              `decimal` = VALUES(`decimal`),
-                              `lastUpdate` = VALUES(`lastUpdate`)
-                              """
-                    await cur.execute(sql,)
-                    await conn.commit()
-        except Exception as e:
-            await logchanbot(traceback.format_exc())
     return False
 
 

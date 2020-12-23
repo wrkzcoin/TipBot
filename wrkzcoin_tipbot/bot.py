@@ -14581,6 +14581,7 @@ async def update_balance():
                 await logchanbot('update_balance {} longer than {}s'.format(coinItem, config.interval.log_longduration))
         await asyncio.sleep(config.interval.update_balance)
 
+
 # notify_new_tx_user_noconfirmation
 async def notify_new_tx_user_noconfirmation():
     global redis_conn

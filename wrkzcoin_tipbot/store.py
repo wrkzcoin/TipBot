@@ -1509,13 +1509,13 @@ async def sql_get_userwallet(userID: str, coin: str, user_server: str = 'DISCORD
                     if result['lastUpdate'] == 0 and (coin_family in ["TRTL", "BCN"] or coin_family == "XMR"):
                         userwallet['lastUpdate'] = result['paymentid_ts']
                     wallet_res = userwallet
-    except Exception as e:
-        await logchanbot(traceback.format_exc())
-    # store in redis
-    try:
-        openRedis()
-        if redis_conn:
-            redis_conn.set(key, json.dumps(wallet_res), ex=config.redis_setting.get_userwallet_time)
+                    # store in redis
+                    try:
+                        openRedis()
+                        if redis_conn:
+                            redis_conn.set(key, json.dumps(wallet_res), ex=config.redis_setting.get_userwallet_time)
+                    except Exception as e:
+                        await logchanbot(traceback.format_exc())
     except Exception as e:
         await logchanbot(traceback.format_exc())
     return wallet_res
@@ -1588,15 +1588,10 @@ async def sql_mv_cn_single(user_from: str, user_to: str, amount: int, tiptype: s
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     user_from_wallet = None
     user_to_wallet = None
-    address_to = None
     if coin_family in ["TRTL", "BCN", "XMR"]:
         user_from_wallet = await sql_get_userwallet(user_from, COIN_NAME, user_server)
         user_to_wallet = await sql_get_userwallet(user_to, COIN_NAME, user_server)
-        if user_to_wallet and user_to_wallet['forwardtip'] == "ON" and user_to_wallet['user_wallet_address']:
-            address_to = user_to_wallet['user_wallet_address']
-        else:
-            address_to = user_to_wallet['balance_wallet_address']
-    if all(v is not None for v in [user_from_wallet['balance_wallet_address'], address_to]):
+    if user_from_wallet['balance_wallet_address']:
         if coin_family in ["TRTL", "BCN"]:
             # Move balance
             try:
@@ -1928,17 +1923,36 @@ async def sql_faucet_add(claimed_user: str, claimed_server: str, coin_name: str,
                 await cur.execute(sql, (claimed_user, coin_name, claimed_amount, decimal, 
                                         int(time.time()), claimed_server, user_server))
                 await conn.commit()
-                # Faucet: store in redis
-                try:
-                    openRedis()
-                    if redis_conn:
-                        redis_conn.set(f'TIPBOT:FAUCET_{claimed_user}', str(int(time.time())), ex=int(config.faucet.interval*3600))
-                except Exception as e:
-                    await logchanbot(traceback.format_exc())
                 return True
     except Exception as e:
         await logchanbot(traceback.format_exc())
     return None
+
+
+async def sql_faucet_penalty_checkuser(userID: str, penalty_add: False, user_server: str = 'DISCORD'):
+    global pool, redis_conn, redis_pool
+    user_server = user_server.upper()
+    if user_server not in ['DISCORD', 'TELEGRAM']:
+        return
+    # Check if in redis already:
+    key = config.redis_setting.prefix_faucet_take_penalty + user_server + "_" + userID
+    result = None
+    if penalty_add == False:
+        try:
+            if redis_conn is None: redis_conn = redis.Redis(connection_pool=redis_pool)
+            if redis_conn and redis_conn.exists(key):
+                penalty_at = redis_conn.get(key).decode()
+                result = {'penalty_at': penalty_at}
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
+    else:
+        # add
+        try:
+            if redis_conn is None: redis_conn = redis.Redis(connection_pool=redis_pool)
+            if redis_conn: redis_conn.set(key, str(int(time.time())), int(int(config.faucet.interval)*3600/2)) # 12h
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
+    return result
 
 
 async def sql_faucet_checkuser(userID: str, user_server: str = 'DISCORD'):
@@ -1946,16 +1960,8 @@ async def sql_faucet_checkuser(userID: str, user_server: str = 'DISCORD'):
     user_server = user_server.upper()
     if user_server not in ['DISCORD', 'TELEGRAM']:
         return
-    # Check if in redis already:
-    try:
-        key = f"TIPBOT:FAUCET_{userID}"
-        if redis_conn is None: redis_conn = redis.Redis(connection_pool=redis_pool)
-        if redis_conn and redis_conn.exists(key):
-            check_claimed = redis_conn.get(key).decode()
-            return {'claimed_at': int(check_claimed)}
-    except Exception as e:
-        await logchanbot(traceback.format_exc())
 
+    result = None
     list_roach = await sql_roach_get_by_id(userID, user_server)
     try:
         await openConnection()
@@ -1971,10 +1977,9 @@ async def sql_faucet_checkuser(userID: str, user_server: str = 'DISCORD'):
                               ORDER BY claimed_at DESC LIMIT 1"""
                     await cur.execute(sql, (userID, (user_server,)))
                 result = await cur.fetchone()
-                return result
     except Exception as e:
         await logchanbot(traceback.format_exc())
-    return None
+    return result
 
 
 async def sql_faucet_count_user(userID: str, user_server: str = 'DISCORD'):

@@ -8376,6 +8376,12 @@ async def take(ctx, info: str=None):
                 await ctx.message.add_reaction(EMOJI_ERROR)
                 botChan = bot.get_channel(id=int(serverinfo['botchan']))
                 await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} is the bot channel!!!')
+                # add penalty:
+                try:
+                    faucet_penalty = await store.sql_faucet_penalty_checkuser(str(ctx.message.author.id), True, 'DISCORD')
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(traceback.format_exc())
                 return
     except (discord.errors.NotFound, discord.errors.Forbidden) as e:
         pass
@@ -8385,8 +8391,25 @@ async def take(ctx, info: str=None):
     # end of bot channel check
 
     try:
-        # check user claim:
         claim_interval = config.faucet.interval
+        half_claim_interval = int(config.faucet.interval / 2)
+        # check penalty:
+        try:
+            faucet_penalty = await store.sql_faucet_penalty_checkuser(str(ctx.message.author.id), False, 'DISCORD')
+            if faucet_penalty:
+                if half_claim_interval*3600 - int(time.time()) + int(faucet_penalty['penalty_at']) > 0:
+                    time_waiting = seconds_str(half_claim_interval*3600 - int(time.time()) + int(faucet_penalty['penalty_at']))
+                    await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
+                    msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You claimed in a wrong channel within last {str(half_claim_interval)}h. '
+                                         f'Waiting time {time_waiting} for next **take** and be sure to be the right channel set by the guild.')
+                    await msg.add_reaction(EMOJI_OK_BOX)
+                    return
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+            return
+        # check user claim:
+        
         check_claimed = await store.sql_faucet_checkuser(str(ctx.message.author.id), 'DISCORD')
         if check_claimed:
             # limit 12 hours
@@ -8503,6 +8526,7 @@ async def take(ctx, info: str=None):
                 await ctx.message.add_reaction(get_emoji(COIN_NAME))
                 msg = await ctx.send(f'{EMOJI_MONEYFACE} {ctx.author.mention} You got a random faucet {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
                 await msg.add_reaction(EMOJI_OK_BOX)
+                await logchanbot(f'User {ctx.message.author.name}#{ctx.message.author.discriminator} claimed faucet {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME} in guild {ctx.guild.name}/{ctx.guild.id}')
             except Exception as e:
                 await logchanbot(traceback.format_exc())
         else:

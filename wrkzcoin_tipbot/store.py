@@ -216,7 +216,7 @@ async def sql_user_balance_get_xfer_in(userID: str, coin: str, user_server: str 
     user_server = user_server.upper()
     if user_server not in ['DISCORD', 'TELEGRAM']:
         return
-    userwallet = await sql_get_userwallet(userID, COIN_NAME)
+    userwallet = await sql_get_userwallet(userID, COIN_NAME, user_server)
     # assume insert time 2mn
     confirmed_inserted = 8*60
     confirmed_inserted_doge_fam = 45*60
@@ -779,12 +779,15 @@ async def sql_nano_get_user_wallets(coin: str):
 
 
 # NANO Based
-async def sql_mv_nano_single(user_from: str, to_user: str, amount: float, coin: str, tiptype: str):
+async def sql_mv_nano_single(user_from: str, to_user: str, amount: float, coin: str, tiptype: str, user_server: str = 'DISCORD'):
     global pool
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","NANO")
     if coin_family != "NANO":
         return False
+    user_server = user_server.upper()
+    if user_server not in ['DISCORD', 'TELEGRAM']:
+        return
     try:
         await openConnection()
         async with pool.acquire() as conn:
@@ -2979,12 +2982,15 @@ async def sql_external_doge_single(user_from: str, amount: float, fee: float, to
 
 
 # XMR Based
-async def sql_mv_xmr_single(user_from: str, to_user: str, amount: float, coin: str, tiptype: str):
+async def sql_mv_xmr_single(user_from: str, to_user: str, amount: float, coin: str, tiptype: str, user_server: str = 'DISCORD'):
     global pool
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     if coin_family != "XMR":
         return False
+    user_server = user_server.upper()
+    if user_server not in ['DISCORD', 'TELEGRAM']:
+        return
     try:
         await openConnection()
         async with pool.acquire() as conn:
@@ -4130,12 +4136,15 @@ async def http_wallet_getbalance(address: str, coin: str) -> Dict:
     return balance
 
 
-async def sql_mv_erc_single(user_from: str, to_user: str, amount: float, coin: str, tiptype: str, contract: str):
+async def sql_mv_erc_single(user_from: str, to_user: str, amount: float, coin: str, tiptype: str, contract: str, user_server: str = 'DISCORD'):
     global pool
     TOKEN_NAME = coin.upper()
     token_info = await get_token_info(TOKEN_NAME)
     if tiptype.upper() not in ["TIP", "DONATE", "FAUCET", "FREETIP", "FREETIPS", "RANDTIP", "GUILDTIP"]:
         return False
+    user_server = user_server.upper()
+    if user_server not in ['DISCORD', 'TELEGRAM']:
+        return
     try:
         await openConnection()
         async with pool.acquire() as conn:

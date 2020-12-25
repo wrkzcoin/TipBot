@@ -8526,7 +8526,7 @@ async def take(ctx, info: str=None):
                 await ctx.message.add_reaction(get_emoji(COIN_NAME))
                 msg = await ctx.send(f'{EMOJI_MONEYFACE} {ctx.author.mention} You got a random faucet {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
                 await msg.add_reaction(EMOJI_OK_BOX)
-                await logchanbot(f'User {ctx.message.author.name}#{ctx.message.author.discriminator} claimed faucet {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME} in guild {ctx.guild.name}/{ctx.guild.id}')
+                await logchanbot(f'[Discord] User {ctx.message.author.name}#{ctx.message.author.discriminator} claimed faucet {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME} in guild {ctx.guild.name}/{ctx.guild.id}')
             except Exception as e:
                 await logchanbot(traceback.format_exc())
         else:

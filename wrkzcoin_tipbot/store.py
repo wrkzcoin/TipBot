@@ -1447,6 +1447,41 @@ async def redis_delete_userwallet(userID: str, coin: str, user_server: str = 'DI
     return True
 
 
+async def coin_check_balance_address_in_users(address: str, coin: str):
+    global pool
+    COIN_NAME = coin.upper()
+    if COIN_NAME in ENABLE_COIN_ERC:
+        coin_family = "ERC-20"
+    else:
+        coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    if coin_family in ["TRTL", "BCN"]:
+        tb_name = "cnoff_user_paymentid"
+        field_name = "int_address"
+    elif coin_family == "XMR":
+        tb_name = "xmroff_user_paymentid"
+        field_name = "int_address"
+    elif coin_family == "DOGE":
+        tb_name = "doge_user"
+        field_name = "balance_wallet_address"
+    elif coin_family == "NANO":
+        tb_name = "nano_user"
+        field_name = "balance_wallet_address"
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            await conn.ping(reconnect=True)
+            async with conn.cursor() as cur:
+                sql = """ SELECT `"""+field_name+"""` FROM """+tb_name+""" 
+                          WHERE `coin_name`=%s AND LOWER(`"""+field_name+"""`)=LOWER(%s) LIMIT 1 """
+                await cur.execute(sql, (COIN_NAME, address))
+                result = await cur.fetchone()
+                if result: return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return None
+
+
 async def sql_get_userwallet(userID: str, coin: str, user_server: str = 'DISCORD'):
     global pool, redis_conn, redis_pool, redis_expired
     COIN_NAME = coin.upper()
@@ -3078,7 +3113,10 @@ async def sql_get_userwallet_by_paymentid(paymentid: str, coin: str, user_server
         await logchanbot(traceback.format_exc())
 
     result = False
-    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    if COIN_NAME in ENABLE_COIN_ERC:
+        coin_family = "ERC-20"
+    else:
+        coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     try:
         await openConnection()
         async with pool.acquire() as conn:

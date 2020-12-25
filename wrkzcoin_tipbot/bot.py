@@ -10828,6 +10828,11 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
         if len(valid_address) == 2:
             tip = None
             try:
+                check_in = await store.coin_check_balance_address_in_users(CoinAddress, COIN_NAME)
+                if check_in:
+                    await ctx.message.add_reaction(EMOJI_ERROR)
+                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention}, Can not send to this address:\n```{CoinAddress}``` ')
+                    return
                 if ctx.message.author.id not in TX_IN_PROCESS:
                     TX_IN_PROCESS.append(ctx.message.author.id)
                     try:
@@ -10969,6 +10974,11 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
             return
 
         SendTx = None
+        check_in = await store.coin_check_balance_address_in_users(CoinAddress, COIN_NAME)
+        if check_in:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention}, Can not send to this address:\n```{CoinAddress}``` ')
+            return
         if ctx.message.author.id not in TX_IN_PROCESS:
             TX_IN_PROCESS.append(ctx.message.author.id)
             try:
@@ -11060,6 +11070,11 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
             return
 
         SendTx = None
+        check_in = await store.coin_check_balance_address_in_users(CoinAddress, COIN_NAME)
+        if check_in:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention}, Can not send to this address:\n```{CoinAddress}``` ')
+            return
         if ctx.message.author.id not in TX_IN_PROCESS:
             TX_IN_PROCESS.append(ctx.message.author.id)
             try:
@@ -11155,6 +11170,11 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
                            f'{COIN_NAME}.')
             return
         SendTx = None
+        check_in = await store.coin_check_balance_address_in_users(CoinAddress, COIN_NAME)
+        if check_in:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention}, Can not send to this address:\n```{CoinAddress}``` ')
+            return
         if ctx.message.author.id not in TX_IN_PROCESS:
             TX_IN_PROCESS.append(ctx.message.author.id)
             try:

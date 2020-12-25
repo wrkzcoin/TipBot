@@ -36,9 +36,11 @@ ENABLE_COIN = config.telegram.Enabe_Telegram_Coin.split(",")
 ENABLE_COIN_DOGE = config.telegram.Enable_Coin_Doge.split(",")
 ENABLE_COIN_ERC = config.telegram.Enable_Coin_ERC.split(",")
 ENABLE_COIN_NANO = config.telegram.Enable_Coin_Nano.split(",")
+ENABLE_XMR = config.telegram.Enable_Coin_XMR.split(",")
+HIGH_DECIMAL_COIN = config.ManyDecimalCoin.split(",")
 
 # faucet enabled coin. The faucet balance is taken from TipBot's own balance
-FAUCET_COINS = config.Enable_Faucet_Coin.split(",")
+FAUCET_COINS = config.telegram.Enable_Faucet_Coin.split(",")
 
 # DOGE will divide by 10 after random
 FAUCET_MINMAX = {
@@ -121,7 +123,7 @@ async def start_cmd_handler(message: types.Message):
         reply_text = "I can not get your username."
         await message.reply(reply_text)
         return
-    supported_coins = ", ".join(ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_NANO)
+    supported_coins = ", ".join(ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_NANO+ENABLE_XMR)
     if len(args) == 1:
         message_text = text(markdown.bold(f"Invalid COIN NAME after /deposit.\nPlease use any of this:") + markdown.pre(supported_coins))
         await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
@@ -129,7 +131,7 @@ async def start_cmd_handler(message: types.Message):
     else:
         # /deposit WRKZ
         COIN_NAME = args[1].upper()
-        if COIN_NAME not in ENABLE_COIN + ENABLE_COIN_DOGE + ENABLE_COIN_ERC + ENABLE_COIN_NANO:
+        if COIN_NAME not in ENABLE_COIN + ENABLE_COIN_DOGE + ENABLE_COIN_ERC + ENABLE_COIN_NANO + ENABLE_XMR:
             message_text = text(markdown.bold(f"Invalid COIN NAME after /deposit.\nPlease use any of this:") + markdown.pre(supported_coins))
             await message.reply(message_text,
                                 parse_mode=ParseMode.MARKDOWN)
@@ -163,7 +165,7 @@ async def start_cmd_handler(message: types.Message):
 async def start_cmd_handler(message: types.Message):
     content = ' '.join(message.text.split())
     args = content.split(" ")
-    supported_coins = ", ".join(ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_NANO)
+    supported_coins = ", ".join(ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_NANO+ENABLE_XMR)
     if len(args) == 1:
         deposit_cmd_text = text(bold(f"Invalid COIN NAME after /coin") + markdown.pre(f"\nPlease use /coin COIN NAME. Supported COIN_NAME: {supported_coins}"))
         await message.reply(deposit_cmd_text, parse_mode=ParseMode.MARKDOWN)
@@ -171,7 +173,7 @@ async def start_cmd_handler(message: types.Message):
     else:
         # /coin WRKZ
         COIN_NAME = args[1].upper()
-        if COIN_NAME not in ENABLE_COIN + ENABLE_COIN_DOGE + ENABLE_COIN_ERC + ENABLE_COIN_NANO:
+        if COIN_NAME not in ENABLE_COIN + ENABLE_COIN_DOGE + ENABLE_COIN_ERC + ENABLE_COIN_NANO + ENABLE_XMR:
             message_text = text(bold(f"Invalid COIN NAME after /coin") + markdown.pre(f"\nPlease use /coin COIN NAME. Supported COIN_NAME: {supported_coins}"))
             await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
             return
@@ -230,9 +232,9 @@ async def start_cmd_handler(message: types.Message):
         reply_text = "I can not get your username."
         await message.reply(reply_text)
         return
-    supported_coins = ", ".join(ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_NANO)
+    supported_coins = ", ".join(ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_NANO+ENABLE_XMR)
     if len(args) == 1:
-        deposit_cmd_text = f"Please use /balance COIN. Supported COIN: {supported_coins}" 
+        deposit_cmd_text = text(bold(f"Invalid COIN NAME after /balance") + markdown.pre(f"\nPlease use /balance COIN NAME. Supported COIN_NAME: {supported_coins}"))
         await message.reply(deposit_cmd_text, parse_mode=ParseMode.MARKDOWN)
         return
     else:
@@ -241,7 +243,7 @@ async def start_cmd_handler(message: types.Message):
         if COIN_NAME == "LIST":
             message_text = ""
             coin_str = "\n"
-            for COIN_ITEM in [coinItem.upper() for coinItem in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_NANO]:
+            for COIN_ITEM in [coinItem.upper() for coinItem in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_NANO+ENABLE_XMR]:
                 wallet = await store.sql_get_userwallet(message.from_user.username, COIN_ITEM, 'TELEGRAM')
                 if wallet is None:
                     if COIN_ITEM in ENABLE_COIN_ERC:
@@ -279,15 +281,12 @@ async def start_cmd_handler(message: types.Message):
                         await logchanbot(traceback.format_exc())
                     balance_actual = num_format_coin(actual_balance, COIN_ITEM)
                 coin_str += COIN_ITEM + ": " + balance_actual + COIN_ITEM + "\n"
-            message_text = text(bold(f'YOUR BALANCE SHEET:\n'),
-                                markdown.pre(coin_str))
-            await message.reply(message_text,
-                                parse_mode=ParseMode.MARKDOWN)
+            message_text = text(bold(f'YOUR BALANCE SHEET:\n'), markdown.pre(coin_str))
+            await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
             return
-        elif COIN_NAME not in ENABLE_COIN + ENABLE_COIN_DOGE + ENABLE_COIN_ERC + ENABLE_COIN_NANO:
-            message_text = text(bold(f"Invalid COIN_NAME after /balance.\nPlease use any of this: {supported_coins}"))
-            await message.reply(message_text,
-                                parse_mode=ParseMode.MARKDOWN)
+        elif COIN_NAME not in ENABLE_COIN + ENABLE_COIN_DOGE + ENABLE_COIN_ERC + ENABLE_COIN_NANO + ENABLE_XMR:
+            message_text = text(bold(f"Invalid COIN NAME after /balance") + markdown.pre(f"\nPlease use /balance COIN NAME. Supported COIN_NAME: {supported_coins}"))
+            await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
             return
         else:    
             # get balance user for a specific coin
@@ -329,7 +328,7 @@ async def start_cmd_handler(message: types.Message):
             return
 
 
-@dp.message_handler(commands='botbalance')
+@dp.message_handler(commands='botbal')
 async def start_cmd_handler(message: types.Message):
     content = ' '.join(message.text.split())
     args = content.split(" ")
@@ -367,7 +366,7 @@ async def start_cmd_handler(message: types.Message):
             else:
                 message_text = ""
                 coin_str = "\n"
-                for COIN_ITEM in [coinItem.upper() for coinItem in ENABLE_COIN + ENABLE_COIN_DOGE + ENABLE_COIN_ERC + ENABLE_COIN_NANO]:
+                for COIN_ITEM in [coinItem.upper() for coinItem in ENABLE_COIN + ENABLE_COIN_DOGE + ENABLE_COIN_ERC + ENABLE_COIN_NANO + ENABLE_XMR]:
                     wallet = await store.sql_get_userwallet(user_to, COIN_ITEM, 'TELEGRAM')
                     if wallet is None:
                         # this will be public
@@ -402,10 +401,8 @@ async def start_cmd_handler(message: types.Message):
                         await logchanbot(traceback.format_exc())
                     balance_actual = num_format_coin(actual_balance, COIN_ITEM)
                     coin_str += COIN_ITEM + ": " + balance_actual + COIN_ITEM + "\n"
-                message_text = text(bold(f'[@{user_to} BALANCE SHEET]:\n'),
-                                    markdown.pre(coin_str))
-                await message.reply(message_text,
-                                    parse_mode=ParseMode.MARKDOWN)
+                message_text = text(bold(f'@{user_to} BALANCE SHEET:\n') + markdown.pre(coin_str))
+                await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
                 return
 
 
@@ -584,13 +581,11 @@ async def start_cmd_handler(message: types.Message):
         await message.reply(reply_text)
         return
 
-    supported_coins = ", ".join(ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_COIN_ERC)
+    supported_coins = ", ".join(ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_XMR)
     COIN_NAME = args[2].upper()
-    if COIN_NAME not in ENABLE_COIN + ENABLE_COIN_DOGE + ENABLE_COIN_ERC + ENABLE_COIN_NANO:
-        message_text = text(bold(f"Invalid {COIN_NAME}\n\n"), 
-                            "Supported coins: ", markdown.pre(supported_coins))
-        await message.reply(message_text,
-                            parse_mode=ParseMode.MARKDOWN)
+    if COIN_NAME not in ENABLE_COIN + ENABLE_COIN_DOGE + ENABLE_COIN_ERC + ENABLE_COIN_NANO + ENABLE_XMR:
+        message_text = text(bold(f"Invalid {COIN_NAME}") + markdown.pre("\nSupported coins:"+supported_coins))
+        await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
         return
 
     if not is_coin_tipable(COIN_NAME):
@@ -695,8 +690,7 @@ async def start_cmd_handler(message: types.Message):
                         WITHDRAW_IN_PROCESS.append(message.from_user.username)
                     else:
                         message_text = text(bold("You have another tx in progress.\n"))
-                        await message.reply(message_text,
-                                            parse_mode=ParseMode.MARKDOWN)
+                        await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
                         return
                     tip = None
                     try:
@@ -757,12 +751,10 @@ async def start_cmd_handler(message: types.Message):
         return
    
     COIN_NAME = args[2].upper()
-    supported_coins = ", ".join(ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_COIN_ERC)
-    if COIN_NAME not in ENABLE_COIN + ENABLE_COIN_DOGE + ENABLE_COIN_ERC + ENABLE_COIN_NANO:
-        message_text = text(bold(f"Invalid {COIN_NAME}\n\n"), 
-                            "Supported coins: ", markdown.pre(supported_coins))
-        await message.reply(message_text,
-                            parse_mode=ParseMode.MARKDOWN)
+    supported_coins = ", ".join(ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_XMR)
+    if COIN_NAME not in ENABLE_COIN + ENABLE_COIN_DOGE + ENABLE_COIN_ERC + ENABLE_COIN_NANO + ENABLE_XMR:
+        message_text = text(bold(f"Invalid {COIN_NAME}") + markdown.pre("\nSupported coins:"+supported_coins))
+        await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
         return
 
     if not is_coin_txable(COIN_NAME):
@@ -792,6 +784,11 @@ async def start_cmd_handler(message: types.Message):
                             parse_mode=ParseMode.MARKDOWN)
         return
     else:
+        check_in = await store.coin_check_balance_address_in_users(wallet_address, COIN_NAME)
+        if check_in:
+            message_text = text(bold("Can not send to this address::\n") + markdown.pre(wallet_address))
+            await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
+            return
         COIN_NAME_CHECK = get_cn_coin_from_address(wallet_address)
         if not COIN_NAME_CHECK:
             message_text = text(bold("Unknown coin name:\n") + markdown.pre(wallet_address))
@@ -991,12 +988,10 @@ async def start_cmd_handler(message: types.Message):
         return
    
     COIN_NAME = args[2].upper()
-    supported_coins = ", ".join(ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_COIN_ERC)
+    supported_coins = ", ".join(ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_XMR)
     if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
-        message_text = text(bold(f"Invalid {COIN_NAME}\n\n"), 
-                            "Supported coins: ", markdown.pre(supported_coins))
-        await message.reply(message_text,
-                            parse_mode=ParseMode.MARKDOWN)
+        message_text = text(bold(f"Invalid {COIN_NAME}") + markdown.pre("\nSupported coins:"+supported_coins))
+        await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
         return
 
     if not is_coin_txable(COIN_NAME):
@@ -1186,8 +1181,8 @@ async def start_cmd_handler(message: types.Message):
         if int(time.time()) - check_claimed['claimed_at'] <= claim_interval*3600:
             remaining = await bot_faucet() or ''
             time_waiting = seconds_str(claim_interval*3600 - int(time.time()) + check_claimed['claimed_at'])
-            number_user_claimed = '{:,.0f}'.format(store.sql_faucet_count_user(message.from_user.username, 'TELEGRAM'))
-            total_claimed = '{:,.0f}'.format(store.sql_faucet_count_all())
+            number_user_claimed = '{:,.0f}'.format(await store.sql_faucet_count_user(message.from_user.username, 'TELEGRAM'))
+            total_claimed = '{:,.0f}'.format(await store.sql_faucet_count_all())
 
             reply_text = text(markdown.pre(f'\nYou just claimed within last {claim_interval}h. \n'
                                            f'Waiting time {time_waiting} for next /take.\nFaucet balance:\n{remaining}\n'
@@ -1198,20 +1193,19 @@ async def start_cmd_handler(message: types.Message):
             return
 
     COIN_NAME = random.choice(FAUCET_COINS)
+    while is_maintenance_coin(COIN_NAME):
+        COIN_NAME = random.choice(FAUCET_COINS)
+
+    amount = random.randint(FAUCET_MINMAX[COIN_NAME][0]*get_decimal(COIN_NAME), FAUCET_MINMAX[COIN_NAME][1]*get_decimal(COIN_NAME))
+
     if COIN_NAME in ENABLE_COIN_ERC:
         coin_family = "ERC-20"
     else:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-    loop = 0
-    while is_maintenance_coin(COIN_NAME):
-        COIN_NAME = random.choice(FAUCET_COINS)
-        loop += 1
-        # stop loop if more than 3 times
-        if loop > 3:
-            break
-    amount = random.randint(FAUCET_MINMAX[COIN_NAME][0], FAUCET_MINMAX[COIN_NAME][1])
     if COIN_NAME == "DOGE":
-        amount = float(amount / 10)
+        amount = float(amount / 50)
+    elif COIN_NAME in HIGH_DECIMAL_COIN:
+        amount = float("%.5f" % (amount / get_decimal(COIN_NAME))) * get_decimal(COIN_NAME)
 
     def myround_number(x, base=5):
         return base * round(x/base)
@@ -1223,7 +1217,6 @@ async def start_cmd_handler(message: types.Message):
         Max_Tip = token_info['real_max_tip']
         Min_Tx = token_info['real_min_tx']
         Max_Tx = token_info['real_max_tx']
-        real_amount = amount
         coin_decimal = 10**token_info['token_decimal']
     else:
         confim_depth = get_confirm_depth(COIN_NAME)
@@ -1231,9 +1224,9 @@ async def start_cmd_handler(message: types.Message):
         Max_Tip = get_max_mv_amount(COIN_NAME)
         Min_Tx = get_min_tx_amount(COIN_NAME)
         Max_Tx = get_max_tx_amount(COIN_NAME)
-        real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
         coin_decimal = get_decimal(COIN_NAME)
 
+    real_amount = amount
     userdata_balance = await store.sql_user_balance('teletip_bot', COIN_NAME, 'TELEGRAM')
     xfer_in = 0
     if COIN_NAME not in ENABLE_COIN_ERC:
@@ -1283,7 +1276,7 @@ async def start_cmd_handler(message: types.Message):
                 await logchanbot(traceback.format_exc())
             if tip:
                 get_decimal(COIN_NAME)
-                faucet_add = store.sql_faucet_add(message.from_user.username, message.chat.id, COIN_NAME, real_amount, coin_decimal, tip, "TELEGRAM")
+                faucet_add = await store.sql_faucet_add(message.from_user.username, message.chat.id, COIN_NAME, real_amount, coin_decimal, "TELEGRAM")
                 message_text = text(bold("You received free coin:"), markdown.pre("\nAmount: {}{}".format(num_format_coin(real_amount, COIN_NAME), COIN_NAME)), "\nConsider tipping me if you like this :).")
                 await message.reply(message_text,
                                     parse_mode=ParseMode.MARKDOWN)
@@ -1302,17 +1295,15 @@ async def start_cmd_handler(message: types.Message):
     content = ' '.join(message.text.split())
     args = content.split(" ")
     if len(args) != 3:
-        reply_text = "Please use /donate amount coin_name"
+        reply_text = "Please use /donate amount COIN NAME"
         await message.reply(reply_text)
         return
    
     COIN_NAME = args[2].upper()
-    supported_coins = ", ".join(ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_COIN_ERC)
+    supported_coins = ", ".join(ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_XMR)
     if COIN_NAME not in supported_coins:
-        message_text = text(bold(f"Invalid {COIN_NAME}\n\n"), 
-                            "Supported coins: ", markdown.pre("\n"+supported_coins))
-        await message.reply(message_text,
-                            parse_mode=ParseMode.MARKDOWN)
+        message_text = text(bold(f"Invalid {COIN_NAME}") + markdown.pre("\nSupported coins:"+supported_coins))
+        await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
         return
 
     amount = args[1].replace(",", "")
@@ -1376,31 +1367,40 @@ async def start_cmd_handler(message: types.Message):
         message_text = 'Transactions cannot be bigger than ' + num_format_coin(Min_Tip, COIN_NAME) + COIN_NAME
         valid_amount = False
     if valid_amount == False:
-        await message.reply(message_text,
-                            parse_mode=ParseMode.MARKDOWN)
+        await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
         return
 
 
     if message.from_user.username not in WITHDRAW_IN_PROCESS:
         WITHDRAW_IN_PROCESS.append(message.from_user.username)
         tip = None
+        donateTx = None
         try:
             CoinAddress = get_donate_address(COIN_NAME)
-            if coin_family == "TRTL":
-                tip = await store.sql_donate(message.from_user.username, CoinAddress, real_amount, COIN_NAME, 'TELEGRAM')
-            elif coin_family == "DOGE":
-                tip = await store.sql_mv_doge_single(message.from_user.username, CoinAddress, real_amount, COIN_NAME, 'DONATE', 'TELEGRAM')
-            message_text = text(bold("You donated:"), markdown.pre("\nAmount: {}{}".format(num_format_coin(real_amount, COIN_NAME), COIN_NAME)), "Thank you very much.")
-            await message.reply(message_text,
-                                parse_mode=ParseMode.MARKDOWN)
+            try:
+                if coin_family in ["TRTL", "BCN"]:
+                    donateTx = await store.sql_donate(message.from_user.username, get_donate_address(COIN_NAME), real_amount, COIN_NAME, "TELEGRAM")
+                elif coin_family == "XMR":
+                    donateTx = await store.sql_mv_xmr_single(message.from_user.username, get_donate_account_name(COIN_NAME), real_amount, COIN_NAME, "DONATE", "TELEGRAM")
+                elif coin_family == "NANO":
+                    donateTx = await store.sql_mv_nano_single(message.from_user.username, get_donate_account_name(COIN_NAME), real_amount, COIN_NAME, "DONATE", "TELEGRAM")
+                elif coin_family == "DOGE":
+                    donateTx = await store.sql_mv_doge_single(message.from_user.username, get_donate_account_name(COIN_NAME), real_amount, COIN_NAME, "DONATE", "TELEGRAM")
+                elif coin_family == "ERC-20":
+                    token_info = await store.get_token_info(COIN_NAME)
+                    donateTx = await store.sql_mv_erc_single(message.from_user.username, token_info['donate_name'], real_amount, COIN_NAME, "DONATE", token_info['contract'], "TELEGRAM")
+            except Exception as e:
+                await logchanbot(traceback.format_exc())
+            message_text = text(bold("You donated:") + markdown.pre("\nAmount: {}{}".format(num_format_coin(real_amount, COIN_NAME), COIN_NAME)), "Thank you very much.")
+            await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
+            await logchanbot(f'[Telegram] TipBot got donation: {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         if message.from_user.username in WITHDRAW_IN_PROCESS:
             WITHDRAW_IN_PROCESS.remove(message.from_user.username)
     else:
         message_text = text(bold("You have another tx in progress.\n"))
-        await message.reply(message_text,
-                            parse_mode=ParseMode.MARKDOWN)
+        await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
         return
 
 

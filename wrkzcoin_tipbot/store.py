@@ -4178,8 +4178,6 @@ async def sql_mv_erc_single(user_from: str, to_user: str, amount: float, coin: s
     global pool
     TOKEN_NAME = coin.upper()
     token_info = await get_token_info(TOKEN_NAME)
-    if tiptype.upper() not in ["TIP", "DONATE", "FAUCET", "FREETIP", "FREETIPS", "RANDTIP", "GUILDTIP"]:
-        return False
     user_server = user_server.upper()
     if user_server not in ['DISCORD', 'TELEGRAM']:
         return

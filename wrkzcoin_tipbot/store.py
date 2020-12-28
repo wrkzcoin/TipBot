@@ -80,6 +80,7 @@ async def logchanbot(content: str):
     filterword = config.discord.logfilterword.split(",")
     for each in filterword:
         content = content.replace(each, config.discord.filteredwith)
+    if len(content) > 1500: content = content[:1500]
     try:
         webhook = DiscordWebhook(url=config.discord.botdbghook, content=f'```{discord.utils.escape_markdown(content)}```')
         webhook.execute()
@@ -655,6 +656,26 @@ async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD')
                 if result and ('CompleteOrderAdd2' in result) and (result['CompleteOrderAdd2'] is not None):
                     CompleteOrderAdd2 = result['CompleteOrderAdd2']
 
+                # user_move_balance move_out
+                sql = """ SELECT SUM(amount) AS move_out FROM user_move_balance WHERE `coin_name`=%s AND `from_userid`=%s  
+                          AND `from_server`=%s
+                      """
+                await cur.execute(sql, (COIN_NAME, userID, user_server))
+                result = await cur.fetchone()
+                move_out = 0
+                if result and ('move_out' in result) and result['move_out']:
+                    move_out = result['move_out']
+
+                # user_move_balance move_in
+                sql = """ SELECT SUM(amount) AS move_in FROM user_move_balance WHERE `coin_name`=%s AND `to_userid`=%s  
+                          AND `to_server`=%s
+                      """
+                await cur.execute(sql, (COIN_NAME, userID, user_server))
+                result = await cur.fetchone()
+                move_in = 0
+                if result and ('move_in' in result) and result['move_in']:
+                    move_in = result['move_in']
+
                 balance = {}
                 if coin_family == "NANO":
                     balance['Expense'] = Expense or 0
@@ -670,10 +691,14 @@ async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD')
                     balance['CompleteOrderAdd'] = CompleteOrderAdd if CompleteOrderAdd else 0
                     balance['CompleteOrderAdd2'] = CompleteOrderAdd2 if CompleteOrderAdd2 else 0
 
+                    balance['move_in'] = move_in if move_in else 0
+                    balance['move_out'] = move_out if move_out else 0
+
                     balance['Adjust'] = int(balance['Credited']) + int(balance['GameCredit']) \
                     + int(balance['Income']) - int(balance['Expense']) - int(balance['TxExpense']) - int(balance['Expended_Voucher']) \
                     - balance['OpenOrder'] - balance['CompleteOrderMinus'] - balance['CompleteOrderMinus2'] \
-                    + balance['CompleteOrderAdd'] + balance['CompleteOrderAdd2']
+                    + balance['CompleteOrderAdd'] + balance['CompleteOrderAdd2'] \
+                    + balance['move_in'] - balance['move_out']
                 elif coin_family == "DOGE":
                     balance['Expense'] = Expense or 0
                     balance['Expense'] = round(balance['Expense'], 4)
@@ -691,10 +716,14 @@ async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD')
                     balance['CompleteOrderAdd'] = CompleteOrderAdd if CompleteOrderAdd else 0
                     balance['CompleteOrderAdd2'] = CompleteOrderAdd2 if CompleteOrderAdd2 else 0
 
+                    balance['move_in'] = move_in if move_in else 0
+                    balance['move_out'] = move_out if move_out else 0
+
                     balance['Adjust'] = float(balance['Credited']) + float(balance['GameCredit']) + float(balance['Income']) + float(balance['SwapIn']) - float(balance['Expense']) \
                     - float(balance['TxExpense']) - float(balance['SwapOut']) - float(balance['Expended_Voucher']) \
                     - float(balance['OpenOrder']) - float(balance['CompleteOrderMinus']) - float(balance['CompleteOrderMinus2']) \
-                    + float(balance['CompleteOrderAdd']) + float(balance['CompleteOrderAdd2'])
+                    + float(balance['CompleteOrderAdd']) + float(balance['CompleteOrderAdd2']) \
+                    + float(balance['move_in']) - float(balance['move_out'])
                 elif coin_family == "XMR":
                     balance['Expense'] = float(Expense) if Expense else 0
                     balance['Expense'] = float(round(balance['Expense'], 4))
@@ -712,10 +741,14 @@ async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD')
                     balance['CompleteOrderAdd'] = CompleteOrderAdd if CompleteOrderAdd else 0
                     balance['CompleteOrderAdd2'] = CompleteOrderAdd2 if CompleteOrderAdd2 else 0
 
+                    balance['move_in'] = move_in if move_in else 0
+                    balance['move_out'] = move_out if move_out else 0
+
                     balance['Adjust'] = balance['Credited'] + balance['GameCredit'] + balance['Income'] + balance['SwapIn'] - balance['Expense'] - balance['TxExpense'] \
                     - balance['SwapOut'] - balance['Expended_Voucher'] \
                     - int(balance['OpenOrder']) - int(balance['CompleteOrderMinus']) - int(balance['CompleteOrderMinus2']) \
-                    + int(balance['CompleteOrderAdd']) + int(balance['CompleteOrderAdd2'])
+                    + int(balance['CompleteOrderAdd']) + int(balance['CompleteOrderAdd2']) \
+                    + int(balance['move_in']) - int(balance['move_out'])
                 elif coin_family == "ERC-20":
                     balance['Deposit'] = float("%.3f" % Deposit) if Deposit else 0
                     balance['Expense'] = float("%.3f" % Expense) if Expense else 0
@@ -731,10 +764,14 @@ async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD')
                     balance['CompleteOrderAdd'] = float("%.3f" % CompleteOrderAdd) if CompleteOrderAdd else 0
                     balance['CompleteOrderAdd2'] = float("%.3f" % CompleteOrderAdd2) if CompleteOrderAdd2 else 0
 
+                    balance['move_in'] = float("%.3f" % move_in) if move_in else 0
+                    balance['move_out'] = float("%.3f" % move_out) if move_out else 0
+
                     balance['Adjust'] = float("%.3f" % (balance['Deposit'] + balance['Credited'] + balance['GameCredit'] + balance['Income'] - balance['Expense'] \
                     - balance['TxExpense'] - balance['Expended_Voucher'] \
                     - balance['OpenOrder'] - balance['CompleteOrderMinus'] - balance['CompleteOrderMinus2'] \
-                    + balance['CompleteOrderAdd'] + balance['CompleteOrderAdd2']))
+                    + balance['CompleteOrderAdd'] + balance['CompleteOrderAdd2'])) \
+                    + balance['move_in'] - balance['move_out']
                 elif coin_family in ["TRTL", "BCN"]:
                     balance['Expense'] = float(Expense) if Expense else 0
                     balance['Expense'] = float(round(balance['Expense'], 4))
@@ -752,10 +789,14 @@ async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD')
                     balance['CompleteOrderAdd'] = CompleteOrderAdd if CompleteOrderAdd else 0
                     balance['CompleteOrderAdd2'] = CompleteOrderAdd2 if CompleteOrderAdd2 else 0
 
+                    balance['move_in'] = move_in if move_in else 0
+                    balance['move_out'] = move_out if move_out else 0
+
                     balance['Adjust'] = balance['Credited'] + balance['GameCredit'] + balance['Income'] + balance['SwapIn'] - balance['Expense'] \
                     - balance['TxExpense'] - balance['SwapOut'] - balance['Expended_Voucher'] \
                     - int(balance['OpenOrder']) - int(balance['CompleteOrderMinus']) - int(balance['CompleteOrderMinus2']) \
-                    + int(balance['CompleteOrderAdd']) + int(balance['CompleteOrderAdd2'])
+                    + int(balance['CompleteOrderAdd']) + int(balance['CompleteOrderAdd2']) \
+                    + int(balance['move_in']) - int(balance['move_out'])
                 return balance
     except Exception as e:
         await logchanbot(traceback.format_exc())
@@ -3183,6 +3224,44 @@ async def sql_update_notify_tx_table(payment_id: str, owner_id: str, owner_name:
     return False
 
 
+async def sql_update_move_balance_table(id_tx: int, send_receive: str):
+    global pool
+    send_receive = send_receive.upper()
+    if send_receive == "SENDER":
+        set_who = "notified_sender"
+        set_time = "notified_sender_time"
+    elif send_receive == "RECEIVER":
+        set_who = "notified_receiver"
+        set_time = "notified_receiver_time"
+    else:
+        return False
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ UPDATE user_move_balance SET `"""+set_who+"""`=%s, `"""+set_time+"""`=%s WHERE `id`=%s """
+                await cur.execute(sql, ('YES', int(time.time()), id_tx,))
+                await conn.commit()
+                return True
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return False
+
+
+async def sql_get_move_balance_table(notified_receiver: str = 'NO', notified_sender: str = 'NO'):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM user_move_balance WHERE `notified_receiver`=%s AND `notified_sender`=%s """
+                await cur.execute(sql, (notified_receiver, notified_sender,))
+                result = await cur.fetchall()
+                return result
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+
+
 async def sql_feedback_add(user_id: str, user_name:str, feedback_id: str, text_in: str, feedback_text: str, howto_contact_back: str):
     global pool
     try:
@@ -4765,6 +4844,27 @@ async def erc_check_balance_address_in_users(address: str, coin: str):
     return None
 
 ## End of xDai
+
+
+async def sql_tipto_crossing(coin: str, from_userid: str, from_username: str, from_server: str, \
+to_userid: str, to_username: str, to_server: str, amount: float, decimal_pts: int):
+    global pool, ENABLE_SWAP	
+    COIN_NAME = coin.upper()		
+    try:	
+        await openConnection()	
+        async with pool.acquire() as conn:	
+            async with conn.cursor() as cur:	
+                sql = """ INSERT INTO user_move_balance (`coin_name`, `from_userid`, `from_name`, `from_server`, 
+                          `to_userid`, `to_name`, `to_server`, `amount`, `decimal`, `execute_time`) 	
+                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """	
+                await cur.execute(sql, (COIN_NAME, from_userid, from_username, from_server, to_userid, to_username,
+                                        to_server, amount, decimal_pts, int(time.time())))
+                await conn.commit()	
+                return True	
+    except Exception as e:	
+        await logchanbot(traceback.format_exc())	
+    return False
+
 
 # Steal from https://nitratine.net/blog/post/encryption-and-decryption-in-python/
 def encrypt_string(to_encrypt: str):

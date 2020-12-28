@@ -16,6 +16,12 @@ import sys, traceback
 import redis, json
 import uuid
 
+from generic_xmr.address_msr import address_msr as address_msr
+from generic_xmr.address_xmr import address_xmr as address_xmr
+from generic_xmr.address_upx import address_upx as address_upx
+from generic_xmr.address_wow import address_wow as address_wow
+from generic_xmr.address_xol import address_xol as address_xol
+
 # eth erc
 from eth_account import Account
 from decimal import Decimal
@@ -37,6 +43,7 @@ ENABLE_COIN_DOGE = config.telegram.Enable_Coin_Doge.split(",")
 ENABLE_COIN_ERC = config.telegram.Enable_Coin_ERC.split(",")
 ENABLE_COIN_NANO = config.telegram.Enable_Coin_Nano.split(",")
 ENABLE_XMR = config.telegram.Enable_Coin_XMR.split(",")
+ENABLE_TIPTO = config.Enabe_TipTo_Coin.split(",")
 HIGH_DECIMAL_COIN = config.ManyDecimalCoin.split(",")
 
 # faucet enabled coin. The faucet balance is taken from TipBot's own balance
@@ -520,7 +527,7 @@ async def start_cmd_handler(message: types.Message):
                 coin_family = "ERC-20"
             else:
                 coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-            if COIN_NAME not in ENABLE_COIN + ENABLE_COIN_DOGE + ENABLE_COIN_NANO:
+            if COIN_NAME not in ENABLE_COIN + ENABLE_COIN_DOGE + ENABLE_COIN_NANO + ENABLE_XMR:
                 message_text = text(bold("Invalid or unsupported coin address."))
                 await message.reply(message_text,
                                     parse_mode=ParseMode.MARKDOWN)
@@ -593,6 +600,68 @@ async def start_cmd_handler(message: types.Message):
                                         markdown.pre(wallet_address))
                     await message.reply(message_text,
                                         parse_mode=ParseMode.MARKDOWN)
+                    return
+                else:
+                    await store.sql_update_user(message.from_user.username, wallet_address, COIN_NAME, 'TELEGRAM')
+                    message_text = text(bold("You registered a withdrawn address:\n"),
+                                        markdown.pre(wallet_address))
+                    await message.reply(message_text,
+                                        parse_mode=ParseMode.MARKDOWN)
+                    return
+            elif coin_family == "XMR":
+                user_from = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
+                if user_from is None:
+                    user_from = await store.sql_register_user(message.from_user.username, COIN_NAME, 'TELEGRAM')
+                    user_from = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
+                prev_address = user_from['user_wallet_address']
+                if COIN_NAME not in ["MSR", "UPX", "XAM"]:
+                    valid_address = await validate_address_xmr(str(wallet_address), COIN_NAME)
+                    if valid_address is None:
+                        message_text = text(bold("Invalid address:\n"),
+                                            markdown.pre(wallet_address))
+                        await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
+                    if valid_address['valid'] == True and valid_address['integrated'] == False \
+                        and valid_address['subaddress'] == False and valid_address['nettype'] == 'mainnet':
+                        # re-value valid_address
+                        valid_address = str(wallet_address)
+                    else:
+                        message_text = text(bold(f"Please use {COIN_NAME} main address."))
+                        await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
+                        return
+                else:
+                    if COIN_NAME == "MSR":
+                        valid_address = address_msr(wallet_address)
+                        if type(valid_address).__name__ != "Address":
+                            message_text = text(bold(f"Please use {COIN_NAME} main address."))
+                            await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
+                            return
+                    elif COIN_NAME == "WOW":
+                        valid_address = address_wow(wallet_address)
+                        if type(valid_address).__name__ != "Address":
+                            message_text = text(bold(f"Please use {COIN_NAME} main address."))
+                            await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
+                            return
+                    elif COIN_NAME == "XOL":
+                        valid_address = address_xol(wallet_address)
+                        if type(valid_address).__name__ != "Address":
+                            message_text = text(bold(f"Please use {COIN_NAME} main address."))
+                            await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
+                            return
+                    elif COIN_NAME == "UPX":	
+                        valid_address = address_upx(wallet_address)	
+                        if type(valid_address).__name__ != "Address":	
+                            message_text = text(bold(f"Please use {COIN_NAME} main address."))
+                            await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
+                            return
+                if user_from['balance_wallet_address'] == wallet_address:
+                    message_text = text(bold("Can not register with your deposit address:\n"),
+                                        markdown.pre(wallet_address))
+                    await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
+                    return
+                elif prev_address and prev_address == wallet_address:
+                    message_text = text(bold("Previous and new address is the same:\n"),
+                                        markdown.pre(wallet_address))
+                    await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
                     return
                 else:
                     await store.sql_update_user(message.from_user.username, wallet_address, COIN_NAME, 'TELEGRAM')
@@ -702,6 +771,7 @@ async def start_cmd_handler(message: types.Message):
                 Min_Tx = token_info['real_min_tx']
                 Max_Tx = token_info['real_max_tx']
                 real_amount = amount
+                decimal_pts = token_info['token_decimal']
             else:
                 confim_depth = get_confirm_depth(COIN_NAME)
                 Min_Tip = get_min_mv_amount(COIN_NAME)
@@ -709,6 +779,7 @@ async def start_cmd_handler(message: types.Message):
                 Min_Tx = get_min_tx_amount(COIN_NAME)
                 Max_Tx = get_max_tx_amount(COIN_NAME)
                 real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
+                decimal_pts = int(math.log10(get_decimal(COIN_NAME)))
 
             message_text = ''
             valid_amount = True
@@ -775,6 +846,148 @@ async def start_cmd_handler(message: types.Message):
                 if message.from_user.username in WITHDRAW_IN_PROCESS:
                     WITHDRAW_IN_PROCESS.remove(message.from_user.username)
                 return
+
+
+@dp.message_handler(commands='tipto')
+async def start_cmd_handler(message: types.Message):
+    if message.from_user.username is None:
+        reply_text = "I can not get your username."
+        await message.reply(reply_text)
+        return
+
+    content = ' '.join(message.text.split())
+    args = content.split(" ")
+
+    if len(args) != 4:
+        reply_text = "Please use /tipto amount coin_name user@server"
+        await message.reply(reply_text)
+        return
+    else:
+        amount = args[1].replace(",", "")
+        COIN_NAME = args[2].upper()
+        to_user = args[3]
+        userid = to_user.split("@")[0]
+        serverto = to_user.split("@")[1].upper()
+
+    amount = amount.replace(",", "")
+    try:
+        amount = float(amount)
+    except ValueError:
+        reply_text = f"Invalid amount. **{amount}**"
+        await message.reply(reply_text)
+        return
+
+    supported_coins = ", ".join(ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_NANO+ENABLE_XMR)
+    if COIN_NAME not in (ENABLE_COIN + ENABLE_XMR + ENABLE_COIN_DOGE + ENABLE_COIN_NANO + ENABLE_COIN_ERC):
+        message_text = text(markdown.bold(f"Invalid COIN NAME\nPlease use any of this:") + markdown.pre(supported_coins))
+        await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
+        return
+    if COIN_NAME not in ENABLE_TIPTO:
+        message_text = text(markdown.bold(f'{COIN_NAME} is not in this function of TipTo.'))
+        await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
+        return
+
+    # TODO: add message
+    if is_maintenance_coin(COIN_NAME):
+        return False
+
+    if not is_coin_tipable(COIN_NAME):
+        message_text = text(bold(f"TIPPING is currently disable for {COIN_NAME}."))
+        await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
+        return
+
+    if serverto not in ["DISCORD"]:
+        reply_text = f"Unsupported or unknown **{serverto}**"
+        await message.reply(reply_text)
+        return
+    else:
+        if COIN_NAME in ENABLE_COIN_ERC:
+            coin_family = "ERC-20"
+        else:
+            coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+        userdata_balance = await store.sql_user_balance(message.from_user.username, COIN_NAME, 'TELEGRAM')
+        xfer_in = 0
+        if COIN_NAME not in ENABLE_COIN_ERC:
+            xfer_in = await store.sql_user_balance_get_xfer_in(message.from_user.username, COIN_NAME, 'TELEGRAM')
+        if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
+            actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
+        elif COIN_NAME in ENABLE_COIN_NANO:
+            actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
+            actual_balance = round(actual_balance / get_decimal(COIN_NAME), 6) * get_decimal(COIN_NAME)
+        else:
+            actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
+        # Negative check
+        try:
+            if actual_balance < 0:
+                msg_negative = '[Telegram] Negative balance detected:\nUser: '+message.from_user.username+'\nCoin: '+COIN_NAME+'\nAtomic Balance: '+str(actual_balance)
+                await logchanbot(msg_negative)
+        except Exception as e:
+             await logchanbot(traceback.format_exc())
+            
+
+        if COIN_NAME in ENABLE_COIN_ERC:
+            token_info = await store.get_token_info(COIN_NAME)
+            confim_depth = token_info['deposit_confirm_depth']
+            Min_Tip = token_info['real_min_tip']
+            Max_Tip = token_info['real_max_tip']
+            Min_Tx = token_info['real_min_tx']
+            Max_Tx = token_info['real_max_tx']
+            real_amount = amount
+            decimal_pts = token_info['token_decimal']
+        else:
+            confim_depth = get_confirm_depth(COIN_NAME)
+            Min_Tip = get_min_mv_amount(COIN_NAME)
+            Max_Tip = get_max_mv_amount(COIN_NAME)
+            Min_Tx = get_min_tx_amount(COIN_NAME)
+            Max_Tx = get_max_tx_amount(COIN_NAME)
+            real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
+            decimal_pts = int(math.log10(get_decimal(COIN_NAME)))
+        message_text = ''
+        valid_amount = True
+        if real_amount > actual_balance:
+            message_text = 'Insufficient balance to send tip of ' + num_format_coin(real_amount, COIN_NAME) + COIN_NAME + ' to ' + to_user
+            valid_amount = False
+        elif real_amount > Max_Tip:
+            message_text = 'Transactions cannot be bigger than ' + num_format_coin(Max_Tip, COIN_NAME) + COIN_NAME
+            valid_amount = False
+        elif real_amount < Min_Tip:
+            message_text = 'Transactions cannot be bigger than ' + num_format_coin(Min_Tip, COIN_NAME) + COIN_NAME
+            valid_amount = False
+        if valid_amount == False:
+            await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
+            return
+        else:
+            tipto = None
+            try:
+                if message.from_user.username not in WITHDRAW_IN_PROCESS:
+                    WITHDRAW_IN_PROCESS.append(message.from_user.username)
+                else:
+                    message_text = text(bold("You have another tx in progress.\n"))
+                    await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
+                    return
+                try:
+                    tipto = await store.sql_tipto_crossing(COIN_NAME, message.from_user.username, message.from_user.username, 
+                                                           'TELEGRAM', userid, userid, serverto, real_amount, decimal_pts)
+                    # Update tipstat
+                    try:
+                        update_tipstat = await store.sql_user_get_tipstat(message.from_user.username, COIN_NAME, True, 'TELEGRAM')
+                        update_tipstat = await store.sql_user_get_tipstat(userid, COIN_NAME, True, serverto)
+                    except Exception as e:
+                        await logchanbot(traceback.format_exc())
+                    await logchanbot('[Telegram] {} tipto {}{} to **{}**'.format(message.from_user.username, num_format_coin(real_amount, COIN_NAME), COIN_NAME, to_user))
+                except Exception as e:
+                    await logchanbot(traceback.format_exc())
+            except Exception as e:
+                await logchanbot(traceback.format_exc())
+            if tipto:
+                message_text = text(bold(f"You sent a new tip to {to_user}:\n\n") + markdown.pre("\nAmount: {}{}".format(num_format_coin(real_amount, COIN_NAME), COIN_NAME)))
+                try:
+                    await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
+                except Exception as e:
+                    await logchanbot(traceback.print_exc(file=sys.stdout))
+                if message.from_user.username in WITHDRAW_IN_PROCESS:
+                    WITHDRAW_IN_PROCESS.remove(message.from_user.username)
+            return
 
 
 @dp.message_handler(commands='send')
@@ -1623,6 +1836,41 @@ async def notify_new_tx_user():
         await asyncio.sleep(INTERVAL_EACH)
 
 
+# Notify user
+async def notify_new_move_balance_user():
+    time_lap = 5
+    while True:
+        pending_tx = await store.sql_get_move_balance_table('NO', 'NO')
+        #print(pending_tx)
+        if pending_tx and len(pending_tx) > 0:
+            # let's notify_new_tx_user
+            for eachTx in pending_tx:
+                if eachTx['to_server'] == "TELEGRAM":
+                    user_found = await store.sql_get_userwallet(eachTx['to_userid'], eachTx['coin_name'], 'TELEGRAM')
+                    if user_found:
+                        to_user = user_found['chat_id']
+                        message_text = markdown.bold("You got a tip deposit:") + markdown.pre("\nCoin: {}\nAmount: {}\nFrom: {}@{} ({})".format(eachTx['coin_name'], num_format_coin(eachTx['amount'], eachTx['coin_name']), eachTx['from_userid'], eachTx['from_server'], eachTx['from_name']))
+                        try:
+                            send_msg = await bot.send_message(chat_id=to_user, text=message_text, parse_mode=ParseMode.MARKDOWN)
+                        except exceptions.BotBlocked:
+                            await logchanbot(f"[Telegram] Target [ID:{to_user}]: blocked by user")
+                        except exceptions.ChatNotFound:
+                            await logchanbot(f"[Telegram] Target [ID:{to_user}]: invalid user ID")
+                        except exceptions.RetryAfter as e:
+                            await logchanbot(f"[Telegram] Target [ID:{to_user}]: Flood limit is exceeded. Sleep {e.timeout} seconds")
+                            await asyncio.sleep(e.timeout)
+                            return await bot.send_message(chat_id=to_user, text=message_text)  # Recursive call
+                        except exceptions.UserDeactivated:
+                            await logchanbot(f"[Telegram] Target [ID:{to_user}]: user is deactivated")
+                        except exceptions.TelegramAPIError:
+                            await logchanbot(f"[Telegram] Target [ID:{to_user}]: failed")
+                        except Exception as e:
+                            print(traceback.format_exc())
+                            await logchanbot(traceback.format_exc())
+                        update_receiver = await store.sql_update_move_balance_table(eachTx['id'], 'RECEIVER')                     
+        await asyncio.sleep(time_lap)
+
+
 async def bot_faucet(botname: str):
     table_data = [
         ['TICKER', 'Available', 'Claimed']
@@ -1760,4 +2008,5 @@ def seconds_str(time: float):
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
     loop.create_task(notify_new_tx_user())
+    loop.create_task(notify_new_move_balance_user())
     executor.start_polling(dp, skip_updates=True)

@@ -343,7 +343,7 @@ async def start_cmd_handler(message: types.Message):
         reply_text = "Please mention a bot username starting with @."
         await message.reply(reply_text)
         return
-    if len(args) == 2:
+    elif len(args) == 2:
         # /botbal @botusername
         # Find user if exist
         user_to = None
@@ -401,9 +401,50 @@ async def start_cmd_handler(message: types.Message):
                         await logchanbot(traceback.format_exc())
                     balance_actual = num_format_coin(actual_balance, COIN_ITEM)
                     coin_str += COIN_ITEM + ": " + balance_actual + COIN_ITEM + "\n"
-                message_text = text(bold(f'@{user_to} BALANCE SHEET:\n') + markdown.pre(coin_str))
+                message_text = text(bold(f'BALANCE SHEET:\n') + markdown.pre(coin_str))
                 await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
                 return
+    elif len(args) == 3:
+        user_to = None
+        if len(args) == 3 and args[1].startswith("@"):
+            user_to = (args[1])[1:]
+        else:
+            reply_text = "Please mention a bot username starting with @."
+            await message.reply(reply_text)
+            return
+            
+        if user_to is None:
+            reply_text = "I can not get bot username."
+            await message.reply(reply_text)
+            return
+        elif user_to != "teletip_bot":
+            reply_text = f"Unavailable for this bot {user_to}."
+            await message.reply(reply_text)
+            return
+        # /botbal @botusername coin
+        COIN_NAME = args[2].upper()
+        supported_coins = ", ".join(ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_NANO+ENABLE_XMR)
+        if COIN_NAME not in supported_coins:
+            message_text = text(markdown.bold(f"Invalid COIN NAME after /botbal @{user_to} .\nPlease use any of this:") + markdown.pre(supported_coins))
+            await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
+            return
+        else:
+            user_addr = await store.sql_get_userwallet(user_to, COIN_NAME, 'TELEGRAM')
+            if user_addr is None:
+                if COIN_NAME in ENABLE_COIN_ERC:
+                    w = create_eth_wallet()
+                    userregister = await store.sql_register_user(user_to, COIN_NAME, 'TELEGRAM', message.chat.id, w)
+                else:
+                    userregister = await store.sql_register_user(user_to, COIN_NAME, 'TELEGRAM', message.chat.id)
+                user_addr = await store.sql_get_userwallet(user_to, COIN_NAME, 'TELEGRAM')
+
+            if user_addr is None:
+                await logchanbot(f'[Telegram] A user call /botbal {user_to} {COIN_NAME} failed.')
+            else:
+                message_text = text(markdown.bold(f"DEPOSIT {COIN_NAME} INFO for @{user_to}:") + \
+                                    markdown.pre("\nDeposit: " + user_addr['balance_wallet_address']))
+                await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
+        return
 
 
 @dp.message_handler(commands='register')
@@ -1179,7 +1220,7 @@ async def start_cmd_handler(message: types.Message):
     if check_claimed:
         # limit 12 hours
         if int(time.time()) - check_claimed['claimed_at'] <= claim_interval*3600:
-            remaining = await bot_faucet() or ''
+            remaining = await bot_faucet('teletip_bot') or ''
             time_waiting = seconds_str(claim_interval*3600 - int(time.time()) + check_claimed['claimed_at'])
             number_user_claimed = '{:,.0f}'.format(await store.sql_faucet_count_user(message.from_user.username, 'TELEGRAM'))
             total_claimed = '{:,.0f}'.format(await store.sql_faucet_count_all())
@@ -1582,21 +1623,20 @@ async def notify_new_tx_user():
         await asyncio.sleep(INTERVAL_EACH)
 
 
-async def bot_faucet():
-    get_game_stat = await store.sql_game_stat()
+async def bot_faucet(botname: str):
     table_data = [
-        ['TICKER', 'Available', 'Claimed / Game']
+        ['TICKER', 'Available', 'Claimed']
     ]
     for COIN_NAME in [coinItem.upper() for coinItem in FAUCET_COINS]:
         sum_sub = 0
-        wallet = await store.sql_get_userwallet('teletip_bot', COIN_NAME, 'TELEGRAM')
+        wallet = await store.sql_get_userwallet(botname, COIN_NAME, 'TELEGRAM')
         if wallet is None:
             if COIN_NAME in ENABLE_COIN_ERC:
                 w = create_eth_wallet()
-                userregister = await store.sql_register_user(message.from_user.username, COIN_NAME, 'TELEGRAM', message.chat.id, w)
+                userregister = await store.sql_register_user(botname, COIN_NAME, 'TELEGRAM', message.chat.id, w)
             else:
-                userregister = await store.sql_register_user(message.from_user.username, COIN_NAME, 'TELEGRAM', message.chat.id)
-        userdata_balance = await store.sql_user_balance('teletip_bot', COIN_NAME)
+                userregister = await store.sql_register_user(botname, COIN_NAME, 'TELEGRAM', message.chat.id)
+        userdata_balance = await store.sql_user_balance('teletip_bot', COIN_NAME, 'TELEGRAM')
         xfer_in = 0
         if COIN_NAME not in ENABLE_COIN_ERC:
             xfer_in = await store.sql_user_balance_get_xfer_in('teletip_bot', COIN_NAME, 'TELEGRAM')
@@ -1611,21 +1651,12 @@ async def bot_faucet():
             coin_family = "ERC-20"
         else:
             coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")           
-        try:
-            if COIN_NAME in get_game_stat and coin_family in ["TRTL", "BCN", "XMR", "NANO"]:
-                actual_balance = actual_balance - int(get_game_stat[COIN_NAME])
-                sum_sub = int(get_game_stat[COIN_NAME])
-            elif COIN_NAME in get_game_stat and coin_family in ["DOGE", "ERC-20"]:
-                actual_balance = actual_balance - float(get_game_stat[COIN_NAME])
-                sum_sub = float(get_game_stat[COIN_NAME])
-        except Exception as e:
-            await logchanbot(traceback.format_exc())
         balance_actual = num_format_coin(actual_balance, COIN_NAME)
         get_claimed_count = await store.sql_faucet_sum_count_claimed(COIN_NAME)
         if coin_family in ["TRTL", "BCN", "XMR", "NANO"]:
-            sub_claim = num_format_coin(int(get_claimed_count['claimed']) + sum_sub, COIN_NAME) if get_claimed_count['count'] > 0 else f"0.00{COIN_NAME}"
+            sub_claim = num_format_coin(int(get_claimed_count['claimed']), COIN_NAME) if get_claimed_count['count'] > 0 else f"0.00{COIN_NAME}"
         elif coin_family in ["DOGE", "ERC-20"]:
-            sub_claim = num_format_coin(float(get_claimed_count['claimed']) + sum_sub, COIN_NAME) if get_claimed_count['count'] > 0 else f"0.00{COIN_NAME}"
+            sub_claim = num_format_coin(float(get_claimed_count['claimed']), COIN_NAME) if get_claimed_count['count'] > 0 else f"0.00{COIN_NAME}"
         if actual_balance != 0:
             table_data.append([COIN_NAME, balance_actual, sub_claim])
         else:

@@ -1452,6 +1452,7 @@ async def coin_check_balance_address_in_users(address: str, coin: str):
     COIN_NAME = coin.upper()
     if COIN_NAME in ENABLE_COIN_ERC:
         coin_family = "ERC-20"
+        return await erc_check_balance_address_in_users(address, COIN_NAME)
     else:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     if coin_family in ["TRTL", "BCN"]:

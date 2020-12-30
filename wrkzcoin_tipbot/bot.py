@@ -5796,6 +5796,12 @@ async def raffle(ctx, subc: str=None):
             embed.add_field(name="CREATED", value=create_ts_ago, inline=True)
             if list_raffle_id and list_raffle_id['entries']:
                 embed.add_field(name="PARTICIPANTS", value=len(list_raffle_id['entries']), inline=True)
+                if 0 < len(list_raffle_id['entries']) < 10:
+                    list_ping = []
+                    for each_user in list_raffle_id['entries']:
+                        list_ping.append(each_user['user_name'])
+                    embed.add_field(name="PARTICIPANT LIST", value=", ".join(list_ping), inline=False)
+                embed.add_field(name="RAFFLE JAR", value=num_format_coin(len(list_raffle_id['entries'])*float(get_raffle['amount']), get_raffle['coin_name'])+get_raffle['coin_name'], inline=True)
             else:
                 embed.add_field(name="PARTICIPANTS", value="0", inline=True)
             embed.add_field(name="STATUS", value=get_raffle['status'], inline=True)
@@ -5849,8 +5855,8 @@ async def raffle(ctx, subc: str=None):
                         else:
                             actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
                         if actual_balance < get_raffle['amount']:
-                            fee_str = num_format_coin(get_raffle['amount'], COIN_NAME)
-                            having_str = num_format_coin(actual_balance, COIN_NAME)
+                            fee_str = num_format_coin(get_raffle['amount'], COIN_NAME) + COIN_NAME
+                            having_str = num_format_coin(actual_balance, COIN_NAME) + COIN_NAME
                             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to join raffle entry. '
                                            f'Fee: {fee_str}, having: {having_str}.')
                             return
@@ -5859,7 +5865,7 @@ async def raffle(ctx, subc: str=None):
                             insert_entry = await store.raffle_insert_new_entry(get_raffle['id'], str(ctx.guild.id), get_raffle['amount'], get_raffle['decimal'],
                                                                                get_raffle['coin_name'], str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
                                                                                'DISCORD')
-                            msg = await ctx.send(f'{EMOJI_CHECK} {ctx.author.mention} Successfully register your Entry for #**{raffle_id}** in {ctx.guild.name}!')
+                            msg = await ctx.send(f'{EMOJI_CHECK} {ctx.author.mention} Successfully registered your Entry for raffle #**{raffle_id}** in {ctx.guild.name}!')
                             await msg.add_reaction(EMOJI_OK_BOX)
                             # Update tipstat
                             try:
@@ -5904,7 +5910,7 @@ async def raffle(ctx, subc: str=None):
 async def check_raffle_status():
     time_lap = 20 # seconds
     announce_lap = 3600 # seconds
-    to_close_fromopen = 3600 # second
+    to_close_fromopen = 300 # second
     while not bot.is_closed():
         await asyncio.sleep(time_lap)
         # Announce every announce_lap in raffle channel if there is any raffle opened
@@ -5946,12 +5952,22 @@ async def check_raffle_status():
                                 # change status from Open to ongoing
                                 update_status = await store.raffle_update_id(each_raffle['id'], 'ONGOING', None, None)
                                 if update_status:
-                                    msg_raffle = "Changed raffle #{} status to **ONGOING** in guild {}!".format(each_raffle['id'], each_raffle['guild_id'])
-                                    serverinfo = await store.sql_info_by_server(each_raffle['guild_id'])
+                                    msg_raffle = "Changed raffle #{} status to **ONGOING** in guild {}/{}! ".format(each_raffle['id'], each_raffle['guild_name'], each_raffle['guild_id'])
+                                    msg_raffle += "Raffle will start in **{}**".format(seconds_str(to_close_fromopen))
+                                    serverinfo = await store.sql_info_by_server(each_raffle['guild_id'])                                        
                                     if serverinfo['raffle_channel']:
                                         raffle_chan = bot.get_channel(id=int(serverinfo['raffle_channel']))
                                         if raffle_chan:
                                             await raffle_chan.send(msg_raffle)
+                                            try:
+                                                # Ping users
+                                                list_ping = []
+                                                for each_user in list_raffle_id['entries']:
+                                                    list_ping.append("<@{}>".format(each_user['user_id']))
+                                                await raffle_chan.send(", ".join(list_ping))
+                                            except Exception as e:
+                                                print(traceback.format_exc())
+                                                await logchanbot(traceback.format_exc()) 
                                     await logchanbot(msg_raffle)
                                 else:
                                     await logchanbot(f"Internal error to {msg_raffle}")
@@ -7859,6 +7875,8 @@ async def balance(ctx, coin: str = None):
 
         balance_actual = num_format_coin(actual_balance, COIN_NAME)
         locked_openorder = userdata_balance['OpenOrder']
+        raffle_spent = userdata_balance['raffle_fee']
+        raffle_reward = userdata_balance['raffle_reward']
         embed = discord.Embed(title=f'[ {ctx.author.name}#{ctx.author.discriminator}\'s {COIN_NAME} balance ]', timestamp=datetime.utcnow())
         if COIN_NAME in ENABLE_COIN_ERC:
             embed.add_field(name="Deposited", value="`{}{}`".format(num_format_coin(real_deposit_balance, COIN_NAME), COIN_NAME), inline=True)
@@ -7871,6 +7889,8 @@ async def balance(ctx, coin: str = None):
             embed.add_field(name="Total", value=num_format_coin(actual_balance+locked_openorder+real_deposit_balance, COIN_NAME)+COIN_NAME, inline=True)
         elif locked_openorder == 0 and COIN_NAME in ENABLE_COIN_ERC:
             embed.add_field(name="Total", value=num_format_coin(actual_balance+real_deposit_balance, COIN_NAME)+COIN_NAME, inline=True)
+        if raffle_spent and raffle_spent > 0:
+            embed.add_field(name="Raffle Spent / Won", value="{} / {} {}".format(num_format_coin(raffle_spent, COIN_NAME), num_format_coin(raffle_reward, COIN_NAME), COIN_NAME), inline=False)
         embed.add_field(name='Related commands', value=f'`{prefix}balance` or `{prefix}deposit {COIN_NAME}` or `{prefix}balance LIST`', inline=False)
         if COIN_NAME in ENABLE_COIN_ERC:
             min_deposit_txt = " Min. deposit for moving to spendable: " + num_format_coin(token_info['min_move_deposit'], COIN_NAME) + COIN_NAME

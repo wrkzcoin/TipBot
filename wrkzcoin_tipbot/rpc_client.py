@@ -24,6 +24,7 @@ async def logchanbot(content: str):
     filterword = config.discord.logfilterword.split(",")
     for each in filterword:
         content = content.replace(each, config.discord.filteredwith)
+    if len(content) > 1500: content = content[:1500]
     try:
         webhook = DiscordWebhook(url=config.discord.botdbghook, content=f'```{discord.utils.escape_markdown(content)}```')
         webhook.execute()

@@ -278,6 +278,7 @@ ENABLE_XMR = config.Enable_Coin_XMR.split(",")
 ENABLE_COIN_NANO = config.Enable_Coin_Nano.split(",")
 ENABLE_COIN_ERC = config.Enable_Coin_ERC.split(",")
 ENABLE_TIPTO = config.Enabe_TipTo_Coin.split(",")
+ENABLE_RAFFLE_COIN = config.raffle.enable_coin.split(",")
 MAINTENANCE_COIN = config.Maintenance_Coin.split(",")
 
 COIN_REPR = "COIN"
@@ -5424,7 +5425,6 @@ async def checkcoin(ctx, coin: str):
 
 
 @bot.group(name='guild')
-@commands.has_permissions(manage_channels=True)
 async def guild(ctx):
     if isinstance(ctx.channel, discord.DMChannel):
         await ctx.message.add_reaction(EMOJI_ERROR) 
@@ -5643,6 +5643,409 @@ async def tipmsg(ctx, *, tipmessage):
         await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} changed tipmessage in {str(ctx.guild.id)}/{ctx.guild.name}.')
         return
 
+
+@guild.command(name='createraffle', aliases=['crfl', 'create_raffle'])
+@commands.has_permissions(manage_channels=True)
+async def createraffle(ctx, amount: str, coin: str, duration: str):
+    if isinstance(ctx.channel, discord.DMChannel):
+        await ctx.message.add_reaction(EMOJI_ERROR) 
+        await ctx.send(f'{ctx.author.mention} This command can not be DM.')
+        return
+    prefix = await get_guild_prefix(ctx)
+    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+    if serverinfo['raffle_channel']:
+        raffle_chan = bot.get_channel(id=int(serverinfo['raffle_channel']))
+        if not raffle_chan:
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Can not find raffle channel or invalid.') #Please set by {prefix}guild raffle set #channel
+            return
+    else:
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is no raffle channel yet.') #Please set by {prefix}guild raffle set #channel
+        return
+    amount = amount.replace(",", "")
+    try:
+        amount = float(amount)
+    except ValueError:
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} invalid amount {amount}!')
+        return
+    COIN_NAME = coin.upper()
+    duration_accepted = ["1H", "2H", "3H", "4H", "5H", "6H", "12H", "1D", "2D", "3D", "4D", "5D", "6D", "7D"]
+    duration_accepted_list = ", ".join(duration_accepted)
+    duration = duration.upper()
+
+    if COIN_NAME not in ENABLE_RAFFLE_COIN:
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Un supported **TICKER**. Please choose one of this: {config.raffle.enable_coin}!')
+        return
+
+    if duration not in duration_accepted:
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID DATE**! Please use {duration_accepted_list}')
+        return
+
+    if COIN_NAME in ENABLE_COIN_ERC:
+        coin_family = "ERC-20"
+        token_info = await store.get_token_info(COIN_NAME)
+        decimal_pts = token_info['token_decimal']
+    else:
+        coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+        decimal_pts = int(math.log10(get_decimal(COIN_NAME)))
+
+    if coin_family == "ERC-20":
+        real_amount = float(amount)
+        token_info = await store.get_token_info(COIN_NAME)
+        MinTx = token_info['real_min_tip']
+        MaxTX = token_info['real_max_tip']
+    else:
+        real_amount = int(Decimal(amount) * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
+        MinTx = get_min_mv_amount(COIN_NAME)
+        MaxTX = get_max_mv_amount(COIN_NAME)
+
+    if real_amount > MaxTX:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Raffle entry fee cannot be bigger than '
+                       f'{num_format_coin(MaxTX, COIN_NAME)} '
+                       f'{COIN_NAME}.')
+        return
+    elif real_amount < MinTx:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Raffle entry fee cannot be smaller than '
+                       f'{num_format_coin(MinTx, COIN_NAME)} '
+                       f'{COIN_NAME}.')
+        return
+
+    get_raffle = await store.raffle_get_from_guild(str(ctx.guild.id), False, 'DISCORD')
+    if get_raffle and get_raffle['status'] not in ["COMPLETED", "CANCELLED"]:
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is still **ONGOING** or **OPENED** raffle!')
+        return
+    else:
+        # Let's insert
+        duration_in_s = 0
+        try:
+            if "D" in duration and "H" in duration:
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID DATE**! Please use {duration_accepted_list}\nExample: `{prefix}createraffle 10,000 WRKZ 2h`')
+                return
+            elif "D" in duration:
+                duration_in_s = int(duration.replace("D", ""))*3600*24 # convert to second
+            elif "H" in duration:
+                duration_in_s = int(duration.replace("H", ""))*3600 # convert to second
+        except ValueError:
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} invalid duration!\nExample: `{prefix}createraffle 10,000 WRKZ 2h`')
+            return
+
+        if duration_in_s <= 0:
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} invalid duration!\nExample: `{prefix}createraffle 10,000 WRKZ 2h`')
+            return
+        try:
+            start_ts = int(time.time())
+            message_raffle = "{}#{} created a raffle for {}{} in guild {}. Raffle in **{}**.".format(ctx.author.name, ctx.author.discriminator, num_format_coin(real_amount, COIN_NAME), COIN_NAME,
+                                                                                                     ctx.guild.name, duration)
+            try:
+                msg = await ctx.send(message_raffle)
+                insert_raffle = await store.raffle_insert_new(str(ctx.guild.id), ctx.guild.name, real_amount, decimal_pts, COIN_NAME,
+                                                              str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator), 
+                                                              start_ts, start_ts+duration_in_s, 'DISCORD')
+                await logchanbot(message_raffle)
+            except Exception as e:
+                await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
+                await logchanbot(traceback.format_exc())
+                print(traceback.format_exc())
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
+            print(traceback.format_exc())
+
+
+@guild.command(name='raffle', aliases=['rfl'])
+async def raffle(ctx, subc: str=None):
+    if isinstance(ctx.channel, discord.DMChannel):
+        await ctx.message.add_reaction(EMOJI_ERROR) 
+        await ctx.send(f'{ctx.author.mention} This command can not be DM.')
+        return
+    prefix = await get_guild_prefix(ctx)
+    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+    if serverinfo['raffle_channel']:
+        raffle_chan = bot.get_channel(id=int(serverinfo['raffle_channel']))
+        if not raffle_chan:
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Can not find raffle channel or invalid.') #Please set by {prefix}guild raffle set #channel
+            return
+    else:
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is no raffle channel yet.') #Please set by {prefix}guild raffle set #channel
+        return
+
+    if subc is None:
+        subc = "INFO"
+    else:
+        subc = subc.upper()
+
+    get_raffle = await store.raffle_get_from_guild(str(ctx.guild.id), False, 'DISCORD')
+    list_raffle_id = None
+    if get_raffle:
+        list_raffle_id = await store.raffle_get_from_by_id(get_raffle['id'], 'DISCORD', str(ctx.author.id))
+    subc_list = ["INFO", "LAST", "JOIN", "CHECK"]
+    if subc not in subc_list:
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID SUB COMMAND**!')
+        return
+    else:
+        if get_raffle is None:
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is no information of current raffle yet!')
+            return
+    if subc == "INFO":
+        try:
+            ending_ts = datetime.utcfromtimestamp(int(get_raffle['ending_ts']))
+            embed = discord.Embed(title = "RAFFLE #{} / {}".format(get_raffle['id'], ctx.guild.name), color = 0xFF0000, timestamp=ending_ts)
+            embed.add_field(name="ENTRY FEE", value="{}{}".format(num_format_coin(get_raffle['amount'], get_raffle['coin_name']), get_raffle['coin_name']), inline=True)
+            create_ts = datetime.utcfromtimestamp(int(get_raffle['created_ts'])).strftime("%Y-%m-%d %H:%M:%S")
+            create_ts_ago = str(timeago.format(create_ts, datetime.utcnow()))
+            embed.add_field(name="CREATED", value=create_ts_ago, inline=True)
+            if list_raffle_id and list_raffle_id['entries']:
+                embed.add_field(name="PARTICIPANTS", value=len(list_raffle_id['entries']), inline=True)
+            else:
+                embed.add_field(name="PARTICIPANTS", value="0", inline=True)
+            embed.add_field(name="STATUS", value=get_raffle['status'], inline=True)
+            if get_raffle['status'] in ["OPENED", "ONGOING"]:
+                if int(get_raffle['ending_ts'])-int(time.time()) < 0:
+                    embed.add_field(name="WHEN", value="(ON QUEUE UPDATING)", inline=False)
+                else:
+                    embed.add_field(name="WHEN", value=seconds_str_days(int(get_raffle['ending_ts'])-int(time.time())), inline=False)
+            embed.set_footer(text="Raffle for {} by {}".format(ctx.guild.name, get_raffle['created_username']))
+            msg = await ctx.send(embed=embed)
+            await msg.add_reaction(EMOJI_OK_BOX)
+        except Exception as e:
+            print(traceback.format_exc())
+            await logchanbot(traceback.format_exc())
+    elif subc == "JOIN":
+        if get_raffle is None:
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is no information of current raffle yet for this guild {ctx.guild.name}!')
+            return
+        else:
+            # Check if already in:
+            # If not in, add to DB
+            # If current is not opened
+            try:
+                if get_raffle['status'] != "OPENED":
+                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is no **OPENED** game raffle on this guild {ctx.guild.name}!')
+                    return
+                else:
+                    raffle_id = get_raffle['id']
+                    if list_raffle_id and list_raffle_id['user_joined']:
+                        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You already join this raffle #**{str(raffle_id)}** in guild {ctx.guild.name}!')
+                        return
+                    else:
+                        COIN_NAME = get_raffle['coin_name']
+                        # Get balance user first
+                        user_entry = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+                        if user_entry is None:
+                            if COIN_NAME in ENABLE_COIN_ERC:
+                                w = await create_address_eth()
+                                user_entry = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, w)
+                            else:
+                                user_entry = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
+                        userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME)
+                        xfer_in = 0
+                        if COIN_NAME not in ENABLE_COIN_ERC:
+                            xfer_in = await store.sql_user_balance_get_xfer_in(str(ctx.message.author.id), COIN_NAME)
+                        if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
+                            actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
+                        elif COIN_NAME in ENABLE_COIN_NANO:
+                            actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
+                            actual_balance = round(actual_balance / get_decimal(COIN_NAME), 6) * get_decimal(COIN_NAME)
+                        else:
+                            actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
+                        if actual_balance < get_raffle['amount']:
+                            fee_str = num_format_coin(get_raffle['amount'], COIN_NAME)
+                            having_str = num_format_coin(actual_balance, COIN_NAME)
+                            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to join raffle entry. '
+                                           f'Fee: {fee_str}, having: {having_str}.')
+                            return
+                        # Let's add
+                        try:
+                            insert_entry = await store.raffle_insert_new_entry(get_raffle['id'], str(ctx.guild.id), get_raffle['amount'], get_raffle['decimal'],
+                                                                               get_raffle['coin_name'], str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
+                                                                               'DISCORD')
+                            msg = await ctx.send(f'{EMOJI_CHECK} {ctx.author.mention} Successfully register your Entry for #**{raffle_id}** in {ctx.guild.name}!')
+                            await msg.add_reaction(EMOJI_OK_BOX)
+                            # Update tipstat
+                            try:
+                                update_tipstat = await store.sql_user_get_tipstat(str(ctx.message.author.id), get_raffle['coin_name'], True, 'DISCORD')
+                            except Exception as e:
+                                await logchanbot(traceback.format_exc())
+                        except Exception as e:
+                            print(traceback.format_exc())
+                            await logchanbot(traceback.format_exc())
+                        return
+            except Exception as e:
+                print(traceback.format_exc())
+                await logchanbot(traceback.format_exc())
+    elif subc == "CHECK":
+        if get_raffle is None:
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is no information of current raffle yet!')
+            return
+        else:
+            # If current is not opened
+            try:
+                raffle_id = get_raffle['id']
+                if get_raffle['status'] == "OPENED":
+                    await ctx.send(f'{ctx.author.mention} Current raffle #{raffle_id} for guild {ctx.guild.name} is **OPENED**!')
+                    return
+                elif get_raffle['status'] == "ONGOING":
+                    await ctx.send(f'{ctx.author.mention} Current raffle #{raffle_id} for guild {ctx.guild.name} is **ONGOING**!')
+                    return
+                elif get_raffle['status'] == "COMPLETED":
+                    await ctx.send(f'{ctx.author.mention} Current raffle #{raffle_id} for guild {ctx.guild.name} is **COMPLETED**!')
+                    return
+                elif get_raffle['status'] == "CANCELLED":
+                    await ctx.send(f'{ctx.author.mention} Current raffle #{raffle_id} for guild {ctx.guild.name} is **CANCELLED**!')
+                    return
+            except Exception as e:
+                print(traceback.format_exc())
+                await logchanbot(traceback.format_exc())
+    elif subc == "LAST":
+        if get_raffle is None:
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is no information of current raffle yet!')
+            return
+
+async def check_raffle_status():
+    time_lap = 20 # seconds
+    announce_lap = 3600 # seconds
+    to_close_fromopen = 3600 # second
+    while not bot.is_closed():
+        await asyncio.sleep(time_lap)
+        # Announce every announce_lap in raffle channel if there is any raffle opened
+        # Get all list of raffle
+        # Change guild_raffle status from OPENED to ONGOING (1h) if less than 1h to start
+        # Change guild_raffle status from ONGOING to CANCELLED if less than 3 users registered, => change `guild_raffle_entries` status to CANCELLED
+        # Change guild_raffle status from ONGOING to COMPLETED, random users for winner and update => 
+        #       winner_userid_1st	varchar(32) NULL	
+        #       winner_name_1st	varchar(64) NULL	
+        #       winner_1st_amount	decimal(64,20) NULL	
+        #       winner_userid_2nd	varchar(32) NULL	
+        #       winner_name_2nd	varchar(64) NULL	
+        #       winner_2nd_amount	decimal(64,20) NULL	
+        #       winner_userid_3rd	varchar(32) NULL	
+        #       winner_name_3rd	varchar(64) NULL	
+        #       winner_3rd_amount	decimal(64,20) NULL	
+        #       raffle_fund_pot	decimal(64,20) NULL
+        # Try DM user if they are winner, and if they are loser
+        get_all_active_raffle = await store.raffle_get_all('DISCORD')
+        if get_all_active_raffle and len(get_all_active_raffle) > 0:
+            for each_raffle in get_all_active_raffle:
+                # loop each raffle
+                try:
+                    if each_raffle['status'] == "OPENED":
+                        if each_raffle['ending_ts'] - to_close_fromopen < int(time.time()):
+                            # less than 3 participants, cancel
+                            list_raffle_id = await store.raffle_get_from_by_id(each_raffle['id'], 'DISCORD', None)
+                            if list_raffle_id and list_raffle_id['entries'] and len(list_raffle_id['entries']) < 3:
+                                # Cancel game
+                                cancelled_status = await store.raffle_cancel_id(each_raffle['id'])
+                                msg_raffle = "Cancelled raffle #{} in guild {}: shortage of users. User entry fee refund!".format(each_raffle['id'], each_raffle['guild_id'])
+                                serverinfo = await store.sql_info_by_server(each_raffle['guild_id'])
+                                if serverinfo['raffle_channel']:
+                                    raffle_chan = bot.get_channel(id=int(serverinfo['raffle_channel']))
+                                    if raffle_chan:
+                                        await raffle_chan.send(msg_raffle)
+                                await logchanbot(msg_raffle)
+                            else:
+                                # change status from Open to ongoing
+                                update_status = await store.raffle_update_id(each_raffle['id'], 'ONGOING', None, None)
+                                if update_status:
+                                    msg_raffle = "Changed raffle #{} status to **ONGOING** in guild {}!".format(each_raffle['id'], each_raffle['guild_id'])
+                                    serverinfo = await store.sql_info_by_server(each_raffle['guild_id'])
+                                    if serverinfo['raffle_channel']:
+                                        raffle_chan = bot.get_channel(id=int(serverinfo['raffle_channel']))
+                                        if raffle_chan:
+                                            await raffle_chan.send(msg_raffle)
+                                    await logchanbot(msg_raffle)
+                                else:
+                                    await logchanbot(f"Internal error to {msg_raffle}")
+                    elif each_raffle['status'] == "ONGOING":
+                        if each_raffle['ending_ts'] < int(time.time()):
+                            # Let's random and update
+                            list_raffle_id = await store.raffle_get_from_by_id(each_raffle['id'], 'DISCORD', None)
+                            # This is redundant with above!
+                            if list_raffle_id and list_raffle_id['entries'] and len(list_raffle_id['entries']) < 3:
+                                # Cancel game
+                                cancelled_status = await store.raffle_cancel_id(each_raffle['id'])
+                                msg_raffle = "Cancelled raffle #{} in guild {}: shortage of users. User entry fee refund!".format(each_raffle['id'], each_raffle['guild_id'])
+                                serverinfo = await store.sql_info_by_server(each_raffle['guild_id'])
+                                if serverinfo['raffle_channel']:
+                                    raffle_chan = bot.get_channel(id=int(serverinfo['raffle_channel']))
+                                    if raffle_chan:
+                                        await raffle_chan.send(msg_raffle)
+                                await logchanbot(msg_raffle)
+                            if list_raffle_id and list_raffle_id['entries'] and len(list_raffle_id['entries']) >= 3:
+                                entries_id = []
+                                user_entries_id = {}
+                                user_entries_name = {}
+                                list_winners = []
+                                won_amounts = []
+                                total_reward = 0
+                                for each_entry in list_raffle_id['entries']:
+                                    entries_id.append(each_entry['entry_id'])
+                                    user_entries_id[each_entry['entry_id']] = each_entry['user_id']
+                                    user_entries_name[each_entry['entry_id']] = each_entry['user_name']
+                                    total_reward += each_entry['amount']
+                                winner_1 = random.choice(entries_id)
+                                winner_1_user = user_entries_id[winner_1]
+                                winner_1_name = user_entries_name[winner_1]
+                                entries_id.remove(winner_1)
+                                list_winners.append(winner_1_user)
+                                won_amounts.append(float(total_reward) * 0.5)
+
+                                winner_2 = random.choice(entries_id)
+                                winner_2_user = user_entries_id[winner_2]
+                                winner_2_name = user_entries_name[winner_2]
+                                entries_id.remove(winner_2)
+                                list_winners.append(winner_2_user)
+                                won_amounts.append(float(total_reward) * 0.3)
+
+                                winner_3 = random.choice(entries_id)
+                                winner_3_user = user_entries_id[winner_3]
+                                winner_3_name = user_entries_name[winner_3]
+                                entries_id.remove(winner_3)
+                                list_winners.append(winner_3_user)
+                                won_amounts.append(float(total_reward) * 0.15)
+                                won_amounts.append(float(total_reward) * 0.05)
+                                update_status = await store.raffle_update_id(each_raffle['id'], 'COMPLETED', list_winners, won_amounts)
+                                embed = discord.Embed(title = "RAFFLE #{} / {}".format(each_raffle['id'], each_raffle['guild_name']), color = 0xFF0000, timestamp=datetime.utcnow())
+                                embed.add_field(name="ENTRY FEE", value="{}{}".format(num_format_coin(each_raffle['amount'], each_raffle['coin_name']), each_raffle['coin_name']), inline=True)
+                                embed.add_field(name="1st WINNER {}".format(winner_1_name), value="{}{}".format(num_format_coin(won_amounts[0], each_raffle['coin_name']), each_raffle['coin_name']), inline=False)
+                                embed.add_field(name="2nd WINNER {}".format(winner_2_name), value="{}{}".format(num_format_coin(won_amounts[1], each_raffle['coin_name']), each_raffle['coin_name']), inline=False)
+                                embed.add_field(name="3rd WINNER: {}".format(winner_3_name), value="{}{}".format(num_format_coin(won_amounts[2], each_raffle['coin_name']), each_raffle['coin_name']), inline=False)
+                                embed.set_footer(text="Raffle for {} by {}".format(each_raffle['guild_name'], each_raffle['created_username']))
+                                
+                                msg_raffle = "**Completed raffle #{} in guild {}! Winner entries: #1: {}, #2: {}, #3: {}**\n".format(each_raffle['id'], each_raffle['guild_name'], winner_1_name, winner_2_name, winner_3_name)
+                                msg_raffle += "```Three winners get reward of #1: {}{}, #2: {}{}, #3: {}{}```".format(num_format_coin(won_amounts[0], each_raffle['coin_name']), each_raffle['coin_name'],
+                                                                                                               num_format_coin(won_amounts[1], each_raffle['coin_name']), each_raffle['coin_name'],
+                                                                                                               num_format_coin(won_amounts[2], each_raffle['coin_name']), each_raffle['coin_name'])
+                                serverinfo = await store.sql_info_by_server(each_raffle['guild_id'])
+                                if serverinfo['raffle_channel']:
+                                    raffle_chan = bot.get_channel(id=int(serverinfo['raffle_channel']))
+                                    if raffle_chan:
+                                        await raffle_chan.send(embed=embed)
+                                await logchanbot(msg_raffle)
+                                for each_entry in list_winners:
+                                    # Update tipstat
+                                    try:
+                                        update_tipstat = await store.sql_user_get_tipstat(str(each_entry), each_raffle['coin_name'], True, 'DISCORD')
+                                    except Exception as e:
+                                        await logchanbot(traceback.format_exc())
+                                    try:
+                                        # Find user
+                                        user_found = bot.get_user(id=int(each_entry))
+                                        if user_found:
+                                            try:
+                                                await user_found.send(embed=embed)
+                                            except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+                                                print(traceback.format_exc())
+                                                await logchanbot(f"[Discord]/Raffle can not message to {user_found.name}#{user_found.discriminator} about winning raffle.")
+                                            # TODO update alert win
+                                        else:
+                                            await logchanbot('[Discord]/Raffle Can not find entry id: {}'.format(each_entry))
+                                    except Exception as e:
+                                        print(traceback.format_exc())
+                                        await logchanbot(traceback.format_exc())
+                except Exception as e:
+                    print(traceback.format_exc())
+                    await logchanbot(traceback.format_exc())
+        await asyncio.sleep(time_lap)
 
 @guild.command(name='botchan', aliases=['botchannel', 'bot_chan'])
 @commands.has_permissions(manage_channels=True)
@@ -15721,6 +16124,17 @@ def truncate(number, digits) -> float:
     return math.trunc(stepper * number) / stepper
 
 
+def seconds_str_days(time: float):
+    day = time // (24 * 3600)
+    time = time % (24 * 3600)
+    hour = time // 3600
+    time %= 3600
+    minutes = time // 60
+    time %= 60
+    seconds = time
+    return "{:02d} day(s) {:02d}:{:02d}:{:02d}".format(day, hour, minutes, seconds)
+
+
 def seconds_str(time: float):
     # day = time // (24 * 3600)
     # time = time % (24 * 3600)
@@ -16201,6 +16615,8 @@ def main():
     bot.loop.create_task(erc_notify_new_confirmed_spendable())
 
     bot.loop.create_task(notify_new_move_balance_user())
+
+    bot.loop.create_task(check_raffle_status())
 
     bot.run(config.discord.token, reconnect=True)
 

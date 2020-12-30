@@ -104,6 +104,7 @@ async def logchanbot(content: str):
     filterword = config.discord.logfilterword.split(",")
     for each in filterword:
         content = content.replace(each, config.discord.filteredwith)
+    if len(content) > 1500: content = content[:1500]
     try:
         webhook = DiscordWebhook(url=config.discord.botdbghook, content=f'```{discord.utils.escape_markdown(content)}```')
         webhook.execute()
@@ -259,6 +260,10 @@ async def start_cmd_handler(message: types.Message):
                     else:
                         userregister = await store.sql_register_user(message.from_user.username, COIN_ITEM, 'TELEGRAM', message.chat.id)
                     wallet = await store.sql_get_userwallet(message.from_user.username, COIN_ITEM, 'TELEGRAM')
+                if wallet['chat_id'] is None:
+                    # Update chat_id:
+                    update_chat_id = await store.sql_update_user_chat_id(message.from_user.username, COIN_ITEM, message.chat.id, 'TELEGRAM')
+                    await logchanbot(f'[Telegram] Update chat_id for user {message.from_user.username}/{COIN_ITEM} to {str(message.chat.id)}')
                 if COIN_ITEM in ENABLE_COIN_ERC:
                     coin_family = "ERC-20"
                 else:
@@ -309,6 +314,11 @@ async def start_cmd_handler(message: types.Message):
                 else:
                     userregister = await store.sql_register_user(message.from_user.username, COIN_NAME, 'TELEGRAM', message.chat.id)
                 userwallet = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
+
+            if userwallet['chat_id'] is None:
+                # Update chat_id:
+                update_chat_id = await store.sql_update_user_chat_id(message.from_user.username, COIN_NAME, message.chat.id, 'TELEGRAM')
+                await logchanbot(f'[Telegram] Update chat_id for user {message.from_user.username}/{COIN_NAME} to {str(message.chat.id)}')
 
             userdata_balance = await store.sql_user_balance(message.from_user.username, COIN_NAME, 'TELEGRAM')
             xfer_in = 0
@@ -567,14 +577,13 @@ async def start_cmd_handler(message: types.Message):
                     # Not allowed integrated address
                     message_text = text(bold("Integrated address not allowed:\n"),
                                         markdown.pre(wallet_address))
-                    await message.reply(message_text,
-                                        parse_mode=ParseMode.MARKDOWN)
+                    await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
                     return
             elif coin_family == "DOGE":
                 valid_address = None
                 user_from = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
                 if user_from is None:
-                    user_from = await store.sql_register_user(message.from_user.username, COIN_NAME, 'TELEGRAM')
+                    user_from = await store.sql_register_user(message.from_user.username, COIN_NAME, 'TELEGRAM', message.chat.id)
                     user_from = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
                 user_from['address'] = user_from['balance_wallet_address']
                 prev_address = user_from['user_wallet_address']
@@ -611,7 +620,7 @@ async def start_cmd_handler(message: types.Message):
             elif coin_family == "XMR":
                 user_from = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
                 if user_from is None:
-                    user_from = await store.sql_register_user(message.from_user.username, COIN_NAME, 'TELEGRAM')
+                    user_from = await store.sql_register_user(message.from_user.username, COIN_NAME, 'TELEGRAM', message.chat.id)
                     user_from = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
                 prev_address = user_from['user_wallet_address']
                 if COIN_NAME not in ["MSR", "UPX", "XAM"]:
@@ -784,7 +793,7 @@ async def start_cmd_handler(message: types.Message):
             message_text = ''
             valid_amount = True
             if real_amount > actual_balance:
-                message_text = 'Insufficient balance to send tip of ' + num_format_coin(real_amount, COIN_NAME) + COIN_NAME + ' to ' + args[3]
+                message_text = 'Insufficient balance to send tip of ' + num_format_coin(real_amount, COIN_NAME) + COIN_NAME + ' to ' + user_to
                 valid_amount = False
             elif real_amount > Max_Tip:
                 message_text = 'Transactions cannot be bigger than ' + num_format_coin(Max_Tip, COIN_NAME) + COIN_NAME
@@ -1513,6 +1522,12 @@ async def start_cmd_handler(message: types.Message):
                 return
 
             tip = None
+            if message.from_user.username not in WITHDRAW_IN_PROCESS:
+                WITHDRAW_IN_PROCESS.append(message.from_user.username)
+            else:
+                message_text = text(bold("You have another tx in progress.\n"))
+                await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
+                return
             try:
                 if coin_family in ["TRTL", "BCN"]:
                     tip = await store.sql_mv_cn_single("teletip_bot", message.from_user.username, real_amount, "FAUCET", COIN_NAME, "TELEGRAM")
@@ -1528,13 +1543,17 @@ async def start_cmd_handler(message: types.Message):
                 await logchanbot(f'[Telegram] User {message.from_user.username} claimed faucet {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
             except Exception as e:
                 await logchanbot(traceback.format_exc())
+            if message.from_user.username in WITHDRAW_IN_PROCESS:
+                WITHDRAW_IN_PROCESS.remove(message.from_user.username)
             if tip:
                 get_decimal(COIN_NAME)
-                faucet_add = await store.sql_faucet_add(message.from_user.username, message.chat.id, COIN_NAME, real_amount, coin_decimal, "TELEGRAM")
-                message_text = text(bold("You received free coin:"), markdown.pre("\nAmount: {}{}".format(num_format_coin(real_amount, COIN_NAME), COIN_NAME)), "\nConsider tipping me if you like this :).")
-                await message.reply(message_text,
-                                    parse_mode=ParseMode.MARKDOWN)
-                return
+                try:
+                    faucet_add = await store.sql_faucet_add(message.from_user.username, message.chat.id, COIN_NAME, real_amount, coin_decimal, "TELEGRAM")
+                    message_text = text(bold("You received free coin:"), markdown.pre("\nAmount: {}{}".format(num_format_coin(real_amount, COIN_NAME), COIN_NAME)), "\nConsider tipping me if you like this :).")
+                    await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(traceback.format_exc())
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
@@ -1841,33 +1860,42 @@ async def notify_new_move_balance_user():
     time_lap = 5
     while True:
         pending_tx = await store.sql_get_move_balance_table('NO', 'NO')
-        #print(pending_tx)
         if pending_tx and len(pending_tx) > 0:
             # let's notify_new_tx_user
             for eachTx in pending_tx:
-                if eachTx['to_server'] == "TELEGRAM":
-                    user_found = await store.sql_get_userwallet(eachTx['to_userid'], eachTx['coin_name'], 'TELEGRAM')
-                    if user_found:
-                        to_user = user_found['chat_id']
-                        message_text = markdown.bold("You got a tip deposit:") + markdown.pre("\nCoin: {}\nAmount: {}\nFrom: {}@{} ({})".format(eachTx['coin_name'], num_format_coin(eachTx['amount'], eachTx['coin_name']), eachTx['from_userid'], eachTx['from_server'], eachTx['from_name']))
-                        try:
-                            send_msg = await bot.send_message(chat_id=to_user, text=message_text, parse_mode=ParseMode.MARKDOWN)
-                        except exceptions.BotBlocked:
-                            await logchanbot(f"[Telegram] Target [ID:{to_user}]: blocked by user")
-                        except exceptions.ChatNotFound:
-                            await logchanbot(f"[Telegram] Target [ID:{to_user}]: invalid user ID")
-                        except exceptions.RetryAfter as e:
-                            await logchanbot(f"[Telegram] Target [ID:{to_user}]: Flood limit is exceeded. Sleep {e.timeout} seconds")
-                            await asyncio.sleep(e.timeout)
-                            return await bot.send_message(chat_id=to_user, text=message_text)  # Recursive call
-                        except exceptions.UserDeactivated:
-                            await logchanbot(f"[Telegram] Target [ID:{to_user}]: user is deactivated")
-                        except exceptions.TelegramAPIError:
-                            await logchanbot(f"[Telegram] Target [ID:{to_user}]: failed")
-                        except Exception as e:
-                            print(traceback.format_exc())
-                            await logchanbot(traceback.format_exc())
-                        update_receiver = await store.sql_update_move_balance_table(eachTx['id'], 'RECEIVER')                     
+                try:
+                    if eachTx['to_server'] == "TELEGRAM":
+                        user_found = await store.sql_get_userwallet(eachTx['to_userid'], eachTx['coin_name'], 'TELEGRAM')
+                        if user_found and user_found['chat_id']:
+                            to_user = user_found['chat_id']
+                            if eachTx['coin_name'] in ENABLE_COIN_ERC:
+                                eachTx['amount'] = float(eachTx['amount'])
+                            message_text = markdown.bold("You got a tip deposit:") + markdown.pre("\nCoin: {}\nAmount: {}\nFrom: {}@{} ({})".format(eachTx['coin_name'], num_format_coin(eachTx['amount'], eachTx['coin_name']), eachTx['from_userid'], eachTx['from_server'], eachTx['from_name']))
+                            try:
+                                send_msg = await bot.send_message(chat_id=to_user, text=message_text, parse_mode=ParseMode.MARKDOWN)
+                            except exceptions.BotBlocked:
+                                await logchanbot(f"[Telegram] Target [ID:{to_user}]: blocked by user")
+                            except exceptions.ChatNotFound:
+                                await logchanbot(f"[Telegram] Target [ID:{to_user}]: invalid user ID")
+                            except exceptions.RetryAfter as e:
+                                await logchanbot(f"[Telegram] Target [ID:{to_user}]: Flood limit is exceeded. Sleep {e.timeout} seconds")
+                                await asyncio.sleep(e.timeout)
+                                return await bot.send_message(chat_id=to_user, text=message_text)  # Recursive call
+                            except exceptions.UserDeactivated:
+                                await logchanbot(f"[Telegram] Target [ID:{to_user}]: user is deactivated")
+                            except exceptions.TelegramAPIError:
+                                await logchanbot(f"[Telegram] Target [ID:{to_user}]: failed")
+                            except Exception as e:
+                                print(traceback.format_exc())
+                                await logchanbot(traceback.format_exc())
+                            update_receiver = await store.sql_update_move_balance_table(eachTx['id'], 'RECEIVER')
+                        elif user_found:
+                            userto = eachTx['to_userid']
+                            # print(f"[Telegram] Can not find chat_id user after moving tip: {userto}")
+                            # await logchanbot(f"[Telegram] Can not find chat_id user after moving tip: {userto}")
+                except Exception as e:
+                    print(traceback.format_exc())
+                    #await logchanbot(traceback.format_exc())
         await asyncio.sleep(time_lap)
 
 

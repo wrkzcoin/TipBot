@@ -676,6 +676,26 @@ async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD')
                 if result and ('move_in' in result) and result['move_in']:
                     move_in = result['move_in']
 
+                # guild_raffle_entries fee entry
+                sql = """ SELECT SUM(amount) AS raffle_fee FROM guild_raffle_entries WHERE `coin_name`=%s AND `user_id`=%s  
+                          AND `user_server`=%s AND `status`=%s
+                      """
+                await cur.execute(sql, (COIN_NAME, userID, user_server, 'REGISTERED'))
+                result = await cur.fetchone()
+                raffle_fee = 0
+                if result and ('raffle_fee' in result) and result['raffle_fee']:
+                    raffle_fee = result['raffle_fee']
+
+                # guild_raffle_entries reward
+                sql = """ SELECT SUM(won_amount) AS raffle_reward FROM guild_raffle_entries WHERE `coin_name`=%s AND `user_id`=%s  
+                          AND `user_server`=%s AND `status`=%s
+                      """
+                await cur.execute(sql, (COIN_NAME, userID, user_server, 'WINNER'))
+                result = await cur.fetchone()
+                raffle_reward = 0
+                if result and ('raffle_reward' in result) and result['raffle_reward']:
+                    raffle_reward = result['raffle_reward']
+
                 balance = {}
                 if coin_family == "NANO":
                     balance['Expense'] = Expense or 0
@@ -694,11 +714,15 @@ async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD')
                     balance['move_in'] = move_in if move_in else 0
                     balance['move_out'] = move_out if move_out else 0
 
+                    balance['raffle_fee'] = raffle_fee if raffle_fee else 0
+                    balance['raffle_reward'] = raffle_reward if raffle_reward else 0
+
                     balance['Adjust'] = int(balance['Credited']) + int(balance['GameCredit']) \
                     + int(balance['Income']) - int(balance['Expense']) - int(balance['TxExpense']) - int(balance['Expended_Voucher']) \
                     - balance['OpenOrder'] - balance['CompleteOrderMinus'] - balance['CompleteOrderMinus2'] \
                     + balance['CompleteOrderAdd'] + balance['CompleteOrderAdd2'] \
-                    + balance['move_in'] - balance['move_out']
+                    + balance['move_in'] - balance['move_out'] \
+                    + balance['raffle_reward'] - balance['raffle_fee']
                 elif coin_family == "DOGE":
                     balance['Expense'] = Expense or 0
                     balance['Expense'] = round(balance['Expense'], 4)
@@ -719,11 +743,15 @@ async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD')
                     balance['move_in'] = move_in if move_in else 0
                     balance['move_out'] = move_out if move_out else 0
 
+                    balance['raffle_fee'] = raffle_fee if raffle_fee else 0
+                    balance['raffle_reward'] = raffle_reward if raffle_reward else 0
+
                     balance['Adjust'] = float(balance['Credited']) + float(balance['GameCredit']) + float(balance['Income']) + float(balance['SwapIn']) - float(balance['Expense']) \
                     - float(balance['TxExpense']) - float(balance['SwapOut']) - float(balance['Expended_Voucher']) \
                     - float(balance['OpenOrder']) - float(balance['CompleteOrderMinus']) - float(balance['CompleteOrderMinus2']) \
                     + float(balance['CompleteOrderAdd']) + float(balance['CompleteOrderAdd2']) \
-                    + float(balance['move_in']) - float(balance['move_out'])
+                    + float(balance['move_in']) - float(balance['move_out']) \
+                    + float(balance['raffle_reward']) - float(balance['raffle_fee'])
                 elif coin_family == "XMR":
                     balance['Expense'] = float(Expense) if Expense else 0
                     balance['Expense'] = float(round(balance['Expense'], 4))
@@ -744,11 +772,15 @@ async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD')
                     balance['move_in'] = move_in if move_in else 0
                     balance['move_out'] = move_out if move_out else 0
 
+                    balance['raffle_fee'] = raffle_fee if raffle_fee else 0
+                    balance['raffle_reward'] = raffle_reward if raffle_reward else 0
+
                     balance['Adjust'] = balance['Credited'] + balance['GameCredit'] + balance['Income'] + balance['SwapIn'] - balance['Expense'] - balance['TxExpense'] \
                     - balance['SwapOut'] - balance['Expended_Voucher'] \
                     - int(balance['OpenOrder']) - int(balance['CompleteOrderMinus']) - int(balance['CompleteOrderMinus2']) \
                     + int(balance['CompleteOrderAdd']) + int(balance['CompleteOrderAdd2']) \
-                    + int(balance['move_in']) - int(balance['move_out'])
+                    + int(balance['move_in']) - int(balance['move_out']) \
+                    + int(balance['raffle_reward']) - int(balance['raffle_fee'])
                 elif coin_family == "ERC-20":
                     balance['Deposit'] = float("%.3f" % Deposit) if Deposit else 0
                     balance['Expense'] = float("%.3f" % Expense) if Expense else 0
@@ -767,11 +799,15 @@ async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD')
                     balance['move_in'] = float("%.3f" % move_in) if move_in else 0
                     balance['move_out'] = float("%.3f" % move_out) if move_out else 0
 
+                    balance['raffle_fee'] = raffle_fee if raffle_fee else 0
+                    balance['raffle_reward'] = raffle_reward if raffle_reward else 0
+
                     balance['Adjust'] = float("%.3f" % (balance['Deposit'] + balance['Credited'] + balance['GameCredit'] + balance['Income'] - balance['Expense'] \
                     - balance['TxExpense'] - balance['Expended_Voucher'] \
                     - balance['OpenOrder'] - balance['CompleteOrderMinus'] - balance['CompleteOrderMinus2'] \
                     + balance['CompleteOrderAdd'] + balance['CompleteOrderAdd2'])) \
-                    + balance['move_in'] - balance['move_out']
+                    + balance['move_in'] - balance['move_out'] \
+                    + balance['raffle_reward'] - balance['raffle_fee']
                 elif coin_family in ["TRTL", "BCN"]:
                     balance['Expense'] = float(Expense) if Expense else 0
                     balance['Expense'] = float(round(balance['Expense'], 4))
@@ -792,11 +828,15 @@ async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD')
                     balance['move_in'] = move_in if move_in else 0
                     balance['move_out'] = move_out if move_out else 0
 
+                    balance['raffle_fee'] = raffle_fee if raffle_fee else 0
+                    balance['raffle_reward'] = raffle_reward if raffle_reward else 0
+
                     balance['Adjust'] = balance['Credited'] + balance['GameCredit'] + balance['Income'] + balance['SwapIn'] - balance['Expense'] \
                     - balance['TxExpense'] - balance['SwapOut'] - balance['Expended_Voucher'] \
                     - int(balance['OpenOrder']) - int(balance['CompleteOrderMinus']) - int(balance['CompleteOrderMinus2']) \
                     + int(balance['CompleteOrderAdd']) + int(balance['CompleteOrderAdd2']) \
-                    + int(balance['move_in']) - int(balance['move_out'])
+                    + int(balance['move_in']) - int(balance['move_out']) \
+                    + int(balance['raffle_reward']) - int(balance['raffle_fee'])
                 return balance
     except Exception as e:
         await logchanbot(traceback.format_exc())
@@ -1432,6 +1472,45 @@ async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD', cha
     return None
 
 
+async def sql_update_user_chat_id(userID, coin: str, chat_id: int, user_server: str = 'TELEGRAM'):
+    if user_server not in ['TELEGRAM']:
+        return
+    COIN_NAME = coin.upper()
+    if COIN_NAME in ENABLE_COIN_ERC:
+        coin_family = "ERC-20"
+    else:
+        coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                if coin_family in ["TRTL", "BCN"]:
+                    sql = """ UPDATE cnoff_user_paymentid SET chat_id=%s WHERE user_id=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """               
+                    await cur.execute(sql, (chat_id, str(userID), COIN_NAME, user_server))
+                    await conn.commit()
+                elif coin_family == "XMR":
+                    sql = """ UPDATE xmroff_user_paymentid SET chat_id=%s WHERE `user_id`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """               
+                    await cur.execute(sql, (chat_id, str(userID), COIN_NAME, user_server))
+                    await conn.commit()
+                elif coin_family == "DOGE":
+                    sql = """ UPDATE doge_user SET chat_id=%s WHERE `user_id`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """               
+                    await cur.execute(sql, (chat_id, str(userID), COIN_NAME, user_server))
+                    await conn.commit()
+                elif coin_family == "NANO":
+                    sql = """ UPDATE nano_user SET chat_id=%s WHERE `user_id`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """               
+                    await cur.execute(sql, (chat_id, str(userID), COIN_NAME, user_server))
+                    await conn.commit()
+                elif coin_family == "ERC-20":
+                    sql = """ UPDATE erc_user SET chat_id=%s WHERE `user_id`=%s AND `token_name` = %s AND `user_server`=%s LIMIT 1 """               
+                    await cur.execute(sql, (chat_id, str(userID), COIN_NAME, user_server))
+                    await conn.commit()
+                return True
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return False
+
+
+
 async def sql_update_user(userID, user_wallet_address, coin: str, user_server: str = 'DISCORD'):
     global redis_conn, pool
     COIN_NAME = coin.upper()
@@ -2042,7 +2121,9 @@ async def sql_faucet_checkuser(userID: str, user_server: str = 'DISCORD'):
         return
 
     result = None
-    list_roach = await sql_roach_get_by_id(userID, user_server)
+    list_roach = None
+    if user_server == 'DISCORD':
+        list_roach = await sql_roach_get_by_id(userID, user_server)
     try:
         await openConnection()
         async with pool.acquire() as conn:
@@ -4848,7 +4929,7 @@ async def erc_check_balance_address_in_users(address: str, coin: str):
 
 async def sql_tipto_crossing(coin: str, from_userid: str, from_username: str, from_server: str, \
 to_userid: str, to_username: str, to_server: str, amount: float, decimal_pts: int):
-    global pool, ENABLE_SWAP	
+    global pool	
     COIN_NAME = coin.upper()		
     try:	
         await openConnection()	
@@ -4864,6 +4945,200 @@ to_userid: str, to_username: str, to_server: str, amount: float, decimal_pts: in
     except Exception as e:	
         await logchanbot(traceback.format_exc())	
     return False
+
+
+## Raffle
+async def raffle_get_all(user_server: str='DISCORD'):
+    global pool
+    user_server = user_server.upper()
+    if user_server not in ['DISCORD', 'TELEGRAM']:
+        return
+    try:
+        await openConnection()	
+        async with pool.acquire() as conn:	
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM guild_raffle 
+                          WHERE `user_server`=%s AND `status` IN ('OPENED', 'ONGOING') """
+                await cur.execute(sql, (user_server))
+                result = await cur.fetchall()
+                if result: return result
+    except Exception as e:	
+        await logchanbot(traceback.format_exc())	
+    return None
+
+
+async def raffle_get_from_guild(guild: str, last_play: bool=False, user_server: str='DISCORD'):
+    global pool
+    user_server = user_server.upper()
+    if user_server not in ['DISCORD', 'TELEGRAM']:
+        return
+    try:
+        await openConnection()	
+        async with pool.acquire() as conn:	
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM guild_raffle 
+                          WHERE `guild_id`=%s AND `user_server`=%s ORDER BY `id` DESC LIMIT 1 """
+                if last_play: sql += "OFFSET 1"
+                await cur.execute(sql, (guild, user_server))
+                result = await cur.fetchone()
+                if result: return result
+    except Exception as e:	
+        await logchanbot(traceback.format_exc())	
+    return None
+
+
+async def raffle_get_from_by_id(idx: str, user_server: str='DISCORD', user_check: str=None):
+    global pool
+    user_server = user_server.upper()
+    if user_server not in ['DISCORD', 'TELEGRAM']:
+        return
+    try:	
+        await openConnection()	
+        async with pool.acquire() as conn:	
+            async with conn.cursor() as cur:	
+                sql = """ SELECT * FROM guild_raffle 
+                          WHERE `id`=%s AND `user_server`=%s LIMIT 1 """
+                await cur.execute(sql, (idx, user_server))
+                result = await cur.fetchone()
+                if result:
+                    sql = """ SELECT * FROM guild_raffle_entries 
+                              WHERE `raffle_id`=%s AND `user_server`=%s ORDER BY `entry_id` DESC """
+                    await cur.execute(sql, (idx, user_server))
+                    result_list = await cur.fetchall()
+                    if result_list and len(result_list) > 0:
+                        result['entries'] = result_list
+                        if user_check:
+                            sql = """ SELECT * FROM guild_raffle_entries 
+                                      WHERE `raffle_id`=%s AND `user_server`=%s AND `user_id`=%s LIMIT 1 """
+                            await cur.execute(sql, (idx, user_server, user_check))
+                            result_check = await cur.fetchone()
+                            if result_check:
+                                result['user_joined'] = True
+                            else:
+                                result['user_joined'] = False
+                    else:
+                        result['entries'] = None
+                        result['user_joined'] = False
+                return result
+    except Exception as e:	
+        await logchanbot(traceback.format_exc())	
+    return None
+
+
+async def raffle_get_entry_by_entry_id(entry_id: str, user_server: str='DISCORD'):
+    global pool
+    user_server = user_server.upper()
+    if user_server not in ['DISCORD', 'TELEGRAM']:
+        return
+    try:	
+        await openConnection()	
+        async with pool.acquire() as conn:	
+            async with conn.cursor() as cur:	
+                sql = """ SELECT * FROM guild_raffle_entries 
+                          WHERE `entry_id`=%s AND `user_server`=%s LIMIT 1 """
+                await cur.execute(sql, (entry_id, user_server))
+                result = await cur.fetchone()
+                if result: return result
+    except Exception as e:	
+        await logchanbot(traceback.format_exc())	
+    return None
+
+
+async def raffle_insert_new(guild_id: str, guild_name: str, amount: float, decimal: int, coin: str, created_userid: str, \
+created_username: str, created_ts: int, ending_ts: str, user_server: str='DISCORD'):
+    global pool	
+    COIN_NAME = coin.upper()
+    user_server = user_server.upper()
+    if user_server not in ['DISCORD', 'TELEGRAM']:
+        return    
+    try:	
+        await openConnection()	
+        async with pool.acquire() as conn:	
+            async with conn.cursor() as cur:	
+                sql = """ INSERT INTO guild_raffle (`guild_id`, `guild_name`, `amount`, `decimal`, 
+                          `coin_name`, `created_userid`, `created_username`, `created_ts`, `ending_ts`, `user_server`) 	
+                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """	
+                await cur.execute(sql, (guild_id, guild_name, amount, decimal, COIN_NAME, created_userid,
+                                        created_username, created_ts, ending_ts, user_server,))
+                await conn.commit()	
+                return True	
+    except Exception as e:	
+        await logchanbot(traceback.format_exc())	
+    return False
+
+
+async def raffle_insert_new_entry(raffle_id: int, guild_id: str, amount: float, decimal: int, coin: str, user_id: str, \
+user_name: str, user_server: str='DISCORD'):
+    global pool	
+    COIN_NAME = coin.upper()
+    user_server = user_server.upper()
+    if user_server not in ['DISCORD', 'TELEGRAM']:
+        return    
+    try:	
+        await openConnection()	
+        async with pool.acquire() as conn:	
+            async with conn.cursor() as cur:	
+                sql = """ INSERT INTO guild_raffle_entries (`raffle_id`, `guild_id`, `amount`, `decimal`, 
+                          `coin_name`, `user_id`, `user_name`, `entry_ts`, `user_server`) 	
+                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """	
+                await cur.execute(sql, (raffle_id, guild_id, amount, decimal, COIN_NAME, user_id,
+                                        user_name, int(time.time()), user_server,))
+                await conn.commit()	
+                return True	
+    except Exception as e:	
+        await logchanbot(traceback.format_exc())	
+    return False
+
+async def raffle_update_id(raffle_id: int, status: str, list_winner=None, list_amounts=None):
+    # list_winner = 3
+    # list_amounts = 4
+    try:
+        await openConnection()	
+        async with pool.acquire() as conn:	
+            async with conn.cursor() as cur:
+                if list_winner is None and list_amounts is None:
+                    sql = """ UPDATE guild_raffle SET `status`=%s WHERE `id`=%s """	
+                    await cur.execute(sql, (status.upper(), raffle_id))
+                    await conn.commit()
+                    return True
+                else:
+                    if status.upper() == "COMPLETED" and list_winner and list_amounts:
+                        sql = """ UPDATE guild_raffle SET `status`=%s, `winner_userid_1st`=%s,
+                                  `winner_1st_amount`=%s, `winner_userid_2nd`=%s,
+                                  `winner_2nd_amount`=%s, `winner_userid_3rd`=%s,
+                                  `winner_3rd_amount`=%s, `raffle_fund_pot`=%s WHERE `id`=%s """
+                        await cur.execute(sql, (status.upper(), list_winner[0], list_amounts[0], 
+                                                list_winner[1], list_amounts[1], list_winner[2],
+                                                list_amounts[2], list_amounts[3], raffle_id))
+                        await conn.commit()	
+                        # Update # guild_raffle_entries
+                        sql = """ UPDATE guild_raffle_entries SET `status`=%s, `won_amount`=%s WHERE `raffle_id`=%s 
+                                  AND `user_id`=%s """
+                        await cur.executemany(sql, [('WINNER', list_amounts[0], raffle_id, list_winner[0]),
+                                                    ('WINNER', list_amounts[1], raffle_id, list_winner[1]),
+                                                    ('WINNER', list_amounts[2], raffle_id, list_winner[2])])
+                        await conn.commit()	
+                        return True	
+    except Exception as e:	
+        await logchanbot(traceback.format_exc())	
+    return False
+
+async def raffle_cancel_id(raffle_id: int):
+    try:	
+        await openConnection()	
+        async with pool.acquire() as conn:	
+            async with conn.cursor() as cur:
+                sql = """ UPDATE guild_raffle SET `status`=%s WHERE `id`=%s AND `status` IN ('ONGOING', 'OPENED') LIMIT 1 """	
+                await cur.execute(sql, ('CANCELLED', raffle_id))
+                await conn.commit()	
+                sql = """ UPDATE guild_raffle_entries SET `status`=%s WHERE `raffle_id`=%s """	
+                await cur.execute(sql, ('CANCELLED', raffle_id))
+                await conn.commit()	
+                return True	
+    except Exception as e:	
+        await logchanbot(traceback.format_exc())	
+    return False
+## End of Raffle
 
 
 # Steal from https://nitratine.net/blog/post/encryption-and-decryption-in-python/

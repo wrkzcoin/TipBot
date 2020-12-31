@@ -5786,6 +5786,13 @@ async def raffle(ctx, subc: str=None):
         if get_raffle is None:
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is no information of current raffle yet!')
             return
+    try:
+        if ctx.author.bot == True:
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is not allowed!')
+            return
+    except Exception as e:
+        pass
+
     if subc == "INFO":
         try:
             ending_ts = datetime.utcfromtimestamp(int(get_raffle['ending_ts']))
@@ -5796,7 +5803,7 @@ async def raffle(ctx, subc: str=None):
             embed.add_field(name="CREATED", value=create_ts_ago, inline=True)
             if list_raffle_id and list_raffle_id['entries']:
                 embed.add_field(name="PARTICIPANTS", value=len(list_raffle_id['entries']), inline=True)
-                if 0 < len(list_raffle_id['entries']) < 10:
+                if 0 < len(list_raffle_id['entries']) < 20:
                     list_ping = []
                     for each_user in list_raffle_id['entries']:
                         list_ping.append(each_user['user_name'])
@@ -5865,7 +5872,8 @@ async def raffle(ctx, subc: str=None):
                             insert_entry = await store.raffle_insert_new_entry(get_raffle['id'], str(ctx.guild.id), get_raffle['amount'], get_raffle['decimal'],
                                                                                get_raffle['coin_name'], str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
                                                                                'DISCORD')
-                            msg = await ctx.send(f'{EMOJI_CHECK} {ctx.author.mention} Successfully registered your Entry for raffle #**{raffle_id}** in {ctx.guild.name}!')
+                            note_entry = num_format_coin(get_raffle['amount'], get_raffle['coin_name']) + get_raffle['coin_name'] + " is deducted from your balance."
+                            msg = await ctx.send(f'{EMOJI_CHECK} {ctx.author.mention} Successfully registered your Entry for raffle #**{raffle_id}** in {ctx.guild.name}! {note_entry}')
                             await msg.add_reaction(EMOJI_OK_BOX)
                             # Update tipstat
                             try:

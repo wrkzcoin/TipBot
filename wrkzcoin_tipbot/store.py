@@ -696,6 +696,35 @@ async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD')
                 if result and ('raffle_reward' in result) and result['raffle_reward']:
                     raffle_reward = result['raffle_reward']
 
+
+                # discord_swap_token
+                if COIN_NAME in ENABLE_COIN_ERC:
+                    sql = """ SELECT SUM(from_real_amount) AS swap_token_out FROM discord_swap_token WHERE `from_coin_name`=%s AND `user_id`=%s  
+                              AND `user_server`=%s
+                          """
+                else:
+                    sql = """ SELECT SUM(from_real_amount*POWER(10, from_decimal)) AS swap_token_out FROM discord_swap_token WHERE `from_coin_name`=%s AND `user_id`=%s  
+                              AND `user_server`=%s
+                          """
+                await cur.execute(sql, (COIN_NAME, userID, user_server))
+                result = await cur.fetchone()
+                swap_token_out = 0
+                if result and ('swap_token_out' in result) and result['swap_token_out']:
+                    swap_token_out = result['swap_token_out']
+                if COIN_NAME in ENABLE_COIN_ERC:
+                    sql = """ SELECT SUM(to_real_amount) AS swap_token_in FROM discord_swap_token WHERE `to_coin_name`=%s AND `user_id`=%s  
+                              AND `user_server`=%s
+                          """
+                else:
+                    sql = """ SELECT SUM(to_real_amount*POWER(10, to_decimal)) AS swap_token_in FROM discord_swap_token WHERE `to_coin_name`=%s AND `user_id`=%s  
+                              AND `user_server`=%s
+                          """
+                await cur.execute(sql, (COIN_NAME, userID, user_server))
+                result = await cur.fetchone()
+                swap_token_in = 0
+                if result and ('swap_token_in' in result) and result['swap_token_in']:
+                    swap_token_in = result['swap_token_in']
+
                 balance = {}
                 if coin_family == "NANO":
                     balance['Expense'] = Expense or 0
@@ -717,12 +746,16 @@ async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD')
                     balance['raffle_fee'] = raffle_fee if raffle_fee else 0
                     balance['raffle_reward'] = raffle_reward if raffle_reward else 0
 
+                    balance['swap_token_in'] = swap_token_in if swap_token_in else 0
+                    balance['swap_token_out'] = swap_token_out if swap_token_out else 0
+
                     balance['Adjust'] = int(balance['Credited']) + int(balance['GameCredit']) \
                     + int(balance['Income']) - int(balance['Expense']) - int(balance['TxExpense']) - int(balance['Expended_Voucher']) \
                     - balance['OpenOrder'] - balance['CompleteOrderMinus'] - balance['CompleteOrderMinus2'] \
                     + balance['CompleteOrderAdd'] + balance['CompleteOrderAdd2'] \
                     + balance['move_in'] - balance['move_out'] \
-                    + balance['raffle_reward'] - balance['raffle_fee']
+                    + balance['raffle_reward'] - balance['raffle_fee'] \
+                    + balance['swap_token_in'] - balance['swap_token_out']
                 elif coin_family == "DOGE":
                     balance['Expense'] = Expense or 0
                     balance['Expense'] = round(balance['Expense'], 4)
@@ -746,12 +779,16 @@ async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD')
                     balance['raffle_fee'] = raffle_fee if raffle_fee else 0
                     balance['raffle_reward'] = raffle_reward if raffle_reward else 0
 
+                    balance['swap_token_in'] = swap_token_in if swap_token_in else 0
+                    balance['swap_token_out'] = swap_token_out if swap_token_out else 0
+
                     balance['Adjust'] = float(balance['Credited']) + float(balance['GameCredit']) + float(balance['Income']) + float(balance['SwapIn']) - float(balance['Expense']) \
                     - float(balance['TxExpense']) - float(balance['SwapOut']) - float(balance['Expended_Voucher']) \
                     - float(balance['OpenOrder']) - float(balance['CompleteOrderMinus']) - float(balance['CompleteOrderMinus2']) \
                     + float(balance['CompleteOrderAdd']) + float(balance['CompleteOrderAdd2']) \
                     + float(balance['move_in']) - float(balance['move_out']) \
-                    + float(balance['raffle_reward']) - float(balance['raffle_fee'])
+                    + float(balance['raffle_reward']) - float(balance['raffle_fee']) \
+                    + float(balance['swap_token_in']) - float(balance['swap_token_out'])
                 elif coin_family == "XMR":
                     balance['Expense'] = float(Expense) if Expense else 0
                     balance['Expense'] = float(round(balance['Expense'], 4))
@@ -775,12 +812,16 @@ async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD')
                     balance['raffle_fee'] = raffle_fee if raffle_fee else 0
                     balance['raffle_reward'] = raffle_reward if raffle_reward else 0
 
+                    balance['swap_token_in'] = swap_token_in if swap_token_in else 0
+                    balance['swap_token_out'] = swap_token_out if swap_token_out else 0
+
                     balance['Adjust'] = balance['Credited'] + balance['GameCredit'] + balance['Income'] + balance['SwapIn'] - balance['Expense'] - balance['TxExpense'] \
                     - balance['SwapOut'] - balance['Expended_Voucher'] \
                     - int(balance['OpenOrder']) - int(balance['CompleteOrderMinus']) - int(balance['CompleteOrderMinus2']) \
                     + int(balance['CompleteOrderAdd']) + int(balance['CompleteOrderAdd2']) \
                     + int(balance['move_in']) - int(balance['move_out']) \
-                    + int(balance['raffle_reward']) - int(balance['raffle_fee'])
+                    + int(balance['raffle_reward']) - int(balance['raffle_fee']) \
+                    + int(balance['swap_token_in']) - int(balance['swap_token_out'])
                 elif coin_family == "ERC-20":
                     balance['Deposit'] = float("%.3f" % Deposit) if Deposit else 0
                     balance['Expense'] = float("%.3f" % Expense) if Expense else 0
@@ -802,12 +843,16 @@ async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD')
                     balance['raffle_fee'] = raffle_fee if raffle_fee else 0
                     balance['raffle_reward'] = raffle_reward if raffle_reward else 0
 
+                    balance['swap_token_in'] = swap_token_in if swap_token_in else 0
+                    balance['swap_token_out'] = swap_token_out if swap_token_out else 0
+
                     balance['Adjust'] = float("%.3f" % (balance['Deposit'] + balance['Credited'] + balance['GameCredit'] + balance['Income'] - balance['Expense'] \
                     - balance['TxExpense'] - balance['Expended_Voucher'] \
                     - balance['OpenOrder'] - balance['CompleteOrderMinus'] - balance['CompleteOrderMinus2'] \
                     + balance['CompleteOrderAdd'] + balance['CompleteOrderAdd2'])) \
                     + balance['move_in'] - balance['move_out'] \
-                    + balance['raffle_reward'] - balance['raffle_fee']
+                    + balance['raffle_reward'] - balance['raffle_fee'] \
+                    + balance['swap_token_in'] - balance['swap_token_out']
                 elif coin_family in ["TRTL", "BCN"]:
                     balance['Expense'] = float(Expense) if Expense else 0
                     balance['Expense'] = float(round(balance['Expense'], 4))
@@ -831,12 +876,16 @@ async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD')
                     balance['raffle_fee'] = raffle_fee if raffle_fee else 0
                     balance['raffle_reward'] = raffle_reward if raffle_reward else 0
 
+                    balance['swap_token_in'] = swap_token_in if swap_token_in else 0
+                    balance['swap_token_out'] = swap_token_out if swap_token_out else 0
+
                     balance['Adjust'] = balance['Credited'] + balance['GameCredit'] + balance['Income'] + balance['SwapIn'] - balance['Expense'] \
                     - balance['TxExpense'] - balance['SwapOut'] - balance['Expended_Voucher'] \
                     - int(balance['OpenOrder']) - int(balance['CompleteOrderMinus']) - int(balance['CompleteOrderMinus2']) \
                     + int(balance['CompleteOrderAdd']) + int(balance['CompleteOrderAdd2']) \
                     + int(balance['move_in']) - int(balance['move_out']) \
-                    + int(balance['raffle_reward']) - int(balance['raffle_fee'])
+                    + int(balance['raffle_reward']) - int(balance['raffle_fee']) \
+                    + int(balance['swap_token_in']) - int(balance['swap_token_out'])
                 return balance
     except Exception as e:
         await logchanbot(traceback.format_exc())
@@ -4245,7 +4294,7 @@ async def erc_validate_address(address: str, coin: str):
     return None
 
 
-async def http_wallet_getbalance(address: str, coin: str) -> Dict:
+async def http_wallet_getbalance(address: str, coin: str, re_check: bool=True) -> Dict:
     global redis_conn
     TOKEN_NAME = coin.upper()
     key = f'TIPBOT:BAL_TOKEN_{TOKEN_NAME}:{address}'
@@ -4253,13 +4302,14 @@ async def http_wallet_getbalance(address: str, coin: str) -> Dict:
     timeout = 64
     token_info = await get_token_info(TOKEN_NAME)
     # If it is not main address, check in redis.
-    if address.upper() != token_info['withdraw_address'].upper():
-        try:
-            openRedis()
-            if redis_conn and redis_conn.exists(key):
-                return int(redis_conn.get(key))
-        except Exception as e:
-            await logchanbot(traceback.format_exc())
+    if re_check == False:
+        if address.upper() != token_info['withdraw_address'].upper():
+            try:
+                openRedis()
+                if redis_conn and redis_conn.exists(key):
+                    return int(redis_conn.get(key))
+            except Exception as e:
+                await logchanbot(traceback.format_exc())
     contract = token_info['contract']
     url = token_info[token_info['http_using']]
     if TOKEN_NAME == "XDAI":
@@ -4329,7 +4379,7 @@ async def http_wallet_getbalance(address: str, coin: str) -> Dict:
             openRedis()
             if redis_conn:
                 # set it longer. 20mn to store 0 balance
-                redis_conn.set(key, str(balance), ex=30*60)
+                redis_conn.set(key, str(balance), ex=1*60)
         except Exception as e:
             await logchanbot(traceback.format_exc())
     return balance
@@ -4946,6 +4996,46 @@ to_userid: str, to_username: str, to_server: str, amount: float, decimal_pts: in
         await logchanbot(traceback.format_exc())	
     return False
 
+
+async def sql_swap_balance_token(from_coin_name: str, from_real_amount: float, from_decimal: int, to_coin_name: str, \
+to_real_amount: float, to_decimal: int, user_id: str, user_name: str, user_server: str='DISCORD'):	
+    global pool
+    user_server = user_server.upper()
+    if user_server not in ['DISCORD', 'TELEGRAM']:
+        return
+    try:	
+        await openConnection()	
+        async with pool.acquire() as conn:	
+            async with conn.cursor() as cur:	
+                sql = """ INSERT INTO discord_swap_token (`from_coin_name`, `from_real_amount`, `from_decimal`, 
+                          `to_coin_name`, `to_real_amount`, `to_decimal`, `user_id`, `user_name`, `swap_time`, `user_server`)
+                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """	
+                await cur.execute(sql, (from_coin_name.upper(), from_real_amount, from_decimal, to_coin_name.upper(), to_real_amount, 
+                                        to_decimal, user_id, user_name, int(time.time()), user_server))
+                await conn.commit()	
+                return True	
+    except Exception as e:	
+        await logchanbot(traceback.format_exc())	
+    return False
+
+
+async def sql_swap_count_user(userID, lastDuration: int):
+    global pool
+    lapDuration = int(time.time()) - lastDuration
+    count = 0
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                # Can be tipall or tip many, let's count all
+                sql = """ SELECT COUNT(*) as SWAPCOUNT FROM discord_swap_token WHERE `user_id` = %s AND `swap_time`>%s """
+                await cur.execute(sql, (str(userID), lapDuration,))
+                result = await cur.fetchone()
+                count += int(result['SWAPCOUNT']) if result and result['SWAPCOUNT'] else 0
+    except Exception as e:
+        print(traceback.format_exc())
+        await logchanbot(traceback.format_exc())
+    return count
 
 ## Raffle
 async def raffle_get_all(user_server: str='DISCORD'):

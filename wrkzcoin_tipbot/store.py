@@ -433,24 +433,24 @@ async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD')
                     else:
                         SwapOut = 0
                 elif coin_family == "XMR":
-                    sql = """ SELECT SUM(amount) AS Expense FROM xmroff_mv_tx WHERE `from_userid`=%s AND `coin_name` = %s """
-                    await cur.execute(sql, (userID, COIN_NAME))
+                    sql = """ SELECT SUM(amount) AS Expense FROM xmroff_mv_tx WHERE `from_userid`=%s AND `coin_name` = %s AND `user_server` = %s """
+                    await cur.execute(sql, (userID, COIN_NAME, user_server))
                     result = await cur.fetchone()
                     if result:
                         Expense = result['Expense']
                     else:
                         Expense = 0
 
-                    sql = """ SELECT SUM(amount) AS Income FROM xmroff_mv_tx WHERE `to_userid`=%s AND `coin_name` = %s """
-                    await cur.execute(sql, (userID, COIN_NAME))
+                    sql = """ SELECT SUM(amount) AS Income FROM xmroff_mv_tx WHERE `to_userid`=%s AND `coin_name` = %s AND `user_server` = %s """
+                    await cur.execute(sql, (userID, COIN_NAME, user_server))
                     result = await cur.fetchone()
                     if result:
                         Income = result['Income']
                     else:
                         Income = 0
 
-                    sql = """ SELECT SUM(amount+fee) AS TxExpense FROM xmroff_external_tx WHERE `user_id`=%s AND `coin_name` = %s """
-                    await cur.execute(sql, (userID, COIN_NAME))
+                    sql = """ SELECT SUM(amount+fee) AS TxExpense FROM xmroff_external_tx WHERE `user_id`=%s AND `coin_name` = %s AND `user_server` = %s """
+                    await cur.execute(sql, (userID, COIN_NAME, user_server))
                     result = await cur.fetchone()
                     if result:
                         TxExpense = result['TxExpense']
@@ -551,16 +551,16 @@ async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD')
                     else:
                         TxExpense = 0
 
-                    sql = """ SELECT SUM(real_amount) AS Expense FROM erc_mv_tx WHERE `from_userid`=%s AND `token_name` = %s """
-                    await cur.execute(sql, (userID, COIN_NAME))
+                    sql = """ SELECT SUM(real_amount) AS Expense FROM erc_mv_tx WHERE `from_userid`=%s AND `token_name` = %s AND `user_server`=%s """
+                    await cur.execute(sql, (userID, COIN_NAME, user_server))
                     result = await cur.fetchone()
                     if result:
                         Expense = result['Expense']
                     else:
                         Expense = 0
 
-                    sql = """ SELECT SUM(real_amount) AS Income FROM erc_mv_tx WHERE `to_userid`=%s AND `token_name` = %s """
-                    await cur.execute(sql, (userID, COIN_NAME))
+                    sql = """ SELECT SUM(real_amount) AS Income FROM erc_mv_tx WHERE `to_userid`=%s AND `token_name` = %s AND `user_server`=%s """
+                    await cur.execute(sql, (userID, COIN_NAME, user_server))
                     result = await cur.fetchone()
                     if result:
                         Income = result['Income']
@@ -922,9 +922,9 @@ async def sql_mv_nano_single(user_from: str, to_user: str, amount: float, coin: 
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ INSERT INTO nano_mv_tx (`coin_name`, `from_userid`, `to_userid`, `amount`, `decimal`, `type`, `date`) 
-                          VALUES (%s, %s, %s, %s, %s, %s, %s) """
-                await cur.execute(sql, (COIN_NAME, user_from, to_user, amount, wallet.get_decimal(COIN_NAME), tiptype.upper(), int(time.time()),))
+                sql = """ INSERT INTO nano_mv_tx (`coin_name`, `from_userid`, `to_userid`, `amount`, `decimal`, `type`, `date`, `user_server`) 
+                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                await cur.execute(sql, (COIN_NAME, user_from, to_user, amount, wallet.get_decimal(COIN_NAME), tiptype.upper(), int(time.time()), user_server))
                 await conn.commit()
                 return True
     except Exception as e:
@@ -3202,9 +3202,9 @@ async def sql_mv_xmr_single(user_from: str, to_user: str, amount: float, coin: s
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ INSERT INTO xmroff_mv_tx (`coin_name`, `from_userid`, `to_userid`, `amount`, `decimal`, `type`, `date`) 
-                          VALUES (%s, %s, %s, %s, %s, %s, %s) """
-                await cur.execute(sql, (COIN_NAME, user_from, to_user, amount, wallet.get_decimal(COIN_NAME), tiptype.upper(), int(time.time()),))
+                sql = """ INSERT INTO xmroff_mv_tx (`coin_name`, `from_userid`, `to_userid`, `amount`, `decimal`, `type`, `date`, `user_server`) 
+                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                await cur.execute(sql, (COIN_NAME, user_from, to_user, amount, wallet.get_decimal(COIN_NAME), tiptype.upper(), int(time.time()), user_server))
                 await conn.commit()
                 return True
     except Exception as e:
@@ -4397,9 +4397,9 @@ async def sql_mv_erc_single(user_from: str, to_user: str, amount: float, coin: s
         async with pool.acquire() as conn:
             await conn.ping(reconnect=True)
             async with conn.cursor() as cur:
-                sql = """ INSERT INTO erc_mv_tx (`token_name`, `contract`, `from_userid`, `to_userid`, `real_amount`, `token_decimal`, `type`, `date`) 
-                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
-                await cur.execute(sql, (TOKEN_NAME, contract, user_from, to_user, amount, token_info['token_decimal'], tiptype.upper(), int(time.time()),))
+                sql = """ INSERT INTO erc_mv_tx (`token_name`, `contract`, `from_userid`, `to_userid`, `real_amount`, `token_decimal`, `type`, `date`, `user_server`) 
+                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                await cur.execute(sql, (TOKEN_NAME, contract, user_from, to_user, amount, token_info['token_decimal'], tiptype.upper(), int(time.time()), user_server))
                 await conn.commit()
                 return True
     except Exception as e:

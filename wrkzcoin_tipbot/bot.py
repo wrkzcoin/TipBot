@@ -5131,16 +5131,18 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
         return
 
     create_acc = None
+    user_server = 'DISCORD'
     # check if there is that user
     try:
         user_id = int(user_id)
         member = bot.get_user(id=user_id)
         if member is None:
-            await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} I cannot find that user.')
-            return
+            await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} I cannot find that user in discord. Let me find in other!')
+            # Check telegram
+            user_server = 'TELEGRAM'
     except ValueError:
-        await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} Invalid user.')
-        return
+        await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} Invalid user for discord. Let me find in other!')
+        user_server = 'TELEGRAM'
 
     # for verification | future restoration of lost account
     table_data = [
@@ -5152,12 +5154,12 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
         else:
             COIN_NAME = create_wallet.upper()
             if COIN_NAME in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC:
-                wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
+                wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME, user_server)
                 try:
                     xfer_in = 0
                     if COIN_NAME not in ENABLE_COIN_ERC:
-                        xfer_in = await store.sql_user_balance_get_xfer_in(str(user_id), COIN_NAME)
-                    userdata_balance = await store.sql_user_balance(str(user_id), COIN_NAME)
+                        xfer_in = await store.sql_user_balance_get_xfer_in(str(user_id), COIN_NAME, user_server)
+                    userdata_balance = await store.sql_user_balance(str(user_id), COIN_NAME, user_server)
                     msg_balance = f"Balance User ID **{str(user_id)}** for: " + COIN_NAME + "\n"
                     msg_balance += "```"
                     msg_balance += "xfer_in: " + str(xfer_in) + "\n"
@@ -5173,24 +5175,24 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
     else:
         for COIN_NAME in [coinItem.upper() for coinItem in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC]:
             if not is_maintenance_coin(COIN_NAME):
-                wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
+                wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME, user_server)
                 if wallet is None and create_acc:
                     if COIN_NAME in ENABLE_COIN_ERC:
                         w = await create_address_eth()
-                        userregister = await store.sql_register_user(str(user_id), COIN_NAME, 'DISCORD', 0, w)
+                        userregister = await store.sql_register_user(str(user_id), COIN_NAME, user_server, 0, w)
                     else:
-                        userregister = await store.sql_register_user(str(user_id), COIN_NAME, 'DISCORD', 0)
-                    wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME)
+                        userregister = await store.sql_register_user(str(user_id), COIN_NAME, user_server, 0)
+                    wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME, user_server)
                 if wallet:
                     try:
                         xfer_in = 0
                         if COIN_NAME not in ENABLE_COIN_ERC:
-                            xfer_in = await store.sql_user_balance_get_xfer_in(str(user_id), COIN_NAME)
+                            xfer_in = await store.sql_user_balance_get_xfer_in(str(user_id), COIN_NAME, user_server)
                     except Exception as e:
                         print(traceback.format_exc())
                         await logchanbot(traceback.format_exc())
 
-                    userdata_balance = await store.sql_user_balance(str(user_id), COIN_NAME)
+                    userdata_balance = await store.sql_user_balance(str(user_id), COIN_NAME, user_server)
                     if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
                         actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
                     elif COIN_NAME in ENABLE_COIN_NANO:

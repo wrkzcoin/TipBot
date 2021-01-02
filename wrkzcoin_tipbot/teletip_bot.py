@@ -719,8 +719,7 @@ async def start_cmd_handler(message: types.Message):
         amount = float(amount)
     except ValueError:
         message_text = text(bold("Invalid amount."))
-        await message.reply(message_text,
-                            parse_mode=ParseMode.MARKDOWN)
+        await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
         return
 
     # Find user if exist
@@ -787,7 +786,7 @@ async def start_cmd_handler(message: types.Message):
                 Max_Tip = get_max_mv_amount(COIN_NAME)
                 Min_Tx = get_min_tx_amount(COIN_NAME)
                 Max_Tx = get_max_tx_amount(COIN_NAME)
-                real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
+                real_amount = int(Decimal(amount) * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
                 decimal_pts = int(math.log10(get_decimal(COIN_NAME)))
 
             message_text = ''
@@ -833,8 +832,7 @@ async def start_cmd_handler(message: types.Message):
                     if user_to in ["teletip_bot"]:
                         to_message_text = to_message_text.replace("You ", f"@{user_to} ")
                     try:
-                        await message.reply(message_text,
-                                                            parse_mode=ParseMode.MARKDOWN)
+                        await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
                         send_msg = await bot.send_message(chat_id=to_user, text=to_message_text, parse_mode=ParseMode.MARKDOWN)
                     except exceptions.BotBlocked:
                         await logchanbot(f"Target [ID:{to_user}]: blocked by user")

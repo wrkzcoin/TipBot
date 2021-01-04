@@ -15525,7 +15525,7 @@ async def erc_notify_new_confirmed_spendable():
                     for each_notify in notify_list:
                         is_notify_failed = False
                         member = bot.get_user(id=int(each_notify['user_id']))
-                        if member:
+                        if member and int(each_notify['user_id']) != bot.user.id:
                             msg = "You got a new deposit confirmed: ```" + "Amount: {}{}".format(each_notify['real_amount'], coinItem) + "```"
                             try:
                                 await member.send(msg)

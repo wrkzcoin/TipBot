@@ -840,11 +840,11 @@ async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD')
                     balance['move_in'] = float("%.3f" % move_in) if move_in else 0
                     balance['move_out'] = float("%.3f" % move_out) if move_out else 0
 
-                    balance['raffle_fee'] = raffle_fee if raffle_fee else 0
-                    balance['raffle_reward'] = raffle_reward if raffle_reward else 0
+                    balance['raffle_fee'] = float("%.3f" % raffle_fee) if raffle_fee else 0
+                    balance['raffle_reward'] = float("%.3f" % affle_reward) if raffle_reward else 0
 
-                    balance['swap_token_in'] = swap_token_in if swap_token_in else 0
-                    balance['swap_token_out'] = swap_token_out if swap_token_out else 0
+                    balance['swap_token_in'] = float("%.3f" % swap_token_in) if swap_token_in else 0
+                    balance['swap_token_out'] = float("%.3f" % swap_token_out) if swap_token_out else 0
 
                     balance['Adjust'] = float("%.3f" % (balance['Deposit'] + balance['Credited'] + balance['GameCredit'] + balance['Income'] - balance['Expense'] \
                     - balance['TxExpense'] - balance['Expended_Voucher'] \

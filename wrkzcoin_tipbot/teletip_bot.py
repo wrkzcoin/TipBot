@@ -851,6 +851,7 @@ async def start_cmd_handler(message: types.Message):
                 except Exception as e:
                     await logchanbot(traceback.print_exc(file=sys.stdout))
                 if message.from_user.username in WITHDRAW_IN_PROCESS:
+                    await asyncio.sleep(1)
                     WITHDRAW_IN_PROCESS.remove(message.from_user.username)
                 return
 
@@ -993,6 +994,7 @@ async def start_cmd_handler(message: types.Message):
                 except Exception as e:
                     await logchanbot(traceback.print_exc(file=sys.stdout))
                 if message.from_user.username in WITHDRAW_IN_PROCESS:
+                    await asyncio.sleep(1)
                     WITHDRAW_IN_PROCESS.remove(message.from_user.username)
             return
 
@@ -1175,6 +1177,7 @@ async def start_cmd_handler(message: types.Message):
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
                     if message.from_user.username in WITHDRAW_IN_PROCESS:
+                        await asyncio.sleep(1)
                         WITHDRAW_IN_PROCESS.remove(message.from_user.username)
                     if tip:
                         tip_tx_tipper = "\nTransaction hash: {}".format(tip['transactionHash'])
@@ -1211,6 +1214,7 @@ async def start_cmd_handler(message: types.Message):
                             traceback.print_exc(file=sys.stdout)
 
                         if message.from_user.username in WITHDRAW_IN_PROCESS:
+                            await asyncio.sleep(1)
                             WITHDRAW_IN_PROCESS.remove(message.from_user.username)
                         if sendTx:
                             tx_text = "\nTransaction hash: {}".format(sendTx)
@@ -1373,6 +1377,7 @@ async def start_cmd_handler(message: types.Message):
                     await logchanbot(traceback.print_exc(file=sys.stdout))
 
                 if message.from_user.username in WITHDRAW_IN_PROCESS:
+                    await asyncio.sleep(1)
                     WITHDRAW_IN_PROCESS.remove(message.from_user.username)
                 if tip:
                     await add_tx_action_redis(json.dumps([random_string, "WITHDRAW", message.from_user.username, message.from_user.username, float("%.3f" % time.time()), message.text, "TELEGRAM", "COMPLETE"]), False)
@@ -1407,6 +1412,7 @@ async def start_cmd_handler(message: types.Message):
                 traceback.print_exc(file=sys.stdout)
 
             if message.from_user.username in WITHDRAW_IN_PROCESS:
+                await asyncio.sleep(1)
                 WITHDRAW_IN_PROCESS.remove(message.from_user.username)
             if withdrawTx:
                 await add_tx_action_redis(json.dumps([random_string, "WITHDRAW", message.from_user.username, message.from_user.username, float("%.3f" % time.time()), message.text, "TELEGRAM", "COMPLETE"]), False)
@@ -1542,6 +1548,7 @@ async def start_cmd_handler(message: types.Message):
             except Exception as e:
                 await logchanbot(traceback.format_exc())
             if message.from_user.username in WITHDRAW_IN_PROCESS:
+                await asyncio.sleep(1)
                 WITHDRAW_IN_PROCESS.remove(message.from_user.username)
             if tip:
                 get_decimal(COIN_NAME)
@@ -1668,6 +1675,7 @@ async def start_cmd_handler(message: types.Message):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         if message.from_user.username in WITHDRAW_IN_PROCESS:
+            await asyncio.sleep(1)
             WITHDRAW_IN_PROCESS.remove(message.from_user.username)
     else:
         message_text = text(bold("You have another tx in progress.\n"))

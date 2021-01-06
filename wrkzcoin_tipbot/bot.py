@@ -5456,7 +5456,7 @@ async def deposit(ctx, amount: str, coin: str):
 
     amount = amount.replace(",", "")
     try:
-        amount = float(amount)
+        amount = Decimal(amount)
     except ValueError:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid amount.')
@@ -5672,7 +5672,7 @@ async def createraffle(ctx, amount: str, coin: str, duration: str):
         return
     amount = amount.replace(",", "")
     try:
-        amount = float(amount)
+        amount = Decimal(amount)
     except ValueError:
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} invalid amount {amount}!')
         return
@@ -8833,7 +8833,7 @@ async def donate(ctx, amount: str, coin: str=None):
         real_amount = float(amount)
     else:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-        real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
+        real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else Decimal(amount)
     if is_maintenance_coin(COIN_NAME):
         await ctx.message.add_reaction(EMOJI_MAINTENANCE)
         await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} in maintenance.')
@@ -10149,7 +10149,7 @@ async def tipto(ctx, amount: str, coin: str, to_user: str):
     botLogChan = bot.get_channel(id=LOG_CHAN)
     amount = amount.replace(",", "")
     try:
-        amount = float(amount)
+        amount = Decimal(amount)
     except ValueError:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid amount.')
@@ -10304,7 +10304,7 @@ async def tip(ctx, amount: str, *args):
     amount = amount.replace(",", "")
 
     try:
-        amount = float(amount)
+        amount = Decimal(amount)
     except ValueError:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid amount.')
@@ -10752,7 +10752,7 @@ async def mtip(ctx, amount: str, *args):
     amount = amount.replace(",", "")
 
     try:
-        amount = float(amount)
+        amount = Decimal(amount)
     except ValueError:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid amount.')

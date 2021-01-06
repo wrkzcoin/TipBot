@@ -4312,11 +4312,31 @@ async def http_wallet_getbalance(address: str, coin: str, re_check: bool=True) -
                 await logchanbot(traceback.format_exc())
     contract = token_info['contract']
     url = token_info[token_info['http_using']]
-    if TOKEN_NAME == "XDAI":
+    if TOKEN_NAME == "XDAI" and token_info['http_using'] != "http_address_local":
         url = token_info['api_url'] + "?module=account&action=eth_get_balance&address="+address
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, headers={'Content-Type': 'application/json'}, timeout=timeout) as response:
+                    if response.status == 200:
+                        res_data = await response.read()
+                        res_data = res_data.decode('utf-8')
+                        await session.close()
+                        decoded_data = json.loads(res_data)
+                        if decoded_data and 'result' in decoded_data:
+                            if decoded_data['result'] == "0x":
+                                balance = 0
+                            else:
+                                balance = int(decoded_data['result'], 16)
+        except asyncio.TimeoutError:
+            print('TIMEOUT: get balance {} for {}s'.format(TOKEN_NAME, timeout))
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+    elif TOKEN_NAME == "XDAI" and token_info['http_using'] == "http_address_local":
+        data = '{"jsonrpc":"2.0","method":"eth_getBalance","params":["'+address+'", "latest"],"id":1}'
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, headers={'Content-Type': 'application/json'}, json=json.loads(data), timeout=timeout) as response:
                     if response.status == 200:
                         res_data = await response.read()
                         res_data = res_data.decode('utf-8')

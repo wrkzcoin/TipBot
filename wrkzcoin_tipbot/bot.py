@@ -5096,12 +5096,12 @@ async def delhelp(ctx, section: str, what: str):
 @admin.command()
 async def update_balance(ctx, coin: str):
     COIN_NAME = coin.upper()
-    if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_ERC:
+    if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_ERC+ENABLE_COIN_NANO:
         await ctx.author.send(f'{ctx.author.mention} COIN **{COIN_NAME}** NOT SUPPORTED.')
         return
 
+    start = time.time()
     if COIN_NAME in ENABLE_COIN_ERC:
-        start = time.time()
         check_min = "N/A"
         try:
             await store.erc_check_pending_move_deposit(COIN_NAME, 'ALL')
@@ -5110,8 +5110,14 @@ async def update_balance(ctx, coin: str):
             await logchanbot(traceback.format_exc())
         end = time.time()
         await ctx.author.send(f'{ctx.author.mention} Done update balance: ' + COIN_NAME+ ' duration (s): '+str(end - start) + f"```\n{check_min}\n```")
+    elif COIN_NAME in ENABLE_COIN_NANO:
+        try:
+            await store.sql_nano_update_balances(COIN_NAME)
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
+        end = time.time()
+        await ctx.author.send(f'{ctx.author.mention} Done update balance: ' + COIN_NAME+ ' duration (s): '+str(end - start))
     else:
-        start = time.time()
         try:
             await store.sql_update_balances(COIN_NAME)
         except Exception as e:

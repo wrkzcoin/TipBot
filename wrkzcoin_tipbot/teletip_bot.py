@@ -688,6 +688,14 @@ async def start_cmd_handler(message: types.Message):
         await message.reply(reply_text)
         return
 
+    # check if account locked
+    account_lock = await alert_if_userlock(message.from_user.username, 'TELEGRAM')
+    if account_lock:
+        reply_text = "Your account is locked!"
+        await message.reply(reply_text)
+        return
+    # end of check if account locked
+
     content = ' '.join(message.text.split())
     args = content.split(" ")
 
@@ -863,6 +871,14 @@ async def start_cmd_handler(message: types.Message):
         await message.reply(reply_text)
         return
 
+    # check if account locked
+    account_lock = await alert_if_userlock(message.from_user.username, 'TELEGRAM')
+    if account_lock:
+        reply_text = "Your account is locked!"
+        await message.reply(reply_text)
+        return
+    # end of check if account locked
+
     content = ' '.join(message.text.split())
     args = content.split(" ")
 
@@ -1005,6 +1021,14 @@ async def start_cmd_handler(message: types.Message):
         reply_text = "I can not get your username."
         await message.reply(reply_text)
         return
+
+    # check if account locked
+    account_lock = await alert_if_userlock(message.from_user.username, 'TELEGRAM')
+    if account_lock:
+        reply_text = "Your account is locked!"
+        await message.reply(reply_text)
+        return
+    # end of check if account locked
 
     content = ' '.join(message.text.split())
     args = content.split(" ")
@@ -1439,6 +1463,14 @@ async def start_cmd_handler(message: types.Message):
         reply_text = "Can not do here. Please do it privately with my direct message."
         await message.reply(reply_text)
         return
+
+    # check if account locked
+    account_lock = await alert_if_userlock(message.from_user.username, 'TELEGRAM')
+    if account_lock:
+        reply_text = "Your account is locked!"
+        await message.reply(reply_text)
+        return
+    # end of check if account locked
 
     # check user claim:
     claim_interval = 24
@@ -2026,6 +2058,21 @@ async def add_tx_action_redis(action: str, delete_temp: bool = False):
                 redis_conn.lpush(key, action)
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
+
+
+async def alert_if_userlock(user_id: str, user_server: str="TELEGRAM"):
+    get_discord_userinfo = None
+    try:
+        get_discord_userinfo = await store.sql_discord_userinfo_get(user_id, user_server)
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    if get_discord_userinfo is None:
+        return None
+    else:
+        if get_discord_userinfo['locked'].upper() == "YES":
+            return True
+        else:
+            return None
 
 
 def seconds_str(time: float):

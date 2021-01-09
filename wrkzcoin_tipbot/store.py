@@ -2709,18 +2709,21 @@ async def sql_updatestat_by_server(server_id: str, numb_user: int, numb_bot: int
         await logchanbot(traceback.format_exc())
 
 
-async def sql_discord_userinfo_get(user_id: str):
+async def sql_discord_userinfo_get(user_id: str, user_server: str='DISCORD'):
     global pool
+    user_server = user_server.upper()
+    if user_server not in ['DISCORD', 'TELEGRAM']:
+        return
     try:
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 # select first
                 sql = """ SELECT * FROM discord_userinfo 
-                          WHERE `user_id` = %s """
-                await cur.execute(sql, (user_id,))
+                          WHERE `user_id` = %s AND `user_server`=%s """
+                await cur.execute(sql, (user_id, user_server))
                 result = await cur.fetchone()
-                return result
+                if result: return result
     except Exception as e:
         await logchanbot(traceback.format_exc())
     return None

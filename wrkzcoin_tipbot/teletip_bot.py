@@ -893,6 +893,16 @@ async def start_cmd_handler(message: types.Message):
         userid = to_user.split("@")[0]
         serverto = to_user.split("@")[1].upper()
 
+        if serverto not in ["DISCORD"]:
+            message_text = text(markdown.bold(f'Unsupported or unknown **{serverto}**'))
+            await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
+            return
+        else:
+            to_otheruser = await store.sql_get_userwallet(userid, COIN_NAME, serverto)
+            if to_otheruser is None:
+                message_text = text(markdown.bold(f'User {userid} is not in our DB for {serverto}!'))
+                await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
+                return
     amount = amount.replace(",", "")
     try:
         amount = float(amount)

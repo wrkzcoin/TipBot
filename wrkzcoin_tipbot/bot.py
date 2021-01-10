@@ -10246,7 +10246,7 @@ async def tipto(ctx, amount: str, coin: str, to_user: str):
     else:
         userid = to_user.split("@")[0]
         serverto = to_user.split("@")[1].upper()
-        if serverto not in ["TELEGRAM"]:
+        if serverto not in ["TELEGRAM", "REDDIT"]:
             msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} Unsupported or unknown **{serverto}**')
             await msg.add_reaction(EMOJI_OK_BOX)
             return

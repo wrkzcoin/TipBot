@@ -215,7 +215,7 @@ async def sql_user_balance_get_xfer_in(userID: str, coin: str, user_server: str 
         await logchanbot(traceback.format_exc())
     # redis_conn.set(key, json.dumps(decoded_data), ex=config.miningpoolstat.expired)
     user_server = user_server.upper()
-    if user_server not in ['DISCORD', 'TELEGRAM']:
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return
     userwallet = await sql_get_userwallet(userID, COIN_NAME, user_server)
     # assume insert time 2mn
@@ -265,7 +265,7 @@ async def sql_user_balance_get_xfer_in(userID: str, coin: str, user_server: str 
 async def sql_user_get_tipstat(userID: str, coin: str, update: bool=False, user_server: str = 'DISCORD'):
     global pool, redis_pool, redis_conn, redis_expired
     user_server = user_server.upper()
-    if user_server not in ['DISCORD', 'TELEGRAM']:
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return
     COIN_NAME = coin.upper()
     if COIN_NAME in ENABLE_COIN_ERC:
@@ -339,7 +339,7 @@ async def sql_user_get_tipstat(userID: str, coin: str, update: bool=False, user_
 
 async def sql_user_balance_adjust(userID: str, coin: str, update: bool=False, user_server: str = 'DISCORD'):
     user_server = user_server.upper()
-    if user_server not in ['DISCORD', 'TELEGRAM']:
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return
 
     COIN_NAME = coin.upper()
@@ -381,7 +381,7 @@ async def sql_user_balance_adjust(userID: str, coin: str, update: bool=False, us
 async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD'):
     global pool
     user_server = user_server.upper()
-    if user_server not in ['DISCORD', 'TELEGRAM']:
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return
     COIN_NAME = coin.upper()
     if COIN_NAME in ENABLE_COIN_ERC:
@@ -916,7 +916,7 @@ async def sql_mv_nano_single(user_from: str, to_user: str, amount: float, coin: 
     if coin_family != "NANO":
         return False
     user_server = user_server.upper()
-    if user_server not in ['DISCORD', 'TELEGRAM']:
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return
     try:
         await openConnection()
@@ -1419,7 +1419,7 @@ async def sql_credit(user_from: str, to_user: str, amount: float, coin: str, rea
 async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD', chat_id: int = 0, w=None):
     global pool
     user_server = user_server.upper()
-    if user_server not in ['DISCORD', 'TELEGRAM']:
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return
     if user_server == "TELEGRAM" and chat_id == 0:
         return
@@ -1564,7 +1564,7 @@ async def sql_update_user(userID, user_wallet_address, coin: str, user_server: s
     global redis_conn, pool
     COIN_NAME = coin.upper()
     user_server = user_server.upper()
-    if user_server not in ['DISCORD', 'TELEGRAM']:
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return
 
     if COIN_NAME in ENABLE_COIN_ERC:
@@ -1605,7 +1605,7 @@ async def redis_delete_userwallet(userID: str, coin: str, user_server: str = 'DI
     global redis_conn, redis_pool
     COIN_NAME = coin.upper()
     user_server = user_server.upper()
-    if user_server not in ['DISCORD', 'TELEGRAM']:
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return
     key = config.redis_setting.prefix_get_userwallet + user_server + "_" + userID + ":" + COIN_NAME
     try:
@@ -1656,7 +1656,7 @@ async def sql_get_userwallet(userID: str, coin: str, user_server: str = 'DISCORD
     global pool, redis_conn, redis_pool, redis_expired
     COIN_NAME = coin.upper()
     user_server = user_server.upper()
-    if user_server not in ['DISCORD', 'TELEGRAM']:
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return
     if COIN_NAME in ENABLE_COIN_ERC:
         coin_family = "ERC-20"
@@ -1790,7 +1790,7 @@ async def sql_get_countLastTip(userID, lastDuration: int):
 async def sql_mv_cn_single(user_from: str, user_to: str, amount: int, tiptype: str, coin: str, user_server: str = 'DISCORD'):
     global pool
     user_server = user_server.upper()
-    if user_server not in ['DISCORD', 'TELEGRAM']:
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
@@ -1940,7 +1940,7 @@ async def sql_external_cn_single_id(user_from: str, address_to: str, amount: int
 async def sql_external_cn_single_withdraw(user_from: str, amount: int, coin: str, user_server: str = 'DISCORD'):
     global pool
     user_server = user_server.upper()
-    if user_server not in ['DISCORD', 'TELEGRAM']:
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
@@ -2119,7 +2119,7 @@ async def sql_voucher_get_user(user_id: str, user_server: str='DISCORD', last: i
 async def sql_faucet_add(claimed_user: str, claimed_server: str, coin_name: str, claimed_amount: float, decimal: int, user_server: str = 'DISCORD'):
     global pool, redis_conn
     user_server = user_server.upper()
-    if user_server not in ['DISCORD', 'TELEGRAM']:
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return
     try:
         await openConnection()
@@ -2140,7 +2140,7 @@ async def sql_faucet_add(claimed_user: str, claimed_server: str, coin_name: str,
 async def sql_faucet_penalty_checkuser(userID: str, penalty_add: False, user_server: str = 'DISCORD'):
     global pool, redis_conn, redis_pool
     user_server = user_server.upper()
-    if user_server not in ['DISCORD', 'TELEGRAM']:
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return
     # Check if in redis already:
     key = config.redis_setting.prefix_faucet_take_penalty + user_server + "_" + userID
@@ -2166,7 +2166,7 @@ async def sql_faucet_penalty_checkuser(userID: str, penalty_add: False, user_ser
 async def sql_faucet_checkuser(userID: str, user_server: str = 'DISCORD'):
     global pool, redis_conn, redis_pool
     user_server = user_server.upper()
-    if user_server not in ['DISCORD', 'TELEGRAM']:
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return
 
     result = None
@@ -2195,7 +2195,7 @@ async def sql_faucet_checkuser(userID: str, user_server: str = 'DISCORD'):
 async def sql_faucet_count_user(userID: str, user_server: str = 'DISCORD'):
     global pool
     user_server = user_server.upper()
-    if user_server not in ['DISCORD', 'TELEGRAM']:
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return
     try:
         await openConnection()
@@ -2248,7 +2248,7 @@ async def sql_game_count_user(userID: str, lastDuration: int, user_server: str =
     global pool
     lapDuration = int(time.time()) - lastDuration
     user_server = user_server.upper()
-    if user_server not in ['DISCORD', 'TELEGRAM']:
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return
     try:
         await openConnection()
@@ -2273,7 +2273,7 @@ played_server: str, game_type: str, duration: int=0, user_server: str = 'DISCORD
     global pool
     game_result = game_result.replace("\t", "")
     user_server = user_server.upper()
-    if user_server not in ['DISCORD', 'TELEGRAM']:
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return
     try:
         await openConnection()
@@ -2295,7 +2295,7 @@ async def sql_game_free_add(game_result: str, played_user: str, win_lose: str, p
     global pool
     game_result = game_result.replace("\t", "")
     user_server = user_server.upper()
-    if user_server not in ['DISCORD', 'TELEGRAM']:
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return
     try:
         await openConnection()
@@ -2712,7 +2712,7 @@ async def sql_updatestat_by_server(server_id: str, numb_user: int, numb_bot: int
 async def sql_discord_userinfo_get(user_id: str, user_server: str='DISCORD'):
     global pool
     user_server = user_server.upper()
-    if user_server not in ['DISCORD', 'TELEGRAM']:
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return
     try:
         await openConnection()
@@ -2783,7 +2783,7 @@ async def sql_roach_add(main_id: str, roach_id: str, roach_name: str, main_name:
 async def sql_roach_get_by_id(roach_id: str, user_server: str = 'DISCORD'):
     global pool
     user_server = user_server.upper()
-    if user_server not in ['DISCORD', 'TELEGRAM']:
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return
     try:
         await openConnection()
@@ -3116,7 +3116,7 @@ async def sql_updateinfo_by_server(server_id: str, what: str, value: str):
 async def sql_mv_doge_single(user_from: str, to_user: str, amount: float, coin: str, tiptype: str, user_server: str = 'DISCORD'):
     global pool
     user_server = user_server.upper()
-    if user_server not in ['DISCORD', 'TELEGRAM']:
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return
     COIN_NAME = coin.upper()
     if COIN_NAME not in ENABLE_COIN_DOGE:
@@ -3165,7 +3165,7 @@ async def sql_mv_doge_multiple(user_from: str, user_tos, amount_each: float, coi
 async def sql_external_doge_single(user_from: str, amount: float, fee: float, to_address: str, coin: str, tiptype: str, user_server: str = 'DISCORD'):
     global pool
     user_server = user_server.upper()
-    if user_server not in ['DISCORD', 'TELEGRAM']:
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return
     COIN_NAME = coin.upper()
     if COIN_NAME not in ENABLE_COIN_DOGE:
@@ -3199,7 +3199,7 @@ async def sql_mv_xmr_single(user_from: str, to_user: str, amount: float, coin: s
     if coin_family != "XMR":
         return False
     user_server = user_server.upper()
-    if user_server not in ['DISCORD', 'TELEGRAM']:
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return
     try:
         await openConnection()
@@ -3274,7 +3274,7 @@ async def sql_external_xmr_single(user_from: str, amount: float, to_address: str
 
 async def sql_get_userwallet_by_paymentid(paymentid: str, coin: str, user_server: str = 'DISCORD'):
     global pool, redis_conn, redis_pool
-    if user_server not in ['DISCORD', 'TELEGRAM']:
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return
     COIN_NAME = coin.upper()
     user_server = user_server.upper()
@@ -3608,7 +3608,7 @@ async def sql_miningpoolstat_fetch(coin_name: str, user_id: str, user_name: str,
 respond_date: int, response: str, guild_id: str, guild_name: str, channel_id: str, is_cache: str='NO', user_server: str='DISCORD', using_browser: str='NO'):
     global pool
     user_server = user_server.upper()
-    if user_server not in ['DISCORD', 'TELEGRAM']:
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return
     try:
         await openConnection()
@@ -3630,7 +3630,7 @@ async def sql_add_tbfun(user_id: str, user_name: str, channel_id: str, guild_id:
 guild_name: str, funcmd: str, msg_content: str, user_server: str='DISCORD'):
     global pool
     user_server = user_server.upper()
-    if user_server not in ['DISCORD', 'TELEGRAM']:
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return
     try:
         await openConnection()
@@ -3944,7 +3944,7 @@ async def sql_help_doc_search(term: str, max_result: int=10):
 async def sql_count_open_order_by_sellerid(userID: str, user_server: str, status: str = None):
     global pool
     user_server = user_server.upper()
-    if user_server not in ['DISCORD', 'TELEGRAM']:
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return
 
     if status is None: status = 'OPEN'
@@ -3968,7 +3968,7 @@ async def sql_get_order_by_sellerid_pair_rate(sell_user_server: str, userid_sell
                                               real_amount_sell, real_amount_buy, fee_sell, fee_buy, status: str = 'OPEN'):
     global pool
     sell_user_server = sell_user_server.upper()
-    if sell_user_server not in ['DISCORD', 'TELEGRAM']:
+    if sell_user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return
 
     if real_amount_sell == 0 or real_amount_buy == 0 or fee_sell == 0 \
@@ -4006,7 +4006,7 @@ async def sql_store_openorder(msg_id: str, msg_content: str, coin_sell: str, rea
                               sell_user_server: str = 'DISCORD'):
     global pool
     sell_user_server = sell_user_server.upper()
-    if sell_user_server not in ['DISCORD', 'TELEGRAM']:
+    if sell_user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return
 
     coin_sell = coin_sell.upper()
@@ -4087,7 +4087,7 @@ async def sql_get_order_numb(order_num: str, status: str = None):
 async def sql_match_order_by_sellerid(userid_get: str, ref_numb: str, buy_user_server: str):
     global pool
     buy_user_server = buy_user_server.upper()
-    if buy_user_server not in ['DISCORD', 'TELEGRAM']:
+    if buy_user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return
     try:
         await openConnection()
@@ -4413,7 +4413,7 @@ async def sql_mv_erc_single(user_from: str, to_user: str, amount: float, coin: s
     TOKEN_NAME = coin.upper()
     token_info = await get_token_info(TOKEN_NAME)
     user_server = user_server.upper()
-    if user_server not in ['DISCORD', 'TELEGRAM']:
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return
     try:
         await openConnection()
@@ -5024,7 +5024,7 @@ async def sql_swap_balance_token(from_coin_name: str, from_real_amount: float, f
 to_real_amount: float, to_decimal: int, user_id: str, user_name: str, user_server: str='DISCORD'):	
     global pool
     user_server = user_server.upper()
-    if user_server not in ['DISCORD', 'TELEGRAM']:
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return
     try:	
         await openConnection()	
@@ -5064,7 +5064,7 @@ async def sql_swap_count_user(userID, lastDuration: int):
 async def raffle_get_all(user_server: str='DISCORD'):
     global pool
     user_server = user_server.upper()
-    if user_server not in ['DISCORD', 'TELEGRAM']:
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return
     try:
         await openConnection()	
@@ -5083,7 +5083,7 @@ async def raffle_get_all(user_server: str='DISCORD'):
 async def raffle_get_from_guild(guild: str, last_play: bool=False, user_server: str='DISCORD'):
     global pool
     user_server = user_server.upper()
-    if user_server not in ['DISCORD', 'TELEGRAM']:
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return
     try:
         await openConnection()	
@@ -5103,7 +5103,7 @@ async def raffle_get_from_guild(guild: str, last_play: bool=False, user_server: 
 async def raffle_get_from_by_id(idx: str, user_server: str='DISCORD', user_check: str=None):
     global pool
     user_server = user_server.upper()
-    if user_server not in ['DISCORD', 'TELEGRAM']:
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return
     try:	
         await openConnection()	
@@ -5141,7 +5141,7 @@ async def raffle_get_from_by_id(idx: str, user_server: str='DISCORD', user_check
 async def raffle_get_entry_by_entry_id(entry_id: str, user_server: str='DISCORD'):
     global pool
     user_server = user_server.upper()
-    if user_server not in ['DISCORD', 'TELEGRAM']:
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return
     try:	
         await openConnection()	
@@ -5162,7 +5162,7 @@ created_username: str, created_ts: int, ending_ts: str, user_server: str='DISCOR
     global pool	
     COIN_NAME = coin.upper()
     user_server = user_server.upper()
-    if user_server not in ['DISCORD', 'TELEGRAM']:
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return    
     try:	
         await openConnection()	
@@ -5185,7 +5185,7 @@ user_name: str, user_server: str='DISCORD'):
     global pool	
     COIN_NAME = coin.upper()
     user_server = user_server.upper()
-    if user_server not in ['DISCORD', 'TELEGRAM']:
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return    
     try:	
         await openConnection()	
@@ -5252,6 +5252,40 @@ async def raffle_cancel_id(raffle_id: int):
         await logchanbot(traceback.format_exc())	
     return False
 ## End of Raffle
+
+## Reddit
+async def reddit_check_exist(msg_name: str):
+    global pool
+    try:
+        await openConnection()	
+        async with pool.acquire() as conn:	
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM reddit_messages 
+                          WHERE `msg_name`=%s LIMIT 1 """
+                await cur.execute(sql, (msg_name))
+                result = await cur.fetchone()
+                if result: return result
+    except Exception as e:	
+        await logchanbot(traceback.format_exc())	
+    return None
+
+async def reddit_insert_msg(msg_id: str, msg_name: str, author_name: str, dest_name: str, msg_body: str, msg_body_html: str, msg_created: int):
+    global pool
+    try:
+        await openConnection()	
+        async with pool.acquire() as conn:	
+            async with conn.cursor() as cur:
+                sql = """ INSERT INTO reddit_messages (`msg_id`, `msg_name`, `author_name`, `dest_name`, `msg_body`, 
+                          `msg_body_html`, `msg_created`, `msg_inserted`) 	
+                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """	
+                await cur.execute(sql, (msg_id, msg_name, author_name, dest_name, msg_body, msg_body_html,
+                                        msg_created, int(time.time()),))
+                await conn.commit()	
+                return True	
+    except Exception as e:	
+        await logchanbot(traceback.format_exc())	
+    return None
+## End of Reddit
 
 
 # Steal from https://nitratine.net/blog/post/encryption-and-decryption-in-python/

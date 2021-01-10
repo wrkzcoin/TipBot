@@ -806,7 +806,7 @@ async def start_cmd_handler(message: types.Message):
                 message_text = 'Transactions cannot be bigger than ' + num_format_coin(Max_Tip, COIN_NAME) + COIN_NAME
                 valid_amount = False
             elif real_amount < Min_Tip:
-                message_text = 'Transactions cannot be bigger than ' + num_format_coin(Min_Tip, COIN_NAME) + COIN_NAME
+                message_text = 'Transactions cannot be smaller than ' + num_format_coin(Min_Tip, COIN_NAME) + COIN_NAME
                 valid_amount = False
             if valid_amount == False:
                 await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
@@ -893,7 +893,7 @@ async def start_cmd_handler(message: types.Message):
         userid = to_user.split("@")[0]
         serverto = to_user.split("@")[1].upper()
 
-        if serverto not in ["DISCORD"]:
+        if serverto not in ["DISCORD", "REDDIT"]:
             message_text = text(markdown.bold(f'Unsupported or unknown **{serverto}**'))
             await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
             return
@@ -985,7 +985,7 @@ async def start_cmd_handler(message: types.Message):
             message_text = 'Transactions cannot be bigger than ' + num_format_coin(Max_Tip, COIN_NAME) + COIN_NAME
             valid_amount = False
         elif real_amount < Min_Tip:
-            message_text = 'Transactions cannot be bigger than ' + num_format_coin(Min_Tip, COIN_NAME) + COIN_NAME
+            message_text = 'Transactions cannot be smaller than ' + num_format_coin(Min_Tip, COIN_NAME) + COIN_NAME
             valid_amount = False
         if valid_amount == False:
             await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
@@ -1083,7 +1083,7 @@ async def start_cmd_handler(message: types.Message):
     else:
         check_in = await store.coin_check_balance_address_in_users(wallet_address, COIN_NAME)
         if check_in:
-            message_text = text(bold("Can not send to this address::\n") + markdown.pre(wallet_address))
+            message_text = text(bold("Can not send to this address:\n") + markdown.pre(wallet_address))
             await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
             return
         COIN_NAME_CHECK = get_cn_coin_from_address(wallet_address)
@@ -1151,7 +1151,7 @@ async def start_cmd_handler(message: types.Message):
                 message_text = '\nTransactions cannot be bigger than ' + num_format_coin(Max_Tx, COIN_NAME) + COIN_NAME
                 valid_amount = False
             elif real_amount < Min_Tx:
-                message_text = '\nTransactions cannot be bigger than ' + num_format_coin(Min_Tx, COIN_NAME) + COIN_NAME
+                message_text = '\nTransactions cannot be smaller than ' + num_format_coin(Min_Tx, COIN_NAME) + COIN_NAME
                 valid_amount = False
             if valid_amount == False:
                 await message.reply(markdown.pre(message_text), parse_mode=ParseMode.MARKDOWN)
@@ -1377,7 +1377,7 @@ async def start_cmd_handler(message: types.Message):
             message_text = 'Transactions cannot be bigger than ' + num_format_coin(MaxTX, COIN_NAME) + COIN_NAME
             valid_amount = False
         elif real_amount < MinTx:
-            message_text = 'Transactions cannot be bigger than ' + num_format_coin(MinTx, COIN_NAME) + COIN_NAME
+            message_text = 'Transactions cannot be smaller than ' + num_format_coin(MinTx, COIN_NAME) + COIN_NAME
             valid_amount = False
         if valid_amount == False:
             await message.reply(message_text,
@@ -1684,7 +1684,7 @@ async def start_cmd_handler(message: types.Message):
         message_text = 'Insufficient balance to donate ' + num_format_coin(real_amount, COIN_NAME) + COIN_NAME
         valid_amount = False
     elif real_amount < Min_Tip:
-        message_text = 'Transactions cannot be bigger than ' + num_format_coin(Min_Tip, COIN_NAME) + COIN_NAME
+        message_text = 'Transactions cannot be smaller than ' + num_format_coin(Min_Tip, COIN_NAME) + COIN_NAME
         valid_amount = False
     if valid_amount == False:
         await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)

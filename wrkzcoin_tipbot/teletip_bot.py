@@ -1614,11 +1614,29 @@ async def start_cmd_handler(message: types.Message):
 
     content = ' '.join(message.text.split())
     args = content.split(" ")
-    if len(args) != 3:
-        reply_text = "Please use /donate amount COIN NAME"
+    if len(args) != 3 and len(args) != 2:
+        reply_text = "Please use /donate amount COIN NAME or /donate LIST"
         await message.reply(reply_text)
         return
-   
+    if len(args) == 2 and args[1].upper() == "LIST":
+        donate_list = await store.sql_get_donate_list()
+        item_list = []
+        for key, value in donate_list.items():
+            if value:
+                coin_value = num_format_coin(value, key.upper())+key.upper()
+                item_list.append(coin_value)
+        if len(item_list) > 0:
+            msg_coins = ', '.join(item_list)
+            reply_text = text(bold("Thank you for checking. So far, we got donations:"))+ markdown.pre("\n"+msg_coins)
+            await message.reply(reply_text, parse_mode=ParseMode.MARKDOWN)
+        else:
+            reply_text = "There is no donation yet!"
+            await message.reply(reply_text)
+        return
+    elif len(args) == 2:
+        reply_text = "Please use /donate amount COIN NAME or /donate LIST"
+        await message.reply(reply_text)
+        return
     COIN_NAME = args[2].upper()
     supported_coins = ", ".join(ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_XMR)
     if COIN_NAME not in supported_coins:

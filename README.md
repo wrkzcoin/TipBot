@@ -60,4 +60,5 @@ TODO
   * <https://www.dafont.com/digital-7.font>
 * https://bootsnipp.com/snippets/92xNm for template of deposit.bot.tips
 * https://bootsnipp.com/snippets/84kpo for footer of both redeem.bot.tips and deposit.bot.tips
+* https://github.com/jamescoxon/xrb_reddit_tipbot for our starting code for reddit TipBot
 * Coin creators, testers, donors in discord servers.

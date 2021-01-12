@@ -7,6 +7,7 @@ import redis, json
 import uuid, time
 import asyncio
 
+
 from generic_xmr.address_msr import address_msr as address_msr
 from generic_xmr.address_xmr import address_xmr as address_xmr
 from generic_xmr.address_upx import address_upx as address_upx
@@ -88,10 +89,9 @@ async def run_inbox_monitor():
                 #print(item)
                 check_msg = await store.reddit_check_exist(item.name)
                 if check_msg:
-                    print('Ignore message as already in DB')
                     continue
                 else:
-                    print('Found Author %s' % item.author.name)
+                    #print('Found Author %s' % item.author.name)
                     commands = item.body.split(" ")
                     #print(commands[0])
                     if commands[0].lower() == '!help':
@@ -165,6 +165,8 @@ async def run_inbox_monitor():
                             coin_str += COIN_ITEM + ": " + balance_actual + COIN_ITEM + "\n\n"
                         message_text = 'YOUR BALANCE SHEET:\n\n' + coin_str
                         item.reply(message_text)
+                        add_msg = await store.reddit_insert_msg(item.id, item.name, item.author.name, item.dest.name, item.body, item.body_html, int(item.created))
+                        continue
                     elif commands[0].lower() == '!send':
                         # !send amount coin address
                         try:
@@ -669,34 +671,9 @@ async def run_inbox_monitor():
                     await logchanbot(traceback.format_exc())
         except:
             print(traceback.format_exc())
+            await logchanbot(traceback.format_exc())
             print('Lost connection - restart')
-            break
-
-# Notify user
-async def notify_new_move_balance_user():
-    time_lap = 5
-    while True:
-        pending_tx = await store.sql_get_move_balance_table('NO', 'NO')
-        if pending_tx and len(pending_tx) > 0:
-            # let's notify_new_tx_user
-            for eachTx in pending_tx:
-                try:
-                    if eachTx['to_server'] == SERVER:
-                        user_found = await store.sql_get_userwallet(eachTx['to_userid'], eachTx['coin_name'], SERVER)
-                        if user_found:
-                            if eachTx['coin_name'] in ENABLE_COIN_ERC:
-                                eachTx['amount'] = float(eachTx['amount'])
-                            message_text = "You got a tip deposit:\n\nCoin: {}\nAmount: {}\nFrom: {}@{} ({})".format(eachTx['coin_name'], num_format_coin(eachTx['amount'], eachTx['coin_name']), eachTx['from_userid'], eachTx['from_server'], eachTx['from_name'])
-                            try:
-                                reddit.redditor(eachTx['to_userid']).message("You got a tip deposit {}".format(eachTx['coin_name']), message_text)
-                            except Exception as e:
-                                print(traceback.format_exc())
-                                await logchanbot(traceback.format_exc())
-                            update_receiver = await store.sql_update_move_balance_table(eachTx['id'], 'RECEIVER')
-                except Exception as e:
-                    print(traceback.format_exc())
-                    #await logchanbot(traceback.format_exc())
-        await asyncio.sleep(time_lap)
+    return True
 
 
 def is_maintenance_coin(coin: str):
@@ -867,13 +844,7 @@ def get_cn_coin_from_address(CoinAddress: str):
     return COIN_NAME
 
 
-async def main():
-    loop = asyncio.get_event_loop()
-    t1 = loop.create_task(run_inbox_monitor())
-    t2 = loop.create_task(notify_new_move_balance_user())
-    await t2, t1
-
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()  
-    loop.run_until_complete(main())  
+    loop.run_until_complete(run_inbox_monitor())  
     loop.close()  

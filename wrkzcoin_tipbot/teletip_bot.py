@@ -930,7 +930,7 @@ async def start_cmd_handler(message: types.Message):
         await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
         return
 
-    if serverto not in ["DISCORD"]:
+    if serverto not in ["DISCORD", "REDDIT"]:
         reply_text = f"Unsupported or unknown **{serverto}**"
         await message.reply(reply_text)
         return

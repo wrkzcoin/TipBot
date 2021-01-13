@@ -828,8 +828,8 @@ def get_cn_coin_from_address(CoinAddress: str):
         COIN_NAME = "XWP"
     elif CoinAddress.startswith("D") and len(CoinAddress) == 34:
         COIN_NAME = "DOGE"
-    elif (CoinAddress[0] in ["M", "L"]) and len(CoinAddress) == 34:
-        COIN_NAME = "LTC"
+    elif (CoinAddress[0] in ["M", "L", "4", "5"]) and len(CoinAddress) == 34:
+        COIN_NAME = None
     elif (CoinAddress[0] in ["P", "Q"]) and len(CoinAddress) == 34:
         COIN_NAME = "PGO"
     elif (CoinAddress[0] in ["3", "1"]) and len(CoinAddress) == 34:

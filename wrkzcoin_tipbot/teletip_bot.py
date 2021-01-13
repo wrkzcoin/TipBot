@@ -528,10 +528,16 @@ async def start_cmd_handler(message: types.Message):
                                                     parse_mode=ParseMode.MARKDOWN)
                                 return
                 else:
-                    reply_text = f"Unknown Ticker:\n{wallet_address}."
-                    await message.reply(reply_text,
-                                        parse_mode=ParseMode.MARKDOWN)
-                    return
+                    if coin is None:
+                        reply_text = "You need to add **COIN NAME** address."
+                        await message.reply(reply_text, parse_mode=ParseMode.MARKDOWN)
+                        return
+                    else:
+                        COIN_NAME = coin.upper()
+                        if COIN_NAME not in ENABLE_COIN_DOGE:
+                            reply_text = f"Unsupported Ticker:\n{wallet_address} for {COIN_NAME}."
+                            await message.reply(reply_text, parse_mode=ParseMode.MARKDOWN)
+                            return
 
             if COIN_NAME in ENABLE_COIN_ERC:
                 coin_family = "ERC-20"
@@ -1077,8 +1083,7 @@ async def start_cmd_handler(message: types.Message):
     if wallet_address.isalnum() == False:
         message_text = text(bold("Invalid address:\n"),
                             markdown.pre(wallet_address))
-        await message.reply(message_text,
-                            parse_mode=ParseMode.MARKDOWN)
+        await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
         return
     else:
         check_in = await store.coin_check_balance_address_in_users(wallet_address, COIN_NAME)
@@ -1088,9 +1093,10 @@ async def start_cmd_handler(message: types.Message):
             return
         COIN_NAME_CHECK = get_cn_coin_from_address(wallet_address)
         if not COIN_NAME_CHECK:
-            message_text = text(bold("Unknown coin name:\n") + markdown.pre(wallet_address))
-            await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
-            return
+            if COIN_NAME not in ENABLE_COIN + ENABLE_COIN_DOGE + ENABLE_COIN_ERC + ENABLE_COIN_NANO + ENABLE_XMR:
+                message_text = text(bold(f"Invalid {COIN_NAME} for address {wallet_address}") + markdown.pre("\nSupported coins:"+supported_coins))
+                await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
+                return
         elif COIN_NAME_CHECK != COIN_NAME:
             message_text = text(bold("Error getting address and coin name from:\n") + markdown.pre(wallet_address))
             await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
@@ -1776,7 +1782,6 @@ async def all_msg_handler(message: types.Message):
     # with message, we send types.ReplyKeyboardRemove() to hide the keyboard
 
 
-
 def get_cn_coin_from_address(CoinAddress: str):
     COIN_NAME = None
     if CoinAddress.startswith("Wrkz"):
@@ -1850,8 +1855,8 @@ def get_cn_coin_from_address(CoinAddress: str):
         COIN_NAME = "XWP"
     elif CoinAddress.startswith("D") and len(CoinAddress) == 34:
         COIN_NAME = "DOGE"
-    elif (CoinAddress[0] in ["M", "L"]) and len(CoinAddress) == 34:
-        COIN_NAME = "LTC"
+    elif (CoinAddress[0] in ["M", "L", "4", "5"]) and len(CoinAddress) == 34:
+        COIN_NAME = None
     elif (CoinAddress[0] in ["P", "Q"]) and len(CoinAddress) == 34:
         COIN_NAME = "PGO"
     elif (CoinAddress[0] in ["3", "1"]) and len(CoinAddress) == 34:

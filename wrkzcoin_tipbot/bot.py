@@ -8307,9 +8307,17 @@ async def register(ctx, wallet_address: str, coin: str=None):
                         await msg.add_reaction(EMOJI_OK_BOX)
                         return
         else:
-            await ctx.message.add_reaction(EMOJI_WARNING)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Unknown Ticker.')
-            return
+            if coin is None:
+                await ctx.message.add_reaction(EMOJI_WARNING)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} you need to add **COIN NAME** after address.')
+                return
+            else:
+                COIN_NAME = coin.upper()
+                if COIN_NAME not in ENABLE_COIN_DOGE:
+                    await ctx.message.add_reaction(EMOJI_WARNING)
+                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Unsupported coin **{COIN_NAME}**.')
+                    return
+
     if COIN_NAME in ENABLE_COIN_ERC:
         coin_family = "ERC-20"
     else:
@@ -11530,7 +11538,7 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
     if COIN_NAME is None and CoinAddress.startswith("0x"):
         if coin is None:
             await ctx.message.add_reaction(EMOJI_WARNING)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} you need to add **TOKEN NAME** address.')
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} you need to add **TOKEN NAME** after address.')
             return
         else:
             COIN_NAME = coin.upper()
@@ -11563,6 +11571,18 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
                                      f'`{CoinAddress}`')
                 await msg.add_reaction(EMOJI_OK_BOX)
                 return
+    elif COIN_NAME is None:
+        if coin is None:
+            await ctx.message.add_reaction(EMOJI_WARNING)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} you need to add **COIN NAME** after address.')
+            return
+        else:
+            COIN_NAME = coin.upper()
+            if COIN_NAME not in ENABLE_COIN_DOGE:
+                await ctx.message.add_reaction(EMOJI_WARNING)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Unsupported coin **{COIN_NAME}**.')
+                return
+
     coin_family = None
     if not is_coin_txable(COIN_NAME):
         msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} TX is currently disable for {COIN_NAME}.')
@@ -15172,8 +15192,8 @@ def get_cn_coin_from_address(CoinAddress: str):
         COIN_NAME = "XWP"
     elif CoinAddress.startswith("D") and len(CoinAddress) == 34:
         COIN_NAME = "DOGE"
-    elif (CoinAddress[0] in ["M", "L"]) and len(CoinAddress) == 34:
-        COIN_NAME = "LTC"
+    elif (CoinAddress[0] in ["M", "L", "4", "5"]) and len(CoinAddress) == 34:
+        COIN_NAME = None
     elif (CoinAddress[0] in ["P", "Q"]) and len(CoinAddress) == 34:
         COIN_NAME = "PGO"
     elif (CoinAddress[0] in ["3", "1"]) and len(CoinAddress) == 34:

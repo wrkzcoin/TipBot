@@ -518,7 +518,6 @@ async def on_ready():
     print(bot.user.id)
     print('------')
     print("Guilds: {}".format(len(bot.guilds)))
-    print("Users: {}".format(sum([x.member_count for x in bot.guilds])))
     print("Bot invitation link: " + BOT_INVITELINK)
     if HANGMAN_WORDS and len(HANGMAN_WORDS) > 0: print('Loaded {} words for hangman.'.format(len(HANGMAN_WORDS)))
     game = discord.Game(name="making crypto fun!")
@@ -13236,8 +13235,6 @@ async def stats(ctx, coin: str = None):
         await ctx.message.add_reaction(EMOJI_MAINTENANCE)
 
     if COIN_NAME == "BOT":
-        await bot.wait_until_ready()
-        get_all_m = bot.get_all_members()
         total_claimed = '{:,.0f}'.format(await store.sql_faucet_count_all())
         total_tx = await store.sql_count_tx_all()
         embed = discord.Embed(title="[ TIPBOT ]", description="TipBot Stats", timestamp=datetime.utcnow(), color=0xDEADBF)
@@ -13245,9 +13242,12 @@ async def stats(ctx, coin: str = None):
         embed.add_field(name="Bot ID", value=str(bot.user.id), inline=True)
         embed.add_field(name="Guilds", value='{:,.0f}'.format(len(bot.guilds)), inline=True)
         embed.add_field(name="Shards", value='{:,.0f}'.format(bot.shard_count), inline=True)
-        embed.add_field(name="Total Online", value='{:,.0f}'.format(sum(1 for m in get_all_m if m.status == discord.Status.online)), inline=True)
-        embed.add_field(name="Users", value='{:,.0f}'.format(sum([x.member_count for x in bot.guilds])), inline=True)
-        embed.add_field(name="Channels", value='{:,.0f}'.format(sum(1 for g in bot.guilds for _ in g.channels)), inline=True)
+        try:
+            embed.add_field(name="Total Online", value='{:,.0f}'.format(sum(1 for m in bot.get_all_members() if m.status == discord.Status.online)), inline=True)
+            embed.add_field(name="Users", value='{:,.0f}'.format(sum(1 for m in bot.get_all_members() if m.bot == False)), inline=True)
+            embed.add_field(name="Bots", value='{:,.0f}'.format(sum(1 for m in bot.get_all_members() if m.bot == True)), inline=True)
+        except Exception as e:
+            pass
         embed.add_field(name="Total faucet claims", value=total_claimed, inline=True)
         embed.add_field(name="Total tip operations", value='{:,.0f} off-chain, {:,.0f} on-chain'.format(total_tx['off_chain'], total_tx['on_chain']), inline=False)
         try:
@@ -15125,6 +15125,8 @@ def get_cn_coin_from_address(CoinAddress: str):
         COIN_NAME = "WRKZ"
     elif CoinAddress.startswith("dg"):
         COIN_NAME = "DEGO"
+    elif CoinAddress.startswith("Nimb"):
+        COIN_NAME = "NIMB"
     elif CoinAddress.startswith("cat1"):
         COIN_NAME = "CX"
     elif CoinAddress.startswith("XCR"):
@@ -15459,7 +15461,6 @@ async def on_command_error(ctx, error):
 
 # Update number of user, bot, channel
 async def update_user_guild():
-    await bot.wait_until_ready()
     while not bot.is_closed():
         for g in bot.guilds:
             num_channel = sum(1 for _ in g.channels)

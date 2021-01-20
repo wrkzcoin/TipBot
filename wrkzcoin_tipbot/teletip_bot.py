@@ -760,6 +760,13 @@ async def start_cmd_handler(message: types.Message):
             await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
             return
         else:
+            # check if account tip to is locked
+            account_lock = await alert_if_userlock(user_to, 'TELEGRAM')
+            if account_lock:
+                reply_text = f"Account @{user_to} is locked! You cannot tip to him/her."
+                await message.reply(reply_text)
+                return
+            # end of check if account locked
             to_user = to_teleuser['chat_id']
             if COIN_NAME in ENABLE_COIN_ERC:
                 coin_family = "ERC-20"

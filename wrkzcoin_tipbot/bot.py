@@ -5324,6 +5324,7 @@ and len(GAME_DICE_IN_PRGORESS) == 0 and len(GAME_MAZE_IN_PROCESS) == 0 and len(C
         try:
             pending_msg = []
             count = 0
+            list_pending = ""
             if len(TX_IN_PROCESS) > 0:
                 string_ints = [str(num) for num in TX_IN_PROCESS]
                 list_pending += ', '.join(string_ints)

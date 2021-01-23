@@ -9179,6 +9179,11 @@ async def take(ctx, info: str=None):
         await ctx.message.add_reaction(EMOJI_LOCKED)
         return
 
+    # offline can not take
+    if ctx.author.status == discord.Status.offline:
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Offline status cannot claim faucet.')
+        return
+
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'take')
     if account_lock:
@@ -10183,6 +10188,11 @@ async def tipto(ctx, amount: str, coin: str, to_user: str):
     if ctx.guild and ctx.guild.id == TRTL_DISCORD and COIN_NAME != "TRTL":
         return
 
+    # offline can not tipto
+    if ctx.author.status == discord.Status.offline:
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Offline status cannot use this.')
+        return
+
     if not is_coin_tipable(COIN_NAME):
         msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} TIPPING is currently disable for {COIN_NAME}.')
         await msg.add_reaction(EMOJI_OK_BOX)
@@ -10368,6 +10378,11 @@ async def tip(ctx, amount: str, *args):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} not in allowed coins set by server manager.')
         return
     # End of checking allowed coins
+
+    # offline can not tip
+    if ctx.author.status == discord.Status.offline:
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Offline status cannot claim faucet.')
+        return
 
     if is_maintenance_coin(COIN_NAME):
         await ctx.message.add_reaction(EMOJI_MAINTENANCE)

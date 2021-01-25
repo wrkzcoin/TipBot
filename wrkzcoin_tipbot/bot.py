@@ -9181,6 +9181,7 @@ async def take(ctx, info: str=None):
 
     # offline can not take
     if ctx.author.status == discord.Status.offline:
+        await ctx.message.add_reaction(EMOJI_QUESTEXCLAIM)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Offline status cannot claim faucet.')
         return
 
@@ -10381,7 +10382,8 @@ async def tip(ctx, amount: str, *args):
 
     # offline can not tip
     if ctx.author.status == discord.Status.offline:
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Offline status cannot claim faucet.')
+        await ctx.message.add_reaction(EMOJI_QUESTEXCLAIM)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Offline status cannot tip people.')
         return
 
     if is_maintenance_coin(COIN_NAME):

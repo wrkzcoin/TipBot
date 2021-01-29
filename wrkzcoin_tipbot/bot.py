@@ -9220,6 +9220,11 @@ async def take(ctx, info: str=None):
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
                 return
+        if serverinfo and serverinfo['enable_faucet'] == "NO":
+            await botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried **take** in {ctx.guild.name} / {ctx.guild.id} which is disable.')
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention}, **Faucet** in this guild is disable due to abuse or penalty. If you think this is an error, please join https://chat.wrkz.work')
+            return
+
     except (discord.errors.NotFound, discord.errors.Forbidden) as e:
         pass
     except Exception as e:

@@ -1525,7 +1525,7 @@ async def start_cmd_handler(message: types.Message):
     else:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     if COIN_NAME == "DOGE":
-        amount = float(amount / 50)
+        amount = float(amount / 400)
     elif COIN_NAME in HIGH_DECIMAL_COIN:
         amount = float("%.5f" % (amount / get_decimal(COIN_NAME))) * get_decimal(COIN_NAME)
 

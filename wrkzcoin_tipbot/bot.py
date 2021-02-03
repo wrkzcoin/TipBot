@@ -9284,7 +9284,7 @@ async def take(ctx, info: str=None):
     else:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     if COIN_NAME == "DOGE":
-        amount = float(amount / 50)
+        amount = float(amount / 400)
     elif COIN_NAME in HIGH_DECIMAL_COIN:
         amount = float("%.5f" % (amount / get_decimal(COIN_NAME))) * get_decimal(COIN_NAME)
 
@@ -10019,11 +10019,6 @@ and reaction.message.id == msg.id and str(reaction.emoji) == EMOJI_PARTY
                 await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
             numMsg = 0
             for member_id in attend_list_id:
-                # Update tipstat
-                try:
-                    update_tipstat = await store.sql_user_get_tipstat(str(member_id), COIN_NAME, True, 'DISCORD')
-                except Exception as e:
-                    print(traceback.format_exc())
                 member = bot.get_user(id=member_id)
                 if ctx.message.author.id != member.id and member.id != bot.user.id:
                     if str(member.id) not in notifyList:
@@ -11461,12 +11456,7 @@ async def tipall(ctx, amount: str, coin: str, option: str=None):
             await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
         numMsg = 0
         for member in listMembers:
-            # Update tipstat
-            try:
-                update_tipstat = await store.sql_user_get_tipstat(str(member.id), COIN_NAME, True, 'DISCORD')
-            except Exception as e:
-                print(traceback.format_exc())
-            if ctx.message.author.id != member.id and member.id != bot.user.id:
+            if ctx.message.author.id != member.id and member.id != bot.user.id and len(listMembers) < 15:
                 if str(member.id) not in notifyList:
                     # random user to DM
                     dm_user = bool(random.getrandbits(1)) if len(listMembers) > config.tipallMax_LimitDM else True
@@ -15975,12 +15965,7 @@ async def _tip(ctx, amount, coin: str, if_guild: bool=False):
             await logchanbot(traceback.format_exc())
         try:
             for member in listMembers:
-                # Update tipstat
-                try:
-                    update_tipstat = await store.sql_user_get_tipstat(str(member.id), COIN_NAME, True, 'DISCORD')
-                except Exception as e:
-                    print(traceback.format_exc())
-                if ctx.message.author.id != member.id and bot.user.id != member.id and str(member.id) not in notifyList:
+                if ctx.message.author.id != member.id and bot.user.id != member.id and len(listMembers) < 15 and str(member.id) not in notifyList:
                     try:
                         await member.send(f'{EMOJI_MONEYFACE} You got a {tip_type_text} of  {num_format_coin(real_amount, COIN_NAME)} '
                                           f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{ctx.guild.name} #{ctx.channel.name}`\n'
@@ -16223,17 +16208,12 @@ async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str 
         mention_list_name = ''
         guild_members = ctx.guild.members
         for member_id in list_talker:
-            # Update tipstat
-            try:
-                update_tipstat = await store.sql_user_get_tipstat(str(member_id), COIN_NAME, True, 'DISCORD')
-            except Exception as e:
-                print(traceback.format_exc())
             # print(member.name) # you'll just print out Member objects your way.
             if ctx.message.author.id != int(member_id):
                 member = bot.get_user(id=int(member_id))
                 if member and member.bot == False and member in guild_members:
                     mention_list_name += '{}#{} '.format(member.name, member.discriminator)
-                    if str(member_id) not in notifyList:
+                    if len(list_talker) < 10 and str(member_id) not in notifyList:
                         try:
                             await member.send(
                                 f'{EMOJI_MONEYFACE} You got a {tip_type_text} of `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}` '

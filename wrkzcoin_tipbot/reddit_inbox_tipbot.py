@@ -29,7 +29,8 @@ reddit = praw.Reddit(user_agent=config.reddit.user_agent,
                      client_id=config.reddit.client_id,
                      client_secret=config.reddit.client_secret,
                      username=config.reddit.username,
-                     password=config.reddit.password)
+                     password=config.reddit.password,
+                     check_for_async=False)
 
 # db = dataset.connect('sqlite:///reddit.db')
 # get a reference to the table 'user'

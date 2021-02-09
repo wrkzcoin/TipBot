@@ -1518,7 +1518,13 @@ async def start_cmd_handler(message: types.Message):
     while is_maintenance_coin(COIN_NAME):
         COIN_NAME = random.choice(FAUCET_COINS)
 
-    amount = random.randint(FAUCET_MINMAX[COIN_NAME][0]*get_decimal(COIN_NAME), FAUCET_MINMAX[COIN_NAME][1]*get_decimal(COIN_NAME))
+    if COIN_NAME in ENABLE_COIN_ERC:
+        token_info = await store.get_token_info(COIN_NAME)
+        decimal_pts = token_info['token_decimal']
+    else:
+        decimal_pts = int(math.log10(get_decimal(COIN_NAME)))
+
+    amount = random.randint(FAUCET_MINMAX[COIN_NAME][0]*10**decimal_pts, FAUCET_MINMAX[COIN_NAME][1]*10**decimal_pts)
 
     if COIN_NAME in ENABLE_COIN_ERC:
         coin_family = "ERC-20"
@@ -1539,14 +1545,12 @@ async def start_cmd_handler(message: types.Message):
         Max_Tip = token_info['real_max_tip']
         Min_Tx = token_info['real_min_tx']
         Max_Tx = token_info['real_max_tx']
-        coin_decimal = 10**token_info['token_decimal']
     else:
         confim_depth = get_confirm_depth(COIN_NAME)
         Min_Tip = get_min_mv_amount(COIN_NAME)
         Max_Tip = get_max_mv_amount(COIN_NAME)
         Min_Tx = get_min_tx_amount(COIN_NAME)
         Max_Tx = get_max_tx_amount(COIN_NAME)
-        coin_decimal = get_decimal(COIN_NAME)
 
     real_amount = amount
     userdata_balance = await store.sql_user_balance('teletip_bot', COIN_NAME, 'TELEGRAM')
@@ -1606,9 +1610,8 @@ async def start_cmd_handler(message: types.Message):
                 await asyncio.sleep(1)
                 WITHDRAW_IN_PROCESS.remove(message.from_user.username)
             if tip:
-                get_decimal(COIN_NAME)
                 try:
-                    faucet_add = await store.sql_faucet_add(message.from_user.username, message.chat.id, COIN_NAME, real_amount, coin_decimal, "TELEGRAM")
+                    faucet_add = await store.sql_faucet_add(message.from_user.username, message.chat.id, COIN_NAME, real_amount, 10**decimal_pts, "TELEGRAM")
                     message_text = text(bold("You received free coin:"), markdown.pre("\nAmount: {}{}".format(num_format_coin(real_amount, COIN_NAME), COIN_NAME)), "\nConsider tipping me if you like this :).")
                     await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
                 except Exception as e:

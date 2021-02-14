@@ -36,6 +36,15 @@ from web3 import Web3
 from web3.middleware import geth_poa_middleware
 from ethtoken.abi import EIP20_ABI
 
+from tronpy import AsyncTron
+from tronpy.async_contract import AsyncContract, ShieldedTRC20, AsyncContractMethod
+from tronpy.providers.async_http import AsyncHTTPProvider
+from tronpy.exceptions import AddressNotFound
+from tronpy.keys import PrivateKey
+
+
+from httpx import AsyncClient, Timeout, Limits
+
 from eth_account import Account
 Account.enable_unaudited_hdwallet_features()
 
@@ -56,10 +65,12 @@ ENABLE_XMR = config.Enable_Coin_XMR.split(",")
 ENABLE_COIN_DOGE = config.Enable_Coin_Doge.split(",")
 ENABLE_COIN_NANO = config.Enable_Coin_Nano.split(",")
 ENABLE_COIN_ERC = config.Enable_Coin_ERC.split(",")
+ENABLE_COIN_TRC = config.Enable_Coin_TRC.split(",")
 POS_COIN = config.PoS_Coin.split(",")
 
 # Coin using wallet-api
 WALLET_API_COIN = config.Enable_Coin_WalletApi.split(",")
+
 
 def init():
     global redis_pool
@@ -270,6 +281,8 @@ async def sql_user_get_tipstat(userID: str, coin: str, update: bool=False, user_
     COIN_NAME = coin.upper()
     if COIN_NAME in ENABLE_COIN_ERC:
         coin_family = "ERC-20"
+    elif COIN_NAME in ENABLE_COIN_TRC:
+        coin_family = "TRC-20"
     else:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     key = f"TIPBOT:TIPSTAT_{COIN_NAME}:" + f"{user_server}_{userID}"
@@ -323,6 +336,13 @@ async def sql_user_get_tipstat(userID: str, coin: str, update: bool=False, user_
                     result = await cur.fetchone()
                     if result:
                         user_stat =  {'tx_out': result['ex_tip'], 'tx_in': result['in_tip']}
+                elif coin_family == "TRC-20":
+                    sql = """ SELECT (SELECT COUNT(*) FROM trx_mv_tx WHERE `from_userid` = %s AND `token_name`=%s ) as ex_tip,
+                                     (SELECT COUNT(*) FROM trx_mv_tx WHERE `to_userid` = %s AND `token_name`=%s ) as in_tip """
+                    await cur.execute(sql, (userID, COIN_NAME, userID, COIN_NAME,))
+                    result = await cur.fetchone()
+                    if result:
+                        user_stat =  {'tx_out': result['ex_tip'], 'tx_in': result['in_tip']}
     except Exception as e:
         print(traceback.format_exc())
         await logchanbot(traceback.format_exc())
@@ -349,7 +369,7 @@ async def sql_user_balance_adjust(userID: str, coin: str, update: bool=False, us
             if redis_conn is None: redis_conn = redis.Redis(connection_pool=redis_pool)
             if redis_conn and redis_conn.exists(key):
                 balance = redis_conn.get(key).decode()
-                if COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_DOGE:
+                if COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC+ENABLE_COIN_DOGE:
                     return float(balance)
                 elif COIN_NAME in ENABLE_COIN+ENABLE_COIN_NANO+ENABLE_XMR:
                     return int(balance)
@@ -358,9 +378,9 @@ async def sql_user_balance_adjust(userID: str, coin: str, update: bool=False, us
 
     userdata_balance = await sql_user_balance(userID, COIN_NAME, user_server)
     xfer_in = 0
-    if COIN_NAME not in ENABLE_COIN_ERC:
+    if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         xfer_in = await sql_user_balance_get_xfer_in(userID, COIN_NAME, user_server)
-    if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
+    if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
     elif COIN_NAME in ENABLE_COIN_NANO:
         actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
@@ -386,6 +406,8 @@ async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD')
     COIN_NAME = coin.upper()
     if COIN_NAME in ENABLE_COIN_ERC:
         coin_family = "ERC-20"
+    elif COIN_NAME in ENABLE_COIN_TRC:
+        coin_family = "TRC-20"
     else:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     try:
@@ -575,6 +597,43 @@ async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD')
                         Deposit = result['Deposit']
                     else:
                         Deposit = 0
+                elif coin_family == "TRC-20":
+                    token_info = await get_token_info(COIN_NAME)
+                    confirmed_depth = token_info['deposit_confirm_depth']
+                    # When sending tx out, (negative)
+                    sql = """ SELECT SUM(real_amount+real_external_fee) AS TxExpense FROM trx_external_tx 
+                              WHERE `user_id`=%s AND `token_name` = %s AND `user_server`=%s """
+                    await cur.execute(sql, (userID, COIN_NAME, user_server))
+                    result = await cur.fetchone()
+                    if result:
+                        TxExpense = result['TxExpense']
+                    else:
+                        TxExpense = 0
+
+                    sql = """ SELECT SUM(real_amount) AS Expense FROM trx_mv_tx WHERE `from_userid`=%s AND `token_name` = %s AND `user_server`=%s """
+                    await cur.execute(sql, (userID, COIN_NAME, user_server))
+                    result = await cur.fetchone()
+                    if result:
+                        Expense = result['Expense']
+                    else:
+                        Expense = 0
+
+                    sql = """ SELECT SUM(real_amount) AS Income FROM trx_mv_tx WHERE `to_userid`=%s AND `token_name` = %s AND `user_server`=%s """
+                    await cur.execute(sql, (userID, COIN_NAME, user_server))
+                    result = await cur.fetchone()
+                    if result:
+                        Income = result['Income']
+                    else:
+                        Income = 0
+                    # in case deposit fee -real_deposit_fee
+                    sql = """ SELECT SUM(real_amount - real_deposit_fee) AS Deposit FROM trx_move_deposit WHERE `user_id`=%s 
+                              AND `token_name` = %s AND `confirmed_depth`>= %s AND `status`=%s """
+                    await cur.execute(sql, (userID, COIN_NAME, confirmed_depth, 'CONFIRMED'))
+                    result = await cur.fetchone()
+                    if result:
+                        Deposit = result['Deposit']
+                    else:
+                        Deposit = 0
                 # Credit by admin is positive (Positive)
                 sql = """ SELECT SUM(amount) AS Credited FROM credit_balance WHERE `coin_name`=%s AND `to_userid`=%s 
                       AND `user_server`=%s """
@@ -698,7 +757,7 @@ async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD')
 
 
                 # discord_swap_token
-                if COIN_NAME in ENABLE_COIN_ERC:
+                if COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
                     sql = """ SELECT SUM(from_real_amount) AS swap_token_out FROM discord_swap_token WHERE `from_coin_name`=%s AND `user_id`=%s  
                               AND `user_server`=%s
                           """
@@ -711,7 +770,7 @@ async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD')
                 swap_token_out = 0
                 if result and ('swap_token_out' in result) and result['swap_token_out']:
                     swap_token_out = result['swap_token_out']
-                if COIN_NAME in ENABLE_COIN_ERC:
+                if COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
                     sql = """ SELECT SUM(to_real_amount) AS swap_token_in FROM discord_swap_token WHERE `to_coin_name`=%s AND `user_id`=%s  
                               AND `user_server`=%s
                           """
@@ -822,7 +881,7 @@ async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD')
                     + int(balance['move_in']) - int(balance['move_out']) \
                     + int(balance['raffle_reward']) - int(balance['raffle_fee']) \
                     + int(balance['swap_token_in']) - int(balance['swap_token_out'])
-                elif coin_family == "ERC-20":
+                elif coin_family == "ERC-20" or coin_family == "TRC-20":
                     balance['Deposit'] = float("%.3f" % Deposit) if Deposit else 0
                     balance['Expense'] = float("%.3f" % Expense) if Expense else 0
                     balance['Income'] = float("%.3f" % Income) if Income else 0
@@ -1427,6 +1486,8 @@ async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD', cha
     coin_family = "TRTL"
     if COIN_NAME in ENABLE_COIN_ERC:
         coin_family = "ERC-20"
+    elif COIN_NAME in ENABLE_COIN_TRC:
+        coin_family = "TRC-20"
     else:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     try:
@@ -1455,6 +1516,10 @@ async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD', cha
                     sql = """ SELECT * FROM erc_user WHERE `user_id`=%s AND `token_name` = %s AND `user_server`=%s LIMIT 1 """
                     await cur.execute(sql, (str(userID), COIN_NAME, user_server))
                     result = await cur.fetchone()
+                elif coin_family == "TRC-20":
+                    sql = """ SELECT * FROM trx_user WHERE `user_id`=%s AND `token_name` = %s AND `user_server`=%s LIMIT 1 """
+                    await cur.execute(sql, (str(userID), COIN_NAME, user_server))
+                    result = await cur.fetchone()
                 if result is None:
                     balance_address = None
                     main_address = None
@@ -1473,6 +1538,8 @@ async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD', cha
                         balance_address = await wallet.nano_register(COIN_NAME, user_server)
                     elif coin_family == "ERC-20":
                         balance_address = w['address']
+                    elif coin_family == "TRC-20":
+                        balance_address = w['base58check_address']
                     if balance_address is None:
                         print('Internal error during call register wallet-api')
                         return
@@ -1513,6 +1580,14 @@ async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD', cha
                             await cur.execute(sql, (COIN_NAME, token_info['contract'].lower(), str(userID), w['address'].lower(), int(time.time()), 
                                               token_info['token_decimal'], encrypt_string(w['seed']), encrypt_string(w['private_key']), user_server))
                             await conn.commit()
+                        elif coin_family == "TRC-20":
+                            token_info = await get_token_info(COIN_NAME)
+                            sql = """ INSERT INTO trx_user (`token_name`, `contract`, `user_id`, `balance_wallet_address`, `hex_address`, `address_ts`, 
+                                      `token_decimal`, `private_key`, `public_key`, `user_server`) 
+                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                            await cur.execute(sql, (COIN_NAME, token_info['contract'], str(userID), w['base58check_address'], w['hex_address'], int(time.time()), 
+                                              token_info['token_decimal'], encrypt_string(w['private_key']), encrypt_string(w['public_key']), user_server))
+                            await conn.commit()
                     return balance_address
                 else:
                     return result
@@ -1527,6 +1602,8 @@ async def sql_update_user_chat_id(userID, coin: str, chat_id: int, user_server: 
     COIN_NAME = coin.upper()
     if COIN_NAME in ENABLE_COIN_ERC:
         coin_family = "ERC-20"
+    elif COIN_NAME in ENABLE_COIN_TRC:
+        coin_family = "TRC-20"
     else:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     try:
@@ -1553,6 +1630,10 @@ async def sql_update_user_chat_id(userID, coin: str, chat_id: int, user_server: 
                     sql = """ UPDATE erc_user SET chat_id=%s WHERE `user_id`=%s AND `token_name` = %s AND `user_server`=%s LIMIT 1 """               
                     await cur.execute(sql, (chat_id, str(userID), COIN_NAME, user_server))
                     await conn.commit()
+                elif coin_family == "TRC-20":
+                    sql = """ UPDATE trx_user SET chat_id=%s WHERE `user_id`=%s AND `token_name` = %s AND `user_server`=%s LIMIT 1 """               
+                    await cur.execute(sql, (chat_id, str(userID), COIN_NAME, user_server))
+                    await conn.commit()
                 return True
     except Exception as e:
         await logchanbot(traceback.format_exc())
@@ -1569,6 +1650,8 @@ async def sql_update_user(userID, user_wallet_address, coin: str, user_server: s
 
     if COIN_NAME in ENABLE_COIN_ERC:
         coin_family = "ERC-20"
+    elif COIN_NAME in ENABLE_COIN_TRC:
+        coin_family = "TRC-20"
     else:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     try:
@@ -1593,6 +1676,10 @@ async def sql_update_user(userID, user_wallet_address, coin: str, user_server: s
                     await conn.commit()
                 elif coin_family == "ERC-20":
                     sql = """ UPDATE erc_user SET user_wallet_address=%s WHERE `user_id`=%s AND `token_name` = %s AND `user_server`=%s LIMIT 1 """               
+                    await cur.execute(sql, (user_wallet_address, str(userID), COIN_NAME, user_server))
+                    await conn.commit()
+                elif coin_family == "TRC-20":
+                    sql = """ UPDATE trx_user SET user_wallet_address=%s WHERE `user_id`=%s AND `token_name` = %s AND `user_server`=%s LIMIT 1 """               
                     await cur.execute(sql, (user_wallet_address, str(userID), COIN_NAME, user_server))
                     await conn.commit()
                 return user_wallet_address  # return userwallet
@@ -1622,6 +1709,9 @@ async def coin_check_balance_address_in_users(address: str, coin: str):
     if COIN_NAME in ENABLE_COIN_ERC:
         coin_family = "ERC-20"
         return await erc_check_balance_address_in_users(address, COIN_NAME)
+    elif COIN_NAME in ENABLE_COIN_TRC:
+        coin_family = "TRC-20"
+        return await trx_check_balance_address_in_users(address, COIN_NAME)
     else:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     if coin_family in ["TRTL", "BCN"]:
@@ -1660,6 +1750,8 @@ async def sql_get_userwallet(userID: str, coin: str, user_server: str = 'DISCORD
         return
     if COIN_NAME in ENABLE_COIN_ERC:
         coin_family = "ERC-20"
+    elif COIN_NAME in ENABLE_COIN_TRC:
+        coin_family = "TRC-20"
     else:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
 
@@ -1667,7 +1759,8 @@ async def sql_get_userwallet(userID: str, coin: str, user_server: str = 'DISCORD
     try:
         if redis_conn is None: redis_conn = redis.Redis(connection_pool=redis_pool)
         if redis_conn and redis_conn.exists(key):
-            return json.loads(redis_conn.get(key))
+            pass
+            #return json.loads(redis_conn.get(key))
     except Exception as e:
         await logchanbot(traceback.format_exc())
 
@@ -1697,6 +1790,10 @@ async def sql_get_userwallet(userID: str, coin: str, user_server: str = 'DISCORD
                     sql = """ SELECT * FROM erc_user WHERE `user_id`=%s AND `token_name`=%s AND `user_server`=%s LIMIT 1 """
                     await cur.execute(sql, (str(userID), COIN_NAME, user_server))
                     result = await cur.fetchone()
+                elif coin_family == "TRC-20":
+                    sql = """ SELECT * FROM trx_user WHERE `user_id`=%s AND `token_name`=%s AND `user_server`=%s LIMIT 1 """
+                    await cur.execute(sql, (str(userID), COIN_NAME, user_server))
+                    result = await cur.fetchone()
                 if result:
                     userwallet = result
                     if coin_family == "XMR":
@@ -1710,9 +1807,7 @@ async def sql_get_userwallet(userID: str, coin: str, user_server: str = 'DISCORD
                             await cur.execute(sql, (str(userID), COIN_NAME, user_server))
                             result = await cur.fetchone()
                             if result: userwallet['lastUpdate'] = result['lastUpdate']
-                    elif coin_family == "NANO":
-                        wallet_res = userwallet
-                    elif coin_family == "ERC-20":
+                    elif coin_family == "NANO" or coin_family == "ERC-20" or coin_family == "TRC-20":
                         wallet_res = userwallet
                     if result['lastUpdate'] == 0 and (coin_family in ["TRTL", "BCN"] or coin_family == "XMR"):
                         userwallet['lastUpdate'] = result['paymentid_ts']
@@ -2060,6 +2155,14 @@ async def sql_get_donate_list():
                         donate_list.update({coin: float(result['donate'])})
                 for coin in ENABLE_COIN_ERC:
                     sql = """ SELECT SUM(real_amount) AS donate FROM erc_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
+                    await cur.execute(sql, (coin.upper()))
+                    result = await cur.fetchone()
+                    if result['donate'] is None:
+                        donate_list.update({coin: 0})
+                    else:
+                        donate_list.update({coin: float(result['donate'])})
+                for coin in ENABLE_COIN_TRC:
+                    sql = """ SELECT SUM(real_amount) AS donate FROM trx_mv_tx as donate WHERE `type`='DONATE' AND `to_userid`= %s """
                     await cur.execute(sql, (coin.upper()))
                     result = await cur.fetchone()
                     if result['donate'] is None:
@@ -3290,6 +3393,8 @@ async def sql_get_userwallet_by_paymentid(paymentid: str, coin: str, user_server
     result = False
     if COIN_NAME in ENABLE_COIN_ERC:
         coin_family = "ERC-20"
+    elif COIN_NAME in ENABLE_COIN_TRC:
+        coin_family = "TRC-20"
     else:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     try:
@@ -4270,10 +4375,16 @@ async def get_token_info(coin: str):
         async with pool.acquire() as conn:
             await conn.ping(reconnect=True)
             async with conn.cursor() as cur:
-                sql = """ SELECT * FROM erc_contract WHERE `token_name`=%s LIMIT 1 """
-                await cur.execute(sql, (TOKEN_NAME))
-                result = await cur.fetchone()
-                if result: return result
+                if TOKEN_NAME in ENABLE_COIN_ERC:
+                    sql = """ SELECT * FROM erc_contract WHERE `token_name`=%s LIMIT 1 """
+                    await cur.execute(sql, (TOKEN_NAME))
+                    result = await cur.fetchone()
+                    if result: return result
+                elif TOKEN_NAME in ENABLE_COIN_TRC:
+                    sql = """ SELECT * FROM trx_contract WHERE `token_name`=%s LIMIT 1 """
+                    await cur.execute(sql, (TOKEN_NAME))
+                    result = await cur.fetchone()
+                    if result: return result
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         await logchanbot(traceback.format_exc())
@@ -4305,7 +4416,7 @@ async def http_wallet_getbalance(address: str, coin: str, re_check: bool=True) -
     timeout = 64
     token_info = await get_token_info(TOKEN_NAME)
     # If it is not main address, check in redis.
-    if re_check == False:
+    if re_check == False and TOKEN_NAME not in ENABLE_COIN_TRC:
         if address.upper() != token_info['withdraw_address'].upper():
             try:
                 openRedis()
@@ -4313,6 +4424,14 @@ async def http_wallet_getbalance(address: str, coin: str, re_check: bool=True) -
                     return int(redis_conn.get(key))
             except Exception as e:
                 await logchanbot(traceback.format_exc())
+    # Re-check if it is tron, get from redis first
+    if TOKEN_NAME in ENABLE_COIN_TRC:
+        try:
+            openRedis()
+            if redis_conn and redis_conn.exists(key):
+                return int(redis_conn.get(key))
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
     contract = token_info['contract']
     url = token_info[token_info['http_using']]
     if TOKEN_NAME == "XDAI" and token_info['http_using'] != "http_address_local":
@@ -4998,6 +5117,559 @@ async def erc_check_balance_address_in_users(address: str, coin: str):
     return None
 
 ## End of xDai
+
+
+## Start of Tron
+async def create_address_trx():
+    try:
+        _http_client = AsyncClient(limits=Limits(max_connections=100, max_keepalive_connections=20),
+                                   timeout=Timeout(timeout=10, connect=5, read=5))
+        TronClient = AsyncTron(provider=AsyncHTTPProvider(config.Tron_Node.fullnode, client=_http_client))
+        create_wallet = TronClient.generate_address()
+        await TronClient.close()
+        return create_wallet
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
+async def trx_get_pending_notification_users(coin: str):
+    global pool
+    TOKEN_NAME = coin.upper()
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            await conn.ping(reconnect=True)
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM trx_move_deposit 
+                          WHERE `status`=%s AND `token_name`=%s 
+                          AND `notified_confirmation`=%s """
+                await cur.execute(sql, ('CONFIRMED', TOKEN_NAME, 'NO'))
+                result = await cur.fetchall()
+                if result: return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return None
+
+
+async def trx_updating_pending_move_deposit(notified_confirmation: bool, failed_notification: bool, txn: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            await conn.ping(reconnect=True)
+            async with conn.cursor() as cur:
+                sql = """ UPDATE trx_move_deposit 
+                          SET `notified_confirmation`=%s, `failed_notification`=%s, `time_notified`=%s
+                          WHERE `txn`=%s """
+                await cur.execute(sql, ('YES' if notified_confirmation else 'NO', 'YES' if failed_notification else 'NO', int(time.time()), txn))
+                await conn.commit()
+                return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return None
+
+
+async def trx_wallet_getbalance(address: str, coin: str):
+    TOKEN_NAME = coin.upper()
+    balance = 0.0
+    try:
+        _http_client = AsyncClient(limits=Limits(max_connections=100, max_keepalive_connections=20),
+                                   timeout=Timeout(timeout=10, connect=5, read=5))
+        TronClient = AsyncTron(provider=AsyncHTTPProvider(config.Tron_Node.fullnode, client=_http_client))
+        if TOKEN_NAME == "TRX":
+            try:
+                balance = await TronClient.get_account_balance(address)
+            except AddressNotFound:
+                balance = 0.0
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+        else:
+            try:
+                token_info = await get_token_info(TOKEN_NAME)
+                cntr = await TronClient.get_contract(token_info['contract'])
+                SYM = await cntr.functions.symbol()
+                if TOKEN_NAME == SYM:
+                    precision = await cntr.functions.decimals()
+                    balance = await cntr.functions.balanceOf(address) / 10**precision
+                else:
+                    await logchanbot("Mis-match SYM vs TOKEN NAME: {} vs {}".format(SYM, TOKEN_NAME))
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+        await TronClient.close()
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    except AddressNotFound:
+        balance = 0.0
+    return balance
+
+
+async def trx_validate_address(address: str):
+    timeout = 32
+    token_info = await get_token_info('TRX')
+    url = token_info[token_info['http_using']] + "/wallet/validateaddress"
+    data = '{"address": "'+address+'"}'
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, headers={'Content-Type': 'application/json'}, json=json.loads(data), timeout=timeout) as response:
+                if response.status == 200:
+                    res_data = await response.read()
+                    res_data = res_data.decode('utf-8')
+                    await session.close()
+                    decoded_data = json.loads(res_data)
+                    if decoded_data and 'result' in decoded_data:
+                        return decoded_data['result']
+    except asyncio.TimeoutError:
+        print('TIMEOUT: trx_validate_address {} for {}s'.format(address, timeout))
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return False
+
+
+async def trx_check_balance_address_in_users(address: str, coin: str):
+    global pool
+    TOKEN_NAME = coin.upper()
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            await conn.ping(reconnect=True)
+            async with conn.cursor() as cur:
+                sql = """ SELECT `balance_wallet_address` FROM trx_user 
+                          WHERE `token_name`=%s AND LOWER(`balance_wallet_address`)=LOWER(%s) LIMIT 1 """
+                await cur.execute(sql, (TOKEN_NAME, address))
+                result = await cur.fetchone()
+                if result: return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return None
+
+
+async def trx_get_block_number(coin: str, timeout:int = 64):
+    TOKEN_NAME = coin.upper()
+    if TOKEN_NAME not in ENABLE_COIN_TRC:
+        return
+    token_info = await get_token_info(TOKEN_NAME)
+    height = 0
+    url = token_info[token_info['http_using']] + "/wallet/getnowblock"
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers={'Content-Type': 'application/json'}, timeout=timeout) as response:
+                if response.status == 200:
+                    res_data = await response.read()
+                    res_data = res_data.decode('utf-8')
+                    await session.close()
+                    decoded_data = json.loads(res_data)
+                    if decoded_data and 'block_header' in decoded_data:
+                        height = decoded_data['block_header']['raw_data']['number']
+                        # store in redis
+                        try:
+                            openRedis()
+                            if redis_conn:
+                                redis_conn.set(f'{config.redis_setting.prefix_daemon_height}{TOKEN_NAME}', str(height))
+                        except Exception as e:
+                            await logchanbot(traceback.format_exc())
+    except asyncio.TimeoutError:
+        print('TIMEOUT: get block number {}s for TOKEN {}'.format(timeout, TOKEN_NAME))
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    # store in redis
+    try:
+        openRedis()
+        if redis_conn:
+            redis_conn.set(f'{config.redis_setting.prefix_daemon_height}{TOKEN_NAME}', str(height))
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return height
+
+
+async def sql_get_all_trx_user(coin: str):
+    global pool
+    TOKEN_NAME = coin.upper()
+    if TOKEN_NAME not in ENABLE_COIN_TRC:
+        return
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            await conn.ping(reconnect=True)
+            async with conn.cursor() as cur:
+                sql = """ SELECT `user_id`, `token_name`, `contract`, `balance_wallet_address`, `hex_address`, `private_key` FROM trx_user 
+                          WHERE `user_id`<>%s AND `token_name`=%s """
+                await cur.execute(sql, ('WITHDRAW', TOKEN_NAME))
+                result = await cur.fetchall()
+                if result: return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return None
+
+
+async def sql_external_trx_single(user_id: str, to_address: str, amount: float, coin: str, tiptype: str, user_server: str='DISCORD'):
+    global pool
+    TOKEN_NAME = coin.upper()
+    if tiptype.upper() not in ["SEND", "WITHDRAW"]:
+        return False
+    token_info = await get_token_info(TOKEN_NAME)
+    user_server = user_server.upper()
+    url = token_info[token_info['http_using']]
+    try:
+        _http_client = AsyncClient(limits=Limits(max_connections=100, max_keepalive_connections=20),
+                                   timeout=Timeout(timeout=10, connect=5, read=5))
+        TronClient = AsyncTron(provider=AsyncHTTPProvider(config.Tron_Node.fullnode, client=_http_client))
+        if TOKEN_NAME == "TRX":
+            txb = (
+                TronClient.trx.transfer(token_info['withdraw_address'], to_address, int(amount*10**token_info['token_decimal']))
+                #.memo("test memo")
+                .fee_limit(int(token_info['fee_limit']*10**token_info['token_decimal']))
+            )
+            txn = await txb.build()
+            priv_key = PrivateKey(bytes.fromhex(decrypt_string(token_info['withdraw_key'])))
+            txn_ret = await txn.sign(priv_key).broadcast()
+            try:
+                in_block = await txn_ret.wait()
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            await TronClient.close()
+            if txn_ret and in_block:
+                # Add to SQL
+                try:
+                    await openConnection()
+                    async with pool.acquire() as conn:
+                        await conn.ping(reconnect=True)
+                        async with conn.cursor() as cur:
+                            sql = """ INSERT INTO trx_external_tx (`token_name`, `contract`, `user_id`, `real_amount`, 
+                                      `real_external_fee`, `token_decimal`, `to_address`, `date`, `txn`, 
+                                      `type`, `user_server`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                            await cur.execute(sql, (TOKEN_NAME, token_info['contract'], user_id, amount, token_info['real_withdraw_fee'], token_info['token_decimal'], 
+                                                    to_address, int(time.time()), txn_ret['txid'], tiptype.upper(), user_server))
+                            await conn.commit()
+                            return txn_ret['txid']
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(traceback.format_exc())
+        else:
+            try:
+                cntr = await TronClient.get_contract(token_info['contract'])
+                precision = await cntr.functions.decimals()
+                ## TODO: alert if balance below threshold
+                ## balance = await cntr.functions.balanceOf(token_info['withdraw_address']) / 10**precision
+                txb = await cntr.functions.transfer(to_address, int(amount*10**6))
+                txb = txb.with_owner(token_info['withdraw_address']).fee_limit(int(token_info['fee_limit']*10**token_info['token_decimal']))
+                txn = await txb.build()
+                priv_key = PrivateKey(bytes.fromhex(decrypt_string(token_info['withdraw_key'])))
+                txn_ret = await txn.sign(priv_key).broadcast()
+                in_block = None
+                try:
+                    in_block = await txn_ret.wait()
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                await TronClient.close()
+                if txn_ret and in_block:
+                    # Add to SQL
+                    try:
+                        await openConnection()
+                        async with pool.acquire() as conn:
+                            await conn.ping(reconnect=True)
+                            async with conn.cursor() as cur:
+                                sql = """ INSERT INTO trx_external_tx (`token_name`, `contract`, `user_id`, `real_amount`, 
+                                          `real_external_fee`, `token_decimal`, `to_address`, `date`, `txn`, 
+                                          `type`, `user_server`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                await cur.execute(sql, (TOKEN_NAME, token_info['contract'], user_id, amount, token_info['real_withdraw_fee'], token_info['token_decimal'], 
+                                                        to_address, int(time.time()), txn_ret['txid'], tiptype.upper(), user_server))
+                                await conn.commit()
+                                return txn_ret['txid']
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return False
+
+
+async def trx_check_minimum_deposit(coin: str):
+    global pool
+    TOKEN_NAME = coin.upper()
+    if TOKEN_NAME not in ENABLE_COIN_TRC:
+        return
+
+    token_info = await get_token_info(TOKEN_NAME)
+    url = token_info[token_info['http_using']]
+    list_user_addresses = await sql_get_all_trx_user(TOKEN_NAME)
+    msg_deposit = ""
+    balance_below_min = 0
+    balance_above_min = 0
+    if list_user_addresses and len(list_user_addresses) > 0:
+        # OK check them one by one
+        for each_address in list_user_addresses:
+            deposited_balance = float(await trx_wallet_getbalance(each_address['balance_wallet_address'], TOKEN_NAME))
+            if deposited_balance is None or deposited_balance == 0:
+                continue
+            
+            if deposited_balance < token_info['min_move_deposit']:
+                balance_below_min += 1
+                pass
+            else:
+                balance_above_min += 1
+                await asyncio.sleep(2)
+                if TOKEN_NAME == "TRX":
+                    real_deposited_balance = deposited_balance-token_info['min_gas_tx']
+                    try:
+                        _http_client = AsyncClient(limits=Limits(max_connections=100, max_keepalive_connections=20),
+                                                   timeout=Timeout(timeout=10, connect=5, read=5))
+                        TronClient = AsyncTron(provider=AsyncHTTPProvider(config.Tron_Node.fullnode, client=_http_client))
+                        txb = (
+                            TronClient.trx.transfer(each_address['balance_wallet_address'], token_info['withdraw_address'], int(real_deposited_balance*10**token_info['token_decimal']))
+                            #.memo("test memo")
+                            #.fee_limit(100_000_000)
+                            .fee_limit(int(token_info['min_gas_tx']*10**token_info['token_decimal']))
+                        )
+                        
+                        txn = await txb.build()
+                        priv_key = PrivateKey(bytes.fromhex(decrypt_string(each_address['private_key'])))
+                        txn_ret = await txn.sign(priv_key).broadcast()
+                        try:
+                            in_block = await txn_ret.wait()
+                        except Exception as e:
+                            traceback.print_exc(file=sys.stdout)
+                        await TronClient.close()
+                        if txn_ret and in_block:
+                            try:
+                                inserted = await trx_move_deposit_for_spendable(TOKEN_NAME, token_info['contract'], each_address['user_id'], each_address['balance_wallet_address'], 
+                                                                                token_info['withdraw_address'], real_deposited_balance, token_info['real_deposit_fee'],  token_info['token_decimal'],
+                                                                                txn_ret['txid'], in_block['blockNumber'])
+                            except Exception as e:
+                                traceback.print_exc(file=sys.stdout)
+                        await asyncio.sleep(3)
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                else:
+                    # Let's move to main address
+                    try:
+                        _http_client = AsyncClient(limits=Limits(max_connections=100, max_keepalive_connections=20),
+                                                   timeout=Timeout(timeout=10, connect=5, read=5))
+                        TronClient = AsyncTron(provider=AsyncHTTPProvider(config.Tron_Node.fullnode, client=_http_client))
+                        cntr = await TronClient.get_contract(token_info['contract'])
+                        precision = await cntr.functions.decimals()
+                        balance = await cntr.functions.balanceOf(each_address['balance_wallet_address']) / 10**precision
+                        # Check balance and Transfer gas to it
+                        try:
+                            gas_balance = await trx_wallet_getbalance(each_address['balance_wallet_address'], "TRX")
+                            if gas_balance < token_info['min_gas_tx']:
+                                txb_gas = (
+                                    TronClient.trx.transfer(token_info['withdraw_address'], each_address['balance_wallet_address'], int(token_info['move_gas_amount']*10**token_info['token_decimal']))
+                                    .fee_limit(int(token_info['min_gas_tx']*10**token_info['token_decimal']))
+                                )
+                                txn_gas = await txb_gas.build()
+                                priv_key_gas = PrivateKey(bytes.fromhex(decrypt_string(token_info['withdraw_key'])))
+                                txn_ret_gas = await txn_gas.sign(priv_key_gas).broadcast()
+                                await asyncio.sleep(3)
+                        except Exception as e:
+                            traceback.print_exc(file=sys.stdout)
+                        txb = await cntr.functions.transfer(token_info['withdraw_address'], int(balance*10**6))
+                        txb = txb.with_owner(each_address['balance_wallet_address']).fee_limit(int(token_info['min_gas_tx']*10**token_info['token_decimal']))
+                        txn = await txb.build()
+                        priv_key = PrivateKey(bytes.fromhex(decrypt_string(each_address['private_key'])))
+                        txn_ret = await txn.sign(priv_key).broadcast()
+                        in_block = None
+                        try:
+                            in_block = await txn_ret.wait()
+                        except Exception as e:
+                            traceback.print_exc(file=sys.stdout)
+                        await TronClient.close()
+                        if txn_ret and in_block:
+                            try:
+                                inserted = await trx_move_deposit_for_spendable(TOKEN_NAME, token_info['contract'], each_address['user_id'], each_address['balance_wallet_address'], 
+                                                                                token_info['withdraw_address'], balance, token_info['real_deposit_fee'],  token_info['token_decimal'],
+                                                                                txn_ret['txid'], in_block['blockNumber'])
+                            except Exception as e:
+                                traceback.print_exc(file=sys.stdout)
+                        await asyncio.sleep(3)
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+        msg_deposit += "TOKEN {}: Total deposit address: {}: Below min.: {} Above min. {}".format(TOKEN_NAME, len(list_user_addresses), balance_below_min, balance_above_min)
+    else:
+        msg_deposit += "TOKEN {}: No deposit address.\n".format(TOKEN_NAME)
+    return msg_deposit
+
+
+async def trx_move_deposit_for_spendable(token_name: str, contract: str, user_id: str, balance_wallet_address: str, to_main_address: str, \
+real_amount: float, real_deposit_fee: float, token_decimal: int, txn: str, blockNumber: int, user_server: str='DISCORD'):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            await conn.ping(reconnect=True)
+            async with conn.cursor() as cur:
+                sql = """ INSERT INTO trx_move_deposit (`token_name`, `contract`, `user_id`, `balance_wallet_address`, 
+                          `to_main_address`, `real_amount`, `real_deposit_fee`, `token_decimal`, `txn`, `blockNumber`, `time_insert`, 
+                          `user_server`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                await cur.execute(sql, (token_name, contract, user_id, balance_wallet_address, to_main_address, real_amount, 
+                                        real_deposit_fee, token_decimal, txn, blockNumber, int(time.time()), user_server.upper()))
+                await conn.commit()
+                return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return False
+
+
+
+async def sql_mv_trx_single(user_from: str, to_user: str, amount: float, coin: str, tiptype: str, contract: str, user_server: str = 'DISCORD'):
+    global pool
+    TOKEN_NAME = coin.upper()
+    token_info = await get_token_info(TOKEN_NAME)
+    user_server = user_server.upper()
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
+        return
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            await conn.ping(reconnect=True)
+            async with conn.cursor() as cur:
+                sql = """ INSERT INTO trx_mv_tx (`token_name`, `contract`, `from_userid`, `to_userid`, `real_amount`, `token_decimal`, `type`, `date`, `user_server`) 
+                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                await cur.execute(sql, (TOKEN_NAME, contract, user_from, to_user, amount, token_info['token_decimal'], tiptype.upper(), int(time.time()), user_server))
+                await conn.commit()
+                return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return False
+
+
+async def sql_mv_trx_multiple(user_from: str, user_tos, amount_each: float, coin: str, tiptype: str, contract: str):
+    # user_tos is array "account1", "account2", ....
+    global pool
+    TOKEN_NAME = coin.upper()
+    token_info = await get_token_info(TOKEN_NAME)
+    token_decimal = token_info['token_decimal']
+    TOKEN_NAME = coin.upper()
+    if tiptype.upper() not in ["TIPS", "TIPALL", "FREETIP", "FREETIPS"]:
+        return False
+    values_str = []
+    currentTs = int(time.time())
+    for item in user_tos:
+        values_str.append(f"('{TOKEN_NAME}', '{contract}', '{user_from}', '{item}', {amount_each}, {token_decimal}, '{tiptype.upper()}', {currentTs})\n")
+    values_sql = "VALUES " + ",".join(values_str)
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            await conn.ping(reconnect=True)
+            async with conn.cursor() as cur:
+                sql = """ INSERT INTO trx_mv_tx (`token_name`, `contract`, `from_userid`, `to_userid`, `real_amount`, `token_decimal`, `type`, `date`) 
+                          """+values_sql+""" """
+                await cur.execute(sql,)
+                await conn.commit()
+                return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return False
+
+
+async def trx_get_pending_move_deposit(coin: str, option: str='PENDING'):
+    global pool
+    TOKEN_NAME = coin.upper()
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            await conn.ping(reconnect=True)
+            async with conn.cursor() as cur:
+                if option.upper() == "PENDING":
+                    sql = """ SELECT * FROM trx_move_deposit 
+                              WHERE `status`=%s AND `token_name`=%s 
+                              AND `notified_confirmation`=%s """
+                    await cur.execute(sql, (option.upper(), TOKEN_NAME, 'NO'))
+                    result = await cur.fetchall()
+                    if result: return result
+                elif option.upper() == "ALL":
+                    sql = """ SELECT * FROM trx_move_deposit 
+                              WHERE `token_name`=%s """
+                    await cur.execute(sql, (TOKEN_NAME,))
+                    result = await cur.fetchall()
+                    if result: return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return None
+
+
+async def trx_check_pending_move_deposit(coin: str, option: str='PENDING'):
+    global pool
+    TOKEN_NAME = coin.upper()
+
+    topBlock = await trx_get_block_number(TOKEN_NAME)
+    if topBlock is None:
+        await logchanbot('Can not get top block for {}.'.format(TOKEN_NAME))
+        return
+
+    token_info = await get_token_info(TOKEN_NAME)
+    list_pending = await trx_get_pending_move_deposit(TOKEN_NAME, option.upper())
+
+    if list_pending and len(list_pending) > 0:
+        # Have pending, let's check
+        for each_tx in list_pending:
+            try:
+                tx_block_number = each_tx['blockNumber']
+                if option.upper() == "ALL":
+                    print("Checking tx: {}... for {}".format(each_tx['txn'][0:10], TOKEN_NAME))
+                    print("topBlock: {}, Conf Depth: {}, Tx Block Numb: {}".format(topBlock, token_info['deposit_confirm_depth'] , tx_block_number))
+                if topBlock - token_info['deposit_confirm_depth'] > tx_block_number:
+                    check_tx = await trx_get_tx_info(each_tx['txn'], TOKEN_NAME)
+                    if check_tx:
+                        confirming_tx = await trx_update_confirming_move_tx(each_tx['txn'], topBlock - tx_block_number, TOKEN_NAME, 'CONFIRMED')
+                    else:
+                        confirming_tx = await trx_update_confirming_move_tx(each_tx['txn'], topBlock - tx_block_number, TOKEN_NAME, 'FAILED')
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
+
+
+async def trx_update_confirming_move_tx(tx: str, confirmed_depth: int, coin: str, status: str='CONFIRMED'):
+    global pool
+    TOKEN_NAME = coin.upper()
+    status = status.upper()
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            await conn.ping(reconnect=True)
+            async with conn.cursor() as cur:
+                sql = """ UPDATE trx_move_deposit SET `status`=%s, `confirmed_depth`=%s WHERE `txn`=%s AND `token_name`=%s """
+                await cur.execute(sql, (status, confirmed_depth, tx, TOKEN_NAME))
+                await conn.commit()
+                return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return None
+
+
+async def trx_get_tx_info(tx: str, coin: str):
+    TOKEN_NAME = coin.upper()
+    timeout = 64
+    try:
+        _http_client = AsyncClient(limits=Limits(max_connections=100, max_keepalive_connections=20),
+                                   timeout=Timeout(timeout=10, connect=5, read=5))
+        TronClient = AsyncTron(provider=AsyncHTTPProvider(config.Tron_Node.fullnode, client=_http_client))
+        getTx = await TronClient.get_transaction(tx)
+        await TronClient.close()
+        if getTx['ret'][0]['contractRet'] != "SUCCESS":
+            # That failed.
+            await logchanbot("TRX {} not succeeded with tx: {}".format(TOKEN_NAME, tx))
+            return False
+        else:
+            return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return False
+    
+
+## End of Tron
 
 
 async def sql_tipto_crossing(coin: str, from_userid: str, from_username: str, from_server: str, \

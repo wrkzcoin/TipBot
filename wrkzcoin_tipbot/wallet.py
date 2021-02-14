@@ -566,6 +566,8 @@ def get_coinlogo_path(coin: str = None):
 
 def num_format_coin(amount, coin: str):
     COIN_NAME = coin.upper() 
+    if amount == 0:
+        return "0.0"
     if COIN_NAME in ["DOGE", "LTC", "BTC", "DASH", "BCH"]:
         coin_decimal = 1
     else:
@@ -574,7 +576,7 @@ def num_format_coin(amount, coin: str):
     if COIN_NAME in ["DOGE", "LTC", "BTC", "DASH", "BCH"]:
         return '{:,.6f}'.format(amount)
         #return '{:,}'.format(float('%.8g' % (amount)))
-    elif COIN_NAME in config.Enable_Coin_ERC.split(","):
+    elif COIN_NAME in config.Enable_Coin_ERC.split(",")+config.Enable_Coin_TRC.split(","):
         # Use amount real
         # return '{:,.6f}'.format(amount)
         return '{:.4f}'.format(amount)

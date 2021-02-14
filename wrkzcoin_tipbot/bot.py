@@ -99,6 +99,7 @@ import logging
 
 # redis
 import redis
+
 redis_pool = None
 redis_conn = None
 redis_expired = 120
@@ -286,6 +287,7 @@ ENABLE_COIN_DOGE = config.Enable_Coin_Doge.split(",")
 ENABLE_XMR = config.Enable_Coin_XMR.split(",")
 ENABLE_COIN_NANO = config.Enable_Coin_Nano.split(",")
 ENABLE_COIN_ERC = config.Enable_Coin_ERC.split(",")
+ENABLE_COIN_TRC = config.Enable_Coin_TRC.split(",")
 ENABLE_TIPTO = config.Enabe_TipTo_Coin.split(",")
 ENABLE_RAFFLE_COIN = config.raffle.enable_coin.split(",")
 MAINTENANCE_COIN = config.Maintenance_Coin.split(",")
@@ -310,7 +312,7 @@ for each in ENABLE_COIN+ENABLE_XMR+ENABLE_COIN_DOGE+ENABLE_COIN_NANO:
         EMOJI_COIN[each.upper()] = getattr(getattr(config,"daemon"+each.upper()),"emoji", '\U0001F4B0')
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
-for each in ENABLE_COIN_ERC:
+for each in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
     try:
         EMOJI_COIN[each.upper()] = TOKEN_EMOJI
     except Exception as e:
@@ -650,9 +652,9 @@ async def on_reaction_add(reaction, user):
                     userregister = await store.sql_register_user(str(reaction.message.author.id), COIN_NAME, 'DISCORD', 0)
                 userdata_balance = await store.sql_user_balance(str(user.id), COIN_NAME)
                 xfer_in = 0
-                if COIN_NAME not in ENABLE_COIN_ERC:
+                if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
                     xfer_in = await store.sql_user_balance_get_xfer_in(str(user.id), COIN_NAME)
-                if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
+                if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
                     actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
                 elif COIN_NAME in ENABLE_COIN_NANO:
                     actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
@@ -749,9 +751,9 @@ async def on_reaction_add(reaction, user):
 
                 userdata_balance = await store.sql_user_balance(str(user.id), COIN_NAME)
                 xfer_in = 0
-                if COIN_NAME not in ENABLE_COIN_ERC:
+                if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
                     xfer_in = await store.sql_user_balance_get_xfer_in(str(user.id), COIN_NAME)
-                if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
+                if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
                     actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
                 elif COIN_NAME in ENABLE_COIN_NANO:
                     actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
@@ -1993,6 +1995,8 @@ Rules:
     amount = GAME_SLOT_REWARD[COIN_NAME]
     if COIN_NAME in ENABLE_COIN_ERC:
         coin_family = "ERC-20"
+    elif COIN_NAME in ENABLE_COIN_ERC:
+        coin_family = "TRC-20"
     else:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
@@ -2127,6 +2131,8 @@ async def slot(ctx):
                 amount = GAME_SLOT_REWARD[COIN_NAME] * won_x
                 if COIN_NAME in ENABLE_COIN_ERC:
                     coin_family = "ERC-20"
+                elif COIN_NAME in ENABLE_COIN_TRC:
+                    coin_family = "TRC-20"
                 else:
                     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                 real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
@@ -2332,6 +2338,8 @@ clues would be Fermi Pico.'''.format(NUM_DIGITS)
                                 amount = GAME_SLOT_REWARD[COIN_NAME] * won_x
                                 if COIN_NAME in ENABLE_COIN_ERC:
                                     coin_family = "ERC-20"
+                                elif COIN_NAME in ENABLE_COIN_TRC:
+                                    coin_family = "TRC-20"
                                 else:
                                     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                                 real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
@@ -2558,6 +2566,8 @@ Hints:
                                 amount = GAME_SLOT_REWARD[COIN_NAME] * won_x
                                 if COIN_NAME in ENABLE_COIN_ERC:
                                     coin_family = "ERC-20"
+                                elif COIN_NAME in ENABLE_COIN_TRC:
+                                    coin_family = "TRC-20"
                                 else:
                                     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                                 real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
@@ -2792,6 +2802,8 @@ Hints:
                                 amount = GAME_SLOT_REWARD[COIN_NAME] * won_x
                                 if COIN_NAME in ENABLE_COIN_ERC:
                                     coin_family = "ERC-20"
+                                elif COIN_NAME in ENABLE_COIN_TRC:
+                                    coin_family = "TRC-20"
                                 else:
                                     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                                 real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
@@ -3042,6 +3054,8 @@ async def maze(ctx):
             amount = GAME_SLOT_REWARD[COIN_NAME]
             if COIN_NAME in ENABLE_COIN_ERC:
                 coin_family = "ERC-20"
+            elif COIN_NAME in ENABLE_COIN_TRC:
+                coin_family = "TRC-20"
             else:
                 coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
             real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
@@ -3220,6 +3234,8 @@ async def hangman(ctx):
                         amount = GAME_SLOT_REWARD[COIN_NAME]
                         if COIN_NAME in ENABLE_COIN_ERC:
                             coin_family = "ERC-20"
+                        elif COIN_NAME in ENABLE_COIN_TRC:
+                            coin_family = "TRC-20"
                         else:
                             coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                         real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
@@ -3398,6 +3414,8 @@ To win, you must continue rolling the dice until you "make your point."
                     amount = GAME_SLOT_REWARD[COIN_NAME] * won_x
                     if COIN_NAME in ENABLE_COIN_ERC:
                         coin_family = "ERC-20"
+                    elif COIN_NAME in ENABLE_COIN_TRC:
+                        coin_family = "TRC-20"
                     else:
                         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                     real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
@@ -3581,6 +3599,8 @@ Fast-paced snail racing action!'''
                                         amount = GAME_SLOT_REWARD[COIN_NAME] * won_x
                                         if COIN_NAME in ENABLE_COIN_ERC:
                                             coin_family = "ERC-20"
+                                        elif COIN_NAME in ENABLE_COIN_TRC:
+                                            coin_family = "TRC-20"
                                         else:
                                             coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                                         real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
@@ -3823,6 +3843,8 @@ You lose if the board fills up the tiles before then.'''
                 amount = GAME_SLOT_REWARD[COIN_NAME] * (int(score / 100) if score / 100 > 1 else 1) # testing first
                 if COIN_NAME in ENABLE_COIN_ERC:
                     coin_family = "ERC-20"
+                elif COIN_NAME in ENABLE_COIN_TRC:
+                    coin_family = "TRC-20"
                 else:
                     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                 real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
@@ -4319,6 +4341,8 @@ respectively. You can also reload game level.'''
                             amount = GAME_SLOT_REWARD[COIN_NAME] * won_x
                             if COIN_NAME in ENABLE_COIN_ERC:
                                 coin_family = "ERC-20"
+                            elif COIN_NAME in ENABLE_COIN_TRC:
+                                coin_family = "TRC-20"
                             else:
                                 coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                             real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
@@ -5131,16 +5155,20 @@ async def delhelp(ctx, section: str, what: str):
 @admin.command()
 async def update_balance(ctx, coin: str):
     COIN_NAME = coin.upper()
-    if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_ERC+ENABLE_COIN_NANO:
+    if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_ERC+ENABLE_COIN_TRC+ENABLE_COIN_NANO:
         await ctx.author.send(f'{ctx.author.mention} COIN **{COIN_NAME}** NOT SUPPORTED.')
         return
 
     start = time.time()
-    if COIN_NAME in ENABLE_COIN_ERC:
+    if COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         check_min = "N/A"
         try:
-            await store.erc_check_pending_move_deposit(COIN_NAME, 'ALL')
-            check_min = await store.erc_check_minimum_deposit(COIN_NAME)
+            if COIN_NAME in ENABLE_COIN_ERC:
+                await store.erc_check_pending_move_deposit(COIN_NAME, 'ALL')
+                check_min = await store.erc_check_minimum_deposit(COIN_NAME)
+            elif COIN_NAME in ENABLE_COIN_TRC:
+                await store.trx_check_pending_move_deposit(COIN_NAME, 'ALL')
+                check_min = await store.trx_check_minimum_deposit(COIN_NAME)
         except Exception as e:
             await logchanbot(traceback.format_exc())
         end = time.time()
@@ -5194,11 +5222,11 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
             create_acc = True
         else:
             COIN_NAME = create_wallet.upper()
-            if COIN_NAME in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC:
+            if COIN_NAME in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
                 wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME, user_server)
                 try:
                     xfer_in = 0
-                    if COIN_NAME not in ENABLE_COIN_ERC:
+                    if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
                         xfer_in = await store.sql_user_balance_get_xfer_in(str(user_id), COIN_NAME, user_server)
                     userdata_balance = await store.sql_user_balance(str(user_id), COIN_NAME, user_server)
                     msg_balance = f"Balance User ID **{str(user_id)}** for: " + COIN_NAME + "\n"
@@ -5214,27 +5242,30 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
                 await ctx.author.send(f'{EMOJI_ERROR} {ctx.author.mention} Unknown COIN_NAME **{COIN_NAME}**.')
             return
     else:
-        for COIN_NAME in [coinItem.upper() for coinItem in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC]:
+        for COIN_NAME in [coinItem.upper() for coinItem in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC+ENABLE_COIN_TRC]:
             if not is_maintenance_coin(COIN_NAME):
                 wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME, user_server)
                 if wallet is None and create_acc:
-                    if COIN_NAME in ENABLE_COIN_ERC:
+                    if COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
                         w = await create_address_eth()
                         userregister = await store.sql_register_user(str(user_id), COIN_NAME, user_server, 0, w)
+                    elif COIN_NAME in ENABLE_COIN_TRC:
+                        result = await store.create_address_trx()
+                        userregister = await store.sql_register_user(str(user_id), COIN_NAME, user_server, 0, result)
                     else:
                         userregister = await store.sql_register_user(str(user_id), COIN_NAME, user_server, 0)
                     wallet = await store.sql_get_userwallet(str(user_id), COIN_NAME, user_server)
                 if wallet:
                     try:
                         xfer_in = 0
-                        if COIN_NAME not in ENABLE_COIN_ERC:
+                        if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
                             xfer_in = await store.sql_user_balance_get_xfer_in(str(user_id), COIN_NAME, user_server)
                     except Exception as e:
                         print(traceback.format_exc())
                         await logchanbot(traceback.format_exc())
 
                     userdata_balance = await store.sql_user_balance(str(user_id), COIN_NAME, user_server)
-                    if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
+                    if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
                         actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
                     elif COIN_NAME in ENABLE_COIN_NANO:
                         actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
@@ -5248,7 +5279,7 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
                             await logchanbot(msg_negative)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
-                    if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN+ENABLE_XMR+ENABLE_COIN_ERC:
+                    if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN+ENABLE_XMR+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
                         balance_actual = num_format_coin(actual_balance, COIN_NAME)
                     elif COIN_NAME in ENABLE_COIN_NANO:
                         actual = round(actual_balance / get_decimal(COIN_NAME), 6) * get_decimal(COIN_NAME)
@@ -5439,7 +5470,7 @@ async def checkcoin(ctx, coin: str):
     # Check of wallet in SQL consistence to wallet-service
     botLogChan = bot.get_channel(id=LOG_CHAN)
     COIN_NAME = coin.upper()
-    if COIN_NAME not in (ENABLE_COIN + ENABLE_XMR + ENABLE_COIN_DOGE + ENABLE_COIN_NANO + ENABLE_COIN_ERC):
+    if COIN_NAME not in (ENABLE_COIN + ENABLE_XMR + ENABLE_COIN_DOGE + ENABLE_COIN_NANO + ENABLE_COIN_ERC + ENABLE_COIN_TRC):
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.message.author.send(f'{COIN_NAME} is not in TipBot.')
         return
@@ -5447,6 +5478,8 @@ async def checkcoin(ctx, coin: str):
         await ctx.message.add_reaction(EMOJI_MAINTENANCE)
     if COIN_NAME in ENABLE_COIN_ERC:
         coin_family = "ERC-20"
+    elif COIN_NAME in ENABLE_COIN_TRC:
+        coin_family = "TRC-20"
     else:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     if coin_family in ["TRTL", "BCN"]:
@@ -5522,6 +5555,8 @@ async def deposit(ctx, amount: str, coin: str):
 
     if COIN_NAME in ENABLE_COIN_ERC:
         coin_family = "ERC-20"
+    elif COIN_NAME in ENABLE_COIN_TRC:
+        coin_family = "TRC-20"
     else:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     # Check allowed coins
@@ -5543,13 +5578,17 @@ async def deposit(ctx, amount: str, coin: str):
         if COIN_NAME in ENABLE_COIN_ERC:
             w = await create_address_eth()
             user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, w)
+        elif COIN_NAME in ENABLE_COIN_TRC:
+            result = await store.create_address_trx()
+            print(result)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, result)
         else:
             user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
     userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME)
     xfer_in = 0
-    if COIN_NAME not in ENABLE_COIN_ERC:
+    if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         xfer_in = await store.sql_user_balance_get_xfer_in(str(ctx.message.author.id), COIN_NAME)
-    if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
+    if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
     elif COIN_NAME in ENABLE_COIN_NANO:
         actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
@@ -5570,11 +5609,14 @@ async def deposit(ctx, amount: str, coin: str):
         if coin_family == "ERC-20":
             w = await create_address_eth()
             userregister = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD', 0, w)
+        elif coin_family == "TRC-20":
+            result = await store.create_address_trx()
+            userregister = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD', 0, result)
         else:
             userregister = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD', 0)
         user_to = await store.sql_get_userwallet(str(ctx.guild.id), COIN_NAME)
 
-    if coin_family == "ERC-20":
+    if coin_family == "ERC-20" or coin_family == "TRC-20":
         real_amount = float(amount)
         token_info = await store.get_token_info(COIN_NAME)
         MinTx = token_info['real_min_tip']
@@ -5624,6 +5666,8 @@ async def deposit(ctx, amount: str, coin: str):
             tip = await store.sql_mv_nano_single(str(ctx.message.author.id), str(ctx.guild.id), real_amount, COIN_NAME, "GUILDDEPOSIT")
         elif coin_family == "ERC-20":
             tip = await store.sql_mv_erc_single(str(ctx.message.author.id), str(ctx.guild.id), real_amount, COIN_NAME, "GUILDDEPOSIT", token_info['contract'])
+        elif coin_family == "TRC-20":
+            tip = await store.sql_mv_trx_single(str(ctx.message.author.id), str(ctx.guild.id), real_amount, COIN_NAME, "GUILDDEPOSIT", token_info['contract'])
     except Exception as e:
         await logchanbot(traceback.format_exc())
 
@@ -5743,11 +5787,15 @@ async def createraffle(ctx, amount: str, coin: str, duration: str):
         coin_family = "ERC-20"
         token_info = await store.get_token_info(COIN_NAME)
         decimal_pts = token_info['token_decimal']
+    elif COIN_NAME in ENABLE_COIN_TRC:
+        coin_family = "TRC-20"
+        token_info = await store.get_token_info(COIN_NAME)
+        decimal_pts = token_info['token_decimal']
     else:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
         decimal_pts = int(math.log10(get_decimal(COIN_NAME)))
 
-    if coin_family == "ERC-20":
+    if coin_family == "ERC-20" or coin_family == "TRC-20":
         real_amount = float(amount)
         token_info = await store.get_token_info(COIN_NAME)
         MinTx = token_info['real_min_tip']
@@ -5907,13 +5955,16 @@ async def raffle(ctx, subc: str=None):
                             if COIN_NAME in ENABLE_COIN_ERC:
                                 w = await create_address_eth()
                                 user_entry = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, w)
+                            elif COIN_NAME in ENABLE_COIN_TRC:
+                                result = await store.create_address_trx()
+                                user_entry = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, result)
                             else:
                                 user_entry = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
                         userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME)
                         xfer_in = 0
-                        if COIN_NAME not in ENABLE_COIN_ERC:
+                        if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
                             xfer_in = await store.sql_user_balance_get_xfer_in(str(ctx.message.author.id), COIN_NAME)
-                        if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
+                        if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
                             actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
                         elif COIN_NAME in ENABLE_COIN_NANO:
                             actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
@@ -6285,7 +6336,7 @@ async def userinfo(ctx, member: discord.Member = None):
             sub_intip = 0
             sub_outtip = 0
             tip_text = "N/A"
-            for each_coin in ENABLE_COIN+ENABLE_XMR+ENABLE_COIN_DOGE+ENABLE_COIN_NANO+ENABLE_COIN_ERC:
+            for each_coin in ENABLE_COIN+ENABLE_XMR+ENABLE_COIN_DOGE+ENABLE_COIN_NANO+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
                 tipstat = await store.sql_user_get_tipstat(userid, each_coin, False, 'DISCORD')
                 if tipstat:
                     sub_intip += tipstat['tx_in']
@@ -6865,7 +6916,7 @@ async def deposit(ctx, coin_name: str, option: str=None):
     # End Check if maintenance
 
     COIN_NAME = coin_name.upper()
-    if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC:
+    if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**!')
         return
 
@@ -6876,6 +6927,8 @@ async def deposit(ctx, coin_name: str, option: str=None):
 
     if COIN_NAME in ENABLE_COIN_ERC:
         coin_family = "ERC-20"
+    elif COIN_NAME in ENABLE_COIN_TRC:
+        coin_family = "TRC-20"
     else:
         try:
             coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
@@ -6914,6 +6967,12 @@ async def deposit(ctx, coin_name: str, option: str=None):
         if wallet is None:
             w = await create_address_eth()
             wallet = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, w)
+            wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+    elif coin_family == "TRC-20":
+        wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
+        if wallet is None:
+            result = await store.create_address_trx()
+            wallet = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, result)
             wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
     else:
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**')
@@ -6982,7 +7041,7 @@ async def deposit(ctx, coin_name: str, option: str=None):
         embed.add_field(name="Withdraw Address", value="`{}`".format(wallet['user_wallet_address']), inline=False)
     elif 'user_wallet_address' in wallet and wallet['user_wallet_address'] and isinstance(ctx.channel, discord.DMChannel) == False:
         embed.add_field(name="Withdraw Address", value="`(Only in DM)`", inline=False)
-    if COIN_NAME in ENABLE_COIN_ERC:
+    if COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         token_info = await store.get_token_info(COIN_NAME)
         if token_info and token_info['deposit_note']:
             embed.add_field(name="{} Deposit Note".format(COIN_NAME), value="`{}`".format(token_info['deposit_note']), inline=False)
@@ -7034,7 +7093,7 @@ async def mdeposit(ctx, coin_name: str, option: str=None):
     # End Check if maintenance
 
     COIN_NAME = coin_name.upper()
-    if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC:
+    if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**!')
         return
 
@@ -7046,6 +7105,8 @@ async def mdeposit(ctx, coin_name: str, option: str=None):
     try:
         if COIN_NAME in ENABLE_COIN_ERC:
             coin_family = "ERC-20"
+        elif COIN_NAME in ENABLE_COIN_TRC:
+            coin_family = "TRC-20"
         else:
             coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     except Exception as e:
@@ -7083,6 +7144,12 @@ async def mdeposit(ctx, coin_name: str, option: str=None):
         if wallet is None:
             w = await create_address_eth()
             wallet = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD', 0, w)
+            wallet = await store.sql_get_userwallet(str(ctx.guild.id), COIN_NAME)
+    elif coin_family == "TRC-20":
+        wallet = await store.sql_get_userwallet(str(ctx.guild.id), COIN_NAME)
+        if wallet is None:
+            result = await store.create_address_trx()
+            wallet = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD', 0, result)
             wallet = await store.sql_get_userwallet(str(ctx.guild.id), COIN_NAME)
     else:
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**')
@@ -7713,9 +7780,9 @@ async def coininfo(ctx, coin: str = None):
         table_data = [
             ["TICKER", "Height", "Tip", "Wdraw", "Depth"]
             ]
-        for COIN_NAME in [coinItem.upper() for coinItem in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC]:
+        for COIN_NAME in [coinItem.upper() for coinItem in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC+ENABLE_COIN_TRC]:
             height = None
-            if COIN_NAME in ENABLE_COIN_ERC:
+            if COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
                 token_info = await store.get_token_info(COIN_NAME)
                 confim_depth = token_info['deposit_confirm_depth']
             else:
@@ -7742,7 +7809,7 @@ async def coininfo(ctx, coin: str = None):
         return
     else:
         COIN_NAME = coin.upper()
-        if COIN_NAME in ENABLE_COIN_ERC:
+        if COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
             token_info = await store.get_token_info(COIN_NAME)
             confim_depth = token_info['deposit_confirm_depth']
             Min_Tip = token_info['real_min_tip']
@@ -7755,7 +7822,7 @@ async def coininfo(ctx, coin: str = None):
             Max_Tip = get_max_mv_amount(COIN_NAME)
             Min_Tx = get_min_tx_amount(COIN_NAME)
             Max_Tx = get_max_tx_amount(COIN_NAME)
-        if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC:
+        if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
             await ctx.message.author.send(f'{ctx.author.mention} **{COIN_NAME}** is not in our list.')
             return
         else:
@@ -7792,7 +7859,7 @@ async def coininfo(ctx, coin: str = None):
                     response_text += "Reserved Fee: {}{}\n".format(num_format_coin(get_reserved_fee(COIN_NAME), COIN_NAME), COIN_NAME)
                 elif COIN_NAME in ENABLE_XMR:
                     response_text += "Withdraw Tx Fee: Dynamic\n"
-                elif COIN_NAME in ENABLE_COIN_ERC:
+                elif COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
                     if token_info['contract'] and len(token_info['contract']) == 42:
                         response_text += "Contract:\n   {}\n".format(token_info['contract'])
                     response_text += "Withdraw Tx Fee: {}{}\n".format(num_format_coin(token_info['real_withdraw_fee'], COIN_NAME), COIN_NAME)
@@ -7807,7 +7874,7 @@ async def coininfo(ctx, coin: str = None):
                 response_text += get_tip_min_max + "\n"
                 get_tx_min_max = "Withdraw Min/Max:\n   " + num_format_coin(Min_Tx, COIN_NAME) + " / " + num_format_coin(Max_Tx, COIN_NAME) + COIN_NAME
                 response_text += get_tx_min_max
-                if COIN_NAME in ENABLE_COIN_ERC and token_info['coininfo_note']:
+                if COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC and token_info['coininfo_note']:
                     response_text += "\nNote:\n   {}\n".format(token_info['coininfo_note'])
             except Exception as e:
                 await logchanbot(traceback.format_exc())
@@ -7839,13 +7906,16 @@ async def balance(ctx, coin: str = None):
             ['TICKER', 'Available', 'Tx']
         ]
         table_data_str = []
-        for COIN_NAME in [coinItem.upper() for coinItem in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC]:
+        for COIN_NAME in [coinItem.upper() for coinItem in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC+ENABLE_COIN_TRC]:
             if not is_maintenance_coin(COIN_NAME):
                 wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
                 if wallet is None:
                     if COIN_NAME in ENABLE_COIN_ERC:
                         w = await create_address_eth()
                         userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, w)
+                    elif COIN_NAME in ENABLE_COIN_TRC:
+                        result = await store.create_address_trx()
+                        userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, result)
                     else:
                         userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
                     wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
@@ -7855,9 +7925,9 @@ async def balance(ctx, coin: str = None):
                 else:
                     userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME)
                     xfer_in = 0
-                    if COIN_NAME not in ENABLE_COIN_ERC:
+                    if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
                         xfer_in = await store.sql_user_balance_get_xfer_in(str(ctx.message.author.id), COIN_NAME)
-                    if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
+                    if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
                         actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
                     elif COIN_NAME in ENABLE_COIN_NANO:
                         actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
@@ -7912,7 +7982,7 @@ async def balance(ctx, coin: str = None):
     else:
         COIN_NAME = coin.upper()
 
-    if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC:
+    if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**!')
         return
@@ -7922,12 +7992,15 @@ async def balance(ctx, coin: str = None):
         msg = await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} in maintenance.')
         await msg.add_reaction(EMOJI_OK_BOX)
         return
-    if COIN_NAME in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC:
+    if COIN_NAME in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if wallet is None:
             if COIN_NAME in ENABLE_COIN_ERC:
                 w = await create_address_eth()
                 userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, w)
+            elif COIN_NAME in ENABLE_COIN_TRC:
+                result = await store.create_address_trx()
+                userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, result)
             else:
                 userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
             wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
@@ -7935,8 +8008,12 @@ async def balance(ctx, coin: str = None):
             token_info = await store.get_token_info(COIN_NAME)
             deposit_balance = await store.http_wallet_getbalance(wallet['balance_wallet_address'], COIN_NAME)
             real_deposit_balance = round(deposit_balance / 10**token_info['token_decimal'], 6)
+        elif COIN_NAME in ENABLE_COIN_TRC:
+            token_info = await store.get_token_info(COIN_NAME)
+            deposit_balance = await store.trx_wallet_getbalance(wallet['balance_wallet_address'], COIN_NAME)
+            real_deposit_balance = round(deposit_balance, 6)
         userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
-        if COIN_NAME in ENABLE_COIN_ERC:
+        if COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
             xfer_in = wallet['real_actual_balance']
         else:
             xfer_in = await store.sql_user_balance_get_xfer_in(str(ctx.message.author.id), COIN_NAME)
@@ -7945,7 +8022,7 @@ async def balance(ctx, coin: str = None):
         elif COIN_NAME in ENABLE_COIN_NANO:
             actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
             actual_balance = round(actual_balance / get_decimal(COIN_NAME), 6) * get_decimal(COIN_NAME)
-        if COIN_NAME in ENABLE_COIN_ERC:
+        if COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
             actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
         else:
             actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
@@ -7963,21 +8040,24 @@ async def balance(ctx, coin: str = None):
         raffle_spent = userdata_balance['raffle_fee']
         raffle_reward = userdata_balance['raffle_reward']
         embed = discord.Embed(title=f'[ {ctx.author.name}#{ctx.author.discriminator}\'s {COIN_NAME} balance ]', timestamp=datetime.utcnow())
-        if COIN_NAME in ENABLE_COIN_ERC:
-            embed.add_field(name="Deposited", value="`{}{}`".format(num_format_coin(real_deposit_balance, COIN_NAME), COIN_NAME), inline=True)
-        embed.add_field(name="Spendable", value=balance_actual+COIN_NAME, inline=True)
-        if locked_openorder > 0 and COIN_NAME not in ENABLE_COIN_ERC:
-            embed.add_field(name="Opened Order", value=num_format_coin(locked_openorder, COIN_NAME)+COIN_NAME, inline=True)
-            embed.add_field(name="Total", value=num_format_coin(actual_balance+locked_openorder, COIN_NAME)+COIN_NAME, inline=True)
-        elif locked_openorder > 0 and COIN_NAME in ENABLE_COIN_ERC:
-            embed.add_field(name="Opened Order", value=num_format_coin(locked_openorder, COIN_NAME)+COIN_NAME, inline=True)
-            embed.add_field(name="Total", value=num_format_coin(actual_balance+locked_openorder+real_deposit_balance, COIN_NAME)+COIN_NAME, inline=True)
-        elif locked_openorder == 0 and COIN_NAME in ENABLE_COIN_ERC:
-            embed.add_field(name="Total", value=num_format_coin(actual_balance+real_deposit_balance, COIN_NAME)+COIN_NAME, inline=True)
-        if raffle_spent and raffle_spent > 0:
-            embed.add_field(name="Raffle Spent / Won", value="{} / {} {}".format(num_format_coin(raffle_spent, COIN_NAME), num_format_coin(raffle_reward, COIN_NAME), COIN_NAME), inline=False)
+        try:
+            if COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
+                embed.add_field(name="Deposited", value="`{}{}`".format(num_format_coin(float(real_deposit_balance), COIN_NAME), COIN_NAME), inline=True)
+            embed.add_field(name="Spendable", value=balance_actual+COIN_NAME, inline=True)
+            if locked_openorder > 0 and COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
+                embed.add_field(name="Opened Order", value=num_format_coin(locked_openorder, COIN_NAME)+COIN_NAME, inline=True)
+                embed.add_field(name="Total", value=num_format_coin(actual_balance+locked_openorder, COIN_NAME)+COIN_NAME, inline=True)
+            elif locked_openorder > 0 and COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
+                embed.add_field(name="Opened Order", value=num_format_coin(locked_openorder, COIN_NAME)+COIN_NAME, inline=True)
+                embed.add_field(name="Total", value=num_format_coin(actual_balance+locked_openorder+float(real_deposit_balance), COIN_NAME)+COIN_NAME, inline=True)
+            elif locked_openorder == 0 and COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
+                embed.add_field(name="Total", value=num_format_coin(actual_balance+float(real_deposit_balance), COIN_NAME)+COIN_NAME, inline=True)
+            if raffle_spent and raffle_spent > 0:
+                embed.add_field(name="Raffle Spent / Won", value="{} / {} {}".format(num_format_coin(raffle_spent, COIN_NAME), num_format_coin(raffle_reward, COIN_NAME), COIN_NAME), inline=False)
+        except Exception as e:
+            print(traceback.format_exc())
         embed.add_field(name='Related commands', value=f'`{prefix}balance` or `{prefix}deposit {COIN_NAME}` or `{prefix}balance LIST`', inline=False)
-        if COIN_NAME in ENABLE_COIN_ERC:
+        if COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
             min_deposit_txt = " Min. deposit for moving to spendable: " + num_format_coin(token_info['min_move_deposit'], COIN_NAME) + COIN_NAME
             embed.set_footer(text=f"{token_info['deposit_note'] + min_deposit_txt}")
         else:
@@ -8027,13 +8107,16 @@ async def mbalance(ctx, coin: str = None):
     embed = discord.Embed(title=f'[ GUILD {ctx.guild.name} BALANCE ]', timestamp=datetime.utcnow())
     any_balance = 0
     if coin is None:
-        for COIN_NAME in [coinItem.upper() for coinItem in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC]:
+        for COIN_NAME in [coinItem.upper() for coinItem in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC+ENABLE_COIN_TRC]:
             if not is_maintenance_coin(COIN_NAME):
                 wallet = await store.sql_get_userwallet(str(ctx.guild.id), COIN_NAME)
                 if wallet is None:
                     if COIN_NAME in ENABLE_COIN_ERC:
                         w = await create_address_eth()
                         userregister = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD', 0, w)
+                    elif COIN_NAME in ENABLE_COIN_TRC:
+                        result = await store.create_address_trx()
+                        userregister = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD', 0, result)
                     else:
                         userregister = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD', 0)
                     wallet = await store.sql_get_userwallet(str(ctx.guild.id), COIN_NAME)
@@ -8043,9 +8126,9 @@ async def mbalance(ctx, coin: str = None):
                 else:
                     userdata_balance = await store.sql_user_balance(str(ctx.guild.id), COIN_NAME)
                     xfer_in = 0
-                    if COIN_NAME not in ENABLE_COIN_ERC:
+                    if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
                         xfer_in = await store.sql_user_balance_get_xfer_in(str(ctx.guild.id), COIN_NAME)
-                    if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
+                    if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
                         actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
                     elif COIN_NAME in ENABLE_COIN_NANO:
                         actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
@@ -8077,7 +8160,7 @@ async def mbalance(ctx, coin: str = None):
     else:
         COIN_NAME = coin.upper()
 
-    if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC:
+    if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**!')
         return
@@ -8085,6 +8168,8 @@ async def mbalance(ctx, coin: str = None):
     try:
         if COIN_NAME in ENABLE_COIN_ERC:
             coin_family = "ERC-20"
+        elif COIN_NAME in ENABLE_COIN_TRC:
+            coin_family = "TRC-20"
         else:
             coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     except Exception as e:
@@ -8098,19 +8183,22 @@ async def mbalance(ctx, coin: str = None):
         await msg.add_reaction(EMOJI_OK_BOX)
         return
 
-    if COIN_NAME in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC:
+    if COIN_NAME in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         wallet = await store.sql_get_userwallet(str(ctx.guild.id), COIN_NAME)
         if wallet is None:
             if COIN_NAME in ENABLE_COIN_ERC:
                 w = await create_address_eth()
                 userregister = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD', 0, w)
+            elif COIN_NAME in ENABLE_COIN_TRC:
+                result = await store.create_address_trx()
+                userregister = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD', 0, result)
             else:
                 userregister = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD', 0)
         userdata_balance = await store.sql_user_balance(str(ctx.guild.id), COIN_NAME)
         xfer_in = 0
-        if COIN_NAME not in ENABLE_COIN_ERC:
+        if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
             xfer_in = await store.sql_user_balance_get_xfer_in(str(ctx.guild.id), COIN_NAME)
-        if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
+        if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
             actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
         elif COIN_NAME in ENABLE_COIN_NANO:
             actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
@@ -8170,7 +8258,7 @@ async def botbalance(ctx, member: discord.Member, coin: str):
         return
 
     COIN_NAME = coin.upper()
-    if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC:
+    if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER {COIN_NAME}**!')
         return
 
@@ -8198,15 +8286,20 @@ async def botbalance(ctx, member: discord.Member, coin: str):
 
     if COIN_NAME in ENABLE_COIN_ERC:
         coin_family = "ERC-20"
+    elif COIN_NAME in ENABLE_COIN_TRC:
+        coin_family = "TRC-20"
     else:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-    if COIN_NAME in ENABLE_COIN+ENABLE_XMR+ENABLE_COIN_DOGE+ENABLE_COIN_NANO+ENABLE_COIN_ERC:
+    if COIN_NAME in ENABLE_COIN+ENABLE_XMR+ENABLE_COIN_DOGE+ENABLE_COIN_NANO+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         try:
             userwallet = await store.sql_get_userwallet(str(member.id), COIN_NAME)
             if userwallet is None:
                 if coin_family == "ERC-20":
                     w = await create_address_eth()
                     userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0, w)
+                elif coin_family == "TRC-20":
+                    result = await store.create_address_trx()
+                    userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0, result)
                 else:
                     userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0)
                 userwallet = await store.sql_get_userwallet(str(member.id), COIN_NAME)
@@ -8218,9 +8311,9 @@ async def botbalance(ctx, member: discord.Member, coin: str):
 
         userdata_balance = await store.sql_user_balance(str(member.id), COIN_NAME)
         xfer_in = 0
-        if COIN_NAME not in ENABLE_COIN_ERC:
+        if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
             xfer_in = await store.sql_user_balance_get_xfer_in(str(member.id), COIN_NAME)
-        if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
+        if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
             actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
         elif COIN_NAME in ENABLE_COIN_NANO:
             actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
@@ -8311,7 +8404,24 @@ async def register(ctx, wallet_address: str, coin: str=None):
 
     COIN_NAME = get_cn_coin_from_address(wallet_address)
     if COIN_NAME:
-        pass
+        if COIN_NAME == "TRON_TOKEN":
+            if coin is None:
+                await ctx.message.add_reaction(EMOJI_WARNING)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} you need to add **TOKEN NAME** address.')
+                return
+            else:
+                valid_address = await store.trx_validate_address(wallet_address)
+                if not valid_address:
+                    await ctx.message.add_reaction(EMOJI_ERROR)
+                    msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid token address:\n'
+                                         f'`{wallet_address}`')
+                    await msg.add_reaction(EMOJI_OK_BOX)
+                    return
+                else:
+                    COIN_NAME = coin.upper()
+                    valid_address = wallet_address
+        else:
+            pass
     else:
         if wallet_address.startswith("0x"):
             if wallet_address.upper().startswith("0X00000000000000000000000000000"):
@@ -8356,6 +8466,8 @@ async def register(ctx, wallet_address: str, coin: str=None):
 
     if COIN_NAME in ENABLE_COIN_ERC:
         coin_family = "ERC-20"
+    elif COIN_NAME in ENABLE_COIN_TRC:
+        coin_family = "TRC-20"
     else:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
 
@@ -8379,12 +8491,24 @@ async def register(ctx, wallet_address: str, coin: str=None):
                                  f'`{wallet_address}`')
             await msg.add_reaction(EMOJI_OK_BOX)
             return
+    elif coin_family == "TRC-20":
+        # Check if register address in any of user balance address
+        check_in_balance_users = await store.trx_check_balance_address_in_users(wallet_address, COIN_NAME)
+        if check_in_balance_users:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You can not register with any of user\'s tipjar\'s token address.\n'
+                                 f'`{wallet_address}`')
+            await msg.add_reaction(EMOJI_OK_BOX)
+            return
 
     user = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
     if user is None:
         if coin_family == "ERC-20":
             w = await create_address_eth()
             userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, w)
+        elif coin_family == "TRC-20":
+            result = await store.create_address_trx()
+            userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, result)
         else:
             userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
         user = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
@@ -8407,7 +8531,7 @@ async def register(ctx, wallet_address: str, coin: str=None):
                     valid_address = None
                 pass
             pass
-    elif COIN_NAME in ENABLE_COIN_ERC:
+    elif COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         # already validated above
         pass
     else:
@@ -8461,7 +8585,7 @@ async def register(ctx, wallet_address: str, coin: str=None):
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Unknown Ticker.')
             return
     # correct print(valid_address)
-    if COIN_NAME not in ENABLE_COIN_ERC:
+    if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         if valid_address is None: 
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid {COIN_NAME} address:\n'
@@ -8492,7 +8616,7 @@ async def register(ctx, wallet_address: str, coin: str=None):
     server_prefix = serverinfo['server_prefix']
     if existing_user['user_wallet_address']:
         prev_address = existing_user['user_wallet_address']
-        if COIN_NAME in ENABLE_COIN_ERC:
+        if COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
             if prev_address.upper() != wallet_address.upper():
                 await store.sql_update_user(str(ctx.message.author.id), wallet_address, COIN_NAME)
                 await ctx.message.add_reaction(EMOJI_OK_HAND)
@@ -8618,13 +8742,16 @@ async def withdraw(ctx, amount: str, coin: str = None):
         await logchanbot(f'User {ctx.author.id} tried to withdraw {amount}{COIN_NAME} while it tx not enable.')
         return
 
-    if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC:
+    if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         await ctx.message.add_reaction(EMOJI_WARNING)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Unknown Ticker.')
         return
 
     if COIN_NAME in ENABLE_COIN_ERC:
         coin_family = "ERC-20"
+        real_amount = float(amount)
+    elif COIN_NAME in ENABLE_COIN_TRC:
+        coin_family = "TRC-20"
         real_amount = float(amount)
     else:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
@@ -8641,13 +8768,16 @@ async def withdraw(ctx, amount: str, coin: str = None):
         if COIN_NAME in ENABLE_COIN_ERC:
             w = await create_address_eth()
             user = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, w)
+        elif COIN_NAME in ENABLE_COIN_TRC:
+            result = await store.create_address_trx()
+            user = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, result)
         else:
             user = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
         user = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
 
     if user['user_wallet_address'] is None:
         extra_txt = ""
-        if COIN_NAME in ENABLE_COIN_ERC:
+        if COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
             extra_txt = " " + COIN_NAME
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You do not have a withdrawal address for **{COIN_NAME}**, please use '
@@ -8657,9 +8787,9 @@ async def withdraw(ctx, amount: str, coin: str = None):
     NetFee = 0
     userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME)
     xfer_in = 0
-    if COIN_NAME not in ENABLE_COIN_ERC:
+    if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         xfer_in = await store.sql_user_balance_get_xfer_in(str(ctx.message.author.id), COIN_NAME)
-    if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
+    if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
     elif COIN_NAME in ENABLE_COIN_NANO:
         actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
@@ -8682,7 +8812,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
             return
     elif coin_family == "DOGE":
         NetFee = get_tx_fee(coin = COIN_NAME)
-    elif coin_family == "ERC-20":
+    elif coin_family == "ERC-20" or coin_family == "TRC-20":
         token_info = await store.get_token_info(COIN_NAME)
         NetFee = token_info['real_withdraw_fee']
         MinTx = token_info['real_min_tx']
@@ -8765,6 +8895,9 @@ async def withdraw(ctx, amount: str, coin: str = None):
         elif coin_family == "ERC-20": 
             withdrawTx = await store.sql_external_erc_single(str(ctx.author.id), user['user_wallet_address'], real_amount, COIN_NAME, 'WITHDRAW', 'DISCORD')
             withdraw_txt = f'Transaction hash: `{withdrawTx}`\nFee `{NetFee}{COIN_NAME}` deducted from your balance.'
+        elif coin_family == "TRC-20": 
+            withdrawTx = await store.sql_external_trx_single(str(ctx.author.id), user['user_wallet_address'], real_amount, COIN_NAME, 'WITHDRAW', 'DISCORD')
+            withdraw_txt = f'Transaction hash: `{withdrawTx}`\nFee `{NetFee}{COIN_NAME}` deducted from your balance.'
         # add redis action
         await add_tx_action_redis(json.dumps([random_string, "WITHDRAW", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, "DISCORD", "COMPLETE"]), False)
     except Exception as e:
@@ -8775,7 +8908,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
 
     if withdrawTx:
         withdrawAddress = user['user_wallet_address']
-        if coin_family == "ERC-20":
+        if coin_family == "ERC-20" or coin_family == "TRC-20":
             await ctx.message.add_reaction(TOKEN_EMOJI)
         else:
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
@@ -8881,6 +9014,9 @@ async def donate(ctx, amount: str, coin: str=None):
     if COIN_NAME in ENABLE_COIN_ERC:
         coin_family = "ERC-20"
         real_amount = float(amount)
+    elif COIN_NAME in ENABLE_COIN_TRC:
+        coin_family = "TRC-20"
+        real_amount = float(amount)
     else:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
         real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else Decimal(amount)
@@ -8894,14 +9030,17 @@ async def donate(ctx, amount: str, coin: str=None):
         if COIN_NAME in ENABLE_COIN_ERC:
             w = await create_address_eth()
             user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, w)
+        elif COIN_NAME in ENABLE_COIN_TRC:
+            result = await store.create_address_trx()
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, result)
         else:
             user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
 
     userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME)
     xfer_in = 0
-    if COIN_NAME not in ENABLE_COIN_ERC:
+    if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         xfer_in = await store.sql_user_balance_get_xfer_in(str(ctx.message.author.id), COIN_NAME)
-    if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
+    if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
     elif COIN_NAME in ENABLE_COIN_NANO:
         actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
@@ -8942,6 +9081,9 @@ async def donate(ctx, amount: str, coin: str=None):
         elif coin_family == "ERC-20":
             token_info = await store.get_token_info(COIN_NAME)
             donateTx = await store.sql_mv_erc_single(str(ctx.message.author.id), token_info['donate_name'], real_amount, COIN_NAME, "DONATE", token_info['contract'])
+        elif coin_family == "TRC-20":
+            token_info = await store.get_token_info(COIN_NAME)
+            donateTx = await store.sql_mv_trx_single(str(ctx.message.author.id), token_info['donate_name'], real_amount, COIN_NAME, "DONATE", token_info['contract'])
     except Exception as e:
         await logchanbot(traceback.format_exc())
     if donateTx:
@@ -9080,6 +9222,12 @@ async def swap(ctx, amount: str, coin_from: str, coin_to: str):
             from_decimal = token_info['token_decimal']
             Min_Tip = token_info['real_min_tip']
             Max_Tip = token_info['real_max_tip']
+        elif COIN_NAME_FROM in ENABLE_COIN_TRC:
+            coin_family = "TRC-20"
+            token_info = await store.get_token_info(COIN_NAME_FROM)
+            from_decimal = token_info['token_decimal']
+            Min_Tip = token_info['real_min_tip']
+            Max_Tip = token_info['real_max_tip']
         else:
             coin_family = getattr(getattr(config,"daemon"+COIN_NAME_FROM),"coin_family","TRTL")
             from_decimal = int(math.log10(get_decimal(COIN_NAME_FROM)))
@@ -9096,6 +9244,10 @@ async def swap(ctx, amount: str, coin_from: str, coin_to: str):
             coin_family = "ERC-20"
             token_info = await store.get_token_info(COIN_NAME_TO)
             to_decimal = token_info['token_decimal']
+        elif COIN_NAME_TO in ENABLE_COIN_TRC:
+            coin_family = "TRC-20"
+            token_info = await store.get_token_info(COIN_NAME_TO)
+            to_decimal = token_info['token_decimal']
         else:
             coin_family = getattr(getattr(config,"daemon"+COIN_NAME_TO),"coin_family","TRTL")
             to_decimal = int(math.log10(get_decimal(COIN_NAME_TO)))
@@ -9103,9 +9255,9 @@ async def swap(ctx, amount: str, coin_from: str, coin_to: str):
 
         userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME_FROM)
         xfer_in = 0
-        if COIN_NAME_FROM not in ENABLE_COIN_ERC:
+        if COIN_NAME_FROM not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
             xfer_in = await store.sql_user_balance_get_xfer_in(str(ctx.message.author.id), COIN_NAME_FROM)
-        if COIN_NAME_FROM in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
+        if COIN_NAME_FROM in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
             actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
         elif COIN_NAME_FROM in ENABLE_COIN_NANO:
             actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
@@ -9113,7 +9265,7 @@ async def swap(ctx, amount: str, coin_from: str, coin_to: str):
         else:
             actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
         
-        if COIN_NAME_FROM in ENABLE_COIN_ERC:
+        if COIN_NAME_FROM in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
             real_actual_balance = actual_balance
         else:
             real_actual_balance = actual_balance / 10**from_decimal
@@ -9131,8 +9283,8 @@ async def swap(ctx, amount: str, coin_from: str, coin_to: str):
         elif real_from_amount > real_actual_balance:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to do a swap of '
-                           f'{num_format_coin(real_from_amount if COIN_NAME_FROM in ENABLE_COIN_ERC else real_from_amount*10**from_decimal, COIN_NAME_FROM)} '
-                           f'{COIN_NAME_FROM}. Having {num_format_coin(real_actual_balance*10**from_decimal, COIN_NAME_FROM)}{COIN_NAME_FROM}.')
+                           f'{num_format_coin(real_from_amount if COIN_NAME_FROM in ENABLE_COIN_ERC+ENABLE_COIN_TRC else real_from_amount*10**from_decimal, COIN_NAME_FROM)} '
+                           f'{COIN_NAME_FROM}. Having {num_format_coin(real_actual_balance if COIN_NAME_FROM in ENABLE_COIN_ERC+ENABLE_COIN_TRC else real_from_amount*10**from_decimal, COIN_NAME_FROM)}{COIN_NAME_FROM}.')
             return
 
         swapit = None	
@@ -9233,9 +9385,10 @@ async def take(ctx, info: str=None):
     # check if guild has very small number of online
     try:
         num_online = len([member for member in ctx.guild.members if member.bot == False and member.status != discord.Status.offline])
-        if num_online < 15:
+        if num_online < 10:
             await ctx.message.add_reaction(EMOJI_INFORMATION)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} This guild has less than 15 online users. Faucet is disable.')
+            await botLogChan.send(f'{ctx.author.name}#{ctx.author.discriminator} / {ctx.author.id} using **take** {ctx.guild.name} / {ctx.guild.id} while there are only {str(num_online)} online. Rejected!')
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} This guild has less than 10 online users. Faucet is disable.')
             return
     except Exception as e:
         await logchanbot(traceback.format_exc())
@@ -9327,10 +9480,12 @@ async def take(ctx, info: str=None):
         COIN_NAME = info.upper()
     if COIN_NAME in ENABLE_COIN_ERC:
         coin_family = "ERC-20"
+    elif COIN_NAME in ENABLE_COIN_TRC:
+        coin_family = "TRC-20"
     else:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     try:
-        if COIN_NAME in ENABLE_COIN_ERC:
+        if COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
             token_info = await store.get_token_info(COIN_NAME)
             decimal_pts = token_info['token_decimal']
             coin_decimal = 1
@@ -9360,20 +9515,23 @@ async def take(ctx, info: str=None):
         await logchanbot(amount_msg_zero)
         return
 
-    if COIN_NAME in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC:
+    if COIN_NAME in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         real_amount = float(amount) if coin_family in ["DOGE", "ERC-20"] else int(amount) # already real amount
         user_from = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
         if user_from is None:
             if COIN_NAME in ENABLE_COIN_ERC:
                 w = await create_address_eth()
                 user_from = await store.sql_register_user(str(bot.user.id), COIN_NAME, 'DISCORD', 0, w)
+            elif COIN_NAME in ENABLE_COIN_TRC:
+                result = await store.create_address_trx()
+                user_from = await store.sql_register_user(str(bot.user.id), COIN_NAME, 'DISCORD', 0, result)
             else:
                 user_from = await store.sql_register_user(str(bot.user.id), COIN_NAME, 'DISCORD', 0)
         userdata_balance = await store.sql_user_balance(str(bot.user.id), COIN_NAME)
         xfer_in = 0
-        if COIN_NAME not in ENABLE_COIN_ERC:
+        if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
             xfer_in = await store.sql_user_balance_get_xfer_in(str(bot.user.id), COIN_NAME)
-        if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
+        if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
             actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
         elif COIN_NAME in ENABLE_COIN_NANO:
             actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
@@ -9393,6 +9551,9 @@ async def take(ctx, info: str=None):
             if COIN_NAME in ENABLE_COIN_ERC:
                 w = await create_address_eth()
                 userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, w)
+            elif COIN_NAME in ENABLE_COIN_TRC:
+                result = await store.create_address_trx()
+                userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, result)
             else:
                 userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
             user_to = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
@@ -9418,6 +9579,9 @@ async def take(ctx, info: str=None):
                     elif coin_family == "ERC-20":
                         token_info = await store.get_token_info(COIN_NAME)
                         tip = await store.sql_mv_erc_single(str(bot.user.id), str(ctx.message.author.id), real_amount, COIN_NAME, "FAUCET", token_info['contract'])
+                    elif coin_family == "TRC-20":
+                        token_info = await store.get_token_info(COIN_NAME)
+                        tip = await store.sql_mv_trx_single(str(bot.user.id), str(ctx.message.author.id), real_amount, COIN_NAME, "FAUCET", token_info['contract'])
                 else:
                     try:
                         msg = await ctx.send(f'{EMOJI_MONEYFACE} {ctx.author.mention} Simulated faucet {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}. This is a test only. Use without **ticker** to do real faucet claim.')
@@ -9511,6 +9675,8 @@ async def randtip(ctx, amount: str, coin: str, *, rand_option: str=None):
 
     if COIN_NAME in ENABLE_COIN_ERC:
         coin_family = "ERC-20"
+    elif COIN_NAME in ENABLE_COIN_TRC:
+        coin_family = "TRC-20"
     else:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     # Check allowed coins
@@ -9648,7 +9814,7 @@ async def randtip(ctx, amount: str, coin: str, *, rand_option: str=None):
         
     notifyList = await store.sql_get_tipnotify()
 
-    if COIN_NAME in ENABLE_COIN_ERC:
+    if COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         real_amount = float(amount)
         token_info = await store.get_token_info(COIN_NAME)
         MinTx = token_info['real_min_tx']
@@ -9663,14 +9829,17 @@ async def randtip(ctx, amount: str, coin: str, *, rand_option: str=None):
         if COIN_NAME in ENABLE_COIN_ERC:
             w = await create_address_eth()
             user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, w)
+        elif COIN_NAME in ENABLE_COIN_TRC:
+            result = await store.create_address_trx()
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, result)
         else:
             user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
 
     userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME)
     xfer_in = 0
-    if COIN_NAME not in ENABLE_COIN_ERC:
+    if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         xfer_in = await store.sql_user_balance_get_xfer_in(str(ctx.message.author.id), COIN_NAME)
-    if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
+    if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
     elif COIN_NAME in ENABLE_COIN_NANO:
         actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
@@ -9731,6 +9900,8 @@ async def randtip(ctx, amount: str, coin: str, *, rand_option: str=None):
         tip = await store.sql_mv_doge_single(str(ctx.message.author.id), str(rand_user.id), real_amount, COIN_NAME, "RANDTIP")
     elif coin_family == "ERC-20":
         tip = await store.sql_mv_erc_single(str(ctx.message.author.id), str(rand_user.id), real_amount, COIN_NAME, "RANDTIP", token_info['contract'])
+    elif coin_family == "TRC-20":
+        tip = await store.sql_mv_trx_single(str(ctx.message.author.id), str(rand_user.id), real_amount, COIN_NAME, "RANDTIP", token_info['contract'])
     # remove queue from randtip
     if ctx.message.author.id in TX_IN_PROCESS:
         TX_IN_PROCESS.remove(ctx.message.author.id)
@@ -9862,7 +10033,7 @@ async def freetip(ctx, amount: str, coin: str, duration: str='60s', *, comment: 
     if ctx.guild.id == TRTL_DISCORD and COIN_NAME != "TRTL":
         return
 
-    if COIN_NAME not in (ENABLE_COIN + ENABLE_XMR + ENABLE_COIN_DOGE + ENABLE_COIN_NANO + ENABLE_COIN_ERC):
+    if COIN_NAME not in (ENABLE_COIN + ENABLE_XMR + ENABLE_COIN_DOGE + ENABLE_COIN_NANO + ENABLE_COIN_ERC + ENABLE_COIN_TRC):
         msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} **{COIN_NAME}** is not in our supported coins.')
         await msg.add_reaction(EMOJI_OK_BOX)
         return
@@ -9874,6 +10045,8 @@ async def freetip(ctx, amount: str, coin: str, duration: str='60s', *, comment: 
 
     if COIN_NAME in ENABLE_COIN_ERC:
         coin_family = "ERC-20"
+    elif COIN_NAME in ENABLE_COIN_TRC:
+        coin_family = "TRC-20"
     else:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     # Check allowed coins
@@ -9911,7 +10084,7 @@ async def freetip(ctx, amount: str, coin: str, duration: str='60s', *, comment: 
     # End Check if maintenance
 
     notifyList = await store.sql_get_tipnotify()
-    if coin_family == "ERC-20":
+    if coin_family == "ERC-20" or coin_family == "TRC-20":
         token_info = await store.get_token_info(COIN_NAME)
         real_amount = float(amount)
         MinTx = token_info['real_min_tip']
@@ -9929,13 +10102,16 @@ async def freetip(ctx, amount: str, coin: str, duration: str='60s', *, comment: 
         if COIN_NAME in ENABLE_COIN_ERC:
             w = await create_address_eth()
             user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, w)
+        elif COIN_NAME in ENABLE_COIN_TRC:
+            result = await store.create_address_trx()
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, result)
         else:
             user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
     userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME)
     xfer_in = 0
-    if COIN_NAME not in ENABLE_COIN_ERC:
+    if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         xfer_in = await store.sql_user_balance_get_xfer_in(str(ctx.message.author.id), COIN_NAME)
-    if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
+    if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
     elif COIN_NAME in ENABLE_COIN_NANO:
         actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
@@ -10027,9 +10203,9 @@ and reaction.message.id == msg.id and str(reaction.emoji) == EMOJI_PARTY
         # re-check balance
         userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME)
         xfer_in = 0
-        if COIN_NAME not in ENABLE_COIN_ERC:
+        if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
             xfer_in = await store.sql_user_balance_get_xfer_in(str(ctx.message.author.id), COIN_NAME)
-        if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
+        if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
             actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
         elif COIN_NAME in ENABLE_COIN_NANO:
             actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
@@ -10054,7 +10230,7 @@ and reaction.message.id == msg.id and str(reaction.emoji) == EMOJI_PARTY
             return
 
         amountDiv = int(round(real_amount / len(attend_list_id), 2))  # cut 2 decimal only
-        if coin_family == "DOGE" or coin_family == "ERC-20":
+        if coin_family == "DOGE" or coin_family == "ERC-20" or coin_family == "TRC-20":
             amountDiv = round(real_amount / len(attend_list_id), 4)
 
         tip = None
@@ -10069,6 +10245,8 @@ and reaction.message.id == msg.id and str(reaction.emoji) == EMOJI_PARTY
                 tip = await store.sql_mv_doge_multiple(str(ctx.message.author.id), attend_list_id, amountDiv, COIN_NAME, "TIPALL")
             elif coin_family == "ERC-20":
                 tip = await store.sql_mv_erc_multiple(str(ctx.message.author.id), attend_list_id, amountDiv, COIN_NAME, "TIPALL", token_info['contract'])
+            elif coin_family == "TRC-20":
+                tip = await store.sql_mv_trx_multiple(str(ctx.message.author.id), attend_list_id, amountDiv, COIN_NAME, "TIPALL", token_info['contract'])
         except Exception as e:
             await logchanbot(traceback.format_exc())
 
@@ -10084,7 +10262,7 @@ and reaction.message.id == msg.id and str(reaction.emoji) == EMOJI_PARTY
             tipAmount = num_format_coin(real_amount, COIN_NAME)
             ActualSpend_str = num_format_coin(amountDiv * len(attend_list_id), COIN_NAME)
             amountDiv_str = num_format_coin(amountDiv, COIN_NAME)
-            if COIN_NAME in ENABLE_COIN_ERC:
+            if COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
                 await ctx.message.add_reaction(TOKEN_EMOJI)
             else:
                 await ctx.message.add_reaction(get_emoji(COIN_NAME))
@@ -10145,9 +10323,9 @@ and reaction.message.id == msg.id and str(reaction.emoji) == EMOJI_PARTY
             # re-check balance
             userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME)
             xfer_in = 0
-            if COIN_NAME not in ENABLE_COIN_ERC:
+            if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
                 xfer_in = await store.sql_user_balance_get_xfer_in(str(ctx.message.author.id), COIN_NAME)
-            if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
+            if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
                 actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
             elif COIN_NAME in ENABLE_COIN_NANO:
                 actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
@@ -10177,6 +10355,9 @@ and reaction.message.id == msg.id and str(reaction.emoji) == EMOJI_PARTY
                 if COIN_NAME in ENABLE_COIN_ERC:
                     w = await create_address_eth()
                     userregister = await store.sql_register_user(str(user.id), COIN_NAME, 'DISCORD', 0, w)
+                elif COIN_NAME in ENABLE_COIN_TRC:
+                    result = await store.create_address_trx()
+                    userregister = await store.sql_register_user(str(user.id), COIN_NAME, 'DISCORD', 0, result)
                 else:
                     userregister = await store.sql_register_user(str(user.id), COIN_NAME, 'DISCORD', 0)
                 user_to = await store.sql_get_userwallet(str(user.id), COIN_NAME)
@@ -10190,6 +10371,8 @@ and reaction.message.id == msg.id and str(reaction.emoji) == EMOJI_PARTY
                 tip = await store.sql_mv_doge_single(str(ctx.message.author.id), str(user.id), real_amount, COIN_NAME, "FREETIP")
             elif coin_family == "ERC-20":
                 tip = await store.sql_mv_erc_single(str(ctx.message.author.id), str(user.id), real_amount, COIN_NAME, "FREETIP", token_info['contract'])
+            elif coin_family == "TRC-20":
+                tip = await store.sql_mv_trx_single(str(ctx.message.author.id), str(user.id), real_amount, COIN_NAME, "FREETIP", token_info['contract'])
             # remove queue from freetip
             if ctx.message.author.id in TX_IN_PROCESS:
                 TX_IN_PROCESS.remove(ctx.message.author.id)
@@ -10257,7 +10440,7 @@ async def tipto(ctx, amount: str, coin: str, to_user: str):
         return
 
     COIN_NAME = coin.upper()
-    if COIN_NAME not in (ENABLE_COIN + ENABLE_XMR + ENABLE_COIN_DOGE + ENABLE_COIN_NANO + ENABLE_COIN_ERC):
+    if COIN_NAME not in (ENABLE_COIN + ENABLE_XMR + ENABLE_COIN_DOGE + ENABLE_COIN_NANO + ENABLE_COIN_ERC + ENABLE_COIN_TRC):
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.message.author.send(f'{COIN_NAME} is not in TipBot.')
         return
@@ -10287,6 +10470,8 @@ async def tipto(ctx, amount: str, coin: str, to_user: str):
 
     if COIN_NAME in ENABLE_COIN_ERC:
         coin_family = "ERC-20"
+    elif COIN_NAME in ENABLE_COIN_TRC:
+        coin_family = "TRC-20"
     else:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
 
@@ -10295,13 +10480,16 @@ async def tipto(ctx, amount: str, coin: str, to_user: str):
         if COIN_NAME in ENABLE_COIN_ERC:
             w = await create_address_eth()
             user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, w)
+        elif COIN_NAME in ENABLE_COIN_TRC:
+            result = await store.create_address_trx()
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, result)
         else:
             user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
     userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME)
     xfer_in = 0
-    if COIN_NAME not in ENABLE_COIN_ERC:
+    if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         xfer_in = await store.sql_user_balance_get_xfer_in(str(ctx.message.author.id), COIN_NAME)
-    if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
+    if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
     elif COIN_NAME in ENABLE_COIN_NANO:
         actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
@@ -10309,7 +10497,7 @@ async def tipto(ctx, amount: str, coin: str, to_user: str):
     else:
         actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
 
-    if coin_family == "ERC-20":
+    if coin_family == "ERC-20" or coin_family == "TRC-20":
         real_amount = float(amount)
         token_info = await store.get_token_info(COIN_NAME)
         MinTx = token_info['real_min_tip']
@@ -10429,7 +10617,7 @@ async def tip(ctx, amount: str, *args):
         elif COIN_NAME in ENABLE_COIN_NANO:
             pass
         elif COIN_NAME not in ENABLE_COIN:
-            if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
+            if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
                 pass
             elif 'default_coin' in serverinfo:
                 COIN_NAME = serverinfo['default_coin'].upper()
@@ -10449,6 +10637,8 @@ async def tip(ctx, amount: str, *args):
 
     if COIN_NAME in ENABLE_COIN_ERC:
         coin_family = "ERC-20"
+    elif COIN_NAME in ENABLE_COIN_TRC:
+        coin_family = "TRC-20"
     else:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     # Check allowed coins
@@ -10460,12 +10650,6 @@ async def tip(ctx, amount: str, *args):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} not in allowed coins set by server manager.')
         return
     # End of checking allowed coins
-
-    # offline can not tip
-    if ctx.author.status == discord.Status.offline:
-        await ctx.message.add_reaction(EMOJI_QUESTEXCLAIM)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Offline status cannot tip people.')
-        return
 
     if is_maintenance_coin(COIN_NAME):
         await ctx.message.add_reaction(EMOJI_MAINTENANCE)
@@ -10707,13 +10891,16 @@ async def tip(ctx, amount: str, *args):
         if COIN_NAME in ENABLE_COIN_ERC:
             w = await create_address_eth()
             user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, w)
+        elif COIN_NAME in ENABLE_COIN_TRC:
+            result = await store.create_address_trx()
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, result)
         else:
             user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
     userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME)
     xfer_in = 0
-    if COIN_NAME not in ENABLE_COIN_ERC:
+    if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         xfer_in = await store.sql_user_balance_get_xfer_in(str(ctx.message.author.id), COIN_NAME)
-    if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
+    if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
     elif COIN_NAME in ENABLE_COIN_NANO:
         actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
@@ -10734,11 +10921,14 @@ async def tip(ctx, amount: str, *args):
         if coin_family == "ERC-20":
             w = await create_address_eth()
             userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0, w)
+        elif coin_family == "TRC-20":
+            result = await store.create_address_trx()
+            userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0, result)
         else:
             userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0)
         user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
 
-    if coin_family == "ERC-20":
+    if coin_family == "ERC-20" or coin_family == "TRC-20":
         real_amount = float(amount)
         token_info = await store.get_token_info(COIN_NAME)
         MinTx = token_info['real_min_tip']
@@ -10788,6 +10978,8 @@ async def tip(ctx, amount: str, *args):
             tip = await store.sql_mv_nano_single(str(ctx.message.author.id), str(member.id), real_amount, COIN_NAME, "TIP")
         elif coin_family == "ERC-20":
             tip = await store.sql_mv_erc_single(str(ctx.message.author.id), str(member.id), real_amount, COIN_NAME, "TIP", token_info['contract'])
+        elif coin_family == "TRC-20":
+            tip = await store.sql_mv_trx_single(str(ctx.message.author.id), str(member.id), real_amount, COIN_NAME, "TIP", token_info['contract'])
         if ctx.message.author.bot == False and serverinfo['react_tip'] == "ON":
             await ctx.message.add_reaction(EMOJI_TIP)
     except Exception as e:
@@ -10883,7 +11075,7 @@ async def mtip(ctx, amount: str, *args):
         elif COIN_NAME in ENABLE_COIN_NANO:
             pass
         elif COIN_NAME not in ENABLE_COIN:
-            if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
+            if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
                 pass
             elif 'default_coin' in serverinfo:
                 COIN_NAME = serverinfo['default_coin'].upper()
@@ -10903,6 +11095,9 @@ async def mtip(ctx, amount: str, *args):
 
     if COIN_NAME in ENABLE_COIN_ERC:
         coin_family = "ERC-20"
+        token_info = await store.get_token_info(COIN_NAME)
+    elif COIN_NAME in ENABLE_COIN_TRC:
+        coin_family = "TRC-20"
         token_info = await store.get_token_info(COIN_NAME)
     else:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
@@ -11156,9 +11351,9 @@ async def mtip(ctx, amount: str, *args):
     # get user balance
     userdata_balance = await store.sql_user_balance(str(ctx.guild.id), COIN_NAME)
     xfer_in = 0
-    if COIN_NAME not in ENABLE_COIN_ERC:
+    if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         xfer_in = await store.sql_user_balance_get_xfer_in(str(ctx.guild.id), COIN_NAME)
-    if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
+    if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
     elif COIN_NAME in ENABLE_COIN_NANO:
         actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
@@ -11179,12 +11374,15 @@ async def mtip(ctx, amount: str, *args):
         if COIN_NAME in ENABLE_COIN_ERC:
             w = await create_address_eth()
             userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0, w)
+        elif COIN_NAME in ENABLE_COIN_TRC:
+            result = await store.create_address_trx()
+            userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0, result)
         else:
             userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0)
         user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
  
     real_amount = int(Decimal(amount) * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
-    if COIN_NAME in ENABLE_COIN_ERC:
+    if COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         MinTx = token_info['real_min_tip']
         MaxTX = token_info['real_max_tip']
     else:
@@ -11229,6 +11427,9 @@ async def mtip(ctx, amount: str, *args):
         elif coin_family == "ERC-20":
             token_info = await store.get_token_info(COIN_NAME)
             tip = await store.sql_mv_erc_single(str(ctx.guild.id), str(member.id), real_amount, COIN_NAME, "TIP", token_info['contract'])
+        elif coin_family == "TRC-20":
+            token_info = await store.get_token_info(COIN_NAME)
+            tip = await store.sql_mv_trx_single(str(ctx.guild.id), str(member.id), real_amount, COIN_NAME, "TIP", token_info['contract'])
         if ctx.message.author.bot == False and serverinfo['react_tip'] == "ON":
             await ctx.message.add_reaction(EMOJI_TIP)
     except Exception as e:
@@ -11241,7 +11442,7 @@ async def mtip(ctx, amount: str, *args):
         except Exception as e:
             await logchanbot(traceback.format_exc())
 
-        if COIN_NAME in ENABLE_COIN_ERC:
+        if COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
             await ctx.message.add_reaction(TOKEN_EMOJI)
         else:
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
@@ -11313,7 +11514,7 @@ async def tipall(ctx, amount: str, coin: str, option: str=None):
     if ctx.guild.id == TRTL_DISCORD and COIN_NAME != "TRTL":
         return
 
-    if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC:
+    if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**!')
         return
@@ -11321,6 +11522,8 @@ async def tipall(ctx, amount: str, coin: str, option: str=None):
     serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
     if COIN_NAME in ENABLE_COIN_ERC:
         coin_family = "ERC-20"
+    elif COIN_NAME in ENABLE_COIN_TRC:
+        coin_family = "TRC-20"
     else:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
 
@@ -11374,7 +11577,7 @@ async def tipall(ctx, amount: str, coin: str, option: str=None):
     # End Check if maintenance
 
     notifyList = await store.sql_get_tipnotify()
-    if coin_family == "ERC-20":
+    if coin_family == "ERC-20" or coin_family == "TRC-20":
         real_amount = float(amount)
         token_info = await store.get_token_info(COIN_NAME)
         MinTx = token_info['real_min_tip']
@@ -11412,6 +11615,9 @@ async def tipall(ctx, amount: str, coin: str, option: str=None):
                 if coin_family == "ERC-20":
                     w = await create_address_eth()
                     userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0, w)
+                elif coin_family == "TRC-20":
+                    result = await store.create_address_trx()
+                    userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0, result)
                 else:
                     userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0)
                 user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
@@ -11422,15 +11628,18 @@ async def tipall(ctx, amount: str, coin: str, option: str=None):
         if coin_family == "ERC-20":
             w = await create_address_eth()
             user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, w)
+        elif coin_family == "TRC-20":
+            result = await store.create_address_trx()
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, result)
         else:
             user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
 
     # get user balance
     userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME)
     xfer_in = 0
-    if COIN_NAME not in ENABLE_COIN_ERC: 
+    if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC: 
         xfer_in = await store.sql_user_balance_get_xfer_in(str(ctx.message.author.id), COIN_NAME)
-    if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
+    if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
     elif COIN_NAME in ENABLE_COIN_NANO:
         actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
@@ -11472,7 +11681,7 @@ async def tipall(ctx, amount: str, coin: str, option: str=None):
         return
 
     amountDiv = int(round(real_amount / len(list_receivers), 2))  # cut 2 decimal only
-    if coin_family == "DOGE" or coin_family == "ERC-20":
+    if coin_family == "DOGE" or coin_family == "ERC-20" or coin_family == "TRC-20":
         amountDiv = round(real_amount / len(list_receivers), 4)
         if (real_amount / len(list_receivers)) < MinTx:
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -11507,6 +11716,8 @@ async def tipall(ctx, amount: str, coin: str, option: str=None):
             tip = await store.sql_mv_doge_multiple(str(ctx.message.author.id), list_receivers, amountDiv, COIN_NAME, "TIPALL")
         elif coin_family == "ERC-20":
             tip = await store.sql_mv_erc_multiple(str(ctx.message.author.id), list_receivers, amountDiv, COIN_NAME, "TIPALL", token_info['contract'])
+        elif coin_family == "TRC-20":
+            tip = await store.sql_mv_trx_multiple(str(ctx.message.author.id), list_receivers, amountDiv, COIN_NAME, "TIPALL", token_info['contract'])
     except Exception as e:
         await logchanbot(traceback.format_exc())
     await asyncio.sleep(config.interval.tx_lap_each)
@@ -11675,6 +11886,17 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
                 await ctx.message.add_reaction(EMOJI_WARNING)
                 await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Unsupported coin **{COIN_NAME}**.')
                 return
+    elif COIN_NAME == "TRON_TOKEN":
+        if coin is None:
+            await ctx.message.add_reaction(EMOJI_WARNING)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} you need to add **COIN NAME** after address.')
+            return
+        else:
+            COIN_NAME = coin.upper()
+            if COIN_NAME not in ENABLE_COIN_TRC:
+                await ctx.message.add_reaction(EMOJI_WARNING)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Unsupported token **{COIN_NAME}**.')
+                return
 
     coin_family = None
     if not is_coin_txable(COIN_NAME):
@@ -11685,6 +11907,8 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
     if COIN_NAME:
         if COIN_NAME in ENABLE_COIN_ERC:
             coin_family = "ERC-20"
+        elif COIN_NAME in ENABLE_COIN_TRC:
+            coin_family = "TRC-20"
         else:
             coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     else:
@@ -11845,9 +12069,9 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
 
         userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME)
         xfer_in = 0
-        if COIN_NAME not in ENABLE_COIN_ERC:
+        if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
             xfer_in = await store.sql_user_balance_get_xfer_in(str(ctx.message.author.id), COIN_NAME)
-        if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
+        if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
             actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
         elif COIN_NAME in ENABLE_COIN_NANO:
             actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
@@ -12015,9 +12239,9 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
             user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
         userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME)
         xfer_in = 0
-        if COIN_NAME not in ENABLE_COIN_ERC:
+        if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
             xfer_in = await store.sql_user_balance_get_xfer_in(str(ctx.message.author.id), COIN_NAME)
-        if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
+        if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
             actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
         elif COIN_NAME in ENABLE_COIN_NANO:
             actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
@@ -12118,9 +12342,9 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
             user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
         userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME)
         xfer_in = 0
-        if COIN_NAME not in ENABLE_COIN_ERC:
+        if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
             xfer_in = await store.sql_user_balance_get_xfer_in(str(ctx.message.author.id), COIN_NAME)
-        if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
+        if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
             actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
         elif COIN_NAME in ENABLE_COIN_NANO:
             actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
@@ -12194,8 +12418,8 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
             await botLogChan.send(f'A user failed to execute `.send {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`.')
             return
         return
-    if coin_family == "DOGE" or coin_family == "ERC-20":
-        if coin_family == "ERC-20":
+    if coin_family == "DOGE" or coin_family == "ERC-20" or coin_family == "TRC-20":
+        if coin_family == "ERC-20" or coin_family == "TRC-20":
             token_info = await store.get_token_info(COIN_NAME)
             MinTx = token_info['real_min_tx']
             MaxTX = token_info['real_max_tx']
@@ -12219,14 +12443,17 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
             if coin_family == "ERC-20":
                 w = await create_address_eth()
                 userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, w)
+            elif coin_family == "TRC-20":
+                result = await store.create_address_trx()
+                userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, result)
             else:
-                user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
+                userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
         real_amount = float(amount)
         userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME)
         xfer_in = 0
-        if COIN_NAME not in ENABLE_COIN_ERC:
+        if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
             xfer_in = await store.sql_user_balance_get_xfer_in(str(ctx.message.author.id), COIN_NAME)
-        if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
+        if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
             actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
         elif COIN_NAME in ENABLE_COIN_NANO:
             actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
@@ -12270,6 +12497,8 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
             try:
                 if COIN_NAME in ENABLE_COIN_ERC:
                     SendTx = await store.sql_external_erc_single(str(ctx.author.id), CoinAddress, real_amount, COIN_NAME, 'SEND', 'DISCORD')
+                elif COIN_NAME in ENABLE_COIN_TRC:
+                    SendTx = await store.sql_external_trx_single(str(ctx.author.id), CoinAddress, real_amount, COIN_NAME, 'SEND', 'DISCORD')
                 else:
                     SendTx = await store.sql_external_doge_single(str(ctx.message.author.id), real_amount, NetFee,
                                                                   CoinAddress, COIN_NAME, "SEND")
@@ -12285,7 +12514,7 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
             await msg.add_reaction(EMOJI_OK_BOX)
             return
         if SendTx:
-            if COIN_NAME in ENABLE_COIN_ERC:
+            if COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
                 extra_txt = f"Fee `{NetFee}{COIN_NAME}` deducted from your balance."
                 await ctx.message.add_reaction(TOKEN_EMOJI)
             else:
@@ -12337,7 +12566,7 @@ async def address(ctx, *args):
             try:
                 COIN_NAME = args[0].upper()
                 if COIN_NAME not in ENABLE_COIN:
-                    if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
+                    if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
                         pass
                     elif 'default_coin' in serverinfo:
                         COIN_NAME = serverinfo['default_coin'].upper()
@@ -12372,12 +12601,12 @@ async def address(ctx, *args):
         try:
             COIN_NAME = args[0].upper()
             member = ctx.message.mentions[0]
-            if COIN_NAME not in (ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_COIN_NANO+ENABLE_XMR+ENABLE_COIN_ERC):
+            if COIN_NAME not in (ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_COIN_NANO+ENABLE_XMR+ENABLE_COIN_ERC+ENABLE_COIN_TRC):
                 COIN_NAME = None
         except Exception as e:
             pass
 
-        if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC:
+        if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**!')
             return
 
@@ -12414,6 +12643,9 @@ async def address(ctx, *args):
                     if COIN_NAME in ENABLE_COIN_ERC:
                         w = await create_address_eth()
                         userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0, w)
+                    elif COIN_NAME in ENABLE_COIN_TRC:
+                        result = await store.create_address_trx()
+                        userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0, result)
                     else:
                         userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0)
                     wallet = await store.sql_get_userwallet(str(member.id), COIN_NAME)
@@ -12438,7 +12670,21 @@ async def address(ctx, *args):
     COIN_NAME = get_cn_coin_from_address(CoinAddress)
 
     if COIN_NAME:
-        coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+        if COIN_NAME == "TRON_TOKEN":
+            validate_address = await store.trx_validate_address(CoinAddress)
+            if validate_address:
+                await ctx.message.add_reaction(EMOJI_CHECK)
+                msg = await ctx.send(f'Token address: `{CoinAddress}`\n'
+                                     'Checked: Valid.')
+                await msg.add_reaction(EMOJI_OK_BOX)
+            else:
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid token address:\n'
+                                     f'`{CoinAddress}`')
+                await msg.add_reaction(EMOJI_OK_BOX)
+            return
+        else:
+            coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     else:
         if CoinAddress.startswith("0x"):
             if CoinAddress.upper().startswith("0X00000000000000000000000000000"):
@@ -12842,9 +13088,9 @@ async def make(ctx, amount: str, coin: str, *, comment):
 
     userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME)
     xfer_in = 0
-    if COIN_NAME not in ENABLE_COIN_ERC:
+    if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         xfer_in = await store.sql_user_balance_get_xfer_in(str(ctx.message.author.id), COIN_NAME)
-    if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
+    if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
     elif COIN_NAME in ENABLE_COIN_NANO:
         actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
@@ -13312,7 +13558,7 @@ async def stats(ctx, coin: str = None):
     elif coin:
         COIN_NAME = coin.upper()
 
-    if COIN_NAME not in (ENABLE_COIN+ENABLE_XMR+ENABLE_COIN_ERC) and COIN_NAME != "BOT":
+    if COIN_NAME not in (ENABLE_COIN+ENABLE_XMR+ENABLE_COIN_ERC+ENABLE_COIN_TRC) and COIN_NAME != "BOT":
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{ctx.author.mention} Unsupported or Unknown Ticker: **{COIN_NAME}**')
         return
@@ -13366,6 +13612,8 @@ async def stats(ctx, coin: str = None):
     try:
         if COIN_NAME in ENABLE_COIN_ERC:
             gettopblock = await store.erc_get_block_number(COIN_NAME, timeout)
+        elif COIN_NAME in ENABLE_COIN_TRC:
+            gettopblock = await store.trx_get_block_number(COIN_NAME, timeout)
         else:
             gettopblock = await daemonrpc_client.gettopblock(COIN_NAME, time_out=timeout)
     except asyncio.TimeoutError:
@@ -13377,6 +13625,8 @@ async def stats(ctx, coin: str = None):
     walletStatus = None
     if COIN_NAME in ENABLE_COIN_ERC:
         coin_family = "ERC-20"
+    elif COIN_NAME in ENABLE_COIN_TRC:
+        coin_family = "TRC-20"
     else:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     if coin_family in ["TRTL", "BCN"]:
@@ -13391,7 +13641,7 @@ async def stats(ctx, coin: str = None):
             await logchanbot(traceback.format_exc())
 
     prefix = await get_guild_prefix(ctx)
-    if gettopblock and COIN_NAME not in ENABLE_COIN_ERC:
+    if gettopblock and COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         COIN_DIFF = get_diff_target(COIN_NAME)
         if COIN_NAME != "TRTL":
             blockfound = datetime.utcfromtimestamp(int(gettopblock['block_header']['timestamp'])).strftime("%Y-%m-%d %H:%M:%S")
@@ -13515,7 +13765,7 @@ async def stats(ctx, coin: str = None):
                                    '```')
                 await msg.add_reaction(EMOJI_OK_BOX)
             return
-    elif COIN_NAME not in ENABLE_COIN_ERC:
+    elif COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         if gettopblock is None and coin_family in ["TRTL", "BCN"] and walletStatus:
             localDaemonBlockCount = int(walletStatus['blockCount'])
             networkBlockCount = int(walletStatus['knownBlockCount'])
@@ -13584,6 +13834,38 @@ async def stats(ctx, coin: str = None):
                 get_main_balance = await store.http_wallet_getbalance(token_info['withdraw_address'], COIN_NAME)
                 if get_main_balance:
                     embed.add_field(name="MAIN BALANCE", value=num_format_coin(get_main_balance / 10**token_info['token_decimal'], COIN_NAME) + COIN_NAME, inline=True)
+            except Exception as e:
+                await logchanbot(traceback.format_exc())
+            try:
+                embed.add_field(name="COININFO", value=token_info['coininfo_note'], inline=True)
+                embed.add_field(name="EXPLORER", value=token_info['explorer_link'], inline=True)
+                embed.add_field(name='Related commands', value=f'`{prefix}coininfo {COIN_NAME}`, `{prefix}deposit {COIN_NAME}`, `{prefix}balance {COIN_NAME}`', inline=False)
+            except Exception as e:
+                pass
+            embed.set_footer(text=f"{token_info['deposit_note']}")
+            try:
+                msg = await ctx.send(embed=embed)
+                await msg.add_reaction(EMOJI_OK_BOX)
+            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                pass
+        except Exception as e:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await logchanbot(traceback.format_exc())
+            print(traceback.format_exc())
+    elif COIN_NAME in ENABLE_COIN_TRC:
+        try:
+            token_info = await store.get_token_info(COIN_NAME)
+            desc = f"Tip min/max: {num_format_coin(token_info['real_min_tip'], COIN_NAME)}-{num_format_coin(token_info['real_max_tip'], COIN_NAME)}{COIN_NAME}\n"
+            desc += f"Tx min/max: {num_format_coin(token_info['real_min_tx'], COIN_NAME)}-{num_format_coin(token_info['real_max_tx'], COIN_NAME)}{COIN_NAME}\n"
+            embed = discord.Embed(title=f"[ {COIN_NAME} ]", 
+                                  description=desc, 
+                                  timestamp=datetime.utcnow(), color=0xDEADBF)
+            embed.set_author(name=bot.user.name, icon_url=bot.user.avatar_url)
+            topBlock = await store.trx_get_block_number(COIN_NAME)
+            embed.add_field(name="NETWORK", value='{:,}'.format(topBlock), inline=True)
+            try:
+                get_main_balance = await store.trx_wallet_getbalance(token_info['withdraw_address'], COIN_NAME)
+                embed.add_field(name="MAIN BALANCE", value=num_format_coin(get_main_balance, COIN_NAME) + COIN_NAME, inline=True)
             except Exception as e:
                 await logchanbot(traceback.format_exc())
             try:
@@ -14013,7 +14295,7 @@ async def setting(ctx, *args):
                 return
     elif len(args) == 2:
         if args[0].upper() == "TIPONLY":
-            if (args[1].upper() not in (ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_NANO+ENABLE_XMR)) and (args[1].upper() not in ["ALLCOIN", "*", "ALL", "TIPALL", "ANY"]):
+            if (args[1].upper() not in (ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_NANO+ENABLE_XMR+ENABLE_COIN_TRC)) and (args[1].upper() not in ["ALLCOIN", "*", "ALL", "TIPALL", "ANY"]):
                 await ctx.send(f'{ctx.author.mention} {args[1].upper()} is not in any known coin we set.')
                 return
             else:
@@ -14043,7 +14325,7 @@ async def setting(ctx, *args):
                     await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} changed prefix in {ctx.guild.name} / {ctx.guild.id} to `{args[1].lower()}`')
                     return
         elif args[0].upper() == "DEFAULT_COIN" or args[0].upper() == "DEFAULTCOIN" or args[0].upper() == "COIN":
-            if args[1].upper() not in (ENABLE_COIN + ENABLE_XMR + ENABLE_COIN_DOGE + ENABLE_COIN_ERC + ENABLE_COIN_NANO + ENABLE_COIN_ERC):
+            if args[1].upper() not in (ENABLE_COIN + ENABLE_XMR + ENABLE_COIN_DOGE + ENABLE_COIN_ERC + ENABLE_COIN_NANO + ENABLE_COIN_TRC):
                 await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**!')
                 return
             else:
@@ -14092,7 +14374,7 @@ async def setting(ctx, *args):
                 return
             else:
                 try:
-                    contained = [x.upper() for x in args if x.upper() in (ENABLE_COIN+ENABLE_XMR+ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_NANO)]
+                    contained = [x.upper() for x in args if x.upper() in (ENABLE_COIN+ENABLE_XMR+ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC+ENABLE_COIN_NANO)]
                     if contained and len(contained) >= 2:
                         tiponly_value = ','.join(contained)
                         await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} changed tiponly in {ctx.guild.name} / {ctx.guild.id} to `{tiponly_value}`')
@@ -14479,9 +14761,9 @@ async def sell(ctx, sell_amount: str, sell_ticker: str, buy_amount: str, buy_tic
             userregister = await store.sql_register_user(str(ctx.message.author.id), sell_ticker, 'DISCORD', 0)
         userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), sell_ticker)
         xfer_in = 0
-        if sell_ticker not in ENABLE_COIN_ERC:
+        if sell_ticker not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
             xfer_in = await store.sql_user_balance_get_xfer_in(str(ctx.message.author.id), sell_ticker)
-        if sell_ticker in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
+        if sell_ticker in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
             actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
         elif sell_ticker in ENABLE_COIN_NANO:
             actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
@@ -14662,9 +14944,9 @@ async def buy(ctx, ref_number: str):
                 if wallet:
                     userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), get_order_num['coin_get'], 'DISCORD')
                     xfer_in = 0
-                    if get_order_num['coin_get'] not in ENABLE_COIN_ERC:
+                    if get_order_num['coin_get'] not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
                         xfer_in = await store.sql_user_balance_get_xfer_in(str(ctx.message.author.id), get_order_num['coin_get'])
-                    if get_order_num['coin_get'] in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
+                    if get_order_num['coin_get'] in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
                         actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
                     elif get_order_num['coin_get'] in ENABLE_COIN_NANO:
                         actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
@@ -15286,6 +15568,8 @@ def get_cn_coin_from_address(CoinAddress: str):
     (CoinAddress.startswith("fi") and len(CoinAddress) == 108) or \
     (CoinAddress.startswith("fs") and len(CoinAddress) == 97):
         COIN_NAME = "XWP"
+    elif (CoinAddress[0] in ["T"]) and len(CoinAddress) == 34:
+        COIN_NAME = "TRON_TOKEN"
     elif CoinAddress.startswith("D") and len(CoinAddress) == 34:
         COIN_NAME = "DOGE"
     elif (CoinAddress[0] in ["M", "L", "4", "5"]) and len(CoinAddress) == 34:
@@ -15583,7 +15867,7 @@ async def update_block_height():
                 end = time.time()
             if end - start > config.interval.log_longduration:
                 await logchanbot('update_block_height {} longer than {}s'.format(coinItem, config.interval.log_longduration))
-        for coinItem in ENABLE_COIN_ERC:
+        for coinItem in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
             if is_maintenance_coin(coinItem):
                 pass
             elif not is_coin_depositable(coinItem):
@@ -15591,7 +15875,10 @@ async def update_block_height():
             else:
                 start = time.time()
                 try:
-                    await store.erc_get_block_number(coinItem)
+                    if coinItem in ENABLE_COIN_ERC:
+                        await store.erc_get_block_number(coinItem)
+                    elif coinItem in ENABLE_COIN_TRC:
+                        await store.trx_get_block_number(coinItem)
                 except Exception as e:
                     await logchanbot(traceback.format_exc())
                 end = time.time()
@@ -15617,6 +15904,21 @@ async def update_balance_erc():
         await asyncio.sleep(config.interval.update_balance)
 
 
+async def update_balance_trx():
+    while True:
+        await asyncio.sleep(config.interval.update_balance)
+        for coinItem in ENABLE_COIN_TRC:
+            if is_maintenance_coin(coinItem) or not is_coin_depositable(coinItem):
+                continue
+            start = time.time()
+            try:
+                check_min = await store.trx_check_minimum_deposit(coinItem)
+            except Exception as e:
+                print(traceback.format_exc())
+                await logchanbot(traceback.format_exc())
+            end = time.time()
+        await asyncio.sleep(config.interval.update_balance)
+
 async def unlocked_move_pending_erc():
     while True:
         await asyncio.sleep(config.interval.update_balance)
@@ -15632,6 +15934,21 @@ async def unlocked_move_pending_erc():
             end = time.time()
         await asyncio.sleep(config.interval.update_balance)
 
+
+async def unlocked_move_pending_trx():
+    while True:
+        await asyncio.sleep(config.interval.update_balance)
+        for coinItem in ENABLE_COIN_TRC:
+            if is_maintenance_coin(coinItem) or not is_coin_depositable(coinItem):
+                continue
+            start = time.time()
+            try:
+                await store.trx_check_pending_move_deposit(coinItem)
+            except Exception as e:
+                print(traceback.format_exc())
+                await logchanbot(traceback.format_exc())
+            end = time.time()
+        await asyncio.sleep(config.interval.update_balance)
 
 async def erc_notify_new_confirmed_spendable():
     while True:
@@ -15661,6 +15978,34 @@ async def erc_notify_new_confirmed_spendable():
             end = time.time()
         await asyncio.sleep(config.interval.update_balance)
 
+
+async def trx_notify_new_confirmed_spendable():
+    while True:
+        await asyncio.sleep(config.interval.update_balance)
+        for coinItem in ENABLE_COIN_TRC:
+            if is_maintenance_coin(coinItem) or not is_coin_depositable(coinItem):
+                continue
+            start = time.time()
+            try:
+                notify_list = await store.trx_get_pending_notification_users(coinItem)
+                if notify_list and len(notify_list) > 0:
+                    for each_notify in notify_list:
+                        is_notify_failed = False
+                        member = bot.get_user(id=int(each_notify['user_id']))
+                        if member and int(each_notify['user_id']) != bot.user.id:
+                            msg = "You got a new deposit confirmed: ```" + "Amount: {}{}".format(each_notify['real_amount'], coinItem) + "```"
+                            try:
+                                await member.send(msg)
+                            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                                is_notify_failed = True
+                            except Exception as e:
+                                traceback.print_exc(file=sys.stdout)
+                                await logchanbot(traceback.format_exc())
+                            update_status = await store.trx_updating_pending_move_deposit(True, is_notify_failed, each_notify['txn'])
+            except Exception as e:
+                await logchanbot(traceback.format_exc())
+            end = time.time()
+        await asyncio.sleep(config.interval.update_balance)
 
 # Let's run balance update by a separate process
 async def update_balance():
@@ -15895,10 +16240,12 @@ async def _tip(ctx, amount, coin: str, if_guild: bool=False):
     notifyList = await store.sql_get_tipnotify()
     if COIN_NAME in ENABLE_COIN_ERC:
         coin_family = "ERC-20"
+    elif COIN_NAME in ENABLE_COIN_TRC:
+        coin_family = "TRC-20"
     else:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
 
-    if coin_family == "ERC-20":
+    if coin_family == "ERC-20" or coin_family == "TRC-20":
         real_amount = float(amount)
         token_info = await store.get_token_info(COIN_NAME)
         MinTx = token_info['real_min_tip']
@@ -15913,14 +16260,17 @@ async def _tip(ctx, amount, coin: str, if_guild: bool=False):
         if coin_family == "ERC-20":
             w = await create_address_eth()
             user_from = await store.sql_register_user(id_tipper, COIN_NAME, 'DISCORD', 0, w)
+        elif coin_family == "TRC-20":
+            result = await store.create_address_trx()
+            user_from = await store.sql_register_user(id_tipper, COIN_NAME, 'DISCORD', 0, result)
         else:
             user_from = await store.sql_register_user(id_tipper, COIN_NAME, 'DISCORD', 0)
 
     userdata_balance = await store.sql_user_balance(id_tipper, COIN_NAME)
     xfer_in = 0
-    if COIN_NAME not in ENABLE_COIN_ERC:
+    if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         xfer_in = await store.sql_user_balance_get_xfer_in(id_tipper, COIN_NAME)
-    if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
+    if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
     elif COIN_NAME in ENABLE_COIN_NANO:
         actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
@@ -15975,6 +16325,9 @@ async def _tip(ctx, amount, coin: str, if_guild: bool=False):
                 if coin_family == "ERC-20":
                     w = await create_address_eth()
                     userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0, w)
+                elif coin_family == "TRC-20":
+                    result = await store.create_address_trx()
+                    userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0, result)
                 else:
                     userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0)
                 user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
@@ -16026,6 +16379,8 @@ async def _tip(ctx, amount, coin: str, if_guild: bool=False):
             tip = await store.sql_mv_doge_multiple(id_tipper, list_receivers, real_amount, COIN_NAME, guild_or_tip)
         elif coin_family == "ERC-20":
             tip = await store.sql_mv_erc_multiple(id_tipper, list_receivers, real_amount, COIN_NAME, "TIPS", token_info['contract'])
+        elif coin_family == "TRC-20":
+            tip = await store.sql_mv_trx_multiple(id_tipper, list_receivers, real_amount, COIN_NAME, "TIPS", token_info['contract'])
         if ctx.message.author.bot == False and serverinfo['react_tip'] == "ON":
             try:
                 await ctx.message.add_reaction(EMOJI_TIP)
@@ -16112,6 +16467,8 @@ async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str 
     COIN_NAME = coin.upper()
     if COIN_NAME in ENABLE_COIN_ERC:
         coin_family = "ERC-20"
+    elif COIN_NAME in ENABLE_COIN_TRC:
+        coin_family = "TRC-20"
     else:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     try:
@@ -16122,12 +16479,12 @@ async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str 
         return
 
     notifyList = await store.sql_get_tipnotify()
-    if coin_family not in ["BCN", "TRTL", "DOGE", "XMR", "NANO", "ERC-20"]:
+    if coin_family not in ["BCN", "TRTL", "DOGE", "XMR", "NANO", "ERC-20", "TRC-20"]:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} is restricted with this command.')
         return
 
-    if coin_family == "ERC-20":
+    if coin_family == "ERC-20" or coin_family == "TRC-20":
         real_amount = float(amount)
         token_info = await store.get_token_info(COIN_NAME)
         MinTx = token_info['real_min_tip']
@@ -16142,14 +16499,17 @@ async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str 
         if coin_family == "ERC-20":
             w = await create_address_eth()
             user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, w)
+        elif coin_family == "TRC-20":
+            result = await store.create_address_trx()
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, result)
         else:
             user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
 
     userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME)
     xfer_in = 0
-    if COIN_NAME not in ENABLE_COIN_ERC:
+    if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         xfer_in = await store.sql_user_balance_get_xfer_in(str(ctx.message.author.id), COIN_NAME)
-    if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
+    if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
     elif COIN_NAME in ENABLE_COIN_NANO:
         actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
@@ -16196,6 +16556,9 @@ async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str 
                     if coin_family == "ERC-20":
                         w = await create_address_eth()
                         userregister = await store.sql_register_user(str(member_id), COIN_NAME, 'DISCORD', 0, w)
+                    elif coin_family == "TRC-20":
+                        result = await store.create_address_trx()
+                        userregister = await store.sql_register_user(str(member_id), COIN_NAME, 'DISCORD', 0, result)
                     else:
                         userregister = await store.sql_register_user(str(member_id), COIN_NAME, 'DISCORD', 0)
                     user_to = await store.sql_get_userwallet(str(member_id), COIN_NAME)
@@ -16264,6 +16627,8 @@ async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str 
             tip = await store.sql_mv_doge_multiple(id_tipper, list_receivers, real_amount, COIN_NAME, guild_or_tip)
         elif coin_family == "ERC-20":
             tip = await store.sql_mv_erc_multiple(id_tipper, list_receivers, real_amount, COIN_NAME, "TIPS", token_info['contract'])
+        elif coin_family == "TRC-20":
+            tip = await store.sql_mv_trx_multiple(id_tipper, list_receivers, real_amount, COIN_NAME, "TIPS", token_info['contract'])
     except Exception as e:
         await logchanbot(traceback.format_exc())
 
@@ -16347,10 +16712,12 @@ async def _tip_react(reaction, user, amount, coin: str):
     notifyList = await store.sql_get_tipnotify()
     if COIN_NAME in ENABLE_COIN_ERC:
         coin_family = "ERC-20"
+    elif COIN_NAME in ENABLE_COIN_TRC:
+        coin_family = "TRC-20"
     else:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
 
-    if COIN_NAME in ENABLE_COIN_ERC:
+    if COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         token_info = await store.get_token_info(COIN_NAME)
         real_amount = float(amount)
         MinTx = token_info['real_min_tip']
@@ -16365,15 +16732,18 @@ async def _tip_react(reaction, user, amount, coin: str):
         if COIN_NAME in ENABLE_COIN_ERC:
             w = await create_address_eth()
             user_from = await store.sql_register_user(str(user.id), COIN_NAME, 'DISCORD', 0, w)
+        elif COIN_NAME in ENABLE_COIN_TRC:
+            result = await store.create_address_trx()
+            user_from = await store.sql_register_user(str(user.id), COIN_NAME, 'DISCORD', 0, result)
         else:
             user_from = await store.sql_register_user(str(user.id), COIN_NAME, 'DISCORD', 0)
 
     # get user balance
     userdata_balance = await store.sql_user_balance(str(user.id), COIN_NAME)
     xfer_in = 0
-    if COIN_NAME not in ENABLE_COIN_ERC:
+    if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         xfer_in = await store.sql_user_balance_get_xfer_in(str(user.id), COIN_NAME)
-    if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
+    if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
     elif COIN_NAME in ENABLE_COIN_NANO:
         actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
@@ -16691,9 +17061,9 @@ async def bot_faucet(ctx):
             wallet = await store.sql_register_user(str(bot.user.id), COIN_NAME, 'DISCORD', 0)
         userdata_balance = await store.sql_user_balance(str(bot.user.id), COIN_NAME)
         xfer_in = 0
-        if COIN_NAME not in ENABLE_COIN_ERC:
+        if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
             xfer_in = await store.sql_user_balance_get_xfer_in(str(bot.user.id), COIN_NAME)
-        if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
+        if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
             actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
         elif COIN_NAME in ENABLE_COIN_NANO:
             actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
@@ -16702,13 +17072,15 @@ async def bot_faucet(ctx):
             actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
         if COIN_NAME in ENABLE_COIN_ERC:
             coin_family = "ERC-20"
+        elif COIN_NAME in ENABLE_COIN_TRC:
+            coin_family = "TRC-20"
         else:
             coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")           
         try:
             if COIN_NAME in get_game_stat and coin_family in ["TRTL", "BCN", "XMR", "NANO"]:
                 actual_balance = actual_balance - int(get_game_stat[COIN_NAME])
                 sum_sub = int(get_game_stat[COIN_NAME])
-            elif COIN_NAME in get_game_stat and coin_family in ["DOGE", "ERC-20"]:
+            elif COIN_NAME in get_game_stat and coin_family in ["DOGE", "ERC-20", "TRC-20"]:
                 actual_balance = actual_balance - float(get_game_stat[COIN_NAME])
                 sum_sub = float(get_game_stat[COIN_NAME])
         except Exception as e:
@@ -16717,7 +17089,7 @@ async def bot_faucet(ctx):
         get_claimed_count = await store.sql_faucet_sum_count_claimed(COIN_NAME)
         if coin_family in ["TRTL", "BCN", "XMR", "NANO"]:
             sub_claim = num_format_coin(int(get_claimed_count['claimed']) + sum_sub, COIN_NAME) if get_claimed_count['count'] > 0 else f"0.00{COIN_NAME}"
-        elif coin_family in ["DOGE", "ERC-20"]:
+        elif coin_family in ["DOGE", "ERC-20", "TRC-20"]:
             sub_claim = num_format_coin(float(get_claimed_count['claimed']) + sum_sub, COIN_NAME) if get_claimed_count['count'] > 0 else f"0.00{COIN_NAME}"
         if actual_balance != 0:
             table_data.append([COIN_NAME, balance_actual, sub_claim])
@@ -16950,8 +17322,11 @@ def main():
     bot.loop.create_task(get_miningpool_coinlist())
     
     bot.loop.create_task(update_balance_erc())
+    bot.loop.create_task(update_balance_trx())
     bot.loop.create_task(unlocked_move_pending_erc())
+    bot.loop.create_task(unlocked_move_pending_trx())
     bot.loop.create_task(erc_notify_new_confirmed_spendable())
+    bot.loop.create_task(trx_notify_new_confirmed_spendable())
 
     bot.loop.create_task(notify_new_move_balance_user())
 

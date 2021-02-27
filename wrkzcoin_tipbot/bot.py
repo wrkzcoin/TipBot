@@ -1871,7 +1871,7 @@ async def blackjack(ctx):
         await ctx.message.add_reaction(EMOJI_ERROR)
         return
 
-    game_text = '''Blackjack, by Al Sweigart al@inventwithpython.com
+    game_text = '''
 Rules:
     Try to get as close to 21 without going over.
     Kings, Queens, and Jacks are worth 10 points.
@@ -1945,7 +1945,11 @@ Rules:
                 # Hit/doubling down takes another card.
                 newCard = deck.pop()
                 rank, suit = newCard
-                await ctx.send('{} **BLACKJACK** You drew a {} of {}'.format(ctx.author.mention, rank, suit))
+                try:
+                    await ctx.send('{} **BLACKJACK** You drew a {} of {}'.format(ctx.author.mention, rank, suit))
+                except Exception as e:
+                    if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+                        GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
                 playerHand.append(newCard)
 
                 if blackjack_getCardValue(playerHand) >= 21:
@@ -1964,8 +1968,12 @@ Rules:
             else:
                 while blackjack_getCardValue(dealerHand) < 17:
                     # The dealer hits:
-                    dealer_msg = await ctx.send('{} **BLACKJACK**\n'
-                                                '```Dealer hits...```'.format(ctx.author.mention))
+                    try:
+                        dealer_msg = await ctx.send('{} **BLACKJACK**\n'
+                                                    '```Dealer hits...```'.format(ctx.author.mention))
+                    except Exception as e:
+                        if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+                            GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
                     newCard = deck.pop()
                     rank, suit = newCard
                     dealerHand.append(newCard)
@@ -1981,13 +1989,17 @@ Rules:
             break
 
     dealer_get_display = blackjack_displayHands(playerHand, dealerHand, True)
-    await ctx.send('{} **BLACKJACK**\n'
-                   '```DEALER: {}\n'
-                   '{}\n'
-                   'PLAYER:  {}\n'
-                   '{}```'.format(ctx.author.mention, dealer_get_display['dealer_header'], 
-                   dealer_get_display['dealer'], dealer_get_display['player_header'], dealer_get_display['player']))
-                                 
+    try:
+        await ctx.send('{} **BLACKJACK**\n'
+                       '```DEALER: {}\n'
+                       '{}\n'
+                       'PLAYER:  {}\n'
+                       '{}```'.format(ctx.author.mention, dealer_get_display['dealer_header'], 
+                       dealer_get_display['dealer'], dealer_get_display['player_header'], dealer_get_display['player']))
+    except Exception as e:
+        if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+            GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+
     playerValue = blackjack_getCardValue(playerHand)
     dealerValue = blackjack_getCardValue(dealerHand)
     # Handle whether the player won, lost, or tied:
@@ -2254,7 +2266,6 @@ async def bagel(ctx):
     NUM_DIGITS = 3  # (!) Try setting this to 1 or 10.
     MAX_GUESSES = 10  # (!) Try setting this to 1 or 100.
     game_text = '''Bagels, a deductive logic game.
-By Al Sweigart al@inventwithpython.com
 
 I am thinking of a {}-digit number with no repeated digits.
 Try to guess what it is. Here are some clues:
@@ -2480,7 +2491,6 @@ async def bagel2(ctx):
             i += 1
 
     game_text = '''Bagels, a deductive logic game.
-By Al Sweigart al@inventwithpython.com
 
 I am thinking of a {}-digit number with no repeated digits.
 Try to guess what it is. Here are some clues:
@@ -2716,7 +2726,6 @@ async def bagel3(ctx):
             i += 1
 
     game_text = '''Bagels, a deductive logic game.
-By Al Sweigart al@inventwithpython.com
 
 I am thinking of a {}-digit number with no repeated digits.
 Try to guess what it is. Here are some clues:
@@ -3159,7 +3168,7 @@ async def hangman(ctx):
     missedLetters = []  # List of incorrect letter guesses.
     correctLetters = []  # List of correct letter guesses.
     secretWord = random.choice(HANGMAN_WORDS).upper()  # The word the player must guess.
-    game_text = '''Hangman, original code / idea by Al Sweigart al@inventwithpython.com.'''
+    game_text = '''Hangman, '''
     hm_draw = hm_drawHangman(missedLetters, correctLetters, secretWord)
     hm_picture = hm_draw['picture']
     hm_word_line = hm_draw['word_line']
@@ -3520,8 +3529,7 @@ async def snail(ctx, bet_numb: str=None):
 
     time_start = int(time.time())
     won = False
-    game_text = '''Snail Race, by Al Sweigart al@inventwithpython.com
-Fast-paced snail racing action!'''
+    game_text = '''Snail Race, Fast-paced snail racing action!'''
     # We do not always show credit
     if random.randint(1,100) < 30:
         msg = await ctx.send(f'{ctx.author.mention} ```{game_text}```')
@@ -3726,8 +3734,7 @@ async def g2048(ctx):
 
     won = False
     score = 0
-    game_text = '''Twenty Forty Eight, by Al Sweigart al@inventwithpython.com
-
+    game_text = '''
 Slide all the tiles on the board in one of four directions. Tiles with
 like numbers will combine into larger-numbered tiles. A new 2 tile is
 added to the board on each move. You win if you can create a 2048 tile.
@@ -9359,8 +9366,8 @@ async def take(ctx, info: str=None):
 
     # check if bot is going to restart
     if IS_RESTARTING:
-        await ctx.message.add_reaction(EMOJI_REFRESH)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is going to restart soon. Wait until it is back for using this.')
+        await ctx.message.add_reaction(EMOJI_REFRESH)
         return
 
     # disable faucet for TRTL discord
@@ -9370,8 +9377,8 @@ async def take(ctx, info: str=None):
 
     # offline can not take
     if ctx.author.status == discord.Status.offline:
-        await ctx.message.add_reaction(EMOJI_QUESTEXCLAIM)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Offline status cannot claim faucet.')
+        await ctx.message.add_reaction(EMOJI_QUESTEXCLAIM)
         return
 
     # check if account locked
@@ -9386,9 +9393,9 @@ async def take(ctx, info: str=None):
     try:
         num_online = len([member for member in ctx.guild.members if member.bot == False and member.status != discord.Status.offline])
         if num_online < 10:
-            await ctx.message.add_reaction(EMOJI_INFORMATION)
             await botLogChan.send(f'{ctx.author.name}#{ctx.author.discriminator} / {ctx.author.id} using **take** {ctx.guild.name} / {ctx.guild.id} while there are only {str(num_online)} online. Rejected!')
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} This guild has less than 10 online users. Faucet is disable.')
+            await ctx.message.add_reaction(EMOJI_INFORMATION)
             return
     except Exception as e:
         await logchanbot(traceback.format_exc())
@@ -9397,8 +9404,8 @@ async def take(ctx, info: str=None):
     try:
         account_created = ctx.message.author.created_at
         if (datetime.utcnow() - account_created).total_seconds() <= 3*24*3600:
-            await ctx.message.add_reaction(EMOJI_ERROR)
             msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using .take')
+            await ctx.message.add_reaction(EMOJI_ERROR)
             return
     except (discord.errors.NotFound, discord.errors.Forbidden) as e:
         pass
@@ -9410,9 +9417,12 @@ async def take(ctx, info: str=None):
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo and serverinfo['botchan']:
             if ctx.channel.id != int(serverinfo['botchan']):
-                await ctx.message.add_reaction(EMOJI_ERROR)
-                botChan = bot.get_channel(id=int(serverinfo['botchan']))
-                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} is the bot channel!!!')
+                try:
+                    botChan = bot.get_channel(id=int(serverinfo['botchan']))
+                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} is the bot channel!!!')
+                    await ctx.message.add_reaction(EMOJI_ERROR)
+                except Exception as e:
+                    pass
                 # add penalty:
                 try:
                     faucet_penalty = await store.sql_faucet_penalty_checkuser(str(ctx.message.author.id), True, 'DISCORD')
@@ -9441,10 +9451,10 @@ async def take(ctx, info: str=None):
             if faucet_penalty and not info:
                 if half_claim_interval*3600 - int(time.time()) + int(faucet_penalty['penalty_at']) > 0:
                     time_waiting = seconds_str(half_claim_interval*3600 - int(time.time()) + int(faucet_penalty['penalty_at']))
-                    await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
                     msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You claimed in a wrong channel within last {str(half_claim_interval)}h. '
                                          f'Waiting time {time_waiting} for next **take** and be sure to be the right channel set by the guild.')
                     await msg.add_reaction(EMOJI_OK_BOX)
+                    await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
                     return
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
@@ -9459,13 +9469,13 @@ async def take(ctx, info: str=None):
                 time_waiting = seconds_str(claim_interval*3600 - int(time.time()) + check_claimed['claimed_at'])
                 user_claims = await store.sql_faucet_count_user(str(ctx.message.author.id))
                 number_user_claimed = '{:,.0f}'.format(user_claims, 'DISCORD')
-                await ctx.message.add_reaction(EMOJI_ERROR)
                 msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You just claimed within last {claim_interval}h. '
                                      f'Waiting time {time_waiting} for next **take**. Faucet balance:\n```{remaining}```'
                                      f'Total user claims: **{total_claimed}** times. '
                                      f'You have claimed: **{number_user_claimed}** time(s). '
                                      f'Tip me if you want to feed these faucets.')
                 await msg.add_reaction(EMOJI_OK_BOX)
+                await ctx.message.add_reaction(EMOJI_ERROR)
                 return
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
@@ -9594,8 +9604,8 @@ async def take(ctx, info: str=None):
                 await logchanbot(traceback.format_exc())
             TX_IN_PROCESS.remove(ctx.message.author.id)
         else:
-            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
             msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
             await msg.add_reaction(EMOJI_OK_BOX)
             return
         if tip:
@@ -9607,10 +9617,10 @@ async def take(ctx, info: str=None):
                 await logchanbot(traceback.format_exc())
             try:
                 faucet_add = await store.sql_faucet_add(str(ctx.message.author.id), str(ctx.guild.id), COIN_NAME, real_amount, 10**decimal_pts, 'DISCORD')
-                await ctx.message.add_reaction(get_emoji(COIN_NAME))
                 msg = await ctx.send(f'{EMOJI_MONEYFACE} {ctx.author.mention} You got a random faucet {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
-                await msg.add_reaction(EMOJI_OK_BOX)
                 await logchanbot(f'[Discord] User {ctx.message.author.name}#{ctx.message.author.discriminator} claimed faucet {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME} in guild {ctx.guild.name}/{ctx.guild.id}')
+                await ctx.message.add_reaction(get_emoji(COIN_NAME))
+                await msg.add_reaction(EMOJI_OK_BOX)
             except Exception as e:
                 await logchanbot(traceback.format_exc())
         else:

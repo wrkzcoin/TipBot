@@ -15,3 +15,4 @@ wrkzcoin_tipbot/test.js
 wrkzcoin_tipbot/selenium_support.py
 wrkzcoin_tipbot/tb/test.py
 wrkzcoin_tipbot/tb/*.gif
+wrkzcoin_tipbot/cogs/

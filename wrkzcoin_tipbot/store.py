@@ -233,6 +233,9 @@ async def sql_user_balance_get_xfer_in(userID: str, coin: str, user_server: str 
     confirmed_inserted = 8*60
     confirmed_inserted_doge_fam = 45*60
     IncomingTx = 0
+    if userwallet is None:
+        return IncomingTx    
+
     try:
         await openConnection()
         async with pool.acquire() as conn:

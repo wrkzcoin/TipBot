@@ -1487,6 +1487,10 @@ async def start_cmd_handler(message: types.Message):
         await message.reply(reply_text)
         return
 
+    reply_text = "Because of many abuses, we decided to temporarily disable this. You can use our discord TipBot for faucet right now: http://invite.discord.bot.tips/ or join https://chat.wrkz.work"
+    await message.reply(reply_text)
+    return
+
     # check if account locked
     account_lock = await alert_if_userlock(message.from_user.username, 'TELEGRAM')
     if account_lock:

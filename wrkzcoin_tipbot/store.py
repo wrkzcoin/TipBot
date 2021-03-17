@@ -1131,7 +1131,7 @@ async def sql_update_balances(coin: str = None):
         #print('SQL: Updating get_transfers '+COIN_NAME)
         if COIN_NAME in WALLET_API_COIN:
             try:
-                get_transfers = await walletapi.walletapi_get_transfers(COIN_NAME)
+                get_transfers = await walletapi.walletapi_get_transfers(COIN_NAME, height - 2000, height)
                 list_balance_user = {}
                 if get_transfers and len(get_transfers) >= 1:
                     await openConnection()
@@ -1221,7 +1221,7 @@ async def sql_update_balances(coin: str = None):
                 await logchanbot(traceback.format_exc())
         else:
             try:
-                get_transfers = await wallet.getTransactions(COIN_NAME, int(height)-100000, 100000)
+                get_transfers = await wallet.getTransactions(COIN_NAME, int(height)-2000, 2000)
                 list_balance_user = {}
                 if get_transfers and len(get_transfers) >= 1:
                     await openConnection()
@@ -1313,7 +1313,7 @@ async def sql_update_balances(coin: str = None):
                 await logchanbot(traceback.format_exc())
     elif coin_family == "XMR":
         #print('SQL: Updating get_transfers '+COIN_NAME)
-        get_transfers = await wallet.get_transfers_xmr(COIN_NAME)
+        get_transfers = await wallet.get_transfers_xmr(COIN_NAME, height - 2000, height)
         if get_transfers and len(get_transfers) >= 1:
             try:
                 await openConnection()

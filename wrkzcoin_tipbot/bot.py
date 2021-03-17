@@ -16030,7 +16030,7 @@ async def update_balance():
                 await logchanbot(traceback.format_exc())
             end = time.time()
             if end - start > config.interval.log_longduration:
-                await logchanbot('update_balance {} longer than {}s'.format(coinItem, config.interval.log_longduration))
+                await logchanbot('update_balance {} longer than {}s. Took {}s'.format(coinItem, config.interval.log_longduration, int(end - start)))
         await asyncio.sleep(config.interval.update_balance)
 
 

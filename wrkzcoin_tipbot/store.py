@@ -3835,6 +3835,7 @@ async def market_value_in_usd(amount, ticker) -> str:
                     price = result['priceUSD']
                     totalValue = amount * price
                     # update = datetime.datetime.strptime(result['last_updated'].split(".")[0], '%Y-%m-%dT%H:%M:%S')
+                    market_price['name_cmc'] = name
                     market_price['cmc_price'] = price
                     market_price['cmc_totalvalue'] = totalValue
                     market_price['cmc_update'] = result['last_updated']
@@ -3843,6 +3844,7 @@ async def market_value_in_usd(amount, ticker) -> str:
                     ticker2 = result2['symbol'].upper()
                     price2 = result2['marketprice_USD']
                     totalValue2 = amount * price2
+                    market_price['name_cg'] = name2
                     market_price['cg_price'] = price2
                     market_price['cg_totalvalue'] = totalValue2
                     market_price['cg_update'] = result2['last_updated']

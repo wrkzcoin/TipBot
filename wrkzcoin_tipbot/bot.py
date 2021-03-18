@@ -6699,12 +6699,17 @@ async def price(ctx, *args):
                 if 'cmc_price' in market_price and market_price['cmc_price'] > 0.00000001:
                     update = datetime.strptime(market_price['cmc_update'].split(".")[0], '%Y-%m-%dT%H:%M:%S')
                     ago = timeago.format(update, datetime.utcnow())
-                    embed.add_field(name="From CoinMarketCap", value='`{}USD. Updated {} from CoinMarketCap`'.format(format_amount(market_price['cmc_price']), ago), inline=False)
+                    if ticker in SAME_TICKERS:
+                        embed.add_field(name="From CoinMarketCap", value='`1 {} = {}USD. Updated {} from CoinMarketCap`'.format(market_price['name_cmc'], format_amount(market_price['cmc_price']), ago), inline=False)
+                    else:
+                        embed.add_field(name="From CoinMarketCap", value='`1 {} = {}USD. Updated {} from CoinMarketCap`'.format(ticker, format_amount(market_price['cmc_price']), ago), inline=False)
                 if 'cg_price' in market_price and market_price['cg_price'] > 0.00000001:
                     update = datetime.strptime(market_price['cg_update'].split(".")[0], '%Y-%m-%dT%H:%M:%S')
                     ago = timeago.format(update, datetime.utcnow())
-                    embed.add_field(name="From CoinGecko", value='`{}USD. Updated {} from CoinGecko`'.format(format_amount(market_price['cg_price']), ago), inline=False)
-                
+                    if ticker in SAME_TICKERS:
+                        embed.add_field(name="From CoinGecko", value='`1 {} = {}USD. Updated {} from CoinGecko`'.format(market_price['name_cg'], format_amount(market_price['cg_price']), ago), inline=False)
+                    else:
+                        embed.add_field(name="From CoinGecko", value='`1 {} = {}USD. Updated {} from CoinGecko`'.format(ticker, format_amount(market_price['cg_price']), ago), inline=False)
                 if note:
                     embed.add_field(name="NOTE", value="`{}`".format(note), inline=False)
                 embed.add_field(name="OTHER LINKS", value="{} / {} / {}".format("[Invite TipBot](http://invite.discord.bot.tips)", "[Support Server](https://discord.com/invite/GpHzURM)", "[TipBot Github](https://github.com/wrkzcoin/TipBot)"), inline=False)
@@ -6757,12 +6762,17 @@ async def price(ctx, *args):
                 if 'cmc_price' in market_price and market_price['cmc_price'] > 0.00000001:
                     update = datetime.strptime(market_price['cmc_update'].split(".")[0], '%Y-%m-%dT%H:%M:%S')
                     ago = timeago.format(update, datetime.utcnow())
-                    embed.add_field(name="From CoinMarketCap", value='`{}{} = {}USD. Updated {} from CoinMarketCap`'.format(PriceQ[0], PriceQ[1].upper(), format_amount(market_price['cmc_price'] * float(PriceQ[0])), ago), inline=False)
+                    if note:
+                        embed.add_field(name="From CoinMarketCap", value='`{} {} = {}USD. Updated {} from CoinMarketCap`'.format(PriceQ[0], PriceQ[1].upper(), format_amount(market_price['cmc_price'] * float(PriceQ[0])), ago), inline=False)
+                    else:
+                        embed.add_field(name="From CoinMarketCap", value='`{} {} = {}USD. Updated {} from CoinMarketCap`'.format(PriceQ[0], market_price['name_cmc'], format_amount(market_price['cmc_price'] * float(PriceQ[0])), ago), inline=False)
                 if 'cg_price' in market_price and market_price['cg_price'] > 0.00000001:
                     update = datetime.strptime(market_price['cg_update'].split(".")[0], '%Y-%m-%dT%H:%M:%S')
                     ago = timeago.format(update, datetime.utcnow())
-                    embed.add_field(name="From CoinGecko", value='`{}{} = {}USD. Updated {} from CoinGecko`'.format(PriceQ[0], PriceQ[1].upper(), format_amount(market_price['cg_price'] * float(PriceQ[0])), ago), inline=False)
-
+                    if note:
+                        embed.add_field(name="From CoinGecko", value='`{} {} = {}USD. Updated {} from CoinGecko`'.format(PriceQ[0], market_price['name_cg'], format_amount(market_price['cg_price'] * float(PriceQ[0])), ago), inline=False)
+                    else:
+                        embed.add_field(name="From CoinGecko", value='`{} {} = {}USD. Updated {} from CoinGecko`'.format(PriceQ[0], PriceQ[1].upper(), format_amount(market_price['cg_price'] * float(PriceQ[0])), ago), inline=False)
                 if note:
                     embed.add_field(name="NOTE", value="`{}`".format(note), inline=False)
                 embed.add_field(name="OTHER LINKS", value="{} / {} / {}".format("[Invite TipBot](http://invite.discord.bot.tips)", "[Support Server](https://discord.com/invite/GpHzURM)", "[TipBot Github](https://github.com/wrkzcoin/TipBot)"), inline=False)

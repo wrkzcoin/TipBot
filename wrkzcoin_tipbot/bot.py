@@ -6861,6 +6861,13 @@ async def price(ctx, *args):
             tmpB1 = await store.market_value_cmc_usd(PriceQ[3])
             tmpB2 = await store.market_value_cg_usd(PriceQ[3])
 
+            if PriceQ[1].upper() in SAME_TICKERS:
+                note = f'There are more than one ticker for {PriceQ[1].upper()}. Please check yourself in cmc or coingecko.'
+            if PriceQ[3].upper() in SAME_TICKERS:
+                if note:
+                    note = f'There are more than one ticker for {PriceQ[1].upper()} and {PriceQ[3].upper()}. Please check yourself in cmc or coingecko.'
+                else:
+                    note = f'There are more than one ticker for {PriceQ[3].upper()}. Please check yourself in cmc or coingecko.'
             try:
                 embed = discord.Embed(title='{}{} IN {}'.format(PriceQ[0], PriceQ[1].upper(), PriceQ[3].upper()), description='Price Information', timestamp=datetime.utcnow(), colour=7047495)
                 if any(x is None for x in [tmpA1, tmpB1]) and any(x is None for x in [tmpA2, tmpB2]):
@@ -6878,6 +6885,8 @@ async def price(ctx, *args):
                         embed.add_field(name="From CoinGecko", value='`Not sufficient data from CoinGecko`', inline=True)
                     else:
                         embed.add_field(name="From CoinGecko", value='`{} {} = {}{} from CoinGecko`'.format(PriceQ[0], PriceQ[1].upper(), format_amount(totalValue), PriceQ[3].upper()), inline=False)
+                if note:
+                    embed.add_field(name="NOTE", value="`{}`".format(note), inline=False)
                 embed.add_field(name="OTHER LINKS", value="{} / {} / {}".format("[Invite TipBot](http://invite.discord.bot.tips)", "[Support Server](https://discord.com/invite/GpHzURM)", "[TipBot Github](https://github.com/wrkzcoin/TipBot)"), inline=False)
                 embed.set_footer(text=f"Market command requested by {ctx.message.author.name}#{ctx.message.author.discriminator}. To disable Market Command, {prefix}setting market")
                 try:

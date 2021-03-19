@@ -1314,7 +1314,7 @@ async def sql_update_balances(coin: str = None):
     elif coin_family == "XMR":
         #print('SQL: Updating get_transfers '+COIN_NAME)
         get_transfers = await wallet.get_transfers_xmr(COIN_NAME, height - 2000, height)
-        if get_transfers and len(get_transfers) >= 1:
+        if get_transfers and len(get_transfers) >= 1 and 'in' in get_transfers:
             try:
                 await openConnection()
                 async with pool.acquire() as conn:

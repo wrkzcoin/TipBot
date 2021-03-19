@@ -15916,7 +15916,7 @@ async def update_block_height():
                     await logchanbot(traceback.format_exc())
                 end = time.time()
             if end - start > config.interval.log_longduration:
-                await logchanbot('update_block_height {} longer than {}s'.format(coinItem, config.interval.log_longduration))
+                await logchanbot('update_block_height {} longer than {}s. Took {}s.'.format(coinItem, config.interval.log_longduration,  int(end - start)))
         for coinItem in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
             if is_maintenance_coin(coinItem):
                 pass
@@ -15933,7 +15933,7 @@ async def update_block_height():
                     await logchanbot(traceback.format_exc())
                 end = time.time()
             if end - start > config.interval.log_longduration:
-                await logchanbot('update_block_height {} longer than {}s'.format(coinItem, config.interval.log_longduration))
+                await logchanbot('update_block_height {} longer than {}s. Took {}s.'.format(coinItem, config.interval.log_longduration, int(end - start)))
         await asyncio.sleep(sleep_time)
 
 

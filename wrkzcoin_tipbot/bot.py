@@ -100,6 +100,9 @@ import logging
 # redis
 import redis
 
+# gTTs
+from gtts import gTTS
+
 redis_pool = None
 redis_conn = None
 redis_expired = 120
@@ -1644,6 +1647,38 @@ async def str2hex(ctx, str2hex: str):
         await msg.add_reaction(EMOJI_OK_BOX)
     except Exception as e:
         await logchanbot(traceback.format_exc())
+    return
+
+
+@tool.command(name='tts', help='Text to speech')
+async def tts(ctx, *, speech: str):
+    if not isEnglish(speech):
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{ctx.author.mention} Currently, TTS supports English only.')
+        return
+    else:
+        def user_speech(text):
+            speech_txt = (text)
+            tts = gTTS(text=speech_txt, lang='en')
+            random_mp3_name = time.strftime("%Y%m%d-%H%M_") + str(uuid.uuid4()) + ".mp3"
+            tts.save(config.tts.tts_saved_path + random_mp3_name)
+            return random_mp3_name
+        try:
+            async with ctx.typing():
+                try:
+                    make_voice = functools.partial(user_speech, speech)
+                    voice_file = await bot.loop.run_in_executor(None, make_voice)
+                    file = discord.File(config.tts.tts_saved_path + voice_file, filename=voice_file)
+                    msg = await ctx.send(file=file, content=f"{ctx.author.mention}")
+                    await msg.add_reaction(EMOJI_OK_BOX)
+                    await ctx.message.add_reaction(EMOJI_OK_HAND)
+                    await store.sql_add_tts(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
+                                speech, voice_file, 'DISCORD')
+                except Exception as e:
+                    await logchanbot(traceback.format_exc())
+                    await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
     return
 
 
@@ -17330,6 +17365,16 @@ def is_prime(n: int) -> bool:
 # json.dumps for turple
 def remap_keys(mapping):
     return [{'key':k, 'value': v} for k, v in mapping.items()]
+
+
+# -*- coding: utf-8 -*-
+def isEnglish(s):
+    try:
+        s.encode(encoding='utf-8').decode('ascii')
+    except UnicodeDecodeError:
+        return False
+    else:
+        return True
 
 
 def get_roach_level(takes: int):

@@ -3756,6 +3756,25 @@ guild_name: str, funcmd: str, msg_content: str, user_server: str='DISCORD'):
     return False
 
 
+async def sql_add_tts(user_id: str, user_name: str, msg_content: str, tts_mp3: str, user_server: str='DISCORD'):
+    global pool
+    user_server = user_server.upper()
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
+        return
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ INSERT INTO `discord_tts` (`user_id`, `user_name`, `msg_content`, `time`, `tts_mp3`, `user_server`)
+                          VALUES (%s, %s, %s, %s, %s, %s) """
+                await cur.execute(sql, (user_id, user_name, msg_content, int(time.time()), tts_mp3, user_server))
+                await conn.commit()
+                return True
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return False
+
+
 async def sql_game_get_level_tpl(level: int, game_name: str):
     global pool
     try:

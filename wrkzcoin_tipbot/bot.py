@@ -1657,9 +1657,10 @@ async def tts(ctx, *, speech: str):
         await ctx.send(f'{ctx.author.mention} Currently, TTS supports English only.')
         return
     else:
+        lang = 'en'
         def user_speech(text):
             speech_txt = (text)
-            tts = gTTS(text=speech_txt, lang='en')
+            tts = gTTS(text=speech_txt, lang=lang)
             random_mp3_name = time.strftime("%Y%m%d-%H%M_") + str(uuid.uuid4()) + ".mp3"
             tts.save(config.tts.tts_saved_path + random_mp3_name)
             return random_mp3_name
@@ -1673,12 +1674,75 @@ async def tts(ctx, *, speech: str):
                     await msg.add_reaction(EMOJI_OK_BOX)
                     await ctx.message.add_reaction(EMOJI_OK_HAND)
                     await store.sql_add_tts(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
-                                speech, voice_file, 'DISCORD')
+                                speech, lang, voice_file, 'DISCORD')
                 except Exception as e:
                     await logchanbot(traceback.format_exc())
                     await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
         except Exception as e:
             await logchanbot(traceback.format_exc())
+    return
+
+
+@tool.command(name='tts-kh', help='Text to speech in Khmer')
+async def ttskh(ctx, *, speech: str):
+    if not isKhmer(speech):
+        await ctx.message.add_reaction(EMOJI_INFORMATION)
+        await ctx.send(f'{ctx.author.mention}  Some characters are not in fully in Khmer.')
+    lang = 'km'
+    def user_speech(text):
+        speech_txt = (text)
+        tts = gTTS(text=speech_txt, lang=lang)
+        random_mp3_name = time.strftime("%Y%m%d-%H%M_") + str(uuid.uuid4()) + ".mp3"
+        tts.save(config.tts.tts_saved_path + random_mp3_name)
+        return random_mp3_name
+    try:
+        async with ctx.typing():
+            try:
+                make_voice = functools.partial(user_speech, speech)
+                voice_file = await bot.loop.run_in_executor(None, make_voice)
+                file = discord.File(config.tts.tts_saved_path + voice_file, filename=voice_file)
+                msg = await ctx.send(file=file, content=f"{ctx.author.mention}")
+                await msg.add_reaction(EMOJI_OK_BOX)
+                await ctx.message.add_reaction(EMOJI_OK_HAND)
+                await store.sql_add_tts(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
+                            speech, lang, voice_file, 'DISCORD')
+            except Exception as e:
+                await logchanbot(traceback.format_exc())
+                await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return
+
+
+@tool.command(name='tts-cn', help='Text to speech in Chines')
+async def ttscn(ctx, *, speech: str):
+    if not isChinese(speech):
+        await ctx.message.add_reaction(EMOJI_INFORMATION)
+        await ctx.send(f'{ctx.author.mention} Some characters are not in fully in Chinese.')
+ 
+    lang = 'zh-CN'
+    def user_speech(text):
+        speech_txt = (text)
+        tts = gTTS(text=speech_txt, lang=lang)
+        random_mp3_name = time.strftime("%Y%m%d-%H%M_") + str(uuid.uuid4()) + ".mp3"
+        tts.save(config.tts.tts_saved_path + random_mp3_name)
+        return random_mp3_name
+    try:
+        async with ctx.typing():
+            try:
+                make_voice = functools.partial(user_speech, speech)
+                voice_file = await bot.loop.run_in_executor(None, make_voice)
+                file = discord.File(config.tts.tts_saved_path + voice_file, filename=voice_file)
+                msg = await ctx.send(file=file, content=f"{ctx.author.mention}")
+                await msg.add_reaction(EMOJI_OK_BOX)
+                await ctx.message.add_reaction(EMOJI_OK_HAND)
+                await store.sql_add_tts(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
+                            speech, lang, voice_file, 'DISCORD')
+            except Exception as e:
+                await logchanbot(traceback.format_exc())
+                await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
     return
 
 
@@ -17375,6 +17439,44 @@ def isEnglish(s):
         return False
     else:
         return True
+
+def isKhmer(s):
+    def strip_ascii(string):
+        ''' Returns the string without ASCII characters'''
+        stripped = (c for c in string if ord(c) >= 127)
+        return ''.join(stripped)
+    s = strip_ascii(s)
+    s = s.replace(" ", "")
+    s = s.replace("?", "")
+    s = s.replace("!", "")
+    s = s.replace(".", "")
+    s = s.replace("​", "")
+    s = s.replace(":", "")
+    try:
+        return all(u'\u1780' <= c <= u'\u17F9' for c in s.encode().decode('utf-8'))
+    except Exception as e:
+        return False
+    else:
+        return False
+
+
+def isChinese(s):
+    def strip_ascii(string):
+        ''' Returns the string without ASCII characters'''
+        stripped = (c for c in string if ord(c) >= 127)
+        return ''.join(stripped)
+    s = strip_ascii(s)
+    s = s.replace(" ", "")
+    s = s.replace("?", "")
+    s = s.replace("!", "")
+    s = s.replace(".", "")
+    s = s.replace(":", "")
+    try:
+        return all(u'\u4e00' <= c <= u'\u9fff' for c in s.encode().decode('utf-8'))
+    except Exception as e:
+        return False
+    else:
+        return False
 
 
 def get_roach_level(takes: int):

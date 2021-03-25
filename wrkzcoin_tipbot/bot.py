@@ -102,6 +102,7 @@ import redis
 
 # gTTs
 from gtts import gTTS
+from googletrans import Translator
 
 redis_pool = None
 redis_conn = None
@@ -1647,6 +1648,154 @@ async def str2hex(ctx, str2hex: str):
         await msg.add_reaction(EMOJI_OK_BOX)
     except Exception as e:
         await logchanbot(traceback.format_exc())
+    return
+
+
+@tool.command(name='trans', aliases=['translate', 'tran'], help='Text to speech')
+async def trans(ctx, to_lang: str, *, speech: str):
+    to_lang = to_lang.lower()
+    LANGUAGES = {
+        'af': 'afrikaans',
+        'sq': 'albanian',
+        'am': 'amharic',
+        'ar': 'arabic',
+        'hy': 'armenian',
+        'az': 'azerbaijani',
+        'eu': 'basque',
+        'be': 'belarusian',
+        'bn': 'bengali',
+        'bs': 'bosnian',
+        'bg': 'bulgarian',
+        'ca': 'catalan',
+        'ceb': 'cebuano',
+        'ny': 'chichewa',
+        'zh-cn': 'chinese (simplified)',
+        'zh-tw': 'chinese (traditional)',
+        'co': 'corsican',
+        'hr': 'croatian',
+        'cs': 'czech',
+        'da': 'danish',
+        'nl': 'dutch',
+        'en': 'english',
+        'eo': 'esperanto',
+        'et': 'estonian',
+        'tl': 'filipino',
+        'fi': 'finnish',
+        'fr': 'french',
+        'fy': 'frisian',
+        'gl': 'galician',
+        'ka': 'georgian',
+        'de': 'german',
+        'el': 'greek',
+        'gu': 'gujarati',
+        'ht': 'haitian creole',
+        'ha': 'hausa',
+        'haw': 'hawaiian',
+        'iw': 'hebrew',
+        'he': 'hebrew',
+        'hi': 'hindi',
+        'hmn': 'hmong',
+        'hu': 'hungarian',
+        'is': 'icelandic',
+        'ig': 'igbo',
+        'id': 'indonesian',
+        'ga': 'irish',
+        'it': 'italian',
+        'ja': 'japanese',
+        'jw': 'javanese',
+        'kn': 'kannada',
+        'kk': 'kazakh',
+        'km': 'khmer',
+        'ko': 'korean',
+        'ku': 'kurdish (kurmanji)',
+        'ky': 'kyrgyz',
+        'lo': 'lao',
+        'la': 'latin',
+        'lv': 'latvian',
+        'lt': 'lithuanian',
+        'lb': 'luxembourgish',
+        'mk': 'macedonian',
+        'mg': 'malagasy',
+        'ms': 'malay',
+        'ml': 'malayalam',
+        'mt': 'maltese',
+        'mi': 'maori',
+        'mr': 'marathi',
+        'mn': 'mongolian',
+        'my': 'myanmar (burmese)',
+        'ne': 'nepali',
+        'no': 'norwegian',
+        'or': 'odia',
+        'ps': 'pashto',
+        'fa': 'persian',
+        'pl': 'polish',
+        'pt': 'portuguese',
+        'pa': 'punjabi',
+        'ro': 'romanian',
+        'ru': 'russian',
+        'sm': 'samoan',
+        'gd': 'scots gaelic',
+        'sr': 'serbian',
+        'st': 'sesotho',
+        'sn': 'shona',
+        'sd': 'sindhi',
+        'si': 'sinhala',
+        'sk': 'slovak',
+        'sl': 'slovenian',
+        'so': 'somali',
+        'es': 'spanish',
+        'su': 'sundanese',
+        'sw': 'swahili',
+        'sv': 'swedish',
+        'tg': 'tajik',
+        'ta': 'tamil',
+        'te': 'telugu',
+        'th': 'thai',
+        'tr': 'turkish',
+        'uk': 'ukrainian',
+        'ur': 'urdu',
+        'ug': 'uyghur',
+        'uz': 'uzbek',
+        'vi': 'vietnamese',
+        'cy': 'welsh',
+        'xh': 'xhosa',
+        'yi': 'yiddish',
+        'yo': 'yoruba',
+        'zu': 'zulu',
+    }
+    if to_lang not in LANGUAGES:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{ctx.author.mention} **{to_lang}** is not available. Supported language code: https://tipbot-static.wrkz.work/language_codes.txt')
+        return
+    else:
+        def user_translated(text, to_lang: str):
+            translator = Translator()
+            translated = translator.translate(text, dest=to_lang)
+            speech_txt = (translated.text)
+            tts = gTTS(text=speech_txt, lang=to_lang)
+            rand_str = time.strftime("%Y%m%d-%H%M_") + str(uuid.uuid4())
+            random_mp3_name = rand_str + ".mp3"
+            random_mp4_name = rand_str + ".mp4"
+            tts.save(config.tts.tts_saved_path + random_mp3_name)
+            import subprocess
+            command = f'ffmpeg -i {config.tts.tts_saved_path + random_mp3_name} -filter_complex "[0:a]showwaves=s=640x360:mode=cline:r=30,colorkey=0x000000:0.01:0.1,format=yuv420p[vid]" -map "[vid]" -map 0:a -codec:v libx264 -crf 18 -c:a copy {config.tts.tts_saved_path + random_mp4_name}'
+            process_video = subprocess.Popen(command, shell=True)
+            process_video.wait(timeout=20000) # 20s waiting
+            os.remove(config.tts.tts_saved_path + random_mp3_name)
+            return {'file': random_mp4_name, 'original': text, 'translated': translated.text, 'src_lang': translated.src, 'to_lang': to_lang}
+        try:
+            async with ctx.typing():
+                make_voice = functools.partial(user_translated, speech, to_lang)
+                voice_file = await bot.loop.run_in_executor(None, make_voice)
+                file = discord.File(config.tts.tts_saved_path + voice_file['file'], filename=voice_file['file'])
+                msg = await ctx.send(file=file, content="{}: {}".format(ctx.author.mention, voice_file['translated']))
+                await msg.add_reaction(EMOJI_OK_BOX)
+                await ctx.message.add_reaction(EMOJI_OK_HAND)
+                await store.sql_add_trans_tts(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
+                            speech, voice_file['translated'], voice_file['src_lang'], to_lang, voice_file['file'], 'DISCORD')
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
+            await ctx.send(f'{ctx.author.mention} Translate: Internal error.')
     return
 
 

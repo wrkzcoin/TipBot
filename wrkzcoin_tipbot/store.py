@@ -3775,6 +3775,25 @@ async def sql_add_tts(user_id: str, user_name: str, msg_content: str, lang: str,
     return False
 
 
+async def sql_add_trans_tts(user_id: str, user_name: str, original: str, translated: str, from_lang: str, to_lang: str, media_file: str, user_server: str='DISCORD'):
+    global pool
+    user_server = user_server.upper()
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
+        return
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ INSERT INTO `discord_trans_tts` (`user_id`, `user_name`, `original`, `translated`, `from_lang`, `to_lang`, `time`, `media_file`, `user_server`)
+                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                await cur.execute(sql, (user_id, user_name, original, translated, from_lang, to_lang, int(time.time()), media_file, user_server))
+                await conn.commit()
+                return True
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return False
+
+
 async def sql_game_get_level_tpl(level: int, game_name: str):
     global pool
     try:

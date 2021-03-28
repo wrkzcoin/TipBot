@@ -2018,6 +2018,20 @@ async def game(ctx):
         await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} (Bot) using **game** {ctx.guild.name} / {ctx.guild.id}')
         return
 
+    try: 
+        # check if game is enabled
+        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        if serverinfo and serverinfo['enable_game'] == "NO":
+            await botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried **game** in {ctx.guild.name} / {ctx.guild.id} which is disable.')
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention}, **Game** in this guild is disable.')
+            return
+    except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+        pass
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    # end of game is enabled
+
     # check if bot is going to restart
     if IS_RESTARTING:
         await ctx.message.add_reaction(EMOJI_REFRESH)
@@ -9680,9 +9694,9 @@ async def take(ctx, info: str=None):
     # check if guild has very small number of online
     try:
         num_online = len([member for member in ctx.guild.members if member.bot == False and member.status != discord.Status.offline])
-        if num_online < 10:
+        if num_online < 7:
             await botLogChan.send(f'{ctx.author.name}#{ctx.author.discriminator} / {ctx.author.id} using **take** {ctx.guild.name} / {ctx.guild.id} while there are only {str(num_online)} online. Rejected!')
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} This guild has less than 10 online users. Faucet is disable.')
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} This guild has less than 7 online users. Faucet is disable.')
             await ctx.message.add_reaction(EMOJI_INFORMATION)
             return
     except Exception as e:
@@ -9720,9 +9734,8 @@ async def take(ctx, info: str=None):
                 return
         if serverinfo and serverinfo['enable_faucet'] == "NO":
             await botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried **take** in {ctx.guild.name} / {ctx.guild.id} which is disable.')
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention}, **Faucet** in this guild is disable due to abuse or penalty. If you think this is an error, please join https://chat.wrkz.work')
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention}, **Faucet** in this guild is disable.')
             return
-
     except (discord.errors.NotFound, discord.errors.Forbidden) as e:
         pass
     except Exception as e:
@@ -14504,6 +14517,18 @@ async def setting(ctx, *args):
                 return
             elif serverinfo['enable_market'] == "NO":
                 changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_market', 'YES')
+                await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} ENABLE market command in their guild {ctx.guild.name} / {ctx.guild.id}')
+                await ctx.send(f'{ctx.author.mention} ENABLE market command in this guild {ctx.guild.name}.')
+            return
+        # enable / disable faucet
+        elif args[0].upper() == "FAUCET":
+            if serverinfo['enable_faucet'] == "YES":
+                changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_faucet', 'NO')
+                await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} DISABLE faucet (take) command in their guild {ctx.guild.name} / {ctx.guild.id}')
+                await ctx.send(f'{ctx.author.mention} DISABLE faucet (take) command in this guild {ctx.guild.name}.')
+                return
+            elif serverinfo['enable_faucet'] == "NO":
+                changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_faucet', 'YES')
                 await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} ENABLE market command in their guild {ctx.guild.name} / {ctx.guild.id}')
                 await ctx.send(f'{ctx.author.mention} ENABLE market command in this guild {ctx.guild.name}.')
             return

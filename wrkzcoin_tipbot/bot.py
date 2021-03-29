@@ -2018,6 +2018,12 @@ async def game(ctx):
         await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} (Bot) using **game** {ctx.guild.name} / {ctx.guild.id}')
         return
 
+    if isinstance(ctx.channel, discord.DMChannel) == True:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} No, not working with DM.')
+        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried using **game** in **DM**')
+        return
+
     try: 
         # check if game is enabled
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))

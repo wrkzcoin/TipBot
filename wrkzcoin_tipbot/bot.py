@@ -8328,17 +8328,14 @@ async def balance(ctx, coin: str = None):
             deposit_balance = await store.trx_wallet_getbalance(wallet['balance_wallet_address'], COIN_NAME)
             real_deposit_balance = round(deposit_balance, 6)
         userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
-        if COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
-            xfer_in = wallet['real_actual_balance']
-        else:
+        xfer_in = 0
+        if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
             xfer_in = await store.sql_user_balance_get_xfer_in(str(ctx.message.author.id), COIN_NAME)
-        if COIN_NAME in ENABLE_COIN_DOGE:
+        if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
             actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
         elif COIN_NAME in ENABLE_COIN_NANO:
             actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
             actual_balance = round(actual_balance / get_decimal(COIN_NAME), 6) * get_decimal(COIN_NAME)
-        if COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
-            actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
         else:
             actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
 

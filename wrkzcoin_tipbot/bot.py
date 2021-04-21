@@ -1515,6 +1515,18 @@ async def tool(ctx):
         return
 
 
+@tool.command(name='avatar', help='Get avatar of a user')
+async def avatar(ctx, member: discord.Member = None):
+    if member is None:
+        member = ctx.message.author
+    try:
+        msg = await ctx.send(f'Avatar image for {member.mention}:\n{str(member.avatar_url)}')
+        await msg.add_reaction(EMOJI_OK_BOX)
+    except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+        await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
+    return
+
+
 @tool.command(name='prime', help='Check a given number if it is a prime number')
 async def prime(ctx, number_test: str):
     number_test = number_test.replace(",", "")
@@ -14860,14 +14872,32 @@ async def tag(ctx, *args):
                                 'Use: `.tag -add|-del tagname <Tag description ... >`')
             await msg.add_reaction(EMOJI_OK_BOX)
             return
-    elif len(args) == 1:
+    elif len(args) == 1 or len(ctx.message.mentions) > 0:
         # if .tag test
         TagIt = await store.sql_tag_by_server(str(ctx.guild.id), args[0].upper())
-        # print(TagIt)
+        # If there is mention
+        mention_users = None
+        if len(ctx.message.mentions) > 0:
+            try:
+                mention_users = ''
+                for each_user in ctx.message.mentions:
+                    mention_users += '<@{}>, '.format(str(each_user.id))
+            except Exception as e:
+                print(traceback.format_exc())
+                await logchanbot(traceback.format_exc())
         if TagIt:
             tagDesc = TagIt['tag_desc']
-            msg = await ctx.send(f'{ctx.author.mention} {tagDesc}')
-            await msg.add_reaction(EMOJI_OK_BOX)
+            try:
+                if mention_users:
+                    msg = await ctx.send(f'{mention_users} {ctx.author.mention} {tagDesc}')
+                else:
+                    msg = await ctx.send(f'{ctx.author.mention} {tagDesc}')
+                await msg.add_reaction(EMOJI_OK_BOX)
+            except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+                await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
+            except Exception as e:
+                print(traceback.format_exc())
+                await logchanbot(traceback.format_exc())
             return
         else:
             msg = await ctx.send(f'{ctx.author.mention} There is no tag {args[0]} in this server.\n'
@@ -15886,6 +15916,8 @@ def get_cn_coin_from_address(CoinAddress: str):
     elif (CoinAddress.startswith("Xw") and len(CoinAddress) == 97) or \
     (CoinAddress.startswith("iz") and len(CoinAddress) == 108):
         COIN_NAME = "XOL"
+    elif (CoinAddress.startswith("gnt") and (len(CoinAddress) == 98 or len(CoinAddress) == 99 or len(CoinAddress) == 109)):
+        COIN_NAME = "GNTL"
     elif ((CoinAddress.startswith("UPX") and len(CoinAddress) == 98) or (CoinAddress.startswith("UPi") and len(CoinAddress) == 109) or (CoinAddress.startswith("Um") and len(CoinAddress) == 97)):
         COIN_NAME = "UPX"
     elif (CoinAddress.startswith("5") or CoinAddress.startswith("9")) and (len(CoinAddress) == 95 or len(CoinAddress) == 106):

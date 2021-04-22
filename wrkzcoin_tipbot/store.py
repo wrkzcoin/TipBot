@@ -5735,6 +5735,56 @@ to_userid: str, to_username: str, to_server: str, amount: float, decimal_pts: in
     return False
 
 
+async def sql_get_all_userid_by_coin(coin: str):
+    global pool
+    COIN_NAME = coin.upper()
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            await conn.ping(reconnect=True)
+            async with conn.cursor() as cur:
+                if COIN_NAME in ENABLE_XMR:
+                    sql = """ SELECT `user_id`, `paymentid`, `user_server` FROM `xmroff_user_paymentid` 
+                              WHERE `coin_name`=%s """
+                    await cur.execute(sql, (COIN_NAME))
+                    result = await cur.fetchall()
+                    if result: return result
+                elif COIN_NAME in ENABLE_COIN:
+                    sql = """ SELECT `user_id`, `paymentid`, `user_server` FROM `cnoff_user_paymentid` 
+                              WHERE `coin_name`=%s """
+                    await cur.execute(sql, (COIN_NAME))
+                    result = await cur.fetchall()
+                    if result: return result
+                elif COIN_NAME in ENABLE_COIN_DOGE:
+                    sql = """ SELECT `user_id`, `balance_wallet_address`, `user_server` FROM `doge_user` 
+                              WHERE `coin_name`=%s """
+                    await cur.execute(sql, (COIN_NAME))
+                    result = await cur.fetchall()
+                    if result: return result
+                elif COIN_NAME in ENABLE_COIN_NANO:
+                    sql = """ SELECT `user_id`, `balance_wallet_address`, `user_server` FROM `nano_user` 
+                              WHERE `coin_name`=%s """
+                    await cur.execute(sql, (COIN_NAME))
+                    result = await cur.fetchall()
+                    if result: return result
+                elif COIN_NAME in ENABLE_COIN_TRC:
+                    sql = """ SELECT `user_id`, `balance_wallet_address`, `user_server` FROM `trx_user` 
+                              WHERE `token_name`=%s """
+                    await cur.execute(sql, (COIN_NAME))
+                    result = await cur.fetchall()
+                    if result: return result
+                elif COIN_NAME in ENABLE_COIN_ERC:
+                    sql = """ SELECT `user_id`, `balance_wallet_address`, `user_server` FROM `erc_user` 
+                              WHERE `token_name`=%s """
+                    await cur.execute(sql, (COIN_NAME))
+                    result = await cur.fetchall()
+                    if result: return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return None
+
+
 async def sql_swap_balance_token(from_coin_name: str, from_real_amount: float, from_decimal: int, to_coin_name: str, \
 to_real_amount: float, to_decimal: int, user_id: str, user_name: str, user_server: str='DISCORD'):	
     global pool

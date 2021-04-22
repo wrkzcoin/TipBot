@@ -5266,6 +5266,73 @@ async def depositable(ctx, coin: str):
 
 
 @commands.is_owner()
+@admin.command(help='Check a coin status')
+async def auditcoin(ctx, coin: str):
+    if isinstance(ctx.channel, discord.DMChannel) == False:
+        await ctx.message.add_reaction(EMOJI_ERROR) 
+        await ctx.send(f'{ctx.author.mention} This command can not be in public.')
+        return
+
+    COIN_NAME = coin.upper()
+    if is_maintenance_coin(COIN_NAME):
+        await ctx.message.add_reaction(EMOJI_MAINTENANCE)
+        await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} in maintenance. But I will check for you.')
+        pass
+    if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_ERC+ENABLE_COIN_TRC+ENABLE_COIN_NANO:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} not in the list.')
+        return
+    time_start = int(time.time())
+    await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+    all_user_id = await store.sql_get_all_userid_by_coin(COIN_NAME)
+    if len(all_user_id) > 0:
+        await ctx.send(f'{EMOJI_INFORMATION} **{COIN_NAME}** there are total {str(len(all_user_id))} user records. Wait a big while...')
+        sum_balance = 0
+        sum_user = 0
+        sum_unfound_balance = 0
+        sum_unfound_user = 0
+        for each_user_id in all_user_id:
+            try:
+                xfer_in = 0
+                actual_balance = 0
+                if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
+                    xfer_in = await store.sql_user_balance_get_xfer_in(each_user_id['user_id'], COIN_NAME, each_user_id['user_server'])
+                userdata_balance = await store.sql_user_balance(each_user_id['user_id'], COIN_NAME, each_user_id['user_server'])
+                if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
+                    actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
+                elif COIN_NAME in ENABLE_COIN_NANO:
+                    actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
+                    actual_balance = round(actual_balance / get_decimal(COIN_NAME), 6) * get_decimal(COIN_NAME)
+                else:
+                    actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
+                sum_balance += actual_balance
+                sum_user += 1
+                try:
+                    if each_user_id['user_server'] == 'DISCORD':
+                        member = bot.get_user(id=int(each_user_id['user_id']))
+                        if not member:
+                            sum_unfound_user += 1
+                            sum_unfound_balance += actual_balance
+                except Exception as e:
+                    pass
+            except Exception as e:
+                print(traceback.format_exc())
+        duration = int(time.time()) - time_start
+        msg_checkcoin = f"COIN **{COIN_NAME}**\n"
+        msg_checkcoin += "```"
+        msg_checkcoin += "Total record id in DB: " + str(sum_user) + "\n"
+        msg_checkcoin += "Total balance: " + str(num_format_coin(sum_balance, COIN_NAME)) + COIN_NAME + "\n"
+        msg_checkcoin += "Total user not found (discord): " + str(sum_unfound_user) + "\n"
+        msg_checkcoin += "Total balance not found (discord): " + str(num_format_coin(sum_unfound_balance, COIN_NAME)) + COIN_NAME + "\n"
+        msg_checkcoin += "Time token: {}s".format(duration)
+        msg_checkcoin += "```"
+        await ctx.author.send(msg_checkcoin)
+    else:
+        await ctx.send(f'{COIN_NAME}: There is no users for this.')
+        return
+
+
+@commands.is_owner()
 @admin.command(help=bot_help_admin_save)
 async def save(ctx, coin: str):
     if isinstance(ctx.channel, discord.DMChannel) == False:
@@ -6921,6 +6988,64 @@ async def pricelist(ctx, *, coin_list):
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} Too many tickers.')
         return
+
+
+@bot.command(pass_context=True, name='pap', aliases=['paprika'])
+async def pap(ctx, coin: str=None):
+    # disable game for TRTL discord
+    if isinstance(ctx.message.channel, discord.DMChannel) == False and ctx.guild and ctx.guild.id == TRTL_DISCORD:
+        return
+    note = None
+    try:
+        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        if isinstance(ctx.message.channel, discord.DMChannel) == False and serverinfo \
+        and 'enable_market' in serverinfo and serverinfo['enable_market'] == "NO":
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Market command is not ENABLE yet in this guild. Please request Guild owner to enable by `{prefix}SETTING MARKET`')
+            await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}price** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+            return
+    except Exception as e:
+        if isinstance(ctx.message.channel, discord.DMChannel) == False:
+            return
+        pass
+    if coin is None:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Missing coin name.')
+        return
+    else:
+        target = coin.lower()
+    try:
+        link = 'https://api.coinpaprika.com/v1/coins'
+        async with aiohttp.ClientSession() as session:
+            async with session.get(link) as resp:
+                if resp.status == 200:
+                    j = await resp.json()
+                    if target.isdigit():
+                        for i in j:
+                            if int(target) == int(i['rank']):
+                                id = i['id']
+                    else:
+                        if target == 'wow':
+                            target = 'wownero'
+                        elif target == 'wrkz':
+                            target = 'wrkzcoin'
+                        elif target == 'dego':
+                            target = 'derogold'
+                        for i in j:
+                            if target == i['name'].lower() or target == i['symbol'].lower():
+                                id = i['id']
+                    async with aiohttp.ClientSession() as session:
+                        async with session.get('https://api.coinpaprika.com/v1/tickers/{}'.format(id)) as resp:
+                            if resp.status == 200:
+                                j = await resp.json()
+                                await ctx.send("{}#{}, {} ({}) is #{} by marketcap (${:,.2f}), trading at ${:.4f} with a 24h vol of ${:,.2f}. It's changed {}% over 24h, {}% over 7d, {}% over 30d, and {}% over 1y with an ath of ${} on {}.".format(ctx.author.name, ctx.author.discriminator, j['name'], j['symbol'], j['rank'], float(j['quotes']['USD']['market_cap']), float(j['quotes']['USD']['price']), float(j['quotes']['USD']['volume_24h']), j['quotes']['USD']['percent_change_24h'], j['quotes']['USD']['percent_change_7d'], j['quotes']['USD']['percent_change_30d'], j['quotes']['USD']['percent_change_1y'], j['quotes']['USD']['ath_price'], j['quotes']['USD']['ath_date']))
+                            else:
+                                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Can not get data.')
+                else:
+                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Can not get data.')
+    except Exception as e:
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} No paprika only salt')
+    return
 
 
 @bot.command(pass_context=True)
@@ -14764,7 +14889,7 @@ async def itag(ctx, *, itag_text: str = None):
                 TagIt = await store.sql_itag_by_server(str(ctx.guild.id), command_del[1].upper())
                 if command_del[0].upper() == "-DEL" and TagIt:
                     # check permission if there is attachment with .itag
-                    if ctx.author.guild_permissions.manage_guild == False:
+                    if ctx.author.guild_permissions.manage_guild == False and ctx.author.guild_permissions.view_guild_insights == False:
                         await message.add_reaction(EMOJI_ERROR) 
                         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **itag** Permission denied.')
                         return
@@ -14793,7 +14918,7 @@ async def itag(ctx, *, itag_text: str = None):
             return
         else:
             # check permission if there is attachment with .itag
-            if ctx.author.guild_permissions.manage_guild == False:
+            if ctx.author.guild_permissions.manage_guild == False and ctx.author.guild_permissions.view_guild_insights == False:
                 await message.add_reaction(EMOJI_ERROR) 
                 await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **itag** Permission denied.')
                 return
@@ -14905,11 +15030,11 @@ async def tag(ctx, *args):
                                 'Use: ```.tag -add|-del tagname <Tag description ... >```')
             await msg.add_reaction(EMOJI_OK_BOX)
             return
-    if (args[0].lower() in ['-add', '-del']) and ctx.author.guild_permissions.manage_guild == False:
+    if (args[0].lower() in ['-add', '-del']) and (ctx.author.guild_permissions.manage_guild == False and ctx.author.guild_permissions.view_guild_insights == False):
         msg = await ctx.send(f'{ctx.author.mention} Permission denied.')
         await msg.add_reaction(EMOJI_OK_BOX)
         return
-    if args[0].lower() == '-add' and ctx.author.guild_permissions.manage_guild:
+    if args[0].lower() == '-add' and (ctx.author.guild_permissions.manage_guild or ctx.author.guild_permissions.view_guild_insights):
         if re.match('^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*$', args[1]):
             tag = args[1].upper()
             if len(tag) >= 32:
@@ -14945,7 +15070,7 @@ async def tag(ctx, *args):
             await msg.add_reaction(EMOJI_OK_BOX)
             return
         return
-    elif args[0].lower() == '-del' and ctx.author.guild_permissions.manage_guild:
+    elif args[0].lower() == '-del' and (ctx.author.guild_permissions.manage_guild or ctx.author.guild_permissions.view_guild_insights):
         #print('Has permission:' + str(ctx.message.content))
         if re.match('^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*$', args[1]):
             tag = args[1].upper()

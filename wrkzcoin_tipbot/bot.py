@@ -6989,62 +6989,222 @@ async def pricelist(ctx, *, coin_list):
         await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} Too many tickers.')
         return
 
-
-@bot.command(pass_context=True, name='pap', aliases=['paprika'])
-async def pap(ctx, coin: str=None):
+@bot.command(pass_context=True, name='gecko', aliases=['gec'])
+async def gecko(ctx, coin: str=None):
     # disable game for TRTL discord
     if isinstance(ctx.message.channel, discord.DMChannel) == False and ctx.guild and ctx.guild.id == TRTL_DISCORD:
         return
-    note = None
     try:
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if isinstance(ctx.message.channel, discord.DMChannel) == False and serverinfo \
         and 'enable_market' in serverinfo and serverinfo['enable_market'] == "NO":
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Market command is not ENABLE yet in this guild. Please request Guild owner to enable by `{prefix}SETTING MARKET`')
-            await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}price** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+            await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}gecko** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
             return
     except Exception as e:
+        traceback.format_exc()
         if isinstance(ctx.message.channel, discord.DMChannel) == False:
             return
         pass
     if coin is None:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Missing coin name.')
+        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Missing coin name.')
+        return
+    else:
+        coin = coin.lower()
+        if coin == 'wow':
+            coin = 'wownero'
+        elif coin == 'wrkz':
+            coin = 'wrkzcoin'
+        elif coin == 'dego':
+            coin = 'derogold'
+        key = config.redis_setting.prefix_gecko + coin.upper()
+        try:
+            openRedis()
+            if redis_conn and redis_conn.exists(key):
+                response_text = redis_conn.get(key).decode()
+                msg = await ctx.message.reply("{}#{}, {}".format(ctx.author.name, ctx.author.discriminator, response_text))
+                await msg.add_reaction(EMOJI_OK_BOX)
+                await ctx.message.add_reaction(EMOJI_FLOPPY)
+                return
+        except Exception as e:
+            traceback.format_exc()
+            await logchanbot(traceback.format_exc())
+    try:
+        if redis_conn and redis_conn.exists(config.redis_setting.prefix_gecko + "COINSLIST"):
+            j = json.loads(redis_conn.get(config.redis_setting.prefix_gecko + "COINSLIST").decode())
+        else:
+            link = 'https://api.coingecko.com/api/v3/coins/list'
+            async with aiohttp.ClientSession() as session:
+                async with session.get(link) as resp:
+                    if resp.status == 200:
+                        j = await resp.json()
+                        # add to redis coins list
+                        try:
+                            openRedis()
+                            redis_conn.set(config.redis_setting.prefix_gecko + "COINSLIST", json.dumps(j), ex=config.redis_setting.default_time_coinlist)
+                        except Exception as e:
+                            traceback.format_exc()
+                        # end add to redis
+        for i in j:
+            if coin == i['symbol'] or coin == i['name'].lower():
+                id = i['id']
+    except Exception as e:
+        traceback.format_exc()
+        msg = await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Can not get data for {coin}.')
+        await msg.add_reaction(EMOJI_OK_BOX)
+        return
+    try:
+        if coin == 'wow':
+            coin = 'wownero'
+        elif coin == 'wrkz':
+            coin = 'wrkzcoin'
+        elif coin == 'dego':
+            coin = 'derogold'
+        async with aiohttp.ClientSession() as session:
+            async with session.get('https://api.coingecko.com/api/v3/coins/{}'.format(id)) as resp:
+                if resp.status == 200:
+                    j = await resp.json()
+                    if 'error' in j and j['error'] == 'Could not find coin with the given id':
+                        msg = await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Can not get data **{coin.upper()}** from coingecko.')
+                        await msg.add_reaction(EMOJI_OK_BOX)
+                        return
+                    name = j['name']
+                    ticker = j['symbol'].upper()
+                    mcaprank = j['market_cap_rank']
+                    mcap = j['market_data']['market_cap']['usd']
+                    geckorank = j['coingecko_rank']
+                    btcprice = j['market_data']['current_price']['btc']
+                    usdprice = j['market_data']['current_price']['usd']
+                    athbtc = j['market_data']['ath']['btc']
+                    athusd = j['market_data']['ath']['usd']
+                    change_1d = j['market_data']['price_change_percentage_24h_in_currency']['usd']
+                    change_1w = j['market_data']['price_change_percentage_7d_in_currency']['usd']
+                    try:
+                        change_1m = j['market_data']['price_change_percentage_30d_in_currency']['usd']
+                    except: change_1m = 0
+                    try:
+                        change_1y = j['market_data']['price_change_percentage_1y_in_currency']['usd']
+                    except: change_1y = 0
+                    # add to redis
+                    try:
+                        openRedis()
+                        response_text = "{} ({}) is #{:.0f} by mcap (${:,.2f}) and #{:.0f} by coingecko rank. Current price is {:.8f} BTC / ${:.3f}. ATH price is {:.8f} BTC / ${:.3f}. USD change: 1d {:.1f}%, 1w {:.1f}%, 1m {:.1f}%, 1y {:.1f}%.".format(name, ticker, mcaprank, mcap, geckorank, btcprice, usdprice, athbtc, athusd, change_1d, change_1w, change_1m, change_1y)
+                        redis_conn.set(key, response_text, ex=config.redis_setting.default_time_gecko)
+                    except Exception as e:
+                        traceback.format_exc()
+                        await logchanbot(traceback.format_exc())
+                    msg = await ctx.message.reply("{}#{}, {}".format(ctx.author.name, ctx.author.discriminator, response_text))
+                    await msg.add_reaction(EMOJI_OK_BOX)
+                    return
+    except:
+        msg = await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Can not get data for {coin}.')
+        await msg.add_reaction(EMOJI_OK_BOX)
+    return
+
+
+@bot.command(pass_context=True, name='pap', aliases=['paprika'])
+async def pap(ctx, coin: str=None):
+    # disable game for TRTL discord
+    if isinstance(ctx.message.channel, discord.DMChannel) == False and ctx.guild and ctx.guild.id == TRTL_DISCORD:
+        return
+    try:
+        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        if isinstance(ctx.message.channel, discord.DMChannel) == False and serverinfo \
+        and 'enable_market' in serverinfo and serverinfo['enable_market'] == "NO":
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Market command is not ENABLE yet in this guild. Please request Guild owner to enable by `{prefix}SETTING MARKET`')
+            await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}pap** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+            return
+    except Exception as e:
+        traceback.format_exc()
+        if isinstance(ctx.message.channel, discord.DMChannel) == False:
+            return
+        pass
+    if coin is None:
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Missing coin name.')
         return
     else:
         target = coin.lower()
+        if target == 'wow':
+            target = 'wownero'
+        elif target == 'wrkz':
+            target = 'wrkzcoin'
+        elif target == 'dego':
+            target = 'derogold'
+        key = config.redis_setting.prefix_paprika + coin.upper()
+        try:
+            openRedis()
+            if redis_conn and redis_conn.exists(key):
+                response_text = redis_conn.get(key).decode()
+                msg = await ctx.message.reply("{}#{}, {}".format(ctx.author.name, ctx.author.discriminator, response_text))
+                await msg.add_reaction(EMOJI_OK_BOX)
+                await ctx.message.add_reaction(EMOJI_FLOPPY)
+                return
+        except Exception as e:
+            traceback.format_exc()
+            await logchanbot(traceback.format_exc())
     try:
-        link = 'https://api.coinpaprika.com/v1/coins'
-        async with aiohttp.ClientSession() as session:
-            async with session.get(link) as resp:
-                if resp.status == 200:
-                    j = await resp.json()
-                    if target.isdigit():
-                        for i in j:
-                            if int(target) == int(i['rank']):
-                                id = i['id']
+        if redis_conn and redis_conn.exists(config.redis_setting.prefix_paprika + "COINSLIST"):
+            j = json.loads(redis_conn.get(config.redis_setting.prefix_paprika + "COINSLIST").decode())
+        else:
+            link = 'https://api.coinpaprika.com/v1/coins'
+            async with aiohttp.ClientSession() as session:
+                async with session.get(link) as resp:
+                    if resp.status == 200:
+                        j = await resp.json()
+                        # add to redis coins list
+                        try:
+                            openRedis()
+                            redis_conn.set(config.redis_setting.prefix_paprika + "COINSLIST", json.dumps(j), ex=config.redis_setting.default_time_coinlist)
+                        except Exception as e:
+                            traceback.format_exc()
+                        # end add to redis
+        if target.isdigit():
+            for i in j:
+                if int(target) == int(i['rank']):
+                    id = i['id']
+        else:
+            if target == 'wow':
+                target = 'wownero'
+            elif target == 'wrkz':
+                target = 'wrkzcoin'
+            elif target == 'dego':
+                target = 'derogold'
+            for i in j:
+                if target == i['name'].lower() or target == i['symbol'].lower():
+                    id = i['id']
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get('https://api.coinpaprika.com/v1/tickers/{}'.format(id)) as resp:
+                    if resp.status == 200:
+                        j = await resp.json()
+                        if 'error' in j and j['error'] == 'id not found':
+                            msg = await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Can not get data **{coin.upper()}** from paprika.')
+                            await msg.add_reaction(EMOJI_OK_BOX)
+                            return
+                        response_text = "{} ({}) is #{} by marketcap (${:,.2f}), trading at ${:.4f} with a 24h vol of ${:,.2f}. It's changed {}% over 24h, {}% over 7d, {}% over 30d, and {}% over 1y with an ath of ${} on {}.".format(j['name'], j['symbol'], j['rank'], float(j['quotes']['USD']['market_cap']), float(j['quotes']['USD']['price']), float(j['quotes']['USD']['volume_24h']), j['quotes']['USD']['percent_change_24h'], j['quotes']['USD']['percent_change_7d'], j['quotes']['USD']['percent_change_30d'], j['quotes']['USD']['percent_change_1y'], j['quotes']['USD']['ath_price'], j['quotes']['USD']['ath_date'])
+                        msg = await ctx.message.reply("{}#{}, {}".format(ctx.author.name, ctx.author.discriminator, response_text))
+                        await msg.add_reaction(EMOJI_OK_BOX)
+                        # add to redis
+                        try:
+                            openRedis()
+                            redis_conn.set(key, response_text, ex=config.redis_setting.default_time_paprika)
+                        except Exception as e:
+                            traceback.format_exc()
+                            await logchanbot(traceback.format_exc())
                     else:
-                        if target == 'wow':
-                            target = 'wownero'
-                        elif target == 'wrkz':
-                            target = 'wrkzcoin'
-                        elif target == 'dego':
-                            target = 'derogold'
-                        for i in j:
-                            if target == i['name'].lower() or target == i['symbol'].lower():
-                                id = i['id']
-                    async with aiohttp.ClientSession() as session:
-                        async with session.get('https://api.coinpaprika.com/v1/tickers/{}'.format(id)) as resp:
-                            if resp.status == 200:
-                                j = await resp.json()
-                                await ctx.send("{}#{}, {} ({}) is #{} by marketcap (${:,.2f}), trading at ${:.4f} with a 24h vol of ${:,.2f}. It's changed {}% over 24h, {}% over 7d, {}% over 30d, and {}% over 1y with an ath of ${} on {}.".format(ctx.author.name, ctx.author.discriminator, j['name'], j['symbol'], j['rank'], float(j['quotes']['USD']['market_cap']), float(j['quotes']['USD']['price']), float(j['quotes']['USD']['volume_24h']), j['quotes']['USD']['percent_change_24h'], j['quotes']['USD']['percent_change_7d'], j['quotes']['USD']['percent_change_30d'], j['quotes']['USD']['percent_change_1y'], j['quotes']['USD']['ath_price'], j['quotes']['USD']['ath_date']))
-                            else:
-                                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Can not get data.')
-                else:
-                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Can not get data.')
+                        msg = await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Can not get data.')
+                        await msg.add_reaction(EMOJI_OK_BOX)
+                    return
+        except Exception as e:
+            traceback.format_exc()
     except Exception as e:
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} No paprika only salt')
+        traceback.format_exc()
+        msg = await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} No paprika only salt')
+        await msg.add_reaction(EMOJI_OK_BOX)
     return
 
 
@@ -7468,7 +7628,7 @@ async def deposit(ctx, coin_name: str, option: str=None):
     if option and option.upper() in ["PLAIN", "TEXT", "NOEMBED"]:
         deposit = wallet['balance_wallet_address']
         try:
-            msg = await ctx.send(f'{ctx.author.mention} Your **{COIN_NAME}**\'s deposit address: ```{deposit}```')
+            msg = await ctx.message.reply(f'{ctx.author.mention} Your **{COIN_NAME}**\'s deposit address: ```{deposit}```')
             await msg.add_reaction(EMOJI_OK_BOX)
             await ctx.message.add_reaction(EMOJI_OK_HAND)
             return
@@ -7501,7 +7661,7 @@ async def deposit(ctx, coin_name: str, option: str=None):
     prefix = await get_guild_prefix(ctx)
     embed.set_footer(text=f"Use:{prefix}deposit {COIN_NAME} plain (for plain text)")
     try:
-        msg = await ctx.send(embed=embed)
+        msg = await ctx.message.reply(embed=embed)
         await msg.add_reaction(EMOJI_OK_BOX)
         await ctx.message.add_reaction(EMOJI_OK_HAND)
         return
@@ -7645,7 +7805,7 @@ async def mdeposit(ctx, coin_name: str, option: str=None):
     if option and option.upper() in ["PLAIN", "TEXT", "NOEMBED"]:
         deposit = wallet['balance_wallet_address']
         try:
-            msg = await ctx.send(f'{ctx.author.mention} Guild {ctx.guild.name} **{COIN_NAME}**\'s deposit address (not yours): ```{deposit}```')
+            msg = await ctx.message.reply(f'{ctx.author.mention} Guild {ctx.guild.name} **{COIN_NAME}**\'s deposit address (not yours): ```{deposit}```')
             await msg.add_reaction(EMOJI_OK_BOX)
             await ctx.message.add_reaction(EMOJI_OK_HAND)
         except (discord.errors.NotFound, discord.errors.Forbidden) as e:
@@ -7660,7 +7820,7 @@ async def mdeposit(ctx, coin_name: str, option: str=None):
     prefix = await get_guild_prefix(ctx)
     embed.set_footer(text=f"Use:{prefix}mdeposit {COIN_NAME} plain (for plain text)")
     try:
-        msg = await ctx.send(embed=embed)
+        msg = await ctx.message.reply(embed=embed)
         await msg.add_reaction(EMOJI_OK_BOX)
         await ctx.message.add_reaction(EMOJI_OK_HAND)
         return
@@ -8212,11 +8372,11 @@ async def coinmap(ctx):
         try:
             map_image = await bot.loop.run_in_executor(None, coin360.get_coin360)
             if map_image:
-                msg = await ctx.send(f'{config.coin360.static_coin360_link + map_image}')
+                msg = await ctx.message.reply(f'{config.coin360.static_coin360_link + map_image}')
                 await msg.add_reaction(EMOJI_OK_BOX)
                 return
             else:
-                msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Internal error during fetch image.')
+                msg = await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Internal error during fetch image.')
                 await msg.add_reaction(EMOJI_OK_BOX)
                 return
         except Exception as e:
@@ -8331,7 +8491,7 @@ async def coininfo(ctx, coin: str = None):
             except Exception as e:
                 await logchanbot(traceback.format_exc())
             response_text += "```"
-            await ctx.send(response_text)
+            await ctx.message.reply(response_text)
             return
 
 
@@ -8421,7 +8581,7 @@ async def balance(ctx, coin: str = None):
                 return
         else:
             if PUBMSG.upper() == "PUB" or PUBMSG.upper() == "PUBLIC":
-                msg = await ctx.send('**[ BALANCE LIST ]**\n'
+                msg = await ctx.message.reply('**[ BALANCE LIST ]**\n'
                                 f'```{table.table}```'
                                 f'Related command: `{prefix}balance TICKER` or `{prefix}deposit TICKER`\n`***`: On Maintenance\n')
             else:
@@ -8436,12 +8596,12 @@ async def balance(ctx, coin: str = None):
 
     if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**!')
+        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**!')
         return
 
     if is_maintenance_coin(COIN_NAME) and ctx.message.author.id not in MAINTENANCE_OWNER:
         await ctx.message.add_reaction(EMOJI_MAINTENANCE)
-        msg = await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} in maintenance.')
+        msg = await ctx.message.reply(f'{EMOJI_RED_NO} {COIN_NAME} in maintenance.')
         await msg.add_reaction(EMOJI_OK_BOX)
         return
     if COIN_NAME in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
@@ -8517,14 +8677,14 @@ async def balance(ctx, coin: str = None):
             await msg.add_reaction(EMOJI_OK_BOX)
         except (discord.errors.NotFound, discord.errors.Forbidden) as e:
             try:
-                msg = await ctx.send(embed=embed)
+                msg = await ctx.message.reply(embed=embed)
                 await ctx.message.add_reaction(EMOJI_OK_HAND)
                 await msg.add_reaction(EMOJI_OK_BOX)
             except (discord.errors.NotFound, discord.errors.Forbidden) as e:
                 await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
             return
     else:
-        msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is no such ticker {COIN_NAME}.')
+        msg = await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} There is no such ticker {COIN_NAME}.')
         await msg.add_reaction(EMOJI_OK_BOX)
         return
 
@@ -8601,7 +8761,7 @@ async def mbalance(ctx, coin: str = None):
         embed.add_field(name='Related commands', value=f'`{prefix}mbalance TICKER` or `{prefix}mdeposit TICKER`', inline=False)
         embed.set_footer(text=f"Guild balance requested by {ctx.message.author.name}#{ctx.message.author.discriminator}")
         try:
-            msg = await ctx.send(embed=embed)
+            msg = await ctx.message.reply(embed=embed)
             await msg.add_reaction(EMOJI_OK_BOX)
         except (discord.errors.NotFound, discord.errors.Forbidden) as e:
             await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
@@ -8611,7 +8771,7 @@ async def mbalance(ctx, coin: str = None):
 
     if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**!')
+        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**!')
         return
 
     try:
@@ -8623,12 +8783,12 @@ async def mbalance(ctx, coin: str = None):
             coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     except Exception as e:
         await logchanbot(traceback.format_exc())
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**')
+        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**')
         return
 
     if is_maintenance_coin(COIN_NAME) and ctx.message.author.id not in MAINTENANCE_OWNER:
         await ctx.message.add_reaction(EMOJI_MAINTENANCE)
-        msg = await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} in maintenance.')
+        msg = await ctx.message.reply(f'{EMOJI_RED_NO} {COIN_NAME} in maintenance.')
         await msg.add_reaction(EMOJI_OK_BOX)
         return
 
@@ -8665,14 +8825,14 @@ async def mbalance(ctx, coin: str = None):
 
         balance_actual = num_format_coin(actual_balance, COIN_NAME)
         await ctx.message.add_reaction(EMOJI_OK_HAND)
-        msg = await ctx.send(f'**[GUILD {ctx.guild.name} - {COIN_NAME} BALANCE ]**\n\n'
+        msg = await ctx.message.reply(f'**[GUILD {ctx.guild.name} - {COIN_NAME} BALANCE ]**\n\n'
                 f'{EMOJI_MONEYBAG} Available: {balance_actual} '
                 f'{COIN_NAME}\n'
                 f'{get_notice_txt(COIN_NAME)}')
         await msg.add_reaction(EMOJI_OK_BOX)
         return
     else:
-        msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is no such ticker {COIN_NAME}.')
+        msg = await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} There is no such ticker {COIN_NAME}.')
         await msg.add_reaction(EMOJI_OK_BOX)
         return
 
@@ -10383,7 +10543,7 @@ async def randtip(ctx, amount: str, coin: str, *, rand_option: str=None):
                 await store.sql_toggle_tipnotify(str(user.id), "OFF")
         try:
             # try message in public also
-            msg = await ctx.send(
+            msg = await ctx.message.reply(
                             f'{rand_user.name}#{rand_user.discriminator} got a random tip of {num_format_coin(real_amount, COIN_NAME)} '
                             f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator}')
             await msg.add_reaction(EMOJI_OK_BOX)
@@ -10605,7 +10765,7 @@ async def freetip(ctx, amount: str, coin: str, duration: str='60s', *, comment: 
         TX_IN_PROCESS.append(ctx.message.author.id)
     try:
         embed = discord.Embed(title=f"Free Tip appears {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}", description=f"Re-act {EMOJI_PARTY} to collect", timestamp=ts, color=0x00ff00)
-        msg = await ctx.send(embed=embed)
+        msg = await ctx.message.reply(embed=embed)
         await msg.add_reaction(EMOJI_PARTY)
         if comment and len(comment) > 0:
             embed.add_field(name="Comment", value=comment, inline=False)
@@ -12199,7 +12359,7 @@ async def tipall(ctx, amount: str, coin: str, option: str=None):
             await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
         numMsg = 0
         for member in listMembers:
-            if ctx.message.author.id != member.id and member.id != bot.user.id and len(listMembers) < 15:
+            if ctx.message.author.id != member.id and member.id != bot.user.id and len(listMembers) < 30:
                 if str(member.id) not in notifyList:
                     # random user to DM
                     dm_user = bool(random.getrandbits(1)) if len(listMembers) > config.tipallMax_LimitDM else True
@@ -17142,7 +17302,7 @@ async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str 
                 member = bot.get_user(id=int(member_id))
                 if member and member.bot == False and member in guild_members:
                     mention_list_name += '{}#{} '.format(member.name, member.discriminator)
-                    if len(list_talker) < 10 and str(member_id) not in notifyList:
+                    if len(list_talker) < 30 and str(member_id) not in notifyList:
                         try:
                             await member.send(
                                 f'{EMOJI_MONEYFACE} You got a {tip_type_text} of `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}` '

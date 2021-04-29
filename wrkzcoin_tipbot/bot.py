@@ -1775,9 +1775,9 @@ async def trans(ctx, to_lang: str, *, speech: str):
         'yo': 'yoruba',
         'zu': 'zulu',
     }
-    if to_lang not in LANGUAGES:
-        await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{ctx.author.mention} **{to_lang}** is not available. Supported language code: https://tipbot-static.wrkz.work/language_codes.txt')
+    if to_lang not in LANGUAGES or to_lang.upper() == 'HELP':
+        await ctx.message.add_reaction(EMOJI_INFORMATION)
+        await ctx.message.reply(f'{ctx.author.mention} Supported language code: https://tipbot-static.wrkz.work/language_codes.txt')
         return
     else:
         def user_translated(text, to_lang: str):
@@ -1800,14 +1800,14 @@ async def trans(ctx, to_lang: str, *, speech: str):
                 make_voice = functools.partial(user_translated, speech, to_lang)
                 voice_file = await bot.loop.run_in_executor(None, make_voice)
                 file = discord.File(config.tts.tts_saved_path + voice_file['file'], filename=voice_file['file'])
-                msg = await ctx.send(file=file, content="{}: {}".format(ctx.author.mention, voice_file['translated']))
+                msg = await ctx.message.reply(file=file, content="{}: {}".format(ctx.author.mention, voice_file['translated']))
                 await msg.add_reaction(EMOJI_OK_BOX)
                 await ctx.message.add_reaction(EMOJI_OK_HAND)
                 await store.sql_add_trans_tts(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
                             speech, voice_file['translated'], voice_file['src_lang'], to_lang, voice_file['file'], 'DISCORD')
         except Exception as e:
             await logchanbot(traceback.format_exc())
-            await ctx.send(f'{ctx.author.mention} Translate: Internal error.')
+            await ctx.message.reply(f'{ctx.author.mention} Translate: Internal error. The media file could be too big to upload here. Please reduce your text length.')
     return
 
 
@@ -1815,7 +1815,7 @@ async def trans(ctx, to_lang: str, *, speech: str):
 async def tts(ctx, *, speech: str):
     if not isEnglish(speech):
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{ctx.author.mention} Currently, TTS supports English only.')
+        await ctx.message.reply(f'{ctx.author.mention} Currently, TTS supports English only.')
         return
     else:
         lang = 'en'
@@ -1831,7 +1831,7 @@ async def tts(ctx, *, speech: str):
                     make_voice = functools.partial(user_speech, speech)
                     voice_file = await bot.loop.run_in_executor(None, make_voice)
                     file = discord.File(config.tts.tts_saved_path + voice_file, filename=voice_file)
-                    msg = await ctx.send(file=file, content=f"{ctx.author.mention}")
+                    msg = await ctx.message.reply(file=file, content=f"{ctx.author.mention}")
                     await msg.add_reaction(EMOJI_OK_BOX)
                     await ctx.message.add_reaction(EMOJI_OK_HAND)
                     await store.sql_add_tts(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
@@ -1848,7 +1848,7 @@ async def tts(ctx, *, speech: str):
 async def ttskh(ctx, *, speech: str):
     if not isKhmer(speech):
         await ctx.message.add_reaction(EMOJI_INFORMATION)
-        await ctx.send(f'{ctx.author.mention}  Some characters are not in fully in Khmer.')
+        await ctx.message.reply(f'{ctx.author.mention}  Some characters are not in fully in Khmer.')
     lang = 'km'
     def user_speech(text):
         speech_txt = (text)
@@ -1862,7 +1862,7 @@ async def ttskh(ctx, *, speech: str):
                 make_voice = functools.partial(user_speech, speech)
                 voice_file = await bot.loop.run_in_executor(None, make_voice)
                 file = discord.File(config.tts.tts_saved_path + voice_file, filename=voice_file)
-                msg = await ctx.send(file=file, content=f"{ctx.author.mention}")
+                msg = await ctx.message.reply(file=file, content=f"{ctx.author.mention}")
                 await msg.add_reaction(EMOJI_OK_BOX)
                 await ctx.message.add_reaction(EMOJI_OK_HAND)
                 await store.sql_add_tts(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
@@ -1879,7 +1879,7 @@ async def ttskh(ctx, *, speech: str):
 async def ttscn(ctx, *, speech: str):
     if not isChinese(speech):
         await ctx.message.add_reaction(EMOJI_INFORMATION)
-        await ctx.send(f'{ctx.author.mention} Some characters are not in fully in Chinese.')
+        await ctx.message.reply(f'{ctx.author.mention} Some characters are not in fully in Chinese.')
  
     lang = 'zh-CN'
     def user_speech(text):
@@ -1894,7 +1894,7 @@ async def ttscn(ctx, *, speech: str):
                 make_voice = functools.partial(user_speech, speech)
                 voice_file = await bot.loop.run_in_executor(None, make_voice)
                 file = discord.File(config.tts.tts_saved_path + voice_file, filename=voice_file)
-                msg = await ctx.send(file=file, content=f"{ctx.author.mention}")
+                msg = await ctx.message.reply(file=file, content=f"{ctx.author.mention}")
                 await msg.add_reaction(EMOJI_OK_BOX)
                 await ctx.message.add_reaction(EMOJI_OK_HAND)
                 await store.sql_add_tts(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
@@ -1912,7 +1912,7 @@ async def find(ctx, *, searched_text: str):
     # bot check in the first place
     if ctx.message.author.bot == True:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is not allowed using this.')
+        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is not allowed using this.')
         return
 
     # disable game for TRTL discord
@@ -1921,7 +1921,7 @@ async def find(ctx, *, searched_text: str):
         return
 
     if not re.match('^[a-zA-Z0-9-_ ]+$', searched_text):
-        await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} Invalid help searching text **{searched_text}**.')
+        await ctx.message.reply(f'{EMOJI_ERROR} {ctx.author.mention} Invalid help searching text **{searched_text}**.')
         await ctx.message.add_reaction(EMOJI_ERROR)
         return
 
@@ -1937,12 +1937,12 @@ async def find(ctx, *, searched_text: str):
 
     if len(searched_text) >= 100:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{ctx.author.mention} Searched text is too long.')
+        await ctx.message.reply(f'{ctx.author.mention} Searched text is too long.')
         return
 
     if not is_ascii(searched_text):
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{ctx.author.mention} **{searched_text}** is not valid text.')
+        await ctx.message.reply(f'{ctx.author.mention} **{searched_text}** is not valid text.')
         return
     try:
         # Let's search
@@ -1965,7 +1965,7 @@ async def find(ctx, *, searched_text: str):
                 embed.add_field(name="More", value="```{}```".format(first_result['example'].replace('prefix', prefix)), inline=False)
             embed.add_field(name="OTHER LINKS", value="{} / {} / {}".format("[Invite TipBot](http://invite.discord.bot.tips)", "[Support Server](https://discord.com/invite/GpHzURM)", "[TipBot Github](https://github.com/wrkzcoin/TipBot)"), inline=False)
             embed.set_footer(text=f"Find requested by {ctx.message.author.name}#{ctx.message.author.discriminator}")
-            msg = await ctx.send(embed=embed)
+            msg = await ctx.message.reply(embed=embed)
             await msg.add_reaction(EMOJI_OK_BOX)
             await ctx.message.add_reaction(EMOJI_OK_HAND)
             reaction_numbers = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🆗']
@@ -2005,7 +2005,7 @@ async def find(ctx, *, searched_text: str):
                         pass
         else:
             await ctx.message.add_reaction(EMOJI_INFORMATION)
-            await ctx.send(f'{ctx.author.mention} Searching.. **{searched_text}** and has no result.')
+            await ctx.message.reply(f'{ctx.author.mention} Searching.. **{searched_text}** and has no result.')
         return
     except (discord.errors.NotFound, discord.errors.Forbidden) as e:
         await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
@@ -4048,7 +4048,13 @@ You lose if the board fills up the tiles before then.'''
         time_start = int(time.time())
 
         while not game_over:
-            await msg.edit(content=f'{ctx.author.mention}```GAME 2048\n{board}```Your score: **{score}**')
+            try:
+                await msg.edit(content=f'{ctx.author.mention}```GAME 2048\n{board}```Your score: **{score}**')
+            except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+                if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+                    GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **GAME 2048** was deleted or I can not find it. Game stop!')
+                return
             score = g2048_getScore(gameBoard)
             if IS_RESTARTING:
                 await ctx.message.add_reaction(EMOJI_REFRESH)
@@ -4483,8 +4489,13 @@ respectively. You can also reload game level.'''
             embed.add_field(name="LEVEL", value=f'{level}')
             embed.add_field(name="OTHER LINKS", value="{} / {} / {}".format("[Invite TipBot](http://invite.discord.bot.tips)", 
                             "[Support Server](https://discord.com/invite/GpHzURM)", "[TipBot Github](https://github.com/wrkzcoin/TipBot)"), inline=False)
-            await msg.edit(embed=embed)
-
+            try:
+                await msg.edit(embed=embed)
+            except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+                if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
+                    GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **GAME SOKOBAN** was deleted or I can not find it. Game stop!')
+                return
             # Find the player position:
             for position, character in currentLevel.items():
                 if character in (FACE, PLAYER_ON_GOAL):
@@ -7928,7 +7939,7 @@ async def help(ctx, *, section: str='MAIN'):
     prefix = await get_guild_prefix(ctx)
 
     if not re.match('^[a-zA-Z0-9-_ ]+$', section):
-        await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} Invalid help topic.')
+        await ctx.message.reply(f'{EMOJI_ERROR} {ctx.author.mention} Invalid help topic.')
         await ctx.message.add_reaction(EMOJI_ERROR)
         return
 
@@ -7940,7 +7951,12 @@ async def help(ctx, *, section: str='MAIN'):
                 if ctx.channel.id != int(serverinfo['botchan']):
                     await ctx.message.add_reaction(EMOJI_ERROR)
                     botChan = bot.get_channel(id=int(serverinfo['botchan']))
-                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} is the bot channel!!!')
+                    if botChan:
+                        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} is the bot channel!!!')
+                    else:
+                        await botLogChan.send(f'Guild {ctx.guild.name} / {ctx.guild.id} has defined botchan but I can not find it! ')
+                        msg = await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention}, bot channel was defined but I can not find it in this guild. Please command help in DM instead.')
+                        await msg.add_reaction(EMOJI_OK_BOX)
                     return
     except (discord.errors.NotFound, discord.errors.Forbidden) as e:
         pass
@@ -12699,10 +12715,13 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
             await logchanbot(traceback.format_exc())
 
         if real_amount + NetFee > actual_balance:
+            extra_fee_txt = ''
+            if NetFee > 0:
+                extra_fee_txt = f'You need to leave at least a network or a reserved fee: {num_format_coin(NetFee, COIN_NAME)}{COIN_NAME}'
             await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tx of '
                            f'{num_format_coin(real_amount, COIN_NAME)} '
-                           f'{COIN_NAME} to {CoinAddress}.')
+                           f'{COIN_NAME} to {CoinAddress}. {extra_fee_txt}')
 
             return
 
@@ -13048,7 +13067,7 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
                     await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Address: `{CoinAddress}` '
                                     'is invalid.')
                     return
-    
+        extra_fee_txt = f'You need to leave a TipBot reserved fee: {num_format_coin(NetFee, COIN_NAME)}{COIN_NAME}'
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if user_from is None:
             if coin_family == "ERC-20":
@@ -13083,7 +13102,7 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send out '
                            f'{num_format_coin(real_amount, COIN_NAME)} '
-                           f'{COIN_NAME}.')
+                           f'{COIN_NAME}. {extra_fee_txt}')
             return
         if real_amount < MinTx:
             await ctx.message.add_reaction(EMOJI_ERROR)

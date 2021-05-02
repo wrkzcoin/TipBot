@@ -11201,6 +11201,7 @@ async def tipto(ctx, amount: str, coin: str, to_user: str):
 @bot.command(pass_context=True, help=bot_help_tip)
 async def tip(ctx, amount: str, *args):
     global TRTL_DISCORD, IS_RESTARTING, TX_IN_PROCESS
+    secrettip = False
     # check if bot is going to restart
     if IS_RESTARTING:
         await ctx.message.add_reaction(EMOJI_REFRESH)
@@ -11447,6 +11448,35 @@ async def tip(ctx, amount: str, *args):
                                 await logchanbot(traceback.format_exc())
                             return
             else:
+                if len(args) == 2 and args[1].isdigit():
+                    try:
+                        member = bot.get_user(id=int(args[1]))
+                        secrettip = True
+                    except Exception as e:
+                        await ctx.message.add_reaction(EMOJI_ERROR)
+                        try:
+                            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
+                        except (discord.Forbidden, discord.errors.Forbidden) as e:
+                            try:
+                                await ctx.message.author.send(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
+                            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                                return
+                        return
+                else:
+                    await ctx.message.add_reaction(EMOJI_ERROR)
+                    try:
+                        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
+                    except (discord.Forbidden, discord.errors.Forbidden) as e:
+                        try:
+                            await ctx.message.author.send(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
+                        except (discord.Forbidden, discord.errors.Forbidden) as e:
+                            return
+                    return
+        elif len(args) == 1 and args[0].isdigit():
+            try:
+                member = bot.get_user(id=int(args[0]))
+                secrettip = True
+            except Exception as e:
                 await ctx.message.add_reaction(EMOJI_ERROR)
                 try:
                     await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
@@ -11635,9 +11665,12 @@ async def tip(ctx, amount: str, *args):
             await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
         if bot.user.id != member.id and str(member.id) not in notifyList:
             try:
+                fromtipper = f"{ctx.message.author.name}#{ctx.message.author.discriminator}"
+                if secrettip:
+                    fromtipper = "someone"
                 await member.send(
                     f'{EMOJI_MONEYFACE} You got a tip of {num_format_coin(real_amount, COIN_NAME)} '
-                    f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{ctx.guild.name}` #{ctx.channel.name}\n'
+                    f'{COIN_NAME} from {fromtipper} in server `{ctx.guild.name}` #{ctx.channel.name}\n'
                     f'{NOTIFICATION_OFF_CMD}\n')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
                 await store.sql_toggle_tipnotify(str(member.id), "OFF")

@@ -8450,6 +8450,7 @@ async def coininfo(ctx, coin: str = None):
             Max_Tip = get_max_mv_amount(COIN_NAME)
             Min_Tx = get_min_tx_amount(COIN_NAME)
             Max_Tx = get_max_tx_amount(COIN_NAME)
+            token_info = None
         if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
             await ctx.message.author.send(f'{ctx.author.mention} **{COIN_NAME}** is not in our list.')
             return
@@ -8473,12 +8474,12 @@ async def coininfo(ctx, coin: str = None):
                 if isinstance(ctx.channel, discord.DMChannel) == True:
                     if COIN_NAME in ENABLE_TRADE_COIN and is_tradeable_coin(COIN_NAME): 
                         response_text += "Trade: ON\n"
-                        response_text += f"Trade Min/Max: {num_format_coin(get_min_sell(COIN_NAME), COIN_NAME)}{COIN_NAME} / {num_format_coin(get_max_sell(COIN_NAME), COIN_NAME)}{COIN_NAME}\n"
+                        response_text += f"Trade Min/Max: {num_format_coin(get_min_sell(COIN_NAME, token_info), COIN_NAME)}{COIN_NAME} / {num_format_coin(get_max_sell(COIN_NAME, token_info), COIN_NAME)}{COIN_NAME}\n"
                 elif isinstance(ctx.channel, discord.DMChannel) == False and COIN_NAME in ENABLE_TRADE_COIN and is_tradeable_coin(COIN_NAME):
                     serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
                     if 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "YES":
                         response_text += "Trade: ON\n"
-                        response_text += f"Trade Min/Max: {num_format_coin(get_min_sell(COIN_NAME), COIN_NAME)}{COIN_NAME} / {num_format_coin(get_max_sell(COIN_NAME), COIN_NAME)}{COIN_NAME}\n"
+                        response_text += f"Trade Min/Max: {num_format_coin(get_min_sell(COIN_NAME, token_info), COIN_NAME)}{COIN_NAME} / {num_format_coin(get_max_sell(COIN_NAME, token_info), COIN_NAME)}{COIN_NAME}\n"
                 if is_coin_txable(COIN_NAME): 
                     response_text += "Withdraw: ON\n"
                 else:
@@ -15422,7 +15423,8 @@ async def sell(ctx, sell_amount: str, sell_ticker: str, buy_amount: str, buy_tic
     try:
         sell_amount = Decimal(sell_amount)
         buy_amount = Decimal(buy_amount)
-    except ValueError:
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid sell/buy amount.')
         return
@@ -15453,7 +15455,16 @@ async def sell(ctx, sell_amount: str, sell_ticker: str, buy_amount: str, buy_tic
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You have maximum opened selling **{config.trade.Max_Open_Order}**. Please cancel some or wait.')
         return
 
-    coin_family_sell = getattr(getattr(config,"daemon"+sell_ticker),"coin_family","TRTL")
+    if sell_ticker in ENABLE_COIN_ERC:
+        coin_family_sell = "ERC-20"
+        sell_token_info = await store.get_token_info(sell_ticker)
+    elif sell_ticker in ENABLE_COIN_TRC:
+        coin_family_sell = "TRC-20"
+        sell_token_info = await store.get_token_info(sell_ticker)
+    else:
+        coin_family_sell = getattr(getattr(config,"daemon"+sell_ticker),"coin_family","TRTL")
+        sell_token_info = None
+
     real_amount_sell = int(sell_amount * get_decimal(sell_ticker)) if coin_family_sell in ["BCN", "XMR", "TRTL", "NANO"] else float(sell_amount)
 
     if real_amount_sell == 0:
@@ -15461,28 +15472,38 @@ async def sell(ctx, sell_amount: str, sell_ticker: str, buy_amount: str, buy_tic
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {sell_amount}{sell_ticker} = 0 {sell_ticker} (below smallest unit).')
         return
 
-    if real_amount_sell < get_min_sell(sell_ticker):
+    if real_amount_sell < get_min_sell(sell_ticker, sell_token_info):
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **{sell_amount}{sell_ticker}** below minimum trade **{num_format_coin(get_min_sell(sell_ticker), sell_ticker)}{sell_ticker}**.')
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **{sell_amount}{sell_ticker}** below minimum trade **{num_format_coin(get_min_sell(sell_ticker, sell_token_info), sell_ticker)}{sell_ticker}**.')
         return
-    if real_amount_sell > get_max_sell(sell_ticker):
+    if real_amount_sell > get_max_sell(sell_ticker, sell_token_info):
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **{sell_amount}{sell_ticker}** above maximum trade **{num_format_coin(get_max_sell(sell_ticker), sell_ticker)}{sell_ticker}**.')
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **{sell_amount}{sell_ticker}** above maximum trade **{num_format_coin(get_max_sell(sell_ticker, sell_token_info), sell_ticker)}{sell_ticker}**.')
         return
 
-    coin_family_buy = getattr(getattr(config,"daemon"+buy_ticker),"coin_family","TRTL")
+    if buy_ticker in ENABLE_COIN_ERC:
+        coin_family_buy = "ERC-20"
+        buy_token_info = await store.get_token_info(buy_ticker)
+    elif buy_ticker in ENABLE_COIN_TRC:
+        coin_family_buy = "TRC-20"
+        buy_token_info = await store.get_token_info(buy_ticker)
+    else:
+        coin_family_buy = getattr(getattr(config,"daemon"+buy_ticker),"coin_family","TRTL")
+        buy_token_info = None
+
     real_amount_buy = int(buy_amount * get_decimal(buy_ticker)) if coin_family_buy in ["BCN", "XMR", "TRTL", "NANO"] else float(buy_amount)
+
     if real_amount_buy == 0:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {buy_amount}{buy_ticker} = 0 {buy_ticker} (below smallest unit).')
         return
-    if real_amount_buy < get_min_sell(buy_ticker):
+    if real_amount_buy < get_min_sell(buy_ticker, buy_token_info):
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **{buy_amount}{buy_ticker}** below minimum trade **{num_format_coin(get_min_sell(buy_ticker), buy_ticker)}{buy_ticker}**.')
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **{buy_amount}{buy_ticker}** below minimum trade **{num_format_coin(get_min_sell(buy_ticker, buy_token_info), buy_ticker)}{buy_ticker}**.')
         return
-    if real_amount_buy > get_max_sell(buy_ticker):
+    if real_amount_buy > get_max_sell(buy_ticker, buy_token_info):
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **{buy_amount}{buy_ticker}** above maximum trade **{num_format_coin(get_max_sell(buy_ticker), buy_ticker)}{buy_ticker}**.')
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **{buy_amount}{buy_ticker}** above maximum trade **{num_format_coin(get_max_sell(buy_ticker, buy_token_info), buy_ticker)}{buy_ticker}**.')
         return
 
     if not is_maintenance_coin(sell_ticker):
@@ -18088,6 +18109,23 @@ def get_roach_level(takes: int):
         return "Baby"
     else:
         return None
+
+
+## Section of Trade
+def get_min_sell(coin: str, token_info = None):
+    COIN_NAME = coin.upper()
+    if COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
+        return token_info['min_buysell']
+    else:
+        return getattr(config,"daemon"+coin,config.daemonWRKZ).min_buysell
+
+def get_max_sell(coin: str, token_info = None):
+    COIN_NAME = coin.upper()
+    if COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
+        return token_info['max_buysell']
+    else:
+        return getattr(config,"daemon"+coin,config.daemonWRKZ).max_buysell
+## END OF Section of Trade
 
 
 @click.command()

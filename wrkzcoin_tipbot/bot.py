@@ -11202,6 +11202,7 @@ async def tipto(ctx, amount: str, coin: str, to_user: str):
 async def tip(ctx, amount: str, *args):
     global TRTL_DISCORD, IS_RESTARTING, TX_IN_PROCESS
     secrettip = False
+    fromDM = False
     # check if bot is going to restart
     if IS_RESTARTING:
         await ctx.message.add_reaction(EMOJI_REFRESH)
@@ -11232,30 +11233,57 @@ async def tip(ctx, amount: str, *args):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid amount.')
         return
 
-    if isinstance(ctx.channel, discord.DMChannel):
+    if isinstance(ctx.channel, discord.DMChannel) and args[-1].isdigit() == False and config.discord.enable_secrettip != 1:
         await ctx.send(f'{EMOJI_RED_NO} This command can not be in private.')
         return
 
-    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
-    COIN_NAME = None
-    try:
-        COIN_NAME = args[0].upper()
-        if COIN_NAME in ENABLE_XMR:
-            pass
-        elif COIN_NAME in ENABLE_COIN_NANO:
-            pass
-        elif COIN_NAME not in ENABLE_COIN:
-            if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
+    if isinstance(ctx.channel, discord.DMChannel):
+        if len(args) != 2:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You are using a secret tip. Please tip in public!')
+            return
+        else:
+            COIN_NAME = args[0].upper()
+            if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_ERC+ENABLE_COIN_TRC+ENABLE_COIN_NANO:
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You are using a secret tip command. Please tip in public! **{COIN_NAME}** not available!')
+                return
+            try:
+                member = bot.get_user(id=int(args[1]))
+                if member:
+                    secrettip = True
+                    fromDM = True
+                else:
+                    await ctx.message.add_reaction(EMOJI_ERROR)
+                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {args[1]} not found!')
+                    return
+            except Exception as e:
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                try:
+                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You are using a secret tip command. Please tip in public!')
+                except Exception as e:
+                    return
+    else:
+        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        COIN_NAME = None
+        try:
+            COIN_NAME = args[0].upper()
+            if COIN_NAME in ENABLE_XMR:
                 pass
-            elif 'default_coin' in serverinfo:
+            elif COIN_NAME in ENABLE_COIN_NANO:
+                pass
+            elif COIN_NAME not in ENABLE_COIN:
+                if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
+                    pass
+                elif 'default_coin' in serverinfo:
+                    COIN_NAME = serverinfo['default_coin'].upper()
+        except:
+            if 'default_coin' in serverinfo:
                 COIN_NAME = serverinfo['default_coin'].upper()
-    except:
-        if 'default_coin' in serverinfo:
-            COIN_NAME = serverinfo['default_coin'].upper()
     print("COIN_NAME: " + COIN_NAME)
 
     # TRTL discord
-    if ctx.guild.id == TRTL_DISCORD and COIN_NAME != "TRTL":
+    if isinstance(ctx.channel, discord.DMChannel) == False and ctx.guild.id == TRTL_DISCORD and COIN_NAME != "TRTL":
         return
 
     if not is_coin_tipable(COIN_NAME):
@@ -11269,22 +11297,23 @@ async def tip(ctx, amount: str, *args):
         coin_family = "TRC-20"
     else:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-    # Check allowed coins
-    tiponly_coins = serverinfo['tiponly'].split(",")
-    if COIN_NAME == serverinfo['default_coin'].upper() or serverinfo['tiponly'].upper() == "ALLCOIN":
-        pass
-    elif COIN_NAME not in tiponly_coins:
-        await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} not in allowed coins set by server manager.')
-        return
-    # End of checking allowed coins
+    if fromDM == False:
+        # Check allowed coins
+        tiponly_coins = serverinfo['tiponly'].split(",")
+        if COIN_NAME == serverinfo['default_coin'].upper() or serverinfo['tiponly'].upper() == "ALLCOIN":
+            pass
+        elif COIN_NAME not in tiponly_coins:
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} not in allowed coins set by server manager.')
+            return
+        # End of checking allowed coins
 
     if is_maintenance_coin(COIN_NAME):
         await ctx.message.add_reaction(EMOJI_MAINTENANCE)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
         return
 
-    if len(ctx.message.mentions) == 0 and len(ctx.message.role_mentions) == 0:
+    if len(ctx.message.mentions) == 0 and len(ctx.message.role_mentions) == 0 and fromDM == False:
         # Use how time.
         if len(args) >= 2:
             time_given = None
@@ -11496,18 +11525,18 @@ async def tip(ctx, amount: str, *args):
                 except (discord.Forbidden, discord.errors.Forbidden) as e:
                     return
             return
-    elif len(ctx.message.mentions) == 1 and (bot.user in ctx.message.mentions):
+    elif len(ctx.message.mentions) == 1 and (bot.user in ctx.message.mentions) and fromDM == False:
         # Tip to TipBot
         member = ctx.message.mentions[0]
         print('TipBot is receiving tip from {} amount: {}{}'.format(ctx.message.author.name, amount, COIN_NAME))
-    elif len(ctx.message.mentions) == 1 and (bot.user not in ctx.message.mentions):
+    elif len(ctx.message.mentions) == 1 and (bot.user not in ctx.message.mentions) and fromDM == False:
         member = ctx.message.mentions[0]
         if ctx.message.author.id == member.id:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Tip me if you want.')
             return
         pass
-    elif len(ctx.message.role_mentions) >= 1:
+    elif len(ctx.message.role_mentions) >= 1 and fromDM == False:
         mention_roles = ctx.message.role_mentions
         if "@everyone" in mention_roles:
             mention_roles.remove("@everyone")
@@ -11517,7 +11546,7 @@ async def tip(ctx, amount: str, *args):
                 return
         await _tip(ctx, amount, COIN_NAME)
         return
-    elif len(ctx.message.mentions) > 1:
+    elif len(ctx.message.mentions) > 1 and fromDM == False:
         await _tip(ctx, amount, COIN_NAME)
         return
 
@@ -11637,7 +11666,7 @@ async def tip(ctx, amount: str, *args):
             tip = await store.sql_mv_erc_single(str(ctx.message.author.id), str(member.id), real_amount, COIN_NAME, "TIP", token_info['contract'])
         elif coin_family == "TRC-20":
             tip = await store.sql_mv_trx_single(str(ctx.message.author.id), str(member.id), real_amount, COIN_NAME, "TIP", token_info['contract'])
-        if ctx.message.author.bot == False and serverinfo['react_tip'] == "ON":
+        if ctx.message.author.bot == False and fromDM == False and serverinfo['react_tip'] == "ON":
             await ctx.message.add_reaction(EMOJI_TIP)
     except Exception as e:
         await logchanbot(traceback.format_exc())
@@ -11657,23 +11686,32 @@ async def tip(ctx, amount: str, *args):
         await ctx.message.add_reaction(get_emoji(COIN_NAME))
         # tipper shall always get DM. Ignore notifyList
         try:
+            if fromDM == True:
+                in_server = ""
+            else:
+                in_server = f" in server `{ctx.guild.name}`"
             await ctx.message.author.send(
                 f'{EMOJI_ARROW_RIGHTHOOK} Tip of {num_format_coin(real_amount, COIN_NAME)} '
                 f'{COIN_NAME} '
-                f'was sent to {member.name}#{member.discriminator} in server `{ctx.guild.name}`')
+                f'was sent to {member.name}#{member.discriminator}{in_server}')
         except (discord.Forbidden, discord.errors.Forbidden) as e:
             await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
         if bot.user.id != member.id and str(member.id) not in notifyList:
             try:
                 fromtipper = f"{ctx.message.author.name}#{ctx.message.author.discriminator}"
+                if fromDM == True:
+                    from_server = ""
+                else:
+                    from_server = f" in server `{ctx.guild.name}` #{ctx.channel.name}"
                 if secrettip:
                     fromtipper = "someone"
                 await member.send(
                     f'{EMOJI_MONEYFACE} You got a tip of {num_format_coin(real_amount, COIN_NAME)} '
-                    f'{COIN_NAME} from {fromtipper} in server `{ctx.guild.name}` #{ctx.channel.name}\n'
+                    f'{COIN_NAME} from {fromtipper}{from_server}\n'
                     f'{NOTIFICATION_OFF_CMD}\n')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
                 await store.sql_toggle_tipnotify(str(member.id), "OFF")
+        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} using a secret tip command {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}.')
         return
     else:
         await ctx.message.add_reaction(EMOJI_ERROR)

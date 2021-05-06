@@ -11712,7 +11712,8 @@ async def tip(ctx, amount: str, *args):
                     f'{NOTIFICATION_OFF_CMD}\n')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
                 await store.sql_toggle_tipnotify(str(member.id), "OFF")
-        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} using a secret tip command {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}.')
+        if secrettip:
+            await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} using a secret tip command {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}.')
         return
     else:
         await ctx.message.add_reaction(EMOJI_ERROR)

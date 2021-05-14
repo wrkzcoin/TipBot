@@ -9407,7 +9407,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
             extra_txt = " " + COIN_NAME
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You do not have a withdrawal address for **{COIN_NAME}**, please use '
-                       f'`{server_prefix}register wallet_address{extra_txt}` to register.')
+                       f'`{server_prefix}register wallet_address{extra_txt}` to register. Alternatively, please use `{server_prefix}send <amount> <coin_address>`')
         return
 
     NetFee = 0

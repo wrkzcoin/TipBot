@@ -6210,7 +6210,7 @@ async def createraffle(ctx, amount: str, coin: str, duration: str):
             return
         try:
             start_ts = int(time.time())
-            message_raffle = "{}#{} created a raffle for {}{} in guild {}. Raffle in **{}**.".format(ctx.author.name, ctx.author.discriminator, num_format_coin(real_amount, COIN_NAME), COIN_NAME,
+            message_raffle = "{}#{} created a raffle for **{} {}** in guild `{}`. Raffle in **{}**.".format(ctx.author.name, ctx.author.discriminator, num_format_coin(real_amount, COIN_NAME), COIN_NAME,
                                                                                                      ctx.guild.name, duration)
             try:
                 msg = await ctx.send(message_raffle)
@@ -6272,7 +6272,7 @@ async def raffle(ctx, subc: str=None):
         try:
             ending_ts = datetime.utcfromtimestamp(int(get_raffle['ending_ts']))
             embed = discord.Embed(title = "RAFFLE #{} / {}".format(get_raffle['id'], ctx.guild.name), color = 0xFF0000, timestamp=ending_ts)
-            embed.add_field(name="ENTRY FEE", value="{}{}".format(num_format_coin(get_raffle['amount'], get_raffle['coin_name']), get_raffle['coin_name']), inline=True)
+            embed.add_field(name="ENTRY FEE", value="{} {}".format(num_format_coin(get_raffle['amount'], get_raffle['coin_name']), get_raffle['coin_name']), inline=True)
             create_ts = datetime.utcfromtimestamp(int(get_raffle['created_ts'])).strftime("%Y-%m-%d %H:%M:%S")
             create_ts_ago = str(timeago.format(create_ts, datetime.utcnow()))
             embed.add_field(name="CREATED", value=create_ts_ago, inline=True)
@@ -6283,7 +6283,7 @@ async def raffle(ctx, subc: str=None):
                     for each_user in list_raffle_id['entries']:
                         list_ping.append(each_user['user_name'])
                     embed.add_field(name="PARTICIPANT LIST", value=", ".join(list_ping), inline=False)
-                embed.add_field(name="RAFFLE JAR", value=num_format_coin(len(list_raffle_id['entries'])*float(get_raffle['amount']), get_raffle['coin_name'])+get_raffle['coin_name'], inline=True)
+                embed.add_field(name="RAFFLE JAR", value=num_format_coin(len(list_raffle_id['entries'])*float(get_raffle['amount']), get_raffle['coin_name'])+" "+get_raffle['coin_name'], inline=True)
             else:
                 embed.add_field(name="PARTICIPANTS", value="0", inline=True)
             embed.add_field(name="STATUS", value=get_raffle['status'], inline=True)
@@ -6350,7 +6350,7 @@ async def raffle(ctx, subc: str=None):
                             insert_entry = await store.raffle_insert_new_entry(get_raffle['id'], str(ctx.guild.id), get_raffle['amount'], get_raffle['decimal'],
                                                                                get_raffle['coin_name'], str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
                                                                                'DISCORD')
-                            note_entry = num_format_coin(get_raffle['amount'], get_raffle['coin_name']) + get_raffle['coin_name'] + " is deducted from your balance."
+                            note_entry = num_format_coin(get_raffle['amount'], get_raffle['coin_name']) + " " + get_raffle['coin_name'] + " is deducted from your balance."
                             msg = await ctx.send(f'{EMOJI_CHECK} {ctx.author.mention} Successfully registered your Entry for raffle #**{raffle_id}** in {ctx.guild.name}! {note_entry}')
                             await msg.add_reaction(EMOJI_OK_BOX)
                             # Update tipstat
@@ -6508,10 +6508,10 @@ async def check_raffle_status():
                                 won_amounts.append(float(total_reward) * 0.05)
                                 update_status = await store.raffle_update_id(each_raffle['id'], 'COMPLETED', list_winners, won_amounts)
                                 embed = discord.Embed(title = "RAFFLE #{} / {}".format(each_raffle['id'], each_raffle['guild_name']), color = 0xFF0000, timestamp=datetime.utcnow())
-                                embed.add_field(name="ENTRY FEE", value="{}{}".format(num_format_coin(each_raffle['amount'], each_raffle['coin_name']), each_raffle['coin_name']), inline=True)
-                                embed.add_field(name="1st WINNER {}".format(winner_1_name), value="{}{}".format(num_format_coin(won_amounts[0], each_raffle['coin_name']), each_raffle['coin_name']), inline=False)
-                                embed.add_field(name="2nd WINNER {}".format(winner_2_name), value="{}{}".format(num_format_coin(won_amounts[1], each_raffle['coin_name']), each_raffle['coin_name']), inline=False)
-                                embed.add_field(name="3rd WINNER: {}".format(winner_3_name), value="{}{}".format(num_format_coin(won_amounts[2], each_raffle['coin_name']), each_raffle['coin_name']), inline=False)
+                                embed.add_field(name="ENTRY FEE", value="{} {}".format(num_format_coin(each_raffle['amount'], each_raffle['coin_name']), each_raffle['coin_name']), inline=True)
+                                embed.add_field(name="1st WINNER: {}".format(winner_1_name), value="{} {}".format(num_format_coin(won_amounts[0], each_raffle['coin_name']), each_raffle['coin_name']), inline=False)
+                                embed.add_field(name="2nd WINNER: {}".format(winner_2_name), value="{} {}".format(num_format_coin(won_amounts[1], each_raffle['coin_name']), each_raffle['coin_name']), inline=False)
+                                embed.add_field(name="3rd WINNER: {}".format(winner_3_name), value="{} {}".format(num_format_coin(won_amounts[2], each_raffle['coin_name']), each_raffle['coin_name']), inline=False)
                                 embed.set_footer(text="Raffle for {} by {}".format(each_raffle['guild_name'], each_raffle['created_username']))
                                 
                                 msg_raffle = "**Completed raffle #{} in guild {}! Winner entries: #1: {}, #2: {}, #3: {}**\n".format(each_raffle['id'], each_raffle['guild_name'], winner_1_name, winner_2_name, winner_3_name)

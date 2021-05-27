@@ -6038,7 +6038,7 @@ async def items(ctx):
             if ctx.author.id not in GAME_INTERACTIVE_ECO:
                 GAME_INTERACTIVE_ECO.append(ctx.author.id)
                 # Add work if he needs to do
-                e = discord.Embed(title="{}#{} Item list backpack".format(ctx.author.name, ctx.author.discriminator), description="Economy [Testing]", timestamp=datetime.utcnow())
+                e = discord.Embed(title="{}#{} Item in backpack".format(ctx.author.name, ctx.author.discriminator), description="Economy [Testing]", timestamp=datetime.utcnow())
                 all_item_backpack = {}
                 if get_user_inventory and len(get_user_inventory) > 0:
                     for each_item in get_user_inventory:
@@ -6053,8 +6053,9 @@ async def items(ctx):
                     e.set_footer(text=f"User {ctx.message.author.name}#{ctx.message.author.discriminator}")
                     e.set_thumbnail(url=ctx.author.avatar_url)
                     msg = await ctx.send(embed=e)
-                    for each_item in get_user_inventory:
-                        await msg.add_reaction(each_item['item_emoji'])
+                    for key, value in all_item_backpack.items():
+                        await msg.add_reaction(key)
+                    await msg.add_reaction(EMOJI_OK_BOX)
 
                     def check(reaction, user):
                         return user == ctx.message.author and reaction.message.author == bot.user and reaction.message.id == msg.id
@@ -6501,22 +6502,24 @@ async def work(ctx, claim: str=None):
                 if claim and claim.upper() == 'CLAIM':
                     # Check if he can complete the last work
                     if get_last_act and get_last_act['status'] == 'ONGOING' and get_last_act['started'] + get_last_act['duration_in_second'] <= int(time.time()):
+                        # Get guild's balance not ctx.guild
+                        played_guild = bot.get_guild(id=int(get_last_act['guild_id']))
                         # Check guild's balance:
                         COIN_NAME = get_last_act['reward_coin_name'].upper()
-                        guild_game = await store.sql_get_userwallet(str(ctx.guild.id), COIN_NAME)
+                        guild_game = await store.sql_get_userwallet(get_last_act['guild_id'], COIN_NAME)
                         if guild_game is None:
                             if COIN_NAME in ENABLE_COIN_ERC:
                                 w = await create_address_eth()
-                                guild_game = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD', 0, w)
+                                guild_game = await store.sql_register_user(get_last_act['guild_id'], COIN_NAME, 'DISCORD', 0, w)
                             elif COIN_NAME in ENABLE_COIN_TRC:
                                 result = await store.create_address_trx()
-                                guild_game = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD', 0, result)
+                                guild_game = await store.sql_register_user(get_last_act['guild_id'], COIN_NAME, 'DISCORD', 0, result)
                             else:
-                                guild_game = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD', 0)
-                        guilddata_balance = await store.sql_user_balance(str(ctx.guild.id), COIN_NAME)
+                                guild_game = await store.sql_register_user(get_last_act['guild_id'], COIN_NAME, 'DISCORD', 0)
+                        guilddata_balance = await store.sql_user_balance(get_last_act['guild_id'], COIN_NAME)
                         xfer_in = 0
                         if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
-                            xfer_in = await store.sql_user_balance_get_xfer_in(str(ctx.guild.id), COIN_NAME)
+                            xfer_in = await store.sql_user_balance_get_xfer_in(get_last_act['guild_id'], COIN_NAME)
                         if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
                             actual_balance = float(xfer_in) + float(guilddata_balance['Adjust'])
                         elif COIN_NAME in ENABLE_COIN_NANO:
@@ -6528,7 +6531,7 @@ async def work(ctx, claim: str=None):
                         # Negative check
                         try:
                             if actual_balance < 0:
-                                msg_negative = 'Negative balance detected:\Guild: '+str(ctx.guild.id)+'\nCoin: '+COIN_NAME+'\nAtomic Balance: '+str(actual_balance)
+                                msg_negative = 'Negative balance detected:\Guild: '+str(get_last_act['guild_id'])+'\nCoin: '+COIN_NAME+'\nAtomic Balance: '+str(actual_balance)
                                 await logchanbot(msg_negative)
                         except Exception as e:
                             await logchanbot(traceback.format_exc())
@@ -6536,7 +6539,7 @@ async def work(ctx, claim: str=None):
                         if get_last_act['reward_amount'] > actual_balance:
                             await ctx.message.add_reaction(EMOJI_ERROR)
                             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} This guild runs out of balance to give reward.')
-                            await logchanbot(str(ctx.guild.id) + ' runs out of balance for coin {COIN_NAME}. Stop rewarding.')
+                            await logchanbot(str(get_last_act['guild_id']) + ' runs out of balance for coin {COIN_NAME}. Stop rewarding.')
                             return
                         # OK, let him claim
                         try:

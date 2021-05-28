@@ -5951,7 +5951,10 @@ async def info(ctx, member: discord.Member = None):
                 traceback.print_exc(file=sys.stdout)
             embed.add_field(name="Health", value='{0:.2f}%'.format(get_userinfo['health_current']/get_userinfo['health_total']*100), inline=True)
             embed.add_field(name="Energy", value='{0:.2f}%'.format(get_userinfo['energy_current']/get_userinfo['energy_total']*100), inline=True)
-            embed.add_field(name="Backpack", value='{}/{}'.format(get_userinfo['backpack_items'], config.economy.max_backpack_items), inline=True)
+            # Get user inventory
+            get_user_inventory = await store.economy_get_user_inventory(str(member.id))
+            items_str = ''.join([each_item['item_emoji'] for each_item in get_user_inventory]) if len(get_user_inventory) > 0 else ''
+            embed.add_field(name="Backpack", value='{}/{} {}'.format(len(get_user_inventory), config.economy.max_backpack_items, items_str), inline=True)                
             try:
                 get_last_act = await store.economy_get_last_activities(str(member.id), False)
                 get_work_id = await store.economy_get_workd_id(get_last_act['work_id'])
@@ -6083,17 +6086,21 @@ async def items(ctx):
                                     if get_userinfo['energy_current'] + add_engery > get_userinfo['energy_total']:
                                         add_engery = get_userinfo['energy_total'] - get_userinfo['energy_current']
                                     add_engery_health_str = "{} energy".format(add_engery)
+                                    total_energy = get_userinfo['energy_current'] + add_engery
+                                    total_energy_health_str = f"You have total `{total_energy}` engery."
                                 add_health = 0
                                 if get_item_id['item_health'] > 0:
                                     add_health = get_item_id['item_health']
                                     if get_userinfo['health_current'] + add_health > get_userinfo['health_total']:
                                         add_health = get_userinfo['health_total'] - get_userinfo['health_current']
                                     add_engery_health_str = "{} health".format(add_health)
+                                    total_health = get_userinfo['health_current'] + add_health
+                                    total_energy_health_str = f"You have total `{total_health}` health."
                                 # Update userinfo
                                 update_userinfo = await store.economy_item_update_used(str(ctx.author.id), all_item_backpack[str(reaction.emoji)], add_engery, add_health)
                                 using_item = '{} {}'.format(get_item_id['item_name'], get_item_id['item_emoji'])
                                 if update_userinfo:
-                                    await ctx.send(f'{EMOJI_INFORMATION} {ctx.author.mention} You used `{using_item}`. You gained `{add_engery_health_str}`.')
+                                    await ctx.send(f'{EMOJI_INFORMATION} {ctx.author.mention} You used `{using_item}`. You gained `{add_engery_health_str}`. {total_energy_health_str}')
                                     await msg.delete()
                                     await ctx.message.add_reaction(reaction.emoji)
                                 else:
@@ -6342,13 +6349,14 @@ async def eat(ctx):
                             add_engery = get_food_id['gained_energy']
                             if get_userinfo['energy_current'] + add_engery > get_userinfo['energy_total']:
                                 add_engery = get_userinfo['energy_total'] - get_userinfo['energy_current']
+                            total_energy = get_userinfo['energy_current'] + add_engery
                             # economy_insert_eating(user_id: str, guild_id: str, cost_coin_name: str, cost_expense_amount: float, cost_decimal: float, gained_energy: float):
                             insert_eating = await store.economy_insert_eating(str(ctx.author.id), str(ctx.guild.id), get_food_id['cost_coin_name'], 
                                                                                 get_food_id['cost_expense_amount'], get_food_id['fee_ratio']*get_food_id['cost_expense_amount'], 
                                                                                 get_food_id['cost_decimal'], add_engery)
                             paid_money = '{} {}'.format(num_format_coin(get_food_id['cost_expense_amount'], get_food_id['cost_coin_name']), get_food_id['cost_coin_name'])
                             if insert_eating:
-                                await ctx.send(f'{EMOJI_INFORMATION} {ctx.author.mention} You paid `{paid_money}` and ate `{food_name}`. You gained `{add_engery}` energy.')
+                                await ctx.send(f'{EMOJI_INFORMATION} {ctx.author.mention} You paid `{paid_money}` and ate `{food_name}`. You gained `{add_engery}` energy. You have total `{total_energy}` engery.')
                                 await msg.delete()
                                 await ctx.message.add_reaction(reaction.emoji)
                             else:
@@ -6500,6 +6508,8 @@ async def work(ctx, claim: str=None):
             else:
                 # He is not free
                 if claim and claim.upper() == 'CLAIM':
+                    if ctx.author.id not in GAME_INTERACTIVE_ECO:
+                        GAME_INTERACTIVE_ECO.append(ctx.author.id)
                     # Check if he can complete the last work
                     if get_last_act and get_last_act['status'] == 'ONGOING' and get_last_act['started'] + get_last_act['duration_in_second'] <= int(time.time()):
                         # Get guild's balance not ctx.guild
@@ -6540,6 +6550,8 @@ async def work(ctx, claim: str=None):
                             await ctx.message.add_reaction(EMOJI_ERROR)
                             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} This guild runs out of balance to give reward.')
                             await logchanbot(str(get_last_act['guild_id']) + ' runs out of balance for coin {COIN_NAME}. Stop rewarding.')
+                            if ctx.author.id in GAME_INTERACTIVE_ECO:
+                                GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                             return
                         # OK, let him claim
                         try:
@@ -6567,7 +6579,6 @@ async def work(ctx, claim: str=None):
                         except:
                             traceback.print_exc(file=sys.stdout)
                             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Internal error.')
-                        return
                     else:
                         remaining = get_last_act['started'] + get_last_act['duration_in_second'] - int(time.time())
                         additional_claim_msg = ""
@@ -6575,7 +6586,6 @@ async def work(ctx, claim: str=None):
                             remaining = 0
                             additional_claim_msg = "You shall claim it now!"
                         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Sorry, you can not claim it now. Remaining time `{seconds_str(remaining)}`. {additional_claim_msg}')
-                    return
                 else:
                     remaining = get_last_act['started'] + get_last_act['duration_in_second'] - int(time.time())
                     additional_claim_msg = ""
@@ -6583,8 +6593,12 @@ async def work(ctx, claim: str=None):
                         remaining = 0
                         additional_claim_msg = "You shall claim it now!"
                     await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Sorry, you are still busy with other activity. Remaining time `{seconds_str(remaining)}`. {additional_claim_msg}')
-                    return
+                if ctx.author.id in GAME_INTERACTIVE_ECO:
+                    GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+                return
         except:
+            if ctx.author.id in GAME_INTERACTIVE_ECO:
+                GAME_INTERACTIVE_ECO.remove(ctx.author.id)
             traceback.print_exc(file=sys.stdout)
             error = discord.Embed(title=":exclamation: Error", description=" :warning: internal error!")
             await ctx.send(embed=error)

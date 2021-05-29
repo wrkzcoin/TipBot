@@ -5971,7 +5971,7 @@ async def sell(ctx, *, item_name: str):
                     selling_fishes = await store.economy_sell_fishes(selected_fishes['fish_id'], str(ctx.author.id), str(ctx.guild.id), total_weight, total_earn)
                     if selling_fishes:
                         await ctx.message.add_reaction(selected_fishes['fish_emoji'])
-                        await ctx.message.reply('You sold {:,.2f}kg of {} for {} Credit(s) (`{} Credit per kg`). Your credit now is: `{}`.'.format(total_weight, item_name, total_earn, selected_fishes['credit_per_kg'], get_userinfo['credit']))
+                        await ctx.message.reply('You sold {:,.2f}kg of {} for `{}` Credit(s) (`{} Credit per kg`). Your credit now is: `{}`.'.format(total_weight, item_name, total_earn, selected_fishes['credit_per_kg'], get_userinfo['credit']))
                     else:
                         await ctx.send(f'{ctx.author.mention} Internal error.')
                         await ctx.message.add_reaction(EMOJI_ERROR)
@@ -6456,6 +6456,18 @@ async def fishing(ctx):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You do not have any bait. Please buy `{prefix}eco buy bait`.')
         return
 
+    # If he has to much fishes
+    try:
+        get_fish_inventory_list = await store.economy_get_list_fish_caught(str(member.id), sold='NO', caught='YES')
+        if len(get_fish_inventory_list) > 0:
+            total_weight = sum(each_item['Weights'] for each_item in get_fish_inventory_list)
+            if float(total_weight) >= float(config.economy.fishing_max_store):
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You too much in storage (max. {config.economy.fishing_max_store}kg). Please sell some of them!')
+                return
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+
     if ctx.author.id in GAME_INTERACTIVE_ECO:
         await ctx.send(f'{ctx.author.mention} You are ongoing with one **game economy** play.')
         await ctx.message.add_reaction(EMOJI_ERROR)
@@ -6464,6 +6476,14 @@ async def fishing(ctx):
         GAME_INTERACTIVE_ECO.append(ctx.author.id)
 
     try:
+        # If health less than 50%, stop
+        if get_userinfo['health_current']/get_userinfo['health_total'] < 0.5:
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Your health is having issue. Do some heatlh check.')
+            return
+        # If energy less than 20%, stop
+        if get_userinfo['energy_current']/get_userinfo['energy_total'] < 0.2:
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You have very small energy. Do some sport or powerup.')
+            return
         loop_exp = 0
         fishing_exp = get_userinfo['fishing_exp']
         try:
@@ -6500,7 +6520,7 @@ async def fishing(ctx):
                                                                  fish_weight, 0, energy_loss, caught, "NO")
                 item_info = selected_item['fish_name'] + " " + selected_item['fish_emoji'] + " - weight: {:.2f}kg".format(fish_weight)
                 if insert_item:
-                    await ctx.send(f'{EMOJI_INFORMATION} {ctx.author.mention} Too bad! You lose {item_info} and loss `{str(energy_loss)}` energy!')
+                    await ctx.send(f'{EMOJI_INFORMATION} {ctx.author.mention} Too bad! You lose {item_info} and spent `{str(energy_loss)}` energy!')
         else:
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is no fish.')
     except Exception as e:
@@ -6971,7 +6991,7 @@ async def work(ctx, claim: str=None):
                                 if get_last_act['energy'] and get_last_act['energy'] > 0:
                                     completed_task += 'Gained energy: {}\n'.format(get_last_act['energy'])
                                 if get_last_act['energy'] and get_last_act['energy'] < 0:
-                                    completed_task += 'Loss of energy: {}'.format(get_last_act['energy'])
+                                    completed_task += 'Spent of energy: {}'.format(get_last_act['energy'])
                                 await ctx.send(f'{EMOJI_INFORMATION} {ctx.author.mention} ```{completed_task}```')
                             else:
                                 await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Internal error.')

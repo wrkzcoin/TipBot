@@ -6371,18 +6371,26 @@ async def economy_get_user_searched_item_list_record(user_id: str, duration: int
         await logchanbot(traceback.format_exc())
     return []
 
-async def economy_get_user_inventory(user_id: str):
+async def economy_get_user_inventory(user_id: str, count_what: str='ALL'):
     global pool
     try:
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ SELECT A.item_id, B.item_name, B.item_emoji, A.user_id, A.item_health, A.item_energy, A.item_gem, COUNT(*) AS numbers 
-                          FROM discord_economy_secret_findings A JOIN discord_economy_secret_items B ON B.id = A.item_id 
-                          AND A.user_id=%s AND A.used=%s AND A.can_use=%s GROUP BY A.item_id """
-                await cur.execute(sql, (user_id, 'NO', 'YES'))
-                result = await cur.fetchall()
-                if result: return result
+                if count_what == "ALL":
+                    sql = """ SELECT A.item_id, B.item_name, B.item_emoji, A.user_id, A.item_health, A.item_energy, A.item_gem, COUNT(*) AS numbers 
+                              FROM discord_economy_secret_findings A JOIN discord_economy_secret_items B ON B.id = A.item_id 
+                              AND A.user_id=%s AND A.used=%s AND A.can_use=%s GROUP BY A.item_id """
+                    await cur.execute(sql, (user_id, 'NO', 'YES'))
+                    result = await cur.fetchall()
+                    if result: return result
+                else:
+                    sql = """ SELECT A.item_id, B.item_name, B.item_emoji, A.user_id, A.item_health, A.item_energy, A.item_gem, COUNT(*) AS numbers 
+                              FROM discord_economy_secret_findings A JOIN discord_economy_secret_items B ON B.id = A.item_id 
+                              AND A.user_id=%s AND A.used=%s AND A.can_use=%s AND B.item_name=%s GROUP BY A.item_id """
+                    await cur.execute(sql, (user_id, 'NO', 'YES', count_what))
+                    result = await cur.fetchone()
+                    if result: return result
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         await logchanbot(traceback.format_exc())
@@ -6409,7 +6417,7 @@ async def economy_item_update_used(user_id: str, item_id: str, gained_energy: fl
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ UPDATE discord_economy_secret_findings SET `used_date`=%s, `used`=%s WHERE `used`=%s=%s, `item_id`=%s AND `user_id`=%s LIMIT 1 """
+                sql = """ UPDATE discord_economy_secret_findings SET `used_date`=%s, `used`=%s WHERE `used`=%s AND `item_id`=%s AND `user_id`=%s LIMIT 1 """
                 await cur.execute(sql, (int(time.time()), 'YES', 'NO', item_id, user_id,))
                 # 2nd query
                 if gained_energy > 0:
@@ -6425,6 +6433,138 @@ async def economy_item_update_used(user_id: str, item_id: str, gained_energy: fl
         await logchanbot(traceback.format_exc())
     return None
 
+
+async def economy_shop_get_item(item_name: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM discord_economy_shopbot WHERE `item_name`=%s OR `item_emoji`=%s LIMIT 1 """
+                await cur.execute(sql, (item_name, item_name))
+                result = await cur.fetchone()
+                if result: return result
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return None
+
+async def economy_shop_get_item_list():
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM discord_economy_shopbot ORDER BY `id` DESC """
+                await cur.execute(sql,)
+                result = await cur.fetchall()
+                if result: return result
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return []
+
+
+async def discord_economy_userinfo_what(guild_id: str, user_id: str, item_id: int, what: str, fishing_bait: int, credit: int):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ UPDATE discord_economy_shopbot SET `numb_bought`=`numb_bought`+1 WHERE `id`=%s """
+                await cur.execute(sql, (item_id,))
+                # 2nd query
+                if what.upper() == "BAIT" or what == "🎣":
+                    sql = """ UPDATE discord_economy_userinfo SET `fishing_bait`=`fishing_bait`+%s, `credit`=`credit`+%s WHERE `user_id`=%s """
+                    await cur.execute(sql, (fishing_bait, credit, user_id,))
+                elif what.upper() == "CREDIT" or what == "💵":
+                    sql = """ UPDATE discord_economy_userinfo SET `credit`=`credit`+%s,`gem_credit`=`gem_credit`-1 WHERE `user_id`=%s """
+                    await cur.execute(sql, (credit, user_id))
+                # update to activities
+                sql = """ INSERT INTO discord_economy_shopbot_activities (`shopitem_id`, `user_id`, `guild_id`, `credit_cost`, `date`) 
+                          VALUES (%s, %s, %s, %s, %s) """
+                await cur.execute(sql, (item_id, user_id, guild_id, credit, int(time.time()),))
+                await conn.commit()
+                return True
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return None
+
+
+async def economy_get_list_fish_items():
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM discord_economy_fish_items """
+                await cur.execute(sql,)
+                result = await cur.fetchall()
+                if result: return result
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return []
+
+
+async def economy_insert_fishing(fish_id: int, user_id: str, guild_id: str, fish_strength: float, fish_weight: float, exp_gained: float, energy_loss: float, caught: str, sellable: str="YES"):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ INSERT INTO discord_economy_fishing (`fish_id`, `user_id`, `guild_id`, `fish_strength`, `fish_weight`, 
+                           `exp_gained`, `energy_loss`, `caught`, `date`, `sellable`) 
+                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                await cur.execute(sql, (fish_id, user_id, guild_id, fish_strength, fish_weight, exp_gained, energy_loss, caught, int(time.time()), sellable,))
+                ## add experience and engery loss
+                sql = """ UPDATE discord_economy_userinfo SET `energy_current`=`energy_current`-%s, `fishing_exp`=`fishing_exp`+%s,`fishing_bait`=`fishing_bait`-1 WHERE `user_id`=%s LIMIT 1 """
+                await cur.execute(sql, (energy_loss, exp_gained, user_id,))
+                # add fish found
+                sql = """ UPDATE discord_economy_fish_items SET `found_times`=`found_times`+1 WHERE `id`=%s LIMIT 1 """
+                await cur.execute(sql, (fish_id,))
+                await conn.commit()
+                return True
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return None
+
+
+async def economy_get_list_fish_caught(user_id: str, sold: str='NO', caught: str='YES'):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT A.fish_id, B.fish_name, B.fish_emoji, B.minimum_sell_kg, B.credit_per_kg, A.user_id, A.sold, 
+                          COUNT(*) AS numbers, SUM(fish_weight) AS Weights 
+                          FROM discord_economy_fishing A JOIN discord_economy_fish_items B ON B.id = A.fish_id 
+                          AND A.user_id=%s AND A.sold=%s AND A.caught=%s GROUP BY A.fish_id """
+                await cur.execute(sql, (user_id, 'NO', 'YES'))
+                result = await cur.fetchall()
+                if result: return result
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return []
+
+
+async def economy_sell_fishes(fish_id: int, user_id: str, guild_id: str, total_weight: float, total_credit: float):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ INSERT INTO discord_economy_fish_sold (`fish_id`, `user_id`, `guild_id`, `total_weight`, `total_credit`, `date`) 
+                          VALUES (%s, %s, %s, %s, %s, %s) """
+                await cur.execute(sql, (fish_id, user_id, guild_id, total_weight, total_credit, int(time.time()),))
+                ## add user credit
+                sql = """ UPDATE discord_economy_userinfo SET `credit`=`credit`+%s WHERE `user_id`=%s LIMIT 1 """
+                await cur.execute(sql, (total_credit, user_id,))
+                # update selected fishes to sold
+                sql = """ UPDATE discord_economy_fishing SET `sold`=%s, `sold_date`=%s WHERE `fish_id`=%s AND `user_id`=%s AND `sold`=%s AND `sellable`=%s """
+                await cur.execute(sql, ('YES', int(time.time()), fish_id, user_id, 'NO', 'YES'))
+                await conn.commit()
+                return True
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return None
 ## end of economy
 
 # Steal from https://nitratine.net/blog/post/encryption-and-decryption-in-python/

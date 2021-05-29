@@ -6458,7 +6458,7 @@ async def fishing(ctx):
 
     # If he has to much fishes
     try:
-        get_fish_inventory_list = await store.economy_get_list_fish_caught(str(member.id), sold='NO', caught='YES')
+        get_fish_inventory_list = await store.economy_get_list_fish_caught(str(ctx.author.id), sold='NO', caught='YES')
         if len(get_fish_inventory_list) > 0:
             total_weight = sum(each_item['Weights'] for each_item in get_fish_inventory_list)
             if float(total_weight) >= float(config.economy.fishing_max_store):

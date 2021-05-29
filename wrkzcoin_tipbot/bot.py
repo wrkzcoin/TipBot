@@ -6029,7 +6029,7 @@ async def buy(ctx, item_name: str):
     # Getting list
     get_userinfo = await store.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
     if get_userinfo:
-        if get_userinfo['fishing_bait'] > config.economy.max_bait_per_user and (item_name.upper() == "BAIT" or item_name == "🎣"):
+        if get_userinfo['fishing_bait'] >= config.economy.max_bait_per_user and (item_name.upper() == "BAIT" or item_name == "🎣"):
             await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You have maximum of baits already.')
             return
         else:
@@ -6396,7 +6396,8 @@ async def fish(ctx, member: discord.Member = None):
             fishes_lists = ""
             for each_item in get_fish_inventory_list:
                 fishes_lists += each_item['fish_name'] + " " + each_item['fish_emoji'] + " x" +str(each_item['numbers']) + "={:,.2f}kg".format(each_item['Weights']) + "\n"
-            e.add_field(name="Fishes", value=fishes_lists, inline=False)
+            total_weight = sum(each_item['Weights'] for each_item in get_fish_inventory_list)
+            e.add_field(name="Fishes ({:,.2f}kg)".format(total_weight), value=fishes_lists, inline=False)
             e.set_footer(text=f"Requested by {ctx.message.author.name}#{ctx.message.author.discriminator}")
             e.set_thumbnail(url=member.avatar_url)
             msg = await ctx.message.reply(embed=e)

@@ -6094,12 +6094,13 @@ async def buy(ctx, item_name: str=None):
                     get_shop_item = await store.economy_shop_get_item(item_name)
                     if get_shop_item:
                         level = int((get_userinfo['exp']-10)**0.5) + 1
+                        needed_level = get_shop_item['limit_level']
                         if get_userinfo['credit'] < get_shop_item['credit_cost']:
                             user_credit = get_userinfo['credit']
                             need_credit = get_shop_item['credit_cost']
                             await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You do not have sufficient credit. Having only `{user_credit}`. Need `{need_credit}`.')
                         elif level < get_shop_item['limit_level']:
-                            await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Your level is still low. Needed level `{str(level)}`.')
+                            await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Your level `{level}`  is still low. Needed level `{str(needed_level)}`.')
                         else:
                             if ctx.author.id not in GAME_INTERACTIVE_ECO:
                                 GAME_INTERACTIVE_ECO.append(ctx.author.id)

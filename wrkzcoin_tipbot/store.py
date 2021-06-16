@@ -6715,6 +6715,10 @@ async def economy_farm_insert_crop(plant_id: int, user_id: str, guild_id: str, c
                 sql = """ UPDATE discord_economy_userinfo SET `energy_current`=`energy_current`-%s,`tree_seed`=`tree_seed`-1,`plant_exp`=`plant_exp`+%s, `farm_grow`=`farm_grow`+1 
                           WHERE `user_id`=%s LIMIT 1 """
                 await cur.execute(sql, (energy_loss, exp_gained, user_id,))
+                # add planted numbers found
+                sql = """ UPDATE discord_economy_farm_plantlist SET `planted_times`=`planted_times`+1 WHERE `id`=%s LIMIT 1 """
+                await cur.execute(sql, (plant_id,))
+
                 await conn.commit()
                 return True
     except Exception as e:

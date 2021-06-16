@@ -5949,39 +5949,74 @@ async def sell(ctx, *, item_name: str):
 
     try:
         get_fish_inventory_list = await store.economy_get_list_fish_caught(str(ctx.author.id), sold='NO', caught='YES')
-        if len(get_fish_inventory_list) > 0:
-            # if the specific fish not reach minimum
-            selected_fishes = None
-            for each_item in get_fish_inventory_list:
-                if item_name.strip().upper() == each_item['fish_name'].upper() or item_name.strip() == each_item['fish_emoji']:
-                    selected_fishes = each_item
-                    break
-            if selected_fishes is None:
-                await ctx.send(f'{ctx.author.mention} You do not have {item_name} to sell.')
-                await ctx.message.add_reaction(EMOJI_ERROR)
-            else:
-                # Have that item to sell
-                if selected_fishes['Weights'] < selected_fishes['minimum_sell_kg']:
-                    await ctx.send('{} You do not have sufficient {} to sell. Minimum {:,.2f}kg, having {:,.2f}kg.'.format(ctx.author.mention, item_name, selected_fishes['minimum_sell_kg'], selected_fishes['Weights']))
+        get_user_harvested_crops = await store.economy_farm_user_planting_group_harvested(str(ctx.author.id))
+        get_fish_inventory_list_arr = [each_item['fish_name'].upper() for each_item in get_fish_inventory_list]
+        get_user_harvested_crops_arr = [each_item['plant_name'].upper() for each_item in get_user_harvested_crops]
+        if item_name.strip().upper() in get_fish_inventory_list_arr:
+            # Selling Fishes
+            if len(get_fish_inventory_list) > 0:
+                selected_fishes = None
+                for each_item in get_fish_inventory_list:
+                    if item_name.strip().upper() == each_item['fish_name'].upper() or item_name.strip() == each_item['fish_emoji']:
+                        selected_fishes = each_item
+                        break
+                if selected_fishes is None:
+                    await ctx.send(f'{ctx.author.mention} You do not have {item_name} to sell.')
                     await ctx.message.add_reaction(EMOJI_ERROR)
                 else:
+                    # Have that item to sell
+                    if selected_fishes['Weights'] < selected_fishes['minimum_sell_kg']:
+                        await ctx.send('{} You do not have sufficient {} to sell. Minimum {:,.2f}kg, having {:,.2f}kg.'.format(ctx.author.mention, item_name, selected_fishes['minimum_sell_kg'], selected_fishes['Weights']))
+                        await ctx.message.add_reaction(EMOJI_ERROR)
+                    else:
+                        # Enough to sell. Update credit, and mark fish as sold
+                        # We round credit earning
+                        if ctx.author.id not in GAME_INTERACTIVE_ECO:
+                            GAME_INTERACTIVE_ECO.append(ctx.author.id)
+                        total_earn = int(float(selected_fishes['Weights']) * float(selected_fishes['credit_per_kg']))
+                        total_weight = float(selected_fishes['Weights'])
+                        get_userinfo = await store.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
+                        get_userinfo['credit'] += total_earn
+                        selling_fishes = await store.economy_sell_fishes(selected_fishes['fish_id'], str(ctx.author.id), str(ctx.guild.id), total_weight, total_earn)
+                        if selling_fishes:
+                            await ctx.message.add_reaction(selected_fishes['fish_emoji'])
+                            await ctx.message.reply('You sold {:,.2f}kg of {} for `{}` Credit(s) (`{} Credit per kg`). Your credit now is: `{}`.'.format(total_weight, item_name, total_earn, selected_fishes['credit_per_kg'], get_userinfo['credit']))
+                        else:
+                            await ctx.send(f'{ctx.author.mention} Internal error.')
+                            await ctx.message.add_reaction(EMOJI_ERROR)
+            else:
+                await ctx.message.reply(f'{ctx.author.name}#{ctx.author.discriminator}, You do not have any fish to sell. Do fishing!')
+        elif item_name.strip().upper() in get_user_harvested_crops_arr:
+            # Selling vegetable in farm
+            if len(get_user_harvested_crops) > 0:
+                selected_item = None
+                for each_item in get_user_harvested_crops:
+                    if item_name.strip().upper() == each_item['plant_name'].upper() or item_name.strip() == each_item['plant_emoji']:
+                        selected_item = each_item
+                        break
+                if selected_item is None:
+                    await ctx.send(f'{ctx.author.mention} You do not have {item_name} to sell.')
+                    await ctx.message.add_reaction(EMOJI_ERROR)
+                else:
+                    # No minimum to sell
                     # Enough to sell. Update credit, and mark fish as sold
                     # We round credit earning
                     if ctx.author.id not in GAME_INTERACTIVE_ECO:
                         GAME_INTERACTIVE_ECO.append(ctx.author.id)
-                    total_earn = int(float(selected_fishes['Weights']) * float(selected_fishes['credit_per_kg']))
-                    total_weight = float(selected_fishes['Weights'])
+                    total_earn = int(float(selected_item['total_products']) * float(selected_item['credit_per_item']))
                     get_userinfo = await store.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
                     get_userinfo['credit'] += total_earn
-                    selling_fishes = await store.economy_sell_fishes(selected_fishes['fish_id'], str(ctx.author.id), str(ctx.guild.id), total_weight, total_earn)
-                    if selling_fishes:
-                        await ctx.message.add_reaction(selected_fishes['fish_emoji'])
-                        await ctx.message.reply('You sold {:,.2f}kg of {} for `{}` Credit(s) (`{} Credit per kg`). Your credit now is: `{}`.'.format(total_weight, item_name, total_earn, selected_fishes['credit_per_kg'], get_userinfo['credit']))
+                    selling_item = await store.economy_farm_sell_item(selected_item['plant_id'], str(ctx.author.id), str(ctx.guild.id), total_earn, selected_item['total_products'])
+                    if selling_item:
+                        await ctx.message.add_reaction(selected_item['plant_emoji'])
+                        await ctx.message.reply('You sold {:,.0f} of {} for `{}` Credit(s) (`{} Credit per one`). Your credit now is: `{}`.'.format(selected_item['total_products'], item_name, total_earn, selected_item['credit_per_item'], get_userinfo['credit']))
                     else:
                         await ctx.send(f'{ctx.author.mention} Internal error.')
                         await ctx.message.add_reaction(EMOJI_ERROR)
+            else:
+                await ctx.message.reply(f'{ctx.author.name}#{ctx.author.discriminator}, You do not have any vegetable or fruit to sell. Plant and harvest!')
         else:
-            await ctx.message.reply(f'{ctx.author.name}#{ctx.author.discriminator}, You do not have any fish to sell. Do fishing!')
+            await ctx.message.reply(f'{ctx.author.name}#{ctx.author.discriminator}, not valid to sell {item_name} or you do not have it!')
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     if ctx.author.id in GAME_INTERACTIVE_ECO:

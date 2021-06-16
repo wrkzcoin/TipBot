@@ -6740,6 +6740,24 @@ async def economy_farm_harvesting(user_id: str, plantlist: str):
     except Exception as e:
         await logchanbot(traceback.format_exc())
     return None
+
+async def economy_farm_sell_item(plant_id: int, user_id: str, guild_id: str, total_credit: float, farm_item_sold: int):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                ## add user credit
+                sql = """ UPDATE discord_economy_userinfo SET `credit`=`credit`+%s, `farm_item_sold`=`farm_item_sold`+%s WHERE `user_id`=%s LIMIT 1 """
+                await cur.execute(sql, (total_credit, farm_item_sold, user_id,))
+                # update selected item to sold
+                sql = """ UPDATE discord_economy_farm_planting SET `sold`=%s, `sold_date`=%s WHERE `plant_id`=%s AND `user_id`=%s AND `sold`=%s """
+                await cur.execute(sql, ('YES', int(time.time()), plant_id, user_id, 'NO'))
+                await conn.commit()
+                return True
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return None
 ## end of economy
 
 # Steal from https://nitratine.net/blog/post/encryption-and-decryption-in-python/

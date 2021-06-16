@@ -38,7 +38,7 @@ reddit = praw.Reddit(user_agent=config.reddit.user_agent,
 #user_table = db['user']
 #message_table = db['message']
 
-ENABLE_COIN = config.reddit.Enabe_Reddit_Coin.split(",")
+ENABLE_COIN = config.reddit.Enable_Reddit_Coin.split(",")
 ENABLE_COIN_DOGE = config.telegram.Enable_Coin_Doge.split(",")
 ENABLE_COIN_ERC = config.reddit.Enable_Coin_ERC.split(",")
 ENABLE_COIN_NANO = config.telegram.Enable_Coin_Nano.split(",")

@@ -38,7 +38,7 @@ reddit = praw.Reddit(user_agent=config.reddit.user_agent,
 #user_table = db['user']
 #message_table = db['message']
 
-ENABLE_COIN = config.reddit.Enabe_Reddit_Coin.split(",")
+ENABLE_COIN = config.reddit.Enable_Reddit_Coin.split(",")
 ENABLE_COIN_DOGE = config.telegram.Enable_Coin_Doge.split(",")
 ENABLE_COIN_ERC = config.reddit.Enable_Coin_ERC.split(",")
 ENABLE_COIN_NANO = config.telegram.Enable_Coin_Nano.split(",")
@@ -82,6 +82,14 @@ async def logchanbot(content: str):
         traceback.print_exc(file=sys.stdout)
 
 async def run_inbox_monitor():
+    global ENABLE_COIN
+    async def add_reddit_msg(item):
+        try:
+            add_msg = await store.reddit_insert_msg(item.id, item.name, item.author.name, item.dest.name, item.body, item.body_html, int(item.created))
+            return True
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
     while True:
         try:
             for item in reddit.inbox.stream():
@@ -108,7 +116,7 @@ async def run_inbox_monitor():
                         if commands[1]:
                             COIN_NAME = commands[1].upper()
                             if COIN_NAME not in ENABLE_COIN:
-                                reply_message = f'{COIN_NAME} is not supported. Please choose one of {config.reddit.Enabe_Reddit_Coin}'
+                                reply_message = f'{COIN_NAME} is not supported. Please choose one of {config.reddit.Enable_Reddit_Coin}'
                             else:
                                 user_addr = await store.sql_get_userwallet(item.author.name, COIN_NAME, SERVER)
                                 if user_addr is None:
@@ -183,7 +191,7 @@ async def run_inbox_monitor():
                                     wallet_address = None
                                 try:
                                     amount = Decimal(amount)
-                                except ValueError:
+                                except Exception as e:
                                     reply_message = "Invalid amount."
                                     amount = None
                                     item.reply(reply_message)
@@ -191,7 +199,7 @@ async def run_inbox_monitor():
                                     continue
                                 COIN_NAME = commands[2].upper()
                                 if COIN_NAME not in ENABLE_COIN:
-                                    reply_message = f'{COIN_NAME} is not supported. Please choose one of {config.reddit.Enabe_Reddit_Coin}'
+                                    reply_message = f'{COIN_NAME} is not supported. Please choose one of {config.reddit.Enable_Reddit_Coin}'
                                     COIN_NAME = None
                                 else:
                                     if is_maintenance_coin(COIN_NAME) or not is_coin_txable(COIN_NAME):
@@ -409,7 +417,7 @@ async def run_inbox_monitor():
                                                         add_msg = await store.reddit_insert_msg(item.id, item.name, item.author.name, item.dest.name, item.body, item.body_html, int(item.created))
                                                         continue
                         except Exception as e:
-                            print(traceback.format_exc())
+                            traceback.print_exc(file=sys.stdout)
                             await logchanbot(traceback.format_exc())
                     elif commands[0].lower() == '!tipto':
                         # !tipto amount coin user@server
@@ -420,12 +428,12 @@ async def run_inbox_monitor():
                                 amount = commands[1].replace(",", "")
                                 try:
                                     amount = Decimal(amount)
-                                except ValueError:
+                                except Exception as e:
                                     reply_message = "Invalid amount."
                                     amount = None
                                 COIN_NAME = commands[2].upper()
                                 if COIN_NAME not in ENABLE_COIN:
-                                    reply_message = f'{COIN_NAME} is not supported. Please choose one of {config.reddit.Enabe_Reddit_Coin}'
+                                    reply_message = f'{COIN_NAME} is not supported. Please choose one of {config.reddit.Enable_Reddit_Coin}'
                                     COIN_NAME = None
                                 else:
                                     if not is_coin_tipable(COIN_NAME) or is_maintenance_coin(COIN_NAME):
@@ -473,7 +481,8 @@ async def run_inbox_monitor():
                                                         msg_negative = '[Reddit] Negative balance detected:\nUser: '+item.author.name+'\nCoin: '+COIN_NAME+'\nAtomic Balance: '+str(actual_balance)
                                                         await logchanbot(msg_negative)
                                                 except Exception as e:
-                                                     await logchanbot(traceback.format_exc())
+                                                    traceback.print_exc(file=sys.stdout)
+                                                    await logchanbot(traceback.format_exc())
                                                 if COIN_NAME in ENABLE_COIN_ERC:
                                                     token_info = await store.get_token_info(COIN_NAME)
                                                     confim_depth = token_info['deposit_confirm_depth']
@@ -519,23 +528,27 @@ async def run_inbox_monitor():
                                                                 update_tipstat = await store.sql_user_get_tipstat(item.author.name, COIN_NAME, True, SERVER)
                                                                 update_tipstat = await store.sql_user_get_tipstat(userid, COIN_NAME, True, serverto)
                                                             except Exception as e:
+                                                                traceback.print_exc(file=sys.stdout)
                                                                 await logchanbot(traceback.format_exc())
                                                             await logchanbot('[Reddit] {} tipto {}{} to **{}**'.format(item.author.name, num_format_coin(real_amount, COIN_NAME), COIN_NAME, to_user))
                                                         except Exception as e:
+                                                            traceback.print_exc(file=sys.stdout)
                                                             await logchanbot(traceback.format_exc())
                                                     except Exception as e:
+                                                        traceback.print_exc(file=sys.stdout)
                                                         await logchanbot(traceback.format_exc())
                                                     if tipto:
                                                         reply_message = f"You sent a new tip to {to_user}:\n\n"+ "Amount: {}{}".format(num_format_coin(real_amount, COIN_NAME), COIN_NAME)
                                                         try:
                                                             item.reply(reply_message)
                                                         except Exception as e:
+                                                            traceback.print_exc(file=sys.stdout)
                                                             await logchanbot(traceback.print_exc(file=sys.stdout))
                                                         if item.author.name in WITHDRAW_IN_PROCESS:
                                                             await asyncio.sleep(1)
                                                             WITHDRAW_IN_PROCESS.remove(item.author.name)
                         except Exception as e:
-                            print(traceback.format_exc())
+                            traceback.print_exc(file=sys.stdout)
                             await logchanbot(traceback.format_exc())
                     elif commands[0].lower() == '!tip':
                         # !tip amount coin user
@@ -543,15 +556,20 @@ async def run_inbox_monitor():
                             if len(commands) < 4:
                                 reply_message = "Please use !tip amount coin user\n\nExample: !tip 10,000 wrkz wrkzdev"
                             else:
+                                valid_amount = True
                                 amount = commands[1].replace(",", "")
                                 try:
                                     amount = Decimal(amount)
-                                except ValueError:
+                                except Exception as e:
+                                    traceback.print_exc(file=sys.stdout)
+                                    valid_amount = False
                                     reply_message = "Invalid amount."
                                     amount = None
+                                    item.reply(reply_message)
                                 COIN_NAME = commands[2].upper()
                                 if COIN_NAME not in ENABLE_COIN:
-                                    reply_message = f'{COIN_NAME} is not supported. Please choose one of {config.reddit.Enabe_Reddit_Coin}'
+                                    reply_message = f'{COIN_NAME} is not supported. Please choose one of {config.reddit.Enable_Reddit_Coin}'
+                                    item.reply(reply_message)
                                     COIN_NAME = None
                                 else:
                                     if not is_coin_tipable(COIN_NAME) or is_maintenance_coin(COIN_NAME):
@@ -563,8 +581,10 @@ async def run_inbox_monitor():
                                         if userto is None:
                                             reply_message = f"Can not find user {to_user} in our DB"
                                             to_user = None
-                                    if amount is None or COIN_NAME is None or to_user is None:
+                                            item.reply(reply_message)
+                                    if (amount is None or COIN_NAME is None) and to_user:
                                         reply_message = "Please use !tip amount coin user\n\nExample: !tip 10,000 wrkz wrkzdev"
+                                        item.reply(reply_message)
                                     else:
                                         if COIN_NAME in ENABLE_COIN_ERC:
                                             coin_family = "ERC-20"
@@ -588,6 +608,7 @@ async def run_inbox_monitor():
                                                 msg_negative = '[Reddit] Negative balance detected:\nUser: '+item.author.name+'\nCoin: '+COIN_NAME+'\nAtomic Balance: '+str(actual_balance)
                                                 await logchanbot(msg_negative)
                                         except Exception as e:
+                                            traceback.print_exc(file=sys.stdout)
                                             await logchanbot(traceback.format_exc())
                                         if COIN_NAME in ENABLE_COIN_ERC:
                                             token_info = await store.get_token_info(COIN_NAME)
@@ -607,7 +628,6 @@ async def run_inbox_monitor():
                                             real_amount = int(Decimal(amount) * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
                                             decimal_pts = int(math.log10(get_decimal(COIN_NAME)))
                                         message_text = ''
-                                        valid_amount = True
                                         if real_amount > actual_balance:
                                             message_text = 'Insufficient balance to send tip of ' + num_format_coin(real_amount, COIN_NAME) + COIN_NAME + ' to ' + to_user
                                             valid_amount = False
@@ -639,6 +659,7 @@ async def run_inbox_monitor():
                                                     elif coin_family == "ERC-20":
                                                         tip = await store.sql_mv_erc_single(item.author.name, to_user, real_amount, COIN_NAME, "TIP", token_info['contract'], SERVER)
                                                 except Exception as e:
+                                                    traceback.print_exc(file=sys.stdout)
                                                     await logchanbot(traceback.format_exc())
 
                                                 message_text = f"You sent a new tip to {to_user}:\n\n" + "Amount: {}{}".format(num_format_coin(real_amount, COIN_NAME), COIN_NAME)
@@ -648,19 +669,21 @@ async def run_inbox_monitor():
                                                         try:
                                                             reddit.redditor(to_user).message(f"You get a new tip from /u/{item.author.name}", to_message_text)
                                                         except Exception as e:
+                                                            traceback.print_exc(file=sys.stdout)
                                                             await logchanbot(traceback.print_exc(file=sys.stdout))
-                                                    if item.author.name not in ["BotTips"]:
+                                                    if str(item.author.name) not in ["BotTips"]:
                                                         try:
                                                             item.reply(message_text)
                                                         except Exception as e:
                                                             await logchanbot(traceback.print_exc(file=sys.stdout))
                                             except Exception as e:
+                                                traceback.print_exc(file=sys.stdout)
                                                 await logchanbot(traceback.print_exc(file=sys.stdout))
                                             if item.author.name in WITHDRAW_IN_PROCESS:
                                                 await asyncio.sleep(1)
                                                 WITHDRAW_IN_PROCESS.remove(item.author.name)
                         except Exception as e:
-                            print(traceback.format_exc())
+                            traceback.print_exc(file=sys.stdout)
                             await logchanbot(traceback.format_exc())
                             reply_message = "Please use !tip amount coin user\n\nExample: !tip 10,000 wrkz wrkzdev"
                             item.reply(reply_message)
@@ -668,10 +691,10 @@ async def run_inbox_monitor():
                 try:
                     add_msg = await store.reddit_insert_msg(item.id, item.name, item.author.name, item.dest.name, item.body, item.body_html, int(item.created))
                 except Exception as e:
-                    print(traceback.format_exc())
+                    traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
         except:
-            print(traceback.format_exc())
+            traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
             print('Lost connection - restart')
     return True

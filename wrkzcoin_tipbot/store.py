@@ -1952,6 +1952,7 @@ async def sql_mv_cn_single(user_from: str, user_to: str, amount: int, tiptype: s
                         await conn.commit()
                         return {'transactionHash': 'NONE', 'fee': 0}
             except Exception as e:
+                traceback.print_exc(file=sys.stdout)
                 await logchanbot(traceback.format_exc())
     return False
 
@@ -6463,7 +6464,7 @@ async def economy_shop_get_item_list():
     return []
 
 
-async def discord_economy_userinfo_what(guild_id: str, user_id: str, item_id: int, what: str, fishing_bait: int, credit: int):
+async def discord_economy_userinfo_what(guild_id: str, user_id: str, item_id: int, what: str, item_nos: int, credit: int):
     global pool
     try:
         await openConnection()
@@ -6474,7 +6475,13 @@ async def discord_economy_userinfo_what(guild_id: str, user_id: str, item_id: in
                 # 2nd query
                 if what.upper() == "BAIT" or what == "🎣":
                     sql = """ UPDATE discord_economy_userinfo SET `fishing_bait`=`fishing_bait`+%s, `credit`=`credit`+%s WHERE `user_id`=%s """
-                    await cur.execute(sql, (fishing_bait, credit, user_id,))
+                    await cur.execute(sql, (item_nos, credit, user_id,))
+                elif what.upper() == "SEED" or what == "🌱":
+                    sql = """ UPDATE discord_economy_userinfo SET `tree_seed`=`tree_seed`+%s, `credit`=`credit`+%s WHERE `user_id`=%s """
+                    await cur.execute(sql, (item_nos, credit, user_id,))
+                elif what.upper() == "FARM" or what == "👨‍🌾":
+                    sql = """ UPDATE discord_economy_userinfo SET `numb_farm`=`numb_farm`+%s, `credit`=`credit`+%s WHERE `user_id`=%s """
+                    await cur.execute(sql, (item_nos, credit, user_id,))
                 elif what.upper() == "CREDIT" or what == "💵":
                     sql = """ UPDATE discord_economy_userinfo SET `credit`=`credit`+%s,`gem_credit`=`gem_credit`-1 WHERE `user_id`=%s """
                     await cur.execute(sql, (credit, user_id))
@@ -6560,6 +6567,170 @@ async def economy_sell_fishes(fish_id: int, user_id: str, guild_id: str, total_w
                 # update selected fishes to sold
                 sql = """ UPDATE discord_economy_fishing SET `sold`=%s, `sold_date`=%s WHERE `fish_id`=%s AND `user_id`=%s AND `sold`=%s AND `sellable`=%s """
                 await cur.execute(sql, ('YES', int(time.time()), fish_id, user_id, 'NO', 'YES'))
+                await conn.commit()
+                return True
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return None
+
+
+async def economy_insert_planting(user_id: str, guild_id: str, exp_gained: float, energy_loss: float):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ INSERT INTO discord_economy_planting (`user_id`, `guild_id`, `exp_gained`, `energy_loss`, `date`) 
+                          VALUES (%s, %s, %s, %s, %s) """
+                await cur.execute(sql, (user_id, guild_id, exp_gained, energy_loss, int(time.time()),))
+                ## add experience and engery loss
+                sql = """ UPDATE discord_economy_userinfo SET `energy_current`=`energy_current`-%s,`tree_seed`=`tree_seed`-1,`plant_exp`=`plant_exp`+%s, `tree_planted`=`tree_planted`+1 
+                          WHERE `user_id`=%s LIMIT 1 """
+                await cur.execute(sql, (energy_loss, exp_gained, user_id,))
+                await conn.commit()
+                return True
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return None
+
+async def economy_insert_woodcutting(user_id: str, guild_id: str, timber_volume: float, leaf_kg: float, energy_loss: float):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ INSERT INTO discord_economy_woodcutting (`user_id`, `guild_id`, `timber_volume`, `leaf_kg`, `energy_loss`, `date`) 
+                          VALUES (%s, %s, %s, %s, %s, %s) """
+                await cur.execute(sql, (user_id, guild_id, timber_volume, leaf_kg, energy_loss, int(time.time()),))
+                ## add experience and engery loss
+                sql = """ UPDATE discord_economy_userinfo SET `energy_current`=`energy_current`-%s,`tree_cut`=`tree_cut`+1 WHERE `user_id`=%s LIMIT 1 """
+                await cur.execute(sql, (energy_loss, user_id,))
+                await conn.commit()
+                return True
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return None
+
+
+async def economy_get_timber_user(user_id: str, sold_timber: str='NO', sold_leaf='NO'):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT COUNT(*) AS tree_numbers, SUM(timber_volume) AS timbers 
+                          FROM discord_economy_woodcutting WHERE `user_id`=%s AND `timber_sold`=%s """
+                await cur.execute(sql, (user_id, 'NO'))
+                result = await cur.fetchone()
+                sql = """ SELECT COUNT(*) AS tree_numbers, SUM(leaf_kg) AS leaves 
+                          FROM discord_economy_woodcutting WHERE `user_id`=%s AND `leaf_sold`=%s """
+                await cur.execute(sql, (user_id, 'NO'))
+                result2 = await cur.fetchone()
+                if result and result2: return {'timber_nos': result['tree_numbers'], 'timber_vol': result['timbers'], 'leaf_nos': result2['tree_numbers'], 'leaf_kg': result2['leaves']}
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return []
+
+
+async def economy_farm_get_list_plants():
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM discord_economy_farm_plantlist """
+                await cur.execute(sql,)
+                result = await cur.fetchall()
+                if result: return result
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return []
+
+
+async def economy_farm_user_planting_check_max(user_id: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT COUNT(*) FROM discord_economy_farm_planting 
+                          WHERE `user_id`=%s and `harvested`=%s """
+                await cur.execute(sql, (user_id, "NO"))
+                result = await cur.fetchone()
+                if 'COUNT(*)' in result:
+                    return int(result['COUNT(*)'])
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return 0
+
+
+async def economy_farm_user_planting_group_harvested(user_id: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT A.id, A.plant_id, B.plant_name, B.growing_emoji, B.plant_emoji, B.duration_harvest, A.user_id, A.date, 
+                          A.harvest_date, A.can_harvest_date, A.harvested, A.number_of_item, A.credit_per_item, A.sold, 
+                          COUNT(*) as numbers, SUM(B.number_of_item) AS total_products 
+                          FROM discord_economy_farm_planting A JOIN discord_economy_farm_plantlist B ON B.id = A.plant_id 
+                          AND A.harvested=%s AND A.sold=%s AND A.user_id=%s
+                          GROUP BY A.plant_id """
+                await cur.execute(sql, ('YES', 'NO', user_id))
+                result = await cur.fetchall()
+                if result: return result
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return []
+
+
+async def economy_farm_user_planting_nogroup(user_id: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT A.id, A.plant_id, B.plant_name, B.growing_emoji, B.plant_emoji, B.duration_harvest, A.user_id, A.date, 
+                          A.harvest_date, A.can_harvest_date, A.harvested, A.number_of_item, A.credit_per_item 
+                          FROM discord_economy_farm_planting A JOIN discord_economy_farm_plantlist B ON B.id = A.plant_id 
+                          AND A.user_id=%s WHERE A.harvested=%s ORDER BY id ASC """
+                await cur.execute(sql, (user_id, 'NO'))
+                result = await cur.fetchall()
+                if result: return result
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return []
+
+async def economy_farm_insert_crop(plant_id: int, user_id: str, guild_id: str, can_harvest_date: int, number_of_item: int, credit_per_item: float, exp_gained: float, energy_loss: float):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ INSERT INTO discord_economy_farm_planting (`plant_id`, `user_id`, `guild_id`, `date`, `can_harvest_date`, 
+                          `number_of_item`, `credit_per_item`, `energy_loss`, `exp_gained`) 
+                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                await cur.execute(sql, (plant_id, user_id, guild_id, int(time.time()), can_harvest_date, number_of_item, credit_per_item, energy_loss, exp_gained,))
+                ## add experience and engery loss
+                sql = """ UPDATE discord_economy_userinfo SET `energy_current`=`energy_current`-%s,`tree_seed`=`tree_seed`-1,`plant_exp`=`plant_exp`+%s, `farm_grow`=`farm_grow`+1 
+                          WHERE `user_id`=%s LIMIT 1 """
+                await cur.execute(sql, (energy_loss, exp_gained, user_id,))
+                await conn.commit()
+                return True
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return None
+
+
+async def economy_farm_harvesting(user_id: str, plantlist: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ UPDATE discord_economy_farm_planting SET `harvest_date`=%s, `harvested`=%s WHERE `user_id`=%s 
+                          AND `id` IN ("""+plantlist+""")"""
+                await cur.execute(sql, (int(time.time()), 'YES', user_id,))
                 await conn.commit()
                 return True
     except Exception as e:

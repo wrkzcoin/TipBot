@@ -339,7 +339,7 @@ ROUND_AMOUNT_COIN = {
 # TRTL discord. Need for some specific tasks later.
 TRTL_DISCORD = 388915017187328002
 
-NOTIFICATION_OFF_CMD = 'Type: `.notifytip off` to turn off this DM notification.'
+NOTIFICATION_OFF_CMD = 'Type: `.notifytip off` to turn off this notification or mention.'
 MSG_LOCKED_ACCOUNT = "Your account is locked. Please contact Pluton#4425 in WrkzCoin discord. Check `.about` for more info."
 
 bot_description = f"Tip {COIN_REPR} to other users on your server."
@@ -14141,23 +14141,18 @@ async def tipall(ctx, amount: str, coin: str, option: str=None):
         ActualSpend_str = num_format_coin(amountDiv * len(list_receivers), COIN_NAME)
         amountDiv_str = num_format_coin(amountDiv, COIN_NAME)
         await ctx.message.add_reaction(get_emoji(COIN_NAME))
-        # tipper shall always get DM. Ignore notifyList
-        try:
-            await ctx.message.author.send(
-                f'{EMOJI_ARROW_RIGHTHOOK} Tip of {tipAmount} '
-                f'{COIN_NAME} '
-                f'was sent spread to ({len(list_receivers)}) members in server `{ctx.guild.name}`.\n'
-                f'Each member got: `{amountDiv_str}{COIN_NAME}`\n'
-                f'Actual spending: `{ActualSpend_str}{COIN_NAME}`')
-        except (discord.Forbidden, discord.errors.Forbidden) as e:
-            await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
         numMsg = 0
-        for member in listMembers:
-            if ctx.message.author.id != member.id and member.id != bot.user.id and len(listMembers) < 30:
-                if str(member.id) not in notifyList:
-                    # random user to DM
-                    dm_user = bool(random.getrandbits(1)) if len(listMembers) > config.tipallMax_LimitDM else True
-                    if dm_user:
+        total_found = 0
+        max_mention = 20
+        numb_mention = 0
+        if len(listMembers) < 20:
+            # DM all user
+            for member in listMembers:
+                if ctx.message.author.id != member.id and member.id != bot.user.id:
+                    total_found += 1
+                    if str(member.id) not in notifyList:
+                        # random user to DM
+                        # dm_user = bool(random.getrandbits(1)) if len(listMembers) > config.tipallMax_LimitDM else True
                         try:
                             await member.send(
                                 f'{EMOJI_MONEYFACE} You got a tip of {amountDiv_str} '
@@ -14166,9 +14161,51 @@ async def tipall(ctx, amount: str, coin: str, option: str=None):
                             numMsg += 1
                         except (discord.Forbidden, discord.errors.Forbidden) as e:
                             await store.sql_toggle_tipnotify(str(member.id), "OFF")
-            if numMsg >= config.tipallMax_LimitDM:
-                # stop DM if reaches
-                break
+        else:
+            # mention all user
+            list_user_mention = []
+            list_user_mention_str = ""
+            list_user_not_mention = []
+            list_user_not_mention_str = ""
+            random.shuffle(listMembers)
+            for member in listMembers:
+                if numb_mention >= max_mention:
+                    total_found += 1
+                else:
+                    if ctx.message.author.id != member.id and member.id != bot.user.id:
+                        if str(member.id) not in notifyList:
+                            list_user_mention.append("{}".format(member.mention))
+                        else:
+                            list_user_not_mention.append("{}#{}".format(member.name, member.discriminator))
+                    total_found += 1
+                    numb_mention += 1
+            if len(list_user_mention) >= 1:
+                list_user_mention_str = ", ".join(list_user_mention)
+            if len(list_user_not_mention) >= 1:
+                list_user_not_mention_str = ", ".join(list_user_not_mention)
+            try:
+                remaining_str = ""
+                if numb_mention < total_found:
+                    remaining_str = " and other {} members".format(total_found-numb_mention)
+                await ctx.message.reply(
+                        f'{EMOJI_MONEYFACE} {list_user_mention_str} {list_user_not_mention_str} {remaining_str}, You got a tip of {amountDiv_str} '
+                        f'{COIN_NAME} from {ctx.author.name}#{ctx.author.discriminator}'
+                        f'{NOTIFICATION_OFF_CMD}')
+            except Exception as e:
+                try:
+                    await ctx.message.reply(f'**({total_found})** members got {amountDiv_str} {COIN_NAME} :) Too many to mention :) Phew!!!')
+                except Exception as e:
+                    await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
+        # tipper shall always get DM. Ignore notifyList
+        try:
+            await ctx.message.author.send(
+                f'{EMOJI_ARROW_RIGHTHOOK} Tip of {tipAmount} '
+                f'{COIN_NAME} '
+                f'was sent spread to ({total_found}) members in server `{ctx.guild.name}`.\n'
+                f'Each member got: `{amountDiv_str}{COIN_NAME}`\n'
+                f'Actual spending: `{ActualSpend_str}{COIN_NAME}`')
+        except (discord.Forbidden, discord.errors.Forbidden) as e:
+            await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
         return
 
 
@@ -19126,57 +19163,102 @@ async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str 
             update_tipstat = await store.sql_user_get_tipstat(id_tipper, COIN_NAME, True, 'DISCORD')
         except Exception as e:
             await logchanbot(traceback.format_exc())
+
+        mention_list_name = ''
+        guild_members = ctx.guild.members
+        tip_public = False
+        max_mention = 20
+        numb_mention = 0
+        total_found = 0
+        if len(list_talker) < 20:
+            for member_id in list_talker:
+                # print(member.name) # you'll just print out Member objects your way.
+                if ctx.message.author.id != int(member_id):
+                    member = bot.get_user(id=int(member_id))
+                    if member and member.bot == False and member in guild_members:
+                        mention_list_name += '{}#{} '.format(member.name, member.discriminator)
+                        total_found += 1
+                        if str(member_id) not in notifyList:
+                            try:
+                                await member.send(
+                                    f'{EMOJI_MONEYFACE} You got a {tip_type_text} of `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}` '
+                                    f'from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{ctx.guild.name}` #{ctx.channel.name} for active talking.\n'
+                                    f'{NOTIFICATION_OFF_CMD}\n{tipmsg}')
+                            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                                await store.sql_toggle_tipnotify(str(member.id), "OFF")
+        else:
+            list_user_mention = []
+            list_user_mention_str = ""
+            list_user_not_mention = []
+            list_user_not_mention_str = ""
+            # shuffle list_talker
+            random.shuffle(list_talker)
+            for member_id in list_talker:
+                if ctx.message.author.id != int(member_id):
+                    if numb_mention < max_mention:
+                        member = bot.get_user(id=int(member_id))
+                        if member and member.bot == False and member in guild_members:
+                            if str(member_id) not in notifyList:
+                                list_user_mention.append("{}".format(member.mention))
+                            else:
+                                list_user_not_mention.append("{}".format(member.name))
+                        numb_mention += 1
+                        total_found += 1
+                    else:
+                        total_found += 1
+            if len(list_user_mention) >= 1:
+                list_user_mention_str = ", ".join(list_user_mention)
+            if len(list_user_not_mention) >= 1:
+                list_user_not_mention_str = ", ".join(list_user_not_mention)
+            try:
+                remaining_str = ""
+                if numb_mention < total_found:
+                    remaining_str = " and other {} members".format(total_found-numb_mention)
+                await ctx.message.reply(
+                    f'{EMOJI_MONEYFACE} {list_user_mention_str} {list_user_not_mention_str} {remaining_str}, You got a {tip_type_text} of `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}` '
+                    f'from {ctx.author.name}#{ctx.author.discriminator} for active talking.\n'
+                    f'{NOTIFICATION_OFF_CMD}\n{tipmsg}')
+                tip_public = True
+            except Exception as e:
+                pass
+
         # tipper shall always get DM. Ignore notifyList
         try:
             await ctx.message.author.send(
                 f'{EMOJI_ARROW_RIGHTHOOK} {tip_type_text} of {num_format_coin(TotalAmount, COIN_NAME)} '
                 f'{COIN_NAME} '
-                f'was sent to ({len(list_receivers)}) members in server `{ctx.guild.name}` for active talking.\n'
+                f'was sent to ({total_found}) members in server `{ctx.guild.name}` for active talking.\n'
                 f'Each member got: `{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}`\n')
         except (discord.Forbidden, discord.errors.Forbidden) as e:
             await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
-        mention_list_name = ''
-        guild_members = ctx.guild.members
-        for member_id in list_talker:
-            # print(member.name) # you'll just print out Member objects your way.
-            if ctx.message.author.id != int(member_id):
-                member = bot.get_user(id=int(member_id))
-                if member and member.bot == False and member in guild_members:
-                    mention_list_name += '{}#{} '.format(member.name, member.discriminator)
-                    if len(list_talker) < 30 and str(member_id) not in notifyList:
-                        try:
-                            await member.send(
-                                f'{EMOJI_MONEYFACE} You got a {tip_type_text} of `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}` '
-                                f'from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{ctx.guild.name}` #{ctx.channel.name} for active talking.\n'
-                                f'{NOTIFICATION_OFF_CMD}\n{tipmsg}')
-                        except (discord.Forbidden, discord.errors.Forbidden) as e:
-                            await store.sql_toggle_tipnotify(str(member.id), "OFF")
+
         await ctx.message.add_reaction(get_emoji(COIN_NAME))
-        try:
-            await ctx.send(f'{discord.utils.escape_markdown(mention_list_name)}\n\n**({len(list_receivers)})** members got {tip_type_text} :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
-            await ctx.message.add_reaction(EMOJI_SPEAK)
-        except discord.errors.Forbidden:
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
-            if serverinfo and 'botchan' in serverinfo and serverinfo['botchan']:
-                bot_channel = bot.get_channel(id=int(serverinfo['botchan']))
-                try:
-                    msg = await bot_channel.send(f'{discord.utils.escape_markdown(mention_list_name)}\n\n**({len(list_receivers)})** members got {tip_type_text} :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
-                    await msg.add_reaction(EMOJI_OK_BOX)
-                    await ctx.message.add_reaction(EMOJI_SPEAK)
-                except Exception as e:
-                    await logchanbot(traceback.format_exc())
-                    await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
-                except discord.errors.HTTPException:
-                    msg = await bot_channel.send(f'**({len(list_receivers)})** members got {tip_type_text} :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
-                    await msg.add_reaction(EMOJI_OK_BOX)
-                    await ctx.message.add_reaction(EMOJI_SPEAK)
-            else:
+        if tip_public == False:
+            try:
+                await ctx.send(f'{discord.utils.escape_markdown(mention_list_name)}\n\n**({total_found})** members got {tip_type_text} :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
                 await ctx.message.add_reaction(EMOJI_SPEAK)
-                await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
-        except discord.errors.HTTPException:
-            await ctx.message.add_reaction(EMOJI_SPEAK)
-            await ctx.send(f'**({len(list_receivers)})** members got {tip_type_text} :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
-        return
+            except discord.errors.Forbidden:
+                serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                if serverinfo and 'botchan' in serverinfo and serverinfo['botchan']:
+                    bot_channel = bot.get_channel(id=int(serverinfo['botchan']))
+                    try:
+                        msg = await bot_channel.send(f'{discord.utils.escape_markdown(mention_list_name)}\n\n**({total_found})** members got {tip_type_text} :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
+                        await msg.add_reaction(EMOJI_OK_BOX)
+                        await ctx.message.add_reaction(EMOJI_SPEAK)
+                    except Exception as e:
+                        await logchanbot(traceback.format_exc())
+                        await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
+                    except discord.errors.HTTPException:
+                        msg = await bot_channel.send(f'**({total_found})** members got {tip_type_text} :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
+                        await msg.add_reaction(EMOJI_OK_BOX)
+                        await ctx.message.add_reaction(EMOJI_SPEAK)
+                else:
+                    await ctx.message.add_reaction(EMOJI_SPEAK)
+                    await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
+            except discord.errors.HTTPException:
+                await ctx.message.add_reaction(EMOJI_SPEAK)
+                await ctx.send(f'**({total_found})** members got {tip_type_text} :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
+            return
     else:
         await ctx.message.add_reaction(EMOJI_ERROR)
         return

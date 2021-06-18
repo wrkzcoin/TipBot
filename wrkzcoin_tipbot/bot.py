@@ -166,6 +166,7 @@ FAUCET_MINMAX = {
     "NBXC": [config.Faucet_min_max.nbxc_min, config.Faucet_min_max.nbxc_max],
     "XFG": [config.Faucet_min_max.xfg_min, config.Faucet_min_max.xfg_max],
     "WOW": [config.Faucet_min_max.wow_min, config.Faucet_min_max.wow_max],
+    "GNTL": [config.Faucet_min_max.gntl_min, config.Faucet_min_max.gntl_max],
     "BAN": [config.Faucet_min_max.ban_min, config.Faucet_min_max.ban_max],
     "NANO": [config.Faucet_min_max.nano_min, config.Faucet_min_max.nano_max],
     "BTIPZ": [config.Faucet_min_max.btipz_min, config.Faucet_min_max.btipz_max]
@@ -185,6 +186,7 @@ GAME_SLOT_REWARD = {
     "PGO": config.game_reward.pgo,
     "KVA": config.game_reward.kva,
     "WOW": config.game_reward.wow,
+    "GNTL": config.game_reward.gntl,
     "BAN": config.game_reward.ban,
     "NANO": config.game_reward.nano,
     "BTIPZ": config.game_reward.btipz
@@ -5980,7 +5982,7 @@ async def sell(ctx, *, item_name: str):
                         selling_fishes = await store.economy_sell_fishes(selected_fishes['fish_id'], str(ctx.author.id), str(ctx.guild.id), total_weight, total_earn)
                         if selling_fishes:
                             await ctx.message.add_reaction(selected_fishes['fish_emoji'])
-                            await ctx.message.reply('You sold {:,.2f}kg of {} for `{}` Credit(s) (`{} Credit per kg`). Your credit now is: `{}`.'.format(total_weight, item_name, total_earn, selected_fishes['credit_per_kg'], get_userinfo['credit']))
+                            await ctx.message.reply('You sold {:,.2f}kg of {} for `{}` Credit(s) (`{} Credit per kg`). Your credit now is: `{:,.2f}`.'.format(total_weight, item_name, total_earn, selected_fishes['credit_per_kg'], get_userinfo['credit']))
                         else:
                             await ctx.send(f'{ctx.author.mention} Internal error.')
                             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -6009,7 +6011,7 @@ async def sell(ctx, *, item_name: str):
                     selling_item = await store.economy_farm_sell_item(selected_item['plant_id'], str(ctx.author.id), str(ctx.guild.id), total_earn, selected_item['total_products'])
                     if selling_item:
                         await ctx.message.add_reaction(selected_item['plant_emoji'])
-                        await ctx.message.reply('You sold {:,.0f} of {} for `{}` Credit(s) (`{} Credit per one`). Your credit now is: `{}`.'.format(selected_item['total_products'], item_name, total_earn, selected_item['credit_per_item'], get_userinfo['credit']))
+                        await ctx.message.reply('You sold {:,.0f} of {} for `{}` Credit(s) (`{} Credit per one`). Your credit now is: `{:,.2f}`.'.format(selected_item['total_products'], item_name, total_earn, selected_item['credit_per_item'], get_userinfo['credit']))
                     else:
                         await ctx.send(f'{ctx.author.mention} Internal error.')
                         await ctx.message.add_reaction(EMOJI_ERROR)
@@ -6081,6 +6083,9 @@ async def buy(ctx, item_name: str=None):
         elif get_userinfo['numb_farm'] >= config.economy.max_farm_per_user and (item_name.upper() == "FARM" or item_name == "👨‍🌾"):
             await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You have a farm already.')
             return
+        elif get_userinfo['numb_tractor'] >= config.economy.max_tractor_per_user and (item_name.upper() == "TRACTOR" or item_name == "🚜"):
+            await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You have a tractor already.')
+            return
         else:
             try:
                 if item_name.upper() == "LIST":
@@ -6090,7 +6095,7 @@ async def buy(ctx, item_name: str=None):
                         e = discord.Embed(title="Shop Bot".format(ctx.author.name, ctx.author.discriminator), description="Economy [Testing]", timestamp=datetime.utcnow())
                         for each_item in get_shop_itemlist:
                             fee_str = "💵" if each_item['item_name'] != "Credit" else "💎"
-                            e.add_field(name=each_item['item_name'] + " " + each_item['item_emoji'] + " Fee: " +str(each_item['credit_cost']) + fee_str, value="```Each: {}```".format(each_item['item_numbers']), inline=False)
+                            e.add_field(name=each_item['item_name'] + " " + each_item['item_emoji'] + " Fee: {:,.2f}".format(each_item['credit_cost']) + fee_str, value="```Each: {}```".format(each_item['item_numbers']), inline=False)
                         e.set_footer(text=f"User {ctx.message.author.name}#{ctx.message.author.discriminator}")
                         e.set_thumbnail(url=ctx.author.avatar_url)
                         msg = await ctx.send(embed=e)
@@ -6131,8 +6136,8 @@ async def buy(ctx, item_name: str=None):
                         level = int((get_userinfo['exp']-10)**0.5) + 1
                         needed_level = get_shop_item['limit_level']
                         if get_userinfo['credit'] < get_shop_item['credit_cost']:
-                            user_credit = get_userinfo['credit']
-                            need_credit = get_shop_item['credit_cost']
+                            user_credit = "{:,.2f}".format(get_userinfo['credit'])
+                            need_credit = "{:,.2f}".format(get_shop_item['credit_cost'])
                             await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You do not have sufficient credit. Having only `{user_credit}`. Need `{need_credit}`.')
                         elif level < get_shop_item['limit_level']:
                             await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Your level `{level}`  is still low. Needed level `{str(needed_level)}`.')
@@ -6213,7 +6218,7 @@ async def info(ctx, member: discord.Member = None):
             get_inventory_from_backpack = await store.economy_get_user_inventory(str(member.id), 'Gem')
             if get_inventory_from_backpack and 'numbers' in get_inventory_from_backpack:
                 get_userinfo['gem_credit'] += get_inventory_from_backpack['numbers']
-            embed = discord.Embed(title="{}#{} - Credit {}{}/ Gem: {}{}".format(member.name, member.discriminator, get_userinfo['credit'], '💵', get_userinfo['gem_credit'], '💎'), description="Economy [Testing]")
+            embed = discord.Embed(title="{}#{} - Credit {:,.2f}{}/ Gem: {:,.0f}{}".format(member.name, member.discriminator, get_userinfo['credit'], '💵', get_userinfo['gem_credit'], '💎'), description="Economy [Testing]")
             embed.add_field(name="Exp", value=get_userinfo['exp'], inline=True)
             if get_userinfo['exp'] > 0:
                 level = int((get_userinfo['exp']-10)**0.5) + 1
@@ -6566,11 +6571,6 @@ async def plant(ctx, plant_name: str=None):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You do not have any seed. Please buy `{prefix}eco buy seed`.')
         return
 
-    if get_userinfo['numb_farm'] == 0:
-        await ctx.message.reply(f'{ctx.author.mention} You do not have any farm.')
-        await ctx.message.add_reaction(EMOJI_ERROR)
-        return
-
     if ctx.author.id in GAME_INTERACTIVE_ECO:
         await ctx.send(f'{ctx.author.mention} You are ongoing with one **game economy** play.')
         await ctx.message.add_reaction(EMOJI_ERROR)
@@ -6578,7 +6578,22 @@ async def plant(ctx, plant_name: str=None):
     else:
         GAME_INTERACTIVE_ECO.append(ctx.author.id)
 
+    if get_userinfo['numb_farm'] == 0:
+        await ctx.message.reply(f'{ctx.author.mention} You do not have any farm.')
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        return
+    
     try:
+        has_tractor = False
+        will_plant = 1
+        if get_userinfo['numb_tractor'] >= 1:
+            has_tractor = True
+            will_plant = config.economy.max_tractor_can_plant
+            if get_userinfo['tree_seed'] < will_plant:
+                will_plant = get_userinfo['tree_seed']
+        check_planting_nos = await store.economy_farm_user_planting_check_max(str(ctx.author.id))
+        if check_planting_nos + will_plant > config.economy.max_farm_plant_per_user and has_tractor == True:
+            will_plant = config.economy.max_farm_plant_per_user - check_planting_nos
         # If health less than 50%, stop
         if get_userinfo['health_current']/get_userinfo['health_total'] < 0.5:
             if ctx.author.id in GAME_INTERACTIVE_ECO:
@@ -6602,7 +6617,7 @@ async def plant(ctx, plant_name: str=None):
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} They are not available. Please use any of this `{plant_name_str}`.')
             return
         # TODO: check if user already has max planted
-        check_planting_nos = await store.economy_farm_user_planting_check_max(str(ctx.author.id))
+        
         if check_planting_nos >= config.economy.max_farm_plant_per_user and plant_name != "TREE":
             if ctx.author.id in GAME_INTERACTIVE_ECO:
                 GAME_INTERACTIVE_ECO.remove(ctx.author.id)
@@ -6618,7 +6633,11 @@ async def plant(ctx, plant_name: str=None):
                 msg = await ctx.message.reply(f'{EMOJI_INFORMATION} {ctx.author.mention} Nice! You have planted a tree. You gained `{str(exp_gained)}` planting experience and spent `{str(energy_loss)}` energy.')
         else:
             # Not tree and not max, let's plant
-            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+            # Using tractor, loss same energy but gain more experience
+            if has_tractor:
+                await ctx.message.add_reaction("🚜")
+            else:
+                await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
             await asyncio.sleep(1.5)
             exp_gained = config.economy.plant_exp_gained
             energy_loss = exp_gained * 2
@@ -6630,11 +6649,11 @@ async def plant(ctx, plant_name: str=None):
             crop_name = "`" + selected_crop['plant_name'] + "` " + selected_crop['plant_emoji']
             insert_item = await store.economy_farm_insert_crop(selected_crop['id'], str(ctx.author.id), str(ctx.guild.id), 
                                                                selected_crop['duration_harvest']+int(time.time()), selected_crop['number_of_item'],
-                                                               selected_crop['credit_per_item'], exp_gained, energy_loss)
+                                                               selected_crop['credit_per_item'], exp_gained, energy_loss, will_plant)
             if insert_item:
-                msg = await ctx.message.reply(f'{EMOJI_INFORMATION} {ctx.author.mention} Nice! You have planted {crop_name} in your farm. '
-                                              f'You gained `{str(exp_gained)}` planting experience and spent `{str(energy_loss)}` energy. '
-                                              f'You have {str(check_planting_nos+1)} crop(s) in your farm now.')
+                msg = await ctx.message.reply(f'{EMOJI_INFORMATION} {ctx.author.mention} Nice! You have planted `{will_plant}` {crop_name} in your farm. '
+                                              f'You gained `{str(exp_gained*will_plant)}` planting experience and spent `{str(energy_loss)}` energy. '
+                                              f'You have {str(check_planting_nos+will_plant)} crop(s) in your farm now.')
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         await logchanbot(traceback.format_exc())
@@ -6822,16 +6841,15 @@ async def harvest(ctx):
             for each_crop in get_user_crops:
                 if each_crop['can_harvest_date'] < int(time.time()):
                     # add crop ID for update status
-                    if each_crop['id'] not in can_harvest:
-                        can_harvest.append(str(each_crop['id']))
-                        havested_crops += each_crop['plant_name'] + each_crop['plant_emoji'] + " "
+                    can_harvest.append(each_crop['id'])
+                    havested_crops += each_crop['plant_name'] + each_crop['plant_emoji'] + " "
                     total_can_harvest += 1
             if total_can_harvest == 0:
                 await ctx.message.reply(f'All your crops are not able to harvest yet!')
                 await ctx.message.add_reaction(EMOJI_ERROR)
             else:
                 # Let's update farming
-                harvesting = await store.economy_farm_harvesting(str(ctx.author.id), ",".join(can_harvest))
+                harvesting = await store.economy_farm_harvesting(str(ctx.author.id), can_harvest)
                 if harvesting:
                     await ctx.message.reply('You harvested {} crop(s) {}.'.format(total_can_harvest, havested_crops))
         else:
@@ -6839,6 +6857,7 @@ async def harvest(ctx):
             await ctx.message.add_reaction(EMOJI_ERROR)
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     if ctx.author.id in GAME_INTERACTIVE_ECO:
         GAME_INTERACTIVE_ECO.remove(ctx.author.id)
     return

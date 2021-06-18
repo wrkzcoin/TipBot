@@ -6571,13 +6571,6 @@ async def plant(ctx, plant_name: str=None):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You do not have any seed. Please buy `{prefix}eco buy seed`.')
         return
 
-    if ctx.author.id in GAME_INTERACTIVE_ECO:
-        await ctx.send(f'{ctx.author.mention} You are ongoing with one **game economy** play.')
-        await ctx.message.add_reaction(EMOJI_ERROR)
-        return
-    else:
-        GAME_INTERACTIVE_ECO.append(ctx.author.id)
-
     if get_userinfo['numb_farm'] == 0:
         await ctx.message.reply(f'{ctx.author.mention} You do not have any farm.')
         await ctx.message.add_reaction(EMOJI_ERROR)
@@ -6606,6 +6599,13 @@ async def plant(ctx, plant_name: str=None):
                 GAME_INTERACTIVE_ECO.remove(ctx.author.id)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You have very small energy. Eat to powerup.')
             return
+
+        if ctx.author.id in GAME_INTERACTIVE_ECO:
+            await ctx.send(f'{ctx.author.mention} You are ongoing with one **game economy** play.')
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            return
+        else:
+            GAME_INTERACTIVE_ECO.append(ctx.author.id)
 
         # get farm plant list
         plant_list_arr = await store.economy_farm_get_list_plants()

@@ -6564,6 +6564,20 @@ async def plant(ctx, plant_name: str=None):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is no economy channel yet.')
         return
 
+    # get farm plant list
+    plant_list_arr = await store.economy_farm_get_list_plants()
+    plant_list_names = [name['plant_name'].lower() for name in plant_list_arr]
+
+    if plant_name and plant_name.upper() == "LIST":
+        e = discord.Embed(title="Plant List", description="Economy [Testing]", timestamp=datetime.utcnow())
+        for each_crop in plant_list_arr:
+            e.add_field(name=each_crop['plant_name'] + " " + each_crop['plant_emoji'] + " Dur. : {}".format(seconds_str(each_crop['duration_harvest'])), value="Harvested: {} | Credit: {}".format(each_crop['number_of_item'], each_crop['credit_per_item']*each_crop['number_of_item']), inline=False)
+        e.set_footer(text=f"Requested by {ctx.author.name}#{ctx.author.discriminator}")
+        e.set_thumbnail(url=ctx.author.avatar_url)
+        msg = await ctx.message.reply(embed=e)
+        await msg.add_reaction(EMOJI_OK_BOX)
+        return
+        
     # Getting list of work in the guild and re-act
     get_userinfo = await store.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
     if get_userinfo and get_userinfo['tree_seed'] <= 0:
@@ -6571,7 +6585,7 @@ async def plant(ctx, plant_name: str=None):
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You do not have any seed. Please buy `{prefix}eco buy seed`.')
         return
 
-    if get_userinfo['numb_farm'] == 0:
+    if get_userinfo['numb_farm'] == 0 and plant_name != "TREE":
         await ctx.message.reply(f'{ctx.author.mention} You do not have any farm.')
         await ctx.message.add_reaction(EMOJI_ERROR)
         return
@@ -6607,9 +6621,6 @@ async def plant(ctx, plant_name: str=None):
         else:
             GAME_INTERACTIVE_ECO.append(ctx.author.id)
 
-        # get farm plant list
-        plant_list_arr = await store.economy_farm_get_list_plants()
-        plant_list_names = [name['plant_name'].lower() for name in plant_list_arr]
         if plant_name not in plant_list_names and plant_name != "TREE":
             plant_name_str = ", ".join(plant_list_names)
             if ctx.author.id in GAME_INTERACTIVE_ECO:
@@ -12925,7 +12936,7 @@ async def tip(ctx, amount: str, *args):
     # Check if tx in progress
     if ctx.message.author.id in TX_IN_PROCESS:
         await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
-        msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+        msg = await ctx.message.reply(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
         await msg.add_reaction(EMOJI_OK_BOX)
         return
 
@@ -12936,23 +12947,23 @@ async def tip(ctx, amount: str, *args):
         amount = Decimal(amount)
     except ValueError:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid amount.')
+        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid amount.')
         return
 
     if isinstance(ctx.channel, discord.DMChannel) and args[-1].isdigit() == False and config.discord.enable_secrettip != 1:
-        await ctx.send(f'{EMOJI_RED_NO} This command can not be in private.')
+        await ctx.message.reply(f'{EMOJI_RED_NO} This command can not be in private.')
         return
 
     if isinstance(ctx.channel, discord.DMChannel):
         if len(args) != 2:
             await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You are using a secret tip. Please tip in public!')
+            await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You are using a secret tip. Please tip in public!')
             return
         else:
             COIN_NAME = args[0].upper()
             if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_ERC+ENABLE_COIN_TRC+ENABLE_COIN_NANO:
                 await ctx.message.add_reaction(EMOJI_ERROR)
-                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You are using a secret tip command. Please tip in public! **{COIN_NAME}** not available!')
+                await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You are using a secret tip command. Please tip in public! **{COIN_NAME}** not available!')
                 return
             try:
                 member = bot.get_user(id=int(args[1]))
@@ -12966,7 +12977,7 @@ async def tip(ctx, amount: str, *args):
             except Exception as e:
                 await ctx.message.add_reaction(EMOJI_ERROR)
                 try:
-                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You are using a secret tip command. Please tip in public!')
+                    await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You are using a secret tip command. Please tip in public!')
                 except Exception as e:
                     return
     else:
@@ -13010,7 +13021,7 @@ async def tip(ctx, amount: str, *args):
             pass
         elif COIN_NAME not in tiponly_coins:
             await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} not in allowed coins set by server manager.')
+            await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} not in allowed coins set by server manager.')
             return
         # End of checking allowed coins
 
@@ -13046,8 +13057,8 @@ async def tip(ctx, amount: str, *args):
                         elif num_user >= len(ctx.guild.members):
                             try:
                                 await ctx.message.add_reaction(EMOJI_INFORMATION)
-                                await ctx.send(f'{ctx.author.mention} Boss, you want to tip more than the number of people in this guild!?.'
-                                               ' Can be done :). Wait a while.... I am doing it. (**counting..**)')
+                                await ctx.message.reply(f'{ctx.author.mention} Boss, you want to tip more than the number of people in this guild!?.'
+                                                        ' Can be done :). Wait a while.... I am doing it. (**counting..**)')
                             except (discord.errors.NotFound, discord.errors.Forbidden) as e:
                                 # No need to tip if failed to message
                                 await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
@@ -13059,8 +13070,8 @@ async def tip(ctx, amount: str, *args):
                                 await ctx.message.add_reaction(EMOJI_ERROR)
                                 await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is not sufficient user to count.')
                             elif len(message_talker) < len(ctx.guild.members) - 1: # minus bot
-                                await ctx.send(f'{EMOJI_INFORMATION} {ctx.author.mention} I could not find sufficient talkers up to **{num_user}**. I found only **{len(message_talker)}**'
-                                               f' and tip to those **{len(message_talker)}** users if they are still here.')
+                                await ctx.message.reply(f'{EMOJI_INFORMATION} {ctx.author.mention} I could not find sufficient talkers up to **{num_user}**. I found only **{len(message_talker)}**'
+                                                        f' and tip to those **{len(message_talker)}** users if they are still here.')
                                 # tip all user who are in the list
                                 try:
                                     async with ctx.typing():
@@ -13081,12 +13092,12 @@ async def tip(ctx, amount: str, *args):
                                 message_talker.pop()
                             if len(message_talker) == 0:
                                 await ctx.message.add_reaction(EMOJI_ERROR)
-                                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is not sufficient user to count.')
+                                await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} There is not sufficient user to count.')
                             elif len(message_talker) < num_user:
                                 try:
                                     await ctx.message.add_reaction(EMOJI_INFORMATION)
-                                    await ctx.send(f'{EMOJI_INFORMATION} {ctx.author.mention} I could not find sufficient talkers up to **{num_user}**. I found only **{len(message_talker)}**'
-                                                   f' and tip to those **{len(message_talker)}** users if they are still here.')
+                                    await ctx.message.reply(f'{EMOJI_INFORMATION} {ctx.author.mention} I could not find sufficient talkers up to **{num_user}**. I found only **{len(message_talker)}**'
+                                                            f' and tip to those **{len(message_talker)}** users if they are still here.')
                                 except (discord.errors.NotFound, discord.errors.Forbidden) as e:
                                     # No need to tip if failed to message
                                     await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
@@ -13115,11 +13126,11 @@ async def tip(ctx, amount: str, *args):
                             return
                         else:
                             await ctx.message.add_reaction(EMOJI_ERROR)
-                            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} What is this **{num_user}** number? Please give a number bigger than 0 :) ')
+                            await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} What is this **{num_user}** number? Please give a number bigger than 0 :) ')
                             return
                     except ValueError:
                         await ctx.message.add_reaction(EMOJI_ERROR)
-                        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid param after **LAST**.')
+                        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid param after **LAST**.')
                     return
                 time_string = ctx.message.content.lower().split("last", 1)[1].strip()
                 time_second = None
@@ -13152,24 +13163,24 @@ async def tip(ctx, amount: str, *args):
                     time_second = sum(int(num) * mult.get(val, 1) for num, val in re.findall('(\d+)(\w+)', time_string))
                 except Exception as e:
                     await logchanbot(traceback.format_exc())
-                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid time given. Please use this example: `.tip 1,000 last 5h 12mn`')
+                    await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid time given. Please use this example: `.tip 1,000 last 5h 12mn`')
                     return
                 try:
                     time_given = int(time_second)
                 except ValueError:
                     await ctx.message.add_reaction(EMOJI_ERROR)
-                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid time given check.')
+                    await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid time given check.')
                     return
                 if time_given:
                     if time_given < 5*60 or time_given > 60*24*60*60:
                         await ctx.message.add_reaction(EMOJI_ERROR)
-                        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Please try time inteval between 5minutes to 24hours.')
+                        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Please try time inteval between 5minutes to 24hours.')
                         return
                     else:
                         message_talker = await store.sql_get_messages(str(ctx.message.guild.id), str(ctx.message.channel.id), time_given, None)
                         if len(message_talker) == 0:
                             await ctx.message.add_reaction(EMOJI_ERROR)
-                            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is no active talker in such period.')
+                            await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} There is no active talker in such period.')
                             return
                         else:
                             try:
@@ -13190,7 +13201,7 @@ async def tip(ctx, amount: str, *args):
                     except Exception as e:
                         await ctx.message.add_reaction(EMOJI_ERROR)
                         try:
-                            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
+                            await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
                         except (discord.Forbidden, discord.errors.Forbidden) as e:
                             try:
                                 await ctx.message.author.send(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
@@ -13200,7 +13211,7 @@ async def tip(ctx, amount: str, *args):
                 else:
                     await ctx.message.add_reaction(EMOJI_ERROR)
                     try:
-                        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
+                        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
                     except (discord.Forbidden, discord.errors.Forbidden) as e:
                         try:
                             await ctx.message.author.send(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
@@ -13214,7 +13225,7 @@ async def tip(ctx, amount: str, *args):
             except Exception as e:
                 await ctx.message.add_reaction(EMOJI_ERROR)
                 try:
-                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
+                    await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
                 except (discord.Forbidden, discord.errors.Forbidden) as e:
                     try:
                         await ctx.message.author.send(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
@@ -13224,7 +13235,7 @@ async def tip(ctx, amount: str, *args):
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
             try:
-                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
+                await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
                 try:
                     await ctx.message.author.send(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
@@ -13234,12 +13245,11 @@ async def tip(ctx, amount: str, *args):
     elif len(ctx.message.mentions) == 1 and (bot.user in ctx.message.mentions) and fromDM == False:
         # Tip to TipBot
         member = ctx.message.mentions[0]
-        print('TipBot is receiving tip from {} amount: {}{}'.format(ctx.message.author.name, amount, COIN_NAME))
     elif len(ctx.message.mentions) == 1 and (bot.user not in ctx.message.mentions) and fromDM == False:
         member = ctx.message.mentions[0]
         if ctx.message.author.id == member.id:
             await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Tip me if you want.')
+            await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Tip me if you want.')
             return
         pass
     elif len(ctx.message.role_mentions) >= 1 and fromDM == False:
@@ -13248,7 +13258,7 @@ async def tip(ctx, amount: str, *args):
             mention_roles.remove("@everyone")
             if len(mention_roles) < 1:
                 await ctx.message.add_reaction(EMOJI_ERROR)
-                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Can not find user to tip to.')
+                await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Can not find user to tip to.')
                 return
         await _tip(ctx, amount, COIN_NAME)
         return
@@ -13261,7 +13271,7 @@ async def tip(ctx, amount: str, *args):
     floodTip = await store.sql_get_countLastTip(str(ctx.message.author.id), config.floodTipDuration)
     if floodTip >= config.floodTip:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Cool down your tip or TX. or increase your amount next time.')
+        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Cool down your tip or TX. or increase your amount next time.')
         await botLogChan.send('A user reached max. TX threshold. Currently halted: `.tip`')
         return
     # End of Check flood of tip
@@ -13272,7 +13282,7 @@ async def tip(ctx, amount: str, *args):
             pass
         else:
             await ctx.message.add_reaction(EMOJI_WARNING)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {config.maintenance_msg}')
+            await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} {config.maintenance_msg}')
             return
     # End Check if maintenance
 
@@ -13332,21 +13342,21 @@ async def tip(ctx, amount: str, *args):
 
     if real_amount > MaxTX:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
-                       f'{num_format_coin(MaxTX, COIN_NAME)} '
-                       f'{COIN_NAME}.')
+        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
+                                f'{num_format_coin(MaxTX, COIN_NAME)} '
+                                f'{COIN_NAME}.')
         return
     elif real_amount > actual_balance:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
-                       f'{num_format_coin(real_amount, COIN_NAME)} '
-                       f'{COIN_NAME} to {member.name}#{member.discriminator}.')
+        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
+                                f'{num_format_coin(real_amount, COIN_NAME)} '
+                                f'{COIN_NAME} to {member.name}#{member.discriminator}.')
         return
     elif real_amount < MinTx:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
-                       f'{num_format_coin(MinTx, COIN_NAME)} '
-                       f'{COIN_NAME}.')
+        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
+                                f'{num_format_coin(MinTx, COIN_NAME)} '
+                                f'{COIN_NAME}.')
         return
 
     # add queue also tip
@@ -13354,7 +13364,7 @@ async def tip(ctx, amount: str, *args):
         TX_IN_PROCESS.append(ctx.message.author.id)
     else:
         await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
-        msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+        msg = await ctx.message.reply(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
         await msg.add_reaction(EMOJI_OK_BOX)
         return
 
@@ -13422,7 +13432,7 @@ async def tip(ctx, amount: str, *args):
         return
     else:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{ctx.author.mention} Can not deliver TX for {COIN_NAME} right now. Try again soon.')
+        await ctx.message.reply(f'{ctx.author.mention} Can not deliver TX for {COIN_NAME} right now. Try again soon.')
         # add to failed tx table
         await store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "TIP")
         return
@@ -13435,7 +13445,7 @@ async def mtip(ctx, amount: str, *args):
     # check if bot is going to restart
     if IS_RESTARTING:
         await ctx.message.add_reaction(EMOJI_REFRESH)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is going to restart soon. Wait until it is back for using this.')
+        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is going to restart soon. Wait until it is back for using this.')
         return
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'tip')
@@ -13453,7 +13463,7 @@ async def mtip(ctx, amount: str, *args):
     # Check if tx in progress
     if ctx.guild.id in TX_IN_PROCESS:
         await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
-        msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} This guild have another tx in progress.')
+        msg = await ctx.message.reply(f'{EMOJI_ERROR} {ctx.author.mention} This guild have another tx in progress.')
         await msg.add_reaction(EMOJI_OK_BOX)
         return
 
@@ -13464,11 +13474,11 @@ async def mtip(ctx, amount: str, *args):
         amount = Decimal(amount)
     except ValueError:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid amount.')
+        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid amount.')
         return
 
     if isinstance(ctx.channel, discord.DMChannel):
-        await ctx.send(f'{EMOJI_RED_NO} This command can not be in private.')
+        await ctx.message.reply(f'{EMOJI_RED_NO} This command can not be in private.')
         return
 
     serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
@@ -13494,7 +13504,7 @@ async def mtip(ctx, amount: str, *args):
         return
 
     if not is_coin_tipable(COIN_NAME):
-        msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} TIPPING is currently disable for {COIN_NAME}.')
+        msg = await ctx.message.reply(f'{EMOJI_ERROR} {ctx.author.mention} TIPPING is currently disable for {COIN_NAME}.')
         await msg.add_reaction(EMOJI_OK_BOX)
         return
 
@@ -13548,8 +13558,8 @@ async def mtip(ctx, amount: str, *args):
                         elif num_user >= len(ctx.guild.members):
                             try:
                                 await ctx.message.add_reaction(EMOJI_INFORMATION)
-                                await ctx.send(f'{ctx.author.mention} Boss, you want to tip more than the number of people in this guild!?.'
-                                               ' Can be done :). Wait a while.... I am doing it. (**counting..**)')
+                                await ctx.message.reply(f'{ctx.author.mention} Boss, you want to tip more than the number of people in this guild!?.'
+                                                        ' Can be done :). Wait a while.... I am doing it. (**counting..**)')
                             except (discord.errors.NotFound, discord.errors.Forbidden) as e:
                                 # No need to tip if failed to message
                                 await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
@@ -13561,8 +13571,8 @@ async def mtip(ctx, amount: str, *args):
                                 await ctx.message.add_reaction(EMOJI_ERROR)
                                 await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is not sufficient user to count.')
                             elif len(message_talker) < len(ctx.guild.members) - 1: # minus bot
-                                await ctx.send(f'{EMOJI_INFORMATION} {ctx.author.mention} I could not find sufficient talkers up to **{num_user}**. I found only **{len(message_talker)}**'
-                                               f' and tip to those **{len(message_talker)}** users if they are still here.')
+                                await ctx.message.reply(f'{EMOJI_INFORMATION} {ctx.author.mention} I could not find sufficient talkers up to **{num_user}**. I found only **{len(message_talker)}**'
+                                                        f' and tip to those **{len(message_talker)}** users if they are still here.')
                                 # tip all user who are in the list
                                 try:
                                     async with ctx.typing():
@@ -13583,12 +13593,12 @@ async def mtip(ctx, amount: str, *args):
                                 message_talker.pop()
                             if len(message_talker) == 0:
                                 await ctx.message.add_reaction(EMOJI_ERROR)
-                                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is not sufficient user to count.')
+                                await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} There is not sufficient user to count.')
                             elif len(message_talker) < num_user:
                                 try:
                                     await ctx.message.add_reaction(EMOJI_INFORMATION)
-                                    await ctx.send(f'{EMOJI_INFORMATION} {ctx.author.mention} I could not find sufficient talkers up to **{num_user}**. I found only **{len(message_talker)}**'
-                                                   f' and tip to those **{len(message_talker)}** users if they are still here.')
+                                    await ctx.message.reply(f'{EMOJI_INFORMATION} {ctx.author.mention} I could not find sufficient talkers up to **{num_user}**. I found only **{len(message_talker)}**'
+                                                            f' and tip to those **{len(message_talker)}** users if they are still here.')
                                 except (discord.errors.NotFound, discord.errors.Forbidden) as e:
                                     # No need to tip if failed to message
                                     await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
@@ -13617,7 +13627,7 @@ async def mtip(ctx, amount: str, *args):
                             return
                         else:
                             await ctx.message.add_reaction(EMOJI_ERROR)
-                            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} What is this **{num_user}** number? Please give a number bigger than 0 :) ')
+                            await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} What is this **{num_user}** number? Please give a number bigger than 0 :) ')
                             return
                     except ValueError:
                         await ctx.message.add_reaction(EMOJI_ERROR)
@@ -13654,24 +13664,24 @@ async def mtip(ctx, amount: str, *args):
                     time_second = sum(int(num) * mult.get(val, 1) for num, val in re.findall('(\d+)(\w+)', time_string))
                 except Exception as e:
                     await logchanbot(traceback.format_exc())
-                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid time given. Please use this example: `.tip 1,000 last 5h 12mn`')
+                    await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid time given. Please use this example: `.tip 1,000 last 5h 12mn`')
                     return
                 try:
                     time_given = int(time_second)
                 except ValueError:
                     await ctx.message.add_reaction(EMOJI_ERROR)
-                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid time given check.')
+                    await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid time given check.')
                     return
                 if time_given:
                     if time_given < 5*60 or time_given > 60*24*60*60:
                         await ctx.message.add_reaction(EMOJI_ERROR)
-                        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Please try time inteval between 5minutes to 24hours.')
+                        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Please try time inteval between 5minutes to 24hours.')
                         return
                     else:
                         message_talker = await store.sql_get_messages(str(ctx.message.guild.id), str(ctx.message.channel.id), time_given, None)
                         if len(message_talker) == 0:
                             await ctx.message.add_reaction(EMOJI_ERROR)
-                            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is no active talker in such period.')
+                            await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} There is no active talker in such period.')
                             return
                         else:
                             try:
@@ -13687,7 +13697,7 @@ async def mtip(ctx, amount: str, *args):
             else:
                 await ctx.message.add_reaction(EMOJI_ERROR)
                 try:
-                    await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
+                    await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
                 except (discord.Forbidden, discord.errors.Forbidden) as e:
                     try:
                         await ctx.message.author.send(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
@@ -13697,7 +13707,7 @@ async def mtip(ctx, amount: str, *args):
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
             try:
-                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
+                await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
                 try:
                     await ctx.message.author.send(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
@@ -13712,7 +13722,7 @@ async def mtip(ctx, amount: str, *args):
         member = ctx.message.mentions[0]
         if ctx.message.author.id == member.id:
             await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Tip me if you want.')
+            await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Tip me if you want.')
             return
     elif len(ctx.message.role_mentions) >= 1:
         mention_roles = ctx.message.role_mentions
@@ -13720,7 +13730,7 @@ async def mtip(ctx, amount: str, *args):
             mention_roles.remove("@everyone")
             if len(mention_roles) < 1:
                 await ctx.message.add_reaction(EMOJI_ERROR)
-                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Can not find user to tip to.')
+                await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Can not find user to tip to.')
                 return
         await _tip(ctx, amount, COIN_NAME, True)
         return
@@ -13732,7 +13742,7 @@ async def mtip(ctx, amount: str, *args):
     floodTip = await store.sql_get_countLastTip(str(ctx.guild.id), config.floodTipDuration)
     if floodTip >= config.floodTip:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Cool down your tip or TX. or increase your amount next time.')
+        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Cool down your tip or TX. or increase your amount next time.')
         await botLogChan.send('A guild reached max. TX threshold. Currently halted: `.tip`')
         return
     # End of Check flood of tip
@@ -13796,21 +13806,21 @@ async def mtip(ctx, amount: str, *args):
 
     if real_amount > MaxTX:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
-                       f'{num_format_coin(MaxTX, COIN_NAME)} '
-                       f'{COIN_NAME}.')
+        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
+                                f'{num_format_coin(MaxTX, COIN_NAME)} '
+                                f'{COIN_NAME}.')
         return
     elif real_amount > actual_balance:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
-                       f'{num_format_coin(real_amount, COIN_NAME)} '
-                       f'{COIN_NAME} to {member.name}#{member.discriminator}.')
+        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tip of '
+                                f'{num_format_coin(real_amount, COIN_NAME)} '
+                                f'{COIN_NAME} to {member.name}#{member.discriminator}.')
         return
     elif real_amount < MinTx:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
-                       f'{num_format_coin(MinTx, COIN_NAME)} '
-                       f'{COIN_NAME}.')
+        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
+                                f'{num_format_coin(MinTx, COIN_NAME)} '
+                                f'{COIN_NAME}.')
         return
 
     tipmsg = ""
@@ -13870,7 +13880,7 @@ async def mtip(ctx, amount: str, *args):
         return
     else:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{ctx.author.mention} Can not deliver TX for {COIN_NAME} right now. Try again soon.')
+        await ctx.message.reply(f'{ctx.author.mention} Can not deliver TX for {COIN_NAME} right now. Try again soon.')
         # add to failed tx table
         await store.sql_add_failed_tx(COIN_NAME, str(ctx.message.author.id), ctx.message.author.name, real_amount, "TIP")
         return
@@ -13882,20 +13892,20 @@ async def tipall(ctx, amount: str, coin: str, option: str=None):
     # check if bot is going to restart
     if IS_RESTARTING:
         await ctx.message.add_reaction(EMOJI_REFRESH)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is going to restart soon. Wait until it is back for using this.')
+        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is going to restart soon. Wait until it is back for using this.')
         return
     # check if account locked
     account_lock = await alert_if_userlock(ctx, 'tipall')
     if account_lock:
         await ctx.message.add_reaction(EMOJI_LOCKED) 
-        await ctx.send(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
+        await ctx.message.reply(f'{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}')
         return
     # end of check if account locked
 
     # Check if tx in progress
     if ctx.message.author.id in TX_IN_PROCESS:
         await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
-        msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+        msg = await ctx.message.reply(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
         await msg.add_reaction(EMOJI_OK_BOX)
         return
 
@@ -13906,11 +13916,11 @@ async def tipall(ctx, amount: str, coin: str, option: str=None):
         amount = Decimal(amount)
     except ValueError:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid amount.')
+        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid amount.')
         return
 
     if isinstance(ctx.channel, discord.DMChannel):
-        await ctx.send(f'{EMOJI_RED_NO} This command can not be in private.')
+        await ctx.message.reply(f'{EMOJI_RED_NO} This command can not be in private.')
         return
 
     COIN_NAME = coin.upper()
@@ -13937,12 +13947,12 @@ async def tipall(ctx, amount: str, coin: str, option: str=None):
     if option not in option_list:
         allow_option = ", ".join(option_list)
         await ctx.message.add_reaction(EMOJI_ERROR)
-        msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} TIPALL is currently support only option **{allow_option}**.')
+        msg = await ctx.message.reply(f'{EMOJI_ERROR} {ctx.author.mention} TIPALL is currently support only option **{allow_option}**.')
         await msg.add_reaction(EMOJI_OK_BOX)
         return
     print('TIPALL COIN_NAME:' + COIN_NAME)
     if not is_coin_tipable(COIN_NAME):
-        msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} TIPPING is currently disable for {COIN_NAME}.')
+        msg = await ctx.message.reply(f'{EMOJI_ERROR} {ctx.author.mention} TIPPING is currently disable for {COIN_NAME}.')
         await msg.add_reaction(EMOJI_OK_BOX)
         return
     if is_maintenance_coin(COIN_NAME):
@@ -13956,7 +13966,7 @@ async def tipall(ctx, amount: str, coin: str, option: str=None):
         pass
     elif COIN_NAME not in tiponly_coins:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} not in allowed coins set by server manager.')
+        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} not in allowed coins set by server manager.')
         return
     # End of checking allowed coins
 
@@ -13964,7 +13974,7 @@ async def tipall(ctx, amount: str, coin: str, option: str=None):
     floodTip = await store.sql_get_countLastTip(str(ctx.message.author.id), config.floodTipDuration)
     if floodTip >= config.floodTip:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Cool down your tip or TX. or increase your amount next time.')
+        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Cool down your tip or TX. or increase your amount next time.')
         await botLogChan.send('A user reached max. TX threshold. Currently halted: `.tipall`')
         return
     # End of Check flood of tip
@@ -14002,7 +14012,7 @@ async def tipall(ctx, amount: str, coin: str, option: str=None):
     if len(listMembers) > config.tipallMax_Offchain:
         await ctx.message.add_reaction(EMOJI_ERROR)
         try:
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} The number of receivers are too many. This command isn\'t available here.')
+            await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} The number of receivers are too many. This command isn\'t available here.')
         except (discord.Forbidden, discord.errors.Forbidden) as e:
             await ctx.message.author.send(f'{EMOJI_RED_NO} The number of receivers are too many in `{ctx.guild.name}`. This command isn\'t available here.')
         return
@@ -14062,27 +14072,27 @@ async def tipall(ctx, amount: str, coin: str, option: str=None):
 
     if real_amount > MaxTX:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
-                       f'{num_format_coin(MaxTX, COIN_NAME)} '
-                       f'{COIN_NAME}.')
+        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
+                                f'{num_format_coin(MaxTX, COIN_NAME)} '
+                                f'{COIN_NAME}.')
         return
     elif real_amount < MinTx:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
-                       f'{num_format_coin(MinTx, COIN_NAME)} '
-                       f'{COIN_NAME}.')
+        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
+                                f'{num_format_coin(MinTx, COIN_NAME)} '
+                                f'{COIN_NAME}.')
         return
     elif real_amount > actual_balance:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to spread tip of '
-                       f'{num_format_coin(real_amount, COIN_NAME)} '
-                       f'{COIN_NAME}.')
+        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to spread tip of '
+                                f'{num_format_coin(real_amount, COIN_NAME)} '
+                                f'{COIN_NAME}.')
         return
     elif (real_amount / len(list_receivers)) < MinTx:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
-                       f'{num_format_coin(MinTx, COIN_NAME)} '
-                       f'{COIN_NAME} for each member. You need at least {num_format_coin(len(list_receivers) * MinTx, COIN_NAME)}{COIN_NAME}.')
+        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
+                                f'{num_format_coin(MinTx, COIN_NAME)} '
+                                f'{COIN_NAME} for each member. You need at least {num_format_coin(len(list_receivers) * MinTx, COIN_NAME)}{COIN_NAME}.')
         return
 
     amountDiv = int(round(real_amount / len(list_receivers), 2))  # cut 2 decimal only
@@ -18809,15 +18819,15 @@ async def _tip(ctx, amount, coin: str, if_guild: bool=False):
 
     if real_amount > MaxTX:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
-                       f'{num_format_coin(MaxTX, COIN_NAME)} '
-                       f'{COIN_NAME}.')
+        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
+                                f'{num_format_coin(MaxTX, COIN_NAME)} '
+                                f'{COIN_NAME}.')
         return
     elif real_amount < MinTx:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
-                       f'{num_format_coin(MinTx, COIN_NAME)} '
-                       f'{COIN_NAME}.')
+        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
+                                f'{num_format_coin(MinTx, COIN_NAME)} '
+                                f'{COIN_NAME}.')
         return
 
     listMembers = []
@@ -18855,24 +18865,23 @@ async def _tip(ctx, amount, coin: str, if_guild: bool=False):
             list_receivers.append(str(member.id))
 
     TotalAmount = real_amount * len(list_receivers)
-    print('_tip TotalAmount: {}'.format(TotalAmount))
     if TotalAmount > MaxTX:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Total transactions cannot be bigger than '
-                       f'{num_format_coin(MaxTX, COIN_NAME)} '
-                       f'{COIN_NAME}.')
+        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Total transactions cannot be bigger than '
+                                f'{num_format_coin(MaxTX, COIN_NAME)} '
+                                f'{COIN_NAME}.')
         return
     elif real_amount < MinTx:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Total transactions cannot be smaller than '
-                       f'{num_format_coin(MinTx, COIN_NAME)} '
-                       f'{COIN_NAME}.')
+        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Total transactions cannot be smaller than '
+                                f'{num_format_coin(MinTx, COIN_NAME)} '
+                                f'{COIN_NAME}.')
         return
     elif TotalAmount > actual_balance:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send total {tip_type_text} of '
-                       f'{num_format_coin(TotalAmount, COIN_NAME)} '
-                       f'{COIN_NAME}.')
+        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send total {tip_type_text} of '
+                                f'{num_format_coin(TotalAmount, COIN_NAME)} '
+                                f'{COIN_NAME}.')
         return
 
     # add queue also tip
@@ -19048,21 +19057,21 @@ async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str 
 
     if real_amount > MaxTX:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
-                       f'{num_format_coin(MaxTX, COIN_NAME)} '
-                       f'{COIN_NAME}.')
+        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
+                                f'{num_format_coin(MaxTX, COIN_NAME)} '
+                                f'{COIN_NAME}.')
         return
     elif real_amount < MinTx:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
-                       f'{num_format_coin(MinTx, COIN_NAME)} '
-                       f'{COIN_NAME}.')
+        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
+                                f'{num_format_coin(MinTx, COIN_NAME)} '
+                                f'{COIN_NAME}.')
         return
     elif real_amount > actual_balance:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send {tip_type_text} of '
-                       f'{num_format_coin(real_amount, COIN_NAME)} '
-                        f'{COIN_NAME}.')
+        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send {tip_type_text} of '
+                                f'{num_format_coin(real_amount, COIN_NAME)} '
+                                f'{COIN_NAME}.')
         return
 
     list_receivers = []
@@ -19095,7 +19104,7 @@ async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str 
     if len(list_receivers) > config.tipallMax:
         await ctx.message.add_reaction(EMOJI_ERROR)
         try:
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} The number of receivers are too many.')
+            await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} The number of receivers are too many.')
         except (discord.Forbidden, discord.errors.Forbidden) as e:
             await ctx.message.author.send(f'{EMOJI_RED_NO} The number of receivers are too many in `{ctx.guild.name}`.')
         return
@@ -19105,26 +19114,26 @@ async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str 
 
     if TotalAmount > MaxTX:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Total transactions cannot be bigger than '
-                       f'{num_format_coin(MaxTX, COIN_NAME)} '
-                       f'{COIN_NAME}.')
+        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Total transactions cannot be bigger than '
+                                f'{num_format_coin(MaxTX, COIN_NAME)} '
+                                f'{COIN_NAME}.')
         return
     elif real_amount < MinTx:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Total transactions cannot be smaller than '
-                       f'{num_format_coin(MinTx, COIN_NAME)} '
-                       f'{COIN_NAME}.')
+        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Total transactions cannot be smaller than '
+                                f'{num_format_coin(MinTx, COIN_NAME)} '
+                                f'{COIN_NAME}.')
         return
     elif TotalAmount > actual_balance:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {guild_name} Insufficient balance to send total {tip_type_text} of '
-                       f'{num_format_coin(TotalAmount, COIN_NAME)} '
-                       f'{COIN_NAME}.')
+        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} {guild_name} Insufficient balance to send total {tip_type_text} of '
+                                f'{num_format_coin(TotalAmount, COIN_NAME)} '
+                                f'{COIN_NAME}.')
         return
 
     if len(list_receivers) < 1:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is no active talker in such period. Please increase more duration or tip directly!')
+        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} There is no active talker in such period. Please increase more duration or tip directly!')
         return
 
     # add queue also tip
@@ -19194,14 +19203,13 @@ async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str 
             # shuffle list_talker
             random.shuffle(list_talker)
             for member_id in list_talker:
-                if ctx.message.author.id != int(member_id):
+                member = bot.get_user(id=int(member_id))
+                if ctx.message.author.id != int(member_id) and member and member.bot == False and member in guild_members:
                     if numb_mention < max_mention:
-                        member = bot.get_user(id=int(member_id))
-                        if member and member.bot == False and member in guild_members:
-                            if str(member_id) not in notifyList:
-                                list_user_mention.append("{}".format(member.mention))
-                            else:
-                                list_user_not_mention.append("{}".format(member.name))
+                        if str(member_id) not in notifyList:
+                            list_user_mention.append("{}".format(member.mention))
+                        else:
+                            list_user_not_mention.append("{}".format(member.name))
                         numb_mention += 1
                         total_found += 1
                     else:
@@ -19235,7 +19243,7 @@ async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str 
         await ctx.message.add_reaction(get_emoji(COIN_NAME))
         if tip_public == False:
             try:
-                await ctx.send(f'{discord.utils.escape_markdown(mention_list_name)}\n\n**({total_found})** members got {tip_type_text} :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
+                await ctx.message.reply(f'{discord.utils.escape_markdown(mention_list_name)}\n\n**({total_found})** members got {tip_type_text} :) for active talking in `{ctx.guild.name}` {ctx.channel.mention} :)')
                 await ctx.message.add_reaction(EMOJI_SPEAK)
             except discord.errors.Forbidden:
                 serverinfo = await store.sql_info_by_server(str(ctx.guild.id))

@@ -6455,7 +6455,7 @@ async def economy_shop_get_item_list():
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ SELECT * FROM discord_economy_shopbot ORDER BY `id` DESC """
+                sql = """ SELECT * FROM discord_economy_shopbot ORDER BY `credit_cost` DESC """
                 await cur.execute(sql,)
                 result = await cur.fetchall()
                 if result: return result
@@ -6485,6 +6485,16 @@ async def discord_economy_userinfo_what(guild_id: str, user_id: str, item_id: in
                 elif what.upper() == "TRACTOR" or what == "🚜":
                     sql = """ UPDATE discord_economy_userinfo SET `numb_tractor`=`numb_tractor`+%s, `credit`=`credit`+%s WHERE `user_id`=%s """
                     await cur.execute(sql, (item_nos, credit, user_id,))
+                elif what.upper() == "DAIRY CATTLE" or what == "DAIRYCATTLE":
+                    sql = """ UPDATE discord_economy_userinfo SET `numb_dairy_cattle`=`numb_dairy_cattle`+%s, `credit`=`credit`+%s WHERE `user_id`=%s """
+                    await cur.execute(sql, (item_nos, credit, user_id,))
+                elif what.upper() == "COW" or what == "🐄":
+                    sql = """ UPDATE discord_economy_userinfo SET `numb_cow`=`numb_cow`+%s, `credit`=`credit`+%s WHERE `user_id`=%s """
+                    await cur.execute(sql, (item_nos, credit, user_id,))
+                    # insert to dairy ownership
+                    sql = """ INSERT INTO discord_economy_dairy_cattle_ownership (`user_id`, `guild_id`, `bought_date`, `credit_cost`, `possible_collect_date`) 
+                              VALUES (%s, %s, %s, %s, %s) """
+                    await cur.execute(sql, (user_id, guild_id, int(time.time()), credit, int(time.time())+config.economy.dairy_collecting_time))
                 elif what.upper() == "CREDIT" or what == "💵":
                     sql = """ UPDATE discord_economy_userinfo SET `credit`=`credit`+%s,`gem_credit`=`gem_credit`-1 WHERE `user_id`=%s """
                     await cur.execute(sql, (credit, user_id))
@@ -6781,6 +6791,63 @@ async def economy_farm_sell_item(plant_id: int, user_id: str, guild_id: str, tot
     except Exception as e:
         await logchanbot(traceback.format_exc())
     return None
+
+
+async def economy_dairy_cow_ownership(user_id: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM discord_economy_dairy_cattle_ownership WHERE `user_id`=%s """
+                await cur.execute(sql, (user_id))
+                result = await cur.fetchall()
+                if result: return result
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return []
+
+async def economy_dairy_collecting(user_id: str, cowlist, qty_collect: float, credit_raw_milk_liter: float):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ INSERT INTO discord_economy_dairy_collected (`user_id`, `collected_date`, `collected_qty`, `credit_per_item`) 
+                          VALUES (%s, %s, %s, %s) """
+                await cur.execute(sql, (user_id, int(time.time()), qty_collect, credit_raw_milk_liter))
+
+                ## add raw_milk_qty
+                sql = """ UPDATE discord_economy_userinfo SET `raw_milk_qty`=`raw_milk_qty`+%s 
+                          WHERE `user_id`=%s LIMIT 1 """
+                await cur.execute(sql, (qty_collect, user_id,))
+
+                sql = """ UPDATE discord_economy_dairy_cattle_ownership SET `last_collect_date`=%s, `possible_collect_date`=%s, `total_produced_qty`=`total_produced_qty`+%s 
+                          WHERE `user_id`=%s AND `id`=%s """
+                list_update = []
+                for each_item in cowlist:
+                    list_update.append((int(time.time()), int(time.time())+config.economy.dairy_collecting_time, config.economy.raw_milk_per_cow, user_id, each_item))
+                await cur.executemany(sql, list_update)
+                await conn.commit()
+                return True
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return None
+
+
+async def economy_dairy_collected(user_id: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM discord_economy_dairy_collected WHERE `user_id`=%s AND `sold`=%s """
+                await cur.execute(sql, (user_id, 'NO'))
+                result = await cur.fetchall()
+                if result: return result
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return []
 ## end of economy
 
 # Steal from https://nitratine.net/blog/post/encryption-and-decryption-in-python/

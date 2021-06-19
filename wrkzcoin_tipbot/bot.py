@@ -6027,7 +6027,7 @@ async def sell(ctx, *, item_name: str):
 
 
 @economy.command(name='buy')
-async def buy(ctx, item_name: str=None):
+async def buy(ctx, *, item_name: str=None):
     global TRTL_DISCORD
     if isinstance(ctx.channel, discord.DMChannel):
         await ctx.message.add_reaction(EMOJI_ERROR) 
@@ -6081,10 +6081,22 @@ async def buy(ctx, item_name: str=None):
             await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You have maximum of seeds already.')
             return
         elif get_userinfo['numb_farm'] >= config.economy.max_farm_per_user and (item_name.upper() == "FARM" or item_name == "👨‍🌾"):
-            await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You have a farm already.')
+            await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You have a `farm` already.')
             return
         elif get_userinfo['numb_tractor'] >= config.economy.max_tractor_per_user and (item_name.upper() == "TRACTOR" or item_name == "🚜"):
-            await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You have a tractor already.')
+            await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You have a `tractor` already.')
+            return
+        elif get_userinfo['numb_dairy_cattle'] >= config.economy.max_dairycattle_per_user and (item_name.upper() == "DAIRY CATTLE" or item_name == "DAIRYCATTLE"):
+            await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You have a dairy cattle already.')
+            return
+        elif get_userinfo['numb_dairy_cattle'] == 0 and item_name.upper() == "COW":
+            await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You do not have `dairy cattle`.')
+            return
+        elif get_userinfo['numb_farm'] == 0 and (item_name.upper() == "TRACTOR" or item_name == "🚜"):
+            await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You do not have a `farm`.')
+            return
+        elif get_userinfo['numb_cow'] >= config.economy.max_cow_per_user and (item_name.upper() == "COW" or item_name == "🐄"):
+            await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You have maximum of cows already.')
             return
         else:
             try:
@@ -6671,6 +6683,214 @@ async def plant(ctx, plant_name: str=None):
     if ctx.author.id in GAME_INTERACTIVE_ECO:
         GAME_INTERACTIVE_ECO.remove(ctx.author.id)
     return
+
+
+@economy.command(name='collect', aliases=['cl'])
+async def collect(ctx, what: str = None):
+    global TRTL_DISCORD, GAME_INTERACTIVE_ECO, MAINTENANCE_OWNER
+    if isinstance(ctx.channel, discord.DMChannel):
+        await ctx.message.add_reaction(EMOJI_ERROR) 
+        await ctx.send(f'{ctx.author.mention} This command can not be DM.')
+        return
+
+    # disable game for TRTL discord
+    if ctx.guild and ctx.guild.id == TRTL_DISCORD:
+        return
+
+    if what is None:
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} What do you need to collect? Tell me that also!')
+        return
+    else:
+        what = what.upper()
+
+    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+    if serverinfo and 'enable_economy' in serverinfo and serverinfo['enable_economy'] == "NO":
+        prefix = serverinfo['prefix']
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Economy is not ENABLE yet in this guild. Please request Guild owner to enable by `{prefix}SETTING ECONOMY`')
+        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}economy collect** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+        return
+
+    if serverinfo['economy_channel']:
+        eco_channel = bot.get_channel(id=int(serverinfo['economy_channel']))
+        if not eco_channel:
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Can not find economy channel or invalid.')
+            return
+        elif ctx.channel.id != int(serverinfo['economy_channel']):
+            try:
+                EcoChan = bot.get_channel(id=int(serverinfo['economy_channel']))
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention}, {EcoChan.mention} is the economy channel!!!')
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                return
+            except Exception as e:
+                pass
+    else:
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is no economy channel yet.')
+        return
+
+    get_userinfo = await store.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
+    if what == "MILK" and get_userinfo and get_userinfo['numb_dairy_cattle'] == 0:
+        await ctx.message.reply(f'Not having any dairy cattle.')
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        return
+    elif what == "MILK" and get_userinfo and get_userinfo['numb_cow'] == 0:
+        await ctx.message.reply(f'You do not have any cow.')
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        return
+    elif what == "MILK":
+        try:
+            if ctx.author.id not in GAME_INTERACTIVE_ECO:
+                GAME_INTERACTIVE_ECO.append(ctx.author.id)
+            total_can_collect = 0
+            qty_collect = 0.0
+            get_cows = await store.economy_dairy_cow_ownership(str(ctx.author.id))
+            id_collecting = []
+            if get_cows and len(get_cows) > 0:
+                for each_cow in get_cows:
+                    if each_cow['possible_collect_date'] < int(time.time()):
+                        total_can_collect += 1
+                        qty_collect += config.economy.raw_milk_per_cow
+                        id_collecting.append(each_cow['id'])
+                if total_can_collect > 0:
+                    insert_collecting = await store.economy_dairy_collecting(str(ctx.author.id), id_collecting, qty_collect, config.economy.credit_raw_milk_liter)
+                    if insert_collecting:
+                        msg = await ctx.message.reply(f'{EMOJI_INFORMATION} {ctx.author.mention} Nice! You have collected `{qty_collect}` '
+                                                      f'liters of milk from `{total_can_collect}` cow(s).')
+                else:
+                    await ctx.message.reply(f'You need to wait a bit longer. It\'s not time yet.')
+                    await ctx.message.add_reaction(EMOJI_ERROR)
+            else:
+                await ctx.message.reply(f'You do not have any cow.')
+                await ctx.message.add_reaction(EMOJI_ERROR)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+    else:
+        await ctx.message.reply(f'Sorry `{what}` is not available.')
+        await ctx.message.add_reaction(EMOJI_ERROR)
+    if ctx.author.id in GAME_INTERACTIVE_ECO:
+        GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+    return
+
+
+@economy.command(name='dairy', aliases=['cow'])
+async def dairy(ctx, member: discord.Member = None):
+    global TRTL_DISCORD, GAME_INTERACTIVE_ECO, MAINTENANCE_OWNER
+    if isinstance(ctx.channel, discord.DMChannel):
+        await ctx.message.add_reaction(EMOJI_ERROR) 
+        await ctx.send(f'{ctx.author.mention} This command can not be DM.')
+        return
+    
+    if member is None:
+        member = ctx.author
+    # disable game for TRTL discord
+    if ctx.guild and ctx.guild.id == TRTL_DISCORD:
+        return
+
+    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+    if serverinfo and 'enable_economy' in serverinfo and serverinfo['enable_economy'] == "NO":
+        prefix = serverinfo['prefix']
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Economy is not ENABLE yet in this guild. Please request Guild owner to enable by `{prefix}SETTING ECONOMY`')
+        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}economy dairy** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+        return
+
+    if serverinfo['economy_channel']:
+        eco_channel = bot.get_channel(id=int(serverinfo['economy_channel']))
+        if not eco_channel:
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Can not find economy channel or invalid.')
+            return
+        elif ctx.channel.id != int(serverinfo['economy_channel']):
+            try:
+                EcoChan = bot.get_channel(id=int(serverinfo['economy_channel']))
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention}, {EcoChan.mention} is the economy channel!!!')
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                return
+            except Exception as e:
+                pass
+    else:
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is no economy channel yet.')
+        return
+
+    # Getting list of work in the guild and re-act
+    get_userinfo = await store.economy_get_user(str(member.id), '{}#{}'.format(member.name, member.discriminator))
+    if get_userinfo and get_userinfo['numb_dairy_cattle'] == 0:
+        await ctx.message.reply(f'Not having any dairy cattle.')
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        return
+    else:
+        try:
+            # Farm list
+            fence_left = "❎"
+            soil = "🟫"
+            fence_right = "❎"
+            fence_h = "❎"
+            cattle = ""
+            can_collect = []
+            total_can_collect = 0
+            can_harvest_string = "None"
+            cow_emoji = "🐄"
+            # Get all item in farms
+            get_cows = await store.economy_dairy_cow_ownership(str(member.id))
+            if get_cows and len(get_cows) > 0:
+                cows_array_emoji = [cow_emoji]*len(get_cows)
+                if len(cows_array_emoji) < config.economy.max_cow_per_user:
+                    cows_array_emoji = cows_array_emoji + [soil]*(config.economy.max_cow_per_user - len(cows_array_emoji))
+                i=1
+                for each_cow in cows_array_emoji:
+                    if (i-1) % 6 == 0:
+                        cattle += f"{fence_left}"
+                        cattle += f"{each_cow}"
+                    elif i > 0 and i % 6 == 0:
+                        cattle += f"{each_cow}"
+                        cattle += f"{fence_right}\n"
+                    else:
+                        cattle += f"{each_cow}"
+                    i += 1
+                cattle = f"{fence_left}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_right}\n" + cattle
+                cattle += f"{fence_left}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_right}\n"
+                for each_cow in get_cows:
+                    if each_cow['possible_collect_date'] < int(time.time()):
+                        if "{}".format(cow_emoji) not in can_collect:
+                            can_collect.append("{}".format(cow_emoji))
+                        total_can_collect += 1
+                if total_can_collect > 0:
+                    can_harvest_string = "\n".join(can_collect)
+            else:
+                # Empty cattle
+                cows_array_emoji = [soil]*(config.economy.max_cow_per_user)
+                i=1
+                for each_cow in cows_array_emoji:
+                    if (i-1) % 6 == 0:
+                        cattle += f"{fence_left}"
+                        cattle += f"{each_cow}"
+                    elif i > 0 and i % 6 == 0:
+                        cattle += f"{each_cow}"
+                        cattle += f"{fence_right}\n"
+                    else:
+                        cattle += f"{each_cow}"
+                    i += 1
+                cattle = f"{fence_left}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_right}\n" + cattle
+                cattle += f"{fence_left}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_right}\n"
+
+            e = discord.Embed(title="{}#{} Dairy Cattle".format(member.name, member.discriminator), description="Economy [Testing]", timestamp=datetime.utcnow())
+            e.add_field(name="Dairy Cattle View", value=cattle, inline=False)
+            if total_can_collect > 0:
+                e.add_field(name="Can Collect: {}".format(total_can_collect), value=can_harvest_string, inline=False)
+            try:
+                get_raw_milk = await store.economy_dairy_collected(str(member.id))
+                if get_raw_milk and len(get_raw_milk) > 0:
+                    qty_raw_milk = sum(each['collected_qty'] for each in get_raw_milk)
+                    e.add_field(name="Raw Milk Available", value=cow_emoji + " x" +str(len(get_raw_milk)) + "={:,.2f}".format(qty_raw_milk), inline=False)
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            e.set_footer(text=f"Requested by {ctx.author.name}#{ctx.author.discriminator}")
+            e.set_thumbnail(url=member.avatar_url)
+            msg = await ctx.message.reply(embed=e)
+            await msg.add_reaction(EMOJI_OK_BOX)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
 
 
 @economy.command(name='farm', aliases=['farms'])

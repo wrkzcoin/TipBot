@@ -11973,8 +11973,10 @@ async def take(ctx, info: str=None):
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} This guild has less than 7 online users. Faucet is disable.')
             await ctx.message.add_reaction(EMOJI_INFORMATION)
             return
+    except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+        await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
     except Exception as e:
-        await logchanbot(traceback.format_exc())
+        pass
 
     # check if user create account less than 3 days
     try:
@@ -12026,10 +12028,13 @@ async def take(ctx, info: str=None):
             if faucet_penalty and not info:
                 if half_claim_interval*3600 - int(time.time()) + int(faucet_penalty['penalty_at']) > 0:
                     time_waiting = seconds_str(half_claim_interval*3600 - int(time.time()) + int(faucet_penalty['penalty_at']))
-                    msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You claimed in a wrong channel within last {str(half_claim_interval)}h. '
-                                         f'Waiting time {time_waiting} for next **take** and be sure to be the right channel set by the guild.')
-                    await msg.add_reaction(EMOJI_OK_BOX)
-                    await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
+                    try:
+                        msg = await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You claimed in a wrong channel within last {str(half_claim_interval)}h. '
+                                                      f'Waiting time {time_waiting} for next **take** and be sure to be the right channel set by the guild.')
+                        await msg.add_reaction(EMOJI_OK_BOX)
+                        await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
+                    except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+                        await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
                     return
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
@@ -12044,13 +12049,16 @@ async def take(ctx, info: str=None):
                 time_waiting = seconds_str(claim_interval*3600 - int(time.time()) + check_claimed['claimed_at'])
                 user_claims = await store.sql_faucet_count_user(str(ctx.message.author.id))
                 number_user_claimed = '{:,.0f}'.format(user_claims, 'DISCORD')
-                msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You just claimed within last {claim_interval}h. '
-                                     f'Waiting time {time_waiting} for next **take**. Faucet balance:\n```{remaining}```'
-                                     f'Total user claims: **{total_claimed}** times. '
-                                     f'You have claimed: **{number_user_claimed}** time(s). '
-                                     f'Tip me if you want to feed these faucets.')
-                await msg.add_reaction(EMOJI_OK_BOX)
-                await ctx.message.add_reaction(EMOJI_ERROR)
+                try:
+                    msg = await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You just claimed within last {claim_interval}h. '
+                                                  f'Waiting time {time_waiting} for next **take**. Faucet balance:\n```{remaining}```'
+                                                  f'Total user claims: **{total_claimed}** times. '
+                                                  f'You have claimed: **{number_user_claimed}** time(s). '
+                                                  f'Tip me if you want to feed these faucets.')
+                    await msg.add_reaction(EMOJI_OK_BOX)
+                    await ctx.message.add_reaction(EMOJI_ERROR)
+                except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+                    await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
                 return
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
@@ -12169,7 +12177,7 @@ async def take(ctx, info: str=None):
                         tip = await store.sql_mv_trx_single(str(bot.user.id), str(ctx.message.author.id), real_amount, COIN_NAME, "FAUCET", token_info['contract'])
                 else:
                     try:
-                        msg = await ctx.send(f'{EMOJI_MONEYFACE} {ctx.author.mention} Simulated faucet {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}. This is a test only. Use without **ticker** to do real faucet claim.')
+                        msg = await ctx.message.reply(f'{EMOJI_MONEYFACE} {ctx.author.mention} Simulated faucet {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}. This is a test only. Use without **ticker** to do real faucet claim.')
                         await msg.add_reaction(EMOJI_OK_BOX)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
@@ -12196,6 +12204,8 @@ async def take(ctx, info: str=None):
                 await logchanbot(f'[Discord] User {ctx.message.author.name}#{ctx.message.author.discriminator} claimed faucet {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME} in guild {ctx.guild.name}/{ctx.guild.id}')
                 await ctx.message.add_reaction(get_emoji(COIN_NAME))
                 await msg.add_reaction(EMOJI_OK_BOX)
+            except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+                msg = await ctx.author.send(f'{EMOJI_MONEYFACE} {ctx.author.mention} You got a random faucet {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}. Claimed in guild `{ctx.guild.name}`.')
             except Exception as e:
                 await logchanbot(traceback.format_exc())
         else:

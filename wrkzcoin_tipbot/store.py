@@ -6848,6 +6848,29 @@ async def economy_dairy_collected(user_id: str):
     except Exception as e:
         await logchanbot(traceback.format_exc())
     return []
+
+
+async def economy_dairy_sell_milk(user_id: str, ids, credit: float, qty_sell: float):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                ## update raw_milk_qty
+                sql = """ UPDATE discord_economy_userinfo SET `raw_milk_qty`=`raw_milk_qty`-%s, `raw_milk_qty_sold`=`raw_milk_qty_sold`+%s, `credit`=`credit`+%s 
+                          WHERE `user_id`=%s LIMIT 1 """
+                await cur.execute(sql, (qty_sell, qty_sell, credit, user_id,))
+                sql = """ UPDATE discord_economy_dairy_collected SET `sold`=%s, `sold_date`=%s 
+                          WHERE `user_id`=%s AND `id`=%s AND `sold`=%s """
+                list_update = []
+                for each_item in ids:
+                    list_update.append(('YES', int(time.time()), user_id, each_item, 'NO'))
+                await cur.executemany(sql, list_update)
+                await conn.commit()
+                return True
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return None
 ## end of economy
 
 # Steal from https://nitratine.net/blog/post/encryption-and-decryption-in-python/

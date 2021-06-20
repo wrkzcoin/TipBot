@@ -5954,6 +5954,7 @@ async def sell(ctx, *, item_name: str):
         get_user_harvested_crops = await store.economy_farm_user_planting_group_harvested(str(ctx.author.id))
         get_fish_inventory_list_arr = [each_item['fish_name'].upper() for each_item in get_fish_inventory_list]
         get_user_harvested_crops_arr = [each_item['plant_name'].upper() for each_item in get_user_harvested_crops]
+        get_userinfo = await store.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
         if item_name.strip().upper() in get_fish_inventory_list_arr:
             # Selling Fishes
             if len(get_fish_inventory_list) > 0:
@@ -5977,7 +5978,6 @@ async def sell(ctx, *, item_name: str):
                             GAME_INTERACTIVE_ECO.append(ctx.author.id)
                         total_earn = int(float(selected_fishes['Weights']) * float(selected_fishes['credit_per_kg']))
                         total_weight = float(selected_fishes['Weights'])
-                        get_userinfo = await store.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
                         get_userinfo['credit'] += total_earn
                         selling_fishes = await store.economy_sell_fishes(selected_fishes['fish_id'], str(ctx.author.id), str(ctx.guild.id), total_weight, total_earn)
                         if selling_fishes:
@@ -6017,10 +6017,36 @@ async def sell(ctx, *, item_name: str):
                         await ctx.message.add_reaction(EMOJI_ERROR)
             else:
                 await ctx.message.reply(f'{ctx.author.name}#{ctx.author.discriminator}, You do not have any vegetable or fruit to sell. Plant and harvest!')
+        elif item_name.strip().upper() == "MILK":
+            # Selling milk
+            try:
+                get_raw_milk = await store.economy_dairy_collected(str(ctx.author.id))
+                ids = []
+                qty_raw_milk = 0.0
+                credit_sell = 0.0
+                if get_raw_milk and len(get_raw_milk) > 0:
+                    for each in get_raw_milk:
+                        ids.append(each['id'])
+                        qty_raw_milk += float(each['collected_qty'])
+                        credit_sell += float(each['collected_qty']) * float(each['credit_per_item'])
+                    if qty_raw_milk > 0:
+                        # has milk, sell all
+                        sell_milk = await store.economy_dairy_sell_milk(str(ctx.author.id), ids, credit_sell, qty_raw_milk)
+                        if sell_milk:
+                            get_userinfo['credit'] = float(get_userinfo['credit']) + float(credit_sell)
+                            await ctx.message.reply('You sold {:,.2f} liter(s) of milk for `{:,.2f}` Credit(s). Your credit now is: `{:,.2f}`.'.format(qty_raw_milk, credit_sell, get_userinfo['credit']))
+                    else:
+                        await ctx.message.reply(f'{ctx.author.name}#{ctx.author.discriminator}, You do not have milk to sell!!')
+                else:
+                    await ctx.message.reply(f'{ctx.author.name}#{ctx.author.discriminator}, You do not have milk to sell!')
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
         else:
             await ctx.message.reply(f'{ctx.author.name}#{ctx.author.discriminator}, not valid to sell {item_name} or you do not have it!')
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
     if ctx.author.id in GAME_INTERACTIVE_ECO:
         GAME_INTERACTIVE_ECO.remove(ctx.author.id)
     return
@@ -19082,7 +19108,8 @@ async def _tip(ctx, amount, coin: str, if_guild: bool=False):
                 else:
                     userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0)
                 user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
-            list_receivers.append(str(member.id))
+            if str(member.id) not in list_receivers.append(str(member.id)):
+                list_receivers.append(str(member.id))
 
     TotalAmount = real_amount * len(list_receivers)
     if TotalAmount > MaxTX:

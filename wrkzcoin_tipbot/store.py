@@ -6871,6 +6871,43 @@ async def economy_dairy_sell_milk(user_id: str, ids, credit: float, qty_sell: fl
     except Exception as e:
         await logchanbot(traceback.format_exc())
     return None
+
+async def economy_dairy_factory_cheeze(user_id: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM discord_economy_factory_cheeze WHERE `user_id`=%s AND `collected`=%s AND `possible_collect_date`<%s """
+                await cur.execute(sql, (user_id, 'NO', int(time.time())))
+                result = await cur.fetchall()
+                if result: return result
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return []
+
+async def economy_dairy_factory_cheeze_collecting(user_id: str, milklist, qty_collect: float, credit: float):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                ## add raw_milk_qty
+                sql = """ UPDATE discord_economy_userinfo SET `cheeze_qty`=`cheeze_qty`+%s 
+                          WHERE `user_id`=%s LIMIT 1 """
+                await cur.execute(sql, (qty_collect, user_id,))
+
+                sql = """ UPDATE discord_economy_factory_cheeze SET `collected`=%s, `collected_date`=%s, `credit_per_item`=%s 
+                          WHERE `user_id`=%s AND `id`=%s """
+                list_update = []
+                for each_item in milklist:
+                    list_update.append(('YES', int(time.time()), user_id, each_item, credit))
+                await cur.executemany(sql, list_update)
+                await conn.commit()
+                return True
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return None
 ## end of economy
 
 # Steal from https://nitratine.net/blog/post/encryption-and-decryption-in-python/

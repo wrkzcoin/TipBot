@@ -13516,10 +13516,16 @@ async def tip(ctx, amount: str, *args):
                 await ctx.message.add_reaction(EMOJI_ERROR)
                 await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Can not find user to tip to.')
                 return
-        await _tip(ctx, amount, COIN_NAME)
+        try:
+            await _tip(ctx, amount, COIN_NAME)
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
         return
     elif len(ctx.message.mentions) > 1 and fromDM == False:
-        await _tip(ctx, amount, COIN_NAME)
+        try:
+            await _tip(ctx, amount, COIN_NAME)
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
         return
 
 
@@ -13988,10 +13994,16 @@ async def mtip(ctx, amount: str, *args):
                 await ctx.message.add_reaction(EMOJI_ERROR)
                 await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Can not find user to tip to.')
                 return
-        await _tip(ctx, amount, COIN_NAME, True)
+        try:
+            await _tip(ctx, amount, COIN_NAME, True)
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
         return
     elif len(ctx.message.mentions) > 1:
-        await _tip(ctx, amount, COIN_NAME, True)
+        try:
+            await _tip(ctx, amount, COIN_NAME, True)
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
         return
 
     # Check flood of tip
@@ -19118,8 +19130,9 @@ async def _tip(ctx, amount, coin: str, if_guild: bool=False):
                 else:
                     userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0)
                 user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
-            if str(member.id) not in list_receivers.append(str(member.id)):
+            if len(list_receivers) == 0 or str(member.id) not in list_receivers:
                 list_receivers.append(str(member.id))
+            
 
     TotalAmount = real_amount * len(list_receivers)
     if TotalAmount > MaxTX:
@@ -19154,6 +19167,8 @@ async def _tip(ctx, amount, coin: str, if_guild: bool=False):
     if len(list_receivers) < 1:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is no one to {tip_type_text} to.')
+        if int(id_tipper) in TX_IN_PROCESS:
+            TX_IN_PROCESS.remove(int(id_tipper))
         return
     try:
         if coin_family in ["TRTL", "BCN"]:

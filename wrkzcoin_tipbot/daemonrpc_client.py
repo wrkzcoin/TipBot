@@ -177,6 +177,33 @@ async def gettopblock(coin: str, time_out: int = None):
                 return None
         else:
             return None
+    elif coin_family == "XCH":
+        result = await call_daemon_xch('get_blockchain_state', COIN_NAME)
+        return result['blockchain_state']['peak']
+
+
+async def call_daemon_xch(method_name: str, coin: str, time_out: int = None, payload: Dict = None) -> Dict:
+    import ssl
+    COIN_NAME = coin.upper()
+    ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+    ssl_context.load_cert_chain(getattr(config,"daemon"+COIN_NAME).cert, getattr(config,"daemon"+COIN_NAME).key)
+
+    full_payload = payload or {}
+    timeout = time_out or 16
+    url = 'https://'+getattr(config,"daemon"+COIN_NAME).daemon_rpc+'/'+method_name.lower()
+    try:
+        async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
+            async with session.post(url, json=full_payload, timeout=timeout, ssl=ssl_context) as response:
+                if response.status == 200:
+                    res_data = await response.json()
+                    await session.close()
+                    return res_data
+    except asyncio.TimeoutError:
+        await logchanbot('call_daemon: method: {} COIN_NAME {} - timeout {}'.format(method_name, coin.upper(), time_out))
+        return None
+    except Exception:
+        await logchanbot(traceback.format_exc())
+        return None
 
 
 async def call_daemon(method_name: str, coin: str, time_out: int = None, payload: Dict = None) -> Dict:

@@ -14,6 +14,7 @@ import sys, traceback
 sys.path.append("..")
 ENABLE_COIN_DOGE = config.Enable_Coin_Doge.split(",")
 ENABLE_COIN_NANO = config.Enable_Coin_Nano.split(",")
+ENABLE_XCH = config.Enable_Coin_XCH.split(",")
 
 class RPCException(Exception):
     def __init__(self, message):
@@ -161,6 +162,42 @@ async def call_nano(coin: str, payload: str) -> Dict:
     except Exception as e:
         await logchanbot(traceback.format_exc())
     return None
+
+
+async def call_xch(method_name: str, coin: str, payload: Dict=None) -> Dict:
+    import ssl
+    global ENABLE_XCH
+    timeout = 100
+    COIN_NAME = coin.upper()
+    ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+    ssl_context.load_cert_chain(getattr(config,"daemon"+COIN_NAME).cert, getattr(config,"daemon"+COIN_NAME).key)
+
+    headers = {
+        'Content-Type': 'application/json',
+    }
+    if payload is None:
+        data = '{}'
+    else:
+        data = payload
+    url = None
+    if COIN_NAME in ENABLE_XCH:
+        url = 'https://'+getattr(config,"daemon"+COIN_NAME).rpchost+'/'+method_name.lower()
+    try:
+        async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
+            async with session.post(url, json=data, headers=headers, timeout=timeout, ssl=ssl_context) as response:
+                if response.status == 200:
+                    res_data = await response.read()
+                    res_data = res_data.decode('utf-8')
+                    await session.close()
+                    decoded_data = json.loads(res_data)
+                    return decoded_data
+                else:
+                    await logchanbot(f'Call {COIN_NAME} returns {str(response.status)} with method {method_name}')
+    except asyncio.TimeoutError:
+        print('TIMEOUT: method_name: {} - COIN: {} - timeout {}'.format(method_name, coin.upper(), timeout))
+        await logchanbot('call_doge: method_name: {} - COIN: {} - timeout {}'.format(method_name, coin.upper(), timeout))
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
 
 
 def get_wallet_rpc_url(coin: str = None):

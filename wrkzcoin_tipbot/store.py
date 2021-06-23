@@ -62,6 +62,7 @@ sys.path.append("..")
 
 ENABLE_COIN = config.Enable_Coin.split(",")
 ENABLE_XMR = config.Enable_Coin_XMR.split(",")
+ENABLE_XCH = config.Enable_Coin_XCH.split(",")
 ENABLE_COIN_DOGE = config.Enable_Coin_Doge.split(",")
 ENABLE_COIN_NANO = config.Enable_Coin_Nano.split(",")
 ENABLE_COIN_ERC = config.Enable_Coin_ERC.split(",")
@@ -230,7 +231,7 @@ async def sql_user_balance_get_xfer_in(userID: str, coin: str, user_server: str 
         return
     userwallet = await sql_get_userwallet(userID, COIN_NAME, user_server)
     # assume insert time 2mn
-    confirmed_inserted = 8*60
+    confirmed_inserted = 4*60
     confirmed_inserted_doge_fam = 45*60
     IncomingTx = 0
     if userwallet is None:
@@ -250,6 +251,12 @@ async def sql_user_balance_get_xfer_in(userID: str, coin: str, user_server: str 
                     sql = """ SELECT SUM(amount) AS IncomingTx FROM xmroff_get_transfers WHERE `payment_id`=%s AND `coin_name` = %s 
                               AND `amount`>0 AND `time_insert`<%s """
                     await cur.execute(sql, (userwallet['paymentid'], COIN_NAME, int(time.time())-confirmed_inserted))
+                    result = await cur.fetchone()
+                    if result and result['IncomingTx']: IncomingTx = result['IncomingTx']
+                elif coin_family == "XCH":
+                    sql = """ SELECT SUM(amount) AS IncomingTx FROM xch_get_transfers WHERE `address`=%s AND `coin_name` = %s 
+                              AND `amount`>0 AND `time_insert`<%s """
+                    await cur.execute(sql, (userwallet['balance_wallet_address'], COIN_NAME, int(time.time())-confirmed_inserted))
                     result = await cur.fetchone()
                     if result and result['IncomingTx']: IncomingTx = result['IncomingTx']
                 elif coin_family == "DOGE":
@@ -475,6 +482,46 @@ async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD')
                         Income = 0
 
                     sql = """ SELECT SUM(amount+fee) AS TxExpense FROM xmroff_external_tx WHERE `user_id`=%s AND `coin_name` = %s AND `user_server` = %s """
+                    await cur.execute(sql, (userID, COIN_NAME, user_server))
+                    result = await cur.fetchone()
+                    if result:
+                        TxExpense = result['TxExpense']
+                    else:
+                        TxExpense = 0
+
+                    sql = """ SELECT SUM(amount) AS SwapIn FROM discord_swap_balance WHERE `owner_id`=%s AND `coin_name` = %s and `to` = %s """
+                    await cur.execute(sql, (userID, COIN_NAME, 'TIPBOT'))
+                    result = await cur.fetchone()
+                    if result:
+                        SwapIn = result['SwapIn']
+                    else:
+                        SwapIn = 0
+
+                    sql = """ SELECT SUM(amount) AS SwapOut FROM discord_swap_balance WHERE `owner_id`=%s AND `coin_name` = %s and `from` = %s """
+                    await cur.execute(sql, (userID, COIN_NAME, 'TIPBOT'))
+                    result = await cur.fetchone()
+                    if result:
+                        SwapOut = result['SwapOut']
+                    else:
+                        SwapOut = 0
+                elif coin_family == "XCH":
+                    sql = """ SELECT SUM(amount) AS Expense FROM xch_mv_tx WHERE `from_userid`=%s AND `coin_name` = %s AND `user_server` = %s """
+                    await cur.execute(sql, (userID, COIN_NAME, user_server))
+                    result = await cur.fetchone()
+                    if result:
+                        Expense = result['Expense']
+                    else:
+                        Expense = 0
+
+                    sql = """ SELECT SUM(amount) AS Income FROM xch_mv_tx WHERE `to_userid`=%s AND `coin_name` = %s AND `user_server` = %s """
+                    await cur.execute(sql, (userID, COIN_NAME, user_server))
+                    result = await cur.fetchone()
+                    if result:
+                        Income = result['Income']
+                    else:
+                        Income = 0
+
+                    sql = """ SELECT SUM(amount+fee) AS TxExpense FROM xch_external_tx WHERE `user_id`=%s AND `coin_name` = %s AND `user_server` = %s """
                     await cur.execute(sql, (userID, COIN_NAME, user_server))
                     result = await cur.fetchone()
                     if result:
@@ -889,7 +936,7 @@ async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD')
                     + float(balance['raffle_reward']) - float(balance['raffle_fee']) \
                     + float(balance['swap_token_in']) - float(balance['swap_token_out'])
                     balance['economy_balance'] = float(economy_balance)
-                elif coin_family == "XMR":
+                elif coin_family == "XMR" or coin_family == "XCH":
                     balance['Expense'] = float(Expense) if Expense else 0
                     balance['Expense'] = float(round(balance['Expense'], 4))
                     balance['Income'] = float(Income) if Income else 0
@@ -1113,7 +1160,7 @@ async def sql_block_height(coin: str):
 
     height = None
     if gettopblock:
-        if COIN_NAME == "TRTL":
+        if COIN_NAME == "TRTL" or coin_family in ["XCH"]:
             height = int(gettopblock['height'])
         elif coin_family in ["TRTL", "BCN", "XMR"]:
             height = int(gettopblock['block_header']['height'])
@@ -1148,7 +1195,7 @@ async def sql_update_balances(coin: str = None):
 
     height = None
     if gettopblock:
-        if COIN_NAME == "TRTL":
+        if COIN_NAME == "TRTL" or coin_family == "XCH":
             height = int(gettopblock['height'])
         elif coin_family in ["TRTL", "BCN", "XMR"]:
             height = int(gettopblock['block_header']['height'])
@@ -1501,6 +1548,82 @@ async def sql_update_balances(coin: str = None):
                             await conn.commit()
             except Exception as e:
                 await logchanbot(traceback.format_exc())
+    elif coin_family == "XCH":
+        #print('SQL: Updating get_transfers '+COIN_NAME)
+        get_transfers = await wallet.xch_listtransactions(COIN_NAME)
+        if get_transfers and len(get_transfers) >= 1:
+            try:
+                await openConnection()
+                async with pool.acquire() as conn:
+                    async with conn.cursor() as cur:
+                        sql = """ SELECT * FROM xch_get_transfers WHERE `coin_name` = %s  """
+                        await cur.execute(sql, (COIN_NAME))
+                        result = await cur.fetchall()
+                        d = [i['txid'] for i in result]
+                        # print('=================='+COIN_NAME+'===========')
+                        # print(d)
+                        # print('=================='+COIN_NAME+'===========')
+                        list_balance_user = {}
+                        for tx in get_transfers:
+                            # add to balance only confirmation depth meet
+                            if height >= wallet.get_confirm_depth(COIN_NAME) + int(tx['confirmed_at_height']) and tx['amount'] >= wallet.get_min_deposit_amount(COIN_NAME):
+                                if ('to_address' in tx) and (tx['to_address'] in list_balance_user) and (tx['amount'] > 0):
+                                    list_balance_user[tx['to_address']] += tx['amount']
+                                elif ('to_address' in tx) and (tx['to_address'] not in list_balance_user) and (tx['amount'] > 0):
+                                    list_balance_user[tx['to_address']] = tx['amount']
+                                try:
+                                    if tx['name'] not in d:
+                                        # receive
+                                        if len(tx['sent_to']) == 0:
+                                            sql = """ INSERT IGNORE INTO xch_get_transfers (`coin_name`, `txid`, `height`, `timestamp`, 
+                                                      `address`, `amount`, `fee`, `decimal`, `time_insert`) 
+                                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                            await cur.execute(sql, (COIN_NAME, tx['name'], tx['confirmed_at_height'], tx['created_at_time'],
+                                                                    tx['to_address'], tx['amount'], tx['fee_amount'], wallet.get_decimal(COIN_NAME), int(time.time())))
+                                            await conn.commit()
+                                        # add to notification list also, doge payment_id = address
+                                        if (tx['amount'] > 0) and len(tx['sent_to']) == 0:
+                                            sql = """ INSERT IGNORE INTO discord_notify_new_tx (`coin_name`, `txid`, 
+                                                      `payment_id`, `blockhash`, `height`, `amount`, `fee`, `decimal`) 
+                                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                                            await cur.execute(sql, (COIN_NAME, tx['name'], tx['to_address'], tx['name'], int(tx['confirmed_at_height']), 
+                                                                    tx['amount'], tx['fee_amount'], wallet.get_decimal(COIN_NAME)))
+                                            await conn.commit()
+                                except pymysql.err.Warning as e:
+                                    await logchanbot(traceback.format_exc())
+                                except Exception as e:
+                                    await logchanbot(traceback.format_exc())
+                            if height <wallet.get_confirm_depth(COIN_NAME) + int(tx['confirmed_at_height']) and tx['amount'] >= wallet.get_min_deposit_amount(COIN_NAME):
+                                # add notify to redis and alert deposit. Can be clean later?
+                                if config.notify_new_tx.enable_new_no_confirm == 1:
+                                    key_tx_new = config.redis_setting.prefix_new_tx + 'NOCONFIRM'
+                                    key_tx_json = config.redis_setting.prefix_new_tx + tx['name']
+                                    try:
+                                        openRedis()
+                                        if redis_conn and redis_conn.llen(key_tx_new) > 0:
+                                            list_new_tx = redis_conn.lrange(key_tx_new, 0, -1)
+                                            if list_new_tx and len(list_new_tx) > 0 and tx['name'] not in list_new_tx:
+                                                redis_conn.lpush(key_tx_new, tx['name'])
+                                                redis_conn.set(key_tx_json, json.dumps({'coin_name': COIN_NAME, 'txid': tx['name'], 'payment_id': tx['to_address'], 'height': tx['confirmed_at_height'],
+                                                                                        'amount': tx['amount'], 'decimal': wallet.get_decimal(COIN_NAME)}), ex=86400)
+                                        elif redis_conn and redis_conn.llen(key_tx_new) == 0:
+                                            redis_conn.lpush(key_tx_new, tx['name'])
+                                            redis_conn.set(key_tx_json, json.dumps({'coin_name': COIN_NAME, 'txid': tx['name'], 'payment_id': tx['to_address'], 'height': tx['confirmed_at_height'],
+                                                                                    'amount': tx['amount'], 'decimal': wallet.get_decimal(COIN_NAME)}), ex=86400)
+                                    except Exception as e:
+                                        await logchanbot(traceback.format_exc())
+                                        await logchanbot(json.dumps(tx))
+                        if len(list_balance_user) > 0:
+                            list_update = []
+                            timestamp = int(time.time())
+                            for key, value in list_balance_user.items():
+                                list_update.append((value, timestamp, key))
+                            await cur.executemany(""" UPDATE xch_user SET `actual_balance` = %s, `lastUpdate` = %s 
+                                                      WHERE balance_wallet_address = %s """, list_update)
+                            await conn.commit()
+            except Exception as e:
+                await logchanbot(traceback.format_exc())
+
 
 
 async def sql_credit(user_from: str, to_user: str, amount: float, coin: str, reason: str):
@@ -1549,6 +1672,11 @@ async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD', cha
                               WHERE `user_id`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """
                     await cur.execute(sql, (str(userID), COIN_NAME, user_server))
                     result = await cur.fetchone()
+                elif coin_family == "XCH":
+                    sql = """ SELECT * FROM xch_user 
+                              WHERE `user_id`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """
+                    await cur.execute(sql, (str(userID), COIN_NAME, user_server))
+                    result = await cur.fetchone()
                 elif coin_family == "DOGE":
                     sql = """ SELECT * FROM doge_user WHERE `user_id`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """
                     await cur.execute(sql, (str(userID), COIN_NAME, user_server))
@@ -1578,6 +1706,8 @@ async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD', cha
                         balance_address = await wallet.make_integrated_address_xmr(main_address, COIN_NAME)
                     elif coin_family == "DOGE":
                         balance_address = await wallet.doge_register(str(userID), COIN_NAME, user_server)
+                    elif coin_family == "XCH":
+                        balance_address = await wallet.xch_register(COIN_NAME, user_server)
                     elif coin_family == "NANO":
                         # No need ID
                         balance_address = await wallet.nano_register(COIN_NAME, user_server)
@@ -1602,6 +1732,11 @@ async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD', cha
                                       VALUES (%s, %s, %s, %s, %s, %s, %s) """
                             await cur.execute(sql, (COIN_NAME, str(userID), main_address, balance_address['payment_id'], 
                                                     balance_address['integrated_address'], int(time.time()), user_server))
+                            await conn.commit()
+                        elif coin_family == "XCH":
+                            sql = """ INSERT INTO xch_user (`coin_name`, `user_id`, `balance_wallet_address`, `address_ts`, `user_server`, `chat_id`) 
+                                      VALUES (%s, %s, %s, %s, %s, %s) """
+                            await cur.execute(sql, (COIN_NAME, str(userID), balance_address['address'], int(time.time()), user_server, chat_id))
                             await conn.commit()
                         elif coin_family == "DOGE":
                             sql = """ INSERT INTO doge_user (`coin_name`, `user_id`, `balance_wallet_address`, `address_ts`, 
@@ -1637,6 +1772,7 @@ async def sql_register_user(userID, coin: str, user_server: str = 'DISCORD', cha
                 else:
                     return result
     except Exception as e:
+        traceback.print_exc(file=sys.stdout)
         await logchanbot(traceback.format_exc())
     return None
 
@@ -1711,6 +1847,10 @@ async def sql_update_user(userID, user_wallet_address, coin: str, user_server: s
                     sql = """ UPDATE xmroff_user_paymentid SET user_wallet_address=%s WHERE `user_id`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """               
                     await cur.execute(sql, (user_wallet_address, str(userID), COIN_NAME, user_server))
                     await conn.commit()
+                elif coin_family == "XCH":
+                    sql = """ UPDATE xch_user SET user_wallet_address=%s WHERE `user_id`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """               
+                    await cur.execute(sql, (user_wallet_address, str(userID), COIN_NAME, user_server))
+                    await conn.commit()
                 elif coin_family == "DOGE":
                     sql = """ UPDATE doge_user SET user_wallet_address=%s WHERE `user_id`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """               
                     await cur.execute(sql, (user_wallet_address, str(userID), COIN_NAME, user_server))
@@ -1765,6 +1905,9 @@ async def coin_check_balance_address_in_users(address: str, coin: str):
     elif coin_family == "XMR":
         tb_name = "xmroff_user_paymentid"
         field_name = "int_address"
+    elif coin_family == "XCH":
+        tb_name = "xch_user"
+        field_name = "balance_wallet_address"
     elif coin_family == "DOGE":
         tb_name = "doge_user"
         field_name = "balance_wallet_address"
@@ -1822,6 +1965,10 @@ async def sql_get_userwallet(userID: str, coin: str, user_server: str = 'DISCORD
                     sql = """ SELECT * FROM xmroff_user_paymentid WHERE `user_id`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """
                     await cur.execute(sql, (str(userID), COIN_NAME, user_server))
                     result = await cur.fetchone()
+                elif coin_family == "XCH":
+                    sql = """ SELECT * FROM xch_user WHERE `user_id`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """
+                    await cur.execute(sql, (str(userID), COIN_NAME, user_server))
+                    result = await cur.fetchone()
                 elif coin_family == "DOGE":
                     sql = """ SELECT user_id, balance_wallet_address, user_wallet_address, address_ts, lastUpdate, chat_id 
                               FROM doge_user WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s LIMIT 1 """
@@ -1856,6 +2003,8 @@ async def sql_get_userwallet(userID: str, coin: str, user_server: str = 'DISCORD
                         wallet_res = userwallet
                     if result['lastUpdate'] == 0 and (coin_family in ["TRTL", "BCN"] or coin_family == "XMR"):
                         userwallet['lastUpdate'] = result['paymentid_ts']
+                    else:
+                        userwallet['lastUpdate'] = 0
                     wallet_res = userwallet
                     # store in redis
                     try:
@@ -3432,7 +3581,8 @@ async def sql_get_userwallet_by_paymentid(paymentid: str, coin: str, user_server
     try:
         if redis_conn is None: redis_conn = redis.Redis(connection_pool=redis_pool)
         if redis_conn and redis_conn.exists(key):
-            return json.loads(redis_conn.get(key))
+            value = json.loads(redis_conn.get(key))
+            if value: return json.loads(redis_conn.get(key))
     except Exception as e:
         await logchanbot(traceback.format_exc())
 
@@ -3456,6 +3606,10 @@ async def sql_get_userwallet_by_paymentid(paymentid: str, coin: str, user_server
                     sql = """ SELECT * FROM xmroff_user_paymentid WHERE `paymentid`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """
                     await cur.execute(sql, (paymentid, COIN_NAME, user_server))
                     result = await cur.fetchone()
+                elif coin_family == "XCH":
+                    sql = """ SELECT * FROM xch_user WHERE `balance_wallet_address`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """
+                    await cur.execute(sql, (paymentid, COIN_NAME, user_server))
+                    result = await cur.fetchone()
                 elif coin_family == "DOGE":
                     # if doge family, address is paymentid
                     sql = """ SELECT * FROM doge_user WHERE `balance_wallet_address`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """
@@ -3476,6 +3630,86 @@ async def sql_get_userwallet_by_paymentid(paymentid: str, coin: str, user_server
     except Exception as e:
         await logchanbot(traceback.format_exc())
     return result
+
+
+# XCH Based
+async def sql_mv_xch_single(user_from: str, to_user: str, amount: float, coin: str, tiptype: str, user_server: str = 'DISCORD'):
+    global pool
+    COIN_NAME = coin.upper()
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    if coin_family != "XCH":
+        return False
+    user_server = user_server.upper()
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
+        return
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ INSERT INTO xch_mv_tx (`coin_name`, `from_userid`, `to_userid`, `amount`, `decimal`, `type`, `date`, `user_server`) 
+                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                await cur.execute(sql, (COIN_NAME, user_from, to_user, amount, wallet.get_decimal(COIN_NAME), tiptype.upper(), int(time.time()), user_server))
+                await conn.commit()
+                return True
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return False
+
+
+async def sql_mv_xch_multiple(user_from: str, user_tos, amount_each: float, coin: str, tiptype: str):
+    # user_tos is array "account1", "account2", ....
+    global pool
+    COIN_NAME = coin.upper()
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    if coin_family != "XCH":
+        return False
+    if tiptype.upper() not in ["TIPS", "TIPALL", "FREETIP", "FREETIPS", "GUILDTIP"]:
+        return False
+    values_str = []
+    currentTs = int(time.time())
+    for item in user_tos:
+        values_str.append(f"('{COIN_NAME}', '{user_from}', '{item}', {amount_each}, {wallet.get_decimal(COIN_NAME)}, '{tiptype.upper()}', {currentTs})\n")
+    values_sql = "VALUES " + ",".join(values_str)
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ INSERT INTO xch_mv_tx (`coin_name`, `from_userid`, `to_userid`, `amount`, `decimal`, `type`, `date`) 
+                          """+values_sql+""" """
+                await cur.execute(sql,)
+                await conn.commit()
+                return True
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return False
+
+
+async def sql_external_xch_single(user_from: str, amount: float, to_address: str, coin: str, tiptype: str, user_server: str='DISCORD'):
+    global pool
+    COIN_NAME = coin.upper()
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    if coin_family != "XCH":
+        return False
+    if tiptype.upper() not in ["SEND", "WITHDRAW"]:
+        return False
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                tx_hash = await wallet.send_transaction('TIPBOT', to_address, 
+                                                        amount, COIN_NAME, 0)
+                if tx_hash:
+                    updateTime = int(time.time())
+                    async with conn.cursor() as cur: 
+                        sql = """ INSERT INTO xch_external_tx (`coin_name`, `user_id`, `amount`, `fee`, `decimal`, `to_address`, 
+                                  `type`, `date`, `tx_hash`, `user_server`) 
+                                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                        await cur.execute(sql, (COIN_NAME, user_from, amount, tx_hash['tx_hash']['fee_amount'], wallet.get_decimal(COIN_NAME), to_address, tiptype.upper(), int(time.time()), tx_hash['tx_hash']['name'], user_server,))
+                        await conn.commit()
+                        return tx_hash
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return None
 
 
 async def sql_get_new_tx_table(notified: str = 'NO', failed_notify: str = 'NO'):
@@ -6872,42 +7106,6 @@ async def economy_dairy_sell_milk(user_id: str, ids, credit: float, qty_sell: fl
         await logchanbot(traceback.format_exc())
     return None
 
-async def economy_dairy_factory_cheeze(user_id: str):
-    global pool
-    try:
-        await openConnection()
-        async with pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                sql = """ SELECT * FROM discord_economy_factory_cheeze WHERE `user_id`=%s AND `collected`=%s AND `possible_collect_date`<%s """
-                await cur.execute(sql, (user_id, 'NO', int(time.time())))
-                result = await cur.fetchall()
-                if result: return result
-    except Exception as e:
-        await logchanbot(traceback.format_exc())
-    return []
-
-async def economy_dairy_factory_cheeze_collecting(user_id: str, milklist, qty_collect: float, credit: float):
-    global pool
-    try:
-        await openConnection()
-        async with pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                ## add raw_milk_qty
-                sql = """ UPDATE discord_economy_userinfo SET `cheeze_qty`=`cheeze_qty`+%s 
-                          WHERE `user_id`=%s LIMIT 1 """
-                await cur.execute(sql, (qty_collect, user_id,))
-
-                sql = """ UPDATE discord_economy_factory_cheeze SET `collected`=%s, `collected_date`=%s, `credit_per_item`=%s 
-                          WHERE `user_id`=%s AND `id`=%s """
-                list_update = []
-                for each_item in milklist:
-                    list_update.append(('YES', int(time.time()), user_id, each_item, credit))
-                await cur.executemany(sql, list_update)
-                await conn.commit()
-                return True
-    except Exception as e:
-        await logchanbot(traceback.format_exc())
-    return None
 ## end of economy
 
 # Steal from https://nitratine.net/blog/post/encryption-and-decryption-in-python/

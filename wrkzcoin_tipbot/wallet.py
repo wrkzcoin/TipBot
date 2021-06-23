@@ -12,7 +12,8 @@ import addressvalidation
 
 from config import config
 
-import sys
+import sys, traceback
+
 sys.path.append("..")
 FEE_PER_BYTE_COIN = config.Fee_Per_Byte_Coin.split(",")
 
@@ -118,6 +119,17 @@ async def send_transaction(from_address: str, to_address: str, amount: int, coin
         if result:
             if ('tx_hash' in result) and ('tx_key' in result):
                 return result
+    elif coin_family == "XCH":
+        payload = {
+            "wallet_id": 1,
+            "amount": amount,
+            "address": to_address,
+            "fee": get_tx_fee(COIN_NAME)
+        }
+        result = await rpc_client.call_xch('send_transaction', COIN_NAME, payload=payload)
+        if result:
+            result['tx_hash'] = result['transaction']
+            result['transaction_id'] = result['transaction_id']
     return result
 
 
@@ -354,6 +366,30 @@ async def nano_get_wallet_info(coin: str) -> str:
         return None
 
 
+async def xch_register(coin: str, user_server: str = 'DISCORD'):
+    COIN_NAME = coin.upper()
+    payload = {'wallet_id': 1, 'new_address': True}
+    try:
+        address_call = await rpc_client.call_xch('get_next_address', COIN_NAME, payload=payload)
+        if 'success' in address_call and address_call['address']:
+            return address_call
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+
+async def xch_listtransactions(coin: str, start: int=None, end: int=None):
+    COIN_NAME = coin.upper()
+    payload = {'wallet_id': 1}
+    try:
+        list_tx = await rpc_client.call_xch('get_transactions', COIN_NAME, payload=payload)
+        if 'success' in list_tx and list_tx['transactions'] and len(list_tx['transactions']) > 0:
+            return list_tx['transactions']
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+
 async def doge_register(account: str, coin: str, user_server: str = 'DISCORD') -> str:
     COIN_NAME = coin.upper()
     naming = "tipbot_" + account
@@ -469,9 +505,11 @@ def get_diff_target(coin: str = None):
 def get_tx_fee(coin: str):
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-    if coin_family == "TRTL" or coin_family == "BCN" or coin_family == "DOGE" or coin_family == "LTC" :
+    if coin_family == "TRTL" or coin_family == "BCN" or coin_family == "DOGE" or coin_family == "LTC":
         return getattr(config,"daemon"+coin,config.daemonWRKZ).tx_fee        
     elif coin_family == "XMR":
+        return getattr(config,"daemon"+coin,config.daemonXMR).tx_fee
+    elif coin_family == "XCH":
         return getattr(config,"daemon"+coin,config.daemonXMR).tx_fee
 
 
@@ -583,7 +621,8 @@ def num_format_coin(amount, coin: str):
     elif COIN_NAME in ["NANO", "BAN"]:
         return '{:,.8f}'.format(amount / coin_decimal)
     else:
-        return '{:,}'.format(float('%.8g' % (amount / coin_decimal)))
+        return '{:,.8f}'.format(float('%.8g' % (amount / coin_decimal)))
+        #return '{:,}'.format(float('%.8g' % (amount / coin_decimal)))
     return amount_str
 
 

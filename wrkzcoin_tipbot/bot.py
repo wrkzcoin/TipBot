@@ -5170,7 +5170,7 @@ async def credit(ctx, amount: str, coin: str, to_userid: str):
         await logchanbot(traceback.format_exc())
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**')
         return
-    if coin_family in ["BCN", "XMR", "TRTL", "NANO", "DOGE"]:
+    if coin_family in ["BCN", "XMR", "TRTL", "NANO", "DOGE", "XCH"]:
         wallet = await store.sql_get_userwallet(to_userid, COIN_NAME)
         if wallet is None:
             userregister = await store.sql_register_user(to_userid, COIN_NAME, 'DISCORD', 0)
@@ -12418,7 +12418,7 @@ async def randtip(ctx, amount: str, coin: str, *, rand_option: str=None):
         MinTx = token_info['real_min_tx']
         MaxTX = token_info['real_max_tx']
     else:
-        real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["XMR", "TRTL", "BCN", "NANO"] else float(amount)
+        real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["XMR", "TRTL", "BCN", "NANO", "XCH"] else float(amount)
         MinTx = get_min_mv_amount(COIN_NAME)
         MaxTX = get_max_mv_amount(COIN_NAME)
 
@@ -12690,7 +12690,7 @@ async def freetip(ctx, amount: str, coin: str, duration: str='60s', *, comment: 
         MinTx = token_info['real_min_tip']
         MaxTX = token_info['real_max_tip']
     else:
-        real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["XMR", "TRTL", "BCN", "NANO"] else float(amount)
+        real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["XMR", "TRTL", "BCN", "NANO", "XCH"] else float(amount)
         MinTx = get_min_mv_amount(COIN_NAME)
         MaxTX = get_max_mv_amount(COIN_NAME)
     if comment and len(comment) > 0:
@@ -14966,7 +14966,7 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
                     await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Address: `{CoinAddress}` '
                                    'is invalid.')
                     return
-        elif COIN_NAME in ["XCH"]:
+        elif coin_family == "XCH":
             valid_address = addressvalidation_xch.validate_address(CoinAddress, COIN_NAME)
             if valid_address == False:
                 await ctx.message.add_reaction(EMOJI_ERROR)
@@ -15846,8 +15846,8 @@ async def make(ctx, amount: str, coin: str, *, comment):
             return
 
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-    real_amount = int(voucher_each * get_decimal(COIN_NAME)) if coin_family in ["XMR", "TRTL", "BCN", "NANO"] else float(voucher_each)
-    total_real_amount = int(total_amount * get_decimal(COIN_NAME)) if coin_family in ["XMR", "TRTL", "BCN", "NANO"] else float(total_amount)
+    real_amount = int(voucher_each * get_decimal(COIN_NAME)) if coin_family in ["XMR", "TRTL", "BCN", "NANO", "XCH"] else float(voucher_each)
+    total_real_amount = int(total_amount * get_decimal(COIN_NAME)) if coin_family in ["XMR", "TRTL", "BCN", "NANO", "XCH"] else float(total_amount)
     secret_string = str(uuid.uuid4())
     unique_filename = str(uuid.uuid4())
 
@@ -18411,6 +18411,8 @@ def get_cn_coin_from_address(CoinAddress: str):
         COIN_NAME = "NANO"
     elif CoinAddress.startswith("xch") and len(CoinAddress) == 62:
         COIN_NAME = "XCH"
+    elif CoinAddress.startswith("xfx") and len(CoinAddress) == 62:
+        COIN_NAME = "XFX"
     print('get_cn_coin_from_address return {}: {}'.format(CoinAddress, COIN_NAME))
     return COIN_NAME
 
@@ -19312,7 +19314,7 @@ async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str 
         return
 
     notifyList = await store.sql_get_tipnotify()
-    if coin_family not in ["BCN", "TRTL", "DOGE", "XMR", "NANO", "ERC-20", "TRC-20"]:
+    if coin_family not in ["BCN", "TRTL", "DOGE", "XMR", "NANO", "ERC-20", "TRC-20", "XCH"]:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} is restricted with this command.')
         return
@@ -19323,7 +19325,7 @@ async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str 
         MinTx = token_info['real_min_tip']
         MaxTX = token_info['real_max_tip']
     else:
-        real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["XMR", "TRTL", "BCN", "NANO"] else float(amount)
+        real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["XMR", "TRTL", "BCN", "NANO", "XCH"] else float(amount)
         MinTx = get_min_mv_amount(COIN_NAME)
         MaxTX = get_max_mv_amount(COIN_NAME)
 
@@ -19958,7 +19960,7 @@ async def bot_faucet(ctx):
         else:
             coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")           
         try:
-            if COIN_NAME in get_game_stat and coin_family in ["TRTL", "BCN", "XMR", "NANO"]:
+            if COIN_NAME in get_game_stat and coin_family in ["TRTL", "BCN", "XMR", "NANO", "XCH"]:
                 actual_balance = actual_balance - int(get_game_stat[COIN_NAME])
                 sum_sub = int(get_game_stat[COIN_NAME])
             elif COIN_NAME in get_game_stat and coin_family in ["DOGE", "ERC-20", "TRC-20"]:
@@ -19968,7 +19970,7 @@ async def bot_faucet(ctx):
             await logchanbot(traceback.format_exc())
         balance_actual = num_format_coin(actual_balance, COIN_NAME)
         get_claimed_count = await store.sql_faucet_sum_count_claimed(COIN_NAME)
-        if coin_family in ["TRTL", "BCN", "XMR", "NANO"]:
+        if coin_family in ["TRTL", "BCN", "XMR", "NANO", "XCH"]:
             sub_claim = num_format_coin(int(get_claimed_count['claimed']) + sum_sub, COIN_NAME) if get_claimed_count['count'] > 0 else f"0.00{COIN_NAME}"
         elif coin_family in ["DOGE", "ERC-20", "TRC-20"]:
             sub_claim = num_format_coin(float(get_claimed_count['claimed']) + sum_sub, COIN_NAME) if get_claimed_count['count'] > 0 else f"0.00{COIN_NAME}"

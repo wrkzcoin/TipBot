@@ -76,7 +76,7 @@ def bech32_decode(bech: str) -> Tuple[Optional[str], Optional[List[int]]]:
 
 def validate_address(address: str, coin: str):
     COIN_NAME = coin.upper()
-    if COIN_NAME == "XCH":
+    if COIN_NAME == "XCH" or COIN_NAME == "XFX":
         if decode_puzzle_hash(address):
             return True
     return False

@@ -620,8 +620,8 @@ def num_format_coin(amount, coin: str):
         return '{:.4f}'.format(amount)
     elif COIN_NAME in ["NANO", "BAN"]:
         return '{:,.8f}'.format(amount / coin_decimal)
-    elif COIN_NAME in ["WRKZ", "DEGO", "BTCMZ", "NIMB"]:
-        return '{:,.2f}'.format(float('%.2g' % (amount / coin_decimal)))
+    elif COIN_NAME in ["WRKZ", "DEGO", "BTCMZ", "NIMB", "TRTL"]:
+        return '{:,.2f}'.format(amount / coin_decimal)
     else:
         return '{:,.8f}'.format(float('%.8g' % (amount / coin_decimal)))
         #return '{:,}'.format(float('%.8g' % (amount / coin_decimal)))

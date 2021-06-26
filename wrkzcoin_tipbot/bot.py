@@ -169,7 +169,8 @@ FAUCET_MINMAX = {
     "GNTL": [config.Faucet_min_max.gntl_min, config.Faucet_min_max.gntl_max],
     "BAN": [config.Faucet_min_max.ban_min, config.Faucet_min_max.ban_max],
     "NANO": [config.Faucet_min_max.nano_min, config.Faucet_min_max.nano_max],
-    "BTIPZ": [config.Faucet_min_max.btipz_min, config.Faucet_min_max.btipz_max]
+    "BTIPZ": [config.Faucet_min_max.btipz_min, config.Faucet_min_max.btipz_max],
+    "XFX": [config.Faucet_min_max.xfx_min, config.Faucet_min_max.xfx_max]
 }
 
 
@@ -13537,6 +13538,8 @@ async def tip(ctx, amount: str, *args):
     elif len(ctx.message.mentions) > 1 and fromDM == False:
         try:
             await _tip(ctx, amount, COIN_NAME)
+        except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+            pass
         except Exception as e:
             await logchanbot(traceback.format_exc())
         return
@@ -19276,7 +19279,7 @@ async def _tip(ctx, amount, coin: str, if_guild: bool=False):
                                             f'Each: `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`'
                                             f'Total spending: `{num_format_coin(TotalAmount, COIN_NAME)} {COIN_NAME}`')
             except (discord.Forbidden, discord.errors.Forbidden) as e:
-                traceback.print_exc(file=sys.stdout)
+                pass
         return
     else:
         await ctx.message.add_reaction(EMOJI_ERROR)

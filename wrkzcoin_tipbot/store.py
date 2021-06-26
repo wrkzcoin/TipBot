@@ -5515,6 +5515,8 @@ async def trx_wallet_getbalance(address: str, coin: str):
                     balance = await cntr.functions.balanceOf(address) / 10**precision
                 else:
                     await logchanbot("Mis-match SYM vs TOKEN NAME: {} vs {}".format(SYM, TOKEN_NAME))
+            except tronpy.exceptions.UnknownError as e:
+                pass
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
         await TronClient.close()
@@ -6028,6 +6030,12 @@ async def sql_get_all_userid_by_coin(coin: str):
                     if result: return result
                 elif COIN_NAME in ENABLE_COIN:
                     sql = """ SELECT `user_id`, `paymentid`, `user_server` FROM `cnoff_user_paymentid` 
+                              WHERE `coin_name`=%s """
+                    await cur.execute(sql, (COIN_NAME))
+                    result = await cur.fetchall()
+                    if result: return result
+                elif COIN_NAME in ENABLE_XCH:
+                    sql = """ SELECT `user_id`, `balance_wallet_address`, `user_server` FROM `xch_user` 
                               WHERE `coin_name`=%s """
                     await cur.execute(sql, (COIN_NAME))
                     result = await cur.fetchall()

@@ -2169,12 +2169,8 @@ async def sql_external_cn_single(user_from: str, address_to: str, amount: int, c
                 async with pool.acquire() as conn:
                     async with conn.cursor() as cur:
                         timestamp = int(time.time())
+                        fee = wallet.get_tx_node_fee(COIN_NAME)
                         if coin_family in ["TRTL", "BCN"]:
-                            fee = 0
-                            if COIN_NAME not in FEE_PER_BYTE_COIN:
-                                fee = wallet.get_tx_fee(COIN_NAME)
-                            else:
-                                fee = tx_hash['fee']
                             sql = """ INSERT INTO cnoff_external_tx (`coin_name`, `user_id`, `to_address`, `amount`, `decimal`, `date`, 
                                       `tx_hash`, `fee`, `user_server`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
                             await cur.execute(sql, (COIN_NAME, user_from, address_to, amount, wallet.get_decimal(COIN_NAME), timestamp, 
@@ -2210,11 +2206,7 @@ async def sql_external_cn_single_id(user_from: str, address_to: str, amount: int
                     async with conn.cursor() as cur:
                         timestamp = int(time.time())
                         if coin_family in ["TRTL", "BCN"]:
-                            fee = 0
-                            if COIN_NAME not in FEE_PER_BYTE_COIN:
-                                fee = wallet.get_tx_fee(COIN_NAME)
-                            else:
-                                fee = tx_hash['fee']
+                            fee = wallet.get_tx_node_fee(COIN_NAME)
                             sql = """ INSERT INTO cnoff_external_tx (`coin_name`, `user_id`, `to_address`, `amount`, `decimal`, `date`, 
                                       `tx_hash`, `paymentid`, `fee`, `user_server`) 
                                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
@@ -2260,20 +2252,16 @@ async def sql_external_cn_single_withdraw(user_from: str, amount: int, coin: str
                 async with pool.acquire() as conn:
                     async with conn.cursor() as cur:
                         timestamp = int(time.time())
+                        fee = wallet.get_tx_node_fee(COIN_NAME)
                         if coin_family in ["TRTL", "BCN"]:
                             sql = """ INSERT INTO cnoff_external_tx (`coin_name`, `user_id`, `to_address`, `amount`, 
                                       `decimal`, `date`, `tx_hash`, `fee`, `user_server`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                            fee = 0
-                            if COIN_NAME not in FEE_PER_BYTE_COIN:
-                                fee = wallet.get_tx_fee(COIN_NAME)
-                            else:
-                                fee = tx_hash['fee']
                             await cur.execute(sql, (COIN_NAME, user_from, user_from_wallet['user_wallet_address'], amount, wallet.get_decimal(COIN_NAME), timestamp, tx_hash['transactionHash'], fee, user_server))
                             await conn.commit()
                         elif coin_family == "XMR":
                             sql = """ INSERT INTO xmroff_withdraw (`coin_name`, `user_id`, `to_address`, `amount`, 
                                       `fee`, `date`, `tx_hash`, `tx_key`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
-                            await cur.execute(sql, (COIN_NAME, user_from, user_from_wallet['user_wallet_address'], amount, tx_hash['fee'], timestamp, tx_hash['tx_hash'], tx_hash['tx_key'],))
+                            await cur.execute(sql, (COIN_NAME, user_from, user_from_wallet['user_wallet_address'], amount, fee, timestamp, tx_hash['tx_hash'], tx_hash['tx_key'],))
                             await conn.commit()
             except Exception as e:
                 await logchanbot(traceback.format_exc())
@@ -3541,7 +3529,7 @@ async def sql_mv_xmr_multiple(user_from: str, user_tos, amount_each: float, coin
     return False
 
 
-async def sql_external_xmr_single(user_from: str, amount: float, to_address: str, coin: str, tiptype: str):
+async def sql_external_xmr_single(user_from: str, amount: float, to_address: str, coin: str, tiptype: str, fee: float):
     global pool
     COIN_NAME = coin.upper()
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
@@ -3562,7 +3550,7 @@ async def sql_external_xmr_single(user_from: str, amount: float, to_address: str
                             sql = """ INSERT INTO xmroff_external_tx (`coin_name`, `user_id`, `amount`, `fee`, `decimal`, `to_address`, 
                                       `type`, `date`, `tx_hash`, `tx_key`) 
                                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                            await cur.execute(sql, (COIN_NAME, user_from, amount, tx_hash['fee'], wallet.get_decimal(COIN_NAME), to_address, tiptype.upper(), int(time.time()), tx_hash['tx_hash'], tx_hash['tx_key'],))
+                            await cur.execute(sql, (COIN_NAME, user_from, amount, fee, wallet.get_decimal(COIN_NAME), to_address, tiptype.upper(), int(time.time()), tx_hash['tx_hash'], tx_hash['tx_key'],))
                             await conn.commit()
                             return tx_hash
     except Exception as e:

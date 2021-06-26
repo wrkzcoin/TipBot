@@ -3517,6 +3517,9 @@ async def hangman(ctx):
                 elif not guess.isalpha():
                     guess = None
                     await ctx.send(f'{ctx.author.mention} **HANGMAN**. Please use letter.')
+                elif len(guess) > 1:
+                    guess = None
+                    await ctx.send(f'{ctx.author.mention} **HANGMAN**. Please use only one alphabet.')
                 elif guess in secretWord:
                     # Add the correct guess to correctLetters:
                     correctLetters.append(guess)
@@ -10592,12 +10595,8 @@ async def coininfo(ctx, coin: str = None):
                     response_text += "Withdraw: ON\n"
                 else:
                     response_text += "Withdraw: OFF\n"
-                if COIN_NAME in FEE_PER_BYTE_COIN + ENABLE_COIN_DOGE:
-                    response_text += "Reserved Fee: {}{}\n".format(num_format_coin(get_reserved_fee(COIN_NAME), COIN_NAME), COIN_NAME)
-                elif COIN_NAME in ENABLE_XCH:
-                    response_text += "Withdraw Tx (reserved) Fee: {}{}\n".format(num_format_coin(get_tx_fee(COIN_NAME), COIN_NAME), COIN_NAME)
-                elif COIN_NAME in ENABLE_XMR:
-                    response_text += "Withdraw Tx Fee: Dynamic\n"
+                if COIN_NAME in FEE_PER_BYTE_COIN + ENABLE_COIN_DOGE + ENABLE_XCH + ENABLE_XMR:
+                    response_text += "Withdraw Tx Node Fee: {}{}\n".format(num_format_coin(get_tx_node_fee(COIN_NAME), COIN_NAME), COIN_NAME)
                 elif COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
                     if token_info['contract'] and len(token_info['contract']) == 42:
                         response_text += "Contract:\n   {}\n".format(token_info['contract'])
@@ -10608,7 +10607,7 @@ async def coininfo(ctx, coin: str = None):
                     # nothing
                     response_text += "Withdraw Tx Fee: Zero\n"
                 else:
-                    response_text += "Withdraw Tx Fee: {}{}\n".format(num_format_coin(get_tx_fee(COIN_NAME), COIN_NAME), COIN_NAME)
+                    response_text += "Withdraw Tx Fee: {}{}\n".format(num_format_coin(get_tx_node_fee(COIN_NAME), COIN_NAME), COIN_NAME)
                 get_tip_min_max = "Tip Min/Max:\n   " + num_format_coin(Min_Tip, COIN_NAME) + " / " + num_format_coin(Max_Tip, COIN_NAME) + COIN_NAME
                 response_text += get_tip_min_max + "\n"
                 get_tx_min_max = "Withdraw Min/Max:\n   " + num_format_coin(Min_Tx, COIN_NAME) + " / " + num_format_coin(Max_Tx, COIN_NAME) + COIN_NAME
@@ -11559,28 +11558,13 @@ async def withdraw(ctx, amount: str, coin: str = None):
         else:
             actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
 
-        if coin_family in ["TRTL", "BCN"]:
-            if coin_family == "BCN":
-                NetFee = get_tx_fee(coin = COIN_NAME)
-            else:
-                NetFee = get_reserved_fee(coin = COIN_NAME)
-        elif coin_family == "XMR":
-            NetFee = await get_tx_fee_xmr(coin = COIN_NAME, amount = real_amount, to_address = user['user_wallet_address'])
-            if NetFee is None:
-                await ctx.message.add_reaction(EMOJI_ERROR)
-                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Can not get fee from network for: '
-                               f'{num_format_coin(real_amount, COIN_NAME)} '
-                               f'{COIN_NAME}. Please try again later in a few minutes.')
-                return
-        elif coin_family == "XCH":
-            NetFee = get_tx_fee(coin = COIN_NAME)
-        elif coin_family == "DOGE":
-            NetFee = get_tx_fee(coin = COIN_NAME)
-        elif coin_family == "ERC-20" or coin_family == "TRC-20":
+        if coin_family == "ERC-20" or coin_family == "TRC-20":
             token_info = await store.get_token_info(COIN_NAME)
             NetFee = token_info['real_withdraw_fee']
             MinTx = token_info['real_min_tx']
             MaxTX = token_info['real_max_tx']
+        else:
+            NetFee = get_tx_node_fee(coin = COIN_NAME)
         # Negative check
         try:
             if actual_balance < 0:
@@ -11601,7 +11585,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
         elif real_amount + NetFee > actual_balance:
             extra_fee_txt = ''
             if NetFee > 0:
-                extra_fee_txt = f'You need to leave at least a network or a reserved fee: {num_format_coin(NetFee, COIN_NAME)}{COIN_NAME}'
+                extra_fee_txt = f'You need to leave a node/tx fee: {num_format_coin(NetFee, COIN_NAME)}{COIN_NAME}'
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to withdraw '
                            f'{num_format_coin(real_amount, COIN_NAME)} '
@@ -11641,21 +11625,21 @@ async def withdraw(ctx, amount: str, coin: str = None):
         if coin_family in ["TRTL", "BCN"]:
             withdrawTx = await store.sql_external_cn_single_withdraw(str(ctx.message.author.id), real_amount, COIN_NAME)
             withdraw_txt = "Transaction hash: `{}`".format(withdrawTx['transactionHash'])
-            withdraw_txt += "\nTx Fee: `{}{}`".format(num_format_coin(withdrawTx['fee'], COIN_NAME), COIN_NAME)
+            withdraw_txt += "\nA node/tx fee `{} {}` deducted from your balance.".format(withdrawTx, num_format_coin(get_tx_node_fee(COIN_NAME), COIN_NAME), COIN_NAME)
         elif coin_family == "XMR":
             withdrawTx = await store.sql_external_xmr_single(str(ctx.message.author.id),
                                                             real_amount,
                                                             user['user_wallet_address'],
-                                                            COIN_NAME, "WITHDRAW")
+                                                            COIN_NAME, "WITHDRAW", NetFee)
             withdraw_txt = "Transaction hash: `{}`".format(withdrawTx['tx_hash'])
-            withdraw_txt += "\nNetwork fee deducted from your account balance."
+            withdraw_txt += "\nA node/tx fee `{} {}` deducted from your balance.".format(withdrawTx, num_format_coin(get_tx_node_fee(COIN_NAME), COIN_NAME), COIN_NAME)
         elif coin_family == "XCH":
             withdrawTx = await store.sql_external_xch_single(str(ctx.message.author.id),
                                                             real_amount,
                                                             user['user_wallet_address'],
                                                             COIN_NAME, "WITHDRAW")
             withdraw_txt = "Transaction hash: `{}`".format(withdrawTx['tx_hash']['name'])
-            withdraw_txt += "\nNetwork fee deducted from your account balance."
+            withdraw_txt += "\nA node/tx fee `{} {}` deducted from your balance.".format(withdrawTx, num_format_coin(get_tx_node_fee(COIN_NAME), COIN_NAME), COIN_NAME)
         elif coin_family == "NANO":
             withdrawTx = await store.sql_external_nano_single(str(ctx.message.author.id), real_amount,
                                                             user['user_wallet_address'],
@@ -11665,13 +11649,13 @@ async def withdraw(ctx, amount: str, coin: str = None):
             withdrawTx = await store.sql_external_doge_single(str(ctx.message.author.id), real_amount,
                                                             NetFee, user['user_wallet_address'],
                                                             COIN_NAME, "WITHDRAW")
-            withdraw_txt = f'Transaction hash: `{withdrawTx}`\nNetwork fee deducted from the amount.'
+            withdraw_txt = 'Transaction hash: `{}`\nA node/tx fee `{} {}` deducted from your balance.'.format(withdrawTx, num_format_coin(get_tx_node_fee(COIN_NAME), COIN_NAME), COIN_NAME)
         elif coin_family == "ERC-20": 
             withdrawTx = await store.sql_external_erc_single(str(ctx.author.id), user['user_wallet_address'], real_amount, COIN_NAME, 'WITHDRAW', 'DISCORD')
-            withdraw_txt = f'Transaction hash: `{withdrawTx}`\nFee `{NetFee}{COIN_NAME}` deducted from your balance.'
+            withdraw_txt = f'Transaction hash: `{withdrawTx}`\nFee `{NetFee} {COIN_NAME}` deducted from your balance.'
         elif coin_family == "TRC-20": 
             withdrawTx = await store.sql_external_trx_single(str(ctx.author.id), user['user_wallet_address'], real_amount, COIN_NAME, 'WITHDRAW', 'DISCORD')
-            withdraw_txt = f'Transaction hash: `{withdrawTx}`\nFee `{NetFee}{COIN_NAME}` deducted from your balance.'
+            withdraw_txt = f'Transaction hash: `{withdrawTx}`\nFee `{NetFee} {COIN_NAME}` deducted from your balance.'
         # add redis action
         await add_tx_action_redis(json.dumps([random_string, "WITHDRAW", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, "DISCORD", "COMPLETE"]), False)
     except Exception as e:
@@ -14861,10 +14845,7 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
         real_amount = int(amount * get_decimal(COIN_NAME))
         addressLength = get_addrlen(COIN_NAME)
         IntaddressLength = get_intaddrlen(COIN_NAME)
-        NetFee = get_reserved_fee(coin = COIN_NAME)
-        # Currently we have two BCN coins
-        if coin_family == "BCN":
-            NetFee = get_tx_fee(coin = COIN_NAME)
+        NetFee = get_tx_node_fee(coin = COIN_NAME)
         if is_maintenance_coin(COIN_NAME):
             await ctx.message.add_reaction(EMOJI_MAINTENANCE)
             try:
@@ -15019,7 +15000,7 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
         if real_amount + NetFee > actual_balance:
             extra_fee_txt = ''
             if NetFee > 0:
-                extra_fee_txt = f'You need to leave at least a network or a reserved fee: {num_format_coin(NetFee, COIN_NAME)}{COIN_NAME}'
+                extra_fee_txt = f'You need to leave a node/tx fee: {num_format_coin(NetFee, COIN_NAME)}{COIN_NAME}'
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tx of '
                            f'{num_format_coin(real_amount, COIN_NAME)} '
@@ -15084,6 +15065,8 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
                     try:
                         tip = await store.sql_external_cn_single_id(str(ctx.message.author.id), CoinAddress, real_amount, paymentid, COIN_NAME)
                         tip_tx_tipper = "Transaction hash: `{}`".format(tip['transactionHash'])
+                        # replace fee
+                        tip['fee'] = get_tx_node_fee(COIN_NAME)
                         tip_tx_tipper += "\nTx Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
@@ -15121,6 +15104,8 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
                     try:
                         tip = await store.sql_external_cn_single(str(ctx.message.author.id), CoinAddress, real_amount, COIN_NAME)
                         tip_tx_tipper = "Transaction hash: `{}`".format(tip['transactionHash'])
+                        # replace fee
+                        tip['fee'] = get_tx_node_fee(COIN_NAME)
                         tip_tx_tipper += "\nTx Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
@@ -15199,21 +15184,14 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Please check your **{COIN_NAME}** balance.')
             return
-        if coin_family == "XCH":
-            NetFee = get_tx_fee(coin = COIN_NAME)
-        else:
-            NetFee = await get_tx_fee_xmr(coin = COIN_NAME, amount = real_amount, to_address = CoinAddress)
-        if NetFee is None:
-            await ctx.message.add_reaction(EMOJI_ERROR)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Can not get fee from network for: '
-                           f'{num_format_coin(real_amount, COIN_NAME)} '
-                           f'{COIN_NAME}. Please try again later in a few minutes.')
-            return
+        NetFee = get_tx_node_fee(coin = COIN_NAME)
+        # XMR
+        # NetFee = await get_tx_fee_xmr(coin = COIN_NAME, amount = real_amount, to_address = CoinAddress)
         if real_amount + NetFee > actual_balance:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send out '
                            f'{num_format_coin(real_amount, COIN_NAME)} '
-                           f'{COIN_NAME}. You need to leave at least network fee: {num_format_coin(NetFee, COIN_NAME)}{COIN_NAME}')
+                           f'{COIN_NAME}. You need to leave a node/tx fee: {num_format_coin(NetFee, COIN_NAME)}{COIN_NAME}')
             return
         if real_amount < MinTx:
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -15243,7 +15221,7 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
                     SendTx['tx_hash'] = SendTx['tx_hash']['name']
                 else:
                     SendTx = await store.sql_external_xmr_single(str(ctx.message.author.id), real_amount,
-                                                                 CoinAddress, COIN_NAME, "SEND")
+                                                                 CoinAddress, COIN_NAME, "SEND", NetFee)
                 # add redis
                 await add_tx_action_redis(json.dumps([random_string, "SEND", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, "DISCORD", "COMPLETE"]), False)
             except Exception as e:
@@ -15257,12 +15235,13 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
             return
         if SendTx:
             SendTx_hash = SendTx['tx_hash']
+            extra_txt = "A node/tx fee `{} {}` deducted from your balance.".format(num_format_coin(get_tx_node_fee(COIN_NAME), COIN_NAME), COIN_NAME)
             await ctx.message.add_reaction(get_emoji(COIN_NAME))
             await botLogChan.send(f'A user successfully executed `.send {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`.')
             await ctx.message.author.send(f'{EMOJI_ARROW_RIGHTHOOK} You have sent {num_format_coin(real_amount, COIN_NAME)} '
                                           f'{COIN_NAME} to `{CoinAddress}`.\n'
                                           f'Transaction hash: `{SendTx_hash}`\n'
-                                          'Network fee deducted from your account balance.')
+                                          f'{extra_txt}')
             return
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -15373,7 +15352,7 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
         else:
             MinTx = get_min_tx_amount(coin = COIN_NAME)
             MaxTX = get_max_tx_amount(coin = COIN_NAME)
-            NetFee = get_tx_fee(coin = COIN_NAME)
+            NetFee = get_tx_node_fee(coin = COIN_NAME)
             valid_address = await doge_validaddress(str(CoinAddress), COIN_NAME)
             if 'isvalid' in valid_address:
                 if str(valid_address['isvalid']) == "True":
@@ -15383,7 +15362,7 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
                     await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Address: `{CoinAddress}` '
                                     'is invalid.')
                     return
-        extra_fee_txt = f'You need to leave a TipBot reserved fee: {num_format_coin(NetFee, COIN_NAME)}{COIN_NAME}'
+        extra_fee_txt = f'You need to leave a node/tx fee: {num_format_coin(NetFee, COIN_NAME)}{COIN_NAME}'
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if user_from is None:
             if coin_family == "ERC-20":
@@ -15461,11 +15440,11 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
             return
         if SendTx:
             if COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
-                extra_txt = f"Fee `{NetFee}{COIN_NAME}` deducted from your balance."
+                extra_txt = f"A node/tx `{NetFee} {COIN_NAME}` deducted from your balance."
                 await ctx.message.add_reaction(TOKEN_EMOJI)
             else:
                 await ctx.message.add_reaction(get_emoji(COIN_NAME))
-                extra_txt = "Network fee deducted from the amount."
+                extra_txt = "A node/tx fee `{} {}` deducted from your balance.".format(num_format_coin(get_tx_node_fee(COIN_NAME), COIN_NAME), COIN_NAME)
             await botLogChan.send(f'A user successfully executed `.send {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`.')
             await ctx.message.author.send(f'{EMOJI_ARROW_RIGHTHOOK} You have sent {num_format_coin(real_amount, COIN_NAME)} '
                                           f'{COIN_NAME} to `{CoinAddress}`.\n'

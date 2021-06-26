@@ -411,7 +411,7 @@ async def doge_sendtoaddress(to_address: str, amount: float, comment: str, coin:
     COIN_NAME = coin.upper()
     if comment_to is None:
         comment_to = "tipbot"
-    payload = f'"{to_address}", {amount}, "{comment}", "{comment_to}", true'
+    payload = f'"{to_address}", {amount}, "{comment}", "{comment_to}", false'
     if COIN_NAME in ["PGO"]:
         payload = f'"{to_address}", {amount}, "{comment}", "{comment_to}"'
     valid_call = await rpc_client.call_doge('sendtoaddress', COIN_NAME, payload=payload)
@@ -508,9 +508,20 @@ def get_tx_fee(coin: str):
     if coin_family == "TRTL" or coin_family == "BCN" or coin_family == "DOGE" or coin_family == "LTC":
         return getattr(config,"daemon"+coin,config.daemonWRKZ).tx_fee        
     elif coin_family == "XMR":
-        return getattr(config,"daemon"+coin,config.daemonXMR).tx_fee
+        return getattr(config,"daemon"+coin,config.daemonWRKZ).tx_fee
     elif coin_family == "XCH":
-        return getattr(config,"daemon"+coin,config.daemonXMR).tx_fee
+        return getattr(config,"daemon"+coin,config.daemonWRKZ).tx_fee
+
+
+def get_tx_node_fee(coin: str):
+    COIN_NAME = coin.upper()
+    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+    if coin_family == "TRTL" or coin_family == "BCN" or coin_family == "DOGE" or coin_family == "LTC":
+        return getattr(config,"daemon"+coin,config.daemonWRKZ).node_tx_fee        
+    elif coin_family == "XMR":
+        return getattr(config,"daemon"+coin,config.daemonWRKZ).node_tx_fee
+    elif coin_family == "XCH":
+        return getattr(config,"daemon"+coin,config.daemonWRKZ).node_tx_fee
 
 
 async def get_tx_fee_xmr(coin: str, amount: int = None, to_address: str = None):

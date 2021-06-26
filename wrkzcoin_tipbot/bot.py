@@ -721,7 +721,7 @@ async def on_reaction_add(reaction, user):
                                 f'{COIN_NAME} '
                                 f'was sent to {reaction.message.author.name}#{reaction.message.author.discriminator} in server `{reaction.message.guild.name}` by your re-acting {EMOJI_100}\n'
                                 f'{tip_tx_tipper}')
-                        except (discord.Forbidden, discord.errors.Forbidden) as e:
+                        except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                             await store.sql_toggle_tipnotify(str(user.id), "OFF")
                         if str(reaction.message.author.id) not in notifyList:
                             try:
@@ -730,13 +730,13 @@ async def on_reaction_add(reaction, user):
                                     f'{COIN_NAME} from {user.name}#{user.discriminator} in server `{reaction.message.guild.name}` #{reaction.message.channel.name} from their re-acting {EMOJI_100}\n'
                                     f'{tip_tx_tipper}\n'
                                     f'{NOTIFICATION_OFF_CMD}')
-                            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                            except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                                 await store.sql_toggle_tipnotify(str(reaction.message.author.id), "OFF")
                         return
                     else:
                         try:
                             await user.send(f'{user.mention} Can not deliver TX for {COIN_NAME} right now with {EMOJI_100}.')
-                        except (discord.Forbidden, discord.errors.Forbidden) as e:
+                        except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                             await store.sql_toggle_tipnotify(str(user.id), "OFF")
                         # add to failed tx table
                         await store.sql_add_failed_tx(COIN_NAME, str(user.id), user.name, real_amount, "REACTTIP")
@@ -820,7 +820,7 @@ async def on_reaction_add(reaction, user):
                                 f'{EMOJI_ARROW_RIGHTHOOK} Tip of {num_format_coin(real_amount, COIN_NAME)} '
                                 f'{COIN_NAME} '
                                 f'was sent to {reaction.message.author.name}#{reaction.message.author.discriminator} in server `{reaction.message.guild.name}` by your re-acting {EMOJI_99}')
-                        except (discord.Forbidden, discord.errors.Forbidden) as e:
+                        except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                             await store.sql_toggle_tipnotify(str(user.id), "OFF")
                         if str(reaction.message.author.id) not in notifyList:
                             try:
@@ -828,13 +828,13 @@ async def on_reaction_add(reaction, user):
                                     f'{EMOJI_MONEYFACE} You got a tip of {num_format_coin(real_amount, COIN_NAME)} '
                                     f'{COIN_NAME} from {user.name}#{user.discriminator} in server `{reaction.message.guild.name}` #{reaction.message.channel.name} from their re-acting {EMOJI_99}\n'
                                     f'{NOTIFICATION_OFF_CMD}')
-                            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                            except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                                 await store.sql_toggle_tipnotify(str(reaction.message.author.id), "OFF")
                         return
                     else:
                         try:
                             await user.send(f'{user.mention} Can not deliver TX for {COIN_NAME} right now with {EMOJI_99}.')
-                        except (discord.Forbidden, discord.errors.Forbidden) as e:
+                        except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                             await store.sql_toggle_tipnotify(str(user.id), "OFF")
                         # add to failed tx table
                         await store.sql_add_failed_tx(COIN_NAME, str(user.id), user.name, real_amount, "REACTTIP")
@@ -2679,7 +2679,7 @@ clues would be Fermi Pico.'''.format(NUM_DIGITS)
                 if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
                     GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
                 return
-    except (discord.Forbidden, discord.errors.Forbidden) as e:
+    except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
         await ctx.message.add_reaction(EMOJI_ERROR)
         return
     if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
@@ -2906,7 +2906,7 @@ Hints:
                 if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
                     GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
                 return
-    except (discord.Forbidden, discord.errors.Forbidden) as e:
+    except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
         await ctx.message.add_reaction(EMOJI_ERROR)
         return
     if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
@@ -3141,7 +3141,7 @@ Hints:
                 if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
                     GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
                 return
-    except (discord.Forbidden, discord.errors.Forbidden) as e:
+    except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
         await ctx.message.add_reaction(EMOJI_ERROR)
         return
     if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
@@ -3581,7 +3581,7 @@ async def hangman(ctx):
                         hm_missed = hm_draw['missed_letter']
                         hm_word_line = hm_draw['word_line']
                         await ctx.send(f'{ctx.author.mention} ```{hm_picture}\n\n{hm_word_line}\n{hm_missed}```')
-    except (discord.Forbidden, discord.errors.Forbidden) as e:
+    except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
         await ctx.message.add_reaction(EMOJI_ERROR)
         return
     if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
@@ -3743,7 +3743,7 @@ To win, you must continue rolling the dice until you "make your point."
             return
         except Exception as e:
             await logchanbot(traceback.format_exc())
-    except (discord.Forbidden, discord.errors.Forbidden) as e:
+    except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
         await ctx.message.add_reaction(EMOJI_ERROR)
         return
     except Exception as e:
@@ -8162,12 +8162,12 @@ async def deposit(ctx, amount: str, coin: str):
         try:
             await ctx.send(f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention} Your balance {num_format_coin(real_amount, COIN_NAME)} '
                            f'{COIN_NAME} was transferred to {ctx.guild.name}.')
-        except (discord.Forbidden, discord.errors.Forbidden) as e:
+        except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
             await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
             try:
                 await ctx.author.send(f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention} Your balance **{num_format_coin(real_amount, COIN_NAME)} '
                                       f'{COIN_NAME}** was transferred to {ctx.guild.name}.')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
+            except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                 pass
         # TODO: notify guild owner, if fail, to logchannel
         guild_found = bot.get_guild(id=ctx.guild.id)
@@ -8179,7 +8179,7 @@ async def deposit(ctx, amount: str, coin: str):
                     await user_found.send(f'{EMOJI_MONEYFACE} Your guild **{ctx.guild.name}** got a deposit of {num_format_coin(real_amount, COIN_NAME)} '
                                           f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} in `#{ctx.channel.name}`\n'
                                           f'{NOTIFICATION_OFF_CMD}\n')
-                except (discord.Forbidden, discord.errors.Forbidden) as e:
+                except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                     await store.sql_toggle_tipnotify(str(member.id), "OFF")
         return
     else:
@@ -8993,7 +8993,7 @@ async def cg(ctx, ticker: str):
             msg = await ctx.send(embed=embed)
             await ctx.message.add_reaction(EMOJI_OK_HAND)
             await msg.add_reaction(EMOJI_OK_BOX)
-        except (discord.Forbidden, discord.errors.Forbidden) as e:
+        except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
             message_price = '{} at CoinGecko\n'.format(ticker.upper())
             if 'name' in get_cg and 'mcap_ranking' in get_cg and get_cg['mcap_ranking']:
                 message_price += '{} Rank #{}'.format(get_cg['name'], get_cg['mcap_ranking'])
@@ -9013,7 +9013,7 @@ async def cg(ctx, ticker: str):
                 msg = await ctx.send(f'{ctx.author.mention}```{message_price}```')
                 await ctx.message.add_reaction(EMOJI_OK_HAND)
                 await msg.add_reaction(EMOJI_OK_BOX)
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
+            except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                 await logchanbot(traceback.format_exc())
                 return
         return
@@ -9095,7 +9095,7 @@ async def pricelist(ctx, *, coin_list):
                 msg = await ctx.send(embed=embed)
                 await ctx.message.add_reaction(EMOJI_OK_HAND)
                 await msg.add_reaction(EMOJI_OK_BOX)
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
+            except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                 await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
                 await logchanbot(traceback.format_exc())
         except Exception as e:
@@ -9400,7 +9400,7 @@ async def price(ctx, *args):
                     msg = await ctx.send(embed=embed)
                     await ctx.message.add_reaction(EMOJI_OK_HAND)
                     await msg.add_reaction(EMOJI_OK_BOX)
-                except (discord.Forbidden, discord.errors.Forbidden) as e:
+                except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                     await logchanbot(traceback.format_exc())
                 return
             except Exception as e:
@@ -9463,7 +9463,7 @@ async def price(ctx, *args):
                     msg = await ctx.send(embed=embed)
                     await ctx.message.add_reaction(EMOJI_OK_HAND)
                     await msg.add_reaction(EMOJI_OK_BOX)
-                except (discord.Forbidden, discord.errors.Forbidden) as e:
+                except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                     await logchanbot(traceback.format_exc())
                 return
             except Exception as e:
@@ -9510,7 +9510,7 @@ async def price(ctx, *args):
                     msg = await ctx.send(embed=embed)
                     await ctx.message.add_reaction(EMOJI_OK_HAND)
                     await msg.add_reaction(EMOJI_OK_BOX)
-                except (discord.Forbidden, discord.errors.Forbidden) as e:
+                except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                     await logchanbot(traceback.format_exc())
             except Exception as e:
                 await logchanbot(traceback.format_exc())
@@ -9585,7 +9585,7 @@ async def price(ctx, *args):
                     msg = await ctx.send(embed=embed)
                     await ctx.message.add_reaction(EMOJI_OK_HAND)
                     await msg.add_reaction(EMOJI_OK_BOX)
-                except (discord.Forbidden, discord.errors.Forbidden) as e:
+                except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                     await logchanbot(traceback.format_exc())
             except Exception as e:
                 await logchanbot(traceback.format_exc())
@@ -12699,7 +12699,7 @@ async def randtip(ctx, amount: str, coin: str, *, rand_option: str=None):
             await ctx.message.author.send(
                 f'{EMOJI_ARROW_RIGHTHOOK} {rand_user.name}#{rand_user.discriminator} got your random tip of {num_format_coin(real_amount, COIN_NAME)} '
                 f'{COIN_NAME} in server `{ctx.guild.name}`')
-        except (discord.Forbidden, discord.errors.Forbidden) as e:
+        except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
             await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
         if str(rand_user.id) not in notifyList:
             try:
@@ -12707,7 +12707,7 @@ async def randtip(ctx, amount: str, coin: str, *, rand_option: str=None):
                     f'{EMOJI_MONEYFACE} You got a random tip of {num_format_coin(real_amount, COIN_NAME)} '
                     f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{ctx.guild.name}`\n'
                     f'{NOTIFICATION_OFF_CMD}')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
+            except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                 await store.sql_toggle_tipnotify(str(user.id), "OFF")
         try:
             # try message in public also
@@ -12716,7 +12716,7 @@ async def randtip(ctx, amount: str, coin: str, *, rand_option: str=None):
                             f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator}')
             await msg.add_reaction(EMOJI_OK_BOX)
             randtip_public_respond = True
-        except (discord.Forbidden, discord.errors.Forbidden) as e:
+        except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
             pass
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if randtip_public_respond == False and serverinfo and 'botchan' in serverinfo and serverinfo['botchan']:
@@ -13055,7 +13055,7 @@ and reaction.message.id == msg.id and str(reaction.emoji) == EMOJI_PARTY
                     f'was collected by ({len(attend_list_id)}) members in server `{ctx.guild.name}`.\n'
                     f'Each member got: `{amountDiv_str}{COIN_NAME}`\n'
                     f'Actual spending: `{ActualSpend_str}{COIN_NAME}`')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
+            except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                 await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
             numMsg = 0
             for member_id in attend_list_id:
@@ -13071,7 +13071,7 @@ and reaction.message.id == msg.id and str(reaction.emoji) == EMOJI_PARTY
                                     f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{ctx.guild.name}` #{ctx.channel.name}\n'
                                     f'{NOTIFICATION_OFF_CMD}')
                                 numMsg += 1
-                            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                            except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                                 await store.sql_toggle_tipnotify(str(member.id), "OFF")
                 if numMsg >= config.tipallMax_LimitDM:
                     # stop DM if reaches
@@ -13176,7 +13176,7 @@ and reaction.message.id == msg.id and str(reaction.emoji) == EMOJI_PARTY
                         f'{EMOJI_ARROW_RIGHTHOOK} Tip of {num_format_coin(real_amount, COIN_NAME)} '
                         f'{COIN_NAME} '
                         f'has been collected by {user.name}#{user.discriminator} in server `{ctx.guild.name}`')
-                except (discord.Forbidden, discord.errors.Forbidden) as e:
+                except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                     await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
                 if str(user.id) not in notifyList:
                     try:
@@ -13184,7 +13184,7 @@ and reaction.message.id == msg.id and str(reaction.emoji) == EMOJI_PARTY
                             f'{EMOJI_MONEYFACE} You had collected a tip of {num_format_coin(real_amount, COIN_NAME)} '
                             f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{ctx.guild.name}`\n'
                             f'{NOTIFICATION_OFF_CMD}')
-                    except (discord.Forbidden, discord.errors.Forbidden) as e:
+                    except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                         await store.sql_toggle_tipnotify(str(user.id), "OFF")
                 await msg.add_reaction(EMOJI_OK_BOX)
                 return
@@ -13645,20 +13645,20 @@ async def tip(ctx, amount: str, *args):
                         await ctx.message.add_reaction(EMOJI_ERROR)
                         try:
                             await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
-                        except (discord.Forbidden, discord.errors.Forbidden) as e:
+                        except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                             try:
                                 await ctx.message.author.send(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
-                            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                            except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                                 return
                         return
                 else:
                     await ctx.message.add_reaction(EMOJI_ERROR)
                     try:
                         await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
-                    except (discord.Forbidden, discord.errors.Forbidden) as e:
+                    except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                         try:
                             await ctx.message.author.send(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
-                        except (discord.Forbidden, discord.errors.Forbidden) as e:
+                        except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                             return
                     return
         elif len(args) == 1 and args[0].isdigit():
@@ -13669,20 +13669,20 @@ async def tip(ctx, amount: str, *args):
                 await ctx.message.add_reaction(EMOJI_ERROR)
                 try:
                     await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
-                except (discord.Forbidden, discord.errors.Forbidden) as e:
+                except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                     try:
                         await ctx.message.author.send(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
-                    except (discord.Forbidden, discord.errors.Forbidden) as e:
+                    except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                         return
                 return
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
             try:
                 await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
+            except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                 try:
                     await ctx.message.author.send(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
-                except (discord.Forbidden, discord.errors.Forbidden) as e:
+                except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                     return
             return
     elif len(ctx.message.mentions) == 1 and (bot.user in ctx.message.mentions) and fromDM == False:
@@ -13863,7 +13863,7 @@ async def tip(ctx, amount: str, *args):
                 f'{EMOJI_ARROW_RIGHTHOOK} Tip of {num_format_coin(real_amount, COIN_NAME)} '
                 f'{COIN_NAME} '
                 f'was sent to {member.name}#{member.discriminator}{in_server}')
-        except (discord.Forbidden, discord.errors.Forbidden) as e:
+        except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
             await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
         if bot.user.id != member.id and str(member.id) not in notifyList:
             try:
@@ -13878,7 +13878,7 @@ async def tip(ctx, amount: str, *args):
                     f'{EMOJI_MONEYFACE} You got a tip of {num_format_coin(real_amount, COIN_NAME)} '
                     f'{COIN_NAME} from {fromtipper}{from_server}\n'
                     f'{NOTIFICATION_OFF_CMD}\n')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
+            except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                 await store.sql_toggle_tipnotify(str(member.id), "OFF")
         if secrettip:
             await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} using a secret tip command {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}.')
@@ -14149,20 +14149,20 @@ async def mtip(ctx, amount: str, *args):
                 await ctx.message.add_reaction(EMOJI_ERROR)
                 try:
                     await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
-                except (discord.Forbidden, discord.errors.Forbidden) as e:
+                except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                     try:
                         await ctx.message.author.send(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
-                    except (discord.Forbidden, discord.errors.Forbidden) as e:
+                    except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                         return
                 return
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
             try:
                 await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
+            except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                 try:
                     await ctx.message.author.send(f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.')
-                except (discord.Forbidden, discord.errors.Forbidden) as e:
+                except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                     return
             return
     elif len(ctx.message.mentions) == 1 and (bot.user in ctx.message.mentions):
@@ -14326,7 +14326,7 @@ async def mtip(ctx, amount: str, *args):
                 f'{EMOJI_ARROW_RIGHTHOOK} Guild tip of {num_format_coin(real_amount, COIN_NAME)} '
                 f'{COIN_NAME} '
                 f'was sent to {member.name}#{member.discriminator} in server `{ctx.guild.name}`\n')
-        except (discord.Forbidden, discord.errors.Forbidden) as e:
+        except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
             await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
         if bot.user.id != member.id and str(member.id) not in notifyList:
             try:
@@ -14334,7 +14334,7 @@ async def mtip(ctx, amount: str, *args):
                     f'{EMOJI_MONEYFACE} You got a guild tip of {num_format_coin(real_amount, COIN_NAME)} '
                     f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{ctx.guild.name}` #{ctx.channel.name}\n'
                     f'{NOTIFICATION_OFF_CMD}\n{tipmsg}')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
+            except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                 await store.sql_toggle_tipnotify(str(member.id), "OFF")
         return
     else:
@@ -14472,7 +14472,7 @@ async def tipall(ctx, amount: str, coin: str, option: str=None):
         await ctx.message.add_reaction(EMOJI_ERROR)
         try:
             await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} The number of receivers are too many. This command isn\'t available here.')
-        except (discord.Forbidden, discord.errors.Forbidden) as e:
+        except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
             await ctx.message.author.send(f'{EMOJI_RED_NO} The number of receivers are too many in `{ctx.guild.name}`. This command isn\'t available here.')
         return
     # End of checking receivers numbers.
@@ -14630,7 +14630,7 @@ async def tipall(ctx, amount: str, coin: str, option: str=None):
                                 f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} `.tipall` in server `{ctx.guild.name}` #{ctx.channel.name}\n'
                                 f'{NOTIFICATION_OFF_CMD}')
                             numMsg += 1
-                        except (discord.Forbidden, discord.errors.Forbidden) as e:
+                        except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                             await store.sql_toggle_tipnotify(str(member.id), "OFF")
         else:
             # mention all user
@@ -14675,7 +14675,7 @@ async def tipall(ctx, amount: str, coin: str, option: str=None):
                 f'was sent spread to ({total_found}) members in server `{ctx.guild.name}`.\n'
                 f'Each member got: `{amountDiv_str}{COIN_NAME}`\n'
                 f'Actual spending: `{ActualSpend_str}{COIN_NAME}`')
-        except (discord.Forbidden, discord.errors.Forbidden) as e:
+        except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
             await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
         return
 
@@ -14828,10 +14828,10 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
         await ctx.message.add_reaction(EMOJI_QUESTEXCLAIM)
         try:
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} could not find what address it is.')
-        except (discord.Forbidden, discord.errors.Forbidden) as e:
+        except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
             try:
                 await ctx.message.author.send(f'{EMOJI_RED_NO} {ctx.author.mention} could not find what address it is.')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
+            except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                 return
         return
 
@@ -14850,10 +14850,10 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
             await ctx.message.add_reaction(EMOJI_MAINTENANCE)
             try:
                 await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
+            except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                 try:
                     await ctx.message.author.send(f'{EMOJI_RED_NO} {ctx.author.mention} {COIN_NAME} in maintenance.')
-                except (discord.Forbidden, discord.errors.Forbidden) as e:
+                except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                     return
             return
 
@@ -14869,11 +14869,11 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
                 try:
                     await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
                                    f'`{CoinAddress}`')
-                except (discord.Forbidden, discord.errors.Forbidden) as e:
+                except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                     try:
                         await ctx.message.author.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
                                                       f'`{CoinAddress}`')
-                    except (discord.Forbidden, discord.errors.Forbidden) as e:
+                    except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                         return
                 return
         elif len(CoinAddress) == int(IntaddressLength):
@@ -14884,11 +14884,11 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
                 try:
                     await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid integrated address:\n'
                                    f'`{CoinAddress}`')
-                except (discord.Forbidden, discord.errors.Forbidden) as e:
+                except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                     try:
                         await ctx.message.author.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid integrated address:\n'
                                                       f'`{CoinAddress}`')
-                    except (discord.Forbidden, discord.errors.Forbidden) as e:
+                    except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                         return
                 return
             if len(valid_address) == 2:
@@ -14902,10 +14902,10 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
                 await ctx.message.add_reaction(EMOJI_QUESTEXCLAIM)
                 try:
                     await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid {COIN_NAME} address + paymentid')
-                except (discord.Forbidden, discord.errors.Forbidden) as e:
+                except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                     try:
                         await ctx.message.author.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid {COIN_NAME} address + paymentid')
-                    except (discord.Forbidden, discord.errors.Forbidden) as e:
+                    except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                         return
                 return
             else:
@@ -14916,11 +14916,11 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
                     try:
                         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
                                        f'`{check_address[0]}`')
-                    except (discord.Forbidden, discord.errors.Forbidden) as e:
+                    except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                         try:
                             await ctx.message.author.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
                                                           f'`{check_address[0]}`')
-                        except (discord.Forbidden, discord.errors.Forbidden) as e:
+                        except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                             return
                     return
                 else:
@@ -14932,11 +14932,11 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
                         try:
                             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} PaymentID: `{paymentid}`\n'
                                             'Should be in 64 correct format.')
-                        except (discord.Forbidden, discord.errors.Forbidden) as e:
+                        except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                             try:
                                 await ctx.message.author.send(f'{EMOJI_RED_NO} {ctx.author.mention} PaymentID: `{paymentid}`\n'
                                                               'Should be in 64 correct format.')
-                            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                            except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                                 return
                         return
                     else:
@@ -14949,11 +14949,11 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
                     try:
                         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} PaymentID: `{paymentid}`\n'
                                         'Incorrect length')
-                    except (discord.Forbidden, discord.errors.Forbidden) as e:
+                    except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                         try:
                             await ctx.message.author.send(f'{EMOJI_RED_NO} {ctx.author.mention} PaymentID: `{paymentid}`\n'
                                                          'Incorrect length')
-                        except (discord.Forbidden, discord.errors.Forbidden) as e:
+                        except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                             return
                     return
         else:
@@ -14961,11 +14961,11 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
             try:
                 await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
                                f'`{CoinAddress}`')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
+            except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                 try:
                     await ctx.message.author.send(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n'
                                                   f'`{CoinAddress}`')
-                except (discord.Forbidden, discord.errors.Forbidden) as e:
+                except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                     return
             return
 
@@ -16099,7 +16099,7 @@ async def make(ctx, amount: str, coin: str, *, comment):
         if isinstance(ctx.channel, discord.DMChannel) == False:
             try:
                 await ctx.send(f'{EMOJI_INFORMATION} {ctx.author.mention} You should do this in Direct Message.')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
+            except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                 pass   
         for i in range(voucher_numb):
             secret_string = str(uuid.uuid4())
@@ -16185,7 +16185,7 @@ async def make(ctx, amount: str, coin: str, *, comment):
                                         f'Voucher Fee (Incl. network fee): {num_format_coin(get_voucher_fee(COIN_NAME), COIN_NAME)} {COIN_NAME}\n'
                                         f'Voucher comment: {comment}```')
                     await msg.add_reaction(EMOJI_OK_BOX)
-                except (discord.Forbidden, discord.errors.Forbidden) as e:
+                except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                     await logchanbot(traceback.format_exc())
                     await ctx.message.add_reaction(EMOJI_ERROR)
                     await ctx.send(f'{ctx.author.mention} Sorry, I failed to DM you.')
@@ -16270,7 +16270,7 @@ async def make(ctx, amount: str, coin: str, *, comment):
             if isinstance(ctx.channel, discord.DMChannel) == False:
                 try:
                     await ctx.send(f'{EMOJI_INFORMATION} {ctx.author.mention} You should do this in Direct Message.')
-                except (discord.Forbidden, discord.errors.Forbidden) as e:
+                except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                     pass                
             try:
                 msg = await ctx.send(f'New Voucher Link: {qrstring}\n'
@@ -16279,7 +16279,7 @@ async def make(ctx, amount: str, coin: str, *, comment):
                                     f'Voucher Fee (Incl. network fee): {num_format_coin(get_voucher_fee(COIN_NAME), COIN_NAME)} {COIN_NAME}\n'
                                     f'Voucher comment: {comment}```')
                 await msg.add_reaction(EMOJI_OK_BOX)
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
+            except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                 await logchanbot(traceback.format_exc())
                 await ctx.message.add_reaction(EMOJI_ERROR)
                 await ctx.send(f'{ctx.author.mention} Sorry, I failed to DM you.')
@@ -16319,7 +16319,7 @@ async def view(ctx):
         if isinstance(ctx.channel, discord.DMChannel) == False:
             try:
                 await ctx.send(f'{EMOJI_INFORMATION} {ctx.author.mention} You should do this in Direct Message.')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
+            except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                 pass
         await ctx.message.add_reaction(EMOJI_OK_HAND)
         msg = await ctx.send(f'**[ YOUR VOUCHER LIST ]**\n'
@@ -16359,7 +16359,7 @@ async def unclaim(ctx):
         if isinstance(ctx.channel, discord.DMChannel) == False:
             try:
                 await ctx.send(f'{EMOJI_INFORMATION} {ctx.author.mention} You should do this in Direct Message.')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
+            except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                 pass
         await ctx.message.add_reaction(EMOJI_OK_HAND)
         msg = await ctx.send(f'**[ YOUR VOUCHER LIST ]**\n'
@@ -16399,7 +16399,7 @@ async def claim(ctx):
         if isinstance(ctx.channel, discord.DMChannel) == False:
             try:
                 await ctx.send(f'{EMOJI_INFORMATION} {ctx.author.mention} You should do this in Direct Message.')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
+            except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                 pass
         await ctx.message.add_reaction(EMOJI_OK_HAND)
         msg = await ctx.send(f'**[ YOUR VOUCHER LIST ]**\n'
@@ -16631,7 +16631,7 @@ async def stats(ctx, coin: str = None):
             try:
                 msg = await ctx.send(embed=embed)
                 await msg.add_reaction(EMOJI_OK_BOX)
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
+            except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                 # if embedded denied
                 msg = await ctx.send(f'**[ {COIN_NAME} ]**\n'
                                f'```[NETWORK HEIGHT] {height}\n'
@@ -16679,7 +16679,7 @@ async def stats(ctx, coin: str = None):
             try:
                 msg = await ctx.send(embed=embed)
                 await msg.add_reaction(EMOJI_OK_BOX)
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
+            except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                 # if embedded denied
                 balance_str = ''
                 if walletBalance and ('unlocked' in walletBalance) and ('locked' in walletBalance) and walletStatus:
@@ -16741,7 +16741,7 @@ async def stats(ctx, coin: str = None):
             try:
                 msg = await ctx.send(embed=embed)
                 await msg.add_reaction(EMOJI_OK_BOX)
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
+            except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                 # if embedded denied
                 balance_str = ''
                 if ('unlocked' in walletBalance) and ('locked' in walletBalance):
@@ -16791,7 +16791,7 @@ async def stats(ctx, coin: str = None):
             try:
                 msg = await ctx.send(embed=embed)
                 await msg.add_reaction(EMOJI_OK_BOX)
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
+            except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                 pass
         except Exception as e:
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -16823,7 +16823,7 @@ async def stats(ctx, coin: str = None):
             try:
                 msg = await ctx.send(embed=embed)
                 await msg.add_reaction(EMOJI_OK_BOX)
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
+            except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                 pass
         except Exception as e:
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -16908,7 +16908,7 @@ async def feedback(ctx):
                             else:
                                 msg = await ctx.send(f'{ctx.author.mention} Internal Error.')
                                 await msg.add_reaction(EMOJI_OK_BOX)
-        except (discord.Forbidden, discord.errors.Forbidden) as e:
+        except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
             await ctx.message.add_reaction(EMOJI_ERROR)
             return
 
@@ -17621,7 +17621,7 @@ async def rand(ctx, randstring: str = None):
         try:
             msg = await ctx.send('{} Random number: **{:,}**'.format(ctx.author.mention, rand_numb))
             await msg.add_reaction(EMOJI_OK_BOX)
-        except (discord.Forbidden, discord.errors.Forbidden) as e:
+        except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
             return
 
 
@@ -17992,15 +17992,15 @@ async def buy(ctx, ref_number: str):
                                     if member:
                                         try:
                                             await member.send(f'A user has bought #**{ref_number}**\n```Sold: {sold}\nGet: {bought}```')
-                                        except (discord.Forbidden, discord.errors.Forbidden) as e:
+                                        except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                                             pass
                                 # add message to trade channel as well.
                                 if ctx.message.channel.id != NOTIFY_TRADE_CHAN:
                                     botLogChan = bot.get_channel(id=NOTIFY_TRADE_CHAN)
                                     await botLogChan.send(f'A user has bought #**{ref_number}**\n```Sold: {sold}\nGet: {bought}\nFee: {fee}```')
-                            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                            except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                                 pass
-                        except (discord.Forbidden, discord.errors.Forbidden) as e:
+                        except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                             pass
                         return
                     else:
@@ -18972,7 +18972,7 @@ async def erc_notify_new_confirmed_spendable():
                             msg = "You got a new deposit confirmed: ```" + "Amount: {}{}".format(each_notify['real_amount'], coinItem) + "```"
                             try:
                                 await member.send(msg)
-                            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                            except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                                 is_notify_failed = True
                             except Exception as e:
                                 traceback.print_exc(file=sys.stdout)
@@ -19001,7 +19001,7 @@ async def trx_notify_new_confirmed_spendable():
                             msg = "You got a new deposit confirmed: ```" + "Amount: {}{}".format(each_notify['real_amount'], coinItem) + "```"
                             try:
                                 await member.send(msg)
-                            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                            except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                                 is_notify_failed = True
                             except Exception as e:
                                 traceback.print_exc(file=sys.stdout)
@@ -19066,7 +19066,7 @@ async def notify_new_tx_user_noconfirmation():
                                                 else:
                                                     msg = "You got a new **pending** deposit: ```" + "Coin: {}\nTx: {}\nAmount: {}\nBlock Hash: {}\n{}".format(eachTx['coin_name'], eachTx['txid'], num_format_coin(eachTx['amount'], eachTx['coin_name']), eachTx['blockhash'], confirmation_number_txt) + "```"
                                                 await user_found.send(msg)
-                                            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                                            except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                                                 pass
                                             redis_conn.lpush(key_tx_no_confirmed_sent, tx)
                                         else:
@@ -19082,7 +19082,7 @@ async def notify_new_tx_user_noconfirmation():
                                                     else:
                                                         msg = "Your guild got a new **pending** deposit: ```" + "Coin: {}\nTx: {}\nAmount: {}\nBlock Hash: {}\n{}".format(eachTx['coin_name'], eachTx['txid'], num_format_coin(eachTx['amount'], eachTx['coin_name']), eachTx['blockhash'], confirmation_number_txt) + "```"
                                                     await user_found.send(msg)
-                                                except (discord.Forbidden, discord.errors.Forbidden) as e:
+                                                except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                                                     pass
                                                 except Exception as e:
                                                     await logchanbot(traceback.format_exc())
@@ -19128,7 +19128,7 @@ async def notify_new_tx_user():
                                     else:
                                         msg = "You got a new deposit confirmed: ```" + "Coin: {}\nTx: {}\nAmount: {}\nBlock Hash: {}".format(eachTx['coin_name'], eachTx['txid'], num_format_coin(eachTx['amount'], eachTx['coin_name']), eachTx['blockhash']) + "```"
                                     await user_found.send(msg)
-                                except (discord.Forbidden, discord.errors.Forbidden) as e:
+                                except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                                     is_notify_failed = True
                                     pass
                                 except Exception as e:
@@ -19149,7 +19149,7 @@ async def notify_new_tx_user():
                                         else:
                                             msg = "Your guild got a new deposit confirmed: ```" + "Coin: {}\nTx: {}\nAmount: {}\nBlock Hash: {}".format(eachTx['coin_name'], eachTx['txid'], num_format_coin(eachTx['amount'], eachTx['coin_name']), eachTx['blockhash']) + "```"
                                         await user_found.send(msg)
-                                    except (discord.Forbidden, discord.errors.Forbidden) as e:
+                                    except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                                         is_notify_failed = True
                                         pass
                                     except Exception as e:
@@ -19181,7 +19181,7 @@ async def notify_new_move_balance_user():
                                 try:
                                     msg = "You got a new tip: ```" + "Coin: {}\nAmount: {}\nFrom: {}@{}".format(eachTx['coin_name'], num_format_coin(eachTx['amount'], eachTx['coin_name']), eachTx['from_name'], eachTx['from_server']) + "```"   
                                     await user_found.send(msg)
-                                except (discord.Forbidden, discord.errors.Forbidden) as e:
+                                except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                                     is_notify_failed = True
                                 except Exception as e:
                                     await logchanbot(traceback.format_exc())
@@ -19418,7 +19418,7 @@ async def _tip(ctx, amount, coin: str, if_guild: bool=False):
                         await member.send(f'{EMOJI_MONEYFACE} You got a {tip_type_text} of  {num_format_coin(real_amount, COIN_NAME)} '
                                           f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{ctx.guild.name} #{ctx.channel.name}`\n'
                                           f'{NOTIFICATION_OFF_CMD}\n{tipmsg}')
-                    except (discord.Forbidden, discord.errors.Forbidden) as e:
+                    except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                         await logchanbot(traceback.format_exc())
                         await store.sql_toggle_tipnotify(str(member.id), "OFF")
         except Exception as e:
@@ -19438,7 +19438,7 @@ async def _tip(ctx, amount, coin: str, if_guild: bool=False):
                                         f'was sent to ({len(list_receivers)}) members in server `{ctx.guild.name}`.\n'
                                         f'Each: `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`'
                                         f'Total spending: `{num_format_coin(TotalAmount, COIN_NAME)} {COIN_NAME}`')
-        except (discord.Forbidden, discord.errors.Forbidden) as e:
+        except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
             try:
                 if if_guild == True:
                     await ctx.message.author.send(f'{EMOJI_ARROW_RIGHTHOOK} Total {tip_type_text} of {num_format_coin(TotalAmount, COIN_NAME)} '
@@ -19446,7 +19446,7 @@ async def _tip(ctx, amount, coin: str, if_guild: bool=False):
                                             f'was sent to ({len(list_receivers)}) members in server `{ctx.guild.name}`.\n'
                                             f'Each: `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`'
                                             f'Total spending: `{num_format_coin(TotalAmount, COIN_NAME)} {COIN_NAME}`')
-            except (discord.Forbidden, discord.errors.Forbidden) as e:
+            except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                 pass
         return
     else:
@@ -19586,7 +19586,7 @@ async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str 
         await ctx.message.add_reaction(EMOJI_ERROR)
         try:
             await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} The number of receivers are too many.')
-        except (discord.Forbidden, discord.errors.Forbidden) as e:
+        except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
             await ctx.message.author.send(f'{EMOJI_RED_NO} The number of receivers are too many in `{ctx.guild.name}`.')
         return
     # End of checking receivers numbers.
@@ -19676,7 +19676,7 @@ async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str 
                                     f'{EMOJI_MONEYFACE} You got a {tip_type_text} of `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}` '
                                     f'from {ctx.message.author.name}#{ctx.message.author.discriminator} in server `{ctx.guild.name}` #{ctx.channel.name} for active talking.\n'
                                     f'{NOTIFICATION_OFF_CMD}\n{tipmsg}')
-                            except (discord.Forbidden, discord.errors.Forbidden) as e:
+                            except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                                 await store.sql_toggle_tipnotify(str(member.id), "OFF")
         else:
             list_user_mention = []
@@ -19720,7 +19720,7 @@ async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str 
                 f'{COIN_NAME} '
                 f'was sent to ({total_found}) members in server `{ctx.guild.name}` for active talking.\n'
                 f'Each member got: `{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}`\n')
-        except (discord.Forbidden, discord.errors.Forbidden) as e:
+        except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
             await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
 
         await ctx.message.add_reaction(get_emoji(COIN_NAME))
@@ -19836,7 +19836,7 @@ async def _tip_react(reaction, user, amount, coin: str):
             await user.send(f'{EMOJI_RED_NO} {user.mention} Insufficient balance {EMOJI_TIP} total of '
                             f'{num_format_coin(TotalAmount, COIN_NAME)} '
                             f'{COIN_NAME}.')
-        except (discord.Forbidden, discord.errors.Forbidden) as e:
+        except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
             print(f"_tip_react Can not send DM to {user.id}")
         return
 
@@ -19866,7 +19866,7 @@ async def _tip_react(reaction, user, amount, coin: str):
                             f'was sent to ({len(list_receivers)}) members in server `{reaction.message.guild.name}`.\n'
                             f'Each: `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`'
                             f'Total spending: `{num_format_coin(TotalAmount, COIN_NAME)} {COIN_NAME}`')
-        except (discord.Forbidden, discord.errors.Forbidden) as e:
+        except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
             await store.sql_toggle_tipnotify(str(user.id), "OFF")
         for member in reaction.message.mentions:
             if user.id != member.id and reaction.message.author.id != member.id and member.bot == False:
@@ -19875,7 +19875,7 @@ async def _tip_react(reaction, user, amount, coin: str):
                         await member.send(f'{EMOJI_MONEYFACE} You got a {EMOJI_TIP} of  {num_format_coin(real_amount, COIN_NAME)} '
                                           f'{COIN_NAME} from {user.name}#{user.discriminator} in server `{reaction.message.guild.name}`\n'
                                           f'{NOTIFICATION_OFF_CMD}')
-                    except (discord.Forbidden, discord.errors.Forbidden) as e:
+                    except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                         await store.sql_toggle_tipnotify(str(member.id), "OFF")
         return
     else:

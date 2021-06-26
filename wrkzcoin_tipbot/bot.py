@@ -5995,6 +5995,31 @@ async def sell(ctx, *, item_name: str):
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot(traceback.format_exc())
+        elif item_name.strip().upper() == "EGG":
+            # Selling egg
+            try:
+                get_eggs = await store.economy_egg_collected(str(ctx.author.id))
+                ids = []
+                qty_eggs = 0.0
+                credit_sell = 0.0
+                if get_eggs and len(get_eggs) > 0:
+                    for each in get_eggs:
+                        ids.append(each['id'])
+                        qty_eggs += float(each['collected_qty'])
+                        credit_sell += float(each['collected_qty']) * float(each['credit_per_item'])
+                    if qty_eggs > 0:
+                        # has milk, sell all
+                        sell_milk = await store.economy_chickenfarm_sell_egg(str(ctx.author.id), ids, credit_sell, qty_eggs)
+                        if sell_milk:
+                            get_userinfo['credit'] = float(get_userinfo['credit']) + float(credit_sell)
+                            await ctx.message.reply('You sold {:,.0f} chicken egg(s) for `{:,.2f}` Credit(s). Your credit now is: `{:,.2f}`.'.format(qty_eggs, credit_sell, get_userinfo['credit']))
+                    else:
+                        await ctx.message.reply(f'{ctx.author.name}#{ctx.author.discriminator}, You do not have chicken egg(s) to sell!!')
+                else:
+                    await ctx.message.reply(f'{ctx.author.name}#{ctx.author.discriminator}, You do not have chicken egg(s) to sell!')
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
         else:
             await ctx.message.reply(f'{ctx.author.name}#{ctx.author.discriminator}, not valid to sell {item_name} or you do not have it!')
     except Exception as e:
@@ -6067,6 +6092,15 @@ async def buy(ctx, *, item_name: str=None):
         elif get_userinfo['numb_farm'] >= config.economy.max_farm_per_user and (item_name.upper() == "FARM" or item_name == "👨‍🌾"):
             await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You have a `farm` already.')
             return
+        elif get_userinfo['numb_chicken_farm'] >= config.economy.max_chickenfarm_per_user and (item_name.upper() == "CHICKENFARM" or item_name.upper() == "CHICKEN FARM"):
+            await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You have a `chicken farm` already.')
+            return
+        elif get_userinfo['numb_chicken_farm'] == 0 and (item_name.upper() == "CHICKEN" or item_name == "🐔"):
+            await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You do not have a `chicken farm`.')
+            return
+        elif get_userinfo['numb_chicken'] >= config.economy.max_chicken_per_user and (item_name.upper() == "CHICKEN" or item_name == "🐔"):
+            await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You have maximum of chicken already.')
+            return
         elif get_userinfo['numb_tractor'] >= config.economy.max_tractor_per_user and (item_name.upper() == "TRACTOR" or item_name == "🚜"):
             await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You have a `tractor` already.')
             return
@@ -6091,7 +6125,7 @@ async def buy(ctx, *, item_name: str=None):
                         e = discord.Embed(title="Shop Bot".format(ctx.author.name, ctx.author.discriminator), description="Economy [Testing]", timestamp=datetime.utcnow())
                         for each_item in get_shop_itemlist:
                             fee_str = "💵" if each_item['item_name'] != "Credit" else "💎"
-                            e.add_field(name=each_item['item_name'] + " " + each_item['item_emoji'] + " Fee: {:,.2f}".format(each_item['credit_cost']) + fee_str, value="```Each: {}```".format(each_item['item_numbers']), inline=False)
+                            e.add_field(name=each_item['item_name'] + " " + each_item['item_emoji'] + " Fee: {:,.2f}".format(each_item['credit_cost']) + fee_str, value="```Each: {}, Level: {}```".format(each_item['item_numbers'], each_item['limit_level'] if each_item['limit_level']>0 else 1), inline=False)
                         e.set_footer(text=f"User {ctx.message.author.name}#{ctx.message.author.discriminator}")
                         e.set_thumbnail(url=ctx.author.avatar_url)
                         msg = await ctx.send(embed=e)
@@ -6721,6 +6755,14 @@ async def collect(ctx, what: str = None):
         await ctx.message.reply(f'You do not have any cow.')
         await ctx.message.add_reaction(EMOJI_ERROR)
         return
+    elif what == "EGG" and get_userinfo and get_userinfo['numb_chicken_farm'] == 0:
+        await ctx.message.reply(f'Not having any chicken farm.')
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        return
+    elif what == "EGG" and get_userinfo and get_userinfo['numb_chicken'] == 0:
+        await ctx.message.reply(f'You do not have any chicken.')
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        return
     elif what == "MILK":
         try:
             if ctx.author.id not in GAME_INTERACTIVE_ECO:
@@ -6745,6 +6787,34 @@ async def collect(ctx, what: str = None):
                     await ctx.message.add_reaction(EMOJI_ERROR)
             else:
                 await ctx.message.reply(f'You do not have any cow.')
+                await ctx.message.add_reaction(EMOJI_ERROR)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+    elif what == "EGG":
+        try:
+            if ctx.author.id not in GAME_INTERACTIVE_ECO:
+                GAME_INTERACTIVE_ECO.append(ctx.author.id)
+            total_can_collect = 0
+            qty_collect = 0.0
+            get_chickens = await store.economy_chicken_farm_ownership(str(ctx.author.id))
+            id_collecting = []
+            if get_chickens and len(get_chickens) > 0:
+                for each_chicken in get_chickens:
+                    if each_chicken['possible_collect_date'] < int(time.time()):
+                        total_can_collect += 1
+                        qty_collect += config.economy.egg_per_chicken
+                        id_collecting.append(each_chicken['id'])
+                if total_can_collect > 0:
+                    insert_collecting = await store.economy_egg_collecting(str(ctx.author.id), id_collecting, qty_collect, config.economy.credit_egg)
+                    if insert_collecting:
+                        msg = await ctx.message.reply(f'{EMOJI_INFORMATION} {ctx.author.mention} Nice! You have collected `{qty_collect}` '
+                                                      f'egg(s) from `{total_can_collect}` chicken(s).')
+                else:
+                    await ctx.message.reply(f'You need to wait a bit longer. It\'s not time yet.')
+                    await ctx.message.add_reaction(EMOJI_ERROR)
+            else:
+                await ctx.message.reply(f'You do not have any chicken.')
                 await ctx.message.add_reaction(EMOJI_ERROR)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
@@ -6876,6 +6946,125 @@ async def dairy(ctx, member: discord.Member = None):
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
 
+
+@economy.command(name='chicken', aliases=['egg', 'chickenfarm'])
+async def chicken(ctx, member: discord.Member = None):
+    global TRTL_DISCORD, GAME_INTERACTIVE_ECO, MAINTENANCE_OWNER
+    if isinstance(ctx.channel, discord.DMChannel):
+        await ctx.message.add_reaction(EMOJI_ERROR) 
+        await ctx.send(f'{ctx.author.mention} This command can not be DM.')
+        return
+    
+    if member is None:
+        member = ctx.author
+    # disable game for TRTL discord
+    if ctx.guild and ctx.guild.id == TRTL_DISCORD:
+        return
+
+    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+    if serverinfo and 'enable_economy' in serverinfo and serverinfo['enable_economy'] == "NO":
+        prefix = serverinfo['prefix']
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Economy is not ENABLE yet in this guild. Please request Guild owner to enable by `{prefix}SETTING ECONOMY`')
+        await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} tried **{prefix}economy chicken** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+        return
+
+    if serverinfo['economy_channel']:
+        eco_channel = bot.get_channel(id=int(serverinfo['economy_channel']))
+        if not eco_channel:
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Can not find economy channel or invalid.')
+            return
+        elif ctx.channel.id != int(serverinfo['economy_channel']):
+            try:
+                EcoChan = bot.get_channel(id=int(serverinfo['economy_channel']))
+                await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention}, {EcoChan.mention} is the economy channel!!!')
+                await ctx.message.add_reaction(EMOJI_ERROR)
+                return
+            except Exception as e:
+                pass
+    else:
+        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is no economy channel yet.')
+        return
+
+    # Getting list of work in the guild and re-act
+    get_userinfo = await store.economy_get_user(str(member.id), '{}#{}'.format(member.name, member.discriminator))
+    if get_userinfo and get_userinfo['numb_chicken_farm'] == 0:
+        await ctx.message.reply(f'Not having a chicken farm.')
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        return
+    else:
+        try:
+            # Farm list
+            fence_left = "❎"
+            soil = "🟫"
+            fence_right = "❎"
+            fence_h = "❎"
+            cattle = ""
+            can_collect = []
+            total_can_collect = 0
+            can_harvest_string = "None"
+            chicken_emoji = "🐔"
+            # Get all item in farms
+            get_chickens = await store.economy_chicken_farm_ownership(str(member.id))
+            if get_chickens and len(get_chickens) > 0:
+                chickens_array_emoji = [chicken_emoji]*len(get_chickens)
+                if len(chickens_array_emoji) < config.economy.max_chicken_per_user:
+                    chickens_array_emoji = chickens_array_emoji + [soil]*(config.economy.max_chicken_per_user - len(chickens_array_emoji))
+                i=1
+                for each_chicken in chickens_array_emoji:
+                    if (i-1) % 9 == 0:
+                        cattle += f"{fence_left}"
+                        cattle += f"{each_chicken}"
+                    elif i > 0 and i % 9 == 0:
+                        cattle += f"{each_chicken}"
+                        cattle += f"{fence_right}\n"
+                    else:
+                        cattle += f"{each_chicken}"
+                    i += 1
+                cattle = f"{fence_left}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_right}\n" + cattle
+                cattle += f"{fence_left}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_right}\n"
+                for each_chicken in get_chickens:
+                    if each_chicken['possible_collect_date'] < int(time.time()):
+                        if "{}".format(chicken_emoji) not in can_collect:
+                            can_collect.append("{}".format(chicken_emoji))
+                        total_can_collect += 1
+                if total_can_collect > 0:
+                    can_harvest_string = "\n".join(can_collect)
+            else:
+                # Empty cattle
+                chickens_array_emoji = [soil]*(config.economy.max_chicken_per_user)
+                i=1
+                for each_chicken in chickens_array_emoji:
+                    if (i-1) % 9 == 0:
+                        cattle += f"{fence_left}"
+                        cattle += f"{each_chicken}"
+                    elif i > 0 and i % 9 == 0:
+                        cattle += f"{each_chicken}"
+                        cattle += f"{fence_right}\n"
+                    else:
+                        cattle += f"{each_chicken}"
+                    i += 1
+                cattle = f"{fence_left}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_right}\n" + cattle
+                cattle += f"{fence_left}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_right}\n"
+
+            e = discord.Embed(title="{}#{} Chicken Farm".format(member.name, member.discriminator), description="Economy [Testing]", timestamp=datetime.utcnow())
+            e.add_field(name="Chicken Farm View", value=cattle, inline=False)
+            if total_can_collect > 0:
+                e.add_field(name="Chicken Can Collect: {}".format(total_can_collect), value=can_harvest_string, inline=False)
+            try:
+                get_eggs = await store.economy_egg_collected(str(member.id))
+                if get_eggs and len(get_eggs) > 0:
+                    qty_eggs = sum(each['collected_qty'] for each in get_eggs)
+                    e.add_field(name="Egg Available", value=chicken_emoji + " x" +str(len(get_eggs)) + "={:,.0f}".format(qty_eggs), inline=False)
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            e.set_footer(text=f"Requested by {ctx.author.name}#{ctx.author.discriminator}")
+            e.set_thumbnail(url=member.avatar_url)
+            msg = await ctx.message.reply(embed=e)
+            await msg.add_reaction(EMOJI_OK_BOX)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
 
 @economy.command(name='farm', aliases=['farms'])
 async def farm(ctx, member: discord.Member = None):

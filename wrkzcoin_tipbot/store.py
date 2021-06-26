@@ -6724,6 +6724,9 @@ async def discord_economy_userinfo_what(guild_id: str, user_id: str, item_id: in
                 elif what.upper() == "FARM" or what == "👨‍🌾":
                     sql = """ UPDATE discord_economy_userinfo SET `numb_farm`=`numb_farm`+%s, `credit`=`credit`+%s WHERE `user_id`=%s """
                     await cur.execute(sql, (item_nos, credit, user_id,))
+                elif what.upper() == "CHICKENFARM" or what.upper() == "CHICKEN_FARM" or what.upper() == "CHICKEN FARM":
+                    sql = """ UPDATE discord_economy_userinfo SET `numb_chicken_farm`=`numb_chicken_farm`+%s, `credit`=`credit`+%s WHERE `user_id`=%s """
+                    await cur.execute(sql, (item_nos, credit, user_id,))
                 elif what.upper() == "TRACTOR" or what == "🚜":
                     sql = """ UPDATE discord_economy_userinfo SET `numb_tractor`=`numb_tractor`+%s, `credit`=`credit`+%s WHERE `user_id`=%s """
                     await cur.execute(sql, (item_nos, credit, user_id,))
@@ -6737,6 +6740,13 @@ async def discord_economy_userinfo_what(guild_id: str, user_id: str, item_id: in
                     sql = """ INSERT INTO discord_economy_dairy_cattle_ownership (`user_id`, `guild_id`, `bought_date`, `credit_cost`, `possible_collect_date`) 
                               VALUES (%s, %s, %s, %s, %s) """
                     await cur.execute(sql, (user_id, guild_id, int(time.time()), credit, int(time.time())+config.economy.dairy_collecting_time))
+                elif what.upper() == "CHICKEN" or what == "🐔":
+                    sql = """ UPDATE discord_economy_userinfo SET `numb_chicken`=`numb_chicken`+%s, `credit`=`credit`+%s WHERE `user_id`=%s """
+                    await cur.execute(sql, (item_nos, credit, user_id,))
+                    # insert to dairy ownership
+                    sql = """ INSERT INTO discord_economy_chickenfarm_ownership (`user_id`, `guild_id`, `bought_date`, `credit_cost`, `possible_collect_date`) 
+                              VALUES (%s, %s, %s, %s, %s) """
+                    await cur.execute(sql, (user_id, guild_id, int(time.time()), credit, int(time.time())+config.economy.egg_collecting_time))
                 elif what.upper() == "CREDIT" or what == "💵":
                     sql = """ UPDATE discord_economy_userinfo SET `credit`=`credit`+%s,`gem_credit`=`gem_credit`-1 WHERE `user_id`=%s """
                     await cur.execute(sql, (credit, user_id))
@@ -7114,6 +7124,86 @@ async def economy_dairy_sell_milk(user_id: str, ids, credit: float, qty_sell: fl
         await logchanbot(traceback.format_exc())
     return None
 
+
+async def economy_chicken_farm_ownership(user_id: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM discord_economy_chickenfarm_ownership WHERE `user_id`=%s """
+                await cur.execute(sql, (user_id))
+                result = await cur.fetchall()
+                if result: return result
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return []
+
+
+async def economy_egg_collecting(user_id: str, chickenlist, qty_collect: float, credit_egg: float):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ INSERT INTO discord_economy_egg_collected (`user_id`, `collected_date`, `collected_qty`, `credit_per_item`) 
+                          VALUES (%s, %s, %s, %s) """
+                await cur.execute(sql, (user_id, int(time.time()), qty_collect, credit_egg))
+
+                ## add egg
+                sql = """ UPDATE discord_economy_userinfo SET `egg_qty`=`egg_qty`+%s 
+                          WHERE `user_id`=%s LIMIT 1 """
+                await cur.execute(sql, (qty_collect, user_id,))
+
+                sql = """ UPDATE discord_economy_chickenfarm_ownership SET `last_collect_date`=%s, `possible_collect_date`=%s, `total_produced_qty`=`total_produced_qty`+%s 
+                          WHERE `user_id`=%s AND `id`=%s """
+                list_update = []
+                for each_item in chickenlist:
+                    list_update.append((int(time.time()), int(time.time())+config.economy.egg_collecting_time, config.economy.egg_per_chicken, user_id, each_item))
+                await cur.executemany(sql, list_update)
+                await conn.commit()
+                return True
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return None
+
+
+async def economy_egg_collected(user_id: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM discord_economy_egg_collected WHERE `user_id`=%s AND `sold`=%s """
+                await cur.execute(sql, (user_id, 'NO'))
+                result = await cur.fetchall()
+                if result: return result
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return []
+
+
+async def economy_chickenfarm_sell_egg(user_id: str, ids, credit: float, qty_sell: float):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                ## update egg
+                sql = """ UPDATE discord_economy_userinfo SET `egg_qty`=`egg_qty`-%s, `egg_qty_sold`=`egg_qty_sold`+%s, `credit`=`credit`+%s 
+                          WHERE `user_id`=%s LIMIT 1 """
+                await cur.execute(sql, (qty_sell, qty_sell, credit, user_id,))
+                sql = """ UPDATE discord_economy_egg_collected SET `sold`=%s, `sold_date`=%s 
+                          WHERE `user_id`=%s AND `id`=%s AND `sold`=%s """
+                list_update = []
+                for each_item in ids:
+                    list_update.append(('YES', int(time.time()), user_id, each_item, 'NO'))
+                await cur.executemany(sql, list_update)
+                await conn.commit()
+                return True
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return None
 ## end of economy
 
 # Steal from https://nitratine.net/blog/post/encryption-and-decryption-in-python/

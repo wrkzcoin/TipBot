@@ -11625,21 +11625,21 @@ async def withdraw(ctx, amount: str, coin: str = None):
         if coin_family in ["TRTL", "BCN"]:
             withdrawTx = await store.sql_external_cn_single_withdraw(str(ctx.message.author.id), real_amount, COIN_NAME)
             withdraw_txt = "Transaction hash: `{}`".format(withdrawTx['transactionHash'])
-            withdraw_txt += "\nA node/tx fee `{} {}` deducted from your balance.".format(withdrawTx, num_format_coin(get_tx_node_fee(COIN_NAME), COIN_NAME), COIN_NAME)
+            withdraw_txt += "\nA node/tx fee `{} {}` deducted from your balance.".format(num_format_coin(get_tx_node_fee(COIN_NAME), COIN_NAME), COIN_NAME)
         elif coin_family == "XMR":
             withdrawTx = await store.sql_external_xmr_single(str(ctx.message.author.id),
                                                             real_amount,
                                                             user['user_wallet_address'],
                                                             COIN_NAME, "WITHDRAW", NetFee)
             withdraw_txt = "Transaction hash: `{}`".format(withdrawTx['tx_hash'])
-            withdraw_txt += "\nA node/tx fee `{} {}` deducted from your balance.".format(withdrawTx, num_format_coin(get_tx_node_fee(COIN_NAME), COIN_NAME), COIN_NAME)
+            withdraw_txt += "\nA node/tx fee `{} {}` deducted from your balance.".format(num_format_coin(get_tx_node_fee(COIN_NAME), COIN_NAME), COIN_NAME)
         elif coin_family == "XCH":
             withdrawTx = await store.sql_external_xch_single(str(ctx.message.author.id),
                                                             real_amount,
                                                             user['user_wallet_address'],
                                                             COIN_NAME, "WITHDRAW")
             withdraw_txt = "Transaction hash: `{}`".format(withdrawTx['tx_hash']['name'])
-            withdraw_txt += "\nA node/tx fee `{} {}` deducted from your balance.".format(withdrawTx, num_format_coin(get_tx_node_fee(COIN_NAME), COIN_NAME), COIN_NAME)
+            withdraw_txt += "\nA node/tx fee `{} {}` deducted from your balance.".format(num_format_coin(get_tx_node_fee(COIN_NAME), COIN_NAME), COIN_NAME)
         elif coin_family == "NANO":
             withdrawTx = await store.sql_external_nano_single(str(ctx.message.author.id), real_amount,
                                                             user['user_wallet_address'],

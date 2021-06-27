@@ -5503,8 +5503,6 @@ async def trx_wallet_getbalance(address: str, coin: str):
                     balance = await cntr.functions.balanceOf(address) / 10**precision
                 else:
                     await logchanbot("Mis-match SYM vs TOKEN NAME: {} vs {}".format(SYM, TOKEN_NAME))
-            except tronpy.exceptions.UnknownError as e:
-                pass
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
         await TronClient.close()
@@ -6717,6 +6715,8 @@ async def discord_economy_userinfo_what(guild_id: str, user_id: str, item_id: in
                     await cur.execute(sql, (item_nos, credit, user_id,))
                 elif what.upper() == "TRACTOR" or what == "🚜":
                     sql = """ UPDATE discord_economy_userinfo SET `numb_tractor`=`numb_tractor`+%s, `credit`=`credit`+%s WHERE `user_id`=%s """
+                elif what.upper() == "BOAT" or what == "🚣":
+                    sql = """ UPDATE discord_economy_userinfo SET `numb_boat`=`numb_boat`+%s, `credit`=`credit`+%s WHERE `user_id`=%s """
                     await cur.execute(sql, (item_nos, credit, user_id,))
                 elif what.upper() == "DAIRY CATTLE" or what == "DAIRYCATTLE":
                     sql = """ UPDATE discord_economy_userinfo SET `numb_dairy_cattle`=`numb_dairy_cattle`+%s, `credit`=`credit`+%s WHERE `user_id`=%s """
@@ -6763,7 +6763,8 @@ async def economy_get_list_fish_items():
         await logchanbot(traceback.format_exc())
     return []
 
-
+# Planned not use
+# TODO: remove
 async def economy_insert_fishing(fish_id: int, user_id: str, guild_id: str, fish_strength: float, fish_weight: float, exp_gained: float, energy_loss: float, caught: str, sellable: str="YES"):
     global pool
     try:
@@ -6786,6 +6787,35 @@ async def economy_insert_fishing(fish_id: int, user_id: str, guild_id: str, fish
         await logchanbot(traceback.format_exc())
     return None
 
+
+async def economy_insert_fishing_multiple(list_fishes, total_energy_loss: float, total_exp: float, user_id: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ INSERT INTO discord_economy_fishing (`fish_id`, `user_id`, `guild_id`, `fish_strength`, `fish_weight`, 
+                           `exp_gained`, `energy_loss`, `caught`, `date`, `sellable`) 
+                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                fishing_arr = []
+                for each_fish in list_fishes:
+                    fishing_arr.append((each_fish['id'], each_fish['user_id'], each_fish['guild_id'], each_fish['fish_strength'], each_fish['fish_weight'], each_fish['exp_gained'], each_fish['energy_loss'], each_fish['caught'], int(time.time()), 'YES'))
+                await cur.executemany(sql, fishing_arr)
+
+                ## add experience and engery loss
+                sql = """ UPDATE discord_economy_userinfo SET `energy_current`=`energy_current`-%s, `fishing_exp`=`fishing_exp`+%s,`fishing_bait`=`fishing_bait`-%s WHERE `user_id`=%s LIMIT 1 """
+                await cur.execute(sql, (total_energy_loss, total_exp, len(list_fishes), user_id,))
+                # add fish found
+                sql = """ UPDATE discord_economy_fish_items SET `found_times`=`found_times`+1 WHERE `id`=%s LIMIT 1 """
+                fishing_id_arr = []
+                for each_fish in list_fishes:
+                    fishing_id_arr.append((each_fish['id']))
+                await cur.executemany(sql, fishing_id_arr)
+                await conn.commit()
+                return True
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return None
 
 async def economy_get_list_fish_caught(user_id: str, sold: str='NO', caught: str='YES'):
     global pool

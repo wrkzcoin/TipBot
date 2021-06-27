@@ -6116,6 +6116,9 @@ async def buy(ctx, *, item_name: str=None):
         elif get_userinfo['numb_farm'] == 0 and (item_name.upper() == "TRACTOR" or item_name == "🚜"):
             await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You do not have a `farm`.')
             return
+        elif get_userinfo['numb_boat'] >= config.economy.max_boat_per_user and (item_name.upper() == "BOAT" or item_name == "🚣"):
+            await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You have a `boat` already.')
+            return
         elif get_userinfo['numb_cow'] >= config.economy.max_cow_per_user and (item_name.upper() == "COW" or item_name == "🐄"):
             await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You have maximum of cows already.')
             return
@@ -6168,12 +6171,16 @@ async def buy(ctx, *, item_name: str=None):
                     if get_shop_item:
                         level = int((get_userinfo['exp']-10)**0.5) + 1
                         needed_level = get_shop_item['limit_level']
+                        your_fishing_exp = get_userinfo['fishing_exp']
+                        need_fishing_exp = get_shop_item['fishing_exp']
                         if get_userinfo['credit'] < get_shop_item['credit_cost']:
                             user_credit = "{:,.2f}".format(get_userinfo['credit'])
                             need_credit = "{:,.2f}".format(get_shop_item['credit_cost'])
                             await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You do not have sufficient credit. Having only `{user_credit}`. Need `{need_credit}`.')
                         elif level < get_shop_item['limit_level']:
                             await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Your level `{level}`  is still low. Needed level `{str(needed_level)}`.')
+                        elif need_fishing_exp > 0 and your_fishing_exp <  need_fishing_exp:
+                            await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Your fishing exp `{your_fishing_exp}`  is still low. Needed fishing exp `{str(need_fishing_exp)}`.')
                         else:
                             if ctx.author.id not in GAME_INTERACTIVE_ECO:
                                 GAME_INTERACTIVE_ECO.append(ctx.author.id)
@@ -7347,6 +7354,14 @@ async def fishing(ctx):
                 GAME_INTERACTIVE_ECO.remove(ctx.author.id)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You have very small energy. Eat to powerup.')
             return
+
+        has_boat = False
+        will_fishing = 1
+        if get_userinfo['numb_boat'] >= 1:
+            has_boat = True
+            will_fishing = config.economy.max_boat_can_fishing
+            if get_userinfo['fishing_bait'] < will_fishing:
+                will_fishing = get_userinfo['fishing_bait']
         loop_exp = 0
         fishing_exp = get_userinfo['fishing_exp']
         try:
@@ -7354,36 +7369,61 @@ async def fishing(ctx):
             if loop_exp < 0: loop_exp = 0
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-        caught = "YES" if bool(random.getrandbits(1)) else "NO"
-        if caught == "NO":
-            while loop_exp > 0 and caught == "NO":
-                loop_exp -= 1
-                caught = "YES" if bool(random.getrandbits(1)) else "NO"
-                if caught == "YES": break
+
+        selected_item_list = []
         item_list = await store.economy_get_list_fish_items()
-        selected_item = random.choice(item_list) if item_list and len(item_list) > 0 else None
-        if selected_item:
-            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
-            await asyncio.sleep(1.5)
+        total_energy_loss = 0.0
+        total_exp = 0.0
+        numb_caught = 0
+        for x in range(0, will_fishing):
+            caught = "YES" if bool(random.getrandbits(1)) else "NO"
+            if caught == "NO":
+                while loop_exp > 0 and caught == "NO":
+                    loop_exp -= 1
+                    caught = "YES" if bool(random.getrandbits(1)) else "NO"
+            random.shuffle(item_list)
+            selected_item = random.choice(item_list) if item_list and len(item_list) > 0 else None
             # Get a selected fish
             fish_strength = round(random.uniform(float(selected_item['fish_strength_min']), float(selected_item['fish_strength_max'])), 2)
             fish_weight = round(random.uniform(float(selected_item['fish_weight_min']), float(selected_item['fish_weight_max'])), 2)
             energy_loss = round(float(fish_strength)*config.economy.fishing_energy_loss_ratio, 2)
             if caught == "YES":
-                exp_gained = int(fish_weight*config.economy.fishing_exp_strength_ratio) + 1        
-                insert_item = await store.economy_insert_fishing(selected_item['id'], str(ctx.author.id), str(ctx.guild.id), fish_strength, 
-                                                                 fish_weight, exp_gained, energy_loss, caught, selected_item['sellable'])
-                if insert_item:
-                    item_info = selected_item['fish_name'] + " " + selected_item['fish_emoji'] + " - weight: {:.2f}kg".format(fish_weight)
-                    await ctx.message.reply(f'{EMOJI_INFORMATION} {ctx.author.mention} Nice! You have caught {item_info}. You gained `{str(exp_gained)}` fishing experience and spent `{str(energy_loss)}` energy.')
-                    await ctx.message.add_reaction(selected_item['fish_emoji'])
+                exp_gained = int(fish_weight*config.economy.fishing_exp_strength_ratio) + 1
+                numb_caught += 1
+            else:
+                exp_gained = 0
+            selected_item_list.append({'id': selected_item['id'], 
+                                       'user_id': str(ctx.author.id), 
+                                       'guild_id': str(ctx.guild.id), 
+                                       'fish_strength': fish_strength, 
+                                       'fish_weight': fish_weight, 
+                                       'exp_gained': exp_gained, 
+                                       'energy_loss': energy_loss, 
+                                       'caught': caught,
+                                       'fish_name': selected_item['fish_name'],
+                                       'fish_emoji': selected_item['fish_emoji'],
+                                       })
+            total_energy_loss += energy_loss
+            total_exp += exp_gained
+        total_energy_loss = round(total_energy_loss, 2)
+        total_exp = round(total_exp, 2)
+        if will_fishing > 0: 
+            if has_boat:
+                await ctx.message.add_reaction("🚣")
+            else:
+                await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+            await asyncio.sleep(1.5)
+            insert_item = await store.economy_insert_fishing_multiple(selected_item_list, total_energy_loss, total_exp, str(ctx.author.id))
+            if numb_caught > 0:
+                item_info_list = []
+                for each_fish in selected_item_list:
+                    if each_fish['caught'] == "YES":
+                        item_info_list.append(each_fish['fish_name'] + " " + each_fish['fish_emoji'] + " - weight: {:.2f}kg".format(each_fish['fish_weight']))
+                item_info = "\n".join(item_info_list)
+                await ctx.message.reply(f'{EMOJI_INFORMATION} {ctx.author.mention} Nice! You have caught `{numb_caught}` fish(es): ```{item_info}```You spent `{will_fishing}` bait(s). You gained `{str(total_exp)}` fishing experience and spent `{str(total_energy_loss)}` energy.')
             else:
                 # Not caught
-                insert_item = await store.economy_insert_fishing(selected_item['id'], str(ctx.author.id), str(ctx.guild.id), fish_strength, 
-                                                                 fish_weight, 0, energy_loss, caught, "NO")
-                item_info = selected_item['fish_name'] + " " + selected_item['fish_emoji'] + " - weight: {:.2f}kg".format(fish_weight)
-                if insert_item:
-                    await ctx.send(f'{EMOJI_INFORMATION} {ctx.author.mention} Too bad! You lose {item_info} and spent `{str(energy_loss)}` energy!')
+                await ctx.send(f'{EMOJI_INFORMATION} {ctx.author.mention} Too bad! You lose {will_fishing} fish(es) and spent `{str(total_energy_loss)}` energy!')
         else:
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is no fish.')
     except Exception as e:

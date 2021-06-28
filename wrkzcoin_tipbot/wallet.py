@@ -522,7 +522,8 @@ def get_tx_node_fee(coin: str):
         return getattr(config,"daemon"+coin,config.daemonWRKZ).node_tx_fee
     elif coin_family == "XCH":
         return getattr(config,"daemon"+coin,config.daemonWRKZ).node_tx_fee
-
+    elif coin_family == "NANO":
+        return getattr(config,"daemon"+coin,config.daemonWRKZ).node_tx_fee
 
 async def get_tx_fee_xmr(coin: str, amount: int = None, to_address: str = None):
     COIN_NAME = coin.upper()

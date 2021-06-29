@@ -1896,6 +1896,8 @@ async def notify_new_tx_user():
         if pending_tx and len(pending_tx) > 0:
             # let's notify_new_tx_user
             for eachTx in pending_tx:
+                if eachTx['coin_name'] not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_NANO+ENABLE_XMR:
+                    continue
                 try:
                     user_tx = None
                     if len(eachTx['payment_id']) > 0:

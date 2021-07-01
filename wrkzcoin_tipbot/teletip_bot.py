@@ -10,7 +10,7 @@ from aiogram.utils.markdown import markdown_decoration as markdown
 from aiogram.types import ParseMode, InputMediaPhoto, InputMediaVideo, ChatActions
 from config import config
 from wallet import *
-import store, daemonrpc_client, addressvalidation, walletapi
+import store, daemonrpc_client, addressvalidation, addressvalidation_xch, walletapi
 import sys, traceback
 # redis
 import redis, json
@@ -1113,7 +1113,7 @@ async def start_cmd_handler(message: types.Message):
             coin_family = "ERC-20"
         else:
             coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-        if coin_family == "TRTL" or coin_family == "DOGE":
+        if coin_family == "TRTL" or coin_family == "DOGE" or coin_family == "XMR":
             addressLength = get_addrlen(COIN_NAME)
             IntaddressLength = 0
             paymentid = None
@@ -1154,7 +1154,7 @@ async def start_cmd_handler(message: types.Message):
                 Min_Tx = get_min_tx_amount(COIN_NAME)
                 Max_Tx = get_max_tx_amount(COIN_NAME)
                 real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
-                NetFee = get_reserved_fee(coin = COIN_NAME)
+                NetFee = get_tx_node_fee(coin = COIN_NAME)
             message_text = ''
             valid_amount = True
             if real_amount + NetFee > actual_balance:
@@ -1170,19 +1170,36 @@ async def start_cmd_handler(message: types.Message):
                 await message.reply(markdown.pre(message_text), parse_mode=ParseMode.MARKDOWN)
                 return
 
-            if coin_family == "TRTL" or coin_family == "XMR":
+            if coin_family == "TRTL" or coin_family == "XMR" or coin_family == "XCH":
                 IntaddressLength = get_intaddrlen(COIN_NAME)
                 if len(wallet_address) == int(addressLength):
-                    valid_address = addressvalidation.validate_address_cn(wallet_address, COIN_NAME)
-                    if valid_address is None:
-                        message_text = text(bold("Invalid address:\n") + markdown.pre(wallet_address))
-                        await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
-                        return
-                    else:
-                        user_from = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
-                        if user_from is None:
-                            userregister = await store.sql_register_user(message.from_user.username, COIN_NAME, 'TELEGRAM', message.chat.id)
+                    if coin_family == "TRTL":
+                        valid_address = addressvalidation.validate_address_cn(wallet_address, COIN_NAME)
+                        if valid_address is None:
+                            message_text = text(bold("Invalid address:\n") + markdown.pre(wallet_address))
+                            await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
+                            return
+                        else:
                             user_from = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
+                            if user_from is None:
+                                userregister = await store.sql_register_user(message.from_user.username, COIN_NAME, 'TELEGRAM', message.chat.id)
+                                user_from = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
+                            CoinAddress = wallet_address
+                    elif coin_family == "XMR":
+                        # If not Masari
+                        if COIN_NAME not in ["MSR", "UPX", "XCH", "XFX"]:
+                            valid_address = await validate_address_xmr(str(wallet_address), COIN_NAME)
+                            if valid_address['valid'] == False or valid_address['nettype'] != 'mainnet':
+                                message_text = text(bold("Invalid address:\n") + markdown.pre(wallet_address))
+                                await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
+                                return
+                            CoinAddress = wallet_address
+                    elif coin_family == "XCH":
+                        valid_address = addressvalidation_xch.validate_address(wallet_address, COIN_NAME)
+                        if valid_address == False:
+                            message_text = text(bold("Invalid address:\n") + markdown.pre(wallet_address))
+                            await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
+                            return
                         CoinAddress = wallet_address
                 elif len(wallet_address) == int(IntaddressLength): 
                     # use integrated address
@@ -1213,22 +1230,24 @@ async def start_cmd_handler(message: types.Message):
 
                     if paymentid:
                         try:
-                            tip = await store.sql_external_cn_single_id(str(ctx.message.author.id), CoinAddress, real_amount, paymentid, COIN_NAME, 'TELEGRAM')
+                            tip = await store.sql_external_cn_single_id(message.from_user.username, CoinAddress, real_amount, paymentid, COIN_NAME, 'TELEGRAM')
                             await logchanbot(f'[Telegram] User {message.from_user.username} send tx out {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
+                            await logchanbot(traceback.print_exc(file=sys.stdout))
                     else:
                         try:
-                            tip = await store.sql_external_cn_single(message.from_user.username, CoinAddress, real_amount, COIN_NAME, 'TELEGRAM')
+                            tip = await store.sql_external_cn_single(message.from_user.username, CoinAddress, real_amount, COIN_NAME, 'TELEGRAM', 'SEND')
                             await logchanbot(f'[Telegram] User {message.from_user.username} send tx out {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
+                            await logchanbot(traceback.print_exc(file=sys.stdout))
                     if message.from_user.username in WITHDRAW_IN_PROCESS:
                         await asyncio.sleep(1)
                         WITHDRAW_IN_PROCESS.remove(message.from_user.username)
                     if tip:
                         tip_tx_tipper = "\nTransaction hash: {}".format(tip['transactionHash'])
-                        tip_tx_tipper += "\nTx Fee: {}{}".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
+                        tip_tx_tipper += "\nA node/tx fee: {}{}".format(num_format_coin(get_tx_node_fee(COIN_NAME), COIN_NAME), COIN_NAME)
                         await add_tx_action_redis(json.dumps([random_string, "SEND", message.from_user.username, message.from_user.username, float("%.3f" % time.time()), message.text, "TELEGRAM", "COMPLETE"]), False)
                         message_text = text(bold(f"You have sent {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}:\n") + markdown.pre(tip_tx_tipper))
                         await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
@@ -1254,18 +1273,19 @@ async def start_cmd_handler(message: types.Message):
                             return
 
                         try:
-                            NetFee = get_tx_fee(coin = COIN_NAME)
+                            NetFee = get_tx_node_fee(coin = COIN_NAME)
                             sendTx = await store.sql_external_doge_single(message.from_user.username, real_amount, NetFee, wallet_address, COIN_NAME, 'SEND', 'TELEGRAM')
                             await logchanbot(f'[Telegram] User {message.from_user.username} send tx out {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
+                            await logchanbot(traceback.print_exc(file=sys.stdout))
 
                         if message.from_user.username in WITHDRAW_IN_PROCESS:
                             await asyncio.sleep(1)
                             WITHDRAW_IN_PROCESS.remove(message.from_user.username)
                         if sendTx:
                             tx_text = "\nTransaction hash: {}".format(sendTx)
-                            tx_text += "\nNetwork fee deducted from the amount."
+                            tx_text += "\nA node/tx fee: {}{}".format(num_format_coin(get_tx_node_fee(COIN_NAME), COIN_NAME), COIN_NAME)
                             
                             message_text = text(bold(f"You have sent {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}:\n") + markdown.pre(tx_text))
                             await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
@@ -1357,7 +1377,7 @@ async def start_cmd_handler(message: types.Message):
             Max_Tip = get_max_mv_amount(COIN_NAME)
             Min_Tx = get_min_tx_amount(COIN_NAME)
             Max_Tx = get_max_tx_amount(COIN_NAME)
-            NetFee = get_reserved_fee(coin = COIN_NAME)
+            NetFee = get_tx_node_fee(coin = COIN_NAME)
             real_amount = int(amount * get_decimal(COIN_NAME)) if (coin_family == "TRTL" or coin_family == "XMR") else amount
         wallet_address = user_from['user_wallet_address']
         message_text = ''
@@ -1417,9 +1437,9 @@ async def start_cmd_handler(message: types.Message):
                     return
 
                 try:
-                    withdrawTx = await store.sql_external_cn_single_withdraw(message.from_user.username, real_amount, COIN_NAME, "TELEGRAM")
+                    withdrawTx = await store.sql_external_cn_single(message.from_user.username, user_from['user_wallet_address'], real_amount, COIN_NAME, "TELEGRAM", "WITHDRAW")
                     withdraw_txt = "Transaction hash: {}".format(withdrawTx['transactionHash'])
-                    withdraw_txt += "\nTx Fee: {}{}".format(num_format_coin(withdrawTx['fee'], COIN_NAME), COIN_NAME)
+                    withdraw_txt += "\nA node/tx fee: {}{}".format(num_format_coin(get_tx_node_fee(COIN_NAME), COIN_NAME), COIN_NAME)
                 except Exception as e:
                     await logchanbot(traceback.print_exc(file=sys.stdout))
 
@@ -1450,11 +1470,12 @@ async def start_cmd_handler(message: types.Message):
                 return
 
             try:
-                NetFee = get_tx_fee(coin = COIN_NAME)
+                NetFee = get_tx_node_fee(coin = COIN_NAME)
                 withdrawTx = await store.sql_external_doge_single(message.from_user.username, real_amount,
                                                                 NetFee, wallet_address,
                                                                 COIN_NAME, "WITHDRAW", "TELEGRAM")
-                withdraw_txt = f'Transaction hash: {withdrawTx}\nNetwork fee deducted from the amount.'
+                withdraw_txt = f'Transaction hash: {withdrawTx}.'
+                withdraw_txt += "\nA node/tx fee: {}{}".format(num_format_coin(NetFee, COIN_NAME), COIN_NAME)
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
 

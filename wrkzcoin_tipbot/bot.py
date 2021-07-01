@@ -223,8 +223,7 @@ are not in any way responsible or liable for any lost, mis-used, stolen funds, o
 network's issues. TipBot's purpose is to be fun, do testing, and share tips between \
 user to user, and its use is on each user’s own risks.
 
-We operate the bot on our own rented servers. We do not charge any node fees for transactions, \
-as well as no fees for depositing or withdrawing funds to the TipBot. \
+We operate the bot on our own rented servers. \
 Feel free to donate if you like the TipBot and the service it provides. \
 Your donations will help to fund the development & maintenance. 
 
@@ -232,6 +231,10 @@ We commit to make it as secure as possible to the best of our expertise, \
 however we accept no liability and responsibility for any loss or damage \
 caused to you. Additionally, the purpose of the TipBot is to spread awareness \
 of cryptocurrency through tips, which is one of our project’s main commitments.
+
+Updated July 1st, 2021
+* We implemented a flat fee for each coin (tx/node). \
+You can check by a command COININFO COINNAME
 ```
 """
 
@@ -11663,7 +11666,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
         return
     try:
         if coin_family in ["TRTL", "BCN"]:
-            withdrawTx = await store.sql_external_cn_single_withdraw(str(ctx.message.author.id), real_amount, COIN_NAME)
+            withdrawTx = await store.sql_external_cn_single(str(ctx.message.author.id), user['user_wallet_address'], real_amount, COIN_NAME, 'DISCORD', 'WITHDRAW')
             withdraw_txt = "Transaction hash: `{}`".format(withdrawTx['transactionHash'])
             withdraw_txt += "\nA node/tx fee `{} {}` deducted from your balance.".format(num_format_coin(get_tx_node_fee(COIN_NAME), COIN_NAME), COIN_NAME)
         elif coin_family == "XMR":
@@ -15105,9 +15108,7 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
                     try:
                         tip = await store.sql_external_cn_single_id(str(ctx.message.author.id), CoinAddress, real_amount, paymentid, COIN_NAME)
                         tip_tx_tipper = "Transaction hash: `{}`".format(tip['transactionHash'])
-                        # replace fee
-                        tip['fee'] = get_tx_node_fee(COIN_NAME)
-                        tip_tx_tipper += "\nTx Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
+                        tip_tx_tipper += "\nA node/tx fee `{}{}` deducted from your balance.".format(num_format_coin(get_tx_node_fee(COIN_NAME), COIN_NAME), COIN_NAME)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
                     await asyncio.sleep(config.interval.tx_lap_each)
@@ -15142,7 +15143,7 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
                 if ctx.message.author.id not in TX_IN_PROCESS:
                     TX_IN_PROCESS.append(ctx.message.author.id)
                     try:
-                        tip = await store.sql_external_cn_single(str(ctx.message.author.id), CoinAddress, real_amount, COIN_NAME)
+                        tip = await store.sql_external_cn_single(str(ctx.message.author.id), CoinAddress, real_amount, COIN_NAME, 'DISCORD', 'SEND')
                         tip_tx_tipper = "Transaction hash: `{}`".format(tip['transactionHash'])
                         # replace fee
                         tip['fee'] = get_tx_node_fee(COIN_NAME)

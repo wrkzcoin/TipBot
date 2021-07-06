@@ -6193,10 +6193,17 @@ async def buy(ctx, *, item_name: str=None):
                                 add_item_numbers = config.economy.max_bait_per_user - get_userinfo['fishing_bait']
                             elif (item_name.upper() == "SEED" or item_name == "🌱") and get_userinfo['tree_seed'] + add_item_numbers > config.economy.max_seed_per_user:
                                 add_item_numbers = config.economy.max_seed_per_user - get_userinfo['tree_seed']
-                            update_item = await store.discord_economy_userinfo_what(str(ctx.guild.id), str(ctx.author.id), get_shop_item['id'], item_name, add_item_numbers, -get_shop_item['credit_cost'])
+                            update_item = None
+                            try:
+                                update_item = await store.discord_economy_userinfo_what(str(ctx.guild.id), str(ctx.author.id), get_shop_item['id'], item_name, add_item_numbers, -get_shop_item['credit_cost'])
+                            except Exception as e:
+                                traceback.print_exc(file=sys.stdout)
+                                await logchanbot(traceback.format_exc())
                             if update_item:
                                 item_desc = get_shop_item['item_name'] + " " + get_shop_item['item_emoji'] + " x" + str(add_item_numbers)
                                 await ctx.message.reply(f'{EMOJI_INFORMATION} You successfully purchased {item_desc}.')
+                            else:
+                                await ctx.message.reply(f'{EMOJI_INFORMATION} internal error {item_desc}.')
                     else:
                         await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} item {item_name} is not available.')
             except Exception as e:

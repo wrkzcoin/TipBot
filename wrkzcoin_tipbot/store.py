@@ -6670,6 +6670,7 @@ async def discord_economy_userinfo_what(guild_id: str, user_id: str, item_id: in
                     await cur.execute(sql, (item_nos, credit, user_id,))
                 elif what.upper() == "TRACTOR" or what == "🚜":
                     sql = """ UPDATE discord_economy_userinfo SET `numb_tractor`=`numb_tractor`+%s, `credit`=`credit`+%s WHERE `user_id`=%s """
+                    await cur.execute(sql, (item_nos, credit, user_id,))
                 elif what.upper() == "BOAT" or what == "🚣":
                     sql = """ UPDATE discord_economy_userinfo SET `numb_boat`=`numb_boat`+%s, `credit`=`credit`+%s WHERE `user_id`=%s """
                     await cur.execute(sql, (item_nos, credit, user_id,))

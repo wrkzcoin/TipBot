@@ -1,10 +1,28 @@
 ### TipBot (Work still in progress)
 
-Not ready for use.
+This TipBot's code is not ready to deploy. We keep it here for easily bug tracking.
 
-### Installation
+### Getting Started
 
-TODO
+* Basic Tipping: <https://www.bot.tips/discord-basic-tipping-howto/>
+
+* Some built-in games: <https://www.bot.tips/discord-tipbot-games/>
+
+* Economy game for time killing: <https://www.bot.tips/discord-tipbot-economy-game/>
+
+### Discord
+
+* WrkzCoin: <https://discordapp.com/invite/GpHzURM>
+
+* Bot invitation link: http://invite.discord.bot.tips
+
+### Short Video
+
+[![Tipping in Action in WrkzCoin Discord](https://img.youtube.com/vi/qg9CURyD7uc/0.jpg)](https://www.youtube.com/watch?v=qg9CURyD7uc)
+
+### Basic Guide Video
+
+[![Guide of using Discord TipBot](https://img.youtube.com/vi/Htg6HKLmPZ0/0.jpg)](https://www.youtube.com/watch?v=Htg6HKLmPZ0)
 
 ### Donation address list:
 
@@ -33,20 +51,6 @@ TODO
   `dg4nUdJyHV1ZCrYV7kHvTE9HkKT9ynKCW1Antm1ku8ihhsN1PkiH2fFfwsGt2y7UsN3rALr4gg8oz87vpxjaVF8g1uUWKH7pE`
 
 * Other donation, can use `.donate AMOUNT TICKER` with TipBot's DM.
-
-### Discord
-
-* WrkzCoin: <https://discordapp.com/invite/GpHzURM>
-
-* Bot invitation link: http://invite.discord.bot.tips
-
-### Short Video
-
-[![Tipping in Action in WrkzCoin Discord](https://img.youtube.com/vi/qg9CURyD7uc/0.jpg)](https://www.youtube.com/watch?v=qg9CURyD7uc)
-
-### Basic Guide Video
-
-[![Guide of using Discord TipBot](https://img.youtube.com/vi/Htg6HKLmPZ0/0.jpg)](https://www.youtube.com/watch?v=Htg6HKLmPZ0)
 
 ### Credit and thanks to:
 

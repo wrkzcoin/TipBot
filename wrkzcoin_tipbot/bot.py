@@ -7593,7 +7593,7 @@ async def search(ctx):
     try:
         # Get list of items:
         await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
-        await asyncio.sleep(1.5)
+        await asyncio.sleep(1.0)
         if random.randint(1,100) < config.economy.luck_search:
             # You get luck
             try:
@@ -7847,9 +7847,12 @@ async def work(ctx, claim: str=None):
     if get_userinfo:
         # If health less than 50%, stop
         if get_userinfo['health_current']/get_userinfo['health_total'] < 0.5:
+            await ctx.send(f'{EMOJI_INFORMATION} {ctx.author.mention} Your health is having issue. Do some heatlh check.')
+            await asyncio.sleep(0.5)
+        elif get_userinfo['health_current']/get_userinfo['health_total'] < 0.3:
             if ctx.author.id in GAME_INTERACTIVE_ECO:
                 GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Your health is having issue. Do some heatlh check.')
+            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Your health is having issue.')
             return
         # If energy less than 20%, stop
         if get_userinfo['energy_current']/get_userinfo['energy_total'] < 0.2:

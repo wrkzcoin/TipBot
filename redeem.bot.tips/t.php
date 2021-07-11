@@ -130,6 +130,7 @@ function send_coin_doge($toAddr, $amount, $coin_name) {
 
     $result = curl_exec($ch);
     if (curl_errno($ch)) {
+        $post_to_discord = post_discord("TipBot-Voucher-CURL-".$coin_name, curl_error($ch));
         echo 'Error:' . curl_error($ch);
     }
     curl_close($ch);
@@ -153,7 +154,7 @@ function validate_xmr_fam($address, $coin_name) {
         if (
             substr($address, 0, 3) != 'gnt' ||
             !preg_match('/([0-9]|[A-B])/', substr($address, 3)) ||
-            strlen($address) != 98
+            (strlen($address) != 98 && strlen($address) != 99 && strlen($address) != 109)
         ) {
             return FALSE;
         }
@@ -188,6 +189,7 @@ function validate_address($address, $coin_name) {
 
     if (curl_errno($ch)) {
         // echo 'Error:' . curl_error($ch);
+        $post_to_discord = post_discord("TipBot-Voucher-CURL-".$coin_name, curl_error($ch));
         die("Internal error. Please report to us. Error code 1005. Failed validate address.");
     }
     curl_close ($ch);
@@ -222,6 +224,7 @@ function send_coin_xmr_fam($toAddr, $amount, $coin_name) {
     $result = curl_exec($ch);
     if (curl_errno($ch)) {
         // echo 'Error:' . curl_error($ch);
+        $post_to_discord = post_discord("TipBot-Voucher-CURL-".$coin_name, curl_error($ch));
         die("Internal error. Please report to us. Error code 1005. Failed TX.");
     }
     curl_close ($ch);
@@ -231,6 +234,7 @@ function send_coin_xmr_fam($toAddr, $amount, $coin_name) {
         // 64 characters
         if(strlen($transactionHash) !== 64) return FALSE;
     } else {
+        $post_to_discord = post_discord("TipBot-Voucher-CURL-".$coin_name, $result);
         return FALSE;
     }
     return $transactionHash;
@@ -262,6 +266,7 @@ function send_coin($toAddr, $amount, $coin_name) {
     $result = curl_exec($ch);
     if (curl_errno($ch)) {
         // echo 'Error:' . curl_error($ch);
+        $post_to_discord = post_discord("TipBot-Voucher-CURL-".$coin_name, curl_error($ch));
         die("Internal error. Please report to us. Error code 1005. Failed TX.");
     }
     curl_close ($ch);
@@ -327,26 +332,38 @@ if (isset($sec)) {
         {
             $coin_pref = 'TRTL';
             $addr_len = 99;
+            $min_addr_len = 99;
+            $max_addr_len = 187;
         }  elseif ($coin_name == 'WRKZ')
         {
             $coin_pref = 'Wrkz';
             $addr_len = 98;
+            $min_addr_len = 98;
+            $max_addr_len = 186;
         }  elseif ($coin_name == 'DEGO')
         {
             $coin_pref = 'dg';
             $addr_len = 97;
+            $min_addr_len = 97;
+            $max_addr_len = 185;
         }  elseif ($coin_name == 'BTCMZ')
         {
             $coin_pref = 'btcm';
             $addr_len = 99;
+            $min_addr_len = 99;
+            $max_addr_len = 187;
         }  elseif ($coin_name == 'GNTL')
         {
             $coin_pref = 'gnt';
             $addr_len = 98;
+            $min_addr_len = 98;
+            $max_addr_len = 109;
         }  elseif ($coin_name == 'DOGE')
         {
             $coin_pref = 'D';
             $addr_len = 34;
+            $min_addr_len = 34;
+            $max_addr_len = 34;
         }
     }
 }
@@ -388,43 +405,53 @@ if (isset($_POST["submit"])) {
             if (strcmp($coin_name, 'TRTL') === 0) {
                 $coin_pref = 'TRTL';
                 $addr_len = 99;
+                $min_addr_len = 99;
+                $max_addr_len = 187;
                 if(!startsWith($address, "TRTL")) {
                     $errAddress = "Address shall start with TRTL";
                 }
             } elseif (strcmp($coin_name, 'WRKZ') === 0) {
                 $coin_pref = 'Wrkz';
                 $addr_len = 98;
+                $min_addr_len = 98;
+                $max_addr_len = 186;
                 if(!startsWith($address, "Wrkz")) {
                         $errAddress = "Address shall start with Wrkz";
                 }
             }  elseif (strcmp($coin_name, 'DEGO') === 0) {
                 $coin_pref = 'dg';
                 $addr_len = 97;
+                $min_addr_len = 97;
+                $max_addr_len = 185;
                 if(!startsWith($address, "dg")) {
                     $errAddress = "Address shall start with dg";
                 }
             }  elseif (strcmp($coin_name, 'BTCMZ') === 0) {
                 $coin_pref = 'btcm';
                 $addr_len = 99;
+                $min_addr_len = 99;
+                $max_addr_len = 187;
                 if(!startsWith($address, "btcm")) {
                     $errAddress = "Address shall start with btcm";
                 }
             }  elseif (strcmp($coin_name, 'GNTL') === 0) {
                 $coin_pref = 'gnt';
                 $addr_len = 98;
+                $min_addr_len = 98;
+                $max_addr_len = 109;
                 if(!startsWith($address, "gnt")) {
                     $errAddress = "Address shall start with gnt";
                 }
             }  elseif (strcmp($coin_name, 'DOGE') === 0) {
                 $coin_pref = 'D';
                 $addr_len = 34;
+                $min_addr_len = 34;
+                $max_addr_len = 34;
                 if(!startsWith($address, "D")) {
                     $errAddress = "Address shall start with D";
                 }
             }
-            if (strlen($address) <> $addr_len) {
-                $errAddress = "Incorrect address length.";
-            }
+
             if (strcmp($coin_name, 'DOGE') === 0) {
                 $valid_address = validate_doge($address, $coin_name);
                 if ($valid_address === false) {
@@ -457,12 +484,12 @@ if (isset($_POST["submit"])) {
                             }
                             $result='<div class="alert alert-success">Voucher claimed, sucessfully! tx: '.$sendPayment.'</div>';
                             try {
-                                $post_to_discord = post_discord("TipBot-Voucher-".$coin_name, "A user has successfully claimed ".$amount_str.$coin_name);
+                                $post_to_discord = post_discord("TipBot-Voucher-".$coin_name, "A user has successfully claimed ".$amount_str);
                             } catch (Exception $e) {
                             }
                         } else {
                             $result='<div class="alert alert-danger">Sorry there was an error during voucher claim. Try again later or contact us https://chat.wrkz.work</div>';
-                            $post_to_discord = post_discord("TipBot-Voucher-".$coin_name, "A user has failed to claim ".$amount_str.$coin_name);
+                            $post_to_discord = post_discord("TipBot-Voucher-".$coin_name, "A user has failed to claim ".$amount_str);
                         }
                     } elseif (strcmp($coin_name, 'GNTL') === 0) {
                         $sendPayment = send_coin_xmr_fam($address, $voucher_data['amount'], $coin_name);
@@ -475,12 +502,12 @@ if (isset($_POST["submit"])) {
                             }
                             $result='<div class="alert alert-success">Voucher claimed, sucessfully! tx: '.$sendPayment.'</div>';
                             try {
-                                $post_to_discord = post_discord("TipBot-Voucher-".$coin_name, "A user has successfully claimed ".$amount_str.$coin_name);
+                                $post_to_discord = post_discord("TipBot-Voucher-".$coin_name, "A user has successfully claimed ".$amount_str);
                             } catch (Exception $e) {
                             }
                         } else {
                             $result='<div class="alert alert-danger">Sorry there was an error during voucher claim. Try again later or contact us https://chat.wrkz.work</div>';
-                            $post_to_discord = post_discord("TipBot-Voucher-".$coin_name, "A user has failed to claim ".$amount_str.$coin_name);
+                            $post_to_discord = post_discord("TipBot-Voucher-".$coin_name, "A user has failed to claim ".$amount_str);
                         }
                     } else {
                         $sendPayment = send_coin($address, $voucher_data['amount'], $coin_name);
@@ -493,12 +520,12 @@ if (isset($_POST["submit"])) {
                             }
                             $result='<div class="alert alert-success">Voucher claimed, sucessfully! tx: '.$sendPayment.'</div>';
                             try {
-                                $post_to_discord = post_discord("TipBot-Voucher-".$coin_name, "A user has successfully claimed ".$amount_str.$coin_name);
+                                $post_to_discord = post_discord("TipBot-Voucher-".$coin_name, "A user has successfully claimed ".$amount_str);
                             } catch (Exception $e) {
                             }
                         } else {
                             $result='<div class="alert alert-danger">Sorry there was an error during voucher claim. Try again later or contact us https://chat.wrkz.work</div>';
-                            $post_to_discord = post_discord("TipBot-Voucher-".$coin_name, "A user has failed to claim ".$amount_str.$coin_name);
+                            $post_to_discord = post_discord("TipBot-Voucher-".$coin_name, "A user has failed to claim ".$amount_str);
                         }
                     }
                 }
@@ -549,7 +576,7 @@ if (isset($_POST["submit"])) {
                     <div class="form-group">
                         <label for="name" class="col-sm-2 control-label">Claimed to:</label>
                         <div class="col-sm-10">
-                            <input type="text" class="form-control" id="address" name="address" placeholder="<?php echo $coin_pref;?>" value="<?php if (isset($_POST['address'])) { echo htmlspecialchars($_POST['address']); } ?>" minlength="<?php echo $addr_len;?>" maxlength="<?php echo $addr_len;?>" required="required">
+                            <input type="text" class="form-control" id="address" name="address" placeholder="<?php echo $coin_pref;?>" value="<?php if (isset($_POST['address'])) { echo htmlspecialchars($_POST['address']); } ?>" minlength="<?php echo $min_addr_len;?>" maxlength="<?php echo $max_addr_len;?>" required="required">
                             <?php if (isset($errAddress)) { echo "<p class='text-danger'>$errAddress</p>"; } ?>
                         </div>
                     </div>

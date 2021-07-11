@@ -695,7 +695,7 @@ async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD')
                     Credited = 0
 
                 # Voucher create (Negative)
-                sql = """ SELECT SUM(amount) AS Expended_Voucher FROM cn_voucher 
+                sql = """ SELECT SUM(amount+reserved_fee) AS Expended_Voucher FROM cn_voucher 
                           WHERE `coin_name`=%s AND `user_id`=%s AND `user_server`=%s """
                 await cur.execute(sql, (COIN_NAME, userID, user_server))
                 result = await cur.fetchone()

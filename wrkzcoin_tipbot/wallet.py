@@ -598,6 +598,15 @@ def get_min_tx_amount(coin: str = None):
 def get_max_tx_amount(coin: str = None):
     return getattr(config,"daemon"+coin,config.daemonWRKZ).max_tx_amount
 
+
+def get_min_voucher_amount(coin: str = None):
+    return getattr(config,"daemon"+coin,config.daemonWRKZ).voucher_min
+
+
+def get_max_voucher_amount(coin: str = None):
+    return getattr(config,"daemon"+coin,config.daemonWRKZ).voucher_max
+
+
 def get_min_deposit_amount(coin: str = None):
     return getattr(config,"daemon"+coin,config.daemonWRKZ).min_deposit
 

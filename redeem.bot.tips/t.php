@@ -1,7 +1,7 @@
 <?php
-// ini_set('display_errors', 1);
-// ini_set('display_startup_errors', 1);
-// error_reporting(E_ALL);
+//ini_set('display_errors', 1);
+//ini_set('display_startup_errors', 1);
+//error_reporting(E_ALL);
 
 // Turn off all error reporting
 error_reporting(0);
@@ -9,9 +9,12 @@ error_reporting(0);
 $configs = include('config.php');
 
 $dbhost = $configs['mysql_host'];
+$dbport = $configs['mysql_port'];
 $dbname = $configs['mysql_dbname'];
 $dbusername = $configs['mysql_user'];
 $dbpassword = $configs['mysql_password'];
+
+
 
 function checkSecret_if_pending ($sec) {
    //Connecting to Redis server on localhost 
@@ -33,8 +36,8 @@ function checkSecret_if_pending ($sec) {
 
 
 function updateStatusClaim ($claimed_address, $tx_hash, $sec) {
-    global $dbhost, $dbname, $dbusername, $dbpassword;
-    $link = new PDO("mysql:host=$dbhost;dbname=$dbname", $dbusername, $dbpassword);
+    global $dbhost, $dbname, $dbusername, $dbpassword, $dbport;
+    $link = new PDO("mysql:host=$dbhost;dbname=$dbname;port=$dbport", $dbusername, $dbpassword);
     $stmt = $link->prepare("UPDATE cn_voucher SET already_claimed=?, claimed_address=?, claimed_date=?, tx_hash=? WHERE secret_string=?;");
     $stmt->execute(['YES', $claimed_address, round(microtime(true)), $tx_hash, $sec]);
     if(!$stmt)
@@ -121,6 +124,23 @@ function send_coin_doge($toAddr, $amount, $coin_name) {
     return $transactionHash;
 }
 
+
+function validate_xmr_fam($address, $coin_name) {
+    global $configs;
+    $ch = curl_init();
+    if ($coin_name == 'GNTL')
+    {
+        if (
+            substr($address, 0, 3) != 'gnt' ||
+            !preg_match('/([0-9]|[A-B])/', substr($address, 3)) ||
+            strlen($address) != 98
+        ) {
+            return FALSE;
+        }
+        return TRUE;
+    }
+}
+
 function validate_address($address, $coin_name) {
     global $configs;
     $ch = curl_init();
@@ -132,7 +152,7 @@ function validate_address($address, $coin_name) {
     }
 
     curl_setopt($ch, CURLOPT_URL, $url . $action);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 60); //timeout in seconds
+    curl_setopt($ch, CURLOPT_TIMEOUT, 90); //timeout in seconds
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
     curl_setopt($ch, CURLOPT_POSTFIELDS, "{\"address\": \"".$address."\"}");
     curl_setopt($ch, CURLOPT_POST, 1);
@@ -161,6 +181,42 @@ function validate_address($address, $coin_name) {
 
 
 // Function for sending Coin
+function send_coin_xmr_fam($toAddr, $amount, $coin_name) {
+    global $configs;
+    $ch = curl_init();
+    if ($coin_name == 'GNTL')
+    {
+        $url =  $configs['walletrpc_'.strtolower($coin_name)];
+    }
+
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 180); //timeout in seconds
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, "{\"jsonrpc\":\"2.0\",\"id\":\"0\",\"method\":\"transfer\",\"params\":{\"destinations\":[{\"amount\":".$amount.",\"address\":\"".$toAddr."\"}],\"account_index\":0,\"subaddr_indices\":[],\"priority\":1,\"unlock_time\":0,\"get_tx_key\": true}}");
+    curl_setopt($ch, CURLOPT_POST, 1);
+
+    $headers = array();
+    $headers[] = "Accept: application/json";
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+    $result = curl_exec($ch);
+    if (curl_errno($ch)) {
+        // echo 'Error:' . curl_error($ch);
+        die("Internal error. Please report to us. Error code 1005. Failed TX.");
+    }
+    curl_close ($ch);
+    $data_json = json_decode($result, true);
+    $transactionHash = $data_json['result']['tx_hash'];
+    if (!empty($transactionHash)) {
+        // 64 characters
+        if(strlen($transactionHash) !== 64) return FALSE;
+    } else {
+        return FALSE;
+    }
+    return $transactionHash;
+}
+
+// Function for sending Coin
 function send_coin($toAddr, $amount, $coin_name) {
     global $configs;
     $ch = curl_init();
@@ -172,7 +228,7 @@ function send_coin($toAddr, $amount, $coin_name) {
     }
 
     curl_setopt($ch, CURLOPT_URL, $url . $send_basic);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 120); //timeout in seconds
+    curl_setopt($ch, CURLOPT_TIMEOUT, 180); //timeout in seconds
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
     curl_setopt($ch, CURLOPT_POSTFIELDS, "{\"destination\": \"".$toAddr."\", \"amount\":".$amount."}");
     curl_setopt($ch, CURLOPT_POST, 1);
@@ -215,7 +271,7 @@ if (isset($_GET['sec']))
     }
 }
 if (isset($sec)) {
-    $link = new PDO("mysql:host=$dbhost;dbname=$dbname", $dbusername, $dbpassword);
+    $link = new PDO("mysql:host=$dbhost;dbname=$dbname;port=$dbport", $dbusername, $dbpassword);
     $stmt = $link->prepare("SELECT * FROM cn_voucher WHERE secret_string=? LIMIT 1;");
     $stmt->execute([$sec]);
     //error case
@@ -263,6 +319,10 @@ if (isset($sec)) {
         {
             $coin_pref = 'btcm';
             $addr_len = 99;
+        }  elseif ($coin_name == 'GNTL')
+        {
+            $coin_pref = 'gnt';
+            $addr_len = 98;
         }  elseif ($coin_name == 'DOGE')
         {
             $coin_pref = 'D';
@@ -288,7 +348,7 @@ if (isset($_POST["submit"])) {
             die("Invalid Voucher code.");
             exit;
         }
-        $link = new PDO("mysql:host=$dbhost;dbname=$dbname", $dbusername, $dbpassword);
+        $link = new PDO("mysql:host=$dbhost;dbname=$dbname;port=$dbport", $dbusername, $dbpassword);
         $stmt = $link->prepare("SELECT * FROM cn_voucher WHERE secret_string=? LIMIT 1;");
         $stmt->execute([$sec]);
         //error case
@@ -329,6 +389,12 @@ if (isset($_POST["submit"])) {
                 if(!startsWith($address, "btcm")) {
                     $errAddress = "Address shall start with btcm";
                 }
+            }  elseif (strcmp($coin_name, 'GNTL') === 0) {
+                $coin_pref = 'gnt';
+                $addr_len = 98;
+                if(!startsWith($address, "gnt")) {
+                    $errAddress = "Address shall start with gnt";
+                }
             }  elseif (strcmp($coin_name, 'DOGE') === 0) {
                 $coin_pref = 'D';
                 $addr_len = 34;
@@ -341,6 +407,11 @@ if (isset($_POST["submit"])) {
             }
             if (strcmp($coin_name, 'DOGE') === 0) {
                 $valid_address = validate_doge($address, $coin_name);
+                if ($valid_address === false) {
+                    $errAddress = "Invalid address for coin ".$coin_name;
+                }
+            } elseif (strcmp($coin_name, 'GNTL') === 0) {
+                $valid_address = validate_xmr_fam($address, $coin_name);
                 if ($valid_address === false) {
                     $errAddress = "Invalid address for coin ".$coin_name;
                 }
@@ -357,6 +428,19 @@ if (isset($_POST["submit"])) {
                 } else {
                     if (strcmp($coin_name, 'DOGE') === 0) {
                         $sendPayment = send_coin_doge($address, $voucher_data['amount'], $coin_name);
+                        if ($sendPayment) {
+                            // Update to MySQL
+                            try {
+                                $updateClaim = updateStatusClaim($address, $sendPayment, $sec);
+                            } catch (Exception $e) {
+                                // die("Invalid link data.");
+                            }
+                            $result='<div class="alert alert-success">Voucher claimed, sucessfully! tx: '.$sendPayment.'</div>';
+                        } else {
+                            $result='<div class="alert alert-danger">Sorry there was an error during voucher claim. Try again later or contact us https://chat.wrkz.work</div>';
+                        }
+                    } elseif (strcmp($coin_name, 'GNTL') === 0) {
+                        $sendPayment = send_coin_xmr_fam($address, $voucher_data['amount'], $coin_name);
                         if ($sendPayment) {
                             // Update to MySQL
                             try {

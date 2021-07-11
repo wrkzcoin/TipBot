@@ -16102,9 +16102,9 @@ async def make(ctx, amount: str, coin: str, *, comment):
     except Exception as e:
         await logchanbot(traceback.format_exc())
             
-    if real_amount < get_min_tx_amount(COIN_NAME) or real_amount > get_max_tx_amount(COIN_NAME):
-        min_amount = num_format_coin(get_min_tx_amount(COIN_NAME), COIN_NAME) + COIN_NAME
-        max_amount = num_format_coin(get_max_tx_amount(COIN_NAME), COIN_NAME) + COIN_NAME
+    if real_amount < get_min_voucher_amount(COIN_NAME) or real_amount > get_max_voucher_amount(COIN_NAME):
+        min_amount = num_format_coin(get_min_voucher_amount(COIN_NAME), COIN_NAME) + COIN_NAME
+        max_amount = num_format_coin(get_max_voucher_amount(COIN_NAME), COIN_NAME) + COIN_NAME
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Voucher amount must between {min_amount} and {max_amount}.')
         return
@@ -16126,8 +16126,7 @@ async def make(ctx, amount: str, coin: str, *, comment):
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Unsupported char(s) detected in comment.')
         return
-        
-    print('VOUCHER: ' + COIN_NAME) 
+
     # If it is a batch oir not
     if voucher_numb > 1:
         # Check if sufficient balance

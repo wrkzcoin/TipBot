@@ -13,7 +13,27 @@ $dbport = $configs['mysql_port'];
 $dbname = $configs['mysql_dbname'];
 $dbusername = $configs['mysql_user'];
 $dbpassword = $configs['mysql_password'];
+$discord_webhook = $configs['discord_webhook'];
 
+function post_discord ($titlename, $message) {
+    global $discord_webhook;
+    $ch = curl_init();
+
+    curl_setopt($ch, CURLOPT_URL, $discord_webhook);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($ch, CURLOPT_POST, 1);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, "{\"username\": \"".$titlename."\", \"content\": \"".$message."\"}");
+
+    $headers = array();
+    $headers[] = 'Content-Type: application/json';
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+    $result = curl_exec($ch);
+    if (curl_errno($ch)) {
+        echo 'Error:' . curl_error($ch);
+    }
+    curl_close($ch);
+}
 
 
 function checkSecret_if_pending ($sec) {
@@ -436,8 +456,13 @@ if (isset($_POST["submit"])) {
                                 // die("Invalid link data.");
                             }
                             $result='<div class="alert alert-success">Voucher claimed, sucessfully! tx: '.$sendPayment.'</div>';
+                            try {
+                                $post_to_discord = post_discord("TipBot-Voucher-".$coin_name, "A user has successfully claimed ".$amount_str.$coin_name);
+                            } catch (Exception $e) {
+                            }
                         } else {
                             $result='<div class="alert alert-danger">Sorry there was an error during voucher claim. Try again later or contact us https://chat.wrkz.work</div>';
+                            $post_to_discord = post_discord("TipBot-Voucher-".$coin_name, "A user has failed to claim ".$amount_str.$coin_name);
                         }
                     } elseif (strcmp($coin_name, 'GNTL') === 0) {
                         $sendPayment = send_coin_xmr_fam($address, $voucher_data['amount'], $coin_name);
@@ -449,8 +474,13 @@ if (isset($_POST["submit"])) {
                                 // die("Invalid link data.");
                             }
                             $result='<div class="alert alert-success">Voucher claimed, sucessfully! tx: '.$sendPayment.'</div>';
+                            try {
+                                $post_to_discord = post_discord("TipBot-Voucher-".$coin_name, "A user has successfully claimed ".$amount_str.$coin_name);
+                            } catch (Exception $e) {
+                            }
                         } else {
                             $result='<div class="alert alert-danger">Sorry there was an error during voucher claim. Try again later or contact us https://chat.wrkz.work</div>';
+                            $post_to_discord = post_discord("TipBot-Voucher-".$coin_name, "A user has failed to claim ".$amount_str.$coin_name);
                         }
                     } else {
                         $sendPayment = send_coin($address, $voucher_data['amount'], $coin_name);
@@ -462,8 +492,13 @@ if (isset($_POST["submit"])) {
                                 // die("Invalid link data.");
                             }
                             $result='<div class="alert alert-success">Voucher claimed, sucessfully! tx: '.$sendPayment.'</div>';
+                            try {
+                                $post_to_discord = post_discord("TipBot-Voucher-".$coin_name, "A user has successfully claimed ".$amount_str.$coin_name);
+                            } catch (Exception $e) {
+                            }
                         } else {
                             $result='<div class="alert alert-danger">Sorry there was an error during voucher claim. Try again later or contact us https://chat.wrkz.work</div>';
+                            $post_to_discord = post_discord("TipBot-Voucher-".$coin_name, "A user has failed to claim ".$amount_str.$coin_name);
                         }
                     }
                 }

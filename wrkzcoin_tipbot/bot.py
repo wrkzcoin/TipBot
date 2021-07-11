@@ -10846,7 +10846,7 @@ async def balance(ctx, coin: str = None):
         except Exception as e:
             print(traceback.format_exc())
         if userdata_balance['economy_balance'] and userdata_balance['economy_balance'] != 0:
-            embed.add_field(name="Economy Balance", value=num_format_coin(userdata_balance['economy_balance'], COIN_NAME)+COIN_NAME, inline=True)
+            embed.add_field(name="Economy Expense (+/-)", value=num_format_coin(userdata_balance['economy_balance'], COIN_NAME)+ " " + COIN_NAME, inline=True)
         embed.add_field(name='Related commands', value=f'`{prefix}balance` or `{prefix}deposit {COIN_NAME}` or `{prefix}balance LIST`', inline=False)
         if COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
             min_deposit_txt = " Min. deposit for moving to spendable: " + num_format_coin(token_info['min_move_deposit'], COIN_NAME) + COIN_NAME

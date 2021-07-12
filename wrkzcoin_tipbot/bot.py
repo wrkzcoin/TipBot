@@ -19093,6 +19093,9 @@ async def notify_new_tx_user_noconfirmation():
                 if redis_conn and redis_conn.llen(key_tx_new) > 0:
                     list_new_tx = redis_conn.lrange(key_tx_new, 0, -1)
                     list_new_tx_sent = redis_conn.lrange(key_tx_no_confirmed_sent, 0, -1) # byte list with b'xxx'
+                    # Unique the list
+                    list_new_tx = np.unique(list_new_tx).tolist()
+                    list_new_tx_sent = np.unique(list_new_tx_sent).tolist()
                     for tx in list_new_tx:
                         try:
                             if tx not in list_new_tx_sent:
@@ -19118,6 +19121,7 @@ async def notify_new_tx_user_noconfirmation():
                                                 await user_found.send(msg)
                                             except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                                                 pass
+                                            # TODO:
                                             redis_conn.lpush(key_tx_no_confirmed_sent, tx)
                                         else:
                                             # try to find if it is guild
@@ -19147,7 +19151,6 @@ async def notify_new_tx_user_noconfirmation():
                                     redis_conn.lpush(key_tx_no_confirmed_sent, tx)
                         except Exception as e:
                             await logchanbot(traceback.format_exc())
-                        await asyncio.sleep(1)
             except Exception as e:
                 await logchanbot(traceback.format_exc())
         await asyncio.sleep(INTERVAL_EACH)

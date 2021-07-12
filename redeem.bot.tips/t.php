@@ -153,8 +153,18 @@ function validate_xmr_fam($address, $coin_name) {
     {
         if (
             substr($address, 0, 3) != 'gnt' ||
-            !preg_match('/([0-9]|[A-B])/', substr($address, 3)) ||
+            !ctype_alnum(substr($address, 1)) ||
             (strlen($address) != 98 && strlen($address) != 99 && strlen($address) != 109)
+        ) {
+            return FALSE;
+        }
+        return TRUE;
+    } elseif ($coin_name == 'WOW')
+    {
+        if (
+            (substr($address, 0, 2) != 'WW' && substr($address, 0, 2) != 'Wo' && substr($address, 0, 2) != 'So') ||
+            !ctype_alnum(substr($address, 1)) ||
+            (strlen($address) != 97 && strlen($address) != 108)
         ) {
             return FALSE;
         }
@@ -206,7 +216,7 @@ function validate_address($address, $coin_name) {
 function send_coin_xmr_fam($toAddr, $amount, $coin_name) {
     global $configs;
     $ch = curl_init();
-    if ($coin_name == 'GNTL')
+    if ($coin_name == 'GNTL' || $coin_name == 'WOW')
     {
         $url =  $configs['walletrpc_'.strtolower($coin_name)];
     }
@@ -358,6 +368,12 @@ if (isset($sec)) {
             $addr_len = 98;
             $min_addr_len = 98;
             $max_addr_len = 109;
+        }   elseif ($coin_name == 'WOW')
+        {
+            $coin_pref = 'W';
+            $addr_len = 97;
+            $min_addr_len = 97;
+            $max_addr_len = 108;
         }  elseif ($coin_name == 'DOGE')
         {
             $coin_pref = 'D';
@@ -442,6 +458,14 @@ if (isset($_POST["submit"])) {
                 if(!startsWith($address, "gnt")) {
                     $errAddress = "Address shall start with gnt";
                 }
+            }   elseif (strcmp($coin_name, 'WOW') === 0) {
+                $coin_pref = 'W';
+                $addr_len = 97;
+                $min_addr_len = 97;
+                $max_addr_len = 108;
+                if(!startsWith($address, "Wo") && !startsWith($address, "WW") && !startsWith($address, "So")) {
+                    $errAddress = "Address shall start with Wo or WW or So";
+                }
             }  elseif (strcmp($coin_name, 'DOGE') === 0) {
                 $coin_pref = 'D';
                 $addr_len = 34;
@@ -457,7 +481,7 @@ if (isset($_POST["submit"])) {
                 if ($valid_address === false) {
                     $errAddress = "Invalid address for coin ".$coin_name;
                 }
-            } elseif (strcmp($coin_name, 'GNTL') === 0) {
+            } elseif (strcmp($coin_name, 'GNTL') === 0 || strcmp($coin_name, 'WOW') === 0) {
                 $valid_address = validate_xmr_fam($address, $coin_name);
                 if ($valid_address === false) {
                     $errAddress = "Invalid address for coin ".$coin_name;
@@ -491,7 +515,7 @@ if (isset($_POST["submit"])) {
                             $result='<div class="alert alert-danger">Sorry there was an error during voucher claim. Try again later or contact us https://chat.wrkz.work</div>';
                             $post_to_discord = post_discord("TipBot-Voucher-".$coin_name, "A user has failed to claim ".$amount_str);
                         }
-                    } elseif (strcmp($coin_name, 'GNTL') === 0) {
+                    } elseif (strcmp($coin_name, 'GNTL') === 0 || strcmp($coin_name, 'WOW') === 0) {
                         $sendPayment = send_coin_xmr_fam($address, $voucher_data['amount'], $coin_name);
                         if ($sendPayment) {
                             // Update to MySQL

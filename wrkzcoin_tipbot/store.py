@@ -1279,7 +1279,7 @@ async def sql_update_balances(coin: str = None):
                                             openRedis()
                                             if redis_conn and redis_conn.llen(key_tx_new) > 0:
                                                 list_new_tx = redis_conn.lrange(key_tx_new, 0, -1)
-                                                if list_new_tx and len(list_new_tx) > 0 and tx['hash'] not in list_new_tx:
+                                                if list_new_tx and len(list_new_tx) > 0 and tx['hash'].encode() not in list_new_tx:
                                                     redis_conn.lpush(key_tx_new, tx['hash'])
                                                     redis_conn.set(key_tx_json, json.dumps({'coin_name': COIN_NAME, 'txid': tx['hash'], 'payment_id': tx['paymentID'], 'height': tx['blockHeight'],
                                                                                             'amount': tx['transfers'][0]['amount'], 'fee': tx['fee'], 'decimal': wallet.get_decimal(COIN_NAME)}), ex=86400)
@@ -1371,7 +1371,7 @@ async def sql_update_balances(coin: str = None):
                                                 openRedis()
                                                 if redis_conn and redis_conn.llen(key_tx_new) > 0:
                                                     list_new_tx = redis_conn.lrange(key_tx_new, 0, -1)
-                                                    if list_new_tx and len(list_new_tx) > 0 and tx['transactionHash'] not in list_new_tx:
+                                                    if list_new_tx and len(list_new_tx) > 0 and tx['transactionHash'].encode() not in list_new_tx:
                                                         redis_conn.lpush(key_tx_new, tx['transactionHash'])
                                                         redis_conn.set(key_tx_json, json.dumps({'coin_name': COIN_NAME, 'txid': tx['transactionHash'], 'payment_id': tx['paymentId'], 'height': tx['blockIndex'],
                                                                                                 'amount': tx['amount'], 'fee': tx['fee'], 'decimal': wallet.get_decimal(COIN_NAME)}), ex=86400)
@@ -1451,7 +1451,7 @@ async def sql_update_balances(coin: str = None):
                                         openRedis()
                                         if redis_conn and redis_conn.llen(key_tx_new) > 0:
                                             list_new_tx = redis_conn.lrange(key_tx_new, 0, -1)
-                                            if list_new_tx and len(list_new_tx) > 0 and tx['txid'] not in list_new_tx:
+                                            if list_new_tx and len(list_new_tx) > 0 and tx['txid'].encode() not in list_new_tx:
                                                 redis_conn.lpush(key_tx_new, tx['txid'])
                                                 redis_conn.set(key_tx_json, json.dumps({'coin_name': COIN_NAME, 'txid': tx['txid'], 'payment_id': tx['payment_id'], 'height': tx['height'],
                                                                                     'amount': tx['amount'], 'fee': tx['fee'], 'decimal': wallet.get_decimal(COIN_NAME)}), ex=86400)
@@ -1527,7 +1527,7 @@ async def sql_update_balances(coin: str = None):
                                         openRedis()
                                         if redis_conn and redis_conn.llen(key_tx_new) > 0:
                                             list_new_tx = redis_conn.lrange(key_tx_new, 0, -1)
-                                            if list_new_tx and len(list_new_tx) > 0 and tx['txid'] not in list_new_tx:
+                                            if list_new_tx and len(list_new_tx) > 0 and tx['txid'].encode() not in list_new_tx:
                                                 redis_conn.lpush(key_tx_new, tx['txid'])
                                                 redis_conn.set(key_tx_json, json.dumps({'coin_name': COIN_NAME, 'txid': tx['txid'], 'payment_id': tx['address'], 'blockhash': tx['blockhash'],
                                                                                         'amount': tx['amount'], 'decimal': wallet.get_decimal(COIN_NAME)}), ex=86400)
@@ -1602,7 +1602,7 @@ async def sql_update_balances(coin: str = None):
                                         openRedis()
                                         if redis_conn and redis_conn.llen(key_tx_new) > 0:
                                             list_new_tx = redis_conn.lrange(key_tx_new, 0, -1)
-                                            if list_new_tx and len(list_new_tx) > 0 and tx['name'] not in list_new_tx:
+                                            if list_new_tx and len(list_new_tx) > 0 and tx['name'].encode() not in list_new_tx:
                                                 redis_conn.lpush(key_tx_new, tx['name'])
                                                 redis_conn.set(key_tx_json, json.dumps({'coin_name': COIN_NAME, 'txid': tx['name'], 'payment_id': tx['to_address'], 'height': tx['confirmed_at_height'],
                                                                                         'amount': tx['amount'], 'decimal': wallet.get_decimal(COIN_NAME)}), ex=86400)

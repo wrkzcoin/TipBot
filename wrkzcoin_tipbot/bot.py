@@ -3517,7 +3517,7 @@ async def hangman(ctx):
                 if guess in missedLetters + correctLetters:
                     await ctx.send(f'{ctx.author.mention} **HANGMAN**. You already guessed **{guess}**.')
                     guess = None
-                elif not guess.isalpha():
+                elif not guess.isalpha() and guess != '-':
                     guess = None
                     await ctx.send(f'{ctx.author.mention} **HANGMAN**. Please use letter.')
                 elif len(guess) > 1:

@@ -2360,6 +2360,22 @@ async def sql_voucher_get_user(user_id: str, user_server: str='DISCORD', last: i
     return None
 
 
+async def sql_voucher_get_setting(coin: str):
+    global pool
+    COIN_NAME = coin.upper()
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM cn_voucher_settings WHERE `coin_name`=%s LIMIT 1 """
+                await cur.execute(sql, (COIN_NAME,))
+                result = await cur.fetchone()
+                return result
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return None
+
+
 async def sql_faucet_add(claimed_user: str, claimed_server: str, coin_name: str, claimed_amount: float, decimal: int, user_server: str = 'DISCORD'):
     global pool, redis_conn
     user_server = user_server.upper()

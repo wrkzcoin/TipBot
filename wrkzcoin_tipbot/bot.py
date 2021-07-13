@@ -16101,19 +16101,33 @@ async def make(ctx, amount: str, coin: str, *, comment):
             await logchanbot(msg_negative)
     except Exception as e:
         await logchanbot(traceback.format_exc())
-            
-    if real_amount < get_min_voucher_amount(COIN_NAME) or real_amount > get_max_voucher_amount(COIN_NAME):
-        min_amount = num_format_coin(get_min_voucher_amount(COIN_NAME), COIN_NAME) + COIN_NAME
-        max_amount = num_format_coin(get_max_voucher_amount(COIN_NAME), COIN_NAME) + COIN_NAME
+    
+    # If voucher in setting
+    voucher_setting = await store.sql_voucher_get_setting(COIN_NAME)
+    if isinstance(voucher_setting, dict):
+        min_voucher_amount = float(voucher_setting['real_min_amount']) * get_decimal(COIN_NAME)
+        max_voucher_amount = float(voucher_setting['real_max_amount']) * get_decimal(COIN_NAME)
+        fee_voucher_amount = float(voucher_setting['real_voucher_fee']) * get_decimal(COIN_NAME)
+        logo = Image.open(voucher_setting['logo_image_path'])
+        img_frame = Image.open(voucher_setting['frame_image_path'])
+    else:
+        min_voucher_amount = get_min_voucher_amount(COIN_NAME)
+        max_voucher_amount = get_max_voucher_amount(COIN_NAME)
+        fee_voucher_amount = get_voucher_fee(COIN_NAME)
+        logo = Image.open(config.voucher.coin_logo_path + COIN_NAME.lower() + ".png")
+        img_frame = Image.open(config.voucher.path_voucher_defaultimg)
+    if real_amount < min_voucher_amount or real_amount > max_voucher_amount:
+        min_amount = num_format_coin(min_voucher_amount, COIN_NAME) + COIN_NAME
+        max_amount = num_format_coin(max_voucher_amount, COIN_NAME) + COIN_NAME
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Voucher amount must between {min_amount} and {max_amount}.')
         return
 
-    if actual_balance < real_amount + get_voucher_fee(COIN_NAME):
+    if actual_balance < real_amount + fee_voucher_amount:
         having_amount = num_format_coin(actual_balance, COIN_NAME)
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to create voucher.\n'
-                       f'A voucher needed amount + fee: {num_format_coin(real_amount + get_voucher_fee(COIN_NAME), COIN_NAME)}{COIN_NAME}\n'
+                       f'A voucher needed amount + fee: {num_format_coin(real_amount + fee_voucher_amount, COIN_NAME)}{COIN_NAME}\n'
                        f'Having: {having_amount}{COIN_NAME}.')
         return
 
@@ -16130,11 +16144,11 @@ async def make(ctx, amount: str, coin: str, *, comment):
     # If it is a batch oir not
     if voucher_numb > 1:
         # Check if sufficient balance
-        if actual_balance < (real_amount + get_voucher_fee(COIN_NAME)) * voucher_numb:
+        if actual_balance < (real_amount + fee_voucher_amount) * voucher_numb:
             having_amount = num_format_coin(actual_balance, COIN_NAME)
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to create **{voucher_numb}** vouchers.\n'
-                           f'**{voucher_numb}** vouchers needed amount + fee: {num_format_coin((real_amount + get_voucher_fee(COIN_NAME)*voucher_numb), COIN_NAME)}{COIN_NAME}\n'
+                           f'**{voucher_numb}** vouchers needed amount + fee: {num_format_coin((real_amount + fee_voucher_amount*voucher_numb), COIN_NAME)}{COIN_NAME}\n'
                            f'Having: {having_amount}{COIN_NAME}.')
             return
 
@@ -16168,11 +16182,9 @@ async def make(ctx, amount: str, coin: str, *, comment):
             qr_img = qr.make_image(fill_color="black", back_color="white")
             qr_img = qr_img.resize((280, 280))
             qr_img = qr_img.convert("RGBA")
-            # qr_img.save(config.voucher.path_voucher_create + unique_filename + "_1.png")
 
             #Logo
             try:
-                logo = Image.open(config.voucher.coin_logo_path + COIN_NAME.lower() + ".png")
                 box = (115,115,165,165)
                 qr_img.crop(box)
                 region = logo
@@ -16181,9 +16193,8 @@ async def make(ctx, amount: str, coin: str, *, comment):
                 # qr_img.save(config.voucher.path_voucher_create + unique_filename + "_2.png")
             except Exception as e: 
                 await logchanbot(traceback.format_exc())
-            # Image Frame on which we want to paste 
-            img_frame = Image.open(config.voucher.path_voucher_defaultimg)  
-            img_frame.paste(qr_img, (150, 150)) 
+            # Image Frame on which we want to paste  
+            img_frame.paste(qr_img, (100, 150)) 
 
             # amount font
             try:
@@ -16194,13 +16205,13 @@ async def make(ctx, amount: str, coin: str, *, comment):
                 # w, h = draw.textsize(msg, font=myFont)
                 w, h = myFont.getsize(msg)
                 # draw.text(((W-w)/2,(H-h)/2), msg, fill="black",font=myFont)
-                draw.text((280-w/2,275+125+h), msg, fill="black",font=myFont)
+                draw.text((250-w/2,275+125+h), msg, fill="black",font=myFont)
 
                 # Instruction to claim
                 myFont = ImageFont.truetype(config.font.digital7, 36)
                 msg_claim = "SCAN TO CLAIM IT!"
                 w, h = myFont.getsize(msg_claim)
-                draw.text((280-w/2,275+125+h+60), msg_claim, fill="black",font=myFont)
+                draw.text((250-w/2,275+125+h+60), msg_claim, fill="black",font=myFont)
 
                 # comment part
                 comment_txt = "COMMENT: " + comment.upper()
@@ -16215,7 +16226,7 @@ async def make(ctx, amount: str, coin: str, *, comment):
                 TX_IN_PROCESS.append(ctx.message.author.id)
                 try:
                     voucher_make = await store.sql_send_to_voucher(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), 
-                                                                   ctx.message.content, real_amount, get_voucher_fee(COIN_NAME), comment, 
+                                                                   ctx.message.content, real_amount, fee_voucher_amount, comment, 
                                                                    secret_string, unique_filename + ".png", COIN_NAME, 'DISCORD')
                 except Exception as e: 
                     await logchanbot(traceback.format_exc())
@@ -16232,7 +16243,7 @@ async def make(ctx, amount: str, coin: str, *, comment):
                     msg = await ctx.message.author.send(f'New Voucher Link ({i+1} of {voucher_numb}): {qrstring}\n'
                                         '```'
                                         f'Amount: {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}\n'
-                                        f'Voucher Fee (Incl. network fee): {num_format_coin(get_voucher_fee(COIN_NAME), COIN_NAME)} {COIN_NAME}\n'
+                                        f'Voucher Fee (Incl. network fee): {num_format_coin(fee_voucher_amount, COIN_NAME)} {COIN_NAME}\n'
                                         f'Voucher comment: {comment}```')
                     await msg.add_reaction(EMOJI_OK_BOX)
                 except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
@@ -16260,7 +16271,6 @@ async def make(ctx, amount: str, coin: str, *, comment):
 
         #Logo
         try:
-            logo = Image.open(config.voucher.coin_logo_path + COIN_NAME.lower() + ".png")
             box = (115,115,165,165)
             qr_img.crop(box)
             region = logo
@@ -16270,8 +16280,7 @@ async def make(ctx, amount: str, coin: str, *, comment):
         except Exception as e: 
             await logchanbot(traceback.format_exc())
         # Image Frame on which we want to paste 
-        img_frame = Image.open(config.voucher.path_voucher_defaultimg)  
-        img_frame.paste(qr_img, (150, 150)) 
+        img_frame.paste(qr_img, (100, 150)) 
 
         # amount font
         try:
@@ -16282,13 +16291,13 @@ async def make(ctx, amount: str, coin: str, *, comment):
             # w, h = draw.textsize(msg, font=myFont)
             w, h = myFont.getsize(msg)
             # draw.text(((W-w)/2,(H-h)/2), msg, fill="black",font=myFont)
-            draw.text((280-w/2,275+125+h), msg, fill="black",font=myFont)
+            draw.text((250-w/2,275+125+h), msg, fill="black",font=myFont)
 
             # Instruction to claim
             myFont = ImageFont.truetype(config.font.digital7, 36)
             msg_claim = "SCAN TO CLAIM IT!"
             w, h = myFont.getsize(msg_claim)
-            draw.text((280-w/2,275+125+h+60), msg_claim, fill="black",font=myFont)
+            draw.text((250-w/2,275+125+h+60), msg_claim, fill="black",font=myFont)
 
             # comment part
             comment_txt = "COMMENT: " + comment.upper()
@@ -16303,7 +16312,7 @@ async def make(ctx, amount: str, coin: str, *, comment):
             TX_IN_PROCESS.append(ctx.message.author.id)
             try:
                 voucher_make = await store.sql_send_to_voucher(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), 
-                                                               ctx.message.content, real_amount, get_voucher_fee(COIN_NAME), comment, 
+                                                               ctx.message.content, real_amount, fee_voucher_amount, comment, 
                                                                secret_string, unique_filename + ".png", COIN_NAME, 'DISCORD')
             except Exception as e: 
                 await logchanbot(traceback.format_exc())
@@ -16326,7 +16335,7 @@ async def make(ctx, amount: str, coin: str, *, comment):
                 msg = await ctx.send(f'New Voucher Link: {qrstring}\n'
                                     '```'
                                     f'Amount: {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}\n'
-                                    f'Voucher Fee (Incl. network fee): {num_format_coin(get_voucher_fee(COIN_NAME), COIN_NAME)} {COIN_NAME}\n'
+                                    f'Voucher Fee (Incl. network fee): {num_format_coin(fee_voucher_amount, COIN_NAME)} {COIN_NAME}\n'
                                     f'Voucher comment: {comment}```')
                 await msg.add_reaction(EMOJI_OK_BOX)
             except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
@@ -16336,20 +16345,6 @@ async def make(ctx, amount: str, coin: str, *, comment):
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
         return
-
-
-@voucher.command(help=bot_help_voucher_fee)
-async def fee(ctx):
-    fee_str = "VOUCHER FEE FOR COINS:\n"
-    for each_coin in ENABLE_COIN_VOUCHER:
-        fee = num_format_coin(get_voucher_fee(each_coin), each_coin) + each_coin
-        fee_str += "    + {}: {}\n".format(each_coin, fee)
-    fee_str += "* Fee also includes network fee."
-    await ctx.message.add_reaction(EMOJI_OK_HAND)
-    msg = await ctx.send(f'{ctx.author.mention}'
-                         f'```{fee_str}```\n')
-    await msg.add_reaction(EMOJI_OK_BOX)
-    return
 
 
 @voucher.command(help=bot_help_voucher_view)

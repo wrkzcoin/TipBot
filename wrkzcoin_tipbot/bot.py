@@ -10797,7 +10797,7 @@ async def balance(ctx, coin: str = None):
             wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if COIN_NAME in ENABLE_COIN_ERC:
             token_info = await store.get_token_info(COIN_NAME)
-            deposit_balance = await store.http_wallet_getbalance(wallet['balance_wallet_address'], COIN_NAME)
+            deposit_balance = await store.http_wallet_getbalance(wallet['balance_wallet_address'], COIN_NAME, True)
             real_deposit_balance = round(deposit_balance / 10**token_info['token_decimal'], 6)
         elif COIN_NAME in ENABLE_COIN_TRC:
             token_info = await store.get_token_info(COIN_NAME)
@@ -16821,7 +16821,7 @@ async def stats(ctx, coin: str = None):
             topBlock = await store.erc_get_block_number(COIN_NAME)
             embed.add_field(name="NETWORK", value='{:,}'.format(topBlock), inline=True)
             try:
-                get_main_balance = await store.http_wallet_getbalance(token_info['withdraw_address'], COIN_NAME)
+                get_main_balance = await store.http_wallet_getbalance(token_info['withdraw_address'], COIN_NAME, True)
                 if get_main_balance:
                     embed.add_field(name="MAIN BALANCE", value=num_format_coin(get_main_balance / 10**token_info['token_decimal'], COIN_NAME) + COIN_NAME, inline=True)
             except Exception as e:
@@ -18955,8 +18955,8 @@ async def unlocked_move_pending_erc_trx():
                 print(traceback.format_exc())
                 await logchanbot(traceback.format_exc())
             end = time.time()
-            if end - start > config.interval.log_longduration:
-                await logchanbot('unlocked_move_pending_erc_trx {} longer than {}s. Took {}s.'.format(coinItem, config.interval.log_longduration, int(end - start)))
+            if end - start > config.interval.log_longduration_token:
+                await logchanbot('unlocked_move_pending_erc_trx {} longer than {}s. Took {}s.'.format(coinItem, config.interval.log_longduration_token, int(end - start)))
         await asyncio.sleep(config.interval.update_balance)
 
 

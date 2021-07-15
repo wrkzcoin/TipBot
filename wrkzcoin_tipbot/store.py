@@ -4799,8 +4799,8 @@ async def http_wallet_getbalance(address: str, coin: str, re_check: bool=True) -
         try:
             openRedis()
             if redis_conn:
-                # set it longer. 20mn to store 0 balance
-                redis_conn.set(key, str(balance), ex=1*60)
+                # set it longer. 3mn to store 0 balance
+                redis_conn.set(key, str(balance), ex=3*60)
         except Exception as e:
             await logchanbot(traceback.format_exc())
     return balance
@@ -4957,7 +4957,7 @@ async def erc_check_minimum_deposit(coin: str):
         if list_user_addresses and len(list_user_addresses) > 0:
             # OK check them one by one
             for each_address in list_user_addresses:
-                deposited_balance = await http_wallet_getbalance(each_address['balance_wallet_address'], TOKEN_NAME)
+                deposited_balance = await http_wallet_getbalance(each_address['balance_wallet_address'], TOKEN_NAME, False)
                 if deposited_balance is None:
                     continue
                 real_deposited_balance = float("%.6f" % (int(deposited_balance) / 10**token_info['token_decimal']))
@@ -5015,7 +5015,7 @@ async def erc_check_minimum_deposit(coin: str):
         # get withdraw gas balance
         gas_main_balance = None
         try:
-            gas_main_balance = await http_wallet_getbalance(token_info['withdraw_address'], token_info['net_name'].upper())
+            gas_main_balance = await http_wallet_getbalance(token_info['withdraw_address'], token_info['net_name'].upper(), True)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         # main balance has gas?
@@ -5033,7 +5033,7 @@ async def erc_check_minimum_deposit(coin: str):
         if list_user_addresses and len(list_user_addresses) > 0:
             # OK check them one by one
             for each_address in list_user_addresses:
-                deposited_balance = await http_wallet_getbalance(each_address['balance_wallet_address'], TOKEN_NAME)
+                deposited_balance = await http_wallet_getbalance(each_address['balance_wallet_address'], TOKEN_NAME, False)
                 if deposited_balance is None:
                     continue
                 real_deposited_balance = int(deposited_balance) / 10**token_info['token_decimal']
@@ -5043,7 +5043,7 @@ async def erc_check_minimum_deposit(coin: str):
                 else:
                     balance_above_min += 1
                     # Check if there is gas remaining to spend there
-                    gas_of_address = await http_wallet_getbalance(each_address['balance_wallet_address'], token_info['net_name'].upper())
+                    gas_of_address = await http_wallet_getbalance(each_address['balance_wallet_address'], token_info['net_name'].upper(), True)
                     if gas_of_address / 10**18 >= token_info['min_gas_tx']:
                         print('Address {} still has gas {}{}'.format(each_address['balance_wallet_address'], gas_of_address / 10**18, "ETH/DAI"))
                         # TODO: Let's move balance from there to withdraw address and save Tx

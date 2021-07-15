@@ -5868,8 +5868,8 @@ async def trx_get_pending_move_deposit(coin: str, option: str='PENDING'):
                     if result: return result
                 elif option.upper() == "ALL":
                     sql = """ SELECT * FROM trx_move_deposit 
-                              WHERE `token_name`=%s """
-                    await cur.execute(sql, (TOKEN_NAME,))
+                              WHERE `token_name`=%s AND `status`<>%s """
+                    await cur.execute(sql, (TOKEN_NAME, 'FAILED'))
                     result = await cur.fetchall()
                     if result: return result
     except Exception as e:

@@ -12295,7 +12295,7 @@ async def take(ctx, info: str=None):
                 return
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
-        await logchanbot(traceback.format_exc())
+        await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
         return
 
 
@@ -18937,78 +18937,42 @@ async def update_block_height():
         await asyncio.sleep(sleep_time)
 
 
-# Let's run balance update by a separate process
-async def update_balance_erc():
+async def unlocked_move_pending_erc_trx():
     while True:
         await asyncio.sleep(config.interval.update_balance)
-        for coinItem in ENABLE_COIN_ERC:
-            if is_maintenance_coin(coinItem) or not is_coin_depositable(coinItem):
+        for coinItem in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
+            if is_maintenance_coin(coinItem):
                 continue
             start = time.time()
             try:
-                check_min = await store.erc_check_minimum_deposit(coinItem)
+                if coinItem in ENABLE_COIN_ERC:
+                    await store.erc_check_pending_move_deposit(coinItem, 'ALL')
+                    check_min = await store.erc_check_minimum_deposit(coinItem)
+                elif coinItem in ENABLE_COIN_TRC:
+                    await store.trx_check_pending_move_deposit(coinItem, 'ALL')
+                    check_min = await store.trx_check_minimum_deposit(coinItem)
             except Exception as e:
                 print(traceback.format_exc())
                 await logchanbot(traceback.format_exc())
             end = time.time()
+            if end - start > config.interval.log_longduration:
+                await logchanbot('unlocked_move_pending_erc_trx {} longer than {}s. Took {}s.'.format(coinItem, config.interval.log_longduration, int(end - start)))
         await asyncio.sleep(config.interval.update_balance)
 
 
-async def update_balance_trx():
+async def erc_trx_notify_new_confirmed_spendable():
     while True:
         await asyncio.sleep(config.interval.update_balance)
-        for coinItem in ENABLE_COIN_TRC:
+        for coinItem in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
             if is_maintenance_coin(coinItem) or not is_coin_depositable(coinItem):
                 continue
             start = time.time()
             try:
-                check_min = await store.trx_check_minimum_deposit(coinItem)
-            except Exception as e:
-                print(traceback.format_exc())
-                await logchanbot(traceback.format_exc())
-            end = time.time()
-        await asyncio.sleep(config.interval.update_balance)
-
-async def unlocked_move_pending_erc():
-    while True:
-        await asyncio.sleep(config.interval.update_balance)
-        for coinItem in ENABLE_COIN_ERC:
-            if is_maintenance_coin(coinItem) or not is_coin_depositable(coinItem):
-                continue
-            start = time.time()
-            try:
-                await store.erc_check_pending_move_deposit(coinItem)
-            except Exception as e:
-                print(traceback.format_exc())
-                await logchanbot(traceback.format_exc())
-            end = time.time()
-        await asyncio.sleep(config.interval.update_balance)
-
-
-async def unlocked_move_pending_trx():
-    while True:
-        await asyncio.sleep(config.interval.update_balance)
-        for coinItem in ENABLE_COIN_TRC:
-            if is_maintenance_coin(coinItem) or not is_coin_depositable(coinItem):
-                continue
-            start = time.time()
-            try:
-                await store.trx_check_pending_move_deposit(coinItem)
-            except Exception as e:
-                print(traceback.format_exc())
-                await logchanbot(traceback.format_exc())
-            end = time.time()
-        await asyncio.sleep(config.interval.update_balance)
-
-async def erc_notify_new_confirmed_spendable():
-    while True:
-        await asyncio.sleep(config.interval.update_balance)
-        for coinItem in ENABLE_COIN_ERC:
-            if is_maintenance_coin(coinItem) or not is_coin_depositable(coinItem):
-                continue
-            start = time.time()
-            try:
-                notify_list = await store.erc_get_pending_notification_users(coinItem)
+                notify_list = None
+                if coinItem in ENABLE_COIN_ERC:
+                    notify_list = await store.erc_get_pending_notification_users(coinItem)
+                elif coinItem in ENABLE_COIN_TRC:
+                    notify_list = await store.trx_get_pending_notification_users(coinItem)
                 if notify_list and len(notify_list) > 0:
                     for each_notify in notify_list:
                         is_notify_failed = False
@@ -19022,40 +18986,15 @@ async def erc_notify_new_confirmed_spendable():
                             except Exception as e:
                                 traceback.print_exc(file=sys.stdout)
                                 await logchanbot(traceback.format_exc())
-                            update_status = await store.erc_updating_pending_move_deposit(True, is_notify_failed, each_notify['txn'])
+                            if coinItem in ENABLE_COIN_ERC:
+                                update_status = await store.erc_updating_pending_move_deposit(True, is_notify_failed, each_notify['txn'])
+                            elif coinItem in ENABLE_COIN_TRC:
+                                update_status = await store.trx_updating_pending_move_deposit(True, is_notify_failed, each_notify['txn'])
             except Exception as e:
                 await logchanbot(traceback.format_exc())
             end = time.time()
         await asyncio.sleep(config.interval.update_balance)
 
-
-async def trx_notify_new_confirmed_spendable():
-    while True:
-        await asyncio.sleep(config.interval.update_balance)
-        for coinItem in ENABLE_COIN_TRC:
-            if is_maintenance_coin(coinItem) or not is_coin_depositable(coinItem):
-                continue
-            start = time.time()
-            try:
-                notify_list = await store.trx_get_pending_notification_users(coinItem)
-                if notify_list and len(notify_list) > 0:
-                    for each_notify in notify_list:
-                        is_notify_failed = False
-                        member = bot.get_user(id=int(each_notify['user_id']))
-                        if member and int(each_notify['user_id']) != bot.user.id:
-                            msg = "You got a new deposit confirmed: ```" + "Amount: {}{}".format(each_notify['real_amount'], coinItem) + "```"
-                            try:
-                                await member.send(msg)
-                            except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
-                                is_notify_failed = True
-                            except Exception as e:
-                                traceback.print_exc(file=sys.stdout)
-                                await logchanbot(traceback.format_exc())
-                            update_status = await store.trx_updating_pending_move_deposit(True, is_notify_failed, each_notify['txn'])
-            except Exception as e:
-                await logchanbot(traceback.format_exc())
-            end = time.time()
-        await asyncio.sleep(config.interval.update_balance)
 
 # Let's run balance update by a separate process
 async def update_balance():
@@ -20492,16 +20431,11 @@ def main():
     bot.loop.create_task(store_action_list())
     bot.loop.create_task(store_message_list())
     bot.loop.create_task(get_miningpool_coinlist())
-    
-    bot.loop.create_task(update_balance_erc())
-    bot.loop.create_task(update_balance_trx())
-    bot.loop.create_task(unlocked_move_pending_erc())
-    bot.loop.create_task(unlocked_move_pending_trx())
-    bot.loop.create_task(erc_notify_new_confirmed_spendable())
-    bot.loop.create_task(trx_notify_new_confirmed_spendable())
+
+    bot.loop.create_task(unlocked_move_pending_erc_trx())
+    bot.loop.create_task(erc_trx_notify_new_confirmed_spendable())
 
     bot.loop.create_task(notify_new_move_balance_user())
-
     bot.loop.create_task(check_raffle_status())
 
     bot.run(config.discord.token, reconnect=True)

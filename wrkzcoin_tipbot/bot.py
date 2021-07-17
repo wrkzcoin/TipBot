@@ -18904,10 +18904,8 @@ async def update_block_height():
     sleep_time = 5
     while True:
         for coinItem in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_XCH:
-            if is_maintenance_coin(coinItem):
-                pass
-            elif not is_coin_depositable(coinItem):
-                pass
+            if is_maintenance_coin(coinItem) or not is_coin_depositable(coinItem):
+                continue
             else:
                 start = time.time()
                 try:
@@ -18918,10 +18916,8 @@ async def update_block_height():
             if end - start > config.interval.log_longduration:
                 await logchanbot('update_block_height {} longer than {}s. Took {}s.'.format(coinItem, config.interval.log_longduration,  int(end - start)))
         for coinItem in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
-            if is_maintenance_coin(coinItem):
-                pass
-            elif not is_coin_depositable(coinItem):
-                pass
+            if is_maintenance_coin(coinItem) or not is_coin_depositable(coinItem):
+                continue
             else:
                 start = time.time()
                 try:
@@ -18941,7 +18937,7 @@ async def unlocked_move_pending_erc_trx():
     while True:
         await asyncio.sleep(config.interval.update_balance)
         for coinItem in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
-            if is_maintenance_coin(coinItem):
+            if is_maintenance_coin(coinItem) or not is_coin_depositable(coinItem):
                 continue
             start = time.time()
             try:

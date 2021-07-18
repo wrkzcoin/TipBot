@@ -306,6 +306,7 @@ def validate_address(wallet_address, coin: str):
         return None
         pass
 
+
 # Validate address:
 def validate_integrated(wallet_address, coin: str):
     prefix=wallet.get_prefix(coin.upper())
@@ -386,6 +387,7 @@ def paymentid(length=None):
     if length is None:
         length=32
     return secrets.token_hex(length) 
+
 
 def hextostr(hex):
     h2b = _hexToBin(hex)

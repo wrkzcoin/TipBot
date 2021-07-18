@@ -15867,8 +15867,12 @@ async def address(ctx, *args):
                                     'Checked: Invalid.')	
                     return
             else:
-                valid_address = await validate_address_xmr(str(CoinAddress), COIN_NAME)
-                if valid_address is None:
+                valid_address = None
+                try:
+                    valid_address = await validate_address_xmr(str(CoinAddress), COIN_NAME)
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                if valid_address is None or valid_address['valid'] == False:
                     await ctx.send(f'{EMOJI_RED_NO} Address: `{CoinAddress}`\n'
                                     'Checked: Invalid.')
                     return
@@ -18634,6 +18638,8 @@ def get_cn_coin_from_address(CoinAddress: str):
         COIN_NAME = "XCH"
     elif CoinAddress.startswith("xfx") and len(CoinAddress) == 62:
         COIN_NAME = "XFX"
+    elif (CoinAddress.startswith("iz") and len(CoinAddress) == 97) or (CoinAddress.startswith("NaX") and len(CoinAddress) == 108):
+        COIN_NAME = "LTHN"
     print('get_cn_coin_from_address return {}: {}'.format(CoinAddress, COIN_NAME))
     return COIN_NAME
 

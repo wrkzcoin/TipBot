@@ -1426,11 +1426,12 @@ async def sql_update_balances(coin: str = None):
                                     list_balance_user[tx['payment_id']] = tx['amount']
                                 try:
                                     if tx['txid'] not in d:
+                                        tx_address = tx['address'] if COIN_NAME != "LTHN" else getattr(getattr(config,"daemon"+COIN_NAME),"MainAddress")
                                         sql = """ INSERT IGNORE INTO xmroff_get_transfers (`coin_name`, `in_out`, `txid`, 
                                         `payment_id`, `height`, `timestamp`, `amount`, `fee`, `decimal`, `address`, time_insert) 
                                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
                                         await cur.execute(sql, (COIN_NAME, tx['type'].upper(), tx['txid'], tx['payment_id'], tx['height'], tx['timestamp'],
-                                                                tx['amount'], tx['fee'], wallet.get_decimal(COIN_NAME), tx['address'], int(time.time())))
+                                                                tx['amount'], tx['fee'], wallet.get_decimal(COIN_NAME), tx_address, int(time.time())))
                                         await conn.commit()
                                         # add to notification list also
                                         sql = """ INSERT IGNORE INTO discord_notify_new_tx (`coin_name`, `txid`, 

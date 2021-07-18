@@ -652,7 +652,43 @@ def num_format_coin(amount, coin: str):
 # XMR
 async def validate_address_xmr(address: str, coin: str):
     coin_family = getattr(getattr(config,"daemon"+coin),"coin_family","XMR")
-    if coin_family == "XMR":
+    # different tatic for Lethean
+    if coin.upper() == "LTHN":
+        if len(address) != get_addrlen(coin.upper()) and len(address) != get_intaddrlen(coin.upper()):
+            return {'valid': False}
+        elif not address.startswith("iz") and not address.startswith("NaX"):
+            return {'valid': False}
+        elif len(address) == get_addrlen(coin.upper()):
+            # Test split address
+            payload = {
+                "integrated_address" : address
+            }
+            try:
+                address_xmr = await rpc_client.call_aiohttp_wallet('split_integrated_address', coin, payload=payload)
+                # Will be always error
+                if address_xmr['error']['message'] == "Invalid address":
+                    return {'valid': False}
+                elif address_xmr['error']['message'] == "Address is not an integrated address":
+                    return {'valid': True, 'integrated': False, 'nettype': 'mainnet', 'subaddress': False}
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
+        elif len(address) == get_intaddrlen(coin.upper()):
+            # Check for integrated, split it
+            try:
+                payload = {
+                    "integrated_address" : address
+                }
+                address_xmr = await rpc_client.call_aiohttp_wallet('split_integrated_address', coin, payload=payload)
+                # There could be 'error' or 'result'
+                if 'result' in address_xmr:
+                    return {'valid': True, 'integrated': True, 'nettype': 'mainnet', 'subaddress': False}
+                elif 'error' in address_xmr:
+                    return {'valid': False}
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
+    elif coin_family == "XMR":
         payload = {
             "address" : address,
             "any_net_type": True,
@@ -661,8 +697,7 @@ async def validate_address_xmr(address: str, coin: str):
         address_xmr = await rpc_client.call_aiohttp_wallet('validate_address', coin, payload=payload)
         if address_xmr:
             return address_xmr
-        else:
-            return None
+    return None
 
 
 async def make_integrated_address_xmr(address: str, coin: str, paymentid: str = None):
@@ -675,7 +710,16 @@ async def make_integrated_address_xmr(address: str, coin: str, paymentid: str = 
             return False
     else:
         paymentid = addressvalidation.paymentid(8)
-    if coin_family == "XMR":
+    if COIN_NAME == "LTHN":
+        payload = {
+            "payment_id": {} or paymentid
+        }
+        address_ia = await rpc_client.call_aiohttp_wallet('make_integrated_address', COIN_NAME, payload=payload)
+        if address_ia:
+            return address_ia
+        else:
+            return None
+    elif coin_family == "XMR":
         payload = {
             "standard_address" : address,
             "payment_id": {} or paymentid

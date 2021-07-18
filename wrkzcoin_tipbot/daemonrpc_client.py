@@ -64,6 +64,8 @@ async def getWalletStatus(coin: str):
         except Exception:
             traceback.print_exc(file=sys.stdout)
             return None
+    if COIN_NAME == "LTHN":
+        return await rpc_client.call_aiohttp_wallet('getheight', COIN_NAME)
     if coin_family in ["TRTL", "BCN"]:
         return await rpc_client.call_aiohttp_wallet('getStatus', COIN_NAME)
     elif coin_family == "XMR":
@@ -84,7 +86,7 @@ async def gettopblock(coin: str, time_out: int = None):
     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     result = None
     timeout = time_out or 32
-    if coin_family in ["TRTL", "BCN"] and COIN_NAME != "TRTL":
+    if (coin_family in ["TRTL", "BCN"] and COIN_NAME != "TRTL") or COIN_NAME == "LTHN":
         result = await call_daemon('getblockcount', COIN_NAME, time_out = timeout)
         if result:
             full_payload = {

@@ -50,7 +50,43 @@ async def call_aiohttp_wallet(method_name: str, coin: str, time_out: int = None,
     elif method_name == "createAddress" or method_name == "getSpendKeys":
         timeout = 60
     try:
-        if coin_family == "XMR":
+        if coin.upper() == "LTHN":
+            # Copied from XMR below
+            try:
+                async with aiohttp.ClientSession(headers={'Content-Type': 'application/json'}) as session:
+                    async with session.post(url, json=full_payload, timeout=timeout) as response:
+                        # sometimes => "message": "Not enough unlocked money" for checking fee
+                        if method_name == "split_integrated_address":
+                            # we return all data including error
+                            if response.status == 200:
+                                res_data = await response.read()
+                                res_data = res_data.decode('utf-8')
+                                decoded_data = json.loads(res_data)
+                                return decoded_data
+                        elif method_name == "transfer":
+                            print('{} - transfer'.format(coin.upper()))
+                            print(full_payload)
+
+                        if response.status == 200:
+                            res_data = await response.read()
+                            res_data = res_data.decode('utf-8')
+                            if method_name == "transfer":
+                                print(res_data)
+                            await session.close()
+                            decoded_data = json.loads(res_data)
+                            if 'result' in decoded_data:
+                                return decoded_data['result']
+                            else:
+                                print(decoded_data)
+                                return None
+            except asyncio.TimeoutError:
+                await logchanbot('call_aiohttp_wallet: method_name: {} COIN_NAME {} - timeout {}\nfull_payload:\n{}'.format(method_name, coin.upper(), timeout, json.dumps(payload)))
+                print('TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method_name, coin.upper(), timeout))
+                return None
+            except Exception:
+                await logchanbot(traceback.format_exc())
+                return None
+        elif coin_family == "XMR":
             try:
                 async with aiohttp.ClientSession(headers={'Content-Type': 'application/json'}) as session:
                     async with session.post(url, json=full_payload, timeout=timeout) as response:
@@ -68,7 +104,6 @@ async def call_aiohttp_wallet(method_name: str, coin: str, time_out: int = None,
                             if 'result' in decoded_data:
                                 return decoded_data['result']
                             else:
-                                print(decoded_data)
                                 return None
             except asyncio.TimeoutError:
                 await logchanbot('call_aiohttp_wallet: method_name: {} COIN_NAME {} - timeout {}\nfull_payload:\n{}'.format(method_name, coin.upper(), timeout, json.dumps(payload)))

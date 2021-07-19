@@ -9279,6 +9279,7 @@ async def pap(ctx, coin: str=None):
     # disable game for TRTL discord
     if isinstance(ctx.message.channel, discord.DMChannel) == False and ctx.guild and ctx.guild.id == TRTL_DISCORD:
         return
+    prefix = await get_guild_prefix(ctx)
     try:
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if isinstance(ctx.message.channel, discord.DMChannel) == False and serverinfo \
@@ -19519,9 +19520,14 @@ async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str 
 
     # Negative check
     try:
-        if actual_balance< 0:
-            msg_negative = 'Negative balance detected:\nUser: '+str(ctx.message.author.id)+'\nCoin: '+COIN_NAME+'\nAtomic Balance: '+str(actual_balance)
+        if actual_balance <= 0:
+            msg_negative = 'Negative or zero balance detected:\nUser: '+str(ctx.message.author.id)+'\nCoin: '+COIN_NAME+'\nAtomic Balance: '+str(actual_balance)
             await logchanbot(msg_negative)
+            await ctx.message.add_reaction(EMOJI_ERROR)
+            await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send {tip_type_text} of '
+                                    f'{num_format_coin(real_amount, COIN_NAME)} '
+                                    f'{COIN_NAME}.')
+            return
     except Exception as e:
         await logchanbot(traceback.format_exc())
 

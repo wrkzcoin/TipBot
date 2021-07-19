@@ -675,7 +675,6 @@ if (isset($_POST["submit"])) {
                        <?php echo $result; ?>
                     </div>
                     <?php } ?>
-                    </div>
                 </form> 
             </div>
         </div>

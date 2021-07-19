@@ -641,7 +641,7 @@ if (isset($_POST["submit"])) {
   <body>
       <div class="container">
           <div class="row">
-              <div class="col-md-8 col-md-offset-2">
+              <div class="col-xs-10 col-xs-offset-1 col-md-6 col-md-offset-3 ">
                   <h1 class="page-header text-center">Claim Voucher <?php echo $coin_name; ?></h1>
                   <div class="text-center">
                       <img src="https://redeem.bot.tips/tipbot_voucher/<?php echo $image_png;?>" style="height: 250px;" class="rounded" alt="Scan with QR">
@@ -649,41 +649,32 @@ if (isset($_POST["submit"])) {
                 <br>
                 <form class="form-horizontal" method="post" action="<?php echo $_SERVER['REQUEST_URI']; ?>">
                     <div class="form-group">
-                        <label for="voucher" class="col-sm-2 control-label">Voucher Code:</label>
-                        <div class="col-sm-10">
-                            <input type="text" class="form-control" id="voucher" name="voucher" placeholder="Voucher Code" value="<?php echo $sec; ?>" readonly>
-                            <?php if (isset($errVoucher)) { echo "<p class='text-danger'>$errVoucher</p>"; }?>
-                        </div>
+                        <label for="voucher" class="control-label">Voucher Code:</label>
+                        <input type="text" class="form-control" id="voucher" name="voucher" placeholder="Voucher Code" value="<?php echo $sec; ?>" readonly>
+                        <?php if (isset($errVoucher)) { echo "<p class='text-danger'>$errVoucher</p>"; }?>
                     </div>
                     <div class="form-group">
-                        <label for="address" class="col-sm-2 control-label">Claimed to:</label>
-                        <div class="col-sm-10">
-                            <input type="text" class="form-control" id="address" name="address" placeholder="<?php echo $coin_pref;?>" value="<?php if (isset($_POST['address'])) { echo htmlspecialchars($_POST['address']); } ?>" <?php if (isset($min_addr_len)) {echo "minlength='".$min_addr_len."'";}?> <?php if (isset($max_addr_len)) {echo "maxlength='".$max_addr_len."'";}?> required="required">
-                            <?php if (isset($errAddress)) { echo "<p class='text-danger'>$errAddress</p>"; } ?>
-                        </div>
+                        <label for="address" class="control-label">Claimed to:</label>
+                        <input type="text" class="form-control" id="address" name="address" placeholder="<?php echo $coin_pref;?>" value="<?php if (isset($_POST['address'])) { echo htmlspecialchars($_POST['address']); } ?>" <?php if (isset($min_addr_len)) {echo "minlength='".$min_addr_len."'";}?> <?php if (isset($max_addr_len)) {echo "maxlength='".$max_addr_len."'";}?> required="required">
+                        <?php if (isset($errAddress)) { echo "<p class='text-danger'>$errAddress</p>"; } ?>
                     </div>
                     <div class="form-group">
-                        <label for="amount" class="col-sm-2 control-label">Amount</label>
-                        <div class="col-sm-10">
-                            <input type="text" class="form-control" id="amount" name="amount" placeholder="1000.000" value="<?php echo $amount_str; ?>" readonly>
-                        </div>
+                        <label for="amount" class="control-label">Amount</label>
+                        <input type="text" class="form-control" id="amount" name="amount" placeholder="1000.000" value="<?php echo $amount_str; ?>" readonly>
                     </div>
                     <div class="form-group">
-                        <label for="message" class="col-sm-2 control-label">Message</label>
-                        <div class="col-sm-10">
-                            <textarea class="form-control" rows="4" id="message" name="message" readonly><?php echo $comment;?></textarea>
-                        </div>
+                        <label for="message" class="control-label">Message</label>
+                        <textarea class="form-control" rows="4" id="message" name="message" readonly><?php echo $comment;?></textarea>
                     </div>
 
                     <div class="form-group">
-                        <div class="col-sm-10 col-sm-offset-2">
-                            <input id="submit" name="submit" type="submit" value="Claim Now!" class="btn btn-primary" <?php if (isset($already_claimed)) {echo "disabled"; }?> >
-                        </div>
+                        <input id="submit" name="submit" type="submit" value="Claim Now!" class="btn btn-primary" <?php if (isset($already_claimed)) {echo "disabled"; }?> >
                     </div>
+                    <?php if (isset($result)) {  ?>
                     <div class="form-group">
-                        <div class="col-sm-10 col-sm-offset-2">
-                            <?php if (isset($result)) { echo $result;} ?>    
-                        </div>
+                       <?php echo $result; ?>
+                    </div>
+                    <?php } ?>
                     </div>
                 </form> 
             </div>

@@ -4981,13 +4981,12 @@ async def erc_check_minimum_deposit(coin: str):
                         # get gas price
                         gasPrice = int(w3.eth.gasPrice * 1.0)
 
-                        estimateGas = w3.eth.estimateGas({'to': w3.toChecksumAddress(token_info['withdraw_address']), 'from': w3.toChecksumAddress(each_address['balance_wallet_address']), 'value':  int(real_deposited_balance * 10**token_info['token_decimal'])})
-
-                        atomic_amount = deposited_balance
+                        estimateGas = w3.eth.estimateGas({'to': w3.toChecksumAddress(token_info['withdraw_address']), 'from': w3.toChecksumAddress(each_address['balance_wallet_address']), 'value':  deposited_balance})
+                        print("TX {} deposited_balance: {}, gasPrice*estimateGas: {}*{}={}, ".format(TOKEN_NAME, deposited_balance, gasPrice, estimateGas, gasPrice*estimateGas))
                         transaction = {
                                 'from': w3.toChecksumAddress(each_address['balance_wallet_address']),
                                 'to': w3.toChecksumAddress(token_info['withdraw_address']),
-                                'value': atomic_amount - gasPrice*estimateGas,
+                                'value': deposited_balance - gasPrice*estimateGas,
                                 'nonce': nonce,
                                 'gasPrice': gasPrice,
                                 'gas': estimateGas,
@@ -4995,6 +4994,7 @@ async def erc_check_minimum_deposit(coin: str):
                             }
                     
                         signed_txn = w3.eth.account.sign_transaction(transaction, private_key=decrypt_string(each_address['private_key']))
+
                         # send Transaction for gas:
                         sent_tx = w3.eth.sendRawTransaction(signed_txn.rawTransaction)
                         if signed_txn and sent_tx:
@@ -5007,6 +5007,7 @@ async def erc_check_minimum_deposit(coin: str):
                                 traceback.print_exc(file=sys.stdout)
                                 #await logchanbot(traceback.format_exc())
                     except Exception as e:
+                        print("ERROR TOKEN: {} - from {} to {}".format(TOKEN_NAME, each_address['balance_wallet_address'], token_info['withdraw_address']))
                         traceback.print_exc(file=sys.stdout)
                         #await logchanbot(traceback.format_exc())
             msg_deposit += "TOKEN {}: Total deposit address: {}: Below min.: {} Above min. {}".format(TOKEN_NAME, len(list_user_addresses), balance_below_min, balance_above_min)
@@ -5168,9 +5169,9 @@ async def erc_check_pending_move_deposit(coin: str, option: str='PENDING'):
                 check_tx = await erc_get_tx_info(each_tx['txn'], TOKEN_NAME)
                 if check_tx:
                     tx_block_number = int(check_tx['blockNumber'], 16)
-                    if option.upper() == "ALL":
-                        print("Checking tx: {}... for {}".format(each_tx['txn'][0:10], TOKEN_NAME))
-                        print("topBlock: {}, Conf Depth: {}, Tx Block Numb: {}".format(topBlock, token_info['deposit_confirm_depth'] , tx_block_number))
+                    #if option.upper() == "ALL":
+                    #    print("Checking tx: {}... for {}".format(each_tx['txn'][0:10], TOKEN_NAME))
+                    #    print("topBlock: {}, Conf Depth: {}, Tx Block Numb: {}".format(topBlock, token_info['deposit_confirm_depth'] , tx_block_number))
                     if topBlock - token_info['deposit_confirm_depth'] > tx_block_number:
                         confirming_tx = await erc_update_confirming_move_tx(each_tx['txn'], tx_block_number, topBlock - tx_block_number, TOKEN_NAME)
             except Exception as e:
@@ -5308,8 +5309,8 @@ async def sql_get_pending_move_deposit(coin: str, option: str='PENDING'):
                     if result: return result
                 elif option.upper() == "ALL":
                     sql = """ SELECT * FROM erc_move_deposit 
-                              WHERE `token_name`=%s """
-                    await cur.execute(sql, (TOKEN_NAME,))
+                              WHERE `token_name`=%s AND `status`<>%s """
+                    await cur.execute(sql, (TOKEN_NAME, 'CONFIRMED'))
                     result = await cur.fetchall()
                     if result: return result
     except Exception as e:
@@ -5869,8 +5870,8 @@ async def trx_get_pending_move_deposit(coin: str, option: str='PENDING'):
                     if result: return result
                 elif option.upper() == "ALL":
                     sql = """ SELECT * FROM trx_move_deposit 
-                              WHERE `token_name`=%s AND `status`<>%s """
-                    await cur.execute(sql, (TOKEN_NAME, 'FAILED'))
+                              WHERE `token_name`=%s AND `status`<>%s AND `status`<>%s """
+                    await cur.execute(sql, (TOKEN_NAME, 'FAILED', 'CONFIRMED'))
                     result = await cur.fetchall()
                     if result: return result
     except Exception as e:
@@ -5896,9 +5897,9 @@ async def trx_check_pending_move_deposit(coin: str, option: str='PENDING'):
         for each_tx in list_pending:
             try:
                 tx_block_number = each_tx['blockNumber']
-                if option.upper() == "ALL":
-                    print("Checking tx: {}... for {}".format(each_tx['txn'][0:10], TOKEN_NAME))
-                    print("topBlock: {}, Conf Depth: {}, Tx Block Numb: {}".format(topBlock, token_info['deposit_confirm_depth'] , tx_block_number))
+                #if option.upper() == "ALL":
+                #    print("Checking tx: {}... for {}".format(each_tx['txn'][0:10], TOKEN_NAME))
+                #    print("topBlock: {}, Conf Depth: {}, Tx Block Numb: {}".format(topBlock, token_info['deposit_confirm_depth'] , tx_block_number))
                 if topBlock - token_info['deposit_confirm_depth'] > tx_block_number:
                     check_tx = await trx_get_tx_info(each_tx['txn'], TOKEN_NAME)
                     if check_tx:

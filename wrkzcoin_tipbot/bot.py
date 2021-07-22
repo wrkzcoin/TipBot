@@ -2126,7 +2126,7 @@ async def blackjack(ctx):
     # check if user create account less than 3 days
     try:
         account_created = ctx.message.author.created_at
-        if (datetime.utcnow() - account_created).total_seconds() <= 3*24*3600:
+        if (datetime.utcnow() - account_created).total_seconds() <= config.game.account_age_to_play:
             await ctx.message.add_reaction(EMOJI_ERROR)
             msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using this.')
             return
@@ -2371,7 +2371,7 @@ async def slot(ctx):
     # check if user create account less than 3 days
     try:
         account_created = ctx.message.author.created_at
-        if (datetime.utcnow() - account_created).total_seconds() <= 3*24*3600:
+        if (datetime.utcnow() - account_created).total_seconds() <= config.game.account_age_to_play:
             await ctx.message.add_reaction(EMOJI_ERROR)
             msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using this.')
             return
@@ -2517,7 +2517,7 @@ async def bagel(ctx):
     # check if user create account less than 3 days
     try:
         account_created = ctx.message.author.created_at
-        if (datetime.utcnow() - account_created).total_seconds() <= 3*24*3600:
+        if (datetime.utcnow() - account_created).total_seconds() <= config.game.account_age_to_play:
             await ctx.message.add_reaction(EMOJI_ERROR)
             msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using this.')
             return
@@ -2717,7 +2717,7 @@ async def bagel2(ctx):
     # check if user create account less than 3 days
     try:
         account_created = ctx.message.author.created_at
-        if (datetime.utcnow() - account_created).total_seconds() <= 3*24*3600:
+        if (datetime.utcnow() - account_created).total_seconds() <= config.game.account_age_to_play:
             await ctx.message.add_reaction(EMOJI_ERROR)
             msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using this.')
             return
@@ -2944,7 +2944,7 @@ async def bagel3(ctx):
     # check if user create account less than 3 days
     try:
         account_created = ctx.message.author.created_at
-        if (datetime.utcnow() - account_created).total_seconds() <= 3*24*3600:
+        if (datetime.utcnow() - account_created).total_seconds() <= config.game.account_age_to_play:
             await ctx.message.add_reaction(EMOJI_ERROR)
             msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using this.')
             return
@@ -3416,7 +3416,7 @@ async def hangman(ctx):
     # check if user create account less than 3 days
     try:
         account_created = ctx.message.author.created_at
-        if (datetime.utcnow() - account_created).total_seconds() <= 3*24*3600:
+        if (datetime.utcnow() - account_created).total_seconds() <= config.game.account_age_to_play:
             await ctx.message.add_reaction(EMOJI_ERROR)
             msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using this.')
             return
@@ -3619,7 +3619,7 @@ async def dice(ctx):
     # check if user create account less than 3 days
     try:
         account_created = ctx.message.author.created_at
-        if (datetime.utcnow() - account_created).total_seconds() <= 3*24*3600:
+        if (datetime.utcnow() - account_created).total_seconds() <= config.game.account_age_to_play:
             await ctx.message.add_reaction(EMOJI_ERROR)
             msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using this.')
             return
@@ -3785,7 +3785,7 @@ async def snail(ctx, bet_numb: str=None):
     # check if user create account less than 3 days
     try:
         account_created = ctx.message.author.created_at
-        if (datetime.utcnow() - account_created).total_seconds() <= 3*24*3600:
+        if (datetime.utcnow() - account_created).total_seconds() <= config.game.account_age_to_play:
             await ctx.message.add_reaction(EMOJI_ERROR)
             msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using this.')
             return
@@ -3990,7 +3990,7 @@ async def g2048(ctx):
     # check if user create account less than 3 days
     try:
         account_created = ctx.message.author.created_at
-        if (datetime.utcnow() - account_created).total_seconds() <= 3*24*3600:
+        if (datetime.utcnow() - account_created).total_seconds() <= config.game.account_age_to_play:
             await ctx.message.add_reaction(EMOJI_ERROR)
             msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using this.')
             return
@@ -4326,7 +4326,7 @@ async def sokoban(ctx):
     # check if user create account less than 3 days
     try:
         account_created = ctx.message.author.created_at
-        if (datetime.utcnow() - account_created).total_seconds() <= 3*24*3600:
+        if (datetime.utcnow() - account_created).total_seconds() <= config.game.account_age_to_play:
             await ctx.message.add_reaction(EMOJI_ERROR)
             msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using this.')
             return
@@ -12215,7 +12215,7 @@ async def take(ctx, info: str=None):
     # check if user create account less than 3 days
     try:
         account_created = ctx.message.author.created_at
-        if (datetime.utcnow() - account_created).total_seconds() <= 3*24*3600:
+        if (datetime.utcnow() - account_created).total_seconds() <= config.faucet.account_age_to_claim:
             msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using .take')
             await ctx.message.add_reaction(EMOJI_ERROR)
             return

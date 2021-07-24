@@ -951,77 +951,6 @@ async def about(ctx):
         await logchanbot(traceback.format_exc())
 
 
-@bot.group(hidden = True, name='reddit', aliases=['rd'], help='Reddit random images')
-async def reddit(ctx):
-    prefix = await get_guild_prefix(ctx)
-    # Only WrkzCoin testing. Return if DM or other guild
-    if isinstance(ctx.channel, discord.DMChannel) == True:
-        return
-    if ctx.invoked_subcommand is None:
-        await ctx.send(f'{ctx.author.mention} Invalid {prefix}reddit command.\n Please use {prefix}help reddit')
-        return
-
-
-@reddit.command(name='meme', aliases=['memes'], help='Get random meme')
-async def meme(ctx):
-    global redis_conn, redis_expired
-    if isinstance(ctx.channel, discord.DMChannel) == True:
-        return
-
-    get_data = []
-    key = "TIPBOT:REDDIT:MEME"
-    if redis_conn and redis_conn.exists(key):
-        await ctx.message.add_reaction(EMOJI_FLOPPY)
-        get_data = json.loads(redis_conn.get(key).decode())
-    else:
-        links = ["https://www.reddit.com/r/greentext",
-                "https://www.reddit.com/r/memes",
-                "https://www.reddit.com/r/dankmemes",
-                "https://www.reddit.com/r/cryptocurrencymemes",
-                "https://www.reddit.com/r/AnimalsBeingDerps",
-                "https://www.reddit.com/r/AnimalsBeingJerks",
-                "https://www.reddit.com/r/funny",
-                "https://www.reddit.com/r/comics",
-                "https://www.reddit.com/r/adviceanimals"]
-
-        # https://stackoverflow.com/questions/61483685/how-do-i-get-aiohttp-to-output-reddit-images
-        try:
-            async with ctx.typing():
-                for each_link in links:
-                    try:
-                        async with aiohttp.ClientSession() as cs:
-                            async with cs.get(each_link + "/hot/.json") as r:
-                                if r.status == 200:
-                                    get_data_each = await r.json()
-                                    get_data += get_data_each["data"]["children"]
-                                    print(f'Fetch {each_link} and got {len(get_data_each["data"]["children"])} items.')
-                    except Exception as e:
-                        await logchanbot(traceback.format_exc())
-                print(f'Got total new: {len(get_data)} memes.')    
-                redis_conn.set(key, json.dumps(get_data), ex=600)
-        except (discord.errors.NotFound, discord.errors.Forbidden) as e:
-            await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
-            return
-    if get_data and len(get_data) > 0:
-        # key, value = random.choice(list(get_data["data"]["children"].items()))
-        try:
-            # get_item = random.choice(get_data["data"]["children"])["data"]
-            get_item = random.choice(get_data)['data']
-            while not (get_item['url_overridden_by_dest'].endswith('.jpg') or get_item['url_overridden_by_dest'].endswith('.png')):
-                get_item = random.choice(get_data)['data']
-            if 'url_overridden_by_dest' in get_item and 'permalink' in get_item and 'over_18' in get_item:
-                embed = discord.Embed(title = get_item['subreddit_name_prefixed'], color = 0xFF0000)
-                embed.set_image(url = get_item['url_overridden_by_dest'])
-                embed.set_footer(text = "https://www.reddit.com{}".format(get_item['permalink']))
-                msg = await ctx.send(embed=embed)
-                await msg.add_reaction(EMOJI_OK_BOX)
-        except Exception as e:
-            await logchanbot(traceback.format_exc())
-    else:
-        await ctx.message.add_reaction(EMOJI_QUESTEXCLAIM)
-    return
-
-
 @bot.group(hidden = True, name='tb', aliases=['tipbot'], help='Some fun commands')
 async def tb(ctx):
     prefix = await get_guild_prefix(ctx)
@@ -1278,6 +1207,13 @@ async def spank(ctx, member: discord.Member = None):
 async def punch(ctx, member: discord.Member = None):
     if isinstance(ctx.channel, discord.DMChannel) == True:
         return
+
+    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+    if serverinfo and 'enable_nsfw' in serverinfo and serverinfo['enable_nsfw'] == "NO":
+        prefix = serverinfo['prefix']
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        return
+
     if member is None:
         user1 = str(bot.user.avatar_url)
         user2 = str(ctx.message.author.avatar_url)
@@ -1306,6 +1242,13 @@ async def punch(ctx, member: discord.Member = None):
 async def slap(ctx, member: discord.Member = None):
     if isinstance(ctx.channel, discord.DMChannel) == True:
         return
+
+    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+    if serverinfo and 'enable_nsfw' in serverinfo and serverinfo['enable_nsfw'] == "NO":
+        prefix = serverinfo['prefix']
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        return
+
     if member is None:
         user1 = str(bot.user.avatar_url)
         user2 = str(ctx.message.author.avatar_url)
@@ -1362,6 +1305,13 @@ async def praise(ctx, member: discord.Member = None):
 async def shoot(ctx, member: discord.Member = None):
     if isinstance(ctx.channel, discord.DMChannel) == True:
         return
+
+    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+    if serverinfo and 'enable_nsfw' in serverinfo and serverinfo['enable_nsfw'] == "NO":
+        prefix = serverinfo['prefix']
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        return
+
     if member is None:
         user1 = str(bot.user.avatar_url)
         user2 = str(ctx.message.author.avatar_url)
@@ -1390,6 +1340,13 @@ async def shoot(ctx, member: discord.Member = None):
 async def kick(ctx, member: discord.Member = None):
     if isinstance(ctx.channel, discord.DMChannel) == True:
         return
+
+    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+    if serverinfo and 'enable_nsfw' in serverinfo and serverinfo['enable_nsfw'] == "NO":
+        prefix = serverinfo['prefix']
+        await ctx.message.add_reaction(EMOJI_ERROR)
+        return
+
     if member is None:
         user1 = str(bot.user.avatar_url)
         user2 = str(ctx.message.author.avatar_url)
@@ -17179,6 +17136,18 @@ async def setting(ctx, *args):
                 changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_trade', 'YES')
                 await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} ENABLE trade in their guild {ctx.guild.name} / {ctx.guild.id}')
                 await ctx.send(f'{ctx.author.mention} ENABLE TRADE feature in this guild {ctx.guild.name}.')
+            return
+        # enable / disable nsfw
+        elif args[0].upper() == "NSFW":
+            if serverinfo['enable_nsfw'] == "YES":
+                changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_nsfw', 'NO')
+                await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} DISABLE NSFW in their guild {ctx.guild.name} / {ctx.guild.id}')
+                await ctx.send(f'{ctx.author.mention} DISABLE NSFW command in this guild {ctx.guild.name}.')
+                return
+            elif serverinfo['enable_nsfw'] == "NO":
+                changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_nsfw', 'YES')
+                await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} ENABLE NSFW in their guild {ctx.guild.name} / {ctx.guild.id}')
+                await ctx.send(f'{ctx.author.mention} ENABLE NSFW command in this guild {ctx.guild.name}.')
             return
         # enable / disable game
         elif args[0].upper() == "GAME":

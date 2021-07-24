@@ -12451,7 +12451,7 @@ async def randtip(ctx, amount: str, coin: str, *, rand_option: str=None):
     if ctx.guild.id == TRTL_DISCORD and COIN_NAME != "TRTL":
         return
 
-    if COIN_NAME not in (ENABLE_COIN + ENABLE_XMR + ENABLE_COIN_DOGE + ENABLE_COIN_NANO + ENABLE_XCH):
+    if COIN_NAME not in (ENABLE_COIN_ERC + ENABLE_COIN_TRC + ENABLE_COIN + ENABLE_XMR + ENABLE_COIN_DOGE + ENABLE_COIN_NANO + ENABLE_XCH):
         msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} **{COIN_NAME}** is not in our supported coins.')
         await msg.add_reaction(EMOJI_OK_BOX)
         return
@@ -12605,8 +12605,8 @@ async def randtip(ctx, amount: str, coin: str, *, rand_option: str=None):
     if COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         real_amount = float(amount)
         token_info = await store.get_token_info(COIN_NAME)
-        MinTx = token_info['real_min_tx']
-        MaxTX = token_info['real_max_tx']
+        MinTx = token_info['real_min_tip']
+        MaxTX = token_info['real_max_tip']
     else:
         real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["XMR", "TRTL", "BCN", "NANO", "XCH"] else float(amount)
         MinTx = get_min_mv_amount(COIN_NAME)

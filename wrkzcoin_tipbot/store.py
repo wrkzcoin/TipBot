@@ -414,6 +414,12 @@ async def sql_user_balance(userID: str, coin: str, user_server: str = 'DISCORD')
     if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return
     COIN_NAME = coin.upper()
+    if COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
+        ## update balance called_Update
+        try:
+            update_call = await sql_update_erc_trc_user_update_call(userID, COIN_NAME, user_server)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
     if COIN_NAME in ENABLE_COIN_ERC:
         coin_family = "ERC-20"
     elif COIN_NAME in ENABLE_COIN_TRC:
@@ -4937,7 +4943,7 @@ async def sql_external_erc_single(user_id: str, to_address: str, amount: float, 
         await logchanbot(traceback.format_exc())
 
 
-async def erc_check_minimum_deposit(coin: str):
+async def erc_check_minimum_deposit(coin: str, time_lap: int=0):
     global pool
     TOKEN_NAME = coin.upper()
     if TOKEN_NAME not in ENABLE_COIN_ERC:
@@ -4946,7 +4952,7 @@ async def erc_check_minimum_deposit(coin: str):
     token_info = await get_token_info(TOKEN_NAME)
     msg_deposit = ""
     url = token_info[token_info['http_using']]
-    list_user_addresses = await sql_get_all_erc_user(TOKEN_NAME)
+    list_user_addresses = await sql_get_all_erc_user(TOKEN_NAME, time_lap)
 
     balance_main_gas = 0
     balance_below_min = 0
@@ -5358,7 +5364,9 @@ async def erc_updating_pending_move_deposit(notified_confirmation: bool, failed_
     return None
 
 
-async def sql_get_all_erc_user(coin: str):
+async def sql_get_all_erc_user(coin: str, called_Update: int=0):
+    # Check update only who has recently called for balance
+    # If called_Update = 3600, meaning who called balance for last 1 hr
     global pool
     TOKEN_NAME = coin.upper()
     if TOKEN_NAME not in ENABLE_COIN_ERC:
@@ -5368,11 +5376,42 @@ async def sql_get_all_erc_user(coin: str):
         async with pool.acquire() as conn:
             await conn.ping(reconnect=True)
             async with conn.cursor() as cur:
-                sql = """ SELECT `user_id`, `token_name`, `contract`, `balance_wallet_address`, `seed`, `private_key` FROM erc_user 
-                          WHERE `user_id`<>%s AND `token_name`=%s """
-                await cur.execute(sql, ('WITHDRAW', TOKEN_NAME))
-                result = await cur.fetchall()
-                if result: return result
+                if called_Update == 0:
+                    sql = """ SELECT `user_id`, `token_name`, `contract`, `balance_wallet_address`, `seed`, `private_key` FROM erc_user 
+                              WHERE `user_id`<>%s AND `token_name`=%s """
+                    await cur.execute(sql, ('WITHDRAW', TOKEN_NAME))
+                    result = await cur.fetchall()
+                    if result: return result
+                elif called_Update > 0:
+                    lap = int(time.time()) - called_Update
+                    sql = """ SELECT `user_id`, `token_name`, `contract`, `balance_wallet_address`, `seed`, `private_key` FROM erc_user 
+                              WHERE `user_id`<>%s AND `token_name`=%s AND `called_Update`>%s """
+                    await cur.execute(sql, ('WITHDRAW', TOKEN_NAME, lap))
+                    result = await cur.fetchall()
+                    if result: return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return None
+
+
+async def sql_update_erc_trc_user_update_call(userID: str, coin: str, user_server: str = 'DISCORD'):
+    global pool
+    TOKEN_NAME = coin.upper()
+    if TOKEN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
+        return
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            await conn.ping(reconnect=True)
+            async with conn.cursor() as cur:
+                if TOKEN_NAME in ENABLE_COIN_ERC:
+                    sql = """ UPDATE erc_user SET `called_Update`=%s WHERE `user_id`=%s AND `token_name`=%s AND `user_server`=%s """
+                elif TOKEN_NAME in ENABLE_COIN_TRC:
+                    sql = """ UPDATE trx_user SET `called_Update`=%s WHERE `user_id`=%s AND `token_name`=%s AND `user_server`=%s """
+                await cur.execute(sql, (int(time.time()), userID, TOKEN_NAME, user_server))
+                await conn.commit()
+                return True
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         await logchanbot(traceback.format_exc())
@@ -5567,7 +5606,9 @@ async def trx_get_block_number(coin: str, timeout:int = 64):
     return height
 
 
-async def sql_get_all_trx_user(coin: str):
+async def sql_get_all_trx_user(coin: str, called_Update: int=0):
+    # Check update only who has recently called for balance
+    # If called_Update = 3600, meaning who called balance for last 1 hr
     global pool
     TOKEN_NAME = coin.upper()
     if TOKEN_NAME not in ENABLE_COIN_TRC:
@@ -5577,11 +5618,19 @@ async def sql_get_all_trx_user(coin: str):
         async with pool.acquire() as conn:
             await conn.ping(reconnect=True)
             async with conn.cursor() as cur:
-                sql = """ SELECT `user_id`, `token_name`, `contract`, `balance_wallet_address`, `hex_address`, `private_key` FROM trx_user 
-                          WHERE `user_id`<>%s AND `token_name`=%s """
-                await cur.execute(sql, ('WITHDRAW', TOKEN_NAME))
-                result = await cur.fetchall()
-                if result: return result
+                if called_Update == 0:
+                    sql = """ SELECT `user_id`, `token_name`, `contract`, `balance_wallet_address`, `hex_address`, `private_key` FROM trx_user 
+                              WHERE `user_id`<>%s AND `token_name`=%s """
+                    await cur.execute(sql, ('WITHDRAW', TOKEN_NAME))
+                    result = await cur.fetchall()
+                    if result: return result
+                elif called_Update > 0:
+                    lap = int(time.time()) - called_Update
+                    sql = """ SELECT `user_id`, `token_name`, `contract`, `balance_wallet_address`, `hex_address`, `private_key` FROM trx_user 
+                              WHERE `user_id`<>%s AND `token_name`=%s AND `called_Update`>%s """
+                    await cur.execute(sql, ('WITHDRAW', TOKEN_NAME, lap))
+                    result = await cur.fetchall()
+                    if result: return result
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         await logchanbot(traceback.format_exc())
@@ -5672,7 +5721,7 @@ async def sql_external_trx_single(user_id: str, to_address: str, amount: float, 
     return False
 
 
-async def trx_check_minimum_deposit(coin: str):
+async def trx_check_minimum_deposit(coin: str, time_lap: int=0):
     global pool
     TOKEN_NAME = coin.upper()
     if TOKEN_NAME not in ENABLE_COIN_TRC:
@@ -5680,7 +5729,7 @@ async def trx_check_minimum_deposit(coin: str):
 
     token_info = await get_token_info(TOKEN_NAME)
     url = token_info[token_info['http_using']]
-    list_user_addresses = await sql_get_all_trx_user(TOKEN_NAME)
+    list_user_addresses = await sql_get_all_trx_user(TOKEN_NAME, time_lap)
     msg_deposit = ""
     balance_below_min = 0
     balance_above_min = 0

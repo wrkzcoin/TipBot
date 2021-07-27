@@ -8684,15 +8684,16 @@ async def botchan(ctx):
             else:
                 # change channel info
                 changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'botchan', str(ctx.channel.id))
-                await ctx.send(f'Bot channel has set to {ctx.channel.mention}.')
+                await ctx.message.reply(f'Bot channel has set to {ctx.channel.mention}.')
                 await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} change bot channel {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.')
                 return
-        except ValueError:
-            return
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
     else:
         # change channel info
         changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'botchan', str(ctx.channel.id))
-        await ctx.send(f'Bot channel has set to {ctx.channel.mention}.')
+        await ctx.message.reply(f'Bot channel has set to {ctx.channel.mention}.')
         await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} changed bot channel {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.')
         return
 
@@ -8729,8 +8730,9 @@ async def gamechan(ctx, game: str=None):
                         await ctx.send(f'{ctx.channel.mention} Game **{game}** channel has set to {ctx.channel.mention}.')
                         await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} changed game **{game}** in channel {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.')
                         return
-                except ValueError:
-                    return
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(traceback.format_exc())
             else:
                 # change channel info
                 changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), index_game, str(ctx.channel.id))
@@ -18919,10 +18921,10 @@ async def unlocked_move_pending_erc_trx():
             try:
                 if coinItem in ENABLE_COIN_ERC:
                     await store.erc_check_pending_move_deposit(coinItem, 'ALL')
-                    check_min = await store.erc_check_minimum_deposit(coinItem)
+                    check_min = await store.erc_check_minimum_deposit(coinItem, 1800) # who inquire balance last 30mn
                 elif coinItem in ENABLE_COIN_TRC:
                     await store.trx_check_pending_move_deposit(coinItem, 'ALL')
-                    check_min = await store.trx_check_minimum_deposit(coinItem)
+                    check_min = await store.trx_check_minimum_deposit(coinItem, 1800) # who inquire balance last 30mn
             except Exception as e:
                 print(traceback.format_exc())
                 await logchanbot(traceback.format_exc())

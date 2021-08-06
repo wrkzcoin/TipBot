@@ -208,6 +208,8 @@ CHART_TRADEVIEW_IN_PROCESS = []
 GAME_INTERACTIVE_ECO = []
 # miningpoolstat_progress
 MINGPOOLSTAT_IN_PROCESS = []
+# raffle queue join
+GAME_RAFFLE_QUEUE = []
 
 # save all temporary
 SAVING_ALL = None
@@ -4270,6 +4272,8 @@ async def sokoban(ctx):
         await ctx.message.add_reaction(EMOJI_LOCKED)
         return
 
+    botLogChan = bot.get_channel(id=LOG_CHAN)
+
     serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
     if serverinfo and 'enable_game' in serverinfo and serverinfo['enable_game'] == "NO":
         prefix = serverinfo['prefix']
@@ -4439,6 +4443,7 @@ respectively. You can also reload game level.'''
                 GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
             await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
             await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} **GAME SOKOBAN** failed to send embed in {ctx.guild.name} / {ctx.guild.id}')
+            await ctx.send(f'{ctx.author.mention} I can not send any embed message here. Seemed no permission.')
             return
         await msg.add_reaction(EMOJI_UP)
         await msg.add_reaction(EMOJI_DOWN)
@@ -8170,12 +8175,12 @@ async def deposit(ctx, amount: str, coin: str):
         await ctx.message.add_reaction(get_emoji(COIN_NAME))
         # tipper shall always get DM. Ignore notifyList
         try:
-            await ctx.send(f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention} Your balance {num_format_coin(real_amount, COIN_NAME)} '
-                           f'{COIN_NAME} was transferred to {ctx.guild.name}.')
+            await ctx.send(f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention} **{num_format_coin(real_amount, COIN_NAME)} '
+                           f'{COIN_NAME}** was transferred to {ctx.guild.name}.')
         except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
             await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
             try:
-                await ctx.author.send(f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention} Your balance **{num_format_coin(real_amount, COIN_NAME)} '
+                await ctx.author.send(f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention} **{num_format_coin(real_amount, COIN_NAME)} '
                                       f'{COIN_NAME}** was transferred to {ctx.guild.name}.')
             except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                 pass
@@ -8186,8 +8191,8 @@ async def deposit(ctx, amount: str, coin: str):
             notifyList = await store.sql_get_tipnotify()
             if str(guild_found.owner.id) not in notifyList:
                 try:
-                    await user_found.send(f'{EMOJI_MONEYFACE} Your guild **{ctx.guild.name}** got a deposit of {num_format_coin(real_amount, COIN_NAME)} '
-                                          f'{COIN_NAME} from {ctx.message.author.name}#{ctx.message.author.discriminator} in `#{ctx.channel.name}`\n'
+                    await user_found.send(f'{EMOJI_MONEYFACE} Your guild **{ctx.guild.name}** got a deposit of **{num_format_coin(real_amount, COIN_NAME)} '
+                                          f'{COIN_NAME}** from {ctx.message.author.name}#{ctx.message.author.discriminator} in `#{ctx.channel.name}`\n'
                                           f'{NOTIFICATION_OFF_CMD}\n')
                 except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                     await store.sql_toggle_tipnotify(str(member.id), "OFF")
@@ -8345,6 +8350,7 @@ async def createraffle(ctx, amount: str, coin: str, duration: str):
 
 @guild.command(name='raffle', aliases=['rfl'])
 async def raffle(ctx, subc: str=None):
+    global GAME_RAFFLE_QUEUE
     if isinstance(ctx.channel, discord.DMChannel):
         await ctx.message.add_reaction(EMOJI_ERROR) 
         await ctx.send(f'{ctx.author.mention} This command can not be DM.')
@@ -8463,6 +8469,12 @@ async def raffle(ctx, subc: str=None):
                             return
                         # Let's add
                         try:
+                            ## add QUEUE:
+                            if ctx.author.id not in GAME_RAFFLE_QUEUE:
+                                GAME_RAFFLE_QUEUE.append(ctx.author.id)
+                            else:
+                                await ctx.send(f'{ctx.author.mention} You already on queue of joinining.')
+                                return
                             insert_entry = await store.raffle_insert_new_entry(get_raffle['id'], str(ctx.guild.id), get_raffle['amount'], get_raffle['decimal'],
                                                                                get_raffle['coin_name'], str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
                                                                                'DISCORD')
@@ -8477,6 +8489,9 @@ async def raffle(ctx, subc: str=None):
                         except Exception as e:
                             print(traceback.format_exc())
                             await logchanbot(traceback.format_exc())
+                        ## remove QUEUE:
+                        if ctx.author.id in GAME_RAFFLE_QUEUE:
+                            GAME_RAFFLE_QUEUE.remove(ctx.author.id)
                         return
             except Exception as e:
                 print(traceback.format_exc())
@@ -10613,6 +10628,8 @@ async def coininfo(ctx, coin: str = None):
                 elif COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
                     if token_info['contract'] and len(token_info['contract']) == 42:
                         response_text += "Contract:\n   {}\n".format(token_info['contract'])
+                    elif COIN_NAME in ENABLE_COIN_TRC and token_info['contract'] and len(token_info['contract']) > 4:
+                        response_text += "Contract/Token ID:\n   {}\n".format(token_info['contract'])
                     response_text += "Withdraw Tx Fee: {}{}\n".format(num_format_coin(token_info['real_withdraw_fee'], COIN_NAME), COIN_NAME)
                     if token_info['real_deposit_fee'] and token_info['real_deposit_fee'] > 0:
                         response_text += "Deposit Tx Fee: {}{}\n".format(num_format_coin(token_info['real_deposit_fee'], COIN_NAME), COIN_NAME)
@@ -11347,12 +11364,19 @@ async def register(ctx, wallet_address: str, coin: str=None):
                         await ctx.message.add_reaction(EMOJI_ERROR)
                         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Please use {COIN_NAME} main address.')
                         return
-                elif COIN_NAME == "UPX":	
-                    valid_address = address_upx(wallet_address)	
-                    if type(valid_address).__name__ != "Address":	
-                        await ctx.message.add_reaction(EMOJI_ERROR)	
-                        await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Please use {COIN_NAME} main address.')	
-                        return
+                elif COIN_NAME == "UPX":
+                    #
+                    valid_address = None
+                    try:	
+                        valid_address = address_upx(wallet_address)
+                        print(valid_address)
+                        if type(valid_address).__name__ != "Address":	
+                            await ctx.message.add_reaction(EMOJI_ERROR)	
+                            await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Please use {COIN_NAME} main address.')	
+                            return
+                    except Exception as e:	
+                        traceback.print_exc(file=sys.stdout)	
+                        pass
         else:
             await ctx.message.add_reaction(EMOJI_WARNING)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Unknown Ticker.')

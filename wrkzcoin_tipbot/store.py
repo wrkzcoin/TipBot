@@ -5493,6 +5493,7 @@ async def trx_updating_pending_move_deposit(notified_confirmation: bool, failed_
 
 async def trx_wallet_getbalance(address: str, coin: str):
     TOKEN_NAME = coin.upper()
+    token_info = await get_token_info(TOKEN_NAME)
     balance = 0.0
     try:
         _http_client = AsyncClient(limits=Limits(max_connections=100, max_keepalive_connections=20),
@@ -5506,17 +5507,23 @@ async def trx_wallet_getbalance(address: str, coin: str):
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
         else:
-            try:
-                token_info = await get_token_info(TOKEN_NAME)
-                cntr = await TronClient.get_contract(token_info['contract'])
-                SYM = await cntr.functions.symbol()
-                if TOKEN_NAME == SYM:
-                    precision = await cntr.functions.decimals()
-                    balance = await cntr.functions.balanceOf(address) / 10**precision
-                else:
-                    await logchanbot("Mis-match SYM vs TOKEN NAME: {} vs {}".format(SYM, TOKEN_NAME))
-            except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+            if token_info['trc_type'] == "TRC20":
+                try:
+                    cntr = await TronClient.get_contract(token_info['contract'])
+                    SYM = await cntr.functions.symbol()
+                    if TOKEN_NAME == SYM:
+                        precision = await cntr.functions.decimals()
+                        balance = await cntr.functions.balanceOf(address) / 10**precision
+                    else:
+                        await logchanbot("Mis-match SYM vs TOKEN NAME: {} vs {}".format(SYM, TOKEN_NAME))
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+            elif token_info['trc_type'] == "TRC10":
+                try:
+                    precision = token_info['token_decimal']
+                    balance = await TronClient.get_account_asset_balance(addr=address, token_id=int(token_info['contract'])) / 10**precision
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
         await TronClient.close()
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
@@ -5681,41 +5688,80 @@ async def sql_external_trx_single(user_id: str, to_address: str, amount: float, 
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
         else:
-            try:
-                cntr = await TronClient.get_contract(token_info['contract'])
-                precision = await cntr.functions.decimals()
-                ## TODO: alert if balance below threshold
-                ## balance = await cntr.functions.balanceOf(token_info['withdraw_address']) / 10**precision
-                txb = await cntr.functions.transfer(to_address, int(amount*10**6))
-                txb = txb.with_owner(token_info['withdraw_address']).fee_limit(int(token_info['fee_limit']*10**token_info['token_decimal']))
-                txn = await txb.build()
-                priv_key = PrivateKey(bytes.fromhex(decrypt_string(token_info['withdraw_key'])))
-                txn_ret = await txn.sign(priv_key).broadcast()
-                in_block = None
+            if token_info['trc_type'] == "TRC20":
                 try:
-                    in_block = await txn_ret.wait()
-                except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
-                await TronClient.close()
-                if txn_ret and in_block:
-                    # Add to SQL
+                    cntr = await TronClient.get_contract(token_info['contract'])
+                    precision = await cntr.functions.decimals()
+                    ## TODO: alert if balance below threshold
+                    ## balance = await cntr.functions.balanceOf(token_info['withdraw_address']) / 10**precision
+                    txb = await cntr.functions.transfer(to_address, int(amount*10**6))
+                    txb = txb.with_owner(token_info['withdraw_address']).fee_limit(int(token_info['fee_limit']*10**token_info['token_decimal']))
+                    txn = await txb.build()
+                    priv_key = PrivateKey(bytes.fromhex(decrypt_string(token_info['withdraw_key'])))
+                    txn_ret = await txn.sign(priv_key).broadcast()
+                    in_block = None
                     try:
-                        await openConnection()
-                        async with pool.acquire() as conn:
-                            await conn.ping(reconnect=True)
-                            async with conn.cursor() as cur:
-                                sql = """ INSERT INTO trx_external_tx (`token_name`, `contract`, `user_id`, `real_amount`, 
-                                          `real_external_fee`, `token_decimal`, `to_address`, `date`, `txn`, 
-                                          `type`, `user_server`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                                await cur.execute(sql, (TOKEN_NAME, token_info['contract'], user_id, amount, token_info['real_withdraw_fee'], token_info['token_decimal'], 
-                                                        to_address, int(time.time()), txn_ret['txid'], tiptype.upper(), user_server))
-                                await conn.commit()
-                                return txn_ret['txid']
+                        in_block = await txn_ret.wait()
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
-                        await logchanbot(traceback.format_exc())
-            except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                    await TronClient.close()
+                    if txn_ret and in_block:
+                        # Add to SQL
+                        try:
+                            await openConnection()
+                            async with pool.acquire() as conn:
+                                await conn.ping(reconnect=True)
+                                async with conn.cursor() as cur:
+                                    sql = """ INSERT INTO trx_external_tx (`token_name`, `contract`, `user_id`, `real_amount`, 
+                                              `real_external_fee`, `token_decimal`, `to_address`, `date`, `txn`, 
+                                              `type`, `user_server`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                    await cur.execute(sql, (TOKEN_NAME, token_info['contract'], user_id, amount, token_info['real_withdraw_fee'], token_info['token_decimal'], 
+                                                            to_address, int(time.time()), txn_ret['txid'], tiptype.upper(), user_server))
+                                    await conn.commit()
+                                    return txn_ret['txid']
+                        except Exception as e:
+                            traceback.print_exc(file=sys.stdout)
+                            await logchanbot(traceback.format_exc())
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+            elif token_info['trc_type'] == "TRC10":
+                try:
+                    precision = 10**token_info['token_decimal']
+                    txb = (
+                        TronClient.trx.asset_transfer(
+                            token_info['withdraw_address'], to_address, int(precision*amount), token_id=int(token_info['contract'])
+                        )
+                        .fee_limit(int(token_info['fee_limit']*10**token_info['token_decimal']))
+                    )
+                    txn = await txb.build()
+                    priv_key = PrivateKey(bytes.fromhex(decrypt_string(token_info['withdraw_key'])))
+                    txn_ret = await txn.sign(priv_key).broadcast()
+
+                    in_block = None
+                    try:
+                        in_block = await txn_ret.wait()
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                    await TronClient.close()
+                    if txn_ret and in_block:
+                        # Add to SQL
+                        try:
+                            await openConnection()
+                            async with pool.acquire() as conn:
+                                await conn.ping(reconnect=True)
+                                async with conn.cursor() as cur:
+                                    sql = """ INSERT INTO trx_external_tx (`token_name`, `contract`, `user_id`, `real_amount`, 
+                                              `real_external_fee`, `token_decimal`, `to_address`, `date`, `txn`, 
+                                              `type`, `user_server`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                    await cur.execute(sql, (TOKEN_NAME, str(token_info['contract']), user_id, amount, token_info['real_withdraw_fee'], token_info['token_decimal'], 
+                                                            to_address, int(time.time()), txn_ret['txid'], tiptype.upper(), user_server))
+                                    await conn.commit()
+                                    return txn_ret['txid']
+                        except Exception as e:
+                            traceback.print_exc(file=sys.stdout)
+                            await logchanbot(traceback.format_exc())
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     return False
@@ -5779,48 +5825,97 @@ async def trx_check_minimum_deposit(coin: str, time_lap: int=0):
                         traceback.print_exc(file=sys.stdout)
                 else:
                     # Let's move to main address
-                    try:
-                        _http_client = AsyncClient(limits=Limits(max_connections=100, max_keepalive_connections=20),
-                                                   timeout=Timeout(timeout=10, connect=5, read=5))
-                        TronClient = AsyncTron(provider=AsyncHTTPProvider(config.Tron_Node.fullnode, client=_http_client))
-                        cntr = await TronClient.get_contract(token_info['contract'])
-                        precision = await cntr.functions.decimals()
-                        balance = await cntr.functions.balanceOf(each_address['balance_wallet_address']) / 10**precision
-                        # Check balance and Transfer gas to it
+                    if token_info['trc_type'] == "TRC20":
                         try:
-                            gas_balance = await trx_wallet_getbalance(each_address['balance_wallet_address'], "TRX")
-                            if gas_balance < token_info['min_gas_tx']:
-                                txb_gas = (
-                                    TronClient.trx.transfer(token_info['withdraw_address'], each_address['balance_wallet_address'], int(token_info['move_gas_amount']*10**token_info['token_decimal']))
-                                    .fee_limit(int(token_info['min_gas_tx']*10**token_info['token_decimal']))
-                                )
-                                txn_gas = await txb_gas.build()
-                                priv_key_gas = PrivateKey(bytes.fromhex(decrypt_string(token_info['withdraw_key'])))
-                                txn_ret_gas = await txn_gas.sign(priv_key_gas).broadcast()
-                                await asyncio.sleep(3)
-                        except Exception as e:
-                            traceback.print_exc(file=sys.stdout)
-                        txb = await cntr.functions.transfer(token_info['withdraw_address'], int(balance*10**6))
-                        txb = txb.with_owner(each_address['balance_wallet_address']).fee_limit(int(token_info['min_gas_tx']*10**token_info['token_decimal']))
-                        txn = await txb.build()
-                        priv_key = PrivateKey(bytes.fromhex(decrypt_string(each_address['private_key'])))
-                        txn_ret = await txn.sign(priv_key).broadcast()
-                        in_block = None
-                        try:
-                            in_block = await txn_ret.wait()
-                        except Exception as e:
-                            traceback.print_exc(file=sys.stdout)
-                        await TronClient.close()
-                        if txn_ret and in_block:
+                            _http_client = AsyncClient(limits=Limits(max_connections=100, max_keepalive_connections=20),
+                                                       timeout=Timeout(timeout=10, connect=5, read=5))
+                            TronClient = AsyncTron(provider=AsyncHTTPProvider(config.Tron_Node.fullnode, client=_http_client))
+                            cntr = await TronClient.get_contract(token_info['contract'])
+                            precision = await cntr.functions.decimals()
+                            balance = await cntr.functions.balanceOf(each_address['balance_wallet_address']) / 10**precision
+                            # Check balance and Transfer gas to it
                             try:
-                                inserted = await trx_move_deposit_for_spendable(TOKEN_NAME, token_info['contract'], each_address['user_id'], each_address['balance_wallet_address'], 
-                                                                                token_info['withdraw_address'], balance, token_info['real_deposit_fee'],  token_info['token_decimal'],
-                                                                                txn_ret['txid'], in_block['blockNumber'])
+                                gas_balance = await trx_wallet_getbalance(each_address['balance_wallet_address'], "TRX")
+                                if gas_balance < token_info['min_gas_tx']:
+                                    txb_gas = (
+                                        TronClient.trx.transfer(token_info['withdraw_address'], each_address['balance_wallet_address'], int(token_info['move_gas_amount']*10**token_info['token_decimal']))
+                                        .fee_limit(int(token_info['min_gas_tx']*10**token_info['token_decimal']))
+                                    )
+                                    txn_gas = await txb_gas.build()
+                                    priv_key_gas = PrivateKey(bytes.fromhex(decrypt_string(token_info['withdraw_key'])))
+                                    txn_ret_gas = await txn_gas.sign(priv_key_gas).broadcast()
+                                    await asyncio.sleep(3)
                             except Exception as e:
                                 traceback.print_exc(file=sys.stdout)
-                        await asyncio.sleep(3)
-                    except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                            txb = await cntr.functions.transfer(token_info['withdraw_address'], int(balance*10**6))
+                            txb = txb.with_owner(each_address['balance_wallet_address']).fee_limit(int(token_info['min_gas_tx']*10**token_info['token_decimal']))
+                            txn = await txb.build()
+                            priv_key = PrivateKey(bytes.fromhex(decrypt_string(each_address['private_key'])))
+                            txn_ret = await txn.sign(priv_key).broadcast()
+                            in_block = None
+                            try:
+                                in_block = await txn_ret.wait()
+                            except Exception as e:
+                                traceback.print_exc(file=sys.stdout)
+                            await TronClient.close()
+                            if txn_ret and in_block:
+                                try:
+                                    inserted = await trx_move_deposit_for_spendable(TOKEN_NAME, token_info['contract'], each_address['user_id'], each_address['balance_wallet_address'], 
+                                                                                    token_info['withdraw_address'], balance, token_info['real_deposit_fee'],  token_info['token_decimal'],
+                                                                                    txn_ret['txid'], in_block['blockNumber'])
+                                except Exception as e:
+                                    traceback.print_exc(file=sys.stdout)
+                            await asyncio.sleep(3)
+                        except Exception as e:
+                            traceback.print_exc(file=sys.stdout)
+                    elif token_info['trc_type'] == "TRC10":
+                        try:
+                            _http_client = AsyncClient(limits=Limits(max_connections=100, max_keepalive_connections=20),
+                                                       timeout=Timeout(timeout=10, connect=5, read=5))
+                            TronClient = AsyncTron(provider=AsyncHTTPProvider(config.Tron_Node.fullnode, client=_http_client))                            
+                            balance = await trx_wallet_getbalance(each_address['balance_wallet_address'], TOKEN_NAME)
+                            # Check balance and Transfer gas to it
+                            try:
+                                gas_balance = await trx_wallet_getbalance(each_address['balance_wallet_address'], "TRX")
+                                if gas_balance < token_info['min_gas_tx']:
+                                    txb_gas = (
+                                        TronClient.trx.transfer(token_info['withdraw_address'], each_address['balance_wallet_address'], int(token_info['move_gas_amount']*10**token_info['token_decimal']))
+                                        .fee_limit(int(token_info['min_gas_tx']*10**token_info['token_decimal']))
+                                    )
+                                    txn_gas = await txb_gas.build()
+                                    priv_key_gas = PrivateKey(bytes.fromhex(decrypt_string(token_info['withdraw_key'])))
+                                    txn_ret_gas = await txn_gas.sign(priv_key_gas).broadcast()
+                                    await asyncio.sleep(3)
+                            except Exception as e:
+                                traceback.print_exc(file=sys.stdout)
+                            ### here
+                            precision = 10**token_info['token_decimal']
+                            amount = int(precision*balance)
+                            txb = (
+                                TronClient.trx.asset_transfer(
+                                    each_address['balance_wallet_address'], token_info['withdraw_address'], amount, token_id=int(token_info['contract'])
+                                )
+                                .fee_limit(int(token_info['min_gas_tx']*10**token_info['token_decimal']))
+                            )
+                            txn = await txb.build()
+                            priv_key = PrivateKey(bytes.fromhex(decrypt_string(each_address['private_key'])))
+                            txn_ret = await txn.sign(priv_key).broadcast()
+                            in_block = None
+                            try:
+                                in_block = await txn_ret.wait()
+                            except Exception as e:
+                                traceback.print_exc(file=sys.stdout)
+                            await TronClient.close()
+                            if txn_ret and in_block:
+                                try:
+                                    inserted = await trx_move_deposit_for_spendable(TOKEN_NAME, str(token_info['contract']), each_address['user_id'], each_address['balance_wallet_address'], 
+                                                                                    token_info['withdraw_address'], balance, token_info['real_deposit_fee'],  token_info['token_decimal'],
+                                                                                    txn_ret['txid'], in_block['blockNumber'])
+                                except Exception as e:
+                                    traceback.print_exc(file=sys.stdout)
+                            await asyncio.sleep(3)
+                        except Exception as e:
+                            traceback.print_exc(file=sys.stdout)
         msg_deposit += "TOKEN {}: Total deposit address: {}: Below min.: {} Above min. {}".format(TOKEN_NAME, len(list_user_addresses), balance_below_min, balance_above_min)
     else:
         msg_deposit += "TOKEN {}: No deposit address.\n".format(TOKEN_NAME)

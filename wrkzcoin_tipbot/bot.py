@@ -13654,7 +13654,7 @@ async def tip(ctx, amount: str, *args):
                 if time_given:
                     if time_given < 5*60 or time_given > 60*24*60*60:
                         await ctx.message.add_reaction(EMOJI_ERROR)
-                        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Please try time inteval between 5minutes to 24hours.')
+                        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Please try time interval between 5minutes to 24hours.')
                         return
                     else:
                         message_talker = await store.sql_get_messages(str(ctx.message.guild.id), str(ctx.message.channel.id), time_given, None)
@@ -14163,7 +14163,7 @@ async def mtip(ctx, amount: str, *args):
                 if time_given:
                     if time_given < 5*60 or time_given > 60*24*60*60:
                         await ctx.message.add_reaction(EMOJI_ERROR)
-                        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Please try time inteval between 5minutes to 24hours.')
+                        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Please try time interval between 5minutes to 24hours.')
                         return
                     else:
                         message_talker = await store.sql_get_messages(str(ctx.message.guild.id), str(ctx.message.channel.id), time_given, None)

@@ -10669,6 +10669,8 @@ async def balance(ctx, coin: str = None):
     walletStatus = None
     COIN_NAME = None
     embed = discord.Embed(title='[ YOUR BALANCE LIST ]', timestamp=datetime.utcnow())
+    num_coins = 0
+    per_page = 25
     if (coin is None) or (PUBMSG == "PUB") or (PUBMSG == "PUBLIC") or (PUBMSG == "LIST"):
         table_data = [
             ['TICKER', 'Available', 'Tx']
@@ -10718,6 +10720,19 @@ async def balance(ctx, coin: str = None):
                             if actual_balance > 0:
                                 table_data_str.append("{}{}".format(balance_actual, coinName))
                                 embed.add_field(name=COIN_NAME, value=balance_actual+COIN_NAME, inline=True)
+                                num_coins += 1
+                                if num_coins > 0 and num_coins % per_page == 0:
+                                    embed.set_footer(text="Continue... Page {}".format(int(num_coins/per_page)))
+                                    try:
+                                        msg = await ctx.author.send(embed=embed)
+                                        await msg.add_reaction(EMOJI_OK_BOX)
+                                        ## New embed
+                                        embed = discord.Embed(title='[ YOUR BALANCE LIST CONTINUE - {}]'.format(int(num_coins/per_page+1)), timestamp=datetime.utcnow())
+                                    except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+                                        await ctx.add_reaction(EMOJI_ZIPPED_MOUTH)
+                                        break
+                                        return
+                                
                     pass
             else:
                 if coin: table_data.append([COIN_NAME, "***", "***"])
@@ -10730,6 +10745,8 @@ async def balance(ctx, coin: str = None):
         if coin is None:
             # table_data_str = ", ".join(table_data_str)
             embed.add_field(name='Related commands', value=f'`{prefix}balance TICKER` or `{prefix}deposit TICKER` or `{prefix}balance LIST`', inline=False)
+            if num_coins > 0 and num_coins / per_page > 1:
+                embed.set_footer(text="Last Page {}".format(int(np.ceil(num_coins/per_page))))
             try:
                 msg = await ctx.message.author.send(embed=embed)
             except (discord.errors.NotFound, discord.errors.Forbidden) as e:
@@ -14651,9 +14668,9 @@ async def tipall(ctx, amount: str, coin: str, option: str=None):
         await ctx.message.add_reaction(get_emoji(COIN_NAME))
         numMsg = 0
         total_found = 0
-        max_mention = 20
+        max_mention = 40
         numb_mention = 0
-        if len(listMembers) < 20:
+        if len(listMembers) < max_mention:
             # DM all user
             for member in listMembers:
                 if ctx.message.author.id != member.id and member.id != bot.user.id:
@@ -19649,10 +19666,10 @@ async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str 
         mention_list_name = ''
         guild_members = ctx.guild.members
         tip_public = False
-        max_mention = 20
+        max_mention = 40
         numb_mention = 0
         total_found = 0
-        if len(list_talker) < 20:
+        if len(list_talker) < max_mention:
             for member_id in list_talker:
                 # print(member.name) # you'll just print out Member objects your way.
                 if ctx.message.author.id != int(member_id):

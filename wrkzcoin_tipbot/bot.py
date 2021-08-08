@@ -153,7 +153,8 @@ FEE_PER_BYTE_COIN = config.Fee_Per_Byte_Coin.split(",")
 
 # Bot invitation link
 BOT_INVITELINK = "[Invite TipBot](http://invite.discord.bot.tips)"
-    
+BOT_INVITELINK_PLAIN = "http://invite.discord.bot.tips"
+
 # DOGE will divide by 10 after random
 FAUCET_MINMAX = {
     "WRKZ": [config.Faucet_min_max.wrkz_min, config.Faucet_min_max.wrkz_max],
@@ -5870,12 +5871,17 @@ async def sell(ctx, *, item_name: str):
         await ctx.message.add_reaction(EMOJI_ERROR)
         return
 
+    # Getting list of work in the guild and re-act
+    market_factored = 1.0
+    get_userinfo = await store.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
+    if get_userinfo and get_userinfo['numb_market'] >= 1:
+        market_factored = config.economy.market_price_factor
+
     try:
         get_fish_inventory_list = await store.economy_get_list_fish_caught(str(ctx.author.id), sold='NO', caught='YES')
         get_user_harvested_crops = await store.economy_farm_user_planting_group_harvested(str(ctx.author.id))
         get_fish_inventory_list_arr = [each_item['fish_name'].upper() for each_item in get_fish_inventory_list]
         get_user_harvested_crops_arr = [each_item['plant_name'].upper() for each_item in get_user_harvested_crops]
-        get_userinfo = await store.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
         if item_name.strip().upper() in get_fish_inventory_list_arr:
             # Selling Fishes
             if len(get_fish_inventory_list) > 0:
@@ -5897,13 +5903,15 @@ async def sell(ctx, *, item_name: str):
                         # We round credit earning
                         if ctx.author.id not in GAME_INTERACTIVE_ECO:
                             GAME_INTERACTIVE_ECO.append(ctx.author.id)
-                        total_earn = int(float(selected_fishes['Weights']) * float(selected_fishes['credit_per_kg']))
+                        total_earn = int(float(selected_fishes['Weights']) * float(selected_fishes['credit_per_kg']) * market_factored)
                         total_weight = float(selected_fishes['Weights'])
                         get_userinfo['credit'] += total_earn
                         selling_fishes = await store.economy_sell_fishes(selected_fishes['fish_id'], str(ctx.author.id), str(ctx.guild.id), total_weight, total_earn)
                         if selling_fishes:
                             await ctx.message.add_reaction(selected_fishes['fish_emoji'])
-                            await ctx.message.reply('You sold {:,.2f}kg of {} for `{}` Credit(s) (`{} Credit per kg`). Your credit now is: `{:,.2f}`.'.format(total_weight, item_name, total_earn, selected_fishes['credit_per_kg'], get_userinfo['credit']))
+                            msg = await ctx.message.reply('You sold {:,.2f}kg of {} for `{}` Credit(s) (`{} Credit per kg`). Your credit now is: `{:,.2f}`.'.format(total_weight, item_name, total_earn, selected_fishes['credit_per_kg'], get_userinfo['credit']))
+                            if market_factored > 1:
+                                await msg.add_reaction("🛒")
                         else:
                             await ctx.send(f'{ctx.author.mention} Internal error.')
                             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -5926,13 +5934,15 @@ async def sell(ctx, *, item_name: str):
                     # We round credit earning
                     if ctx.author.id not in GAME_INTERACTIVE_ECO:
                         GAME_INTERACTIVE_ECO.append(ctx.author.id)
-                    total_earn = int(float(selected_item['total_products']) * float(selected_item['credit_per_item']))
+                    total_earn = int(float(selected_item['total_products']) * float(selected_item['credit_per_item']) * market_factored)
                     get_userinfo = await store.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
                     get_userinfo['credit'] += total_earn
                     selling_item = await store.economy_farm_sell_item(selected_item['plant_id'], str(ctx.author.id), str(ctx.guild.id), total_earn, selected_item['total_products'])
                     if selling_item:
                         await ctx.message.add_reaction(selected_item['plant_emoji'])
-                        await ctx.message.reply('You sold {:,.0f} of {} for `{}` Credit(s) (`{} Credit per one`). Your credit now is: `{:,.2f}`.'.format(selected_item['total_products'], item_name, total_earn, selected_item['credit_per_item'], get_userinfo['credit']))
+                        msg = await ctx.message.reply('You sold {:,.0f} of {} for `{}` Credit(s) (`{} Credit per one`). Your credit now is: `{:,.2f}`.'.format(selected_item['total_products'], item_name, total_earn, selected_item['credit_per_item'], get_userinfo['credit']))
+                        if market_factored > 1:
+                            await msg.add_reaction("🛒")
                     else:
                         await ctx.send(f'{ctx.author.mention} Internal error.')
                         await ctx.message.add_reaction(EMOJI_ERROR)
@@ -5949,13 +5959,15 @@ async def sell(ctx, *, item_name: str):
                     for each in get_raw_milk:
                         ids.append(each['id'])
                         qty_raw_milk += float(each['collected_qty'])
-                        credit_sell += float(each['collected_qty']) * float(each['credit_per_item'])
+                        credit_sell += float(each['collected_qty']) * float(each['credit_per_item']) * market_factored
                     if qty_raw_milk > 0:
                         # has milk, sell all
                         sell_milk = await store.economy_dairy_sell_milk(str(ctx.author.id), ids, credit_sell, qty_raw_milk)
                         if sell_milk:
                             get_userinfo['credit'] = float(get_userinfo['credit']) + float(credit_sell)
-                            await ctx.message.reply('You sold {:,.2f} liter(s) of milk for `{:,.2f}` Credit(s). Your credit now is: `{:,.2f}`.'.format(qty_raw_milk, credit_sell, get_userinfo['credit']))
+                            msg = await ctx.message.reply('You sold {:,.2f} liter(s) of milk for `{:,.2f}` Credit(s). Your credit now is: `{:,.2f}`.'.format(qty_raw_milk, credit_sell, get_userinfo['credit']))
+                            if market_factored > 1:
+                                await msg.add_reaction("🛒")
                     else:
                         await ctx.message.reply(f'{ctx.author.name}#{ctx.author.discriminator}, You do not have milk to sell!!')
                 else:
@@ -5974,13 +5986,15 @@ async def sell(ctx, *, item_name: str):
                     for each in get_eggs:
                         ids.append(each['id'])
                         qty_eggs += float(each['collected_qty'])
-                        credit_sell += float(each['collected_qty']) * float(each['credit_per_item'])
+                        credit_sell += float(each['collected_qty']) * float(each['credit_per_item']) * market_factored
                     if qty_eggs > 0:
                         # has milk, sell all
                         sell_milk = await store.economy_chickenfarm_sell_egg(str(ctx.author.id), ids, credit_sell, qty_eggs)
                         if sell_milk:
                             get_userinfo['credit'] = float(get_userinfo['credit']) + float(credit_sell)
-                            await ctx.message.reply('You sold {:,.0f} chicken egg(s) for `{:,.2f}` Credit(s). Your credit now is: `{:,.2f}`.'.format(qty_eggs, credit_sell, get_userinfo['credit']))
+                            msg = await ctx.message.reply('You sold {:,.0f} chicken egg(s) for `{:,.2f}` Credit(s). Your credit now is: `{:,.2f}`.'.format(qty_eggs, credit_sell, get_userinfo['credit']))
+                            if market_factored > 1:
+                                await msg.add_reaction("🛒")
                     else:
                         await ctx.message.reply(f'{ctx.author.name}#{ctx.author.discriminator}, You do not have chicken egg(s) to sell!!')
                 else:
@@ -6087,6 +6101,9 @@ async def buy(ctx, *, item_name: str=None):
         elif get_userinfo['numb_cow'] >= config.economy.max_cow_per_user and (item_name.upper() == "COW" or item_name == "🐄"):
             await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You have maximum of cows already.')
             return
+        elif get_userinfo['numb_market'] >= config.economy.max_market_per_user and (item_name.upper() == "MARKET" or item_name == "🛒"):
+            await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You have a `market` already.')
+            return
         else:
             try:
                 if item_name.upper() == "LIST":
@@ -6095,8 +6112,11 @@ async def buy(ctx, *, item_name: str=None):
                     if get_shop_itemlist and len(get_shop_itemlist) > 0:
                         e = discord.Embed(title="Shop Bot".format(ctx.author.name, ctx.author.discriminator), description="Economy [Testing]", timestamp=datetime.utcnow())
                         for each_item in get_shop_itemlist:
+                            remark_text = ""
+                            if each_item['remark'] and len(each_item['remark']) > 0:
+                                remark_text = each_item['remark']
                             fee_str = "💵" if each_item['item_name'] != "Credit" else "💎"
-                            e.add_field(name=each_item['item_name'] + " " + each_item['item_emoji'] + " Fee: {:,.2f}".format(each_item['credit_cost']) + fee_str, value="```Each: {}, Level: {}```".format(each_item['item_numbers'], each_item['limit_level'] if each_item['limit_level']>0 else 1), inline=False)
+                            e.add_field(name=each_item['item_name'] + " " + each_item['item_emoji'] + " Fee: {:,.2f}".format(each_item['credit_cost']) + fee_str, value="```Each: {}, Level: {}\n{}```".format(each_item['item_numbers'], each_item['limit_level'] if each_item['limit_level']>0 else 1, remark_text), inline=False)
                         e.set_footer(text=f"User {ctx.message.author.name}#{ctx.message.author.discriminator}")
                         e.set_thumbnail(url=ctx.author.avatar_url)
                         msg = await ctx.send(embed=e)
@@ -6161,8 +6181,8 @@ async def buy(ctx, *, item_name: str=None):
                             except Exception as e:
                                 traceback.print_exc(file=sys.stdout)
                                 await logchanbot(traceback.format_exc())
+                            item_desc = get_shop_item['item_name'] + " " + get_shop_item['item_emoji'] + " x" + str(add_item_numbers)
                             if update_item:
-                                item_desc = get_shop_item['item_name'] + " " + get_shop_item['item_emoji'] + " x" + str(add_item_numbers)
                                 await ctx.message.reply(f'{EMOJI_INFORMATION} You successfully purchased {item_desc}.')
                             else:
                                 await ctx.message.reply(f'{EMOJI_INFORMATION} internal error {item_desc}.')
@@ -17648,9 +17668,8 @@ async def tag(ctx, *args):
 
 @bot.command(pass_context=True, name='invite', aliases=['inviteme'], help=bot_help_invite)
 async def invite(ctx):
-    global BOT_INVITELINK
-    await ctx.send('**[INVITE LINK]**\n\n'
-                f'{BOT_INVITELINK}')
+    global BOT_INVITELINK_PLAIN
+    await ctx.send(f'**[INVITE LINK]**: {BOT_INVITELINK_PLAIN}')
 
 
 @bot.command(pass_context=True, help=bot_help_random_number)

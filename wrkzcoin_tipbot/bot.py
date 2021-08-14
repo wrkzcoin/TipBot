@@ -5891,7 +5891,7 @@ async def sell(ctx, *, item_name: str):
                         selected_fishes = each_item
                         break
                 if selected_fishes is None:
-                    await ctx.send(f'{ctx.author.mention} You do not have {item_name} to sell.')
+                    await ctx.send(f'{ctx.author.mention} You do not have `{item_name}` to sell.')
                     await ctx.message.add_reaction(EMOJI_ERROR)
                 else:
                     # Have that item to sell
@@ -5909,7 +5909,7 @@ async def sell(ctx, *, item_name: str):
                         selling_fishes = await store.economy_sell_fishes(selected_fishes['fish_id'], str(ctx.author.id), str(ctx.guild.id), total_weight, total_earn)
                         if selling_fishes:
                             await ctx.message.add_reaction(selected_fishes['fish_emoji'])
-                            msg = await ctx.message.reply('You sold {:,.2f}kg of {} for `{}` Credit(s) (`{} Credit per kg`). Your credit now is: `{:,.2f}`.'.format(total_weight, item_name, total_earn, selected_fishes['credit_per_kg'], get_userinfo['credit']))
+                            msg = await ctx.message.reply('You sold {:,.2f}kg of {} for `{}` Credit(s) (`{:,.2f} Credit per kg`). Your credit now is: `{:,.2f}`.'.format(total_weight, item_name, total_earn, float(selected_fishes['credit_per_kg']) * market_factored, get_userinfo['credit']))
                             if market_factored > 1:
                                 await msg.add_reaction("🛒")
                         else:
@@ -5926,7 +5926,7 @@ async def sell(ctx, *, item_name: str):
                         selected_item = each_item
                         break
                 if selected_item is None:
-                    await ctx.send(f'{ctx.author.mention} You do not have {item_name} to sell.')
+                    await ctx.send(f'{ctx.author.mention} You do not have `{item_name}` to sell.')
                     await ctx.message.add_reaction(EMOJI_ERROR)
                 else:
                     # No minimum to sell
@@ -5940,7 +5940,7 @@ async def sell(ctx, *, item_name: str):
                     selling_item = await store.economy_farm_sell_item(selected_item['plant_id'], str(ctx.author.id), str(ctx.guild.id), total_earn, selected_item['total_products'])
                     if selling_item:
                         await ctx.message.add_reaction(selected_item['plant_emoji'])
-                        msg = await ctx.message.reply('You sold {:,.0f} of {} for `{}` Credit(s) (`{} Credit per one`). Your credit now is: `{:,.2f}`.'.format(selected_item['total_products'], item_name, total_earn, selected_item['credit_per_item'], get_userinfo['credit']))
+                        msg = await ctx.message.reply('You sold {:,.0f} of {} for `{}` Credit(s) (`{:,.2f} Credit per one`). Your credit now is: `{:,.2f}`.'.format(selected_item['total_products'], item_name, total_earn, float(selected_item['credit_per_item']) * market_factored, get_userinfo['credit']))
                         if market_factored > 1:
                             await msg.add_reaction("🛒")
                     else:
@@ -6003,7 +6003,7 @@ async def sell(ctx, *, item_name: str):
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot(traceback.format_exc())
         else:
-            await ctx.message.reply(f'{ctx.author.name}#{ctx.author.discriminator}, not valid to sell {item_name} or you do not have it!')
+            await ctx.message.reply(f'{ctx.author.name}#{ctx.author.discriminator}, not valid to sell `{item_name}` or you do not have it!')
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         await logchanbot(traceback.format_exc())
@@ -6148,7 +6148,7 @@ async def buy(ctx, *, item_name: str=None):
                                 item_desc = get_shop_item['item_name'] + " " + get_shop_item['item_emoji'] + " x" + str(add_item_numbers)
                                 await ctx.message.reply(f'{EMOJI_INFORMATION} You successfully purchased {item_desc}.')
                     else:
-                        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} item {item_name} is not available.')
+                        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} item `{item_name}` is not available.')
                 else:
                     # Check if enough credit
                     # 1) Check price
@@ -6187,7 +6187,7 @@ async def buy(ctx, *, item_name: str=None):
                             else:
                                 await ctx.message.reply(f'{EMOJI_INFORMATION} internal error {item_desc}.')
                     else:
-                        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} item {item_name} is not available.')
+                        await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} item `{item_name}` is not available.')
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot(traceback.format_exc())
@@ -6251,24 +6251,25 @@ async def info(ctx, member: discord.Member = None):
             if get_inventory_from_backpack and 'numbers' in get_inventory_from_backpack:
                 get_userinfo['gem_credit'] += get_inventory_from_backpack['numbers']
             embed = discord.Embed(title="{}#{} - Credit {:,.2f}{}/ Gem: {:,.0f}{}".format(member.name, member.discriminator, get_userinfo['credit'], '💵', get_userinfo['gem_credit'], '💎'), description="Economy [Testing]")
-            embed.add_field(name="Exp", value=get_userinfo['exp'], inline=True)
+            embed.add_field(name="Health: {0:.2f}%".format(get_userinfo['health_current']/get_userinfo['health_total']*100), value='```{}```'.format(createBox(get_userinfo['health_current'], get_userinfo['health_total'], 20)), inline=False)
+            embed.add_field(name="Energy: {0:.2f}%".format(get_userinfo['energy_current']/get_userinfo['energy_total']*100), value='```{}```'.format(createBox(get_userinfo['energy_current'], get_userinfo['energy_total'], 20)), inline=False)
             if get_userinfo['exp'] > 0:
                 level = int((get_userinfo['exp']-10)**0.5) + 1
-                embed.add_field(name="Level", value=level, inline=True)
+                next_level_exp = level**2 + 10
+                current_level_exp = (level-1)**2 + 10
+                embed.add_field(name="Level / Exp: {} / {:,.0f}".format(level, get_userinfo['exp']), value='```{} [{:,.0f}/{:,.0f}]```'.format(createBox(get_userinfo['exp']-current_level_exp, next_level_exp-current_level_exp, 20), get_userinfo['exp']-current_level_exp, next_level_exp-current_level_exp), inline=False)
             try:
                 get_activities_user_1w = await store.economy_get_user_activities_duration(str(ctx.author.id), 7*24*3600)
                 embed.add_field(name="Last 1 week works", value=len(get_activities_user_1w), inline=True)
             except:
                 traceback.print_exc(file=sys.stdout)
-            embed.add_field(name="Health", value='{0:.2f}%'.format(get_userinfo['health_current']/get_userinfo['health_total']*100), inline=True)
-            embed.add_field(name="Energy", value='{0:.2f}%'.format(get_userinfo['energy_current']/get_userinfo['energy_total']*100), inline=True)
             # Get user inventory
             get_user_inventory = await store.economy_get_user_inventory(str(member.id))
             nos_items = sum(each_item['numbers'] for each_item in get_user_inventory if each_item['item_name'] != "Gem")
             items_str = ''.join([each_item['item_emoji'] for each_item in get_user_inventory]) if len(get_user_inventory) > 0 else ''
             embed.add_field(name="Backpack", value='{}/{} {}'.format(nos_items, config.economy.max_backpack_items, items_str), inline=True)
             embed.add_field(name="Fishing Bait", value='{}/{}'.format(get_userinfo['fishing_bait'], config.economy.max_bait_per_user), inline=True)
-            embed.add_field(name="Fishing Exp", value=get_userinfo['fishing_exp'], inline=True)
+            embed.add_field(name="Fishing Exp", value='{:,.0f}'.format(get_userinfo['fishing_exp']), inline=True)
             embed.add_field(name="Seed - Planted/Cut", value='{}/{} - {}/{}'.format(get_userinfo['tree_seed'], config.economy.max_seed_per_user, get_userinfo['tree_planted'], get_userinfo['tree_cut']), inline=True)
             try:
                 get_last_act = await store.economy_get_last_activities(str(member.id), False)
@@ -14419,7 +14420,7 @@ async def mtip(ctx, amount: str, *args):
         return
 
 
-@bot.command(pass_context=True, help=bot_help_tipall, hidden = True)
+@bot.command(pass_context=True, name='tipall', aliases=['share'], help=bot_help_tipall, hidden = True)
 async def tipall(ctx, amount: str, coin: str, option: str=None):
     global IS_RESTARTING, TX_IN_PROCESS
     # check if bot is going to restart
@@ -14708,13 +14709,14 @@ async def tipall(ctx, amount: str, coin: str, option: str=None):
                             await store.sql_toggle_tipnotify(str(member.id), "OFF")
         else:
             # mention all user
+            send_tipped_ping = 0
             list_user_mention = []
             list_user_mention_str = ""
             list_user_not_mention = []
             list_user_not_mention_str = ""
             random.shuffle(listMembers)
             for member in listMembers:
-                if numb_mention >= max_mention:
+                if send_tipped_ping >= config.maxTipMessage:
                     total_found += 1
                 else:
                     if ctx.message.author.id != member.id and member.id != bot.user.id:
@@ -14724,26 +14726,50 @@ async def tipall(ctx, amount: str, coin: str, option: str=None):
                             list_user_not_mention.append("{}#{}".format(member.name, member.discriminator))
                     total_found += 1
                     numb_mention += 1
-            if len(list_user_mention) >= 1:
-                list_user_mention_str = ", ".join(list_user_mention)
-            if len(list_user_not_mention) >= 1:
-                list_user_not_mention_str = ", ".join(list_user_not_mention)
-            try:
-                remaining_str = ""
-                if numb_mention < total_found:
-                    remaining_str = " and other {} members".format(total_found-numb_mention)
-                await ctx.message.reply(
-                        f'{EMOJI_MONEYFACE} {list_user_mention_str} {list_user_not_mention_str} {remaining_str}, You got a tip of {amountDiv_str} '
-                        f'{COIN_NAME} from {ctx.author.name}#{ctx.author.discriminator}'
-                        f'{NOTIFICATION_OFF_CMD}')
-            except Exception as e:
+
+                    # Check if a batch meets
+                    if numb_mention > 0 and numb_mention % max_mention == 0:
+                            # send the batch
+                        if len(list_user_mention) >= 1:
+                            list_user_mention_str = ", ".join(list_user_mention)
+                        if len(list_user_not_mention) >= 1:
+                            list_user_not_mention_str = ", ".join(list_user_not_mention)
+                        try:
+                            if len(list_user_mention_str) > 5 or len(list_user_not_mention_str) > 5:
+                                await ctx.send(
+                                    f'{EMOJI_MONEYFACE} {list_user_mention_str} {list_user_not_mention_str}, You got a tip of {amountDiv_str} {COIN_NAME} '
+                                    f'from {ctx.author.name}#{ctx.author.discriminator}'
+                                    f'{NOTIFICATION_OFF_CMD}')
+                                send_tipped_ping += 1
+                        except Exception as e:
+                            pass
+                        # reset
+                        list_user_mention = []
+                        list_user_mention_str = ""
+                        list_user_not_mention = []
+                        list_user_not_mention_str = ""
+            # if there is still here
+            if len(list_user_mention) + len(list_user_not_mention) > 1:
+                if len(list_user_mention) >= 1:
+                    list_user_mention_str = ", ".join(list_user_mention)
+                if len(list_user_not_mention) >= 1:
+                    list_user_not_mention_str = ", ".join(list_user_not_mention)
                 try:
-                    await ctx.message.reply(f'**({total_found})** members got {amountDiv_str} {COIN_NAME} :) Too many to mention :) Phew!!!')
+                    remaining_str = ""
+                    if numb_mention < total_found:
+                        remaining_str = " and other {} members".format(total_found-numb_mention)
+                    await ctx.message.reply(
+                            f'{EMOJI_MONEYFACE} {list_user_mention_str} {list_user_not_mention_str} {remaining_str}, You got a tip of {amountDiv_str} '
+                            f'{COIN_NAME} from {ctx.author.name}#{ctx.author.discriminator}'
+                            f'{NOTIFICATION_OFF_CMD}')
                 except Exception as e:
-                    await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
+                    try:
+                        await ctx.message.reply(f'**({total_found})** members got {amountDiv_str} {COIN_NAME} :) Too many to mention :) Phew!!!')
+                    except Exception as e:
+                        await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
         # tipper shall always get DM. Ignore notifyList
         try:
-            await ctx.message.author.send(
+            await ctx.author.send(
                 f'{EMOJI_ARROW_RIGHTHOOK} Tip of {tipAmount} '
                 f'{COIN_NAME} '
                 f'was sent spread to ({total_found}) members in server `{ctx.guild.name}`.\n'
@@ -19705,6 +19731,7 @@ async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str 
                             except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                                 await store.sql_toggle_tipnotify(str(member.id), "OFF")
         else:
+            send_tipped_ping = 0
             list_user_mention = []
             list_user_mention_str = ""
             list_user_not_mention = []
@@ -19714,30 +19741,54 @@ async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str 
             for member_id in list_talker:
                 member = bot.get_user(id=int(member_id))
                 if ctx.message.author.id != int(member_id) and member and member.bot == False and member in guild_members:
-                    if numb_mention < max_mention:
+                    if send_tipped_ping < config.maxTipMessage:
                         if str(member_id) not in notifyList:
                             list_user_mention.append("{}".format(member.mention))
                         else:
                             list_user_not_mention.append("{}".format(member.name))
                         numb_mention += 1
                         total_found += 1
+                        # Check if a batch meets
+                        if numb_mention > 0 and numb_mention % max_mention == 0:
+                                # send the batch
+                            if len(list_user_mention) >= 1:
+                                list_user_mention_str = ", ".join(list_user_mention)
+                            if len(list_user_not_mention) >= 1:
+                                list_user_not_mention_str = ", ".join(list_user_not_mention)
+                            try:
+                                if len(list_user_mention_str) > 5 or len(list_user_not_mention_str) > 5:
+                                    await ctx.send(
+                                        f'{EMOJI_MONEYFACE} {list_user_mention_str} {list_user_not_mention_str}, You got a {tip_type_text} of {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME} '
+                                        f'from {ctx.author.name}#{ctx.author.discriminator} for active talking.\n'
+                                        f'{NOTIFICATION_OFF_CMD}\n{tipmsg}')
+                                    send_tipped_ping += 1
+                                tip_public = True
+                            except Exception as e:
+                                pass
+                            # reset
+                            list_user_mention = []
+                            list_user_mention_str = ""
+                            list_user_not_mention = []
+                            list_user_not_mention_str = ""
                     else:
                         total_found += 1
-            if len(list_user_mention) >= 1:
-                list_user_mention_str = ", ".join(list_user_mention)
-            if len(list_user_not_mention) >= 1:
-                list_user_not_mention_str = ", ".join(list_user_not_mention)
-            try:
-                remaining_str = ""
-                if numb_mention < total_found:
-                    remaining_str = " and other {} members".format(total_found-numb_mention)
-                await ctx.message.reply(
-                    f'{EMOJI_MONEYFACE} {list_user_mention_str} {list_user_not_mention_str} {remaining_str}, You got a {tip_type_text} of `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}` '
-                    f'from {ctx.author.name}#{ctx.author.discriminator} for active talking.\n'
-                    f'{NOTIFICATION_OFF_CMD}\n{tipmsg}')
-                tip_public = True
-            except Exception as e:
-                pass
+            # If there is still in record.
+            if len(list_user_mention) + len(list_user_not_mention) > 1:
+                if len(list_user_mention) >= 1:
+                    list_user_mention_str = ", ".join(list_user_mention)
+                if len(list_user_not_mention) >= 1:
+                    list_user_not_mention_str = ", ".join(list_user_not_mention)
+                try:
+                    remaining_str = ""
+                    if numb_mention < total_found:
+                        remaining_str = " and other {} members".format(total_found-numb_mention)
+                    await ctx.message.reply(
+                        f'{EMOJI_MONEYFACE} {list_user_mention_str} {list_user_not_mention_str} {remaining_str}, You got a {tip_type_text} of `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}` '
+                        f'from {ctx.author.name}#{ctx.author.discriminator} for active talking.\n'
+                        f'{NOTIFICATION_OFF_CMD}\n{tipmsg}')
+                    tip_public = True
+                except Exception as e:
+                    pass
 
         # tipper shall always get DM. Ignore notifyList
         try:
@@ -20413,6 +20464,23 @@ def isChinese(s):
         return False
     else:
         return False
+
+
+## https://github.com/MrJacob12/StringProgressBar
+def createBox(value, maxValue, size, show_percentage: bool=False):
+    percentage = value / maxValue
+    progress = round((size * percentage))
+    emptyProgress = size - progress
+        
+    progressText = '█'
+    emptyProgressText = '—'
+    percentageText = str(round(percentage * 100)) + '%'
+
+    if show_percentage:
+        bar = '[' + progressText*progress + emptyProgressText*emptyProgress + ']' + percentageText
+    else:
+        bar = '[' + progressText*progress + emptyProgressText*emptyProgress + ']'
+    return bar
 
 
 def get_roach_level(takes: int):

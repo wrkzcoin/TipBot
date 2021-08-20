@@ -3770,9 +3770,7 @@ async def snail(ctx, bet_numb: str=None):
         await logchanbot(traceback.format_exc())
     # end of bot channel check
 
-    if ctx.message.author.id not in GAME_INTERACTIVE_PRGORESS:
-        GAME_INTERACTIVE_PRGORESS.append(ctx.message.author.id)
-    else:
+    if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
         await ctx.send(f'{ctx.author.mention} You are ongoing with one **game** play.')
         await ctx.message.add_reaction(EMOJI_ERROR)
         return
@@ -3792,8 +3790,6 @@ async def snail(ctx, bet_numb: str=None):
         await msg.add_reaction(EMOJI_OK_BOX)
 
     if bet_numb is None:
-        if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
-            GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
         await ctx.send(f'{ctx.author.mention} There are 8 snail racers. Please put your snail number **(1 to 8)**')
         await ctx.message.add_reaction(EMOJI_ERROR)
         return
@@ -3805,12 +3801,15 @@ async def snail(ctx, bet_numb: str=None):
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Please put a valid snail number **(1 to 8)**')
             return
-        if 1 <= your_snail <= 8:
+        if ctx.author.id not in GAME_INTERACTIVE_PRGORESS:
+            GAME_INTERACTIVE_PRGORESS.append(ctx.author.id)
+
+        MAX_NUM_SNAILS = 8
+        MAX_NAME_LENGTH = 20
+        FINISH_LINE = 22  # (!) Try modifying this number.
+
+        if 1 <= your_snail <= MAX_NUM_SNAILS:
             # valid betting
-            # Set up the constants:
-            MAX_NUM_SNAILS = 8
-            MAX_NAME_LENGTH = 20
-            FINISH_LINE = 36  # (!) Try modifying this number.
             # sleep 1s
             await asyncio.sleep(1)
             try:
@@ -3839,7 +3838,13 @@ async def snail(ctx, bet_numb: str=None):
                     list_snails += snailName[:MAX_NAME_LENGTH] + '\n'
                     list_snails += '@v'
                     snailProgress[snailName] = 0
-                await msg_racing.edit(content=f'{start_line_mention}```{start_line}\n{list_snails}```')
+                try:
+                    await msg_racing.edit(content=f'{start_line_mention}```{start_line}\n{list_snails}```')
+                except Exception as e:
+                    if ctx.author.id in GAME_INTERACTIVE_PRGORESS:
+                        GAME_INTERACTIVE_PRGORESS.remove(ctx.author.id)
+                    await ctx.send(f'{EMOJI_INFORMATION} {ctx.author.mention} Failed to start snail game, please try again.')
+                    return
 
                 while not game_over:
                     # Pick random snails to move forward:
@@ -3883,8 +3888,8 @@ async def snail(ctx, bet_numb: str=None):
                                     except Exception as e:
                                         await logchanbot(traceback.format_exc())
                                 await ctx.send(f'{ctx.author.mention} **Snail Racing** {result}')
-                                if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
-                                    GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+                                if ctx.author.id in GAME_INTERACTIVE_PRGORESS:
+                                    GAME_INTERACTIVE_PRGORESS.remove(ctx.author.id)
                                 return
                             except Exception as e:
                                 await logchanbot(traceback.format_exc())
@@ -3904,19 +3909,19 @@ async def snail(ctx, bet_numb: str=None):
                     try:
                         await msg_racing.edit(content=f'{start_line_mention}```{start_line}\n{list_snails}```')
                     except Exception as e:
-                        if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
-                            GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+                        if ctx.author.id in GAME_INTERACTIVE_PRGORESS:
+                            GAME_INTERACTIVE_PRGORESS.remove(ctx.author.id)
                         await logchanbot(traceback.format_exc())
                         return
                 return
             except Exception as e:
                 await logchanbot(traceback.format_exc())
-            if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
-                GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+            if ctx.author.id in GAME_INTERACTIVE_PRGORESS:
+                GAME_INTERACTIVE_PRGORESS.remove(ctx.author.id)
         else:
             # invalid betting
             if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
-                GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
+                GAME_INTERACTIVE_PRGORESS.remove(ctx.author.id)
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Please put a valid snail number **(1 to 8)**')
             return
@@ -7409,11 +7414,14 @@ async def fishing(ctx):
             insert_item = await store.economy_insert_fishing_multiple(selected_item_list, total_energy_loss, total_exp, str(ctx.author.id))
             if numb_caught > 0:
                 item_info_list = []
+                total_weight = 0.0
                 for each_fish in selected_item_list:
                     if each_fish['caught'] == "YES":
                         item_info_list.append(each_fish['fish_name'] + " " + each_fish['fish_emoji'] + " - weight: {:.2f}kg".format(each_fish['fish_weight']))
+                        total_weight += each_fish['fish_weight']
                 item_info = "\n".join(item_info_list)
-                await ctx.message.reply(f'{EMOJI_INFORMATION} {ctx.author.mention} Nice! You have caught `{numb_caught}` fish(es): ```{item_info}```You spent `{will_fishing}` bait(s). You gained `{str(total_exp)}` fishing experience and spent `{str(total_energy_loss)}` energy.')
+                item_info_with_weight = item_info + "\nTotal: {:.2f}kg".format(total_weight)
+                await ctx.message.reply(f'{EMOJI_INFORMATION} {ctx.author.mention} Nice! You have caught `{numb_caught}` fish(es): ```{item_info_with_weight}```You spent `{will_fishing}` bait(s). You gained `{str(total_exp)}` fishing experience and spent `{str(total_energy_loss)}` energy.')
             else:
                 # Not caught
                 await ctx.send(f'{EMOJI_INFORMATION} {ctx.author.mention} Too bad! You lose {will_fishing} fish(es) and spent `{str(total_energy_loss)}` energy!')

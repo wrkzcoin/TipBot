@@ -4760,7 +4760,7 @@ async def http_wallet_getbalance(address: str, coin: str, re_check: bool=True) -
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
-    elif TOKEN_NAME == "ETH" or TOKEN_NAME == "BNB":
+    elif TOKEN_NAME == "ETH" or TOKEN_NAME == "BNB" or TOKEN_NAME == "MATIC":
         data = '{"jsonrpc":"2.0","method":"eth_getBalance","params":["'+address+'", "latest"],"id":1}'
         try:
             async with aiohttp.ClientSession() as session:
@@ -4880,8 +4880,11 @@ async def sql_external_erc_single(user_id: str, to_address: str, amount: float, 
         signed_txn = None
         sent_tx = None
 
-        if TOKEN_NAME == "XDAI" or TOKEN_NAME == "ETH" or TOKEN_NAME == "BNB":
-            nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(token_info['withdraw_address']))
+        if TOKEN_NAME == "XDAI" or TOKEN_NAME == "ETH" or TOKEN_NAME == "BNB" or TOKEN_NAME == "MATIC":
+            if token_info['net_name'] == "MATIC":
+                nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(token_info['withdraw_address']), 'pending')
+            else:
+                nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(token_info['withdraw_address']))
 
             # get gas price
             gasPrice = w3.eth.gasPrice
@@ -4908,7 +4911,10 @@ async def sql_external_erc_single(user_id: str, to_address: str, amount: float, 
             # inject the poa compatibility middleware to the innermost layer
             w3.middleware_onion.inject(geth_poa_middleware, layer=0)
             unicorns = w3.eth.contract(address=w3.toChecksumAddress(token_info['contract']), abi=EIP20_ABI)
-            nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(token_info['withdraw_address']))
+            if token_info['net_name'] == "MATIC":
+                nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(token_info['withdraw_address']), 'pending')
+            else:
+                nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(token_info['withdraw_address']))
                             
             unicorn_txn = unicorns.functions.transfer(
                 w3.toChecksumAddress(to_address),
@@ -4958,8 +4964,7 @@ async def erc_check_minimum_deposit(coin: str, time_lap: int=0):
     balance_below_min = 0
     balance_above_min = 0
     num_address_moving_gas = 0
-
-    if TOKEN_NAME == "XDAI" or TOKEN_NAME == "ETH" or TOKEN_NAME == "BNB":
+    if TOKEN_NAME == "XDAI" or TOKEN_NAME == "ETH" or TOKEN_NAME == "BNB" or TOKEN_NAME == "MATIC":
         # we do not need gas, we move straight
         if list_user_addresses and len(list_user_addresses) > 0:
             # OK check them one by one
@@ -4982,7 +4987,10 @@ async def erc_check_minimum_deposit(coin: str, time_lap: int=0):
                         # inject the poa compatibility middleware to the innermost layer
                         # w3.middleware_onion.inject(geth_poa_middleware, layer=0)
 
-                        nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(each_address['balance_wallet_address']))
+                        if token_info['net_name'] == "MATIC":
+                            nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(each_address['balance_wallet_address']), 'pending')
+                        else:
+                            nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(each_address['balance_wallet_address']))
 
                         # get gas price
                         gasPrice = int(w3.eth.gasPrice * 1.0)
@@ -5062,7 +5070,10 @@ async def erc_check_minimum_deposit(coin: str, time_lap: int=0):
                         w3.middleware_onion.inject(geth_poa_middleware, layer=0)
 
                         unicorns = w3.eth.contract(address=w3.toChecksumAddress(token_info['contract']), abi=EIP20_ABI)
-                        nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(each_address['balance_wallet_address']))
+                        if token_info['net_name'] == "MATIC":
+                            nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(each_address['balance_wallet_address']), 'pending')
+                        else:
+                            nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(each_address['balance_wallet_address']))
                         
                         unicorn_txn = unicorns.functions.transfer(
                              w3.toChecksumAddress(token_info['withdraw_address']),
@@ -5095,7 +5106,10 @@ async def erc_check_minimum_deposit(coin: str, time_lap: int=0):
                         # inject the poa compatibility middleware to the innermost layer
                         # w3.middleware_onion.inject(geth_poa_middleware, layer=0)
                         # TODO: Let's move gas from main to have sufficient to move
-                        nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(token_info['withdraw_address']))
+                        if token_info['net_name'] == "MATIC":
+                            nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(token_info['withdraw_address']), 'pending')
+                        else:
+                            nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(token_info['withdraw_address']))
 
                         # get gas price
                         gasPrice = int(w3.eth.gasPrice*1.0)

@@ -633,37 +633,37 @@ def num_format_coin(amount, coin: str):
         coin_decimal = get_decimal(COIN_NAME)
     amount_str = 'Invalid.'
     if COIN_NAME in ["DOGE", "LTC", "BTC", "DASH", "BCH"]:
-        amount_test = '{:,}'.format(float(('%f' % amount).rstrip('0').rstrip('.')))
-        if len(amount_test.split('.')[1]) > 6:
-            return '{:,.6f}'.format(amount)
+        amount_test = '{:,f}'.format(float(('%f' % amount).rstrip('0').rstrip('.')))
+        if '.' in amount_test and len(amount_test.split('.')[1]) > 6:
+            amount_str = '{:,.6f}'.format(amount)
         else:
-            return amount_test
+            amount_str = amount_test
         #return '{:,}'.format(float('%.8g' % (amount)))
     elif COIN_NAME in config.Enable_Coin_ERC.split(",")+config.Enable_Coin_TRC.split(","):
         # Use amount real
         # return '{:,.6f}'.format(amount)
-        amount_test = '{:,}'.format(float(('%f' % amount).rstrip('0').rstrip('.')))
-        if len(amount_test.split('.')[1]) > 5:
-            return '{:,.5f}'.format(amount)
+        amount_test = '{:,f}'.format(float(('%f' % amount).rstrip('0').rstrip('.')))
+        if '.' in amount_test and len(amount_test.split('.')[1]) > 5:
+            amount_str = '{:,.6f}'.format(amount)
         else:
-            return amount_test
+            amount_str = amount_test
     elif COIN_NAME in ["NANO", "BAN"]:
         #return '{:,.8f}'.format(amount / coin_decimal)
-        amount_test = '{:,}'.format(float(('%f' % (amount / coin_decimal)).rstrip('0').rstrip('.')))
-        if len(amount_test.split('.')[1]) > 5:
-            return '{:,.5f}'.format(amount / coin_decimal)
+        amount_test = '{:,f}'.format(float(('%f' % (amount / coin_decimal)).rstrip('0').rstrip('.')))
+        if '.' in amount_test and len(amount_test.split('.')[1]) > 5:
+            amount_str = '{:,.5f}'.format(amount / coin_decimal)
         else:
-            return amount_test
+            amount_str = amount_test
     elif COIN_NAME in ["WRKZ", "DEGO", "BTCMZ", "NIMB", "TRTL"]:
-        return '{:,.2f}'.format(amount / coin_decimal)
+        amount_str = '{:,.2f}'.format(amount / coin_decimal)
     else:
         # return '{:,.8f}'.format(float('%.8g' % (amount / coin_decimal)))
-        amount_test = '{:,}'.format(float(('%f' % (amount / coin_decimal)).rstrip('0').rstrip('.')))
-        if len(amount_test.split('.')[1]) > 8:
-            return '{:,.8f}'.format(amount)
+        amount_test = '{:,f}'.format(float(('%f' % (amount / coin_decimal)).rstrip('0').rstrip('.')))
+        if '.' in amount_test and len(amount_test.split('.')[1]) > 8:
+            amount_str = '{:,.8f}'.format(amount)
         else:
-            return amount_test
-    #return amount_str.rstrip('0').rstrip('.') if '.' in amount_str else amount_str 
+            amount_str =  amount_test
+    return amount_str.rstrip('0').rstrip('.') if '.' in amount_str else amount_str 
 
 
 # XMR

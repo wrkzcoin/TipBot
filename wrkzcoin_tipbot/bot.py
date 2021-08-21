@@ -9827,13 +9827,17 @@ async def deposit(ctx, coin_name: str, option: str=None):
 
     embed = discord.Embed(title=f'Your Deposit {ctx.message.author.name}#{ctx.message.author.discriminator} / **{COIN_NAME}**', description='{}'.format(get_notice_txt(COIN_NAME)), timestamp=datetime.utcnow(), colour=7047495)
     embed.set_author(name=ctx.message.author.name, icon_url=ctx.message.author.avatar_url)
-    embed.add_field(name="Deposit Address", value="`{}`".format(wallet['balance_wallet_address']), inline=False)
+    embed.add_field(name="{} Deposit Address".format(COIN_NAME), value="`{}`".format(wallet['balance_wallet_address']), inline=False)
     if 'user_wallet_address' in wallet and wallet['user_wallet_address'] and isinstance(ctx.channel, discord.DMChannel) == True:
         embed.add_field(name="Withdraw Address", value="`{}`".format(wallet['user_wallet_address']), inline=False)
     elif 'user_wallet_address' in wallet and wallet['user_wallet_address'] and isinstance(ctx.channel, discord.DMChannel) == False:
         embed.add_field(name="Withdraw Address", value="`(Only in DM)`", inline=False)
     if COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
         token_info = await store.get_token_info(COIN_NAME)
+        if token_info and COIN_NAME in ENABLE_COIN_ERC and token_info['contract'] and len(token_info['contract']) == 42:
+            embed.add_field(name="{} Contract".format(COIN_NAME), value="`{}`".format(token_info['contract']), inline=False)
+        elif token_info and COIN_NAME in ENABLE_COIN_TRC and token_info['contract'] and len(token_info['contract']) >= 6:
+            embed.add_field(name="{} Contract/Token ID".format(COIN_NAME), value="`{}`".format(token_info['contract']), inline=False)
         if token_info and token_info['deposit_note']:
             embed.add_field(name="{} Deposit Note".format(COIN_NAME), value="`{}`".format(token_info['deposit_note']), inline=False)
     embed.set_thumbnail(url=config.deposit_qr.deposit_url + "/tipbot_deposit_qr/" + wallet['balance_wallet_address'] + ".png")
@@ -9993,8 +9997,15 @@ async def mdeposit(ctx, coin_name: str, option: str=None):
 
     embed = discord.Embed(title=f'**Guild {ctx.guild.name}** deposit / **{COIN_NAME}**', description='`This is guild\'s tipjar address. Do not deposit here unless you want to deposit to this guild and not yours!`', timestamp=datetime.utcnow(), colour=7047495)
     embed.set_author(name=ctx.guild.name, icon_url=ctx.guild.icon_url)
-    embed.add_field(name="Deposit Address", value="`{}`".format(wallet['balance_wallet_address']), inline=False)
-
+    embed.add_field(name="{} Deposit Address".format(COIN_NAME), value="`{}`".format(wallet['balance_wallet_address']), inline=False)
+    if COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
+        token_info = await store.get_token_info(COIN_NAME)
+        if token_info and COIN_NAME in ENABLE_COIN_ERC and token_info['contract'] and len(token_info['contract']) == 42:
+            embed.add_field(name="{} Contract".format(COIN_NAME), value="`{}`".format(token_info['contract']), inline=False)
+        elif token_info and COIN_NAME in ENABLE_COIN_TRC and token_info['contract'] and len(token_info['contract']) >= 6:
+            embed.add_field(name="{} Contract/Token ID".format(COIN_NAME), value="`{}`".format(token_info['contract']), inline=False)
+        if token_info and token_info['deposit_note']:
+            embed.add_field(name="{} Deposit Note".format(COIN_NAME), value="`{}`".format(token_info['deposit_note']), inline=False)
     embed.set_thumbnail(url=config.deposit_qr.deposit_url + "/tipbot_deposit_qr/" + wallet['balance_wallet_address'] + ".png")
     prefix = await get_guild_prefix(ctx)
     embed.set_footer(text=f"Use:{prefix}mdeposit {COIN_NAME} plain (for plain text)")
@@ -11146,7 +11157,15 @@ async def botbalance(ctx, member: discord.Member, coin: str):
 
         embed = discord.Embed(title=f'Deposit for {member.name}#{member.discriminator}', description='`This is bot\'s tipjar address. Do not deposit here unless you want to deposit to this bot`', timestamp=datetime.utcnow(), colour=7047495)
         embed.set_author(name=member.name, icon_url=member.avatar_url)
-        embed.add_field(name="Deposit Address", value="`{}`".format(userwallet['balance_wallet_address']), inline=False)
+        embed.add_field(name="{} Deposit Address".format(COIN_NAME), value="`{}`".format(userwallet['balance_wallet_address']), inline=False)
+        if COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
+            token_info = await store.get_token_info(COIN_NAME)
+            if token_info and COIN_NAME in ENABLE_COIN_ERC and token_info['contract'] and len(token_info['contract']) == 42:
+                embed.add_field(name="{} Contract".format(COIN_NAME), value="`{}`".format(token_info['contract']), inline=False)
+            elif token_info and COIN_NAME in ENABLE_COIN_TRC and token_info['contract'] and len(token_info['contract']) >= 6:
+                embed.add_field(name="{} Contract/Token ID".format(COIN_NAME), value="`{}`".format(token_info['contract']), inline=False)
+            if token_info and token_info['deposit_note']:
+                embed.add_field(name="{} Deposit Note".format(COIN_NAME), value="`{}`".format(token_info['deposit_note']), inline=False)
         embed.add_field(name=f"Balance {COIN_NAME}", value="`{}{}`".format(balance_actual, COIN_NAME), inline=False)
         try:
             msg = await ctx.send(embed=embed)

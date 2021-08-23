@@ -12766,7 +12766,17 @@ async def randtip(ctx, amount: str, coin: str, *, rand_option: str=None):
     tip = None
     user_to = await store.sql_get_userwallet(str(rand_user.id), COIN_NAME)
     if user_to is None:
-        userregister = await store.sql_register_user(str(rand_user.id), COIN_NAME, 'DISCORD', 0)
+        if COIN_NAME in ENABLE_COIN_ERC:
+            coin_family = "ERC-20"
+            w = await create_address_eth()
+            wallet = await store.sql_register_user(str(rand_user.id), COIN_NAME, 'DISCORD', 0, w)
+        elif COIN_NAME in ENABLE_COIN_TRC:
+            coin_family = "TRC-20"
+            result = await store.create_address_trx()
+            wallet = await store.sql_register_user(str(rand_user.id), COIN_NAME, 'DISCORD', 0, result)
+        else:
+            coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+            wallet = await store.sql_register_user(str(rand_user.id), COIN_NAME, 'DISCORD', 0)
         user_to = await store.sql_get_userwallet(str(rand_user.id), COIN_NAME)
 
     if coin_family in ["TRTL", "BCN"]:
@@ -14321,6 +14331,18 @@ async def mtip(ctx, amount: str, *args):
 
     user_from = await store.sql_get_userwallet(str(ctx.guild.id), COIN_NAME)
     if user_from is None:
+        if COIN_NAME in ENABLE_COIN_ERC:
+            coin_family = "ERC-20"
+            w = await create_address_eth()
+            wallet = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD', 0, w)
+        elif COIN_NAME in ENABLE_COIN_TRC:
+            coin_family = "TRC-20"
+            result = await store.create_address_trx()
+            wallet = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD', 0, result)
+        else:
+            coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+            wallet = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD', 0)
+
         user_from = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD', 0)
     # get user balance
     userdata_balance = await store.sql_user_balance(str(ctx.guild.id), COIN_NAME)
@@ -18068,7 +18090,14 @@ async def buy(ctx, ref_number: str):
                 balance_actual = 0
                 wallet = await store.sql_get_userwallet(str(ctx.message.author.id), get_order_num['coin_get'], 'DISCORD')
                 if wallet is None:
-                    userregister = await store.sql_register_user(str(ctx.message.author.id), get_order_num['coin_get'], 'DISCORD', 0)
+                    if get_order_num['coin_get'] in ENABLE_COIN_ERC:
+                        w = await create_address_eth()
+                        userregister = await store.sql_register_user(str(ctx.message.author.id), get_order_num['coin_get'], 'DISCORD', 0, w)
+                    elif get_order_num['coin_get'] in ENABLE_COIN_TRC:
+                        result = await store.create_address_trx()
+                        userregister = await store.sql_register_user(str(ctx.message.author.id), get_order_num['coin_get'], 'DISCORD', 0, result)
+                    else:
+                        userregister = await store.sql_register_user(str(ctx.message.author.id), get_order_num['coin_get'], 'DISCORD', 0)
                     wallet = await store.sql_get_userwallet(str(ctx.message.author.id), get_order_num['coin_get'], 'DISCORD')
                 if wallet:
                     userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), get_order_num['coin_get'], 'DISCORD')
@@ -19929,7 +19958,17 @@ async def _tip_react(reaction, user, amount, coin: str):
         if user.id != member.id and reaction.message.author.id != member.id:
             user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
             if user_to is None:
-                userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0)
+                if COIN_NAME in ENABLE_COIN_ERC:
+                    coin_family = "ERC-20"
+                    w = await create_address_eth()
+                    userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0, w)
+                elif COIN_NAME in ENABLE_COIN_TRC:
+                    coin_family = "TRC-20"
+                    result = await store.create_address_trx()
+                    userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0, result)
+                else:
+                    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+                    userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0)
                 user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
 
             list_receivers.append(str(member.id))
@@ -20221,7 +20260,17 @@ async def bot_faucet(ctx):
         sum_sub = 0
         wallet = await store.sql_get_userwallet(str(bot.user.id), COIN_NAME)
         if wallet is None:
-            wallet = await store.sql_register_user(str(bot.user.id), COIN_NAME, 'DISCORD', 0)
+            if COIN_NAME in ENABLE_COIN_ERC:
+                coin_family = "ERC-20"
+                w = await create_address_eth()
+                wallet = await store.sql_register_user(str(bot.user.id), COIN_NAME, 'DISCORD', 0, w)
+            elif COIN_NAME in ENABLE_COIN_TRC:
+                coin_family = "TRC-20"
+                result = await store.create_address_trx()
+                wallet = await store.sql_register_user(str(bot.user.id), COIN_NAME, 'DISCORD', 0, result)
+            else:
+                coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
+                wallet = await store.sql_register_user(str(bot.user.id), COIN_NAME, 'DISCORD', 0)
         userdata_balance = await store.sql_user_balance(str(bot.user.id), COIN_NAME)
         xfer_in = 0
         if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:

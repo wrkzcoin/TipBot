@@ -707,7 +707,6 @@ async def on_reaction_add(reaction, user):
                     tip = None
                     try:
                         tip = await store.sql_mv_cn_single(str(user.id), str(reaction.message.author.id), real_amount, 'REACTTIP', COIN_NAME)
-                        tip_tx_tipper = "Fee: `{}{}`".format(num_format_coin(tip['fee'], COIN_NAME), COIN_NAME)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
 
@@ -725,8 +724,7 @@ async def on_reaction_add(reaction, user):
                             await user.send(
                                 f'{EMOJI_ARROW_RIGHTHOOK} Tip of {num_format_coin(real_amount, COIN_NAME)} '
                                 f'{COIN_NAME} '
-                                f'was sent to {reaction.message.author.name}#{reaction.message.author.discriminator} in server `{reaction.message.guild.name}` by your re-acting {EMOJI_100}\n'
-                                f'{tip_tx_tipper}')
+                                f'was sent to {reaction.message.author.name}#{reaction.message.author.discriminator} in server `{reaction.message.guild.name}` by your re-acting {EMOJI_100}')
                         except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                             await store.sql_toggle_tipnotify(str(user.id), "OFF")
                         if str(reaction.message.author.id) not in notifyList:
@@ -734,7 +732,6 @@ async def on_reaction_add(reaction, user):
                                 await reaction.message.author.send(
                                     f'{EMOJI_MONEYFACE} You got a tip of {num_format_coin(real_amount, COIN_NAME)} '
                                     f'{COIN_NAME} from {user.name}#{user.discriminator} in server `{reaction.message.guild.name}` #{reaction.message.channel.name} from their re-acting {EMOJI_100}\n'
-                                    f'{tip_tx_tipper}\n'
                                     f'{NOTIFICATION_OFF_CMD}')
                             except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                                 await store.sql_toggle_tipnotify(str(reaction.message.author.id), "OFF")
@@ -1059,6 +1056,7 @@ async def draw(ctx, member: discord.Member = None):
                                 str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'DRAW', ctx.message.content, 'DISCORD')
                 except Exception as e:
                     await logchanbot(traceback.format_exc())
+                    await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
                 await ctx.message.add_reaction(EMOJI_OK_HAND)
         else:
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -1167,6 +1165,7 @@ async def sketchme(ctx, member: discord.Member = None):
                                     str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SKETCHME', ctx.message.content, 'DISCORD')
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
+                        await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
                     await ctx.message.add_reaction(EMOJI_OK_HAND)
                 except asyncio.TimeoutError:
                     await ctx.message.add_reaction(EMOJI_ERROR)

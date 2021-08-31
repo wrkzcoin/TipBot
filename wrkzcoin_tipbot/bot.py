@@ -2116,9 +2116,7 @@ async def blackjack(ctx):
         free_game = True
         await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
 
-    if ctx.message.author.id not in GAME_INTERACTIVE_PRGORESS:
-        GAME_INTERACTIVE_PRGORESS.append(ctx.message.author.id)
-    else:
+    if ctx.author.id in GAME_INTERACTIVE_PRGORESS:
         await ctx.send(f'{ctx.author.mention} You are ongoing with one **game** play.')
         await ctx.message.add_reaction(EMOJI_ERROR)
         return
@@ -2132,7 +2130,12 @@ Rules:
     (H)it to take another card.
     (S)tand to stop taking cards.
     The dealer stops hitting at 17.'''
-    await ctx.send(f'{ctx.author.mention} ```{game_text}```')
+
+    try:
+        await ctx.send(f'{ctx.author.mention} ```{game_text}```')
+    except (discord.errors.NotFound, discord.errors.Forbidden) as e:
+        await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
+        return
 
     time_start = int(time.time())
     game_over = False
@@ -2141,6 +2144,9 @@ Rules:
     deck = blackjack_getDeck()
     dealerHand = [deck.pop(), deck.pop()]
     playerHand = [deck.pop(), deck.pop()]
+
+    if ctx.author.id not in GAME_INTERACTIVE_PRGORESS:
+        GAME_INTERACTIVE_PRGORESS.append(ctx.author.id)
 
     while not game_over:
         # check if bot is going to restart
@@ -3154,9 +3160,7 @@ async def maze(ctx):
         await logchanbot(traceback.format_exc())
     # end of bot channel check
 
-    if ctx.message.author.id not in GAME_INTERACTIVE_PRGORESS:
-        GAME_INTERACTIVE_PRGORESS.append(ctx.message.author.id)
-    else:
+    if ctx.author.id in GAME_INTERACTIVE_PRGORESS:
         await ctx.send(f'{ctx.author.mention} You are ongoing with one **game** play.')
         await ctx.message.add_reaction(EMOJI_ERROR)
         return
@@ -3210,8 +3214,6 @@ async def maze(ctx):
                 # stuff = done.pop().result()
                 reaction, user = done.pop().result()
             except asyncio.TimeoutError:
-                if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
-                    GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
                 if ctx.guild.id in GAME_MAZE_IN_PROCESS:
                     GAME_MAZE_IN_PROCESS.remove(ctx.guild.id)
 
@@ -3236,8 +3238,6 @@ async def maze(ctx):
                 
             if str(reaction.emoji) == EMOJI_OK_BOX:
                 await ctx.send(f'{ctx.author.mention} You gave up the current game.')
-                if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
-                    GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
                 if ctx.guild.id in GAME_MAZE_IN_PROCESS:
                     GAME_MAZE_IN_PROCESS.remove(ctx.guild.id)
 
@@ -3333,16 +3333,12 @@ async def maze(ctx):
                 except Exception as e:
                     await logchanbot(traceback.format_exc())
             duration = seconds_str(int(time.time()) - time_start)
-            if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
-                GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
             if ctx.guild.id in GAME_MAZE_IN_PROCESS:
                 GAME_MAZE_IN_PROCESS.remove(ctx.guild.id)
             await ctx.send(f'{ctx.author.mention} **MAZE** Grats! You completed! You completed in: **{duration}\n{result}**')
             return
     except Exception as e:
         await logchanbot(traceback.format_exc())
-    if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
-        GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
     if ctx.guild.id in GAME_MAZE_IN_PROCESS:
         GAME_MAZE_IN_PROCESS.remove(ctx.guild.id)
 

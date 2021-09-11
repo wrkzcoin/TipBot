@@ -5536,8 +5536,10 @@ async def trx_wallet_getbalance(address: str, coin: str):
                 try:
                     precision = token_info['token_decimal']
                     balance = await TronClient.get_account_asset_balance(addr=address, token_id=int(token_info['contract'])) / 10**precision
+                except AddressNotFound:
+                    balance = 0.0
                 except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
+                    pass
         await TronClient.close()
     except Exception as e:
         traceback.print_exc(file=sys.stdout)

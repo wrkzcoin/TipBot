@@ -19187,7 +19187,8 @@ async def notify_new_tx_user_noconfirmation():
                                                     await logchanbot(traceback.format_exc())
                                                 redis_conn.lpush(key_tx_no_confirmed_sent, tx)
                                             else:
-                                                print('Can not find user id {} to notification **pending** tx: {}'.format(user_tx['user_id'], eachTx['txid']))
+                                                #print('Can not find user id {} to notification **pending** tx: {}'.format(user_tx['user_id'], eachTx['txid']))
+                                                pass
                                     # TODO: if no user
                                     # elif eachTx['coin_name'] in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR:
                                     #    redis_conn.lpush(key_tx_no_confirmed_sent, tx)
@@ -19254,7 +19255,8 @@ async def notify_new_tx_user():
                                         await logchanbot(traceback.format_exc())
                                     update_notify_tx = await store.sql_update_notify_tx_table(eachTx['payment_id'], user_tx['user_id'], guild_found.name, 'YES', 'NO' if is_notify_failed == False else 'YES')
                                 else:
-                                    print('Can not find user id {} to notification tx: {}'.format(user_tx['user_id'], eachTx['txid']))
+                                    #print('Can not find user id {} to notification tx: {}'.format(user_tx['user_id'], eachTx['txid']))
+                                    pass
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())

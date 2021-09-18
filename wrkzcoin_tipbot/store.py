@@ -4407,6 +4407,14 @@ async def sql_store_openorder(msg_id: str, msg_content: str, coin_sell: str, rea
         print("Catch zero amount in {sql_store_openorder}!!!")
         return False
     try:
+        # coin_sell
+        coin_sell_decimal = 1
+        coin_get_decimal = 1
+        if coin_sell not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
+            coin_sell_decimal = wallet.get_decimal(coin_sell)
+        # coin_get
+        if coin_get not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
+            coin_get_decimal = wallet.get_decimal(coin_get)
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
@@ -4415,8 +4423,8 @@ async def sql_store_openorder(msg_id: str, msg_content: str, coin_sell: str, rea
                           `amount_get`, `amount_get_after_fee`, `sell_div_get`, `order_created_date`, `pair_name`, 
                           `status`, `sell_user_server`) 
                           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                await cur.execute(sql, (str(msg_id), msg_content, coin_sell, wallet.get_decimal(coin_sell),
-                                  real_amount_sell, amount_sell_after_fee, userid_sell, coin_get, wallet.get_decimal(coin_get),
+                await cur.execute(sql, (str(msg_id), msg_content, coin_sell, coin_sell_decimal,
+                                  real_amount_sell, amount_sell_after_fee, userid_sell, coin_get, coin_get_decimal,
                                   real_amount_get, amount_get_after_fee, sell_div_get, float("%.3f" % time.time()), coin_sell + "-" + coin_get, 
                                   'OPEN', sell_user_server))
                 await conn.commit()

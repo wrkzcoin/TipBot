@@ -4435,21 +4435,24 @@ async def sql_store_openorder(msg_id: str, msg_content: str, coin_sell: str, rea
     return False
 
 
-async def sql_get_open_order_by_alluser_by_coins(coin1: str, coin2: str, status: str = 'OPEN'):
+async def sql_get_open_order_by_alluser_by_coins(coin1: str, coin2: str, status: str, option_order: str="ASC"):
     global pool
+    option_order = option_order.upper()
+    if option_order not in ["DESC", "ASC"]:
+        return False
     try:
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 if coin2.upper() == "ALL":
                     sql = """ SELECT * FROM open_order WHERE `status`=%s AND `coin_sell`=%s 
-                              ORDER BY sell_div_get ASC LIMIT 50 """
+                              ORDER BY sell_div_get """+option_order+""" LIMIT 50 """
                     await cur.execute(sql, (status, coin1.upper()))
                     result = await cur.fetchall()
                     return result
                 else:
                     sql = """ SELECT * FROM open_order WHERE `status`=%s AND `coin_sell`=%s AND `coin_get`=%s 
-                              ORDER BY sell_div_get ASC LIMIT 50 """
+                              ORDER BY sell_div_get """+option_order+""" LIMIT 50 """
                     await cur.execute(sql, (status, coin1.upper(), coin2.upper()))
                     result = await cur.fetchall()
                     return result
@@ -4508,7 +4511,7 @@ async def sql_match_order_by_sellerid(userid_get: str, ref_numb: str, buy_user_s
     return False
 
 
-async def sql_get_open_order_by_alluser(coin: str, status: str, need_to_buy: bool = False):
+async def sql_get_open_order_by_alluser(coin: str, status: str, need_to_buy: bool):
     global pool
     COIN_NAME = coin.upper()
     try:

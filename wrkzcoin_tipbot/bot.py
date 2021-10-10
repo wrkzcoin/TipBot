@@ -18039,7 +18039,7 @@ async def buy(ctx, ref_number: str):
             return
         
         # get list of all coin where they sell XXX
-        get_markets = await store.sql_get_open_order_by_alluser_by_coins(COIN_NAME, 'ALL', 'OPEN')
+        get_markets = await store.sql_get_open_order_by_alluser_by_coins(COIN_NAME, "ALL", "OPEN")
         if get_markets and len(get_markets) > 0:
             list_numb = 0
             table_data = [
@@ -18172,7 +18172,7 @@ async def buy(ctx, ref_number: str):
 
 
 @bot.command(pass_context=True, aliases=['market'])
-async def trade(ctx, coin: str = None):
+async def trade(ctx, coin: str=None, option_order: str=None):
     global ENABLE_TRADE_COIN, TRTL_DISCORD
     # TRTL discord
     if isinstance(ctx.message.channel, discord.DMChannel) == False and ctx.guild and ctx.guild.id == TRTL_DISCORD:
@@ -18197,46 +18197,16 @@ async def trade(ctx, coin: str = None):
         await logchanbot(traceback.format_exc())
         return
 
+    if option_order is None:
+        option_order = "ASC" # ascending
+    elif option_order and (option_order.upper() not in ["DESC", "ASC"]):
+        option_order = "asc" # ascending
+    elif option_order:
+        option_order = option_order.upper()
+
     if coin is None:
-        get_markets = await store.sql_get_open_order_by_alluser('ALL', 'OPEN')
-        if get_markets and len(get_markets) > 0:
-            table_data = [
-                ['PAIR', 'Selling', 'For', 'Rate', 'Order #']
-                ]
-            list_numb = 0
-            for order_item in get_markets:
-                list_numb += 1
-                # coin_get
-                coin_sell_decimal = 1
-                coin_get_decimal = 1
-                if order_item['coin_get'] not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
-                    coin_get_decimal = get_decimal(order_item['coin_get'])
-                # coin_get
-                if order_item['coin_sell'] not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
-                    coin_sell_decimal = get_decimal(order_item['coin_sell'])
-                if is_tradeable_coin(order_item['coin_get']) and is_tradeable_coin(order_item['coin_sell']):
-                    table_data.append([order_item['pair_name'], num_format_coin(order_item['amount_sell_after_fee'], order_item['coin_sell'])+order_item['coin_sell'],
-                                      num_format_coin(order_item['amount_get_after_fee'], order_item['coin_get'])+order_item['coin_get'], 
-                                      '{:.8f}'.format(round(order_item['amount_sell']/order_item['amount_get']/coin_sell_decimal*coin_get_decimal, 8)), 
-                                      order_item['order_id']])
-                else:
-                    table_data.append([order_item['pair_name']+"*", num_format_coin(order_item['amount_sell_after_fee'], order_item['coin_sell'])+order_item['coin_sell'],
-                                      num_format_coin(order_item['amount_get_after_fee'], order_item['coin_get'])+order_item['coin_get'], 
-                                      '{:.8f}'.format(round(order_item['amount_sell']/order_item['amount_get']/coin_sell_decimal*coin_get_decimal, 8)), order_item['order_id']])
-                if list_numb > 15:
-                    break
-            table = AsciiTable(table_data)
-            # table.inner_column_border = False
-            # table.outer_border = False
-            table.padding_left = 0
-            table.padding_right = 0
-            extra_text = f"Check specifically for a coin *{config.trade.enable_coin}*."
-            await ctx.send(f'**[ MARKET LIST ]**\n'
-                           f'```{table.table}```{extra_text}')
-            return
-        else:
-            await ctx.send(f'{ctx.author.mention} Currently, no opening selling market. Please make some open order for others.')
-            return
+        await ctx.send(f'{ctx.author.mention} Please tell me the coin or pair you want to show the trade list (Ex. `doge/xmr` or `doge`).')
+        return
     else:
         # check if there is / or -
         coin_pair = None
@@ -18248,7 +18218,7 @@ async def trade(ctx, coin: str = None):
         elif "." in coin:
             coin_pair = coin.split(".")
         elif "-" in coin:
-            coin_pair = coin.split(".")
+            coin_pair = coin.split("-")
         if coin_pair is None:
             COIN_NAME = coin.upper()
             if COIN_NAME not in ENABLE_TRADE_COIN:
@@ -18256,7 +18226,7 @@ async def trade(ctx, coin: str = None):
                 await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} in not in our list.')
                 return
             else:
-                get_markets = await store.sql_get_open_order_by_alluser(COIN_NAME, 'OPEN')
+                get_markets = await store.sql_get_open_order_by_alluser(COIN_NAME, 'OPEN', need_to_buy = False)
         elif coin_pair and len(coin_pair) == 2:
             if coin_pair[0] not in ENABLE_TRADE_COIN:
                 await ctx.send(f'{EMOJI_ERROR} **{coin_pair[0]}** is not in our list. Available right now: **{config.trade.enable_coin}**')
@@ -18265,7 +18235,7 @@ async def trade(ctx, coin: str = None):
                 await ctx.send(f'{EMOJI_ERROR} **{coin_pair[1]}** is not in our list. Available right now: **{config.trade.enable_coin}**')
                 return
             else:
-                get_markets = await store.sql_get_open_order_by_alluser_by_coins(coin_pair[0], coin_pair[1], 'OPEN')
+                get_markets = await store.sql_get_open_order_by_alluser_by_coins(coin_pair[0], coin_pair[1], "OPEN", option_order)
         if get_markets and len(get_markets) > 0:
             list_numb = 0
             table_data = [

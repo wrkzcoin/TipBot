@@ -2270,7 +2270,7 @@ Rules:
     else:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
     real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO", "XCH"] else float(amount)
-    result = f'You got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
+    result = f'You got reward of **{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}** to Tip balance!'
     if free_game == True:
         result = f'You do not get any reward because it is a free game! Waiting to refresh your paid plays (24h max).'
     try:
@@ -2407,7 +2407,7 @@ async def slot(ctx):
                     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                 real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO", "XCH"] else float(amount)
                 reward = await store.sql_game_add(slotOutput, str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, get_decimal(COIN_NAME), str(ctx.guild.id), 'SLOT', int(time.time()) - time_start, 'DISCORD')
-                result = f'You won! {ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
+                result = f'You won! {ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}** to Tip balance!'
             else:
                 reward = await store.sql_game_add(slotOutput, str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'SLOT', int(time.time()) - time_start, 'DISCORD')
         else:
@@ -2613,7 +2613,7 @@ clues would be Fermi Pico.'''.format(NUM_DIGITS)
                                     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                                 real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO", "XCH"] else float(amount)
                                 reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, get_decimal(COIN_NAME), str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
-                                result = f'{ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
+                                result = f'{ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}** to Tip balance!'
                             elif won == False and free_game == True:
                                 reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
                             elif free_game == True:
@@ -2840,7 +2840,7 @@ Hints:
                                     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                                 real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO", "XCH"] else float(amount)
                                 reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, get_decimal(COIN_NAME), str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
-                                result = f'{ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
+                                result = f'{ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}** to Tip balance!'
                             elif won == False and free_game == True:
                                 reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
                             elif free_game == True:
@@ -3075,7 +3075,7 @@ Hints:
                                     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                                 real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO", "XCH"] else float(amount)
                                 reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, get_decimal(COIN_NAME), str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
-                                result = f'{ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
+                                result = f'{ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}** to Tip balance!'
                             elif won == False and free_game == True:
                                 reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
                             elif free_game == True:
@@ -3320,7 +3320,7 @@ async def maze(ctx):
             else:
                 coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
             real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO", "XCH"] else float(amount)
-            result = f'You got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
+            result = f'You got reward of **{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}** to Tip balance!'
             if free_game == True:
                 result = f'You do not get any reward because it is a free game!'
                 try:
@@ -3500,7 +3500,7 @@ async def hangman(ctx):
                             coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                         real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO", "XCH"] else float(amount)
                         reward = await store.sql_game_add(secretWord, str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, get_decimal(COIN_NAME), str(ctx.guild.id), 'HANGMAN', int(time.time()) - time_start, 'DISCORD')
-                        result = f'{ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
+                        result = f'{ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}** to Tip balance!'
                     elif foundAllLetters and free_game == True:
                         reward = await store.sql_game_free_add(secretWord, str(ctx.message.author.id), 'WIN', str(ctx.guild.id), 'HANGMAN', int(time.time()) - time_start, 'DISCORD')
                     if foundAllLetters:
@@ -3680,7 +3680,7 @@ To win, you must continue rolling the dice until you "make your point."
                         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                     real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO", "XCH"] else float(amount)
                     reward = await store.sql_game_add('{}:{}:{}:{}'.format(dice_time, sum_dice, dice1, dice2), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, get_decimal(COIN_NAME), str(ctx.guild.id), 'DICE', int(time.time()) - time_start, 'DISCORD')
-                    result = f'You won! {ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
+                    result = f'You won! {ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}** to Tip balance!'
                 else:
                     reward = await store.sql_game_add('{}:{}:{}:{}'.format(dice_time, sum_dice, dice1, dice2), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'DICE', int(time.time()) - time_start, 'DISCORD')
                     result = f'You lose!'
@@ -3869,7 +3869,7 @@ async def snail(ctx, bet_numb: str=None):
                                             coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                                         real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO", "XCH"] else float(amount)
                                         reward = await store.sql_game_add('BET:#{}/WINNER:{}'.format(your_snail, randomSnailName), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, get_decimal(COIN_NAME), str(ctx.guild.id), 'SNAIL', int(time.time()) - time_start, 'DISCORD')
-                                        result = f'You won **snail#{str(your_snail)}**! {ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
+                                        result = f'You won **snail#{str(your_snail)}**! {ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}** to Tip balance!'
                                     else:
                                         reward = await store.sql_game_add('BET:#{}/WINNER:{}'.format(your_snail, randomSnailName), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'SNAIL', int(time.time()) - time_start, 'DISCORD')
                                         result = f'You lose! **snail{randomSnailName}** is the winner!!! You bet for **snail#{str(your_snail)}**'
@@ -4117,7 +4117,7 @@ You lose if the board fills up the tiles before then.'''
                 else:
                     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                 real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO", "XCH"] else float(amount)
-                result = f'You got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
+                result = f'You got reward of **{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}** to Tip balance!'
                 duration = seconds_str(int(time.time()) - time_start)
                 if free_game == True:
                     result = f'You do not get any reward because it is a free game! Waiting to refresh your paid plays (24h max).'
@@ -4624,7 +4624,7 @@ respectively. You can also reload game level.'''
                                 coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                             real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO", "XCH"] else float(amount)
                             reward = await store.sql_game_add(str(level), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, get_decimal(COIN_NAME), str(ctx.guild.id), 'SOKOBAN', int(time.time()) - time_start, 'DISCORD')
-                            result = f'You won! {ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** to Tip balance!'
+                            result = f'You won! {ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}** to Tip balance!'
                         else:
                             reward = await store.sql_game_add(str(level), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'SOKOBAN', int(time.time()) - time_start, 'DISCORD')
                             result = f'You lose!'
@@ -5153,7 +5153,7 @@ async def credit(ctx, amount: str, coin: str, to_userid: str):
         real_amount = int(Decimal(amount) * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO", "XCH"] else Decimal(amount)
         credit_to = await store.sql_credit(str(ctx.message.author.id), to_userid, real_amount, COIN_NAME, ctx.message.content)
         if credit_to:
-            msg = await ctx.send(f'{ctx.author.mention} amount **{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}** has been credited to userid **{to_userid}**.')
+            msg = await ctx.send(f'{ctx.author.mention} amount **{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}** has been credited to userid **{to_userid}**.')
             await msg.add_reaction(EMOJI_OK_BOX)
             return
     except ValueError:
@@ -10591,8 +10591,8 @@ async def coininfo(ctx, coin: str = None):
                 confim_depth = get_confirm_depth(COIN_NAME)
             try:
                 openRedis()
-                if redis_conn and redis_conn.exists(f'{config.redis_setting.prefix_daemon_height}{COIN_NAME}'):
-                    height = int(redis_conn.get(f'{config.redis_setting.prefix_daemon_height}{COIN_NAME}'))
+                if redis_conn and redis_conn.exists(f'{config.redis_setting.prefix_daemon_height} {COIN_NAME}'):
+                    height = int(redis_conn.get(f'{config.redis_setting.prefix_daemon_height} {COIN_NAME}'))
                     if not is_maintenance_coin(COIN_NAME):
                         table_data.append([COIN_NAME,  '{:,.0f}'.format(height), "ON" if is_coin_tipable(COIN_NAME) else "OFF"\
                         , "ON" if is_coin_txable(COIN_NAME) else "OFF"\
@@ -10633,50 +10633,57 @@ async def coininfo(ctx, coin: str = None):
             response_text += "```"
             try:
                 openRedis()
-                if redis_conn and redis_conn.exists(f'{config.redis_setting.prefix_daemon_height}{COIN_NAME}'):
-                    height = int(redis_conn.get(f'{config.redis_setting.prefix_daemon_height}{COIN_NAME}'))
+                if redis_conn and redis_conn.exists(f'{config.redis_setting.prefix_daemon_height} {COIN_NAME}'):
+                    height = int(redis_conn.get(f'{config.redis_setting.prefix_daemon_height} {COIN_NAME}'))
                     response_text += "Height: {:,.0f}".format(height) + "\n"
                 response_text += "Confirmation: {} Blocks".format(confim_depth) + "\n"
-                if is_coin_tipable(COIN_NAME): 
-                    response_text += "Tipping: ON\n"
-                else:
-                    response_text += "Tipping: OFF\n"
-                if is_coin_depositable(COIN_NAME): 
-                    response_text += "Deposit: ON\n"
-                else:
-                    response_text += "Deposit: OFF\n"
-                if isinstance(ctx.channel, discord.DMChannel) == True:
-                    if COIN_NAME in ENABLE_TRADE_COIN and is_tradeable_coin(COIN_NAME): 
-                        response_text += "Trade: ON\n"
-                        response_text += f"Trade Min/Max: {num_format_coin(get_min_sell(COIN_NAME, token_info), COIN_NAME)}{COIN_NAME} / {num_format_coin(get_max_sell(COIN_NAME, token_info), COIN_NAME)}{COIN_NAME}\n"
-                elif isinstance(ctx.channel, discord.DMChannel) == False and COIN_NAME in ENABLE_TRADE_COIN and is_tradeable_coin(COIN_NAME):
-                    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
-                    if 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "YES":
-                        response_text += "Trade: ON\n"
-                        response_text += f"Trade Min/Max: {num_format_coin(get_min_sell(COIN_NAME, token_info), COIN_NAME)}{COIN_NAME} / {num_format_coin(get_max_sell(COIN_NAME, token_info), COIN_NAME)}{COIN_NAME}\n"
-                if is_coin_txable(COIN_NAME): 
-                    response_text += "Withdraw: ON\n"
-                else:
-                    response_text += "Withdraw: OFF\n"
+                tip_deposit_withdraw_stat = ["ON", "ON", "ON"]
+                if not is_coin_tipable(COIN_NAME):
+                    tip_deposit_withdraw_stat[0] = "OFF"
+                if not is_coin_depositable(COIN_NAME):
+                    tip_deposit_withdraw_stat[1] = "OFF"
+                if not is_coin_txable(COIN_NAME):
+                    tip_deposit_withdraw_stat[2] = "OFF"
+                response_text += "Tipping / Depositing / Withdraw:\n   {} / {} / {}\n".format(tip_deposit_withdraw_stat[0], tip_deposit_withdraw_stat[1], tip_deposit_withdraw_stat[2])
+
+                get_tip_min_max = "Tip Min/Max:\n   " + num_format_coin(Min_Tip, COIN_NAME) + " / " + num_format_coin(Max_Tip, COIN_NAME) + " " + COIN_NAME
+                response_text += get_tip_min_max + "\n"
+                get_tx_min_max = "Withdraw Min/Max:\n   " + num_format_coin(Min_Tx, COIN_NAME) + " / " + num_format_coin(Max_Tx, COIN_NAME) + " " + COIN_NAME
+                response_text += get_tx_min_max + "\n"
+
                 if COIN_NAME in FEE_PER_BYTE_COIN + ENABLE_COIN_DOGE + ENABLE_XCH + ENABLE_XMR:
-                    response_text += "Withdraw Tx Node Fee: {}{}\n".format(num_format_coin(get_tx_node_fee(COIN_NAME), COIN_NAME), COIN_NAME)
+                    response_text += "Withdraw Tx Node Fee: {} {}\n".format(num_format_coin(get_tx_node_fee(COIN_NAME), COIN_NAME), COIN_NAME)
                 elif COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
                     if token_info['contract'] and len(token_info['contract']) == 42:
                         response_text += "Contract:\n   {}\n".format(token_info['contract'])
                     elif COIN_NAME in ENABLE_COIN_TRC and token_info['contract'] and len(token_info['contract']) > 4:
                         response_text += "Contract/Token ID:\n   {}\n".format(token_info['contract'])
-                    response_text += "Withdraw Tx Fee: {}{}\n".format(num_format_coin(token_info['real_withdraw_fee'], COIN_NAME), COIN_NAME)
+                    response_text += "Withdraw Tx Fee: {} {}\n".format(num_format_coin(token_info['real_withdraw_fee'], COIN_NAME), COIN_NAME)
                     if token_info['real_deposit_fee'] and token_info['real_deposit_fee'] > 0:
-                        response_text += "Deposit Tx Fee: {}{}\n".format(num_format_coin(token_info['real_deposit_fee'], COIN_NAME), COIN_NAME)
+                        response_text += "Deposit Tx Fee: {} {}\n".format(num_format_coin(token_info['real_deposit_fee'], COIN_NAME), COIN_NAME)
                 elif COIN_NAME in ENABLE_COIN_NANO:
                     # nothing
                     response_text += "Withdraw Tx Fee: Zero\n"
                 else:
-                    response_text += "Withdraw Tx Fee: {}{}\n".format(num_format_coin(get_tx_node_fee(COIN_NAME), COIN_NAME), COIN_NAME)
-                get_tip_min_max = "Tip Min/Max:\n   " + num_format_coin(Min_Tip, COIN_NAME) + " / " + num_format_coin(Max_Tip, COIN_NAME) + COIN_NAME
-                response_text += get_tip_min_max + "\n"
-                get_tx_min_max = "Withdraw Min/Max:\n   " + num_format_coin(Min_Tx, COIN_NAME) + " / " + num_format_coin(Max_Tx, COIN_NAME) + COIN_NAME
-                response_text += get_tx_min_max
+                    response_text += "Withdraw Tx Fee: {} {}\n".format(num_format_coin(get_tx_node_fee(COIN_NAME), COIN_NAME), COIN_NAME)
+
+                if isinstance(ctx.channel, discord.DMChannel) == True:
+                    if COIN_NAME in ENABLE_TRADE_COIN and is_tradeable_coin(COIN_NAME): 
+                        response_text += f"Trade Min/Max: {num_format_coin(get_min_sell(COIN_NAME, token_info), COIN_NAME)} {COIN_NAME} / {num_format_coin(get_max_sell(COIN_NAME, token_info), COIN_NAME)} {COIN_NAME}\n"
+                        
+                elif isinstance(ctx.channel, discord.DMChannel) == False and COIN_NAME in ENABLE_TRADE_COIN and is_tradeable_coin(COIN_NAME):
+                    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                    if 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "YES":
+                        response_text += f"Trade Min/Max: {num_format_coin(get_min_sell(COIN_NAME, token_info), COIN_NAME)} {COIN_NAME} / {num_format_coin(get_max_sell(COIN_NAME, token_info), COIN_NAME)} {COIN_NAME}\n"
+                        # If there is volume
+                        try:
+                            get_trade = await store.sql_get_coin_trade_stat(COIN_NAME)
+                            if get_trade:
+                                response_text += "Trade volume:\n   24h: {} {}\n".format(num_format_coin(get_trade['trade_24h'], COIN_NAME), COIN_NAME)
+                                response_text += "   7d: {} {}\n".format(num_format_coin(get_trade['trade_7d'], COIN_NAME), COIN_NAME)
+                                response_text += "   30d: {} {}\n".format(num_format_coin(get_trade['trade_30d'], COIN_NAME), COIN_NAME)
+                        except Exception as e:
+                            await logchanbot(traceback.format_exc())
                 if COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC and token_info['coininfo_note']:
                     response_text += "\nNote:\n   {}\n".format(token_info['coininfo_note'])
             except Exception as e:
@@ -11596,7 +11603,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
     if not is_coin_txable(COIN_NAME):
         msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} TX is currently disable for {COIN_NAME}.')
         await msg.add_reaction(EMOJI_OK_BOX)
-        await logchanbot(f'User {ctx.author.id} tried to withdraw {amount}{COIN_NAME} while it tx not enable.')
+        await logchanbot(f'User {ctx.author.id} tried to withdraw {amount} {COIN_NAME} while it tx not enable.')
         return
 
     if COIN_NAME not in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_COIN_ERC+ENABLE_COIN_TRC+ENABLE_XCH:
@@ -11682,7 +11689,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
         elif real_amount + NetFee > actual_balance:
             extra_fee_txt = ''
             if NetFee > 0:
-                extra_fee_txt = f'You need to leave a node/tx fee: {num_format_coin(NetFee, COIN_NAME)}{COIN_NAME}'
+                extra_fee_txt = f'You need to leave a node/tx fee: {num_format_coin(NetFee, COIN_NAME)} {COIN_NAME}'
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to withdraw '
                            f'{num_format_coin(real_amount, COIN_NAME)} '
@@ -11954,7 +11961,7 @@ async def donate(ctx, amount: str, coin: str=None):
             await logchanbot(traceback.format_exc())
 
         await ctx.message.add_reaction(get_emoji(COIN_NAME))
-        await botLogChan.send(f'{EMOJI_MONEYFACE} TipBot got donation: {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
+        await botLogChan.send(f'{EMOJI_MONEYFACE} TipBot got donation: {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}')
         await ctx.message.author.send(
                                 f'{EMOJI_MONEYFACE} TipBot got donation: {num_format_coin(real_amount, COIN_NAME)} '
                                 f'{COIN_NAME} '
@@ -12456,7 +12463,7 @@ async def take(ctx, info: str=None):
                         tip = await store.sql_mv_trx_single(str(bot.user.id), str(ctx.message.author.id), real_amount, COIN_NAME, "FAUCET", token_info['contract'])
                 else:
                     try:
-                        msg = await ctx.message.reply(f'{EMOJI_MONEYFACE} {ctx.author.mention} Simulated faucet {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}. This is a test only. Use without **ticker** to do real faucet claim.')
+                        msg = await ctx.message.reply(f'{EMOJI_MONEYFACE} {ctx.author.mention} Simulated faucet {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}. This is a test only. Use without **ticker** to do real faucet claim.')
                         await msg.add_reaction(EMOJI_OK_BOX)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
@@ -12479,12 +12486,12 @@ async def take(ctx, info: str=None):
                 await logchanbot(traceback.format_exc())
             try:
                 faucet_add = await store.sql_faucet_add(str(ctx.message.author.id), str(ctx.guild.id), COIN_NAME, real_amount, 10**decimal_pts, 'DISCORD')
-                msg = await ctx.send(f'{EMOJI_MONEYFACE} {ctx.author.mention} You got a random faucet {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
-                await logchanbot(f'[Discord] User {ctx.message.author.name}#{ctx.message.author.discriminator} claimed faucet {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME} in guild {ctx.guild.name}/{ctx.guild.id}')
+                msg = await ctx.send(f'{EMOJI_MONEYFACE} {ctx.author.mention} You got a random faucet {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}')
+                await logchanbot(f'[Discord] User {ctx.message.author.name}#{ctx.message.author.discriminator} claimed faucet {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME} in guild {ctx.guild.name}/{ctx.guild.id}')
                 await ctx.message.add_reaction(get_emoji(COIN_NAME))
                 await msg.add_reaction(EMOJI_OK_BOX)
             except (discord.errors.NotFound, discord.errors.Forbidden) as e:
-                msg = await ctx.author.send(f'{EMOJI_MONEYFACE} {ctx.author.mention} You got a random faucet {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}. Claimed in guild `{ctx.guild.name}`.')
+                msg = await ctx.author.send(f'{EMOJI_MONEYFACE} {ctx.author.mention} You got a random faucet {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}. Claimed in guild `{ctx.guild.name}`.')
             except Exception as e:
                 await logchanbot(traceback.format_exc())
         else:
@@ -13039,7 +13046,7 @@ async def freetip(ctx, amount: str, coin: str, duration: str='60s', *, comment: 
     if ctx.message.author.id not in TX_IN_PROCESS:
         TX_IN_PROCESS.append(ctx.message.author.id)
     try:
-        embed = discord.Embed(title=f"Free Tip appears {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}", description=f"Re-act {EMOJI_PARTY} to collect", timestamp=ts, color=0x00ff00)
+        embed = discord.Embed(title=f"Free Tip appears {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}", description=f"Re-act {EMOJI_PARTY} to collect", timestamp=ts, color=0x00ff00)
         msg = await ctx.message.reply(embed=embed)
         await msg.add_reaction(EMOJI_PARTY)
         if comment and len(comment) > 0:
@@ -13066,7 +13073,7 @@ and reaction.message.id == msg.id and str(reaction.emoji) == EMOJI_PARTY
                 if ctx.message.author.id in TX_IN_PROCESS:
                     TX_IN_PROCESS.remove(ctx.message.author.id)
                 if len(attend_list_id) == 0:
-                    embed = discord.Embed(title=f"Free Tip appears {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}", description=f"Already expired", timestamp=ts, color=0x00ff00)
+                    embed = discord.Embed(title=f"Free Tip appears {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}", description=f"Already expired", timestamp=ts, color=0x00ff00)
                     embed.add_field(name="Comment", value=comment, inline=False)
                     embed.set_footer(text=f"Free tip by {ctx.message.author.name}#{ctx.message.author.discriminator}, and no one collected!")
                     await msg.edit(embed=embed)
@@ -13077,7 +13084,7 @@ and reaction.message.id == msg.id and str(reaction.emoji) == EMOJI_PARTY
             if str(reaction.emoji) == EMOJI_PARTY and user.id not in attend_list_id:
                 attend_list_id.append(user.id)
                 attend_list_names.append('{}#{}'.format(user.name, user.discriminator))
-                embed = discord.Embed(title=f"Free Tip appears {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}", description=f"Re-act {EMOJI_PARTY} to collect", timestamp=ts, color=0x00ff00)
+                embed = discord.Embed(title=f"Free Tip appears {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}", description=f"Re-act {EMOJI_PARTY} to collect", timestamp=ts, color=0x00ff00)
                 embed.add_field(name="Comment", value=comment, inline=False)
                 embed.add_field(name="Attendees", value=", ".join(attend_list_names), inline=False)
                 embed.set_footer(text=f"Free tip by {ctx.message.author.name}#{ctx.message.author.discriminator}, timeout: {seconds_str(duration_s)}")
@@ -13160,8 +13167,8 @@ and reaction.message.id == msg.id and str(reaction.emoji) == EMOJI_PARTY
                     f'{EMOJI_ARROW_RIGHTHOOK} Free Tip of {tipAmount} '
                     f'{COIN_NAME} '
                     f'was collected by ({len(attend_list_id)}) members in server `{ctx.guild.name}`.\n'
-                    f'Each member got: `{amountDiv_str}{COIN_NAME}`\n'
-                    f'Actual spending: `{ActualSpend_str}{COIN_NAME}`')
+                    f'Each member got: `{amountDiv_str} {COIN_NAME}`\n'
+                    f'Actual spending: `{ActualSpend_str} {COIN_NAME}`')
             except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                 await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
             numMsg = 0
@@ -13185,7 +13192,7 @@ and reaction.message.id == msg.id and str(reaction.emoji) == EMOJI_PARTY
                     break
             # Edit embed
             try:
-                embed = discord.Embed(title=f"Free Tip appears {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}", description=f"Re-act {EMOJI_PARTY} to collect", timestamp=ts, color=0x00ff00)
+                embed = discord.Embed(title=f"Free Tip appears {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}", description=f"Re-act {EMOJI_PARTY} to collect", timestamp=ts, color=0x00ff00)
                 embed.add_field(name="Comment", value=comment, inline=False)
                 embed.add_field(name="Attendees", value=", ".join(attend_list_names), inline=False)
                 embed.set_footer(text=f"Free tip by {ctx.message.author.name}#{ctx.message.author.discriminator}, completed! Collected by {len(attend_list_id)} member(s)")
@@ -13202,7 +13209,7 @@ and reaction.message.id == msg.id and str(reaction.emoji) == EMOJI_PARTY
         except asyncio.TimeoutError:
             if ctx.message.author.id in TX_IN_PROCESS:
                 TX_IN_PROCESS.remove(ctx.message.author.id)
-            embed = discord.Embed(title=f"Free Tip appears {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}", description=f"Already expired", timestamp=ts, color=0x00ff00)
+            embed = discord.Embed(title=f"Free Tip appears {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}", description=f"Already expired", timestamp=ts, color=0x00ff00)
             embed.set_footer(text=f"Free tip by {ctx.message.author.name}#{ctx.message.author.discriminator}, and no one collected!")
             await msg.edit(embed=embed)
             await msg.add_reaction(EMOJI_OK_BOX)
@@ -13274,7 +13281,7 @@ and reaction.message.id == msg.id and str(reaction.emoji) == EMOJI_PARTY
                     update_tipstat = await store.sql_user_get_tipstat(str(user.id), COIN_NAME, True, 'DISCORD')
                 except Exception as e:
                     await logchanbot(traceback.format_exc())
-                embed = discord.Embed(title=f"Free Tip appeared {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}", description=f"Already collected", color=0x00ff00)
+                embed = discord.Embed(title=f"Free Tip appeared {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}", description=f"Already collected", color=0x00ff00)
                 embed.set_footer(text=f"Free tip by {ctx.message.author.name}#{ctx.message.author.discriminator}, collected by: {user.name}#{user.discriminator}")
                 await msg.edit(embed=embed)
                 # tipper shall always get DM. Ignore notifyList
@@ -13447,7 +13454,7 @@ async def tipto(ctx, amount: str, coin: str, to_user: str):
                                                                'DISCORD', userid, userid, serverto, real_amount, decimal_pts)
                         if tipto:
                             await logchanbot('[Discord] {}#{} tipto {}{} to **{}**'.format(ctx.author.name, ctx.author.discriminator, num_format_coin(real_amount, COIN_NAME), COIN_NAME, to_user))
-                            msg = await ctx.send(f'{EMOJI_CHECK} {ctx.author.mention} Successfully transfer {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME} to **{to_user}**.')
+                            msg = await ctx.send(f'{EMOJI_CHECK} {ctx.author.mention} Successfully transfer {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME} to **{to_user}**.')
                             await msg.add_reaction(EMOJI_OK_BOX)
                             # Update tipstat
                             try:
@@ -13456,9 +13463,9 @@ async def tipto(ctx, amount: str, coin: str, to_user: str):
                             except Exception as e:
                                 await logchanbot(traceback.format_exc())
                         else:
-                            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} Internal error for tipto {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME} to **{to_user}**.')
+                            msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} Internal error for tipto {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME} to **{to_user}**.')
                             await msg.add_reaction(EMOJI_OK_BOX)
-                            await logchanbot(f'{EMOJI_ERROR} {ctx.author.name}#{ctx.author.discriminator} Internal error for tipto {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME} to **{to_user}**.')
+                            await logchanbot(f'{EMOJI_ERROR} {ctx.author.name}#{ctx.author.discriminator} Internal error for tipto {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME} to **{to_user}**.')
                         return
                 except Exception as e:
                     print(traceback.format_exc())
@@ -13988,7 +13995,7 @@ async def tip(ctx, amount: str, *args):
             except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
                 await store.sql_toggle_tipnotify(str(member.id), "OFF")
         if secrettip:
-            await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} using a secret tip command {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}.')
+            await botLogChan.send(f'{ctx.message.author.name} / {ctx.message.author.id} using a secret tip command {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}.')
         return
     else:
         await ctx.message.add_reaction(EMOJI_ERROR)
@@ -14670,7 +14677,7 @@ async def tipall(ctx, amount: str, coin: str, option: str=None):
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
                                 f'{num_format_coin(MinTx, COIN_NAME)} '
-                                f'{COIN_NAME} for each member. You need at least {num_format_coin(len(list_receivers) * MinTx, COIN_NAME)}{COIN_NAME}.')
+                                f'{COIN_NAME} for each member. You need at least {num_format_coin(len(list_receivers) * MinTx, COIN_NAME)} {COIN_NAME}.')
         return
 
     amountDiv = int(round(real_amount / len(list_receivers), 2))  # cut 2 decimal only
@@ -14680,7 +14687,7 @@ async def tipall(ctx, amount: str, coin: str, option: str=None):
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than '
                            f'{num_format_coin(MinTx, COIN_NAME)} '
-                           f'{COIN_NAME} for each member. You need at least {num_format_coin(len(list_receivers) * MinTx, COIN_NAME)}{COIN_NAME}.')
+                           f'{COIN_NAME} for each member. You need at least {num_format_coin(len(list_receivers) * MinTx, COIN_NAME)} {COIN_NAME}.')
             return
 
     if len(list_receivers) < 1:
@@ -14817,8 +14824,8 @@ async def tipall(ctx, amount: str, coin: str, option: str=None):
                 f'{EMOJI_ARROW_RIGHTHOOK} Tip of {tipAmount} '
                 f'{COIN_NAME} '
                 f'was sent spread to ({total_found}) members in server `{ctx.guild.name}`.\n'
-                f'Each member got: `{amountDiv_str}{COIN_NAME}`\n'
-                f'Actual spending: `{ActualSpend_str}{COIN_NAME}`')
+                f'Each member got: `{amountDiv_str} {COIN_NAME}`\n'
+                f'Actual spending: `{ActualSpend_str} {COIN_NAME}`')
         except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
             await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
         return
@@ -14959,7 +14966,7 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
     if not is_coin_txable(COIN_NAME):
         msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} TX is currently disable for {COIN_NAME}.')
         await msg.add_reaction(EMOJI_OK_BOX)
-        await logchanbot(f'User {ctx.author.id} tried to send {amount}{COIN_NAME} while it tx not enable.')
+        await logchanbot(f'User {ctx.author.id} tried to send {amount} {COIN_NAME} while it tx not enable.')
         return
     if COIN_NAME:
         if COIN_NAME in ENABLE_COIN_ERC:
@@ -15144,7 +15151,7 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
         if real_amount + NetFee > actual_balance:
             extra_fee_txt = ''
             if NetFee > 0:
-                extra_fee_txt = f'You need to leave a node/tx fee: {num_format_coin(NetFee, COIN_NAME)}{COIN_NAME}'
+                extra_fee_txt = f'You need to leave a node/tx fee: {num_format_coin(NetFee, COIN_NAME)} {COIN_NAME}'
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send tx of '
                            f'{num_format_coin(real_amount, COIN_NAME)} '
@@ -15333,7 +15340,7 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send out '
                            f'{num_format_coin(real_amount, COIN_NAME)} '
-                           f'{COIN_NAME}. You need to leave a node/tx fee: {num_format_coin(NetFee, COIN_NAME)}{COIN_NAME}')
+                           f'{COIN_NAME}. You need to leave a node/tx fee: {num_format_coin(NetFee, COIN_NAME)} {COIN_NAME}')
             return
         if real_amount < MinTx:
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -15504,7 +15511,7 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
                     await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Address: `{CoinAddress}` '
                                     'is invalid.')
                     return
-        extra_fee_txt = f'You need to leave a node/tx fee: {num_format_coin(NetFee, COIN_NAME)}{COIN_NAME}'
+        extra_fee_txt = f'You need to leave a node/tx fee: {num_format_coin(NetFee, COIN_NAME)} {COIN_NAME}'
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if user_from is None:
             if coin_family == "ERC-20":
@@ -16222,8 +16229,8 @@ async def make(ctx, amount: str, coin: str, *, comment):
         having_amount = num_format_coin(actual_balance, COIN_NAME)
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to create voucher.\n'
-                       f'A voucher needed amount + fee: {num_format_coin(real_amount + fee_voucher_amount, COIN_NAME)}{COIN_NAME}\n'
-                       f'Having: {having_amount}{COIN_NAME}.')
+                       f'A voucher needed amount + fee: {num_format_coin(real_amount + fee_voucher_amount, COIN_NAME)} {COIN_NAME}\n'
+                       f'Having: {having_amount} {COIN_NAME}.')
         return
 
     comment = comment.strip().replace('\n', ' ').replace('\r', '')
@@ -16243,8 +16250,8 @@ async def make(ctx, amount: str, coin: str, *, comment):
             having_amount = num_format_coin(actual_balance, COIN_NAME)
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to create **{voucher_numb}** vouchers.\n'
-                           f'**{voucher_numb}** vouchers needed amount + fee: {num_format_coin((real_amount + fee_voucher_amount*voucher_numb), COIN_NAME)}{COIN_NAME}\n'
-                           f'Having: {having_amount}{COIN_NAME}.')
+                           f'**{voucher_numb}** vouchers needed amount + fee: {num_format_coin((real_amount + fee_voucher_amount*voucher_numb), COIN_NAME)} {COIN_NAME}\n'
+                           f'Having: {having_amount} {COIN_NAME}.')
             return
 
         # Check if bot can DM him first. If failed reject
@@ -16744,8 +16751,8 @@ async def stats(ctx, coin: str = None):
             height = "{:,}".format(gettopblock['height'])
             reward = "{:,}".format(int(gettopblock['reward'])/int(get_decimal(COIN_NAME)))
         if coin_family == "XMR":
-            desc = f"Tip min/max: {num_format_coin(get_min_mv_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_mv_amount(COIN_NAME), COIN_NAME)}{COIN_NAME}\n"
-            desc += f"Tx min/max: {num_format_coin(get_min_tx_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_tx_amount(COIN_NAME), COIN_NAME)}{COIN_NAME}\n"
+            desc = f"Tip min/max: {num_format_coin(get_min_mv_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_mv_amount(COIN_NAME), COIN_NAME)} {COIN_NAME}\n"
+            desc += f"Tx min/max: {num_format_coin(get_min_tx_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_tx_amount(COIN_NAME), COIN_NAME)} {COIN_NAME}\n"
             embed = discord.Embed(title=f"[ {COIN_NAME} ]", 
                                   description=desc, 
                                   timestamp=datetime.utcnow(), color=0xDEADBF)
@@ -16753,7 +16760,7 @@ async def stats(ctx, coin: str = None):
             embed.add_field(name="NET HEIGHT", value=str(height), inline=True)
             embed.add_field(name="FOUND", value=ago, inline=True)
             embed.add_field(name="DIFFICULTY", value=difficulty, inline=True)
-            embed.add_field(name="BLOCK REWARD", value=f'{reward}{COIN_NAME}', inline=True)
+            embed.add_field(name="BLOCK REWARD", value=f'{reward} {COIN_NAME}', inline=True)
             if COIN_NAME not in ["XWP"]:
                 embed.add_field(name="NETWORK HASH", value=hashrate, inline=True)
             if walletStatus:
@@ -16777,9 +16784,9 @@ async def stats(ctx, coin: str = None):
                                f'```[NETWORK HEIGHT] {height}\n'
                                f'[TIME]           {ago}\n'
                                f'[DIFFICULTY]     {difficulty}\n'
-                               f'[BLOCK REWARD]   {reward}{COIN_NAME}\n'
-                               f'[TIP Min/Max]    {num_format_coin(get_min_mv_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_mv_amount(COIN_NAME), COIN_NAME)}{COIN_NAME}\n'
-                               f'[TX Min/Max]     {num_format_coin(get_min_tx_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_tx_amount(COIN_NAME), COIN_NAME)}{COIN_NAME}\n'
+                               f'[BLOCK REWARD]   {reward} {COIN_NAME}\n'
+                               f'[TIP Min/Max]    {num_format_coin(get_min_mv_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_mv_amount(COIN_NAME), COIN_NAME)} {COIN_NAME}\n'
+                               f'[TX Min/Max]     {num_format_coin(get_min_tx_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_tx_amount(COIN_NAME), COIN_NAME)} {COIN_NAME}\n'
                                '```')
                 await msg.add_reaction(EMOJI_OK_BOX)
             return
@@ -16795,8 +16802,8 @@ async def stats(ctx, coin: str = None):
                     walletBalance = await walletapi.walletapi_get_sum_balances(COIN_NAME)    
                 else:
                     walletBalance = await get_sum_balances(COIN_NAME)
-            desc = f"Tip min/max: {num_format_coin(get_min_mv_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_mv_amount(COIN_NAME), COIN_NAME)}{COIN_NAME}\n"
-            desc += f"Tx min/max: {num_format_coin(get_min_tx_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_tx_amount(COIN_NAME), COIN_NAME)}{COIN_NAME}\n"
+            desc = f"Tip min/max: {num_format_coin(get_min_mv_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_mv_amount(COIN_NAME), COIN_NAME)} {COIN_NAME}\n"
+            desc += f"Tx min/max: {num_format_coin(get_min_tx_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_tx_amount(COIN_NAME), COIN_NAME)} {COIN_NAME}\n"
             embed = discord.Embed(title=f"[ {COIN_NAME} ]", 
                                   description=desc, 
                                   timestamp=datetime.utcnow(), color=0xDEADBF)
@@ -16804,7 +16811,7 @@ async def stats(ctx, coin: str = None):
             embed.add_field(name="NET HEIGHT", value=str(height), inline=True)
             embed.add_field(name="FOUND", value=ago, inline=True)
             embed.add_field(name="DIFFICULTY", value=difficulty, inline=True)
-            embed.add_field(name="BLOCK REWARD", value=f'{reward}{COIN_NAME}', inline=True)
+            embed.add_field(name="BLOCK REWARD", value=f'{reward} {COIN_NAME}', inline=True)
             embed.add_field(name="NETWORK HASH", value=hashrate, inline=True)
             if walletStatus:
                 embed.add_field(name="WALLET SYNC %", value=t_percent + '% (' + '{:,.0f}'.format(localDaemonBlockCount - 1) + ')', inline=True)
@@ -16825,16 +16832,16 @@ async def stats(ctx, coin: str = None):
                 if walletBalance and ('unlocked' in walletBalance) and ('locked' in walletBalance) and walletStatus:
                     balance_actual = num_format_coin(walletBalance['unlocked'], COIN_NAME)
                     balance_locked = num_format_coin(walletBalance['locked'], COIN_NAME)
-                    balance_str = f'[TOTAL UNLOCKED] {balance_actual}{COIN_NAME}\n'
-                    balance_str = balance_str + f'[TOTAL LOCKED]   {balance_locked}{COIN_NAME}'
+                    balance_str = f'[TOTAL UNLOCKED] {balance_actual} {COIN_NAME}\n'
+                    balance_str = balance_str + f'[TOTAL LOCKED]   {balance_locked} {COIN_NAME}'
                     msg = await ctx.send(f'**[ {COIN_NAME} ]**\n'
                                    f'```[NETWORK HEIGHT] {height}\n'
                                    f'[TIME]           {ago}\n'
                                    f'[DIFFICULTY]     {difficulty}\n'
-                                   f'[BLOCK REWARD]   {reward}{COIN_NAME}\n'
+                                   f'[BLOCK REWARD]   {reward} {COIN_NAME}\n'
                                    f'[NETWORK HASH]   {hashrate}\n'
-                                   f'[TIP Min/Max]    {num_format_coin(get_min_mv_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_mv_amount(COIN_NAME), COIN_NAME)}{COIN_NAME}\n'
-                                   f'[TX Min/Max]     {num_format_coin(get_min_tx_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_tx_amount(COIN_NAME), COIN_NAME)}{COIN_NAME}\n'
+                                   f'[TIP Min/Max]    {num_format_coin(get_min_mv_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_mv_amount(COIN_NAME), COIN_NAME)} {COIN_NAME}\n'
+                                   f'[TX Min/Max]     {num_format_coin(get_min_tx_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_tx_amount(COIN_NAME), COIN_NAME)} {COIN_NAME}\n'
                                    f'[WALLET SYNC %]: {t_percent}' + '% (' + '{:,.0f}'.format(localDaemonBlockCount - 1) + ')\n'
                                    f'{balance_str}'
                                    '```')
@@ -16843,10 +16850,10 @@ async def stats(ctx, coin: str = None):
                                    f'```[NETWORK HEIGHT] {height}\n'
                                    f'[TIME]           {ago}\n'
                                    f'[DIFFICULTY]     {difficulty}\n'
-                                   f'[BLOCK REWARD]   {reward}{COIN_NAME}\n'
+                                   f'[BLOCK REWARD]   {reward} {COIN_NAME}\n'
                                    f'[NETWORK HASH]   {hashrate}\n'
-                                   f'[TIP Min/Max]    {num_format_coin(get_min_mv_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_mv_amount(COIN_NAME), COIN_NAME)}{COIN_NAME}\n'
-                                   f'[TX Min/Max]     {num_format_coin(get_min_tx_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_tx_amount(COIN_NAME), COIN_NAME)}{COIN_NAME}\n'
+                                   f'[TIP Min/Max]    {num_format_coin(get_min_mv_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_mv_amount(COIN_NAME), COIN_NAME)} {COIN_NAME}\n'
+                                   f'[TX Min/Max]     {num_format_coin(get_min_tx_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_tx_amount(COIN_NAME), COIN_NAME)} {COIN_NAME}\n'
                                    '```')
                 await msg.add_reaction(EMOJI_OK_BOX)
             return
@@ -16861,8 +16868,8 @@ async def stats(ctx, coin: str = None):
                 walletBalance = await walletapi.walletapi_get_sum_balances(COIN_NAME)    
             else:
                 walletBalance = await get_sum_balances(COIN_NAME)     
-            desc = f"Tip min/max: {num_format_coin(get_min_mv_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_mv_amount(COIN_NAME), COIN_NAME)}{COIN_NAME}\n"
-            desc += f"Tx min/max: {num_format_coin(get_min_tx_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_tx_amount(COIN_NAME), COIN_NAME)}{COIN_NAME}\n"
+            desc = f"Tip min/max: {num_format_coin(get_min_mv_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_mv_amount(COIN_NAME), COIN_NAME)} {COIN_NAME}\n"
+            desc += f"Tx min/max: {num_format_coin(get_min_tx_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_tx_amount(COIN_NAME), COIN_NAME)} {COIN_NAME}\n"
             embed = discord.Embed(title=f"[ {COIN_NAME} ]", 
                                   description=desc, 
                                   timestamp=datetime.utcnow(), color=0xDEADBF)
@@ -16887,14 +16894,14 @@ async def stats(ctx, coin: str = None):
                 if ('unlocked' in walletBalance) and ('locked' in walletBalance):
                     balance_actual = num_format_coin(walletBalance['unlocked'], COIN_NAME)
                     balance_locked = num_format_coin(walletBalance['locked'], COIN_NAME)
-                    balance_str = f'[TOTAL UNLOCKED] {balance_actual}{COIN_NAME}\n'
-                    balance_str = balance_str + f'[TOTAL LOCKED]   {balance_locked}{COIN_NAME}'
+                    balance_str = f'[TOTAL UNLOCKED] {balance_actual} {COIN_NAME}\n'
+                    balance_str = balance_str + f'[TOTAL LOCKED]   {balance_locked} {COIN_NAME}'
                     msg = await ctx.send(f'**[ {COIN_NAME} ]**\n'
                                    f'```[LOCAL DAEMON]   {t_localDaemonBlockCount}\n'
                                    f'[NETWORK]        {t_networkBlockCount}\n'
                                    f'[WALLET SYNC %]: {t_percent}' + '% (' + '{:,.0f}'.format(localDaemonBlockCount - 1) + ')\n'
-                                   f'[TIP Min/Max]    {num_format_coin(get_min_mv_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_mv_amount(COIN_NAME), COIN_NAME)}{COIN_NAME}\n'
-                                   f'[TX Min/Max]     {num_format_coin(get_min_tx_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_tx_amount(COIN_NAME), COIN_NAME)}{COIN_NAME}\n'
+                                   f'[TIP Min/Max]    {num_format_coin(get_min_mv_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_mv_amount(COIN_NAME), COIN_NAME)} {COIN_NAME}\n'
+                                   f'[TX Min/Max]     {num_format_coin(get_min_tx_amount(COIN_NAME), COIN_NAME)}-{num_format_coin(get_max_tx_amount(COIN_NAME), COIN_NAME)} {COIN_NAME}\n'
                                    f'{balance_str}'
                                    '```'
                                    )
@@ -16907,8 +16914,8 @@ async def stats(ctx, coin: str = None):
     elif COIN_NAME in ENABLE_COIN_ERC:
         try:
             token_info = await store.get_token_info(COIN_NAME)
-            desc = f"Tip min/max: {num_format_coin(token_info['real_min_tip'], COIN_NAME)}-{num_format_coin(token_info['real_max_tip'], COIN_NAME)}{COIN_NAME}\n"
-            desc += f"Tx min/max: {num_format_coin(token_info['real_min_tx'], COIN_NAME)}-{num_format_coin(token_info['real_max_tx'], COIN_NAME)}{COIN_NAME}\n"
+            desc = f"Tip min/max: {num_format_coin(token_info['real_min_tip'], COIN_NAME)}-{num_format_coin(token_info['real_max_tip'], COIN_NAME)} {COIN_NAME}\n"
+            desc += f"Tx min/max: {num_format_coin(token_info['real_min_tx'], COIN_NAME)}-{num_format_coin(token_info['real_max_tx'], COIN_NAME)} {COIN_NAME}\n"
             embed = discord.Embed(title=f"[ {COIN_NAME} ]", 
                                   description=desc, 
                                   timestamp=datetime.utcnow(), color=0xDEADBF)
@@ -16940,8 +16947,8 @@ async def stats(ctx, coin: str = None):
     elif COIN_NAME in ENABLE_COIN_TRC:
         try:
             token_info = await store.get_token_info(COIN_NAME)
-            desc = f"Tip min/max: {num_format_coin(token_info['real_min_tip'], COIN_NAME)}-{num_format_coin(token_info['real_max_tip'], COIN_NAME)}{COIN_NAME}\n"
-            desc += f"Tx min/max: {num_format_coin(token_info['real_min_tx'], COIN_NAME)}-{num_format_coin(token_info['real_max_tx'], COIN_NAME)}{COIN_NAME}\n"
+            desc = f"Tip min/max: {num_format_coin(token_info['real_min_tip'], COIN_NAME)}-{num_format_coin(token_info['real_max_tip'], COIN_NAME)} {COIN_NAME}\n"
+            desc += f"Tx min/max: {num_format_coin(token_info['real_min_tx'], COIN_NAME)}-{num_format_coin(token_info['real_max_tx'], COIN_NAME)} {COIN_NAME}\n"
             embed = discord.Embed(title=f"[ {COIN_NAME} ]", 
                                   description=desc, 
                                   timestamp=datetime.utcnow(), color=0xDEADBF)
@@ -19843,7 +19850,7 @@ async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str 
                 f'{EMOJI_ARROW_RIGHTHOOK} {tip_type_text} of {num_format_coin(TotalAmount, COIN_NAME)} '
                 f'{COIN_NAME} '
                 f'was sent to ({total_found}) members in server `{ctx.guild.name}` for active talking.\n'
-                f'Each member got: `{num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}`\n')
+                f'Each member got: `{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`\n')
         except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
             await store.sql_toggle_tipnotify(str(ctx.message.author.id), "OFF")
 

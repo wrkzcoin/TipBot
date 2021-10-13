@@ -4462,6 +4462,41 @@ async def sql_get_open_order_by_alluser_by_coins(coin1: str, coin2: str, status:
     return False
 
 
+async def sql_get_coin_trade_stat(coin: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT (SELECT SUM(amount_sell) FROM open_order 
+                          WHERE coin_sell=%s AND status='COMPLETE' AND order_completed_date > UNIX_TIMESTAMP()-3600*24) AS sell_24h, 
+                          (SELECT SUM(amount_get) FROM open_order 
+                          WHERE coin_get=%s AND status='COMPLETE' AND order_completed_date > UNIX_TIMESTAMP()-3600*24) AS get_24h,
+                          (SELECT SUM(amount_sell) FROM open_order 
+                          WHERE coin_sell=%s AND status='COMPLETE' AND order_completed_date > UNIX_TIMESTAMP()-3600*24*7) AS sell_7d, 
+                          (SELECT SUM(amount_get) FROM open_order 
+                          WHERE coin_get=%s AND status='COMPLETE' AND order_completed_date > UNIX_TIMESTAMP()-3600*24*7) AS get_7d,
+                          (SELECT SUM(amount_sell) FROM open_order 
+                          WHERE coin_sell=%s AND status='COMPLETE' AND order_completed_date > UNIX_TIMESTAMP()-3600*24*30) AS sell_30d, 
+                          (SELECT SUM(amount_get) FROM open_order 
+                          WHERE coin_get=%s AND status='COMPLETE' AND order_completed_date > UNIX_TIMESTAMP()-3600*24*30) AS get_30d
+                          """
+                await cur.execute(sql, (coin.upper(), coin.upper(), coin.upper(), coin.upper(), coin.upper(), coin.upper()))
+                result = await cur.fetchone()
+                if result:
+                    result['sell_24h'] = result['sell_24h'] if result['sell_24h'] else 0
+                    result['get_24h'] = result['get_24h'] if result['get_24h'] else 0
+                    result['sell_7d'] = result['sell_7d'] if result['sell_7d'] else 0
+                    result['get_7d'] = result['get_7d'] if result['get_7d'] else 0
+                    result['sell_30d'] = result['sell_30d'] if result['sell_30d'] else 0
+                    result['get_30d'] = result['get_30d'] if result['get_30d'] else 0
+                    return {'trade_24h': result['sell_24h']+result['get_24h'], 'trade_7d': result['sell_7d']+result['get_7d'], 'trade_30d': result['sell_30d']+result['get_30d']}
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+
 async def sql_get_order_numb(order_num: str, status: str = None):
     global pool
     if status is None: status = 'OPEN'

@@ -10575,7 +10575,7 @@ async def coinmap(ctx):
 
 @bot.command(pass_context=True, name='coininfo', aliases=['coinf_info', 'coin'], help=bot_help_coininfo)
 async def coininfo(ctx, coin: str = None):
-    global TRTL_DISCORD
+    global TRTL_DISCORD, ENABLE_COIN, ENABLE_COIN_DOGE, ENABLE_XMR, ENABLE_COIN_NANO, ENABLE_COIN_ERC, ENABLE_COIN_TRC, ENABLE_XCH
     if coin is None:
         if isinstance(ctx.channel, discord.DMChannel) == False and ctx.guild.id == TRTL_DISCORD:
             return
@@ -10591,8 +10591,8 @@ async def coininfo(ctx, coin: str = None):
                 confim_depth = get_confirm_depth(COIN_NAME)
             try:
                 openRedis()
-                if redis_conn and redis_conn.exists(f'{config.redis_setting.prefix_daemon_height} {COIN_NAME}'):
-                    height = int(redis_conn.get(f'{config.redis_setting.prefix_daemon_height} {COIN_NAME}'))
+                if redis_conn and redis_conn.exists(f'{config.redis_setting.prefix_daemon_height}{COIN_NAME}'):
+                    height = int(redis_conn.get(f'{config.redis_setting.prefix_daemon_height}{COIN_NAME}'))
                     if not is_maintenance_coin(COIN_NAME):
                         table_data.append([COIN_NAME,  '{:,.0f}'.format(height), "ON" if is_coin_tipable(COIN_NAME) else "OFF"\
                         , "ON" if is_coin_txable(COIN_NAME) else "OFF"\
@@ -10633,8 +10633,8 @@ async def coininfo(ctx, coin: str = None):
             response_text += "```"
             try:
                 openRedis()
-                if redis_conn and redis_conn.exists(f'{config.redis_setting.prefix_daemon_height} {COIN_NAME}'):
-                    height = int(redis_conn.get(f'{config.redis_setting.prefix_daemon_height} {COIN_NAME}'))
+                if redis_conn and redis_conn.exists(f'{config.redis_setting.prefix_daemon_height}{COIN_NAME}'):
+                    height = int(redis_conn.get(f'{config.redis_setting.prefix_daemon_height}{COIN_NAME}'))
                     response_text += "Height: {:,.0f}".format(height) + "\n"
                 response_text += "Confirmation: {} Blocks".format(confim_depth) + "\n"
                 tip_deposit_withdraw_stat = ["ON", "ON", "ON"]
@@ -10760,8 +10760,8 @@ async def balance(ctx, coin: str = None):
                             table_data.append([coinName, balance_actual, "YES" if is_coin_txable(COIN_NAME) else "NO"])
                         else:
                             if actual_balance > 0:
-                                table_data_str.append("{}{}".format(balance_actual, coinName))
-                                embed.add_field(name=COIN_NAME, value=balance_actual+COIN_NAME, inline=True)
+                                table_data_str.append("{} {}".format(balance_actual, coinName))
+                                embed.add_field(name=COIN_NAME, value=balance_actual+" "+COIN_NAME, inline=True)
                                 num_coins += 1
                                 if num_coins > 0 and num_coins % per_page == 0:
                                     embed.set_footer(text="Continue... Page {}".format(int(num_coins/per_page)))
@@ -10867,16 +10867,16 @@ async def balance(ctx, coin: str = None):
         embed = discord.Embed(title=f'[ {ctx.author.name}#{ctx.author.discriminator}\'s {COIN_NAME} balance ]', timestamp=datetime.utcnow())
         try:
             if COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
-                embed.add_field(name="Deposited", value="`{}{}`".format(num_format_coin(float(real_deposit_balance), COIN_NAME), COIN_NAME), inline=True)
+                embed.add_field(name="Deposited", value="`{} {}`".format(num_format_coin(float(real_deposit_balance), COIN_NAME), COIN_NAME), inline=True)
             embed.add_field(name="Spendable", value=balance_actual+COIN_NAME, inline=True)
             if locked_openorder > 0 and COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
-                embed.add_field(name="Opened Order", value=num_format_coin(locked_openorder, COIN_NAME)+COIN_NAME, inline=True)
-                embed.add_field(name="Total", value=num_format_coin(actual_balance+locked_openorder, COIN_NAME)+COIN_NAME, inline=True)
+                embed.add_field(name="Opened Order", value=num_format_coin(locked_openorder, COIN_NAME)+" "+COIN_NAME, inline=True)
+                embed.add_field(name="Total", value=num_format_coin(actual_balance+locked_openorder, COIN_NAME)+" "+COIN_NAME, inline=True)
             elif locked_openorder > 0 and COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
-                embed.add_field(name="Opened Order", value=num_format_coin(locked_openorder, COIN_NAME)+COIN_NAME, inline=True)
-                embed.add_field(name="Total", value=num_format_coin(actual_balance+locked_openorder+float(real_deposit_balance), COIN_NAME)+COIN_NAME, inline=True)
+                embed.add_field(name="Opened Order", value=num_format_coin(locked_openorder, COIN_NAME)+" "+COIN_NAME, inline=True)
+                embed.add_field(name="Total", value=num_format_coin(actual_balance+locked_openorder+float(real_deposit_balance), COIN_NAME)+" "+COIN_NAME, inline=True)
             elif locked_openorder == 0 and COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
-                embed.add_field(name="Total", value=num_format_coin(actual_balance+float(real_deposit_balance), COIN_NAME)+COIN_NAME, inline=True)
+                embed.add_field(name="Total", value=num_format_coin(actual_balance+float(real_deposit_balance), COIN_NAME)+" "+COIN_NAME, inline=True)
             if raffle_spent and raffle_spent > 0:
                 embed.add_field(name="Raffle Spent / Won", value="{} / {} {}".format(num_format_coin(raffle_spent, COIN_NAME), num_format_coin(raffle_reward, COIN_NAME), COIN_NAME), inline=False)
         except Exception as e:
@@ -10885,7 +10885,7 @@ async def balance(ctx, coin: str = None):
             embed.add_field(name="Economy Expense (+/-)", value=num_format_coin(userdata_balance['economy_balance'], COIN_NAME)+ " " + COIN_NAME, inline=True)
         embed.add_field(name='Related commands', value=f'`{prefix}balance` or `{prefix}deposit {COIN_NAME}` or `{prefix}balance LIST`', inline=False)
         if COIN_NAME in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
-            min_deposit_txt = " Min. deposit for moving to spendable: " + num_format_coin(token_info['min_move_deposit'], COIN_NAME) + COIN_NAME
+            min_deposit_txt = " Min. deposit for moving to spendable: " + num_format_coin(token_info['min_move_deposit'], COIN_NAME) + " "+ COIN_NAME
             embed.set_footer(text=f"{token_info['deposit_note'] + min_deposit_txt}")
         else:
             embed.set_footer(text=f"{get_notice_txt(COIN_NAME)}")
@@ -10973,7 +10973,7 @@ async def mbalance(ctx, coin: str = None):
                     coinName = COIN_NAME
                     if actual_balance > 0:
                         any_balance += 1
-                        embed.add_field(name=COIN_NAME, value=balance_actual+COIN_NAME, inline=True)
+                        embed.add_field(name=COIN_NAME, value=balance_actual+" "+COIN_NAME, inline=True)
         if any_balance == 0:
             embed.add_field(name="INFO", value='`This guild has no balance for any coin yet.`', inline=True)
         embed.add_field(name='Related commands', value=f'`{prefix}mbalance TICKER` or `{prefix}mdeposit TICKER`', inline=False)
@@ -11168,7 +11168,7 @@ async def botbalance(ctx, member: discord.Member, coin: str):
                 embed.add_field(name="{} Contract/Token ID".format(COIN_NAME), value="`{}`".format(token_info['contract']), inline=False)
             if token_info and token_info['deposit_note']:
                 embed.add_field(name="{} Deposit Note".format(COIN_NAME), value="`{}`".format(token_info['deposit_note']), inline=False)
-        embed.add_field(name=f"Balance {COIN_NAME}", value="`{}{}`".format(balance_actual, COIN_NAME), inline=False)
+        embed.add_field(name=f"Balance {COIN_NAME}", value="`{} {}`".format(balance_actual, COIN_NAME), inline=False)
         try:
             msg = await ctx.send(embed=embed)
             await msg.add_reaction(EMOJI_OK_BOX)
@@ -11728,38 +11728,42 @@ async def withdraw(ctx, amount: str, coin: str = None):
     try:
         if coin_family in ["TRTL", "BCN"]:
             withdrawTx = await store.sql_external_cn_single(str(ctx.message.author.id), user['user_wallet_address'], real_amount, COIN_NAME, 'DISCORD', 'WITHDRAW')
-            withdraw_txt = "Transaction hash: `{}`".format(withdrawTx['transactionHash'])
-            withdraw_txt += "\nA node/tx fee `{} {}` deducted from your balance.".format(num_format_coin(get_tx_node_fee(COIN_NAME), COIN_NAME), COIN_NAME)
+            if withdrawTx:
+                withdraw_txt = "Transaction hash: `{}`\nA node/tx fee `{} {}` deducted from your balance.".format(withdrawTx['transactionHash'], num_format_coin(get_tx_node_fee(COIN_NAME), COIN_NAME), COIN_NAME)
         elif coin_family == "XMR":
             withdrawTx = await store.sql_external_xmr_single(str(ctx.message.author.id),
                                                             real_amount,
                                                             user['user_wallet_address'],
                                                             COIN_NAME, "WITHDRAW", NetFee)
-            withdraw_txt = "Transaction hash: `{}`".format(withdrawTx['tx_hash'])
-            withdraw_txt += "\nA node/tx fee `{} {}` deducted from your balance.".format(num_format_coin(get_tx_node_fee(COIN_NAME), COIN_NAME), COIN_NAME)
+            if withdrawTx:
+                withdraw_txt = "Transaction hash: `{}`\nA node/tx fee `{} {}` deducted from your balance.".format(withdrawTx['tx_hash'], num_format_coin(get_tx_node_fee(COIN_NAME), COIN_NAME), COIN_NAME)
         elif coin_family == "XCH":
             withdrawTx = await store.sql_external_xch_single(str(ctx.message.author.id),
                                                             real_amount,
                                                             user['user_wallet_address'],
                                                             COIN_NAME, "WITHDRAW")
-            withdraw_txt = "Transaction hash: `{}`".format(withdrawTx['tx_hash']['name'])
-            withdraw_txt += "\nA node/tx fee `{} {}` deducted from your balance.".format(num_format_coin(get_tx_node_fee(COIN_NAME), COIN_NAME), COIN_NAME)
+            if withdrawTx:
+                withdraw_txt = "Transaction hash: `{}`\nA node/tx fee `{} {}` deducted from your balance.".format(withdrawTx['tx_hash']['name'], num_format_coin(get_tx_node_fee(COIN_NAME), COIN_NAME), COIN_NAME)
         elif coin_family == "NANO":
             withdrawTx = await store.sql_external_nano_single(str(ctx.message.author.id), real_amount,
                                                             user['user_wallet_address'],
                                                             COIN_NAME, "WITHDRAW")
-            withdraw_txt = "Block: `{}`".format(withdrawTx['block'])
+            if withdrawTx:
+                withdraw_txt = "Block: `{}`".format(withdrawTx['block'])
         elif coin_family == "DOGE": 
             withdrawTx = await store.sql_external_doge_single(str(ctx.message.author.id), real_amount,
                                                             NetFee, user['user_wallet_address'],
                                                             COIN_NAME, "WITHDRAW")
-            withdraw_txt = 'Transaction hash: `{}`\nA node/tx fee `{} {}` deducted from your balance.'.format(withdrawTx, num_format_coin(get_tx_node_fee(COIN_NAME), COIN_NAME), COIN_NAME)
+            if withdrawTx:
+                withdraw_txt = 'Transaction hash: `{}`\nA node/tx fee `{} {}` deducted from your balance.'.format(withdrawTx, num_format_coin(get_tx_node_fee(COIN_NAME), COIN_NAME), COIN_NAME)
         elif coin_family == "ERC-20": 
             withdrawTx = await store.sql_external_erc_single(str(ctx.author.id), user['user_wallet_address'], real_amount, COIN_NAME, 'WITHDRAW', 'DISCORD')
-            withdraw_txt = f'Transaction hash: `{withdrawTx}`\nFee `{NetFee} {COIN_NAME}` deducted from your balance.'
+            if withdrawTx:
+                withdraw_txt = f'Transaction hash: `{withdrawTx}`\nFee `{NetFee} {COIN_NAME}` deducted from your balance.'
         elif coin_family == "TRC-20": 
             withdrawTx = await store.sql_external_trx_single(str(ctx.author.id), user['user_wallet_address'], real_amount, COIN_NAME, 'WITHDRAW', 'DISCORD')
-            withdraw_txt = f'Transaction hash: `{withdrawTx}`\nFee `{NetFee} {COIN_NAME}` deducted from your balance.'
+            if withdrawTx:
+                withdraw_txt = f'Transaction hash: `{withdrawTx}`\nFee `{NetFee} {COIN_NAME}` deducted from your balance.'
         # add redis action
         await add_tx_action_redis(json.dumps([random_string, "WITHDRAW", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, "DISCORD", "COMPLETE"]), False)
     except Exception as e:
@@ -11790,7 +11794,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
         await botLogChan.send(f'A user successfully executed `.withdraw {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`')
         return
     else:
-        msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Internal error during your withdraw, please report.')
+        msg = await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Internal error during your withdraw, please report or try again later.')
         await botLogChan.send(f'A user failed to executed `.withdraw {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}`')
         await ctx.message.add_reaction(EMOJI_ERROR)
         return
@@ -12140,12 +12144,12 @@ async def swap(ctx, amount: str, coin_from: str, coin_to: str):
         if real_from_amount > Max_Tip:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Swap cannot be bigger than '
-                           f'{Max_Tip_str}{COIN_NAME_FROM}.')
+                           f'{Max_Tip_str} {COIN_NAME_FROM}.')
             return
         elif real_from_amount < Min_Tip:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} Swap cannot be smaller than '
-                           f'{Min_Tip_str}{COIN_NAME_FROM}.')
+                           f'{Min_Tip_str} {COIN_NAME_FROM}.')
             return
         elif real_from_amount > real_actual_balance:
             await ctx.message.add_reaction(EMOJI_ERROR)
@@ -12175,9 +12179,9 @@ async def swap(ctx, amount: str, coin_from: str, coin_to: str):
             await ctx.message.add_reaction(EMOJI_OK_BOX)	
             await ctx.message.author.send(
                     f'{EMOJI_ARROW_RIGHTHOOK} You swapped {real_from_amount} '	
-                    f'{COIN_NAME_FROM} to **{real_to_amount}{COIN_NAME_TO}**.')
+                    f'{COIN_NAME_FROM} to **{real_to_amount} {COIN_NAME_TO}**.')
             await logchanbot(f'[Discord] User {ctx.author.name}#{ctx.author.discriminator} swapped {real_from_amount} '	
-                             f'{COIN_NAME_FROM} to **{real_to_amount}{COIN_NAME_TO}**.')
+                             f'{COIN_NAME_FROM} to **{real_to_amount} {COIN_NAME_TO}**.')
             return	
         else:	
             await ctx.message.add_reaction(EMOJI_ERROR)	
@@ -18046,7 +18050,7 @@ async def buy(ctx, ref_number: str):
             return
         
         # get list of all coin where they sell XXX
-        get_markets = await store.sql_get_open_order_by_alluser_by_coins(COIN_NAME, "ALL", "OPEN")
+        get_markets = await store.sql_get_open_order_by_alluser_by_coins(COIN_NAME, "ALL", "OPEN", "ASC")
         if get_markets and len(get_markets) > 0:
             list_numb = 0
             table_data = [
@@ -18233,7 +18237,7 @@ async def trade(ctx, coin: str=None, option_order: str=None):
                 await ctx.send(f'{EMOJI_RED_NO} {COIN_NAME} in not in our list.')
                 return
             else:
-                get_markets = await store.sql_get_open_order_by_alluser(COIN_NAME, 'OPEN', need_to_buy = False)
+                get_markets = await store.sql_get_open_order_by_alluser(COIN_NAME, 'OPEN', False, 50)
         elif coin_pair and len(coin_pair) == 2:
             if coin_pair[0] not in ENABLE_TRADE_COIN:
                 await ctx.send(f'{EMOJI_ERROR} **{coin_pair[0]}** is not in our list. Available right now: **{config.trade.enable_coin}**')
@@ -18286,7 +18290,7 @@ async def trade(ctx, coin: str=None, option_order: str=None):
         else:
             if coin_pair is None:
                 # get another buy of ticker
-                get_markets = await store.sql_get_open_order_by_alluser(COIN_NAME, 'OPEN', need_to_buy = True)
+                get_markets = await store.sql_get_open_order_by_alluser(COIN_NAME, 'OPEN', True, 50)
                 if get_markets and len(get_markets) > 0:
                     list_numb = 0
                     table_data = [

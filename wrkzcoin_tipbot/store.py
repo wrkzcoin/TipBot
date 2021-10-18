@@ -4435,7 +4435,7 @@ async def sql_store_openorder(msg_id: str, msg_content: str, coin_sell: str, rea
     return False
 
 
-async def sql_get_open_order_by_alluser_by_coins(coin1: str, coin2: str, status: str, option_order: str="ASC"):
+async def sql_get_open_order_by_alluser_by_coins(coin1: str, coin2: str, status: str, option_order: str, limit: int=50):
     global pool
     option_order = option_order.upper()
     if option_order not in ["DESC", "ASC"]:
@@ -4446,13 +4446,13 @@ async def sql_get_open_order_by_alluser_by_coins(coin1: str, coin2: str, status:
             async with conn.cursor() as cur:
                 if coin2.upper() == "ALL":
                     sql = """ SELECT * FROM open_order WHERE `status`=%s AND `coin_sell`=%s 
-                              ORDER BY sell_div_get """+option_order+""" LIMIT 50 """
+                              ORDER BY sell_div_get """+option_order+""" LIMIT """ + str(limit)
                     await cur.execute(sql, (status, coin1.upper()))
                     result = await cur.fetchall()
                     return result
                 else:
                     sql = """ SELECT * FROM open_order WHERE `status`=%s AND `coin_sell`=%s AND `coin_get`=%s 
-                              ORDER BY sell_div_get """+option_order+""" LIMIT 50 """
+                              ORDER BY sell_div_get """+option_order+""" LIMIT """ + str(limit)
                     await cur.execute(sql, (status, coin1.upper(), coin2.upper()))
                     result = await cur.fetchall()
                     return result
@@ -4546,22 +4546,43 @@ async def sql_match_order_by_sellerid(userid_get: str, ref_numb: str, buy_user_s
     return False
 
 
-async def sql_get_open_order_by_alluser(coin: str, status: str, need_to_buy: bool):
+async def sql_get_open_order_by_alluser(coin: str, status: str, need_to_buy: bool, limit: int=50):
+    global pool
+    COIN_NAME = coin.upper()
+    limit_str = ""
+    if limit > 0:
+        limit_str = "LIMIT "+str(limit)
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                if need_to_buy: 
+                    sql = """ SELECT * FROM `open_order` WHERE `status`=%s AND `coin_get`=%s ORDER BY sell_div_get ASC """+limit_str
+                    await cur.execute(sql, (status, COIN_NAME))
+                elif COIN_NAME == 'ALL':
+                    sql = """ SELECT * FROM `open_order` WHERE `status`=%s ORDER BY order_created_date DESC """+limit_str
+                    await cur.execute(sql, (status))
+                else:
+                    sql = """ SELECT * FROM `open_order` WHERE `status`=%s AND `coin_sell`=%s ORDER BY sell_div_get ASC """+limit_str
+                    await cur.execute(sql, (status, COIN_NAME))
+                result = await cur.fetchall()
+                return result
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+        traceback.print_exc(file=sys.stdout)
+    return False
+
+## use by NetPublicAPI
+async def sql_get_markets_by_coin(coin: str, status: str):
     global pool
     COIN_NAME = coin.upper()
     try:
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                if need_to_buy: 
-                    sql = """ SELECT * FROM `open_order` WHERE `status`=%s AND `coin_get`=%s ORDER BY sell_div_get ASC LIMIT 50 """
-                    await cur.execute(sql, (status, COIN_NAME))
-                elif COIN_NAME == 'ALL':
-                    sql = """ SELECT * FROM `open_order` WHERE `status`=%s ORDER BY order_created_date DESC LIMIT 50 """
-                    await cur.execute(sql, (status))
-                else:
-                    sql = """ SELECT * FROM `open_order` WHERE `status`=%s AND `coin_sell`=%s ORDER BY sell_div_get ASC LIMIT 50 """
-                    await cur.execute(sql, (status, COIN_NAME))
+            # select distinct coin_sell, coin_get from open_order where status='OPEN' and coin_sell='GNTL' or coin_get='GNTL'
+                sql = """ SELECT DISTINCT `coin_sell`, `coin_get` FROM `open_order` WHERE `status`=%s AND (`coin_sell`=%s OR `coin_get`=%s) """
+                await cur.execute(sql, (status, COIN_NAME, COIN_NAME))
                 result = await cur.fetchall()
                 return result
     except Exception as e:
@@ -4805,7 +4826,7 @@ async def http_wallet_getbalance(address: str, coin: str, re_check: bool=True) -
             print('TIMEOUT: get balance {} for {}s'.format(TOKEN_NAME, timeout))
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            # await logchanbot(traceback.format_exc())
     elif TOKEN_NAME == "ETH" or TOKEN_NAME == "BNB" or TOKEN_NAME == "MATIC":
         data = '{"jsonrpc":"2.0","method":"eth_getBalance","params":["'+address+'", "latest"],"id":1}'
         try:
@@ -4845,7 +4866,7 @@ async def http_wallet_getbalance(address: str, coin: str, re_check: bool=True) -
             print('TIMEOUT: get balance {} for {}s'.format(TOKEN_NAME, timeout))
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            # await logchanbot(traceback.format_exc())
 
     # store in redis if balance equal to 0, else no need.
     if balance == 0:
@@ -5341,13 +5362,14 @@ async def erc_get_block_number(coin: str, timeout:int = 64):
                                 if redis_conn:
                                     redis_conn.set(f'{config.redis_setting.prefix_daemon_height}{TOKEN_NAME}', str(int(decoded_data['result'], 16)))
                             except Exception as e:
-                                await logchanbot(traceback.format_exc())
+                                pass
+                                #await logchanbot(traceback.format_exc())
                             height = int(decoded_data['result'], 16)
         except asyncio.TimeoutError:
             print('TIMEOUT: get block number {}s for TOKEN {}'.format(timeout, TOKEN_NAME))
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            #await logchanbot(traceback.format_exc())
     # store in redis
     try:
         openRedis()

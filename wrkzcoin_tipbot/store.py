@@ -7429,6 +7429,99 @@ async def economy_chickenfarm_sell_egg(user_id: str, ids, credit: float, qty_sel
     return None
 ## end of economy
 
+
+# Public Private API only
+async def check_header(user_id: str, api_key: str, is_blocked: int=0):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM `discord_api_trade_users` WHERE `user_id`=%s AND `is_blocked`=%s LIMIT 1 """
+                await cur.execute(sql, (user_id, is_blocked))
+                result = await cur.fetchone()
+                if result and result['api_key'] and decrypt_string(result['api_key']) == api_key:
+                    return True
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return None
+
+
+async def get_api_trade(user_id: str, user_server: str='DISCORD'):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM `discord_api_trade_users` WHERE `user_id`=%s LIMIT 1 """
+                await cur.execute(sql, (user_id))
+                result = await cur.fetchone()
+                if result: return {"user_id": result['user_id'], "api_key": decrypt_string(result['api_key']), "is_blocked": result['is_blocked']}
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return None
+
+
+async def create_api_trade(user_id: str, api_key: str, re_create: bool, user_server: str='DISCORD'):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                if re_create:
+                    sql = """ SELECT * FROM `discord_api_trade_users` WHERE `user_id`=%s AND `user_server`=%s LIMIT 1 """
+                    await cur.execute(sql, (user_id, user_server))
+                    result = await cur.fetchone()
+                    if result:
+                        # Update key
+                        sql = """ UPDATE `discord_api_trade_users` SET `api_key`=%s, `updated_date`=%s WHERE `user_id`=%s AND `user_server`=%s LIMIT 1 """
+                        await cur.execute(sql, (encrypt_string(api_key), int(time.time()), user_id, user_server))
+                        await conn.commit()
+                        return {"authorization-user": user_id, "authorization-key": api_key, "updated": True}
+                else:    
+                    sql = """ INSERT INTO discord_api_trade_users (`user_id`, `api_key`, `user_server`, `updated_date`) 
+                              VALUES (%s, %s, %s, %s) """
+                    await cur.execute(sql, (user_id, encrypt_string(api_key), user_server, int(time.time())))
+                    await conn.commit()
+                    return {"authorization-user": user_id, "authorization-key": api_key, "updated": False}
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return None
+
+
+async def api_trade_store(user_id: str, uri: str, post_data: str=None):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM `discord_api_trade_users` WHERE `user_id`=%s LIMIT 1 """
+                await cur.execute(sql, (user_id))
+                result = await cur.fetchone()
+                if result:
+                    # Update total_call
+                    sql = """ UPDATE `discord_api_trade_users` SET `total_call`=`total_call`+1 WHERE `user_id`=%s LIMIT 1 """
+                    await cur.execute(sql, (user_id,))
+                    await conn.commit()
+                    # Insert
+                    if post_data:
+                        sql = """ INSERT INTO discord_api_trade_logs (`user_id`, `uri`, `post_data`, `date`) 
+                                  VALUES (%s, %s, %s, %s) """
+                        await cur.execute(sql, (user_id, uri, post_data, int(time.time())))
+                        await conn.commit()
+                    else:
+                        sql = """ INSERT INTO discord_api_trade_logs (`user_id`, `uri`, `date`) 
+                                  VALUES (%s, %s, %s) """
+                        await cur.execute(sql, (user_id, uri, int(time.time())))
+                        await conn.commit()
+                    return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return None
+# End of Public Private API only
+
+
 # Steal from https://nitratine.net/blog/post/encryption-and-decryption-in-python/
 def encrypt_string(to_encrypt: str):
     key = (config.encrypt.key).encode()

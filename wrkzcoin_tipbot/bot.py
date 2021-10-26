@@ -3698,12 +3698,10 @@ To win, you must continue rolling the dice until you "make your point."
                 GAME_DICE_IN_PRGORESS.remove(ctx.message.author.id)
             if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
                 GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
-            return
         except Exception as e:
             await logchanbot(traceback.format_exc())
     except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
         await ctx.message.add_reaction(EMOJI_ERROR)
-        return
     except Exception as e:
         await logchanbot(traceback.format_exc())
     if ctx.message.author.id in GAME_DICE_IN_PRGORESS:
@@ -4669,6 +4667,38 @@ async def account(ctx):
     if ctx.invoked_subcommand is None:
         await ctx.send(f'{ctx.author.mention} Invalid {prefix}account command')
         return
+
+
+@account.command(name='tradeapi', aliases=['trade_api', 'api_trade'], help="Create API for Trading")
+async def tradeapi(ctx, regen: str=None):
+    # acc tradeapi | acc tradeapi regen
+    if isinstance(ctx.channel, discord.DMChannel) == False:
+        await ctx.message.add_reaction(EMOJI_ERROR) 
+        await ctx.send(f'{ctx.author.mention} This command can not be in public.')
+        return
+    re_create = False
+    if regen and regen.upper() in ["REGEN", "RECREATE", "GEN"]:
+        re_create = True
+    
+    # Create API trade
+    get_trade_api = await store.get_api_trade(str(ctx.author.id), 'DISCORD')
+    if get_trade_api is None:
+        api_key = str(uuid.uuid4())
+        trade_api = await store.create_api_trade(str(ctx.author.id), api_key, re_create, 'DISCORD')
+        if trade_api:
+            await ctx.send('Copy your api key and store in a safe place:```authorization-user: {}\nauthorization-key: {}```'.format(str(ctx.author.id), api_key))
+        else:
+            await ctx.send('Internal error.')
+    else:
+        if re_create == False:
+            await ctx.send('Copy your api key and store in a safe place:```authorization-user: {}\nauthorization-key: {}```'.format(str(ctx.author.id), get_trade_api['api_key']))
+        else:
+            api_key = str(uuid.uuid4())
+            trade_api = await store.create_api_trade(str(ctx.author.id), api_key, re_create, 'DISCORD')
+            if trade_api:
+                await ctx.send('Copy your api key and store in a safe place:```authorization-user: {}\nauthorization-key: {}```'.format(str(ctx.author.id), api_key))
+            else:
+                await ctx.send('Internal error updating API keys.')
 
 
 @account.command(name='deposit_link', aliases=['deposit'], help=bot_help_account_depositlink)
@@ -18093,7 +18123,6 @@ async def buy(ctx, ref_number: str):
                 return
             else:
                 # check if sufficient balance
-                balance_actual = 0
                 wallet = await store.sql_get_userwallet(str(ctx.message.author.id), get_order_num['coin_get'], 'DISCORD')
                 if wallet is None:
                     if get_order_num['coin_get'] in ENABLE_COIN_ERC:

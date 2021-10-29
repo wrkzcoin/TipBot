@@ -18166,7 +18166,7 @@ async def buy(ctx, ref_number: str):
                     return
                 else:
                     # let's make order update
-                    match_order = await store.sql_match_order_by_sellerid(str(ctx.message.author.id), ref_number, SERVER_BOT)
+                    match_order = await store.sql_match_order_by_sellerid(str(ctx.message.author.id), ref_number, SERVER_BOT, get_order_num['sell_user_server'], get_order_num['userid_sell'], True)
                     if match_order:
                         await ctx.message.add_reaction(EMOJI_OK_BOX)
                         try:
@@ -19326,6 +19326,28 @@ async def notify_new_move_balance_user():
                 except Exception as e:
                     await logchanbot(traceback.format_exc())
         await asyncio.sleep(time_lap)
+
+
+async def trade_complete_sale_notify():
+    while True:
+        await asyncio.sleep(30.0)
+        # get list of people to notify
+        list_complete_sale_notify = await store.sql_get_completed_sale_notify(SERVER_BOT)
+        if list_complete_sale_notify and len(list_complete_sale_notify) > 0:
+            for each_notify in list_complete_sale_notify:
+                is_notify_failed = False
+                member = bot.get_user(id=int(each_notify['userid_sell']))
+                if member and int(each_notify['userid_sell']) != bot.user.id:
+                    msg = "**#{}** Order completed!".format(each_notify['order_id'])
+                    try:
+                        await member.send(msg)
+                    except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
+                        is_notify_failed = True
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
+                    update_status = await store.trade_sale_notify_update(each_notify['order_id'], "YES", "YES" if is_notify_failed == True else "NO")
+        await asyncio.sleep(30.0)
 
 
 async def saving_wallet():
@@ -20652,6 +20674,8 @@ def main():
 
     bot.loop.create_task(notify_new_move_balance_user())
     bot.loop.create_task(check_raffle_status())
+
+    bot.loop.create_task(trade_complete_sale_notify())
 
     bot.run(config.discord.token, reconnect=True)
 

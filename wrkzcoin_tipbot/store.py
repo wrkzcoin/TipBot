@@ -4520,8 +4520,9 @@ async def sql_get_order_numb(order_num: str, status: str = None):
         await logchanbot(traceback.format_exc())
         traceback.print_exc(file=sys.stdout)
 
-
-async def sql_match_order_by_sellerid(userid_get: str, ref_numb: str, buy_user_server: str):
+# If in Discord, notified = True
+# If API, notified = False
+async def sql_match_order_by_sellerid(userid_get: str, ref_numb: str, buy_user_server: str, sell_user_server: str, userid_sell: str, notified: bool=True):
     global pool
     buy_user_server = buy_user_server.upper()
     if buy_user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
@@ -4537,6 +4538,20 @@ async def sql_match_order_by_sellerid(userid_get: str, ref_numb: str, buy_user_s
                               WHERE `order_id`=%s AND `status`=%s """
                     await cur.execute(sql, ('COMPLETE', float("%.3f" % time.time()), userid_get, buy_user_server, ref_numb, 'OPEN'))
                     await conn.commit()
+                    # Insert into open_order_notify_complete table
+                    try:
+                        if notified:
+                            sql = """ INSERT INTO open_order_notify_complete (`order_id`, `userid_sell`, `complete_date`, `sell_user_server`) 
+                                      VALUES (%s, %s, %s, %s) """
+                            await cur.execute(sql, (ref_numb, userid_sell, int(time.time()), sell_user_server))
+                            await conn.commit()
+                        else:
+                            sql = """ INSERT INTO open_order_notify_complete (`order_id`, `userid_sell`, `complete_date`, `sell_user_server`, `notified_seller`) 
+                                      VALUES (%s, %s, %s, %s, %s) """
+                            await cur.execute(sql, (ref_numb, userid_sell, int(time.time()), sell_user_server, "NO"))
+                            await conn.commit()
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
                     return True
                 except ValueError:
                     return False
@@ -4606,6 +4621,41 @@ async def sql_get_open_order_by_sellerid_all(userid_sell: str, status: str = 'OP
         await logchanbot(traceback.format_exc())
         traceback.print_exc(file=sys.stdout)
     return False
+
+
+async def sql_get_completed_sale_notify(sell_user_server: str='DISCORD'):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM `open_order_notify_complete` WHERE `sell_user_server`=%s 
+                          AND `notified_seller`=%s AND `failed_notify`=%s """
+                await cur.execute(sql, (sell_user_server, "NO", "NO"))
+                result = await cur.fetchall()
+                return result
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+        traceback.print_exc(file=sys.stdout)
+    return False
+
+
+async def trade_sale_notify_update(ref_numb: str, notified_seller: str, failed_notify: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            await conn.ping(reconnect=True)
+            async with conn.cursor() as cur:
+                sql = """ UPDATE open_order_notify_complete 
+                          SET `notified_seller`=%s, `failed_notify`=%s WHERE `order_id`=%s """
+                await cur.execute(sql, (notified_seller, failed_notify, ref_numb))
+                await conn.commit()
+                return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return None
 
 
 async def sql_cancel_open_order_by_sellerid(userid_sell: str, coin: str = 'ALL'):

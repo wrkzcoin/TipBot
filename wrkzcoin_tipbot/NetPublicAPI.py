@@ -58,11 +58,11 @@ async def handle_get_all(request):
     elif uri.startswith("/order/"):
         # catch order book market.
         ref_number = uri.replace("/order/", "")
-        if ref_number.isalnum() == False:
+        if ref_number.isnumeric() == False:
             return await respond_bad_request_404()
         get_order_num = await store.sql_get_order_numb(ref_number, 'ANY')
         if get_order_num:
-            result = {"success": True, "ref_number": "#{}".format(ref_number), "coin_sell": get_order_num['coin_sell'], "amount_sell": num_format_coin(get_order_num['amount_sell'], get_order_num['coin_sell']), "coin_get": get_order_num['coin_get'], "amount_get": num_format_coin(get_order_num['amount_get_after_fee'], get_order_num['coin_get']), "status": get_order_num['status'], "timestamp": int(time.time())}
+            result = {"success": True, "ref_number": "#{}".format(get_order_num['order_id']), "coin_sell": get_order_num['coin_sell'], "amount_sell": num_format_coin(get_order_num['amount_sell'], get_order_num['coin_sell']), "coin_get": get_order_num['coin_get'], "amount_get": num_format_coin(get_order_num['amount_get_after_fee'], get_order_num['coin_get']), "status": get_order_num['status'], "timestamp": int(time.time())}
             return web.Response(text=json.dumps(result).replace("\\", ""), status=404)
         else:
             result = {"success": False, "error": "ref_number not found.", "timestamp": int(time.time())}

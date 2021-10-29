@@ -70,6 +70,7 @@ redis_conn = None
 redis_expired = 120
 
 API_TOKEN = config.telegram.Token
+SERVER_BOT = "TELEGRAM"
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -77,6 +78,7 @@ logging.basicConfig(level=logging.INFO)
 # Initialize bot and dispatcher
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot)
+
 
 def init():
     global redis_pool
@@ -141,8 +143,7 @@ async def start_cmd_handler(message: types.Message):
         COIN_NAME = args[1].upper()
         if COIN_NAME not in ENABLE_COIN + ENABLE_COIN_DOGE + ENABLE_COIN_ERC + ENABLE_COIN_NANO + ENABLE_XMR:
             message_text = text(markdown.bold(f"Invalid COIN NAME after /deposit.\nPlease use any of this:") + markdown.pre(supported_coins))
-            await message.reply(message_text,
-                                parse_mode=ParseMode.MARKDOWN)
+            await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
             return
         else:
             if not is_coin_depositable(COIN_NAME):
@@ -150,17 +151,17 @@ async def start_cmd_handler(message: types.Message):
                 await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
                 return
 
-            user_addr = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
+            user_addr = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, SERVER_BOT)
             if user_addr is None:
                 if COIN_NAME in ENABLE_COIN_ERC:
                     w = create_eth_wallet()
-                    userregister = await store.sql_register_user(message.from_user.username, COIN_NAME, 'TELEGRAM', message.chat.id, w)
+                    userregister = await store.sql_register_user(message.from_user.username, COIN_NAME, SERVER_BOT, message.chat.id, w)
                 else:
-                    userregister = await store.sql_register_user(message.from_user.username, COIN_NAME, 'TELEGRAM', message.chat.id)
-                user_addr = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
+                    userregister = await store.sql_register_user(message.from_user.username, COIN_NAME, SERVER_BOT, message.chat.id)
+                user_addr = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, SERVER_BOT)
 
             if user_addr is None:
-                await logchanbot(f'[Telegram] A user call /deposit {COIN_NAME} failed.')
+                await logchanbot(f'[{SERVER_BOT}] A user call /deposit {COIN_NAME} failed.')
             else:
                 message_text = text(markdown.bold(f"DEPOSIT {COIN_NAME} INFO:") + \
                                     markdown.pre("\nDeposit: " + user_addr['balance_wallet_address'] + \
@@ -252,31 +253,31 @@ async def start_cmd_handler(message: types.Message):
             message_text = ""
             coin_str = "\n"
             for COIN_ITEM in [coinItem.upper() for coinItem in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_NANO+ENABLE_XMR]:
-                wallet = await store.sql_get_userwallet(message.from_user.username, COIN_ITEM, 'TELEGRAM')
+                wallet = await store.sql_get_userwallet(message.from_user.username, COIN_ITEM, SERVER_BOT)
                 if wallet is None:
                     if COIN_ITEM in ENABLE_COIN_ERC:
                         w = create_eth_wallet()
-                        userregister = await store.sql_register_user(message.from_user.username, COIN_ITEM, 'TELEGRAM', message.chat.id, w)
+                        userregister = await store.sql_register_user(message.from_user.username, COIN_ITEM, SERVER_BOT, message.chat.id, w)
                     else:
-                        userregister = await store.sql_register_user(message.from_user.username, COIN_ITEM, 'TELEGRAM', message.chat.id)
-                    wallet = await store.sql_get_userwallet(message.from_user.username, COIN_ITEM, 'TELEGRAM')
+                        userregister = await store.sql_register_user(message.from_user.username, COIN_ITEM, SERVER_BOT, message.chat.id)
+                    wallet = await store.sql_get_userwallet(message.from_user.username, COIN_ITEM, SERVER_BOT)
                 if wallet['chat_id'] is None:
                     # Update chat_id:
-                    update_chat_id = await store.sql_update_user_chat_id(message.from_user.username, COIN_ITEM, message.chat.id, 'TELEGRAM')
-                    await logchanbot(f'[Telegram] Update chat_id for user {message.from_user.username}/{COIN_ITEM} to {str(message.chat.id)}')
+                    update_chat_id = await store.sql_update_user_chat_id(message.from_user.username, COIN_ITEM, message.chat.id, SERVER_BOT)
+                    await logchanbot(f'[{SERVER_BOT}] Update chat_id for user {message.from_user.username}/{COIN_ITEM} to {str(message.chat.id)}')
                 if COIN_ITEM in ENABLE_COIN_ERC:
                     coin_family = "ERC-20"
                 else:
                     coin_family = getattr(getattr(config,"daemon"+COIN_ITEM),"coin_family","TRTL")
 
                 if wallet is None:
-                    await logchanbot(f'[Telegram] A user call /balance {COIN_ITEM} failed')
+                    await logchanbot(f'[{SERVER_BOT}] A user call /balance {COIN_ITEM} failed')
                     balance_actual = "N/A"
                 else:
-                    userdata_balance = await store.sql_user_balance(message.from_user.username, COIN_ITEM, 'TELEGRAM')
+                    userdata_balance = await store.sql_user_balance(message.from_user.username, COIN_ITEM, SERVER_BOT)
                     xfer_in = 0
                     if COIN_ITEM not in ENABLE_COIN_ERC:
-                        xfer_in = await store.sql_user_balance_get_xfer_in(message.from_user.username, COIN_ITEM, 'TELEGRAM')
+                        xfer_in = await store.sql_user_balance_get_xfer_in(message.from_user.username, COIN_ITEM, SERVER_BOT)
                     if COIN_ITEM in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
                         actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
                     elif COIN_ITEM in ENABLE_COIN_NANO:
@@ -287,7 +288,7 @@ async def start_cmd_handler(message: types.Message):
                     # Negative check
                     try:
                         if actual_balance < 0:
-                            msg_negative = '[Telegram] Negative balance detected:\nUser: '+message.from_user.username+'\nCoin: '+COIN_ITEM+'\nAtomic Balance: '+str(actual_balance)
+                            msg_negative = f'[{SERVER_BOT}] Negative balance detected:\nUser: '+message.from_user.username+'\nCoin: '+COIN_ITEM+'\nAtomic Balance: '+str(actual_balance)
                             await logchanbot(msg_negative)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
@@ -306,24 +307,24 @@ async def start_cmd_handler(message: types.Message):
                 coin_family = "ERC-20"
             else:
                 coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-            userwallet = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
+            userwallet = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, SERVER_BOT)
             if userwallet is None:
                 if COIN_NAME in ENABLE_COIN_ERC:
                     w = create_eth_wallet()
-                    userregister = await store.sql_register_user(message.from_user.username, COIN_NAME, 'TELEGRAM', message.chat.id, w)
+                    userregister = await store.sql_register_user(message.from_user.username, COIN_NAME, SERVER_BOT, message.chat.id, w)
                 else:
-                    userregister = await store.sql_register_user(message.from_user.username, COIN_NAME, 'TELEGRAM', message.chat.id)
-                userwallet = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
+                    userregister = await store.sql_register_user(message.from_user.username, COIN_NAME, SERVER_BOT, message.chat.id)
+                userwallet = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, SERVER_BOT)
 
             if userwallet['chat_id'] is None:
                 # Update chat_id:
-                update_chat_id = await store.sql_update_user_chat_id(message.from_user.username, COIN_NAME, message.chat.id, 'TELEGRAM')
-                await logchanbot(f'[Telegram] Update chat_id for user {message.from_user.username}/{COIN_NAME} to {str(message.chat.id)}')
+                update_chat_id = await store.sql_update_user_chat_id(message.from_user.username, COIN_NAME, message.chat.id, SERVER_BOT)
+                await logchanbot(f'[{SERVER_BOT}] Update chat_id for user {message.from_user.username}/{COIN_NAME} to {str(message.chat.id)}')
 
-            userdata_balance = await store.sql_user_balance(message.from_user.username, COIN_NAME, 'TELEGRAM')
+            userdata_balance = await store.sql_user_balance(message.from_user.username, COIN_NAME, SERVER_BOT)
             xfer_in = 0
             if COIN_NAME not in ENABLE_COIN_ERC:
-                xfer_in = await store.sql_user_balance_get_xfer_in(message.from_user.username, COIN_NAME, 'TELEGRAM')
+                xfer_in = await store.sql_user_balance_get_xfer_in(message.from_user.username, COIN_NAME, SERVER_BOT)
             if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
                 actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
             elif COIN_NAME in ENABLE_COIN_NANO:
@@ -334,7 +335,7 @@ async def start_cmd_handler(message: types.Message):
                 # Negative check
             try:
                 if actual_balance < 0:
-                    msg_negative = '[Telegram] Negative balance detected:\nUser: '+message.from_user.username+'\nCoin: '+COIN_NAME+'\nAtomic Balance: '+str(actual_balance)
+                    msg_negative = f'[{SERVER_BOT}] Negative balance detected:\nUser: '+message.from_user.username+'\nCoin: '+COIN_NAME+'\nAtomic Balance: '+str(actual_balance)
                     await logchanbot(msg_negative)
             except Exception as e:
                 await logchanbot(traceback.format_exc())
@@ -384,24 +385,24 @@ async def start_cmd_handler(message: types.Message):
                 message_text = ""
                 coin_str = "\n"
                 for COIN_ITEM in [coinItem.upper() for coinItem in ENABLE_COIN + ENABLE_COIN_DOGE + ENABLE_COIN_ERC + ENABLE_COIN_NANO + ENABLE_XMR]:
-                    wallet = await store.sql_get_userwallet(user_to, COIN_ITEM, 'TELEGRAM')
+                    wallet = await store.sql_get_userwallet(user_to, COIN_ITEM, SERVER_BOT)
                     if wallet is None:
                         # this will be public
                         if COIN_ITEM in ENABLE_COIN_ERC:
                             w = create_eth_wallet()
-                            userregister = await store.sql_register_user(user_to, COIN_ITEM, 'TELEGRAM', message.chat.id, w)
+                            userregister = await store.sql_register_user(user_to, COIN_ITEM, SERVER_BOT, message.chat.id, w)
                         else:
-                            userregister = await store.sql_register_user(user_to, COIN_ITEM, 'TELEGRAM', message.chat.id)
-                        wallet = await store.sql_get_userwallet(user_to, COIN_ITEM, 'TELEGRAM')
+                            userregister = await store.sql_register_user(user_to, COIN_ITEM, SERVER_BOT, message.chat.id)
+                        wallet = await store.sql_get_userwallet(user_to, COIN_ITEM, SERVER_BOT)
                     if COIN_ITEM in ENABLE_COIN_ERC:
                         coin_family = "ERC-20"
                     else:
                         coin_family = getattr(getattr(config,"daemon"+COIN_ITEM),"coin_family","TRTL")
 
-                    userdata_balance = await store.sql_user_balance(user_to, COIN_ITEM, 'TELEGRAM')
+                    userdata_balance = await store.sql_user_balance(user_to, COIN_ITEM, SERVER_BOT)
                     xfer_in = 0
                     if COIN_ITEM not in ENABLE_COIN_ERC:
-                        xfer_in = await store.sql_user_balance_get_xfer_in(user_to, COIN_ITEM, 'TELEGRAM')
+                        xfer_in = await store.sql_user_balance_get_xfer_in(user_to, COIN_ITEM, SERVER_BOT)
                     if COIN_ITEM in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
                         actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
                     elif COIN_ITEM in ENABLE_COIN_NANO:
@@ -412,7 +413,7 @@ async def start_cmd_handler(message: types.Message):
                         # Negative check
                     try:
                         if actual_balance < 0:
-                            msg_negative = '[Telegram] Negative balance detected:\nBot User: '+user_to+'\nCoin: '+COIN_ITEM+'\nAtomic Balance: '+str(actual_balance)
+                            msg_negative = f'[{SERVER_BOT}] Negative balance detected:\nBot User: '+user_to+'\nCoin: '+COIN_ITEM+'\nAtomic Balance: '+str(actual_balance)
                             await logchanbot(msg_negative)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
@@ -446,17 +447,17 @@ async def start_cmd_handler(message: types.Message):
             await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
             return
         else:
-            user_addr = await store.sql_get_userwallet(user_to, COIN_NAME, 'TELEGRAM')
+            user_addr = await store.sql_get_userwallet(user_to, COIN_NAME, SERVER_BOT)
             if user_addr is None:
                 if COIN_NAME in ENABLE_COIN_ERC:
                     w = create_eth_wallet()
-                    userregister = await store.sql_register_user(user_to, COIN_NAME, 'TELEGRAM', message.chat.id, w)
+                    userregister = await store.sql_register_user(user_to, COIN_NAME, SERVER_BOT, message.chat.id, w)
                 else:
-                    userregister = await store.sql_register_user(user_to, COIN_NAME, 'TELEGRAM', message.chat.id)
-                user_addr = await store.sql_get_userwallet(user_to, COIN_NAME, 'TELEGRAM')
+                    userregister = await store.sql_register_user(user_to, COIN_NAME, SERVER_BOT, message.chat.id)
+                user_addr = await store.sql_get_userwallet(user_to, COIN_NAME, SERVER_BOT)
 
             if user_addr is None:
-                await logchanbot(f'[Telegram] A user call /botbal {user_to} {COIN_NAME} failed.')
+                await logchanbot(f'[{SERVER_BOT}] A user call /botbal {user_to} {COIN_NAME} failed.')
             else:
                 message_text = text(markdown.bold(f"DEPOSIT {COIN_NAME} INFO for @{user_to}:") + \
                                     markdown.pre("\nDeposit: " + user_addr['balance_wallet_address']))
@@ -562,14 +563,14 @@ async def start_cmd_handler(message: types.Message):
                                             parse_mode=ParseMode.MARKDOWN)
                         return
                     else:
-                        user_addr = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
+                        user_addr = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, SERVER_BOT)
                         if user_addr is None:
-                            userregister = await store.sql_register_user(message.from_user.username, COIN_NAME, 'TELEGRAM', message.chat.id)
-                            user_addr = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
+                            userregister = await store.sql_register_user(message.from_user.username, COIN_NAME, SERVER_BOT, message.chat.id)
+                            user_addr = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, SERVER_BOT)
 
                         prev_address = user_addr['user_wallet_address']
                         if prev_address != valid_address:
-                            await store.sql_update_user(message.from_user.username, wallet_address, COIN_NAME, 'TELEGRAM')
+                            await store.sql_update_user(message.from_user.username, wallet_address, COIN_NAME, SERVER_BOT)
                             message_text = text(bold("You registered a withdrawn address:\n"),
                                                 markdown.pre(wallet_address))
                             await message.reply(message_text,
@@ -587,10 +588,10 @@ async def start_cmd_handler(message: types.Message):
                     return
             elif coin_family == "DOGE":
                 valid_address = None
-                user_from = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
+                user_from = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, SERVER_BOT)
                 if user_from is None:
-                    user_from = await store.sql_register_user(message.from_user.username, COIN_NAME, 'TELEGRAM', message.chat.id)
-                    user_from = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
+                    user_from = await store.sql_register_user(message.from_user.username, COIN_NAME, SERVER_BOT, message.chat.id)
+                    user_from = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, SERVER_BOT)
                 user_from['address'] = user_from['balance_wallet_address']
                 prev_address = user_from['user_wallet_address']
 
@@ -617,17 +618,17 @@ async def start_cmd_handler(message: types.Message):
                                         parse_mode=ParseMode.MARKDOWN)
                     return
                 else:
-                    await store.sql_update_user(message.from_user.username, wallet_address, COIN_NAME, 'TELEGRAM')
+                    await store.sql_update_user(message.from_user.username, wallet_address, COIN_NAME, SERVER_BOT)
                     message_text = text(bold("You registered a withdrawn address:\n"),
                                         markdown.pre(wallet_address))
                     await message.reply(message_text,
                                         parse_mode=ParseMode.MARKDOWN)
                     return
             elif coin_family == "XMR":
-                user_from = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
+                user_from = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, SERVER_BOT)
                 if user_from is None:
-                    user_from = await store.sql_register_user(message.from_user.username, COIN_NAME, 'TELEGRAM', message.chat.id)
-                    user_from = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
+                    user_from = await store.sql_register_user(message.from_user.username, COIN_NAME, SERVER_BOT, message.chat.id)
+                    user_from = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, SERVER_BOT)
                 prev_address = user_from['user_wallet_address']
                 if COIN_NAME not in ["MSR", "UPX", "XAM"]:
                     valid_address = await validate_address_xmr(str(wallet_address), COIN_NAME)
@@ -679,7 +680,7 @@ async def start_cmd_handler(message: types.Message):
                     await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
                     return
                 else:
-                    await store.sql_update_user(message.from_user.username, wallet_address, COIN_NAME, 'TELEGRAM')
+                    await store.sql_update_user(message.from_user.username, wallet_address, COIN_NAME, SERVER_BOT)
                     message_text = text(bold("You registered a withdrawn address:\n"),
                                         markdown.pre(wallet_address))
                     await message.reply(message_text,
@@ -695,7 +696,7 @@ async def start_cmd_handler(message: types.Message):
         return
 
     # check if account locked
-    account_lock = await alert_if_userlock(message.from_user.username, 'TELEGRAM')
+    account_lock = await alert_if_userlock(message.from_user.username, SERVER_BOT)
     if account_lock:
         reply_text = "Your account is locked!"
         await message.reply(reply_text)
@@ -754,14 +755,14 @@ async def start_cmd_handler(message: types.Message):
             await message.reply(reply_text)
             return
             
-        to_teleuser = await store.sql_get_userwallet(user_to, COIN_NAME, 'TELEGRAM')
+        to_teleuser = await store.sql_get_userwallet(user_to, COIN_NAME, SERVER_BOT)
         if to_teleuser is None:
             message_text = text(bold(f"Can not find user {user_to} in our DB"))
             await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
             return
         else:
             # check if account tip to is locked
-            account_lock = await alert_if_userlock(user_to, 'TELEGRAM')
+            account_lock = await alert_if_userlock(user_to, SERVER_BOT)
             if account_lock:
                 reply_text = f"Account @{user_to} is locked! You cannot tip to him/her."
                 await message.reply(reply_text)
@@ -772,11 +773,11 @@ async def start_cmd_handler(message: types.Message):
                 coin_family = "ERC-20"
             else:
                 coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-            user_from = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
-            userdata_balance = await store.sql_user_balance(message.from_user.username, COIN_NAME, 'TELEGRAM')
+            user_from = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, SERVER_BOT)
+            userdata_balance = await store.sql_user_balance(message.from_user.username, COIN_NAME, SERVER_BOT)
             xfer_in = 0
             if COIN_NAME not in ENABLE_COIN_ERC:
-                xfer_in = await store.sql_user_balance_get_xfer_in(message.from_user.username, COIN_NAME, 'TELEGRAM')
+                xfer_in = await store.sql_user_balance_get_xfer_in(message.from_user.username, COIN_NAME, SERVER_BOT)
             if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
                 actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
             elif COIN_NAME in ENABLE_COIN_NANO:
@@ -787,7 +788,7 @@ async def start_cmd_handler(message: types.Message):
             # Negative check
             try:
                 if actual_balance < 0:
-                    msg_negative = '[Telegram] Negative balance detected:\nUser: '+message.from_user.username+'\nCoin: '+COIN_NAME+'\nAtomic Balance: '+str(actual_balance)
+                    msg_negative = f'[{SERVER_BOT}] Negative balance detected:\nUser: '+message.from_user.username+'\nCoin: '+COIN_NAME+'\nAtomic Balance: '+str(actual_balance)
                     await logchanbot(msg_negative)
             except Exception as e:
                 await logchanbot(traceback.format_exc())
@@ -836,15 +837,15 @@ async def start_cmd_handler(message: types.Message):
                     tip = None
                     try:
                         if coin_family in ["TRTL", "BCN"]:
-                            tip = await store.sql_mv_cn_single(message.from_user.username, user_to, real_amount, 'TIP', COIN_NAME, "TELEGRAM")
+                            tip = await store.sql_mv_cn_single(message.from_user.username, user_to, real_amount, 'TIP', COIN_NAME, SERVER_BOT)
                         elif coin_family == "XMR":
-                            tip = await store.sql_mv_xmr_single(message.from_user.username, user_to, real_amount, COIN_NAME, "TIP", "TELEGRAM")
+                            tip = await store.sql_mv_xmr_single(message.from_user.username, user_to, real_amount, COIN_NAME, "TIP", SERVER_BOT)
                         elif coin_family == "DOGE":
-                            tip = await store.sql_mv_doge_single(message.from_user.username, user_to, real_amount, COIN_NAME, "TIP", "TELEGRAM")
+                            tip = await store.sql_mv_doge_single(message.from_user.username, user_to, real_amount, COIN_NAME, "TIP", SERVER_BOT)
                         elif coin_family == "NANO":
-                            tip = await store.sql_mv_nano_single(message.from_user.username, user_to, real_amount, COIN_NAME, "TIP", "TELEGRAM")
+                            tip = await store.sql_mv_nano_single(message.from_user.username, user_to, real_amount, COIN_NAME, "TIP", SERVER_BOT)
                         elif coin_family == "ERC-20":
-                            tip = await store.sql_mv_erc_single(message.from_user.username, user_to, real_amount, COIN_NAME, "TIP", token_info['contract'], "TELEGRAM")
+                            tip = await store.sql_mv_erc_single(message.from_user.username, user_to, real_amount, COIN_NAME, "TIP", token_info['contract'], SERVER_BOT)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
 
@@ -885,7 +886,7 @@ async def start_cmd_handler(message: types.Message):
         return
 
     # check if account locked
-    account_lock = await alert_if_userlock(message.from_user.username, 'TELEGRAM')
+    account_lock = await alert_if_userlock(message.from_user.username, SERVER_BOT)
     if account_lock:
         reply_text = "Your account is locked!"
         await message.reply(reply_text)
@@ -952,10 +953,10 @@ async def start_cmd_handler(message: types.Message):
             coin_family = "ERC-20"
         else:
             coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-        userdata_balance = await store.sql_user_balance(message.from_user.username, COIN_NAME, 'TELEGRAM')
+        userdata_balance = await store.sql_user_balance(message.from_user.username, COIN_NAME, SERVER_BOT)
         xfer_in = 0
         if COIN_NAME not in ENABLE_COIN_ERC:
-            xfer_in = await store.sql_user_balance_get_xfer_in(message.from_user.username, COIN_NAME, 'TELEGRAM')
+            xfer_in = await store.sql_user_balance_get_xfer_in(message.from_user.username, COIN_NAME, SERVER_BOT)
         if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
             actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
         elif COIN_NAME in ENABLE_COIN_NANO:
@@ -966,7 +967,7 @@ async def start_cmd_handler(message: types.Message):
         # Negative check
         try:
             if actual_balance < 0:
-                msg_negative = '[Telegram] Negative balance detected:\nUser: '+message.from_user.username+'\nCoin: '+COIN_NAME+'\nAtomic Balance: '+str(actual_balance)
+                msg_negative = f'[{SERVER_BOT}] Negative balance detected:\nUser: '+message.from_user.username+'\nCoin: '+COIN_NAME+'\nAtomic Balance: '+str(actual_balance)
                 await logchanbot(msg_negative)
         except Exception as e:
              await logchanbot(traceback.format_exc())
@@ -1014,14 +1015,14 @@ async def start_cmd_handler(message: types.Message):
                     return
                 try:
                     tipto = await store.sql_tipto_crossing(COIN_NAME, message.from_user.username, message.from_user.username, 
-                                                           'TELEGRAM', userid, userid, serverto, real_amount, decimal_pts)
+                                                           SERVER_BOT, userid, userid, serverto, real_amount, decimal_pts)
                     # Update tipstat
                     try:
-                        update_tipstat = await store.sql_user_get_tipstat(message.from_user.username, COIN_NAME, True, 'TELEGRAM')
+                        update_tipstat = await store.sql_user_get_tipstat(message.from_user.username, COIN_NAME, True, SERVER_BOT)
                         update_tipstat = await store.sql_user_get_tipstat(userid, COIN_NAME, True, serverto)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
-                    await logchanbot('[Telegram] {} tipto {}{} to **{}**'.format(message.from_user.username, num_format_coin(real_amount, COIN_NAME), COIN_NAME, to_user))
+                    await logchanbot('[{}] {} tipto {}{} to **{}**'.format(SERVER_BOT, message.from_user.username, num_format_coin(real_amount, COIN_NAME), COIN_NAME, to_user))
                 except Exception as e:
                     await logchanbot(traceback.format_exc())
             except Exception as e:
@@ -1046,7 +1047,7 @@ async def start_cmd_handler(message: types.Message):
         return
 
     # check if account locked
-    account_lock = await alert_if_userlock(message.from_user.username, 'TELEGRAM')
+    account_lock = await alert_if_userlock(message.from_user.username, SERVER_BOT)
     if account_lock:
         reply_text = "Your account is locked!"
         await message.reply(reply_text)
@@ -1084,7 +1085,7 @@ async def start_cmd_handler(message: types.Message):
 
     # add redis action
     random_string = str(uuid.uuid4())
-    await add_tx_action_redis(json.dumps([random_string, "SEND", message.from_user.username, message.from_user.username, float("%.3f" % time.time()), message.text, "TELEGRAM", "START"]), False)
+    await add_tx_action_redis(json.dumps([random_string, "SEND", message.from_user.username, message.from_user.username, float("%.3f" % time.time()), message.text, SERVER_BOT, "START"]), False)
 
     wallet_address = args[3]
     if wallet_address.isalnum() == False:
@@ -1119,10 +1120,10 @@ async def start_cmd_handler(message: types.Message):
             paymentid = None
             CoinAddress = None
 
-            userdata_balance = await store.sql_user_balance(message.from_user.username, COIN_NAME, 'TELEGRAM')
+            userdata_balance = await store.sql_user_balance(message.from_user.username, COIN_NAME, SERVER_BOT)
             xfer_in = 0
             if COIN_NAME not in ENABLE_COIN_ERC:
-                xfer_in = await store.sql_user_balance_get_xfer_in(message.from_user.username, COIN_NAME, 'TELEGRAM')
+                xfer_in = await store.sql_user_balance_get_xfer_in(message.from_user.username, COIN_NAME, SERVER_BOT)
             if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
                 actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
             elif COIN_NAME in ENABLE_COIN_NANO:
@@ -1133,7 +1134,7 @@ async def start_cmd_handler(message: types.Message):
             # Negative check
             try:
                 if actual_balance < 0:
-                    msg_negative = '[Telegram] Negative balance detected:\nUser: '+message.from_user.username+'\nCoin: '+COIN_NAME+'\nAtomic Balance: '+str(actual_balance)
+                    msg_negative = f'[{SERVER_BOT}] Negative balance detected:\nUser: '+message.from_user.username+'\nCoin: '+COIN_NAME+'\nAtomic Balance: '+str(actual_balance)
                     await logchanbot(msg_negative)
             except Exception as e:
                 await logchanbot(traceback.format_exc())
@@ -1180,10 +1181,10 @@ async def start_cmd_handler(message: types.Message):
                             await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
                             return
                         else:
-                            user_from = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
+                            user_from = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, SERVER_BOT)
                             if user_from is None:
-                                userregister = await store.sql_register_user(message.from_user.username, COIN_NAME, 'TELEGRAM', message.chat.id)
-                                user_from = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
+                                userregister = await store.sql_register_user(message.from_user.username, COIN_NAME, SERVER_BOT, message.chat.id)
+                                user_from = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, SERVER_BOT)
                             CoinAddress = wallet_address
                     elif coin_family == "XMR":
                         # If not Masari
@@ -1230,15 +1231,15 @@ async def start_cmd_handler(message: types.Message):
 
                     if paymentid:
                         try:
-                            tip = await store.sql_external_cn_single_id(message.from_user.username, CoinAddress, real_amount, paymentid, COIN_NAME, 'TELEGRAM')
-                            await logchanbot(f'[Telegram] User {message.from_user.username} send tx out {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
+                            tip = await store.sql_external_cn_single_id(message.from_user.username, CoinAddress, real_amount, paymentid, COIN_NAME, SERVER_BOT)
+                            await logchanbot(f'[{SERVER_BOT}] User {message.from_user.username} send tx out {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
                             await logchanbot(traceback.print_exc(file=sys.stdout))
                     else:
                         try:
-                            tip = await store.sql_external_cn_single(message.from_user.username, CoinAddress, real_amount, COIN_NAME, 'TELEGRAM', 'SEND')
-                            await logchanbot(f'[Telegram] User {message.from_user.username} send tx out {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
+                            tip = await store.sql_external_cn_single(message.from_user.username, CoinAddress, real_amount, COIN_NAME, SERVER_BOT, 'SEND')
+                            await logchanbot(f'[{SERVER_BOT}] User {message.from_user.username} send tx out {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
                             await logchanbot(traceback.print_exc(file=sys.stdout))
@@ -1248,7 +1249,7 @@ async def start_cmd_handler(message: types.Message):
                     if tip:
                         tip_tx_tipper = "\nTransaction hash: {}".format(tip['transactionHash'])
                         tip_tx_tipper += "\nA node/tx fee: {}{}".format(num_format_coin(get_tx_node_fee(COIN_NAME), COIN_NAME), COIN_NAME)
-                        await add_tx_action_redis(json.dumps([random_string, "SEND", message.from_user.username, message.from_user.username, float("%.3f" % time.time()), message.text, "TELEGRAM", "COMPLETE"]), False)
+                        await add_tx_action_redis(json.dumps([random_string, "SEND", message.from_user.username, message.from_user.username, float("%.3f" % time.time()), message.text, SERVER_BOT, "COMPLETE"]), False)
                         message_text = text(bold(f"You have sent {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}:\n") + markdown.pre(tip_tx_tipper))
                         await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
                         return
@@ -1274,8 +1275,8 @@ async def start_cmd_handler(message: types.Message):
 
                         try:
                             NetFee = get_tx_node_fee(coin = COIN_NAME)
-                            sendTx = await store.sql_external_doge_single(message.from_user.username, real_amount, NetFee, wallet_address, COIN_NAME, 'SEND', 'TELEGRAM')
-                            await logchanbot(f'[Telegram] User {message.from_user.username} send tx out {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
+                            sendTx = await store.sql_external_doge_single(message.from_user.username, real_amount, NetFee, wallet_address, COIN_NAME, 'SEND', SERVER_BOT)
+                            await logchanbot(f'[{SERVER_BOT}] User {message.from_user.username} send tx out {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
                             await logchanbot(traceback.print_exc(file=sys.stdout))
@@ -1343,14 +1344,14 @@ async def start_cmd_handler(message: types.Message):
 
     # add redis action
     random_string = str(uuid.uuid4())
-    await add_tx_action_redis(json.dumps([random_string, "WITHDRAW", message.from_user.username, message.from_user.username, float("%.3f" % time.time()), message.text, "TELEGRAM", "START"]), False)
+    await add_tx_action_redis(json.dumps([random_string, "WITHDRAW", message.from_user.username, message.from_user.username, float("%.3f" % time.time()), message.text, SERVER_BOT, "START"]), False)
 
     # get coin family
     if COIN_NAME in ENABLE_COIN_ERC:
         coin_family = "ERC-20"
     else:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-    user_from = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
+    user_from = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, SERVER_BOT)
     if user_from is None:
         message_text = text(bold(f"You have not registered {COIN_NAME}"))
         await message.reply(message_text,
@@ -1384,10 +1385,10 @@ async def start_cmd_handler(message: types.Message):
         valid_amount = True
 
 
-        userdata_balance = await store.sql_user_balance(message.from_user.username, COIN_NAME, 'TELEGRAM')
+        userdata_balance = await store.sql_user_balance(message.from_user.username, COIN_NAME, SERVER_BOT)
         xfer_in = 0
         if COIN_NAME not in ENABLE_COIN_ERC:
-            xfer_in = await store.sql_user_balance_get_xfer_in(message.from_user.username, COIN_NAME, 'TELEGRAM')
+            xfer_in = await store.sql_user_balance_get_xfer_in(message.from_user.username, COIN_NAME, SERVER_BOT)
         if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
             actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
         elif COIN_NAME in ENABLE_COIN_NANO:
@@ -1398,7 +1399,7 @@ async def start_cmd_handler(message: types.Message):
         # Negative check
         try:
             if actual_balance < 0:
-                msg_negative = '[Telegram] Negative balance detected:\nUser: '+message.from_user.username+'\nCoin: '+COIN_NAME+'\nAtomic Balance: '+str(actual_balance)
+                msg_negative = f'[{SERVER_BOT}] Negative balance detected:\nUser: '+message.from_user.username+'\nCoin: '+COIN_NAME+'\nAtomic Balance: '+str(actual_balance)
                 await logchanbot(msg_negative)
         except Exception as e:
             await logchanbot(traceback.format_exc())
@@ -1437,7 +1438,7 @@ async def start_cmd_handler(message: types.Message):
                     return
 
                 try:
-                    withdrawTx = await store.sql_external_cn_single(message.from_user.username, user_from['user_wallet_address'], real_amount, COIN_NAME, "TELEGRAM", "WITHDRAW")
+                    withdrawTx = await store.sql_external_cn_single(message.from_user.username, user_from['user_wallet_address'], real_amount, COIN_NAME, SERVER_BOT, "WITHDRAW")
                     withdraw_txt = "Transaction hash: {}".format(withdrawTx['transactionHash'])
                     withdraw_txt += "\nA node/tx fee: {}{}".format(num_format_coin(get_tx_node_fee(COIN_NAME), COIN_NAME), COIN_NAME)
                 except Exception as e:
@@ -1447,7 +1448,7 @@ async def start_cmd_handler(message: types.Message):
                     await asyncio.sleep(1)
                     WITHDRAW_IN_PROCESS.remove(message.from_user.username)
                 if tip:
-                    await add_tx_action_redis(json.dumps([random_string, "WITHDRAW", message.from_user.username, message.from_user.username, float("%.3f" % time.time()), message.text, "TELEGRAM", "COMPLETE"]), False)
+                    await add_tx_action_redis(json.dumps([random_string, "WITHDRAW", message.from_user.username, message.from_user.username, float("%.3f" % time.time()), message.text, SERVER_BOT, "COMPLETE"]), False)
                     message_text = text(bold(f"You have withdrawn {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}:\n"),
                                         markdown.pre(withdraw_txt))
                     await message.reply(message_text,
@@ -1473,7 +1474,7 @@ async def start_cmd_handler(message: types.Message):
                 NetFee = get_tx_node_fee(coin = COIN_NAME)
                 withdrawTx = await store.sql_external_doge_single(message.from_user.username, real_amount,
                                                                 NetFee, wallet_address,
-                                                                COIN_NAME, "WITHDRAW", "TELEGRAM")
+                                                                COIN_NAME, "WITHDRAW", SERVER_BOT)
                 withdraw_txt = f'Transaction hash: {withdrawTx}.'
                 withdraw_txt += "\nA node/tx fee: {}{}".format(num_format_coin(NetFee, COIN_NAME), COIN_NAME)
             except Exception as e:
@@ -1483,7 +1484,7 @@ async def start_cmd_handler(message: types.Message):
                 await asyncio.sleep(1)
                 WITHDRAW_IN_PROCESS.remove(message.from_user.username)
             if withdrawTx:
-                await add_tx_action_redis(json.dumps([random_string, "WITHDRAW", message.from_user.username, message.from_user.username, float("%.3f" % time.time()), message.text, "TELEGRAM", "COMPLETE"]), False)
+                await add_tx_action_redis(json.dumps([random_string, "WITHDRAW", message.from_user.username, message.from_user.username, float("%.3f" % time.time()), message.text, SERVER_BOT, "COMPLETE"]), False)
                 message_text = text(bold(f"You have withdrawn {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}:\n"),
                                     markdown.pre(withdraw_txt))
                 await message.reply(message_text,
@@ -1513,7 +1514,7 @@ async def start_cmd_handler(message: types.Message):
     return
 
     # check if account locked
-    account_lock = await alert_if_userlock(message.from_user.username, 'TELEGRAM')
+    account_lock = await alert_if_userlock(message.from_user.username, SERVER_BOT)
     if account_lock:
         reply_text = "Your account is locked!"
         await message.reply(reply_text)
@@ -1522,13 +1523,13 @@ async def start_cmd_handler(message: types.Message):
 
     # check user claim:
     claim_interval = 24
-    check_claimed = await store.sql_faucet_checkuser(message.from_user.username, 'TELEGRAM')
+    check_claimed = await store.sql_faucet_checkuser(message.from_user.username, SERVER_BOT)
     if check_claimed:
         # limit 12 hours
         if int(time.time()) - check_claimed['claimed_at'] <= claim_interval*3600:
             remaining = await bot_faucet('teletip_bot') or ''
             time_waiting = seconds_str(claim_interval*3600 - int(time.time()) + check_claimed['claimed_at'])
-            number_user_claimed = '{:,.0f}'.format(await store.sql_faucet_count_user(message.from_user.username, 'TELEGRAM'))
+            number_user_claimed = '{:,.0f}'.format(await store.sql_faucet_count_user(message.from_user.username, SERVER_BOT))
             total_claimed = '{:,.0f}'.format(await store.sql_faucet_count_all())
 
             reply_text = text(markdown.pre(f'\nYou just claimed within last {claim_interval}h. \n'
@@ -1578,10 +1579,10 @@ async def start_cmd_handler(message: types.Message):
         Max_Tx = get_max_tx_amount(COIN_NAME)
 
     real_amount = amount
-    userdata_balance = await store.sql_user_balance('teletip_bot', COIN_NAME, 'TELEGRAM')
+    userdata_balance = await store.sql_user_balance('teletip_bot', COIN_NAME, SERVER_BOT)
     xfer_in = 0
     if COIN_NAME not in ENABLE_COIN_ERC:
-        xfer_in = await store.sql_user_balance_get_xfer_in('teletip_bot', COIN_NAME, 'TELEGRAM')
+        xfer_in = await store.sql_user_balance_get_xfer_in('teletip_bot', COIN_NAME, SERVER_BOT)
     if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
         actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
     elif COIN_NAME in ENABLE_COIN_NANO:
@@ -1592,12 +1593,12 @@ async def start_cmd_handler(message: types.Message):
         # Negative check
         try:
             if actual_balance < 0:
-                msg_negative = '[Telegram] Negative balance detected:\nUser: '+message.from_user.username+'\nCoin: '+COIN_NAME+'\nAtomic Balance: '+str(actual_balance)
+                msg_negative = f'[{SERVER_BOT}] Negative balance detected:\nUser: '+message.from_user.username+'\nCoin: '+COIN_NAME+'\nAtomic Balance: '+str(actual_balance)
                 await logchanbot(msg_negative)
         except Exception as e:
             await logchanbot(traceback.format_exc())
 
-    user_to = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
+    user_to = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, SERVER_BOT)
     if user_to is None:
         reply_text = f"You get random coin {COIN_NAME}. But I can not get you in DB. Please create your account with /balance {COIN_NAME}"
         await message.reply(reply_text)
@@ -1618,17 +1619,17 @@ async def start_cmd_handler(message: types.Message):
                 return
             try:
                 if coin_family in ["TRTL", "BCN"]:
-                    tip = await store.sql_mv_cn_single("teletip_bot", message.from_user.username, real_amount, "FAUCET", COIN_NAME, "TELEGRAM")
+                    tip = await store.sql_mv_cn_single("teletip_bot", message.from_user.username, real_amount, "FAUCET", COIN_NAME, SERVER_BOT)
                 elif coin_family == "XMR":
-                    tip = await store.sql_mv_xmr_single("teletip_bot", message.from_user.username, real_amount, COIN_NAME, "FAUCET", "TELEGRAM")
+                    tip = await store.sql_mv_xmr_single("teletip_bot", message.from_user.username, real_amount, COIN_NAME, "FAUCET", SERVER_BOT)
                 elif coin_family == "NANO":
-                    tip = await store.sql_mv_nano_single("teletip_bot", message.from_user.username, real_amount, COIN_NAME, "FAUCET", "TELEGRAM")
+                    tip = await store.sql_mv_nano_single("teletip_bot", message.from_user.username, real_amount, COIN_NAME, "FAUCET", SERVER_BOT)
                 elif coin_family == "DOGE":
-                    tip = await store.sql_mv_doge_single("teletip_bot", message.from_user.username, real_amount, COIN_NAME, "FAUCET", "TELEGRAM")
+                    tip = await store.sql_mv_doge_single("teletip_bot", message.from_user.username, real_amount, COIN_NAME, "FAUCET", SERVER_BOT)
                 elif coin_family == "ERC-20":
                     token_info = await store.get_token_info(COIN_NAME)
-                    tip = await store.sql_mv_erc_single("teletip_bot", message.from_user.username, real_amount, COIN_NAME, "FAUCET", token_info['contract'], "TELEGRAM")
-                await logchanbot(f'[Telegram] User {message.from_user.username} claimed faucet {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
+                    tip = await store.sql_mv_erc_single("teletip_bot", message.from_user.username, real_amount, COIN_NAME, "FAUCET", token_info['contract'], SERVER_BOT)
+                await logchanbot(f'[{SERVER_BOT}] User {message.from_user.username} claimed faucet {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
             except Exception as e:
                 await logchanbot(traceback.format_exc())
             if message.from_user.username in WITHDRAW_IN_PROCESS:
@@ -1636,7 +1637,7 @@ async def start_cmd_handler(message: types.Message):
                 WITHDRAW_IN_PROCESS.remove(message.from_user.username)
             if tip:
                 try:
-                    faucet_add = await store.sql_faucet_add(message.from_user.username, message.chat.id, COIN_NAME, real_amount, 10**decimal_pts, "TELEGRAM")
+                    faucet_add = await store.sql_faucet_add(message.from_user.username, message.chat.id, COIN_NAME, real_amount, 10**decimal_pts, SERVER_BOT)
                     message_text = text(bold("You received free coin:"), markdown.pre("\nAmount: {}{}".format(num_format_coin(real_amount, COIN_NAME), COIN_NAME)), "\nConsider tipping me if you like this :).")
                     await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
                 except Exception as e:
@@ -1698,7 +1699,7 @@ async def start_cmd_handler(message: types.Message):
         coin_family = "ERC-20"
     else:
         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-    user_from = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, 'TELEGRAM')
+    user_from = await store.sql_get_userwallet(message.from_user.username, COIN_NAME, SERVER_BOT)
 
     if COIN_NAME in ENABLE_COIN_ERC:
         token_info = await store.get_token_info(COIN_NAME)
@@ -1718,10 +1719,10 @@ async def start_cmd_handler(message: types.Message):
         real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO"] else float(amount)
         coin_decimal = get_decimal(COIN_NAME)
 
-    userdata_balance = await store.sql_user_balance(message.from_user.username, COIN_NAME, 'TELEGRAM')
+    userdata_balance = await store.sql_user_balance(message.from_user.username, COIN_NAME, SERVER_BOT)
     xfer_in = 0
     if COIN_NAME not in ENABLE_COIN_ERC:
-        xfer_in = await store.sql_user_balance_get_xfer_in(message.from_user.username, COIN_NAME, 'TELEGRAM')
+        xfer_in = await store.sql_user_balance_get_xfer_in(message.from_user.username, COIN_NAME, SERVER_BOT)
     if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
         actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
     elif COIN_NAME in ENABLE_COIN_NANO:
@@ -1732,7 +1733,7 @@ async def start_cmd_handler(message: types.Message):
         # Negative check
     try:
         if actual_balance < 0:
-            msg_negative = '[Telegram] Negative balance detected:\nUser: '+message.from_user.username+'\nCoin: '+COIN_NAME+'\nAtomic Balance: '+str(actual_balance)
+            msg_negative = f'[{SERVER_BOT}] Negative balance detected:\nUser: '+message.from_user.username+'\nCoin: '+COIN_NAME+'\nAtomic Balance: '+str(actual_balance)
             await logchanbot(msg_negative)
     except Exception as e:
         await logchanbot(traceback.format_exc())
@@ -1758,21 +1759,21 @@ async def start_cmd_handler(message: types.Message):
             CoinAddress = get_donate_address(COIN_NAME)
             try:
                 if coin_family in ["TRTL", "BCN"]:
-                    donateTx = await store.sql_donate(message.from_user.username, get_donate_address(COIN_NAME), real_amount, COIN_NAME, "TELEGRAM")
+                    donateTx = await store.sql_donate(message.from_user.username, get_donate_address(COIN_NAME), real_amount, COIN_NAME, SERVER_BOT)
                 elif coin_family == "XMR":
-                    donateTx = await store.sql_mv_xmr_single(message.from_user.username, get_donate_account_name(COIN_NAME), real_amount, COIN_NAME, "DONATE", "TELEGRAM")
+                    donateTx = await store.sql_mv_xmr_single(message.from_user.username, get_donate_account_name(COIN_NAME), real_amount, COIN_NAME, "DONATE", SERVER_BOT)
                 elif coin_family == "NANO":
-                    donateTx = await store.sql_mv_nano_single(message.from_user.username, get_donate_account_name(COIN_NAME), real_amount, COIN_NAME, "DONATE", "TELEGRAM")
+                    donateTx = await store.sql_mv_nano_single(message.from_user.username, get_donate_account_name(COIN_NAME), real_amount, COIN_NAME, "DONATE", SERVER_BOT)
                 elif coin_family == "DOGE":
-                    donateTx = await store.sql_mv_doge_single(message.from_user.username, get_donate_account_name(COIN_NAME), real_amount, COIN_NAME, "DONATE", "TELEGRAM")
+                    donateTx = await store.sql_mv_doge_single(message.from_user.username, get_donate_account_name(COIN_NAME), real_amount, COIN_NAME, "DONATE", SERVER_BOT)
                 elif coin_family == "ERC-20":
                     token_info = await store.get_token_info(COIN_NAME)
-                    donateTx = await store.sql_mv_erc_single(message.from_user.username, token_info['donate_name'], real_amount, COIN_NAME, "DONATE", token_info['contract'], "TELEGRAM")
+                    donateTx = await store.sql_mv_erc_single(message.from_user.username, token_info['donate_name'], real_amount, COIN_NAME, "DONATE", token_info['contract'], SERVER_BOT)
             except Exception as e:
                 await logchanbot(traceback.format_exc())
             message_text = text(bold("You donated:") + markdown.pre("\nAmount: {}{}".format(num_format_coin(real_amount, COIN_NAME), COIN_NAME)), "Thank you very much.")
             await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
-            await logchanbot(f'[Telegram] TipBot got donation: {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
+            await logchanbot(f'[{SERVER_BOT}] TipBot got donation: {num_format_coin(real_amount, COIN_NAME)}{COIN_NAME}')
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         if message.from_user.username in WITHDRAW_IN_PROCESS:
@@ -1922,7 +1923,7 @@ async def notify_new_tx_user():
                 try:
                     user_tx = None
                     if len(eachTx['payment_id']) > 0:
-                        user_tx = await store.sql_get_userwallet_by_paymentid(eachTx['payment_id'], eachTx['coin_name'], 'TELEGRAM')
+                        user_tx = await store.sql_get_userwallet_by_paymentid(eachTx['payment_id'], eachTx['coin_name'], SERVER_BOT)
                     if user_tx:
                         #get_user_chat = await bot.get_chat_member()
                         is_notify_failed = False
@@ -1939,20 +1940,20 @@ async def notify_new_tx_user():
                             if send_msg:
                                 is_notify_failed = False
                             else:
-                                await logchanbot("[Telegram] Can not send message to {}".format(user_tx['chat_id']))
+                                await logchanbot("[{}] Can not send message to {}".format(SERVER_BOT, user_tx['chat_id']))
                                 is_notify_failed = True
                         except exceptions.BotBlocked:
-                            await logchanbot(f"[Telegram] Target [ID:{to_user}]: blocked by user")
+                            await logchanbot(f"[{SERVER_BOT}] Target [ID:{to_user}]: blocked by user")
                         except exceptions.ChatNotFound:
-                            await logchanbot(f"[Telegram] Target [ID:{to_user}]: invalid user ID")
+                            await logchanbot(f"[{SERVER_BOT}] Target [ID:{to_user}]: invalid user ID")
                         except exceptions.RetryAfter as e:
-                            await logchanbot(f"[Telegram] Target [ID:{to_user}]: Flood limit is exceeded. Sleep {e.timeout} seconds")
+                            await logchanbot(f"[{SERVER_BOT}] Target [ID:{to_user}]: Flood limit is exceeded. Sleep {e.timeout} seconds")
                             await asyncio.sleep(e.timeout)
                             return await bot.send_message(chat_id=to_user, text=message_text)  # Recursive call
                         except exceptions.UserDeactivated:
-                            await logchanbot(f"[Telegram] Target [ID:{to_user}]: user is deactivated")
+                            await logchanbot(f"[{SERVER_BOT}] Target [ID:{to_user}]: user is deactivated")
                         except exceptions.TelegramAPIError:
-                            await logchanbot(f"[Telegram] Target [ID:{to_user}]: failed")
+                            await logchanbot(f"[{SERVER_BOT}] Target [ID:{to_user}]: failed")
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
                             is_notify_failed = True
@@ -1974,8 +1975,8 @@ async def notify_new_move_balance_user():
             # let's notify_new_tx_user
             for eachTx in pending_tx:
                 try:
-                    if eachTx['to_server'] == "TELEGRAM":
-                        user_found = await store.sql_get_userwallet(eachTx['to_userid'], eachTx['coin_name'], 'TELEGRAM')
+                    if eachTx['to_server'] == SERVER_BOT:
+                        user_found = await store.sql_get_userwallet(eachTx['to_userid'], eachTx['coin_name'], SERVER_BOT)
                         if user_found and user_found['chat_id']:
                             to_user = user_found['chat_id']
                             if eachTx['coin_name'] in ENABLE_COIN_ERC:
@@ -1984,25 +1985,25 @@ async def notify_new_move_balance_user():
                             try:
                                 send_msg = await bot.send_message(chat_id=to_user, text=message_text, parse_mode=ParseMode.MARKDOWN)
                             except exceptions.BotBlocked:
-                                await logchanbot(f"[Telegram] Target [ID:{to_user}]: blocked by user")
+                                await logchanbot(f"[{SERVER_BOT}] Target [ID:{to_user}]: blocked by user")
                             except exceptions.ChatNotFound:
-                                await logchanbot(f"[Telegram] Target [ID:{to_user}]: invalid user ID")
+                                await logchanbot(f"[{SERVER_BOT}] Target [ID:{to_user}]: invalid user ID")
                             except exceptions.RetryAfter as e:
-                                await logchanbot(f"[Telegram] Target [ID:{to_user}]: Flood limit is exceeded. Sleep {e.timeout} seconds")
+                                await logchanbot(f"[{SERVER_BOT}] Target [ID:{to_user}]: Flood limit is exceeded. Sleep {e.timeout} seconds")
                                 await asyncio.sleep(e.timeout)
                                 return await bot.send_message(chat_id=to_user, text=message_text)  # Recursive call
                             except exceptions.UserDeactivated:
-                                await logchanbot(f"[Telegram] Target [ID:{to_user}]: user is deactivated")
+                                await logchanbot(f"[{SERVER_BOT}] Target [ID:{to_user}]: user is deactivated")
                             except exceptions.TelegramAPIError:
-                                await logchanbot(f"[Telegram] Target [ID:{to_user}]: failed")
+                                await logchanbot(f"[{SERVER_BOT}] Target [ID:{to_user}]: failed")
                             except Exception as e:
                                 print(traceback.format_exc())
                                 await logchanbot(traceback.format_exc())
                             update_receiver = await store.sql_update_move_balance_table(eachTx['id'], 'RECEIVER')
                         elif user_found:
                             userto = eachTx['to_userid']
-                            # print(f"[Telegram] Can not find chat_id user after moving tip: {userto}")
-                            # await logchanbot(f"[Telegram] Can not find chat_id user after moving tip: {userto}")
+                            # print(f"[{SERVER_BOT}] Can not find chat_id user after moving tip: {userto}")
+                            # await logchanbot(f"[{SERVER_BOT}] Can not find chat_id user after moving tip: {userto}")
                 except Exception as e:
                     print(traceback.format_exc())
                     #await logchanbot(traceback.format_exc())
@@ -2015,17 +2016,17 @@ async def bot_faucet(botname: str):
     ]
     for COIN_NAME in [coinItem.upper() for coinItem in FAUCET_COINS]:
         sum_sub = 0
-        wallet = await store.sql_get_userwallet(botname, COIN_NAME, 'TELEGRAM')
+        wallet = await store.sql_get_userwallet(botname, COIN_NAME, SERVER_BOT)
         if wallet is None:
             if COIN_NAME in ENABLE_COIN_ERC:
                 w = create_eth_wallet()
-                userregister = await store.sql_register_user(botname, COIN_NAME, 'TELEGRAM', message.chat.id, w)
+                userregister = await store.sql_register_user(botname, COIN_NAME, SERVER_BOT, message.chat.id, w)
             else:
-                userregister = await store.sql_register_user(botname, COIN_NAME, 'TELEGRAM', message.chat.id)
-        userdata_balance = await store.sql_user_balance('teletip_bot', COIN_NAME, 'TELEGRAM')
+                userregister = await store.sql_register_user(botname, COIN_NAME, SERVER_BOT, message.chat.id)
+        userdata_balance = await store.sql_user_balance('teletip_bot', COIN_NAME, SERVER_BOT)
         xfer_in = 0
         if COIN_NAME not in ENABLE_COIN_ERC:
-            xfer_in = await store.sql_user_balance_get_xfer_in('teletip_bot', COIN_NAME, 'TELEGRAM')
+            xfer_in = await store.sql_user_balance_get_xfer_in('teletip_bot', COIN_NAME, SERVER_BOT)
         if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC:
             actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
         elif COIN_NAME in ENABLE_COIN_NANO:

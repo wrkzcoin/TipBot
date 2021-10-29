@@ -425,6 +425,7 @@ bot_help_account_verify = "Verify 2FA code from QR code and your Authenticator P
 bot_help_account_unverify = "Unverify your account and disable 2FA code."
 bot_help_account_tipemoji = "Put additional Emoji to your successful tip."
 
+SERVER_BOT = "DISCORD"
 
 def init():
     global redis_pool
@@ -666,10 +667,10 @@ async def on_reaction_add(reaction, user):
 
                 user_from = await store.sql_get_userwallet(str(user.id), COIN_NAME)
                 if user_from is None:
-                    userregister = await store.sql_register_user(str(user.id), COIN_NAME, 'DISCORD', 0)
+                    userregister = await store.sql_register_user(str(user.id), COIN_NAME, SERVER_BOT, 0)
                 user_to = await store.sql_get_userwallet(str(reaction.message.author.id), COIN_NAME)
                 if user_to is None:
-                    userregister = await store.sql_register_user(str(reaction.message.author.id), COIN_NAME, 'DISCORD', 0)
+                    userregister = await store.sql_register_user(str(reaction.message.author.id), COIN_NAME, SERVER_BOT, 0)
                 userdata_balance = await store.sql_user_balance(str(user.id), COIN_NAME)
                 xfer_in = 0
                 if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
@@ -764,7 +765,7 @@ async def on_reaction_add(reaction, user):
 
                 user_from = await store.sql_get_userwallet(str(user.id), COIN_NAME)
                 if user_from is None:
-                    userregister = await store.sql_register_user(str(user.id), COIN_NAME, 'DISCORD', 0)
+                    userregister = await store.sql_register_user(str(user.id), COIN_NAME, SERVER_BOT, 0)
 
                 userdata_balance = await store.sql_user_balance(str(user.id), COIN_NAME)
                 xfer_in = 0
@@ -786,7 +787,7 @@ async def on_reaction_add(reaction, user):
                     await logchanbot(traceback.format_exc())
                 user_to = await store.sql_get_userwallet(str(reaction.message.author.id), COIN_NAME)
                 if user_to is None:
-                    userregister = await store.sql_register_user(str(reaction.message.author.id), COIN_NAME, 'DISCORD', 0)
+                    userregister = await store.sql_register_user(str(reaction.message.author.id), COIN_NAME, SERVER_BOT, 0)
                 # process other check balance
                 if real_amount > actual_balance or \
                     real_amount > MaxTX or real_amount < MinTx:
@@ -1017,7 +1018,7 @@ async def draw(ctx, member: discord.Member = None):
                     msg = await ctx.send(embed=e)
                     await msg.add_reaction(EMOJI_OK_BOX)
                     await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
-                                str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'DRAW', ctx.message.content, 'DISCORD')
+                                str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'DRAW', ctx.message.content, SERVER_BOT)
                 except Exception as e:
                     await logchanbot(traceback.format_exc())
                 await ctx.message.add_reaction(EMOJI_FLOPPY)
@@ -1053,7 +1054,7 @@ async def draw(ctx, member: discord.Member = None):
                     msg = await ctx.send(embed=e)
                     await msg.add_reaction(EMOJI_OK_BOX)
                     await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
-                                str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'DRAW', ctx.message.content, 'DISCORD')
+                                str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'DRAW', ctx.message.content, SERVER_BOT)
                 except Exception as e:
                     await logchanbot(traceback.format_exc())
                     await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
@@ -1132,7 +1133,7 @@ async def sketchme(ctx, member: discord.Member = None):
                     msg = await ctx.send(embed=e)
                     await msg.add_reaction(EMOJI_OK_BOX)
                     await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
-                                str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SKETCHME', ctx.message.content, 'DISCORD')
+                                str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SKETCHME', ctx.message.content, SERVER_BOT)
                 except Exception as e:
                     await logchanbot(traceback.format_exc())
                 await ctx.message.add_reaction(EMOJI_FLOPPY)
@@ -1162,7 +1163,7 @@ async def sketchme(ctx, member: discord.Member = None):
                         msg = await ctx.send(embed=e)
                         await msg.add_reaction(EMOJI_OK_BOX)
                         await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
-                                    str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SKETCHME', ctx.message.content, 'DISCORD')
+                                    str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SKETCHME', ctx.message.content, SERVER_BOT)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
                         await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
@@ -1197,7 +1198,7 @@ async def spank(ctx, member: discord.Member = None):
                 await ctx.send(file=discord.File(random_gif_name))
                 os.remove(random_gif_name)
                 await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
-                str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SPANK', ctx.message.content, 'DISCORD')
+                str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SPANK', ctx.message.content, SERVER_BOT)
             else:
                 await ctx.message.add_reaction(EMOJI_ERROR)
     except Exception as e:
@@ -1232,7 +1233,7 @@ async def punch(ctx, member: discord.Member = None):
                 await ctx.send(file=discord.File(random_gif_name))
                 os.remove(random_gif_name)
                 await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
-                str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'PUNCH', ctx.message.content, 'DISCORD')
+                str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'PUNCH', ctx.message.content, SERVER_BOT)
             else:
                 await ctx.message.add_reaction(EMOJI_ERROR)
     except Exception as e:
@@ -1267,7 +1268,7 @@ async def slap(ctx, member: discord.Member = None):
                 await ctx.send(file=discord.File(random_gif_name))
                 os.remove(random_gif_name)
                 await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
-                str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SLAP', ctx.message.content, 'DISCORD')
+                str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SLAP', ctx.message.content, SERVER_BOT)
             else:
                 await ctx.message.add_reaction(EMOJI_ERROR)
     except Exception as e:
@@ -1295,7 +1296,7 @@ async def praise(ctx, member: discord.Member = None):
                 await ctx.send(file=discord.File(random_gif_name))
                 os.remove(random_gif_name)
                 await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
-                str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'PRAISE', ctx.message.content, 'DISCORD')
+                str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'PRAISE', ctx.message.content, SERVER_BOT)
             else:
                 await ctx.message.add_reaction(EMOJI_ERROR)
     except Exception as e:
@@ -1330,7 +1331,7 @@ async def shoot(ctx, member: discord.Member = None):
                 await ctx.send(file=discord.File(random_gif_name))
                 os.remove(random_gif_name)
                 await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
-                str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SHOOT', ctx.message.content, 'DISCORD')
+                str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SHOOT', ctx.message.content, SERVER_BOT)
             else:
                 await ctx.message.add_reaction(EMOJI_ERROR)
     except Exception as e:
@@ -1365,7 +1366,7 @@ async def kick(ctx, member: discord.Member = None):
                 await ctx.send(file=discord.File(random_gif_name))
                 os.remove(random_gif_name)
                 await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
-                str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'KICK', ctx.message.content, 'DISCORD')
+                str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'KICK', ctx.message.content, SERVER_BOT)
             else:
                 await ctx.message.add_reaction(EMOJI_ERROR)
     except Exception as e:
@@ -1393,7 +1394,7 @@ async def fistbump(ctx, member: discord.Member = None):
                 await ctx.send(file=discord.File(random_gif_name))
                 os.remove(random_gif_name)
                 await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
-                str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'FISTBUMP', ctx.message.content, 'DISCORD')
+                str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'FISTBUMP', ctx.message.content, SERVER_BOT)
             else:
                 await ctx.message.add_reaction(EMOJI_ERROR)
     except Exception as e:
@@ -1417,7 +1418,7 @@ async def dance(ctx):
                 await ctx.send(file=discord.File(random_gif_name))
                 os.remove(random_gif_name)
                 await store.sql_add_tbfun(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
-                str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'DANCE', ctx.message.content, 'DISCORD')
+                str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'DANCE', ctx.message.content, SERVER_BOT)
             else:
                 await ctx.message.add_reaction(EMOJI_ERROR)
     except Exception as e:
@@ -1773,7 +1774,7 @@ async def trans(ctx, to_lang: str, *, speech: str):
                 await msg.add_reaction(EMOJI_OK_BOX)
                 await ctx.message.add_reaction(EMOJI_OK_HAND)
                 await store.sql_add_trans_tts(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
-                            speech, voice_file['translated'], voice_file['src_lang'], to_lang, voice_file['file'], 'DISCORD')
+                            speech, voice_file['translated'], voice_file['src_lang'], to_lang, voice_file['file'], SERVER_BOT)
         except Exception as e:
             await logchanbot(traceback.format_exc())
             await ctx.message.reply(f'{ctx.author.mention} Translate: Internal error. The media file could be too big to upload here. Please reduce your text length.')
@@ -1804,7 +1805,7 @@ async def tts(ctx, *, speech: str):
                     await msg.add_reaction(EMOJI_OK_BOX)
                     await ctx.message.add_reaction(EMOJI_OK_HAND)
                     await store.sql_add_tts(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
-                                speech, lang, voice_file, 'DISCORD')
+                                speech, lang, voice_file, SERVER_BOT)
                 except Exception as e:
                     await logchanbot(traceback.format_exc())
                     await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
@@ -1835,7 +1836,7 @@ async def ttskh(ctx, *, speech: str):
                 await msg.add_reaction(EMOJI_OK_BOX)
                 await ctx.message.add_reaction(EMOJI_OK_HAND)
                 await store.sql_add_tts(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
-                            speech, lang, voice_file, 'DISCORD')
+                            speech, lang, voice_file, SERVER_BOT)
             except Exception as e:
                 await logchanbot(traceback.format_exc())
                 await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
@@ -1867,7 +1868,7 @@ async def ttscn(ctx, *, speech: str):
                 await msg.add_reaction(EMOJI_OK_BOX)
                 await ctx.message.add_reaction(EMOJI_OK_HAND)
                 await store.sql_add_tts(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), \
-                            speech, lang, voice_file, 'DISCORD')
+                            speech, lang, voice_file, SERVER_BOT)
             except Exception as e:
                 await logchanbot(traceback.format_exc())
                 await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
@@ -2110,8 +2111,8 @@ async def blackjack(ctx):
         await logchanbot(traceback.format_exc())
     # end of bot channel check
 
-    count_played = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', False)
-    count_played_free = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', True)
+    count_played = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, SERVER_BOT, False)
+    count_played_free = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, SERVER_BOT, True)
     if count_played and count_played >= config.game.max_daily_play:
         free_game = True
         await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
@@ -2295,13 +2296,13 @@ Rules:
     if free_game == True:
         try:
             await store.sql_game_free_add('BLACKJACK: PLAYER={}, DEALER={}'.format(playerValue, dealerValue), str(ctx.message.author.id), \
-            'WIN' if won else 'LOSE', str(ctx.guild.id), 'BLACKJACK', int(time.time()) - time_start, 'DISCORD')
+            'WIN' if won else 'LOSE', str(ctx.guild.id), 'BLACKJACK', int(time.time()) - time_start, SERVER_BOT)
         except Exception as e:
             await logchanbot(traceback.format_exc())
     else:
         try:
             reward = await store.sql_game_add('BLACKJACK: PLAYER={}, DEALER={}'.format(playerValue, dealerValue), str(ctx.message.author.id), \
-            COIN_NAME, 'WIN' if won else 'LOSE', real_amount if won else 0, get_decimal(COIN_NAME) if won else 0, str(ctx.guild.id), 'BLACKJACK', int(time.time()) - time_start, 'DISCORD')
+            COIN_NAME, 'WIN' if won else 'LOSE', real_amount if won else 0, get_decimal(COIN_NAME) if won else 0, str(ctx.guild.id), 'BLACKJACK', int(time.time()) - time_start, SERVER_BOT)
         except Exception as e:
             await logchanbot(traceback.format_exc())
 
@@ -2361,8 +2362,8 @@ async def slot(ctx):
         await logchanbot(traceback.format_exc())
     # end of bot channel check
 
-    count_played = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', False)
-    count_played_free = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', True)
+    count_played = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, SERVER_BOT, False)
+    count_played_free = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, SERVER_BOT, True)
     if count_played and count_played >= config.game.max_daily_play:
         free_game = True
         await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
@@ -2406,15 +2407,15 @@ async def slot(ctx):
                 else:
                     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                 real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO", "XCH"] else float(amount)
-                reward = await store.sql_game_add(slotOutput, str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, get_decimal(COIN_NAME), str(ctx.guild.id), 'SLOT', int(time.time()) - time_start, 'DISCORD')
+                reward = await store.sql_game_add(slotOutput, str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, get_decimal(COIN_NAME), str(ctx.guild.id), 'SLOT', int(time.time()) - time_start, SERVER_BOT)
                 result = f'You won! {ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}** to Tip balance!'
             else:
-                reward = await store.sql_game_add(slotOutput, str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'SLOT', int(time.time()) - time_start, 'DISCORD')
+                reward = await store.sql_game_add(slotOutput, str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'SLOT', int(time.time()) - time_start, SERVER_BOT)
         else:
             if won:
                 result = f'You won! but this is a free game without **reward**! Waiting to refresh your paid plays (24h max).'
             try:
-                await store.sql_game_free_add(slotOutput, str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'SLOT', int(time.time()) - time_start, 'DISCORD')
+                await store.sql_game_free_add(slotOutput, str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'SLOT', int(time.time()) - time_start, SERVER_BOT)
             except Exception as e:
                 await logchanbot(traceback.format_exc())
     except Exception as e:
@@ -2514,8 +2515,8 @@ async def bagel(ctx):
         await ctx.message.add_reaction(EMOJI_ERROR)
         return
 
-    count_played = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', False)
-    count_played_free = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', True)
+    count_played = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, SERVER_BOT, False)
+    count_played_free = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, SERVER_BOT, True)
     if count_played and count_played >= config.game.max_daily_play:
         free_game = True
         await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
@@ -2560,12 +2561,12 @@ clues would be Fermi Pico.'''.format(NUM_DIGITS)
                 await ctx.send(f'{ctx.author.mention} **Bagel Timeout**. The answer was **{secretNum}**.')
                 if free_game == True:
                     try:
-                        await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
+                        await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, SERVER_BOT)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
                 else:
                     try:
-                        reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'WIN' if won else 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
+                        reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'WIN' if won else 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, SERVER_BOT)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
                 if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
@@ -2576,12 +2577,12 @@ clues would be Fermi Pico.'''.format(NUM_DIGITS)
                 await ctx.send(f'{ctx.author.mention} **Bagel Timeout**. The answer was **{secretNum}**.')
                 if free_game == True:
                     try:
-                        await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
+                        await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, SERVER_BOT)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
                 else:
                     try:
-                        reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
+                        reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, SERVER_BOT)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
                 if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
@@ -2612,13 +2613,13 @@ clues would be Fermi Pico.'''.format(NUM_DIGITS)
                                 else:
                                     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                                 real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO", "XCH"] else float(amount)
-                                reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, get_decimal(COIN_NAME), str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
+                                reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, get_decimal(COIN_NAME), str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, SERVER_BOT)
                                 result = f'{ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}** to Tip balance!'
                             elif won == False and free_game == True:
-                                reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
+                                reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, SERVER_BOT)
                             elif free_game == True:
                                 try:
-                                    await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
+                                    await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, SERVER_BOT)
                                 except Exception as e:
                                     await logchanbot(traceback.format_exc())
                             if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
@@ -2636,12 +2637,12 @@ clues would be Fermi Pico.'''.format(NUM_DIGITS)
                 await ctx.send(f'{ctx.author.mention} **Bagel: ** You run out of guesses and you did it **{numGuesses}** times. Game over! The answer was **{secretNum}**')
                 if free_game == True:
                     try:
-                        await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
+                        await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, SERVER_BOT)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
                 else:
                     try:
-                        reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
+                        reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, SERVER_BOT)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
                 if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
@@ -2714,8 +2715,8 @@ async def bagel2(ctx):
         await ctx.message.add_reaction(EMOJI_ERROR)
         return
 
-    count_played = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', False)
-    count_played_free = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', True)
+    count_played = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, SERVER_BOT, False)
+    count_played_free = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, SERVER_BOT, True)
     if count_played and count_played >= config.game.max_daily_play:
         free_game = True
         await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
@@ -2787,12 +2788,12 @@ Hints:
                 await ctx.send(f'{ctx.author.mention} **Bagel Timeout**. The answer was **{secretNum}**.')
                 if free_game == True:
                     try:
-                        await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
+                        await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, SERVER_BOT)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
                 else:
                     try:
-                        reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'WIN' if won else 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
+                        reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'WIN' if won else 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, SERVER_BOT)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
                 if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
@@ -2803,12 +2804,12 @@ Hints:
                 await ctx.send(f'{ctx.author.mention} **Bagel Timeout**. The answer was **{secretNum}**.')
                 if free_game == True:
                     try:
-                        await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
+                        await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, SERVER_BOT)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
                 else:
                     try:
-                        reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
+                        reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, SERVER_BOT)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
                 if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
@@ -2839,13 +2840,13 @@ Hints:
                                 else:
                                     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                                 real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO", "XCH"] else float(amount)
-                                reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, get_decimal(COIN_NAME), str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
+                                reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, get_decimal(COIN_NAME), str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, SERVER_BOT)
                                 result = f'{ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}** to Tip balance!'
                             elif won == False and free_game == True:
-                                reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
+                                reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, SERVER_BOT)
                             elif free_game == True:
                                 try:
-                                    await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
+                                    await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, SERVER_BOT)
                                 except Exception as e:
                                     await logchanbot(traceback.format_exc())
                             if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
@@ -2863,12 +2864,12 @@ Hints:
                 await ctx.send(f'{ctx.author.mention} **Bagel: ** You run out of guesses and you did it **{numGuesses}** times. Game over! The answer was **{secretNum}**')
                 if free_game == True:
                     try:
-                        await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
+                        await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, SERVER_BOT)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
                 else:
                     try:
-                        reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
+                        reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, SERVER_BOT)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
                 if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
@@ -2941,8 +2942,8 @@ async def bagel3(ctx):
         await ctx.message.add_reaction(EMOJI_ERROR)
         return
 
-    count_played = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', False)
-    count_played_free = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', True)
+    count_played = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, SERVER_BOT, False)
+    count_played_free = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, SERVER_BOT, True)
     if count_played and count_played >= config.game.max_daily_play:
         free_game = True
         await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
@@ -3022,12 +3023,12 @@ Hints:
                 await ctx.send(f'{ctx.author.mention} **Bagel Timeout**. The answer was **{secretNum}**.')
                 if free_game == True:
                     try:
-                        await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
+                        await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, SERVER_BOT)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
                 else:
                     try:
-                        reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'WIN' if won else 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
+                        reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'WIN' if won else 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, SERVER_BOT)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
                 if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
@@ -3038,12 +3039,12 @@ Hints:
                 await ctx.send(f'{ctx.author.mention} **Bagel Timeout**. The answer was **{secretNum}**.')
                 if free_game == True:
                     try:
-                        await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
+                        await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, SERVER_BOT)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
                 else:
                     try:
-                        reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
+                        reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, SERVER_BOT)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
                 if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
@@ -3074,13 +3075,13 @@ Hints:
                                 else:
                                     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                                 real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO", "XCH"] else float(amount)
-                                reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, get_decimal(COIN_NAME), str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
+                                reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, get_decimal(COIN_NAME), str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, SERVER_BOT)
                                 result = f'{ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}** to Tip balance!'
                             elif won == False and free_game == True:
-                                reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
+                                reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, SERVER_BOT)
                             elif free_game == True:
                                 try:
-                                    await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
+                                    await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, SERVER_BOT)
                                 except Exception as e:
                                     await logchanbot(traceback.format_exc())
                             if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
@@ -3098,12 +3099,12 @@ Hints:
                 await ctx.send(f'{ctx.author.mention} **Bagel: ** You run out of guesses and you did it **{numGuesses}** times. Game over! The answer was **{secretNum}**')
                 if free_game == True:
                     try:
-                        await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
+                        await store.sql_game_free_add(str(secretNum), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, SERVER_BOT)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
                 else:
                     try:
-                        reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, 'DISCORD')
+                        reward = await store.sql_game_add(str(secretNum), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'BAGEL', int(time.time()) - time_start, SERVER_BOT)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
                 if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
@@ -3165,7 +3166,7 @@ async def maze(ctx):
         await ctx.message.add_reaction(EMOJI_ERROR)
         return
 
-    count_played = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', False)
+    count_played = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, SERVER_BOT, False)
     if count_played and count_played >= config.game.max_daily_play:
         free_game = True
         await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
@@ -3219,12 +3220,12 @@ async def maze(ctx):
 
                 if free_game == True:
                     try:
-                        await store.sql_game_free_add(json.dumps(remap_keys(maze_data)), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'MAZE', int(time.time()) - time_start, 'DISCORD')
+                        await store.sql_game_free_add(json.dumps(remap_keys(maze_data)), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'MAZE', int(time.time()) - time_start, SERVER_BOT)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
                 else:
                     try:
-                        reward = await store.sql_game_add(json.dumps(remap_keys(maze_data)), str(ctx.message.author.id), 'None', 'WIN' if won else 'LOSE', 0, 0, str(ctx.guild.id), 'MAZE', int(time.time()) - time_start, 'DISCORD')
+                        reward = await store.sql_game_add(json.dumps(remap_keys(maze_data)), str(ctx.message.author.id), 'None', 'WIN' if won else 'LOSE', 0, 0, str(ctx.guild.id), 'MAZE', int(time.time()) - time_start, SERVER_BOT)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
                 await ctx.send(f'{ctx.author.mention} **MAZE GAME** has waited you too long. Game exits.')
@@ -3243,12 +3244,12 @@ async def maze(ctx):
 
                 if free_game == True:
                     try:
-                        await store.sql_game_free_add(json.dumps(remap_keys(maze_data)), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'MAZE', int(time.time()) - time_start, 'DISCORD')
+                        await store.sql_game_free_add(json.dumps(remap_keys(maze_data)), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'MAZE', int(time.time()) - time_start, SERVER_BOT)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
                 else:
                     try:
-                        reward = await store.sql_game_add(json.dumps(remap_keys(maze_data)), str(ctx.message.author.id), 'None', 'WIN' if won else 'LOSE', 0, 0, str(ctx.guild.id), 'MAZE', int(time.time()) - time_start, 'DISCORD')
+                        reward = await store.sql_game_add(json.dumps(remap_keys(maze_data)), str(ctx.message.author.id), 'None', 'WIN' if won else 'LOSE', 0, 0, str(ctx.guild.id), 'MAZE', int(time.time()) - time_start, SERVER_BOT)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
                 await asyncio.sleep(1)
@@ -3324,12 +3325,12 @@ async def maze(ctx):
             if free_game == True:
                 result = f'You do not get any reward because it is a free game!'
                 try:
-                    await store.sql_game_free_add(json.dumps(remap_keys(maze_data)), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'MAZE', int(time.time()) - time_start, 'DISCORD')
+                    await store.sql_game_free_add(json.dumps(remap_keys(maze_data)), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'MAZE', int(time.time()) - time_start, SERVER_BOT)
                 except Exception as e:
                     await logchanbot(traceback.format_exc())
             else:
                 try:
-                    reward = await store.sql_game_add(json.dumps(remap_keys(maze_data)), str(ctx.message.author.id), COIN_NAME, 'WIN' if won else 'LOSE', real_amount if won else 0, get_decimal(COIN_NAME) if won else 0, str(ctx.guild.id), 'MAZE', int(time.time()) - time_start, 'DISCORD')
+                    reward = await store.sql_game_add(json.dumps(remap_keys(maze_data)), str(ctx.message.author.id), COIN_NAME, 'WIN' if won else 'LOSE', real_amount if won else 0, get_decimal(COIN_NAME) if won else 0, str(ctx.guild.id), 'MAZE', int(time.time()) - time_start, SERVER_BOT)
                 except Exception as e:
                     await logchanbot(traceback.format_exc())
             duration = seconds_str(int(time.time()) - time_start)
@@ -3403,8 +3404,8 @@ async def hangman(ctx):
         await ctx.message.add_reaction(EMOJI_ERROR)
         return
 
-    count_played = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', False)
-    count_played_free = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', True)
+    count_played = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, SERVER_BOT, False)
+    count_played_free = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, SERVER_BOT, True)
     if count_played and count_played >= config.game.max_daily_play:
         free_game = True
         await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
@@ -3440,12 +3441,12 @@ async def hangman(ctx):
                 await ctx.send(f'{ctx.author.mention} **HANGMAN Timeout**. The answer was **{secretWord}**.')
                 if free_game == True:
                     try:
-                        await store.sql_game_free_add(secretWord, str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'HANGMAN', int(time.time()) - time_start, 'DISCORD')
+                        await store.sql_game_free_add(secretWord, str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'HANGMAN', int(time.time()) - time_start, SERVER_BOT)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
                 else:
                     try:
-                        reward = await store.sql_game_add(secretWord, str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'HANGMAN', int(time.time()) - time_start, 'DISCORD')
+                        reward = await store.sql_game_add(secretWord, str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'HANGMAN', int(time.time()) - time_start, SERVER_BOT)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
                 if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
@@ -3456,12 +3457,12 @@ async def hangman(ctx):
                 await ctx.send(f'{ctx.author.mention} **HANGMAN Timeout**. The answer was **{secretWord}**.')
                 if free_game == True:
                     try:
-                        await store.sql_game_free_add(secretWord, str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'HANGMAN', int(time.time()) - time_start, 'DISCORD')
+                        await store.sql_game_free_add(secretWord, str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'HANGMAN', int(time.time()) - time_start, SERVER_BOT)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
                 else:
                     try:
-                        reward = await store.sql_game_add(secretWord, str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'HANGMAN', int(time.time()) - time_start, 'DISCORD')
+                        reward = await store.sql_game_add(secretWord, str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'HANGMAN', int(time.time()) - time_start, SERVER_BOT)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
                 if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
@@ -3499,10 +3500,10 @@ async def hangman(ctx):
                         else:
                             coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                         real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO", "XCH"] else float(amount)
-                        reward = await store.sql_game_add(secretWord, str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, get_decimal(COIN_NAME), str(ctx.guild.id), 'HANGMAN', int(time.time()) - time_start, 'DISCORD')
+                        reward = await store.sql_game_add(secretWord, str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, get_decimal(COIN_NAME), str(ctx.guild.id), 'HANGMAN', int(time.time()) - time_start, SERVER_BOT)
                         result = f'{ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}** to Tip balance!'
                     elif foundAllLetters and free_game == True:
-                        reward = await store.sql_game_free_add(secretWord, str(ctx.message.author.id), 'WIN', str(ctx.guild.id), 'HANGMAN', int(time.time()) - time_start, 'DISCORD')
+                        reward = await store.sql_game_free_add(secretWord, str(ctx.message.author.id), 'WIN', str(ctx.guild.id), 'HANGMAN', int(time.time()) - time_start, SERVER_BOT)
                     if foundAllLetters:
                         if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
                             GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
@@ -3527,9 +3528,9 @@ async def hangman(ctx):
                         hm_picture = hm_draw['picture']
                         hm_missed = hm_draw['missed_letter']
                         if free_game:
-                            await store.sql_game_free_add(secretWord, str(ctx.message.author.id), 'LOSE', str(ctx.guild.id), 'HANGMAN', int(time.time()) - time_start, 'DISCORD')
+                            await store.sql_game_free_add(secretWord, str(ctx.message.author.id), 'LOSE', str(ctx.guild.id), 'HANGMAN', int(time.time()) - time_start, SERVER_BOT)
                         else:
-                            await store.sql_game_add(secretWord, str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'HANGMAN', int(time.time()) - time_start, 'DISCORD')
+                            await store.sql_game_add(secretWord, str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'HANGMAN', int(time.time()) - time_start, SERVER_BOT)
                         await ctx.send(f'{ctx.author.mention} **HANGMAN: ** You run out of guesses. Game over! The answer was **{secretWord}**```{hm_picture}```')
                         if ctx.message.author.id in GAME_INTERACTIVE_PRGORESS:
                             GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
@@ -3606,8 +3607,8 @@ async def dice(ctx):
         await ctx.message.add_reaction(EMOJI_ERROR)
         return
 
-    count_played = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', False)
-    count_played_free = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', True)
+    count_played = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, SERVER_BOT, False)
+    count_played_free = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, SERVER_BOT, True)
     if count_played and count_played >= config.game.max_daily_play:
         free_game = True
         await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
@@ -3679,10 +3680,10 @@ To win, you must continue rolling the dice until you "make your point."
                     else:
                         coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                     real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO", "XCH"] else float(amount)
-                    reward = await store.sql_game_add('{}:{}:{}:{}'.format(dice_time, sum_dice, dice1, dice2), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, get_decimal(COIN_NAME), str(ctx.guild.id), 'DICE', int(time.time()) - time_start, 'DISCORD')
+                    reward = await store.sql_game_add('{}:{}:{}:{}'.format(dice_time, sum_dice, dice1, dice2), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, get_decimal(COIN_NAME), str(ctx.guild.id), 'DICE', int(time.time()) - time_start, SERVER_BOT)
                     result = f'You won! {ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}** to Tip balance!'
                 else:
-                    reward = await store.sql_game_add('{}:{}:{}:{}'.format(dice_time, sum_dice, dice1, dice2), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'DICE', int(time.time()) - time_start, 'DISCORD')
+                    reward = await store.sql_game_add('{}:{}:{}:{}'.format(dice_time, sum_dice, dice1, dice2), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'DICE', int(time.time()) - time_start, SERVER_BOT)
                     result = f'You lose!'
             else:
                 if won:
@@ -3690,7 +3691,7 @@ To win, you must continue rolling the dice until you "make your point."
                 else:
                     result = f'You lose!'
                 try:
-                    await store.sql_game_free_add('{}:{}:{}:{}'.format(dice_time, sum_dice, dice1, dice2), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'DICE', int(time.time()) - time_start, 'DISCORD')
+                    await store.sql_game_free_add('{}:{}:{}:{}'.format(dice_time, sum_dice, dice1, dice2), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'DICE', int(time.time()) - time_start, SERVER_BOT)
                 except Exception as e:
                     await logchanbot(traceback.format_exc())
             await ctx.send(f'{ctx.author.mention} **Dice: ** You threw dices **{dice_time}** times. {result}')
@@ -3768,8 +3769,8 @@ async def snail(ctx, bet_numb: str=None):
         await ctx.message.add_reaction(EMOJI_ERROR)
         return
 
-    count_played = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', False)
-    count_played_free = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', True)
+    count_played = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, SERVER_BOT, False)
+    count_played_free = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, SERVER_BOT, True)
     if count_played and count_played >= config.game.max_daily_play:
         free_game = True
         await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
@@ -3866,10 +3867,10 @@ async def snail(ctx, bet_numb: str=None):
                                         else:
                                             coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                                         real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO", "XCH"] else float(amount)
-                                        reward = await store.sql_game_add('BET:#{}/WINNER:{}'.format(your_snail, randomSnailName), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, get_decimal(COIN_NAME), str(ctx.guild.id), 'SNAIL', int(time.time()) - time_start, 'DISCORD')
+                                        reward = await store.sql_game_add('BET:#{}/WINNER:{}'.format(your_snail, randomSnailName), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, get_decimal(COIN_NAME), str(ctx.guild.id), 'SNAIL', int(time.time()) - time_start, SERVER_BOT)
                                         result = f'You won **snail#{str(your_snail)}**! {ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}** to Tip balance!'
                                     else:
-                                        reward = await store.sql_game_add('BET:#{}/WINNER:{}'.format(your_snail, randomSnailName), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'SNAIL', int(time.time()) - time_start, 'DISCORD')
+                                        reward = await store.sql_game_add('BET:#{}/WINNER:{}'.format(your_snail, randomSnailName), str(ctx.message.author.id), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'SNAIL', int(time.time()) - time_start, SERVER_BOT)
                                         result = f'You lose! **snail{randomSnailName}** is the winner!!! You bet for **snail#{str(your_snail)}**'
                                 else:
                                     if won:
@@ -3877,7 +3878,7 @@ async def snail(ctx, bet_numb: str=None):
                                     else:
                                         result = f'You lose! **snail{randomSnailName}** is the winner!!! You bet for **snail#{str(your_snail)}**'
                                     try:
-                                        await store.sql_game_free_add('BET:#{}/WINNER:{}'.format(your_snail, randomSnailName), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'SNAIL', int(time.time()) - time_start, 'DISCORD')
+                                        await store.sql_game_free_add('BET:#{}/WINNER:{}'.format(your_snail, randomSnailName), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'SNAIL', int(time.time()) - time_start, SERVER_BOT)
                                     except Exception as e:
                                         await logchanbot(traceback.format_exc())
                                 await ctx.send(f'{ctx.author.mention} **Snail Racing** {result}')
@@ -3980,8 +3981,8 @@ async def g2048(ctx):
         await ctx.message.add_reaction(EMOJI_ERROR)
         return
 
-    count_played = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', False)
-    count_played_free = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', True)
+    count_played = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, SERVER_BOT, False)
+    count_played_free = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, SERVER_BOT, True)
     if count_played and count_played >= config.game.max_daily_play:
         free_game = True
         await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
@@ -4047,12 +4048,12 @@ You lose if the board fills up the tiles before then.'''
                     GAME_INTERACTIVE_PRGORESS.remove(ctx.message.author.id)
                 if free_game == True:
                     try:
-                        await store.sql_game_free_add(board, str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), '2048', int(time.time()) - time_start, 'DISCORD')
+                        await store.sql_game_free_add(board, str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), '2048', int(time.time()) - time_start, SERVER_BOT)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
                 else:
                     try:
-                        reward = await store.sql_game_add(board, str(ctx.message.author.id), 'None', 'WIN' if won else 'LOSE', 0, 0, str(ctx.guild.id), '2048', int(time.time()) - time_start, 'DISCORD')
+                        reward = await store.sql_game_add(board, str(ctx.message.author.id), 'None', 'WIN' if won else 'LOSE', 0, 0, str(ctx.guild.id), '2048', int(time.time()) - time_start, SERVER_BOT)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
                 await ctx.send(f'{ctx.author.mention} **2048 GAME** has waited you too long. Game exits. Your score **{score}**.')
@@ -4069,12 +4070,12 @@ You lose if the board fills up the tiles before then.'''
 
                 if free_game == True:
                     try:
-                        await store.sql_game_free_add(board, str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), '2048', int(time.time()) - time_start, 'DISCORD')
+                        await store.sql_game_free_add(board, str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), '2048', int(time.time()) - time_start, SERVER_BOT)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
                 else:
                     try:
-                        reward = await store.sql_game_add(board, str(ctx.message.author.id), 'None', 'WIN' if won else 'LOSE', 0, 0, str(ctx.guild.id), '2048', int(time.time()) - time_start, 'DISCORD')
+                        reward = await store.sql_game_add(board, str(ctx.message.author.id), 'None', 'WIN' if won else 'LOSE', 0, 0, str(ctx.guild.id), '2048', int(time.time()) - time_start, SERVER_BOT)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
                 await asyncio.sleep(1)
@@ -4120,12 +4121,12 @@ You lose if the board fills up the tiles before then.'''
                 if free_game == True:
                     result = f'You do not get any reward because it is a free game! Waiting to refresh your paid plays (24h max).'
                     try:
-                        await store.sql_game_free_add(board, str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), '2048', int(time.time()) - time_start, 'DISCORD')
+                        await store.sql_game_free_add(board, str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), '2048', int(time.time()) - time_start, SERVER_BOT)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
                 else:
                     try:
-                        reward = await store.sql_game_add(board, str(ctx.message.author.id), COIN_NAME, 'WIN' if won else 'LOSE', real_amount if won else 0, get_decimal(COIN_NAME) if won else 0, str(ctx.guild.id), '2048', int(time.time()) - time_start, 'DISCORD')
+                        reward = await store.sql_game_add(board, str(ctx.message.author.id), COIN_NAME, 'WIN' if won else 'LOSE', real_amount if won else 0, get_decimal(COIN_NAME) if won else 0, str(ctx.guild.id), '2048', int(time.time()) - time_start, SERVER_BOT)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
                 await msg.edit(content=f'**{ctx.author.mention} Game Over**```{board}```Your score: **{score}**\nYou have spent time: **{duration}**\n{result}')
@@ -4318,8 +4319,8 @@ async def sokoban(ctx):
         await ctx.message.add_reaction(EMOJI_ERROR)
         return
 
-    count_played = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', False)
-    count_played_free = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, 'DISCORD', True)
+    count_played = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, SERVER_BOT, False)
+    count_played_free = await store.sql_game_count_user(str(ctx.message.author.id), config.game.duration_24h, SERVER_BOT, True)
     if count_played and count_played >= config.game.max_daily_play:
         free_game = True
         await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
@@ -4494,12 +4495,12 @@ respectively. You can also reload game level.'''
 
                 if free_game == True:
                     try:
-                        await store.sql_game_free_add(str(level), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'SOKOBAN', int(time.time()) - time_start, 'DISCORD')
+                        await store.sql_game_free_add(str(level), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'SOKOBAN', int(time.time()) - time_start, SERVER_BOT)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
                 else:
                     try:
-                        reward = await store.sql_game_add(str(level), str(ctx.message.author.id), 'None', 'WIN' if won else 'LOSE', 0, 0, str(ctx.guild.id), 'SOKOBAN', int(time.time()) - time_start, 'DISCORD')
+                        reward = await store.sql_game_add(str(level), str(ctx.message.author.id), 'None', 'WIN' if won else 'LOSE', 0, 0, str(ctx.guild.id), 'SOKOBAN', int(time.time()) - time_start, SERVER_BOT)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
                 return
@@ -4514,12 +4515,12 @@ respectively. You can also reload game level.'''
 
                 if free_game == True:
                     try:
-                        await store.sql_game_free_add(str(level), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'SOKOBAN', int(time.time()) - time_start, 'DISCORD')
+                        await store.sql_game_free_add(str(level), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'SOKOBAN', int(time.time()) - time_start, SERVER_BOT)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
                 else:
                     try:
-                        reward = await store.sql_game_add(str(level), str(ctx.message.author.id), 'None', 'WIN' if won else 'LOSE', 0, 0, str(ctx.guild.id), 'SOKOBAN', int(time.time()) - time_start, 'DISCORD')
+                        reward = await store.sql_game_add(str(level), str(ctx.message.author.id), 'None', 'WIN' if won else 'LOSE', 0, 0, str(ctx.guild.id), 'SOKOBAN', int(time.time()) - time_start, SERVER_BOT)
                     except Exception as e:
                         await logchanbot(traceback.format_exc())
                 await asyncio.sleep(1)
@@ -4621,10 +4622,10 @@ respectively. You can also reload game level.'''
                             else:
                                 coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
                             real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO", "XCH"] else float(amount)
-                            reward = await store.sql_game_add(str(level), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, get_decimal(COIN_NAME), str(ctx.guild.id), 'SOKOBAN', int(time.time()) - time_start, 'DISCORD')
+                            reward = await store.sql_game_add(str(level), str(ctx.message.author.id), COIN_NAME, 'WIN', real_amount, get_decimal(COIN_NAME), str(ctx.guild.id), 'SOKOBAN', int(time.time()) - time_start, SERVER_BOT)
                             result = f'You won! {ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}** to Tip balance!'
                         else:
-                            reward = await store.sql_game_add(str(level), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'SOKOBAN', int(time.time()) - time_start, 'DISCORD')
+                            reward = await store.sql_game_add(str(level), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'SOKOBAN', int(time.time()) - time_start, SERVER_BOT)
                             result = f'You lose!'
                     else:
                         if won:
@@ -4632,7 +4633,7 @@ respectively. You can also reload game level.'''
                         else:
                             result = f'You lose!'
                         try:
-                            await store.sql_game_free_add(str(level), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'SOKOBAN', int(time.time()) - time_start, 'DISCORD')
+                            await store.sql_game_free_add(str(level), str(ctx.message.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'SOKOBAN', int(time.time()) - time_start, SERVER_BOT)
                         except Exception as e:
                             await logchanbot(traceback.format_exc())
                     await ctx.send(f'{ctx.author.mention} **SOKOBAN GAME** {result}')
@@ -4681,10 +4682,10 @@ async def tradeapi(ctx, regen: str=None):
         re_create = True
     
     # Create API trade
-    get_trade_api = await store.get_api_trade(str(ctx.author.id), 'DISCORD')
+    get_trade_api = await store.get_api_trade(str(ctx.author.id), SERVER_BOT)
     if get_trade_api is None:
         api_key = str(uuid.uuid4())
-        trade_api = await store.create_api_trade(str(ctx.author.id), api_key, re_create, 'DISCORD')
+        trade_api = await store.create_api_trade(str(ctx.author.id), api_key, re_create, SERVER_BOT)
         if trade_api:
             await ctx.send('Copy your api key and store in a safe place:```authorization-user: {}\nauthorization-key: {}```'.format(str(ctx.author.id), api_key))
         else:
@@ -4694,7 +4695,7 @@ async def tradeapi(ctx, regen: str=None):
             await ctx.send('Copy your api key and store in a safe place:```authorization-user: {}\nauthorization-key: {}```'.format(str(ctx.author.id), get_trade_api['api_key']))
         else:
             api_key = str(uuid.uuid4())
-            trade_api = await store.create_api_trade(str(ctx.author.id), api_key, re_create, 'DISCORD')
+            trade_api = await store.create_api_trade(str(ctx.author.id), api_key, re_create, SERVER_BOT)
             if trade_api:
                 await ctx.send('Copy your api key and store in a safe place:```authorization-user: {}\nauthorization-key: {}```'.format(str(ctx.author.id), api_key))
             else:
@@ -4708,7 +4709,7 @@ async def deposit_link(ctx, disable: str=None):
         if not is_maintenance_coin(COIN_NAME):
             wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
             if wallet is None:
-                userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
+                userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0)
                 wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
             try:
                 if os.path.exists(config.deposit_qr.path_deposit_qr_create + wallet['balance_wallet_address'] + ".png"):
@@ -4729,10 +4730,10 @@ async def deposit_link(ctx, disable: str=None):
             except Exception as e:
                 await logchanbot(traceback.format_exc())
     prefix = await get_guild_prefix(ctx)
-    local_address = await store.sql_deposit_getall_address_user(str(ctx.message.author.id), 'DISCORD')
-    remote_address = await store.sql_deposit_getall_address_user_remote(str(ctx.message.author.id), 'DISCORD')
+    local_address = await store.sql_deposit_getall_address_user(str(ctx.message.author.id), SERVER_BOT)
+    remote_address = await store.sql_deposit_getall_address_user_remote(str(ctx.message.author.id), SERVER_BOT)
     diff_address = local_address
-    get_depositlink = await store.sql_depositlink_user(str(ctx.message.author.id), 'DISCORD')
+    get_depositlink = await store.sql_depositlink_user(str(ctx.message.author.id), SERVER_BOT)
     if remote_address and len(remote_address) > 0:
         # https://stackoverflow.com/questions/35187165/python-how-to-subtract-2-dictionaries
         all(map( diff_address.pop, remote_address))
@@ -4740,7 +4741,7 @@ async def deposit_link(ctx, disable: str=None):
     if diff_address and len(diff_address) > 0:
         for key, value in diff_address.items():
             if key in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_XCH and not is_maintenance_coin(key):
-                await store.sql_depositlink_user_insert_address(str(ctx.message.author.id), key, value, 'DISCORD')
+                await store.sql_depositlink_user_insert_address(str(ctx.message.author.id), key, value, SERVER_BOT)
                 await create_qr_on_remote(ctx, key)
 
     if remote_address and len(remote_address) > 0:
@@ -4755,13 +4756,13 @@ async def deposit_link(ctx, disable: str=None):
 
         if removing_address and len(removing_address) > 0:
             for key, value in removing_address.items():
-                await store.sql_depositlink_user_delete_address(str(ctx.message.author.id), key, 'DISCORD')
+                await store.sql_depositlink_user_delete_address(str(ctx.message.author.id), key, SERVER_BOT)
 
     if get_depositlink:
         # if we have result, show link or disable if there id disable
         if get_depositlink['enable'] == 'YES' and disable and disable.upper() in ["DISABLE", "OFF", "0", "FALSE", "HIDE"]:
             # Turn it off
-            update = await store.sql_depositlink_user_update(str(ctx.message.author.id), "enable", "NO", "DISCORD")
+            update = await store.sql_depositlink_user_update(str(ctx.message.author.id), "enable", "NO", SERVER_BOT)
             if update:
                 await ctx.message.add_reaction(EMOJI_OK_HAND) 
                 msg = await ctx.send(f'{ctx.author.mention} Your deposit link status successfully and **not be accessible by public**.')
@@ -4777,7 +4778,7 @@ async def deposit_link(ctx, disable: str=None):
             return
         elif get_depositlink['enable'] == 'NO' and disable and disable.upper() in ["ENABLE", "ON", "1", "TRUE", "SHOW"]:
             # Turn it on
-            update = await store.sql_depositlink_user_update(str(ctx.message.author.id), "enable", "YES", "DISCORD")
+            update = await store.sql_depositlink_user_update(str(ctx.message.author.id), "enable", "YES", SERVER_BOT)
             if update:
                 await ctx.message.add_reaction(EMOJI_OK_HAND)
                 msg = await ctx.send(f'{ctx.author.mention} Your deposit link status successfully and **will be accessible by public**.')
@@ -4818,7 +4819,7 @@ async def deposit_link(ctx, disable: str=None):
             await create_qr_on_remote(ctx, COIN_NAME)
         # link stuff
         random_string = str(uuid.uuid4())
-        create_link = await store.sql_depositlink_user_create(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), random_string, 'DISCORD')
+        create_link = await store.sql_depositlink_user_create(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), random_string, SERVER_BOT)
         if create_link:
             link = config.deposit_qr.deposit_url + '/key/' + random_string
             try:
@@ -5173,7 +5174,7 @@ async def credit(ctx, amount: str, coin: str, to_userid: str):
     if coin_family in ["BCN", "XMR", "TRTL", "NANO", "DOGE", "XCH"]:
         wallet = await store.sql_get_userwallet(to_userid, COIN_NAME)
         if wallet is None:
-            userregister = await store.sql_register_user(to_userid, COIN_NAME, 'DISCORD', 0)
+            userregister = await store.sql_register_user(to_userid, COIN_NAME, SERVER_BOT, 0)
             wallet = await store.sql_get_userwallet(to_userid, COIN_NAME)
     else:
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} not support ticker **{COIN_NAME}**')
@@ -5325,7 +5326,7 @@ async def auditcoin(ctx, coin: str):
                 sum_balance += actual_balance
                 sum_user += 1
                 try:
-                    if each_user_id['user_server'] == 'DISCORD':
+                    if each_user_id['user_server'] == SERVER_BOT:
                         member = bot.get_user(id=int(each_user_id['user_id']))
                         if not member:
                             # get guild
@@ -5577,7 +5578,7 @@ async def baluser(ctx, user_id: str, create_wallet: str = None):
         return
 
     create_acc = None
-    user_server = 'DISCORD'
+    user_server = SERVER_BOT
     # check if there is that user
     try:
         user_id = int(user_id)
@@ -7746,12 +7747,12 @@ async def eat(ctx):
                             if user_from is None:
                                 if COIN_NAME in ENABLE_COIN_ERC:
                                     w = await create_address_eth()
-                                    user_from = await store.sql_register_user(str(ctx.author.id), COIN_NAME, 'DISCORD', 0, w)
+                                    user_from = await store.sql_register_user(str(ctx.author.id), COIN_NAME, SERVER_BOT, 0, w)
                                 elif COIN_NAME in ENABLE_COIN_TRC:
                                     result = await store.create_address_trx()
-                                    user_from = await store.sql_register_user(str(ctx.author.id), COIN_NAME, 'DISCORD', 0, result)
+                                    user_from = await store.sql_register_user(str(ctx.author.id), COIN_NAME, SERVER_BOT, 0, result)
                                 else:
-                                    user_from = await store.sql_register_user(str(ctx.author.id), COIN_NAME, 'DISCORD', 0)
+                                    user_from = await store.sql_register_user(str(ctx.author.id), COIN_NAME, SERVER_BOT, 0)
                             userdata_balance = await store.sql_user_balance(str(ctx.author.id), COIN_NAME)
                             xfer_in = 0
                             if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
@@ -7961,12 +7962,12 @@ async def work(ctx, claim: str=None):
                         if guild_game is None:
                             if COIN_NAME in ENABLE_COIN_ERC:
                                 w = await create_address_eth()
-                                guild_game = await store.sql_register_user(get_last_act['guild_id'], COIN_NAME, 'DISCORD', 0, w)
+                                guild_game = await store.sql_register_user(get_last_act['guild_id'], COIN_NAME, SERVER_BOT, 0, w)
                             elif COIN_NAME in ENABLE_COIN_TRC:
                                 result = await store.create_address_trx()
-                                guild_game = await store.sql_register_user(get_last_act['guild_id'], COIN_NAME, 'DISCORD', 0, result)
+                                guild_game = await store.sql_register_user(get_last_act['guild_id'], COIN_NAME, SERVER_BOT, 0, result)
                             else:
-                                guild_game = await store.sql_register_user(get_last_act['guild_id'], COIN_NAME, 'DISCORD', 0)
+                                guild_game = await store.sql_register_user(get_last_act['guild_id'], COIN_NAME, SERVER_BOT, 0)
                         guilddata_balance = await store.sql_user_balance(get_last_act['guild_id'], COIN_NAME)
                         xfer_in = 0
                         if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
@@ -8118,13 +8119,13 @@ async def deposit(ctx, amount: str, coin: str):
     if user_from is None:
         if COIN_NAME in ENABLE_COIN_ERC:
             w = await create_address_eth()
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, w)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0, w)
         elif COIN_NAME in ENABLE_COIN_TRC:
             result = await store.create_address_trx()
             print(result)
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, result)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0, result)
         else:
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0)
     userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME)
     xfer_in = 0
     if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
@@ -8149,12 +8150,12 @@ async def deposit(ctx, amount: str, coin: str):
     if user_to is None:
         if coin_family == "ERC-20":
             w = await create_address_eth()
-            userregister = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD', 0, w)
+            userregister = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, SERVER_BOT, 0, w)
         elif coin_family == "TRC-20":
             result = await store.create_address_trx()
-            userregister = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD', 0, result)
+            userregister = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, SERVER_BOT, 0, result)
         else:
-            userregister = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD', 0)
+            userregister = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, SERVER_BOT, 0)
         user_to = await store.sql_get_userwallet(str(ctx.guild.id), COIN_NAME)
 
     if coin_family == "ERC-20" or coin_family == "TRC-20":
@@ -8221,8 +8222,8 @@ async def deposit(ctx, amount: str, coin: str):
     if tip:
         # Update tipstat
         try:
-            update_tipstat = await store.sql_user_get_tipstat(str(ctx.message.author.id), COIN_NAME, True, 'DISCORD')
-            update_tipstat = await store.sql_user_get_tipstat(str(ctx.guild.id), COIN_NAME, True, 'DISCORD')
+            update_tipstat = await store.sql_user_get_tipstat(str(ctx.message.author.id), COIN_NAME, True, SERVER_BOT)
+            update_tipstat = await store.sql_user_get_tipstat(str(ctx.guild.id), COIN_NAME, True, SERVER_BOT)
         except Exception as e:
             await logchanbot(traceback.format_exc())
 
@@ -8361,7 +8362,7 @@ async def createraffle(ctx, amount: str, coin: str, duration: str):
                        f'{COIN_NAME}.')
         return
 
-    get_raffle = await store.raffle_get_from_guild(str(ctx.guild.id), False, 'DISCORD')
+    get_raffle = await store.raffle_get_from_guild(str(ctx.guild.id), False, SERVER_BOT)
     if get_raffle and get_raffle['status'] not in ["COMPLETED", "CANCELLED"]:
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} There is still **ONGOING** or **OPENED** raffle!')
         return
@@ -8391,7 +8392,7 @@ async def createraffle(ctx, amount: str, coin: str, duration: str):
                 msg = await ctx.send(message_raffle)
                 insert_raffle = await store.raffle_insert_new(str(ctx.guild.id), ctx.guild.name, real_amount, decimal_pts, COIN_NAME,
                                                               str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator), 
-                                                              start_ts, start_ts+duration_in_s, 'DISCORD')
+                                                              start_ts, start_ts+duration_in_s, SERVER_BOT)
                 await logchanbot(message_raffle)
             except Exception as e:
                 await ctx.message.add_reaction(EMOJI_ZIPPED_MOUTH)
@@ -8425,10 +8426,10 @@ async def raffle(ctx, subc: str=None):
     else:
         subc = subc.upper()
 
-    get_raffle = await store.raffle_get_from_guild(str(ctx.guild.id), False, 'DISCORD')
+    get_raffle = await store.raffle_get_from_guild(str(ctx.guild.id), False, SERVER_BOT)
     list_raffle_id = None
     if get_raffle:
-        list_raffle_id = await store.raffle_get_from_by_id(get_raffle['id'], 'DISCORD', str(ctx.author.id))
+        list_raffle_id = await store.raffle_get_from_by_id(get_raffle['id'], SERVER_BOT, str(ctx.author.id))
     subc_list = ["INFO", "LAST", "JOIN", "CHECK"]
     if subc not in subc_list:
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID SUB COMMAND**!')
@@ -8498,12 +8499,12 @@ async def raffle(ctx, subc: str=None):
                         if user_entry is None:
                             if COIN_NAME in ENABLE_COIN_ERC:
                                 w = await create_address_eth()
-                                user_entry = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, w)
+                                user_entry = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0, w)
                             elif COIN_NAME in ENABLE_COIN_TRC:
                                 result = await store.create_address_trx()
-                                user_entry = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, result)
+                                user_entry = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0, result)
                             else:
-                                user_entry = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
+                                user_entry = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0)
                         userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME)
                         xfer_in = 0
                         if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
@@ -8531,13 +8532,13 @@ async def raffle(ctx, subc: str=None):
                                 return
                             insert_entry = await store.raffle_insert_new_entry(get_raffle['id'], str(ctx.guild.id), get_raffle['amount'], get_raffle['decimal'],
                                                                                get_raffle['coin_name'], str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
-                                                                               'DISCORD')
+                                                                               SERVER_BOT)
                             note_entry = num_format_coin(get_raffle['amount'], get_raffle['coin_name']) + " " + get_raffle['coin_name'] + " is deducted from your balance."
                             msg = await ctx.send(f'{EMOJI_CHECK} {ctx.author.mention} Successfully registered your Entry for raffle #**{raffle_id}** in {ctx.guild.name}! {note_entry}')
                             await msg.add_reaction(EMOJI_OK_BOX)
                             # Update tipstat
                             try:
-                                update_tipstat = await store.sql_user_get_tipstat(str(ctx.message.author.id), get_raffle['coin_name'], True, 'DISCORD')
+                                update_tipstat = await store.sql_user_get_tipstat(str(ctx.message.author.id), get_raffle['coin_name'], True, SERVER_BOT)
                             except Exception as e:
                                 await logchanbot(traceback.format_exc())
                         except Exception as e:
@@ -8600,7 +8601,7 @@ async def check_raffle_status():
         #       winner_3rd_amount	decimal(64,20) NULL	
         #       raffle_fund_pot	decimal(64,20) NULL
         # Try DM user if they are winner, and if they are loser
-        get_all_active_raffle = await store.raffle_get_all('DISCORD')
+        get_all_active_raffle = await store.raffle_get_all(SERVER_BOT)
         if get_all_active_raffle and len(get_all_active_raffle) > 0:
             for each_raffle in get_all_active_raffle:
                 # loop each raffle
@@ -8608,7 +8609,7 @@ async def check_raffle_status():
                     if each_raffle['status'] == "OPENED":
                         if each_raffle['ending_ts'] - to_close_fromopen < int(time.time()):
                             # less than 3 participants, cancel
-                            list_raffle_id = await store.raffle_get_from_by_id(each_raffle['id'], 'DISCORD', None)
+                            list_raffle_id = await store.raffle_get_from_by_id(each_raffle['id'], SERVER_BOT, None)
                             if (list_raffle_id and list_raffle_id['entries'] and len(list_raffle_id['entries']) < 3) or \
                             (list_raffle_id and list_raffle_id['entries'] is None):
                                 # Cancel game
@@ -8646,7 +8647,7 @@ async def check_raffle_status():
                     elif each_raffle['status'] == "ONGOING":
                         if each_raffle['ending_ts'] < int(time.time()):
                             # Let's random and update
-                            list_raffle_id = await store.raffle_get_from_by_id(each_raffle['id'], 'DISCORD', None)
+                            list_raffle_id = await store.raffle_get_from_by_id(each_raffle['id'], SERVER_BOT, None)
                             # This is redundant with above!
                             if list_raffle_id and list_raffle_id['entries'] and len(list_raffle_id['entries']) < 3:
                                 # Cancel game
@@ -8712,7 +8713,7 @@ async def check_raffle_status():
                                 for each_entry in list_winners:
                                     # Update tipstat
                                     try:
-                                        update_tipstat = await store.sql_user_get_tipstat(str(each_entry), each_raffle['coin_name'], True, 'DISCORD')
+                                        update_tipstat = await store.sql_user_get_tipstat(str(each_entry), each_raffle['coin_name'], True, SERVER_BOT)
                                     except Exception as e:
                                         await logchanbot(traceback.format_exc())
                                     try:
@@ -8892,7 +8893,7 @@ async def userinfo(ctx, member: discord.Member = None):
             sub_outtip = 0
             tip_text = "N/A"
             for each_coin in ENABLE_COIN+ENABLE_XMR+ENABLE_COIN_DOGE+ENABLE_COIN_NANO+ENABLE_COIN_ERC+ENABLE_COIN_TRC+ENABLE_XCH:
-                tipstat = await store.sql_user_get_tipstat(userid, each_coin, False, 'DISCORD')
+                tipstat = await store.sql_user_get_tipstat(userid, each_coin, False, SERVER_BOT)
                 if tipstat:
                     sub_intip += tipstat['tx_in']
                     sub_outtip += tipstat['tx_out']
@@ -9756,39 +9757,39 @@ async def deposit(ctx, coin_name: str, option: str=None):
     if coin_family in ["TRTL", "BCN"]:
         wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if wallet is None:
-            userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
+            userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0)
             wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
     elif coin_family == "XMR":
         wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if wallet is None:
-            userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
+            userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0)
             wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
     elif coin_family == "XCH":
         wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if wallet is None:
-            userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
+            userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0)
             wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
     elif coin_family == "DOGE":
         wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if wallet is None:
-            wallet = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
+            wallet = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0)
             wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
     elif coin_family == "NANO":
         wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if wallet is None:
-            wallet = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
+            wallet = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0)
             wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
     elif coin_family == "ERC-20":
         wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if wallet is None:
             w = await create_address_eth()
-            wallet = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, w)
+            wallet = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0, w)
             wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
     elif coin_family == "TRC-20":
         wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if wallet is None:
             result = await store.create_address_trx()
-            wallet = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, result)
+            wallet = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0, result)
             wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
     else:
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**')
@@ -9942,34 +9943,34 @@ async def mdeposit(ctx, coin_name: str, option: str=None):
     if coin_family in ["TRTL", "BCN"]:
         wallet = await store.sql_get_userwallet(str(ctx.guild.id), COIN_NAME)
         if wallet is None:
-            userregister = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD', 0)
+            userregister = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, SERVER_BOT, 0)
             wallet = await store.sql_get_userwallet(str(ctx.guild.id), COIN_NAME)
     elif coin_family == "XMR":
         wallet = await store.sql_get_userwallet(str(ctx.guild.id), COIN_NAME)
         if wallet is None:
-            userregister = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD', 0)
+            userregister = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, SERVER_BOT, 0)
             wallet = await store.sql_get_userwallet(str(ctx.guild.id), COIN_NAME)
     elif coin_family == "DOGE":
         wallet = await store.sql_get_userwallet(str(ctx.guild.id), COIN_NAME)
         if wallet is None:
-            wallet = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD', 0)
+            wallet = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, SERVER_BOT, 0)
             wallet = await store.sql_get_userwallet(str(ctx.guild.id), COIN_NAME)
     elif coin_family == "NANO":
         wallet = await store.sql_get_userwallet(str(ctx.guild.id), COIN_NAME)
         if wallet is None:
-            wallet = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD', 0)
+            wallet = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, SERVER_BOT, 0)
             wallet = await store.sql_get_userwallet(str(ctx.guild.id), COIN_NAME)
     elif coin_family == "ERC-20":
         wallet = await store.sql_get_userwallet(str(ctx.guild.id), COIN_NAME)
         if wallet is None:
             w = await create_address_eth()
-            wallet = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD', 0, w)
+            wallet = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, SERVER_BOT, 0, w)
             wallet = await store.sql_get_userwallet(str(ctx.guild.id), COIN_NAME)
     elif coin_family == "TRC-20":
         wallet = await store.sql_get_userwallet(str(ctx.guild.id), COIN_NAME)
         if wallet is None:
             result = await store.create_address_trx()
-            wallet = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD', 0, result)
+            wallet = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, SERVER_BOT, 0, result)
             wallet = await store.sql_get_userwallet(str(ctx.guild.id), COIN_NAME)
     else:
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} **INVALID TICKER**')
@@ -10358,7 +10359,7 @@ async def pools(ctx, coin: str):
                                                         '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), 
                                                         requested_date, respond_date, json.dumps(get_pool_data), str(ctx.guild.id) if isinstance(ctx.channel, discord.DMChannel) == False else 'DM', 
                                                         ctx.guild.name if isinstance(ctx.channel, discord.DMChannel) == False else 'DM', 
-                                                        str(ctx.message.channel.id), is_cache, 'DISCORD', 'NO')
+                                                        str(ctx.message.channel.id), is_cache, SERVER_BOT, 'NO')
                     # sleep 3s
                     await asyncio.sleep(3)
                     await msg.add_reaction(EMOJI_OK_BOX)
@@ -10429,7 +10430,7 @@ async def pools(ctx, coin: str):
                                                                     '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), 
                                                                     requested_date, respond_date, json.dumps(result), str(ctx.guild.id) if isinstance(ctx.channel, discord.DMChannel) == False else 'DM', 
                                                                     ctx.guild.name if isinstance(ctx.channel, discord.DMChannel) == False else 'DM', 
-                                                                    str(ctx.message.channel.id), is_cache, 'DISCORD', 'YES')
+                                                                    str(ctx.message.channel.id), is_cache, SERVER_BOT, 'YES')
                                 # sleep 3s
                                 await msg.add_reaction(EMOJI_OK_BOX)
                                 await ctx.message.add_reaction(EMOJI_OK_HAND)
@@ -10754,12 +10755,12 @@ async def balance(ctx, coin: str = None):
                 if wallet is None:
                     if COIN_NAME in ENABLE_COIN_ERC:
                         w = await create_address_eth()
-                        userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, w)
+                        userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0, w)
                     elif COIN_NAME in ENABLE_COIN_TRC:
                         result = await store.create_address_trx()
-                        userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, result)
+                        userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0, result)
                     else:
-                        userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
+                        userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0)
                     wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
                 if wallet is None:
                     if coin: table_data.append([COIN_NAME, "N/A", "N/A"])
@@ -10854,12 +10855,12 @@ async def balance(ctx, coin: str = None):
         if wallet is None:
             if COIN_NAME in ENABLE_COIN_ERC:
                 w = await create_address_eth()
-                userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, w)
+                userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0, w)
             elif COIN_NAME in ENABLE_COIN_TRC:
                 result = await store.create_address_trx()
-                userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, result)
+                userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0, result)
             else:
-                userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
+                userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0)
             wallet = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if COIN_NAME in ENABLE_COIN_ERC:
             token_info = await store.get_token_info(COIN_NAME)
@@ -10869,7 +10870,7 @@ async def balance(ctx, coin: str = None):
             token_info = await store.get_token_info(COIN_NAME)
             deposit_balance = await store.trx_wallet_getbalance(wallet['balance_wallet_address'], COIN_NAME)
             real_deposit_balance = round(deposit_balance, 6)
-        userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
+        userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME, SERVER_BOT)
         xfer_in = 0
         if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
             xfer_in = await store.sql_user_balance_get_xfer_in(str(ctx.message.author.id), COIN_NAME)
@@ -10970,12 +10971,12 @@ async def mbalance(ctx, coin: str = None):
                 if wallet is None:
                     if COIN_NAME in ENABLE_COIN_ERC:
                         w = await create_address_eth()
-                        userregister = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD', 0, w)
+                        userregister = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, SERVER_BOT, 0, w)
                     elif COIN_NAME in ENABLE_COIN_TRC:
                         result = await store.create_address_trx()
-                        userregister = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD', 0, result)
+                        userregister = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, SERVER_BOT, 0, result)
                     else:
-                        userregister = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD', 0)
+                        userregister = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, SERVER_BOT, 0)
                     wallet = await store.sql_get_userwallet(str(ctx.guild.id), COIN_NAME)
                 if wallet is None:
                     await botLogChan.send(f'A user call `{prefix}mbalance` failed with {COIN_NAME} in guild {ctx.guild.id} / {ctx.guild.name} / # {ctx.message.channel.name} ')
@@ -11045,12 +11046,12 @@ async def mbalance(ctx, coin: str = None):
         if wallet is None:
             if COIN_NAME in ENABLE_COIN_ERC:
                 w = await create_address_eth()
-                userregister = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD', 0, w)
+                userregister = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, SERVER_BOT, 0, w)
             elif COIN_NAME in ENABLE_COIN_TRC:
                 result = await store.create_address_trx()
-                userregister = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD', 0, result)
+                userregister = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, SERVER_BOT, 0, result)
             else:
-                userregister = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD', 0)
+                userregister = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, SERVER_BOT, 0)
         userdata_balance = await store.sql_user_balance(str(ctx.guild.id), COIN_NAME)
         xfer_in = 0
         if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
@@ -11153,12 +11154,12 @@ async def botbalance(ctx, member: discord.Member, coin: str):
             if userwallet is None:
                 if coin_family == "ERC-20":
                     w = await create_address_eth()
-                    userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0, w)
+                    userregister = await store.sql_register_user(str(member.id), COIN_NAME, SERVER_BOT, 0, w)
                 elif coin_family == "TRC-20":
                     result = await store.create_address_trx()
-                    userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0, result)
+                    userregister = await store.sql_register_user(str(member.id), COIN_NAME, SERVER_BOT, 0, result)
                 else:
-                    userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0)
+                    userregister = await store.sql_register_user(str(member.id), COIN_NAME, SERVER_BOT, 0)
                 userwallet = await store.sql_get_userwallet(str(member.id), COIN_NAME)
             depositAddress = userwallet['balance_wallet_address']
         except Exception as e:
@@ -11381,12 +11382,12 @@ async def register(ctx, wallet_address: str, coin: str=None):
     if user is None:
         if coin_family == "ERC-20":
             w = await create_address_eth()
-            userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, w)
+            userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0, w)
         elif coin_family == "TRC-20":
             result = await store.create_address_trx()
-            userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, result)
+            userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0, result)
         else:
-            userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
+            userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0)
         user = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
 
     existing_user = user
@@ -11395,7 +11396,7 @@ async def register(ctx, wallet_address: str, coin: str=None):
     if COIN_NAME in ENABLE_COIN_DOGE:
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if user_from is None:
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0)
             user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         user_from['address'] = user_from['balance_wallet_address']
         if COIN_NAME in ENABLE_COIN_DOGE:
@@ -11518,7 +11519,7 @@ async def register(ctx, wallet_address: str, coin: str=None):
                                f'`{prev_address}`\n to\n '
                                f'`{wallet_address}`')
                 try:
-                    await store.redis_delete_userwallet(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
+                    await store.redis_delete_userwallet(str(ctx.message.author.id), COIN_NAME, SERVER_BOT)
                 except Exception as e:
                     await logchanbot(traceback.format_exc())
             else:
@@ -11534,7 +11535,7 @@ async def register(ctx, wallet_address: str, coin: str=None):
                                f'`{prev_address}`\n to\n '
                                f'`{wallet_address}`')
                 try:
-                    await store.redis_delete_userwallet(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
+                    await store.redis_delete_userwallet(str(ctx.message.author.id), COIN_NAME, SERVER_BOT)
                 except Exception as e:
                     await logchanbot(traceback.format_exc())
             else:
@@ -11547,7 +11548,7 @@ async def register(ctx, wallet_address: str, coin: str=None):
         await ctx.send(f'{ctx.author.mention} You have registered {COIN_NAME} withdraw address.\n'
                        f'You can use `{server_prefix}withdraw AMOUNT {COIN_NAME}` anytime.')
         try:
-            await store.redis_delete_userwallet(str(ctx.message.author.id), COIN_NAME, 'DISCORD')
+            await store.redis_delete_userwallet(str(ctx.message.author.id), COIN_NAME, SERVER_BOT)
         except Exception as e:
             await logchanbot(traceback.format_exc())
         return
@@ -11662,12 +11663,12 @@ async def withdraw(ctx, amount: str, coin: str = None):
         if user is None:
             if COIN_NAME in ENABLE_COIN_ERC:
                 w = await create_address_eth()
-                user = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, w)
+                user = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0, w)
             elif COIN_NAME in ENABLE_COIN_TRC:
                 result = await store.create_address_trx()
-                user = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, result)
+                user = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0, result)
             else:
-                user = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
+                user = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0)
             user = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
 
         if user['user_wallet_address'] is None:
@@ -11709,7 +11710,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
 
         # add redis action
         random_string = str(uuid.uuid4())
-        await add_tx_action_redis(json.dumps([random_string, "WITHDRAW", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, "DISCORD", "START"]), False)
+        await add_tx_action_redis(json.dumps([random_string, "WITHDRAW", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, SERVER_BOT, "START"]), False)
 
         # If balance 0, no need to check anything
         if actual_balance <= 0:
@@ -11757,7 +11758,7 @@ async def withdraw(ctx, amount: str, coin: str = None):
         return
     try:
         if coin_family in ["TRTL", "BCN"]:
-            withdrawTx = await store.sql_external_cn_single(str(ctx.message.author.id), user['user_wallet_address'], real_amount, COIN_NAME, 'DISCORD', 'WITHDRAW')
+            withdrawTx = await store.sql_external_cn_single(str(ctx.message.author.id), user['user_wallet_address'], real_amount, COIN_NAME, SERVER_BOT, 'WITHDRAW')
             if withdrawTx:
                 withdraw_txt = "Transaction hash: `{}`\nA node/tx fee `{} {}` deducted from your balance.".format(withdrawTx['transactionHash'], num_format_coin(get_tx_node_fee(COIN_NAME), COIN_NAME), COIN_NAME)
         elif coin_family == "XMR":
@@ -11787,15 +11788,15 @@ async def withdraw(ctx, amount: str, coin: str = None):
             if withdrawTx:
                 withdraw_txt = 'Transaction hash: `{}`\nA node/tx fee `{} {}` deducted from your balance.'.format(withdrawTx, num_format_coin(get_tx_node_fee(COIN_NAME), COIN_NAME), COIN_NAME)
         elif coin_family == "ERC-20": 
-            withdrawTx = await store.sql_external_erc_single(str(ctx.author.id), user['user_wallet_address'], real_amount, COIN_NAME, 'WITHDRAW', 'DISCORD')
+            withdrawTx = await store.sql_external_erc_single(str(ctx.author.id), user['user_wallet_address'], real_amount, COIN_NAME, 'WITHDRAW', SERVER_BOT)
             if withdrawTx:
                 withdraw_txt = f'Transaction hash: `{withdrawTx}`\nFee `{NetFee} {COIN_NAME}` deducted from your balance.'
         elif coin_family == "TRC-20": 
-            withdrawTx = await store.sql_external_trx_single(str(ctx.author.id), user['user_wallet_address'], real_amount, COIN_NAME, 'WITHDRAW', 'DISCORD')
+            withdrawTx = await store.sql_external_trx_single(str(ctx.author.id), user['user_wallet_address'], real_amount, COIN_NAME, 'WITHDRAW', SERVER_BOT)
             if withdrawTx:
                 withdraw_txt = f'Transaction hash: `{withdrawTx}`\nFee `{NetFee} {COIN_NAME}` deducted from your balance.'
         # add redis action
-        await add_tx_action_redis(json.dumps([random_string, "WITHDRAW", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, "DISCORD", "COMPLETE"]), False)
+        await add_tx_action_redis(json.dumps([random_string, "WITHDRAW", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, SERVER_BOT, "COMPLETE"]), False)
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         await logchanbot(traceback.format_exc())
@@ -11926,12 +11927,12 @@ async def donate(ctx, amount: str, coin: str=None):
     if user_from is None:
         if COIN_NAME in ENABLE_COIN_ERC:
             w = await create_address_eth()
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, w)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0, w)
         elif COIN_NAME in ENABLE_COIN_TRC:
             result = await store.create_address_trx()
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, result)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0, result)
         else:
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0)
 
     userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME)
     xfer_in = 0
@@ -11990,7 +11991,7 @@ async def donate(ctx, amount: str, coin: str=None):
     if donateTx:
         # Update tipstat
         try:
-            update_tipstat = await store.sql_user_get_tipstat(str(ctx.message.author.id), COIN_NAME, True, 'DISCORD')
+            update_tipstat = await store.sql_user_get_tipstat(str(ctx.message.author.id), COIN_NAME, True, SERVER_BOT)
         except Exception as e:
             await logchanbot(traceback.format_exc())
 
@@ -12194,7 +12195,7 @@ async def swap(ctx, amount: str, coin_from: str, coin_to: str):
                 TX_IN_PROCESS.append(ctx.author.id)	
                 swapit = await store.sql_swap_balance_token(COIN_NAME_FROM, real_from_amount, from_decimal, COIN_NAME_TO,
                                                             real_to_amount, to_decimal, str(ctx.author.id), "{}#{}".format(ctx.author.name, ctx.author.discriminator),
-                                                            "DISCORD")
+                                                            SERVER_BOT)
                 TX_IN_PROCESS.remove(ctx.author.id)	
             else:	
                 await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)	
@@ -12321,7 +12322,7 @@ async def take(ctx, info: str=None):
                     pass
                 # add penalty:
                 try:
-                    faucet_penalty = await store.sql_faucet_penalty_checkuser(str(ctx.message.author.id), True, 'DISCORD')
+                    faucet_penalty = await store.sql_faucet_penalty_checkuser(str(ctx.message.author.id), True, SERVER_BOT)
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
@@ -12342,7 +12343,7 @@ async def take(ctx, info: str=None):
         half_claim_interval = int(config.faucet.interval / 2)
         # check penalty:
         try:
-            faucet_penalty = await store.sql_faucet_penalty_checkuser(str(ctx.message.author.id), False, 'DISCORD')
+            faucet_penalty = await store.sql_faucet_penalty_checkuser(str(ctx.message.author.id), False, SERVER_BOT)
             if faucet_penalty and not info:
                 if half_claim_interval*3600 - int(time.time()) + int(faucet_penalty['penalty_at']) > 0:
                     time_waiting = seconds_str(half_claim_interval*3600 - int(time.time()) + int(faucet_penalty['penalty_at']))
@@ -12360,13 +12361,13 @@ async def take(ctx, info: str=None):
             return
         # check user claim:
         
-        check_claimed = await store.sql_faucet_checkuser(str(ctx.message.author.id), 'DISCORD')
+        check_claimed = await store.sql_faucet_checkuser(str(ctx.message.author.id), SERVER_BOT)
         if check_claimed:
             # limit 12 hours
             if int(time.time()) - check_claimed['claimed_at'] <= claim_interval*3600:
                 time_waiting = seconds_str(claim_interval*3600 - int(time.time()) + check_claimed['claimed_at'])
                 user_claims = await store.sql_faucet_count_user(str(ctx.message.author.id))
-                number_user_claimed = '{:,.0f}'.format(user_claims, 'DISCORD')
+                number_user_claimed = '{:,.0f}'.format(user_claims, SERVER_BOT)
                 try:
                     msg = await ctx.message.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You just claimed within last {claim_interval}h. '
                                                   f'Waiting time {time_waiting} for next **take**. Faucet balance:\n```{remaining}```'
@@ -12432,12 +12433,12 @@ async def take(ctx, info: str=None):
         if user_from is None:
             if COIN_NAME in ENABLE_COIN_ERC:
                 w = await create_address_eth()
-                user_from = await store.sql_register_user(str(bot.user.id), COIN_NAME, 'DISCORD', 0, w)
+                user_from = await store.sql_register_user(str(bot.user.id), COIN_NAME, SERVER_BOT, 0, w)
             elif COIN_NAME in ENABLE_COIN_TRC:
                 result = await store.create_address_trx()
-                user_from = await store.sql_register_user(str(bot.user.id), COIN_NAME, 'DISCORD', 0, result)
+                user_from = await store.sql_register_user(str(bot.user.id), COIN_NAME, SERVER_BOT, 0, result)
             else:
-                user_from = await store.sql_register_user(str(bot.user.id), COIN_NAME, 'DISCORD', 0)
+                user_from = await store.sql_register_user(str(bot.user.id), COIN_NAME, SERVER_BOT, 0)
         userdata_balance = await store.sql_user_balance(str(bot.user.id), COIN_NAME)
         xfer_in = 0
         if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
@@ -12461,12 +12462,12 @@ async def take(ctx, info: str=None):
         if user_to is None:
             if COIN_NAME in ENABLE_COIN_ERC:
                 w = await create_address_eth()
-                userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, w)
+                userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0, w)
             elif COIN_NAME in ENABLE_COIN_TRC:
                 result = await store.create_address_trx()
-                userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, result)
+                userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0, result)
             else:
-                userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
+                userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0)
             user_to = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
 
         if real_amount > actual_balance:
@@ -12514,12 +12515,12 @@ async def take(ctx, info: str=None):
         if tip:
             # Update tipstat
             try:
-                update_tipstat = await store.sql_user_get_tipstat(str(ctx.message.author.id), COIN_NAME, True, 'DISCORD')
-                update_tipstat = await store.sql_user_get_tipstat(str(bot.user.id), COIN_NAME, True, 'DISCORD')
+                update_tipstat = await store.sql_user_get_tipstat(str(ctx.message.author.id), COIN_NAME, True, SERVER_BOT)
+                update_tipstat = await store.sql_user_get_tipstat(str(bot.user.id), COIN_NAME, True, SERVER_BOT)
             except Exception as e:
                 await logchanbot(traceback.format_exc())
             try:
-                faucet_add = await store.sql_faucet_add(str(ctx.message.author.id), str(ctx.guild.id), COIN_NAME, real_amount, 10**decimal_pts, 'DISCORD')
+                faucet_add = await store.sql_faucet_add(str(ctx.message.author.id), str(ctx.guild.id), COIN_NAME, real_amount, 10**decimal_pts, SERVER_BOT)
                 msg = await ctx.send(f'{EMOJI_MONEYFACE} {ctx.author.mention} You got a random faucet {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}')
                 await logchanbot(f'[Discord] User {ctx.message.author.name}#{ctx.message.author.discriminator} claimed faucet {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME} in guild {ctx.guild.name}/{ctx.guild.id}')
                 await ctx.message.add_reaction(get_emoji(COIN_NAME))
@@ -12743,12 +12744,12 @@ async def randtip(ctx, amount: str, coin: str, *, rand_option: str=None):
     if user_from is None:
         if COIN_NAME in ENABLE_COIN_ERC:
             w = await create_address_eth()
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, w)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0, w)
         elif COIN_NAME in ENABLE_COIN_TRC:
             result = await store.create_address_trx()
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, result)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0, result)
         else:
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0)
 
     userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME)
     xfer_in = 0
@@ -12805,14 +12806,14 @@ async def randtip(ctx, amount: str, coin: str, *, rand_option: str=None):
         if COIN_NAME in ENABLE_COIN_ERC:
             coin_family = "ERC-20"
             w = await create_address_eth()
-            wallet = await store.sql_register_user(str(rand_user.id), COIN_NAME, 'DISCORD', 0, w)
+            wallet = await store.sql_register_user(str(rand_user.id), COIN_NAME, SERVER_BOT, 0, w)
         elif COIN_NAME in ENABLE_COIN_TRC:
             coin_family = "TRC-20"
             result = await store.create_address_trx()
-            wallet = await store.sql_register_user(str(rand_user.id), COIN_NAME, 'DISCORD', 0, result)
+            wallet = await store.sql_register_user(str(rand_user.id), COIN_NAME, SERVER_BOT, 0, result)
         else:
             coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-            wallet = await store.sql_register_user(str(rand_user.id), COIN_NAME, 'DISCORD', 0)
+            wallet = await store.sql_register_user(str(rand_user.id), COIN_NAME, SERVER_BOT, 0)
         user_to = await store.sql_get_userwallet(str(rand_user.id), COIN_NAME)
 
     if coin_family in ["TRTL", "BCN"]:
@@ -12836,8 +12837,8 @@ async def randtip(ctx, amount: str, coin: str, *, rand_option: str=None):
     if tip:
         # Update tipstat
         try:
-            update_tipstat = await store.sql_user_get_tipstat(str(ctx.message.author.id), COIN_NAME, True, 'DISCORD')
-            update_tipstat = await store.sql_user_get_tipstat(str(rand_user.id), COIN_NAME, True, 'DISCORD')
+            update_tipstat = await store.sql_user_get_tipstat(str(ctx.message.author.id), COIN_NAME, True, SERVER_BOT)
+            update_tipstat = await store.sql_user_get_tipstat(str(rand_user.id), COIN_NAME, True, SERVER_BOT)
         except Exception as e:
             await logchanbot(traceback.format_exc())
 
@@ -13028,12 +13029,12 @@ async def freetip(ctx, amount: str, coin: str, duration: str='60s', *, comment: 
     if user_from is None:
         if COIN_NAME in ENABLE_COIN_ERC:
             w = await create_address_eth()
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, w)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0, w)
         elif COIN_NAME in ENABLE_COIN_TRC:
             result = await store.create_address_trx()
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, result)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0, result)
         else:
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0)
     userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME)
     xfer_in = 0
     if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
@@ -13185,7 +13186,7 @@ and reaction.message.id == msg.id and str(reaction.emoji) == EMOJI_PARTY
         if tip:
             # Update tipstat
             try:
-                update_tipstat = await store.sql_user_get_tipstat(str(ctx.message.author.id), COIN_NAME, True, 'DISCORD')
+                update_tipstat = await store.sql_user_get_tipstat(str(ctx.message.author.id), COIN_NAME, True, SERVER_BOT)
             except Exception as e:
                 await logchanbot(traceback.format_exc())
             tipAmount = num_format_coin(real_amount, COIN_NAME)
@@ -13283,12 +13284,12 @@ and reaction.message.id == msg.id and str(reaction.emoji) == EMOJI_PARTY
             if user_to is None:
                 if COIN_NAME in ENABLE_COIN_ERC:
                     w = await create_address_eth()
-                    userregister = await store.sql_register_user(str(user.id), COIN_NAME, 'DISCORD', 0, w)
+                    userregister = await store.sql_register_user(str(user.id), COIN_NAME, SERVER_BOT, 0, w)
                 elif COIN_NAME in ENABLE_COIN_TRC:
                     result = await store.create_address_trx()
-                    userregister = await store.sql_register_user(str(user.id), COIN_NAME, 'DISCORD', 0, result)
+                    userregister = await store.sql_register_user(str(user.id), COIN_NAME, SERVER_BOT, 0, result)
                 else:
-                    userregister = await store.sql_register_user(str(user.id), COIN_NAME, 'DISCORD', 0)
+                    userregister = await store.sql_register_user(str(user.id), COIN_NAME, SERVER_BOT, 0)
                 user_to = await store.sql_get_userwallet(str(user.id), COIN_NAME)
             if coin_family in ["TRTL", "BCN"]:
                 tip = await store.sql_mv_cn_single(str(ctx.message.author.id), str(user.id), real_amount, 'FREETIP', COIN_NAME)
@@ -13311,8 +13312,8 @@ and reaction.message.id == msg.id and str(reaction.emoji) == EMOJI_PARTY
             if tip:
                 # Update tipstat
                 try:
-                    update_tipstat = await store.sql_user_get_tipstat(str(ctx.message.author.id), COIN_NAME, True, 'DISCORD')
-                    update_tipstat = await store.sql_user_get_tipstat(str(user.id), COIN_NAME, True, 'DISCORD')
+                    update_tipstat = await store.sql_user_get_tipstat(str(ctx.message.author.id), COIN_NAME, True, SERVER_BOT)
+                    update_tipstat = await store.sql_user_get_tipstat(str(user.id), COIN_NAME, True, SERVER_BOT)
                 except Exception as e:
                     await logchanbot(traceback.format_exc())
                 embed = discord.Embed(title=f"Free Tip appeared {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}", description=f"Already collected", color=0x00ff00)
@@ -13414,12 +13415,12 @@ async def tipto(ctx, amount: str, coin: str, to_user: str):
         if user_from is None:
             if COIN_NAME in ENABLE_COIN_ERC:
                 w = await create_address_eth()
-                user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, w)
+                user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0, w)
             elif COIN_NAME in ENABLE_COIN_TRC:
                 result = await store.create_address_trx()
-                user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, result)
+                user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0, result)
             else:
-                user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
+                user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0)
         userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME)
         xfer_in = 0
         if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
@@ -13485,14 +13486,14 @@ async def tipto(ctx, amount: str, coin: str, to_user: str):
                         # We found it
                         # Let's send
                         tipto = await store.sql_tipto_crossing(COIN_NAME, str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator), 
-                                                               'DISCORD', userid, userid, serverto, real_amount, decimal_pts)
+                                                               SERVER_BOT, userid, userid, serverto, real_amount, decimal_pts)
                         if tipto:
                             await logchanbot('[Discord] {}#{} tipto {}{} to **{}**'.format(ctx.author.name, ctx.author.discriminator, num_format_coin(real_amount, COIN_NAME), COIN_NAME, to_user))
                             msg = await ctx.send(f'{EMOJI_CHECK} {ctx.author.mention} Successfully transfer {num_format_coin(real_amount, COIN_NAME)} {COIN_NAME} to **{to_user}**.')
                             await msg.add_reaction(EMOJI_OK_BOX)
                             # Update tipstat
                             try:
-                                update_tipstat = await store.sql_user_get_tipstat(str(ctx.message.author.id), COIN_NAME, True, 'DISCORD')
+                                update_tipstat = await store.sql_user_get_tipstat(str(ctx.message.author.id), COIN_NAME, True, SERVER_BOT)
                                 update_tipstat = await store.sql_user_get_tipstat(userid, COIN_NAME, True, serverto)
                             except Exception as e:
                                 await logchanbot(traceback.format_exc())
@@ -13891,12 +13892,12 @@ async def tip(ctx, amount: str, *args):
     if user_from is None:
         if COIN_NAME in ENABLE_COIN_ERC:
             w = await create_address_eth()
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, w)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0, w)
         elif COIN_NAME in ENABLE_COIN_TRC:
             result = await store.create_address_trx()
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, result)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0, result)
         else:
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0)
     userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME)
     xfer_in = 0
     if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
@@ -13921,12 +13922,12 @@ async def tip(ctx, amount: str, *args):
     if user_to is None:
         if coin_family == "ERC-20":
             w = await create_address_eth()
-            userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0, w)
+            userregister = await store.sql_register_user(str(member.id), COIN_NAME, SERVER_BOT, 0, w)
         elif coin_family == "TRC-20":
             result = await store.create_address_trx()
-            userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0, result)
+            userregister = await store.sql_register_user(str(member.id), COIN_NAME, SERVER_BOT, 0, result)
         else:
-            userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0)
+            userregister = await store.sql_register_user(str(member.id), COIN_NAME, SERVER_BOT, 0)
         user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
 
     if coin_family == "ERC-20" or coin_family == "TRC-20":
@@ -13995,8 +13996,8 @@ async def tip(ctx, amount: str, *args):
     if tip:
         # Update tipstat
         try:
-            update_tipstat = await store.sql_user_get_tipstat(str(ctx.message.author.id), COIN_NAME, True, 'DISCORD')
-            update_tipstat = await store.sql_user_get_tipstat(str(member.id), COIN_NAME, True, 'DISCORD')
+            update_tipstat = await store.sql_user_get_tipstat(str(ctx.message.author.id), COIN_NAME, True, SERVER_BOT)
+            update_tipstat = await store.sql_user_get_tipstat(str(member.id), COIN_NAME, True, SERVER_BOT)
         except Exception as e:
             await logchanbot(traceback.format_exc())
 
@@ -14370,16 +14371,16 @@ async def mtip(ctx, amount: str, *args):
         if COIN_NAME in ENABLE_COIN_ERC:
             coin_family = "ERC-20"
             w = await create_address_eth()
-            wallet = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD', 0, w)
+            wallet = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, SERVER_BOT, 0, w)
         elif COIN_NAME in ENABLE_COIN_TRC:
             coin_family = "TRC-20"
             result = await store.create_address_trx()
-            wallet = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD', 0, result)
+            wallet = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, SERVER_BOT, 0, result)
         else:
             coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-            wallet = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD', 0)
+            wallet = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, SERVER_BOT, 0)
 
-        user_from = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, 'DISCORD', 0)
+        user_from = await store.sql_register_user(str(ctx.guild.id), COIN_NAME, SERVER_BOT, 0)
     # get user balance
     userdata_balance = await store.sql_user_balance(str(ctx.guild.id), COIN_NAME)
     xfer_in = 0
@@ -14405,12 +14406,12 @@ async def mtip(ctx, amount: str, *args):
     if user_to is None:
         if COIN_NAME in ENABLE_COIN_ERC:
             w = await create_address_eth()
-            userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0, w)
+            userregister = await store.sql_register_user(str(member.id), COIN_NAME, SERVER_BOT, 0, w)
         elif COIN_NAME in ENABLE_COIN_TRC:
             result = await store.create_address_trx()
-            userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0, result)
+            userregister = await store.sql_register_user(str(member.id), COIN_NAME, SERVER_BOT, 0, result)
         else:
-            userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0)
+            userregister = await store.sql_register_user(str(member.id), COIN_NAME, SERVER_BOT, 0)
         user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
  
     real_amount = int(Decimal(amount) * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO", "XCH"] else float(amount)
@@ -14471,8 +14472,8 @@ async def mtip(ctx, amount: str, *args):
     if tip:
         # Update tipstat
         try:
-            update_tipstat = await store.sql_user_get_tipstat(str(ctx.guild.id), COIN_NAME, True, 'DISCORD')
-            update_tipstat = await store.sql_user_get_tipstat(str(member.id), COIN_NAME, True, 'DISCORD')
+            update_tipstat = await store.sql_user_get_tipstat(str(ctx.guild.id), COIN_NAME, True, SERVER_BOT)
+            update_tipstat = await store.sql_user_get_tipstat(str(member.id), COIN_NAME, True, SERVER_BOT)
         except Exception as e:
             await logchanbot(traceback.format_exc())
 
@@ -14648,12 +14649,12 @@ async def tipall(ctx, amount: str, coin: str, option: str=None):
             if user_to is None:
                 if coin_family == "ERC-20":
                     w = await create_address_eth()
-                    userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0, w)
+                    userregister = await store.sql_register_user(str(member.id), COIN_NAME, SERVER_BOT, 0, w)
                 elif coin_family == "TRC-20":
                     result = await store.create_address_trx()
-                    userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0, result)
+                    userregister = await store.sql_register_user(str(member.id), COIN_NAME, SERVER_BOT, 0, result)
                 else:
-                    userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0)
+                    userregister = await store.sql_register_user(str(member.id), COIN_NAME, SERVER_BOT, 0)
                 user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
             list_receivers.append(str(member.id))
 
@@ -14661,12 +14662,12 @@ async def tipall(ctx, amount: str, coin: str, option: str=None):
     if user_from is None:
         if coin_family == "ERC-20":
             w = await create_address_eth()
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, w)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0, w)
         elif coin_family == "TRC-20":
             result = await store.create_address_trx()
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, result)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0, result)
         else:
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0)
 
     # get user balance
     userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME)
@@ -14765,7 +14766,7 @@ async def tipall(ctx, amount: str, coin: str, option: str=None):
     if tip:
         # Update tipstat
         try:
-            update_tipstat = await store.sql_user_get_tipstat(str(ctx.message.author.id), COIN_NAME, True, 'DISCORD')
+            update_tipstat = await store.sql_user_get_tipstat(str(ctx.message.author.id), COIN_NAME, True, SERVER_BOT)
         except Exception as e:
             await logchanbot(traceback.format_exc())
         tipAmount = num_format_coin(real_amount, COIN_NAME)
@@ -15022,7 +15023,7 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
 
     # add redis action
     random_string = str(uuid.uuid4())
-    await add_tx_action_redis(json.dumps([random_string, "SEND", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, "DISCORD", "START"]), False)
+    await add_tx_action_redis(json.dumps([random_string, "SEND", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, SERVER_BOT, "START"]), False)
 
     if coin_family in ["TRTL", "BCN"]:
         MinTx = get_min_tx_amount(COIN_NAME)
@@ -15156,7 +15157,7 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
 
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if user_from is None:
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0)
         if user_from['balance_wallet_address'] == CoinAddress:
             await ctx.message.add_reaction(EMOJI_ERROR)
             await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You can not send to your own deposit address.')
@@ -15285,7 +15286,7 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
                 if ctx.message.author.id not in TX_IN_PROCESS:
                     TX_IN_PROCESS.append(ctx.message.author.id)
                     try:
-                        tip = await store.sql_external_cn_single(str(ctx.message.author.id), CoinAddress, real_amount, COIN_NAME, 'DISCORD', 'SEND')
+                        tip = await store.sql_external_cn_single(str(ctx.message.author.id), CoinAddress, real_amount, COIN_NAME, SERVER_BOT, 'SEND')
                         tip_tx_tipper = "Transaction hash: `{}`".format(tip['transactionHash'])
                         # replace fee
                         tip['fee'] = get_tx_node_fee(COIN_NAME)
@@ -15295,7 +15296,7 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
                     await asyncio.sleep(config.interval.tx_lap_each)
                     TX_IN_PROCESS.remove(ctx.message.author.id)
                     # add redis
-                    await add_tx_action_redis(json.dumps([random_string, "SEND", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, "DISCORD", "COMPLETE"]), False)
+                    await add_tx_action_redis(json.dumps([random_string, "SEND", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, SERVER_BOT, "COMPLETE"]), False)
                 else:
                     await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
                     msg = await ctx.send(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
@@ -15342,7 +15343,7 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
         # TODO: validate XCH address
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if user_from is None:
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0)
         userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME)
         xfer_in = 0
         if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
@@ -15406,7 +15407,7 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
                     SendTx = await store.sql_external_xmr_single(str(ctx.message.author.id), real_amount,
                                                                  CoinAddress, COIN_NAME, "SEND", NetFee)
                 # add redis
-                await add_tx_action_redis(json.dumps([random_string, "SEND", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, "DISCORD", "COMPLETE"]), False)
+                await add_tx_action_redis(json.dumps([random_string, "SEND", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, SERVER_BOT, "COMPLETE"]), False)
             except Exception as e:
                 await logchanbot(traceback.format_exc())
             await asyncio.sleep(config.interval.tx_lap_each)
@@ -15447,7 +15448,7 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
         # OK valid address
         user_from = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
         if user_from is None:
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0)
         userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME)
         xfer_in = 0
         if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
@@ -15503,7 +15504,7 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
                 SendTx = await store.sql_external_nano_single(str(ctx.message.author.id), real_amount,
                                                               CoinAddress, COIN_NAME, "SEND")
                 # add redis
-                await add_tx_action_redis(json.dumps([random_string, "SEND", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, "DISCORD", "COMPLETE"]), False)
+                await add_tx_action_redis(json.dumps([random_string, "SEND", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, SERVER_BOT, "COMPLETE"]), False)
             except Exception as e:
                 await logchanbot(traceback.format_exc())
             await asyncio.sleep(config.interval.tx_lap_each)
@@ -15550,12 +15551,12 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
         if user_from is None:
             if coin_family == "ERC-20":
                 w = await create_address_eth()
-                userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, w)
+                userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0, w)
             elif coin_family == "TRC-20":
                 result = await store.create_address_trx()
-                userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, result)
+                userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0, result)
             else:
-                userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
+                userregister = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0)
         real_amount = float(amount)
         userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME)
         xfer_in = 0
@@ -15604,14 +15605,14 @@ async def send(ctx, amount: str, CoinAddress: str, coin: str=None):
             TX_IN_PROCESS.append(ctx.message.author.id)
             try:
                 if COIN_NAME in ENABLE_COIN_ERC:
-                    SendTx = await store.sql_external_erc_single(str(ctx.author.id), CoinAddress, real_amount, COIN_NAME, 'SEND', 'DISCORD')
+                    SendTx = await store.sql_external_erc_single(str(ctx.author.id), CoinAddress, real_amount, COIN_NAME, 'SEND', SERVER_BOT)
                 elif COIN_NAME in ENABLE_COIN_TRC:
-                    SendTx = await store.sql_external_trx_single(str(ctx.author.id), CoinAddress, real_amount, COIN_NAME, 'SEND', 'DISCORD')
+                    SendTx = await store.sql_external_trx_single(str(ctx.author.id), CoinAddress, real_amount, COIN_NAME, 'SEND', SERVER_BOT)
                 else:
                     SendTx = await store.sql_external_doge_single(str(ctx.message.author.id), real_amount, NetFee,
                                                                   CoinAddress, COIN_NAME, "SEND")
                 # add redis
-                await add_tx_action_redis(json.dumps([random_string, "SEND", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, "DISCORD", "COMPLETE"]), False)
+                await add_tx_action_redis(json.dumps([random_string, "SEND", str(ctx.message.author.id), ctx.message.author.name, float("%.3f" % time.time()), ctx.message.content, SERVER_BOT, "COMPLETE"]), False)
             except Exception as e:
                 await logchanbot(traceback.format_exc())
             await asyncio.sleep(config.interval.tx_lap_each)
@@ -15750,12 +15751,12 @@ async def address(ctx, *args):
                 if wallet is None:
                     if COIN_NAME in ENABLE_COIN_ERC:
                         w = await create_address_eth()
-                        userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0, w)
+                        userregister = await store.sql_register_user(str(member.id), COIN_NAME, SERVER_BOT, 0, w)
                     elif COIN_NAME in ENABLE_COIN_TRC:
                         result = await store.create_address_trx()
-                        userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0, result)
+                        userregister = await store.sql_register_user(str(member.id), COIN_NAME, SERVER_BOT, 0, result)
                     else:
-                        userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0)
+                        userregister = await store.sql_register_user(str(member.id), COIN_NAME, SERVER_BOT, 0)
                     wallet = await store.sql_get_userwallet(str(member.id), COIN_NAME)
                 user_address = wallet['balance_wallet_address']
                 msg = await ctx.send(f'{ctx.author.mention} Here is the deposit **{COIN_NAME}** of {member.mention}:```{user_address}```')
@@ -16216,7 +16217,7 @@ async def make(ctx, amount: str, coin: str, *, comment):
 
     user = await store.sql_get_userwallet(str(ctx.message.author.id), COIN_NAME)
     if user is None:
-        user = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
+        user = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0)
 
     userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME)
     xfer_in = 0
@@ -16363,7 +16364,7 @@ async def make(ctx, amount: str, coin: str, *, comment):
                 try:
                     voucher_make = await store.sql_send_to_voucher(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), 
                                                                    ctx.message.content, real_amount, fee_voucher_amount, comment, 
-                                                                   secret_string, unique_filename + ".png", COIN_NAME, 'DISCORD')
+                                                                   secret_string, unique_filename + ".png", COIN_NAME, SERVER_BOT)
                 except Exception as e: 
                     await logchanbot(traceback.format_exc())
                 await asyncio.sleep(config.interval.tx_lap_each)
@@ -16449,7 +16450,7 @@ async def make(ctx, amount: str, coin: str, *, comment):
             try:
                 voucher_make = await store.sql_send_to_voucher(str(ctx.message.author.id), '{}#{}'.format(ctx.message.author.name, ctx.message.author.discriminator), 
                                                                ctx.message.content, real_amount, fee_voucher_amount, comment, 
-                                                               secret_string, unique_filename + ".png", COIN_NAME, 'DISCORD')
+                                                               secret_string, unique_filename + ".png", COIN_NAME, SERVER_BOT)
             except Exception as e: 
                 await logchanbot(traceback.format_exc())
             await asyncio.sleep(config.interval.tx_lap_each)
@@ -16485,7 +16486,7 @@ async def make(ctx, amount: str, coin: str, *, comment):
 
 @voucher.command(help=bot_help_voucher_view)
 async def view(ctx):
-    get_vouchers = await store.sql_voucher_get_user(str(ctx.message.author.id), 'DISCORD', 15, 'YESNO')
+    get_vouchers = await store.sql_voucher_get_user(str(ctx.message.author.id), SERVER_BOT, 15, 'YESNO')
     if get_vouchers and len(get_vouchers) > 0:
         table_data = [
             ['Ref Link', 'Amount', 'Claimed?', 'Created']
@@ -16519,7 +16520,7 @@ async def unclaim(ctx):
         await ctx.message.add_reaction(EMOJI_ERROR) 
         await ctx.send(f'{ctx.author.mention} This command can not be in public.')
         return
-    get_vouchers = await store.sql_voucher_get_user(str(ctx.message.author.id), 'DISCORD', 50, 'NO')
+    get_vouchers = await store.sql_voucher_get_user(str(ctx.message.author.id), SERVER_BOT, 50, 'NO')
     if get_vouchers and len(get_vouchers) >= 25:
         # list them in text
         unclaim = ', '.join([each['secret_string'] for each in get_vouchers])
@@ -16559,7 +16560,7 @@ async def claim(ctx):
         await ctx.message.add_reaction(EMOJI_ERROR) 
         await ctx.send(f'{ctx.author.mention} This command can not be in public.')
         return
-    get_vouchers = await store.sql_voucher_get_user(str(ctx.message.author.id), 'DISCORD', 50, 'YES')
+    get_vouchers = await store.sql_voucher_get_user(str(ctx.message.author.id), SERVER_BOT, 50, 'YES')
     if get_vouchers and len(get_vouchers) >= 25:
         # list them in text
         unclaim = ', '.join([each['secret_string'] for each in get_vouchers])
@@ -16599,7 +16600,7 @@ async def getunclaim(ctx):
         await ctx.message.add_reaction(EMOJI_ERROR) 
         await ctx.send(f'{ctx.author.mention} This command can not be in public.')
         return
-    get_vouchers = await store.sql_voucher_get_user(str(ctx.message.author.id), 'DISCORD', 10000, 'NO')
+    get_vouchers = await store.sql_voucher_get_user(str(ctx.message.author.id), SERVER_BOT, 10000, 'NO')
     if get_vouchers and len(get_vouchers) > 0:
         try:
             filename = config.voucher.claim_csv_tmp + str(uuid.uuid4()) + '_unclaimed.csv'
@@ -16630,7 +16631,7 @@ async def getclaim(ctx):
         await ctx.message.add_reaction(EMOJI_ERROR) 
         await ctx.send(f'{ctx.author.mention} This command can not be in public.')
         return
-    get_vouchers = await store.sql_voucher_get_user(str(ctx.message.author.id), 'DISCORD', 10000, 'YES')
+    get_vouchers = await store.sql_voucher_get_user(str(ctx.message.author.id), SERVER_BOT, 10000, 'YES')
     if get_vouchers and len(get_vouchers) > 0:
         try:
             filename = config.voucher.claim_csv_tmp + str(uuid.uuid4()) + '_claimed.csv'
@@ -17884,7 +17885,7 @@ async def sell(ctx, sell_amount: str, sell_ticker: str, buy_amount: str, buy_tic
         return
 
     # get opened order:
-    user_count_order = await store.sql_count_open_order_by_sellerid(str(ctx.message.author.id), 'DISCORD')
+    user_count_order = await store.sql_count_open_order_by_sellerid(str(ctx.message.author.id), SERVER_BOT)
     if user_count_order >= config.trade.Max_Open_Order:
         await ctx.message.add_reaction(EMOJI_ERROR)
         await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} You have maximum opened selling **{config.trade.Max_Open_Order}**. Please cancel some or wait.')
@@ -17943,9 +17944,9 @@ async def sell(ctx, sell_amount: str, sell_ticker: str, buy_amount: str, buy_tic
 
     if not is_maintenance_coin(sell_ticker):
         balance_actual = 0
-        wallet = await store.sql_get_userwallet(str(ctx.message.author.id), sell_ticker, 'DISCORD')
+        wallet = await store.sql_get_userwallet(str(ctx.message.author.id), sell_ticker, SERVER_BOT)
         if wallet is None:
-            userregister = await store.sql_register_user(str(ctx.message.author.id), sell_ticker, 'DISCORD', 0)
+            userregister = await store.sql_register_user(str(ctx.message.author.id), sell_ticker, SERVER_BOT, 0)
         userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), sell_ticker)
         xfer_in = 0
         if sell_ticker not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
@@ -18000,7 +18001,7 @@ async def sell_process(ctx, real_amount_sell: float, sell_ticker: str, real_amou
     if fee_buy == 0: fee_buy = 0.00000100
     # Check if user already have another open order with the same rate
     # Check if user make a sell process of his buy coin which already in open order
-    check_if_same_rate = await store.sql_get_order_by_sellerid_pair_rate('DISCORD', str(ctx.message.author.id), sell_ticker, 
+    check_if_same_rate = await store.sql_get_order_by_sellerid_pair_rate(SERVER_BOT, str(ctx.message.author.id), sell_ticker, 
                          buy_ticker, sell_div_get, real_amount_sell, real_amount_buy, fee_sell, fee_buy, 'OPEN')
     if check_if_same_rate and check_if_same_rate['error'] == True and check_if_same_rate['msg']:
         get_message = check_if_same_rate['msg']
@@ -18020,7 +18021,7 @@ async def sell_process(ctx, real_amount_sell: float, sell_ticker: str, real_amou
 
     order_add = await store.sql_store_openorder(str(ctx.message.id), (ctx.message.content)[:120], sell_ticker, 
                             real_amount_sell, real_amount_sell-fee_sell, str(ctx.message.author.id), 
-                            buy_ticker, real_amount_buy, real_amount_buy-fee_buy, sell_div_get, 'DISCORD')
+                            buy_ticker, real_amount_buy, real_amount_buy-fee_buy, sell_div_get, SERVER_BOT)
     if order_add:
         get_message = "New open order created: #**{}**```Selling: {}{}\nFor: {}{}\nFee: {}{}```".format(order_add, 
                                                                         num_format_coin(real_amount_sell, sell_ticker), sell_ticker,
@@ -18117,25 +18118,25 @@ async def buy(ctx, ref_number: str):
         get_order_num = await store.sql_get_order_numb(ref_number)
         if get_order_num:
             # check if own order
-            if get_order_num['sell_user_server'] == "DISCORD" and ctx.message.author.id == int(get_order_num['userid_sell']):
+            if get_order_num['sell_user_server'] == SERVER_BOT and ctx.message.author.id == int(get_order_num['userid_sell']):
                 await ctx.message.add_reaction(EMOJI_ERROR)
                 await ctx.send(f'{EMOJI_RED_NO} {ctx.author.mention} #**{ref_number}** is your own selling order.')
                 return
             else:
                 # check if sufficient balance
-                wallet = await store.sql_get_userwallet(str(ctx.message.author.id), get_order_num['coin_get'], 'DISCORD')
+                wallet = await store.sql_get_userwallet(str(ctx.message.author.id), get_order_num['coin_get'], SERVER_BOT)
                 if wallet is None:
                     if get_order_num['coin_get'] in ENABLE_COIN_ERC:
                         w = await create_address_eth()
-                        userregister = await store.sql_register_user(str(ctx.message.author.id), get_order_num['coin_get'], 'DISCORD', 0, w)
+                        userregister = await store.sql_register_user(str(ctx.message.author.id), get_order_num['coin_get'], SERVER_BOT, 0, w)
                     elif get_order_num['coin_get'] in ENABLE_COIN_TRC:
                         result = await store.create_address_trx()
-                        userregister = await store.sql_register_user(str(ctx.message.author.id), get_order_num['coin_get'], 'DISCORD', 0, result)
+                        userregister = await store.sql_register_user(str(ctx.message.author.id), get_order_num['coin_get'], SERVER_BOT, 0, result)
                     else:
-                        userregister = await store.sql_register_user(str(ctx.message.author.id), get_order_num['coin_get'], 'DISCORD', 0)
-                    wallet = await store.sql_get_userwallet(str(ctx.message.author.id), get_order_num['coin_get'], 'DISCORD')
+                        userregister = await store.sql_register_user(str(ctx.message.author.id), get_order_num['coin_get'], SERVER_BOT, 0)
+                    wallet = await store.sql_get_userwallet(str(ctx.message.author.id), get_order_num['coin_get'], SERVER_BOT)
                 if wallet:
-                    userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), get_order_num['coin_get'], 'DISCORD')
+                    userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), get_order_num['coin_get'], SERVER_BOT)
                     xfer_in = 0
                     if get_order_num['coin_get'] not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
                         xfer_in = await store.sql_user_balance_get_xfer_in(str(ctx.message.author.id), get_order_num['coin_get'])
@@ -18165,7 +18166,7 @@ async def buy(ctx, ref_number: str):
                     return
                 else:
                     # let's make order update
-                    match_order = await store.sql_match_order_by_sellerid(str(ctx.message.author.id), ref_number, 'DISCORD')
+                    match_order = await store.sql_match_order_by_sellerid(str(ctx.message.author.id), ref_number, SERVER_BOT)
                     if match_order:
                         await ctx.message.add_reaction(EMOJI_OK_BOX)
                         try:
@@ -18185,7 +18186,7 @@ async def buy(ctx, ref_number: str):
                                 bought = num_format_coin(get_order_num['amount_get_after_fee'], get_order_num['coin_get']) + get_order_num['coin_get']
                                 fee = str(num_format_coin(get_order_num['amount_get']-get_order_num['amount_get_after_fee'], get_order_num['coin_get']))
                                 fee += get_order_num['coin_get']
-                                if get_order_num['sell_user_server'] == "DISCORD":
+                                if get_order_num['sell_user_server'] == SERVER_BOT:
                                     member = bot.get_user(id=int(get_order_num['userid_sell']))
                                     if member:
                                         try:
@@ -18491,11 +18492,11 @@ async def order(ctx, order_num: str):
             response_text += "Status: CANCELLED"
         response_text += "```"
 
-        if get_order_num['sell_user_server'] == "DISCORD" and ctx.message.author.id == int(get_order_num['userid_sell']):
+        if get_order_num['sell_user_server'] == SERVER_BOT and ctx.message.author.id == int(get_order_num['userid_sell']):
             # if he is the seller
             response_text = response_text.replace("Sell", "You sell")
             response_text = response_text.replace("Sold", "You sold")
-        if get_order_num['buy_user_server'] and get_order_num['buy_user_server'] == "DISCORD" \
+        if get_order_num['buy_user_server'] and get_order_num['buy_user_server'] == SERVER_BOT \
         and 'userid_get' in get_order_num and (ctx.message.author.id == int(get_order_num['userid_get'] if get_order_num['userid_get'] else 0)):
             # if he bought this
             response_text = response_text.replace("Sold", "You bought: ")
@@ -18594,11 +18595,11 @@ async def myorder(ctx, ticker: str = None):
                     response_text += "Status: CANCELLED"
                 response_text += "```"
 
-                if get_order_num['sell_user_server'] == "DISCORD" and ctx.message.author.id == int(get_order_num['userid_sell']):
+                if get_order_num['sell_user_server'] == SERVER_BOT and ctx.message.author.id == int(get_order_num['userid_sell']):
                     # if he is the seller
                     response_text = response_text.replace("Sell", "You sell")
                     response_text = response_text.replace("Sold", "You sold")
-                if get_order_num['sell_user_server'] and get_order_num['sell_user_server'] == "DISCORD" and \
+                if get_order_num['sell_user_server'] and get_order_num['sell_user_server'] == SERVER_BOT and \
                     'userid_get' in get_order_num and (ctx.message.author.id == int(get_order_num['userid_get'] if get_order_num['userid_get'] else 0)):
                     # if he bought this
                     response_text = response_text.replace("Sold", "You bought: ")
@@ -19186,7 +19187,7 @@ async def notify_new_tx_user_noconfirmation():
                                 except Exception as e:
                                     await logchanbot(traceback.format_exc())
                                 if eachTx and eachTx['coin_name'] in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_XCH:
-                                    user_tx = await store.sql_get_userwallet_by_paymentid(eachTx['payment_id'], eachTx['coin_name'], 'DISCORD')
+                                    user_tx = await store.sql_get_userwallet_by_paymentid(eachTx['payment_id'], eachTx['coin_name'], SERVER_BOT)
                                     if user_tx and eachTx['coin_name'] in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_XCH:
                                         user_found = bot.get_user(id=int(user_tx['user_id']))
                                         if user_found:
@@ -19247,7 +19248,7 @@ async def notify_new_tx_user():
             for eachTx in pending_tx:
                 try:
                     if eachTx['coin_name'] in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO+ENABLE_XCH:
-                        user_tx = await store.sql_get_userwallet_by_paymentid(eachTx['payment_id'], eachTx['coin_name'], 'DISCORD')
+                        user_tx = await store.sql_get_userwallet_by_paymentid(eachTx['payment_id'], eachTx['coin_name'], SERVER_BOT)
                         if user_tx and user_tx['user_id']:
                             user_found = bot.get_user(id=int(user_tx['user_id']))
                             if user_found:
@@ -19308,7 +19309,7 @@ async def notify_new_move_balance_user():
             for eachTx in pending_tx:
                 try:
                     if eachTx['coin_name'] in ENABLE_COIN+ENABLE_COIN_DOGE+ENABLE_XMR+ENABLE_COIN_NANO:
-                        if eachTx['to_server'] == "DISCORD":
+                        if eachTx['to_server'] == SERVER_BOT:
                             user_found = bot.get_user(id=int(eachTx['to_userid']))
                             if user_found:
                                 is_notify_failed = False
@@ -19400,12 +19401,12 @@ async def _tip(ctx, amount, coin: str, if_guild: bool=False):
     if user_from is None:
         if coin_family == "ERC-20":
             w = await create_address_eth()
-            user_from = await store.sql_register_user(id_tipper, COIN_NAME, 'DISCORD', 0, w)
+            user_from = await store.sql_register_user(id_tipper, COIN_NAME, SERVER_BOT, 0, w)
         elif coin_family == "TRC-20":
             result = await store.create_address_trx()
-            user_from = await store.sql_register_user(id_tipper, COIN_NAME, 'DISCORD', 0, result)
+            user_from = await store.sql_register_user(id_tipper, COIN_NAME, SERVER_BOT, 0, result)
         else:
-            user_from = await store.sql_register_user(id_tipper, COIN_NAME, 'DISCORD', 0)
+            user_from = await store.sql_register_user(id_tipper, COIN_NAME, SERVER_BOT, 0)
 
     userdata_balance = await store.sql_user_balance(id_tipper, COIN_NAME)
     xfer_in = 0
@@ -19465,12 +19466,12 @@ async def _tip(ctx, amount, coin: str, if_guild: bool=False):
             if user_to is None:
                 if coin_family == "ERC-20":
                     w = await create_address_eth()
-                    userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0, w)
+                    userregister = await store.sql_register_user(str(member.id), COIN_NAME, SERVER_BOT, 0, w)
                 elif coin_family == "TRC-20":
                     result = await store.create_address_trx()
-                    userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0, result)
+                    userregister = await store.sql_register_user(str(member.id), COIN_NAME, SERVER_BOT, 0, result)
                 else:
-                    userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0)
+                    userregister = await store.sql_register_user(str(member.id), COIN_NAME, SERVER_BOT, 0)
                 user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
             if len(list_receivers) == 0 or str(member.id) not in list_receivers:
                 list_receivers.append(str(member.id))
@@ -19542,7 +19543,7 @@ async def _tip(ctx, amount, coin: str, if_guild: bool=False):
     if tip:
         # Update tipstat
         try:
-            update_tipstat = await store.sql_user_get_tipstat(id_tipper, COIN_NAME, True, 'DISCORD')
+            update_tipstat = await store.sql_user_get_tipstat(id_tipper, COIN_NAME, True, SERVER_BOT)
         except Exception as e:
             await logchanbot(traceback.format_exc())
         try:
@@ -19643,12 +19644,12 @@ async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str 
     if user_from is None:
         if coin_family == "ERC-20":
             w = await create_address_eth()
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, w)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0, w)
         elif coin_family == "TRC-20":
             result = await store.create_address_trx()
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0, result)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0, result)
         else:
-            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, 'DISCORD', 0)
+            user_from = await store.sql_register_user(str(ctx.message.author.id), COIN_NAME, SERVER_BOT, 0)
 
     userdata_balance = await store.sql_user_balance(str(ctx.message.author.id), COIN_NAME)
     xfer_in = 0
@@ -19705,12 +19706,12 @@ async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str 
                 if user_to is None:
                     if coin_family == "ERC-20":
                         w = await create_address_eth()
-                        userregister = await store.sql_register_user(str(member_id), COIN_NAME, 'DISCORD', 0, w)
+                        userregister = await store.sql_register_user(str(member_id), COIN_NAME, SERVER_BOT, 0, w)
                     elif coin_family == "TRC-20":
                         result = await store.create_address_trx()
-                        userregister = await store.sql_register_user(str(member_id), COIN_NAME, 'DISCORD', 0, result)
+                        userregister = await store.sql_register_user(str(member_id), COIN_NAME, SERVER_BOT, 0, result)
                     else:
-                        userregister = await store.sql_register_user(str(member_id), COIN_NAME, 'DISCORD', 0)
+                        userregister = await store.sql_register_user(str(member_id), COIN_NAME, SERVER_BOT, 0)
                     user_to = await store.sql_get_userwallet(str(member_id), COIN_NAME)
                 try:
                     list_receivers.append(str(member_id))
@@ -19791,7 +19792,7 @@ async def _tip_talker(ctx, amount, list_talker, if_guild: bool=False, coin: str 
     if tip:
         # Update tipstat
         try:
-            update_tipstat = await store.sql_user_get_tipstat(id_tipper, COIN_NAME, True, 'DISCORD')
+            update_tipstat = await store.sql_user_get_tipstat(id_tipper, COIN_NAME, True, SERVER_BOT)
         except Exception as e:
             await logchanbot(traceback.format_exc())
 
@@ -19952,12 +19953,12 @@ async def _tip_react(reaction, user, amount, coin: str):
     if user_from is None:
         if COIN_NAME in ENABLE_COIN_ERC:
             w = await create_address_eth()
-            user_from = await store.sql_register_user(str(user.id), COIN_NAME, 'DISCORD', 0, w)
+            user_from = await store.sql_register_user(str(user.id), COIN_NAME, SERVER_BOT, 0, w)
         elif COIN_NAME in ENABLE_COIN_TRC:
             result = await store.create_address_trx()
-            user_from = await store.sql_register_user(str(user.id), COIN_NAME, 'DISCORD', 0, result)
+            user_from = await store.sql_register_user(str(user.id), COIN_NAME, SERVER_BOT, 0, result)
         else:
-            user_from = await store.sql_register_user(str(user.id), COIN_NAME, 'DISCORD', 0)
+            user_from = await store.sql_register_user(str(user.id), COIN_NAME, SERVER_BOT, 0)
 
     # get user balance
     userdata_balance = await store.sql_user_balance(str(user.id), COIN_NAME)
@@ -19992,14 +19993,14 @@ async def _tip_react(reaction, user, amount, coin: str):
                 if COIN_NAME in ENABLE_COIN_ERC:
                     coin_family = "ERC-20"
                     w = await create_address_eth()
-                    userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0, w)
+                    userregister = await store.sql_register_user(str(member.id), COIN_NAME, SERVER_BOT, 0, w)
                 elif COIN_NAME in ENABLE_COIN_TRC:
                     coin_family = "TRC-20"
                     result = await store.create_address_trx()
-                    userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0, result)
+                    userregister = await store.sql_register_user(str(member.id), COIN_NAME, SERVER_BOT, 0, result)
                 else:
                     coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-                    userregister = await store.sql_register_user(str(member.id), COIN_NAME, 'DISCORD', 0)
+                    userregister = await store.sql_register_user(str(member.id), COIN_NAME, SERVER_BOT, 0)
                 user_to = await store.sql_get_userwallet(str(member.id), COIN_NAME)
 
             list_receivers.append(str(member.id))
@@ -20294,14 +20295,14 @@ async def bot_faucet(ctx):
             if COIN_NAME in ENABLE_COIN_ERC:
                 coin_family = "ERC-20"
                 w = await create_address_eth()
-                wallet = await store.sql_register_user(str(bot.user.id), COIN_NAME, 'DISCORD', 0, w)
+                wallet = await store.sql_register_user(str(bot.user.id), COIN_NAME, SERVER_BOT, 0, w)
             elif COIN_NAME in ENABLE_COIN_TRC:
                 coin_family = "TRC-20"
                 result = await store.create_address_trx()
-                wallet = await store.sql_register_user(str(bot.user.id), COIN_NAME, 'DISCORD', 0, result)
+                wallet = await store.sql_register_user(str(bot.user.id), COIN_NAME, SERVER_BOT, 0, result)
             else:
                 coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-                wallet = await store.sql_register_user(str(bot.user.id), COIN_NAME, 'DISCORD', 0)
+                wallet = await store.sql_register_user(str(bot.user.id), COIN_NAME, SERVER_BOT, 0)
         userdata_balance = await store.sql_user_balance(str(bot.user.id), COIN_NAME)
         xfer_in = 0
         if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:

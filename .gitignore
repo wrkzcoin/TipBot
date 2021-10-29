@@ -19,5 +19,4 @@ wrkzcoin_tipbot/cogs/
 wrkzcoin_tipbot/ethFilter_xDai.py
 wrkzcoin_tipbot/ethFilter_Arbitrum.py
 wrkzcoin_tipbot/trx10_test.py
-wrkzcoin_tipbot/NetPublicAPI.py
-wrkzcoin_tipbot/NetPrivateAPI.py
+

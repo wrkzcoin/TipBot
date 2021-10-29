@@ -53,9 +53,7 @@ This TipBot's code is not ready to deploy. We keep it here for easily bug tracki
 * Other donation, can use `.donate AMOUNT TICKER` with TipBot's DM.
 
 ### Public API for Trading:
-* List of open markets: <https://public-trade-api.bot.tips/markets>
-* Market Information of a Ticker. Example: <https://public-trade-api.bot.tips/ticker/wrkz>
-* List of opened buy and sell orders. Example: <https://public-trade-api.bot.tips/orders/gntl-xmr>
+* Refer to <https://github.com/wrkzcoin/TipBot/blob/multi-tipbot/TRADE_API.md>
 
 ### Credit and thanks to:
 

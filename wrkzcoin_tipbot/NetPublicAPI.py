@@ -37,20 +37,36 @@ async def handle_get_all(request):
             get_market_sell_list = await store.sql_get_open_order_by_alluser_by_coins(buy_coin, sell_coin, "OPEN", "DESC", 1000)
             buy_list = {}
             sell_list = {}
+            buy_refs = []
+            sell_refs = []
             if get_market_buy_list and len(get_market_buy_list) > 0:
                 for each_buy in get_market_buy_list:
                     rate = "{:.8f}".format( (each_buy['amount_sell']/each_buy['coin_sell_decimal']) / (each_buy['amount_get']/each_buy['coin_get_decimal']) )
                     amount = "{:.8f}".format(each_buy['amount_sell']/each_buy['coin_sell_decimal'])
                     buy_list[rate] = amount
+                    buy_refs.append(str(each_buy["order_id"]))
             if get_market_sell_list and len(get_market_sell_list) > 0:
                 for each_sell in get_market_sell_list:
                     rate = "{:.8f}".format((each_sell['amount_sell']/each_sell['coin_sell_decimal']) / (each_sell['amount_get']/each_sell['coin_get_decimal']))
                     amount = "{:.8f}".format(each_sell['amount_get']/each_sell['coin_get_decimal'])
                     sell_list[rate] = amount
+                    sell_refs.append(str(each_sell["order_id"]))
             result = {"success": False, "order_book": "{}-{}".format(sell_coin, buy_coin)}
             if len(buy_list) > 0 or len(sell_list) > 0:
-                result = {"success": True, "order_book": "{}-{}".format(sell_coin, buy_coin), "buy": buy_list, "sell": sell_list, "timestamp": int(time.time())}
+                result = {"success": True, "order_book": "{}-{}".format(sell_coin, buy_coin), "buy_refs": buy_refs, "buy": buy_list, "sell_refs": sell_refs, "sell": sell_list, "timestamp": int(time.time())}
             return web.Response(text=json.dumps(result).replace("\\", ""), status=200)
+    elif uri.startswith("/order/"):
+        # catch order book market.
+        ref_number = uri.replace("/order/", "")
+        if ref_number.isalnum() == False:
+            return await respond_bad_request_404()
+        get_order_num = await store.sql_get_order_numb(ref_number, 'ANY')
+        if get_order_num:
+            result = {"success": True, "ref_number": "#{}".format(ref_number), "coin_sell": get_order_num['coin_sell'], "amount_sell": num_format_coin(get_order_num['amount_sell'], get_order_num['coin_sell']), "coin_get": get_order_num['coin_get'], "amount_get": num_format_coin(get_order_num['amount_get_after_fee'], get_order_num['coin_get']), "status": get_order_num['status'], "timestamp": int(time.time())}
+            return web.Response(text=json.dumps(result).replace("\\", ""), status=404)
+        else:
+            result = {"success": False, "error": "ref_number not found.", "timestamp": int(time.time())}
+            return web.Response(text=json.dumps(result).replace("\\", ""), status=404)
     elif uri.startswith("/markets/list"):
         # TODO: disable if there are a lot of orders
         market_list = {}

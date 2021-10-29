@@ -2,6 +2,7 @@
 * List of open markets: <https://public-trade-api.bot.tips/markets>
 * Market Information of a Ticker. Example: <https://public-trade-api.bot.tips/ticker/wrkz>
 * List of opened buy and sell orders. Example: <https://public-trade-api.bot.tips/orders/gntl-xmr>
+* Check information of an order:  Example: <https://public-trade-api.bot.tips/order/100XXXX>
 
 ### Private API for Trading:
 First of all, you need to get api user/keys from TipBot by doing Direct Message `.acc tradeapi`. TipBot shall respond with keys and save them in a safe place. You can also reset the API key with command `.acc tradeapi regen`.

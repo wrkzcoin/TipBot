@@ -9,7 +9,7 @@ First of all, you need to get api user/keys from TipBot by doing Direct Message 
 
 [<img src="https://raw.githubusercontent.com/wrkzcoin/TipBot/multi-tipbot/docs/acc_tradeapi.png">](http://invite.discord.bot.tips/)
 
-
+* Swagger: <http://tradeapi.bot.tips/>
 * Example with curl
   * get_balance (get your deposit address, same as you got in Discord)
 

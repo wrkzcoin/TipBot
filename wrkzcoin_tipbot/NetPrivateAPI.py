@@ -548,7 +548,7 @@ async def handle_post_all(request):
                         else:
                             return await respond_internal_error()
             else:
-                result = {"success": False, "result": {"error": "Order does not exist or already completed."}}
+                result = {"success": False, "message": "Order does not exist or already completed."}
                 return web.Response(text=json.dumps(result).replace("\\", ""), status=400)
         else:
             return await respond_bad_request()
@@ -560,7 +560,7 @@ async def handle_post_all(request):
 
         get_open_order = await store.sql_get_open_order_by_sellerid_all(userid, 'OPEN')
         if len(get_open_order) == 0:
-            result = {"success": False, "result": {"error": "You do not have any open order."}}
+            result = {"success": False, "message": "You do not have any open order."}
             return web.Response(text=json.dumps(result).replace("\\", ""), status=400)
 
         if 'ref_number' in data:
@@ -573,10 +573,10 @@ async def handle_post_all(request):
                         cancel_order = await store.sql_cancel_open_order_by_sellerid(userid, ref_number) 
                         if cancel_order: cancelled = True
                 if cancelled == False:
-                    result = {"success": False, "result": {"error": f"You do not have sell #{ref_number}."}}
+                    result = {"success": False, "message": f"You do not have sell #{ref_number}."}
                     return web.Response(text=json.dumps(result).replace("\\", ""), status=400)
                 else:
-                    result = {"success": True, "result": {"error": f"You cancelled #{ref_number}."}}
+                    result = {"success": True, "message": f"You cancelled #{ref_number}."}
                     return web.Response(text=json.dumps(result).replace("\\", ""), status=400)
             else:
                 return await respond_bad_request_404()

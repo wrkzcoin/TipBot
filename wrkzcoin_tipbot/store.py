@@ -1160,9 +1160,9 @@ async def sql_block_height(coin: str):
         else:
             gettopblock = await rpc_client.call_doge('getblockchaininfo', COIN_NAME)
     except asyncio.TimeoutError:
-        pass
+        traceback.print_exc(file=sys.stdout)
     except Exception as e:
-        await logchanbot(traceback.format_exc())
+        traceback.print_exc(file=sys.stdout)
 
     height = None
     if gettopblock:
@@ -2901,8 +2901,8 @@ async def sql_add_messages(list_messages):
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 sql = """ INSERT IGNORE INTO `discord_messages` (`serverid`, `server_name`, `channel_id`, `channel_name`, `user_id`, 
-                          `message_author`, `message_id`, `message_content`, `message_time`)
-                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                          `message_author`, `message_id`, `message_time`)
+                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
                 await cur.executemany(sql, list_messages)
                 await conn.commit()
                 return cur.rowcount

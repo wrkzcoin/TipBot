@@ -1,6 +1,6 @@
 from discord_webhook import DiscordWebhook
 import discord
-
+import traceback
 from typing import List, Dict
 import json
 from uuid import uuid4

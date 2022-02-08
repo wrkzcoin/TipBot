@@ -102,10 +102,11 @@ async def gettopblock(coin: str, time_out: int = None):
                             await session.close()
                             return res_data['result']
             except asyncio.TimeoutError:
-                await logchanbot('gettopblock: method: {} COIN_NAME {} - timeout {}'.format('getblockheaderbyheight', COIN_NAME, time_out))
+                # await logchanbot('gettopblock: method: {} COIN_NAME {} - timeout {}'.format('getblockheaderbyheight', COIN_NAME, time_out))
+                traceback.print_exc(file=sys.stdout)
                 return None
             except Exception:
-                await logchanbot(traceback.format_exc())
+                traceback.print_exc(file=sys.stdout)
                 return None
         else:
             return None
@@ -123,7 +124,7 @@ async def gettopblock(coin: str, time_out: int = None):
                 await logchanbot('gettopblock: method: {} COIN_NAME {} - timeout {}'.format('getblockheaderbyheight', COIN_NAME, time_out))
                 return None
             except Exception:
-                await logchanbot(traceback.format_exc())
+                traceback.print_exc(file=sys.stdout)
                 return None
         else:
             return None
@@ -149,7 +150,7 @@ async def gettopblock(coin: str, time_out: int = None):
                 await logchanbot('gettopblock: method: {} COIN_NAME {} - timeout {}'.format('get_block_count', COIN_NAME, time_out))
                 return None
             except Exception:
-                await logchanbot(traceback.format_exc())
+                traceback.print_exc(file=sys.stdout)
                 return None
         else:
             return None
@@ -175,7 +176,7 @@ async def gettopblock(coin: str, time_out: int = None):
                 await logchanbot('gettopblock: method: {} COIN_NAME {} - timeout {}'.format('get_block_count', COIN_NAME, time_out))
                 return None
             except Exception:
-                await logchanbot(traceback.format_exc())
+                traceback.print_exc(file=sys.stdout)
                 return None
         else:
             return None
@@ -204,7 +205,7 @@ async def call_daemon_xch(method_name: str, coin: str, time_out: int = None, pay
         await logchanbot('call_daemon: method: {} COIN_NAME {} - timeout {}'.format(method_name, coin.upper(), time_out))
         return None
     except Exception:
-        await logchanbot(traceback.format_exc())
+        traceback.print_exc(file=sys.stdout)
         return None
 
 
@@ -230,7 +231,7 @@ async def call_daemon(method_name: str, coin: str, time_out: int = None, payload
         await logchanbot('call_daemon: method: {} COIN_NAME {} - timeout {}'.format(method_name, coin.upper(), time_out))
         return None
     except Exception:
-        await logchanbot(traceback.format_exc())
+        traceback.print_exc(file=sys.stdout)
         return None
 
 
@@ -253,7 +254,7 @@ async def call_daemon_api_get(uri: str, coin: str, time_out: int = None, payload
         await logchanbot('call_daemon: method: {} COIN_NAME {} - timeout {}'.format(uri, coin.upper(), time_out))
         return None
     except Exception:
-        await logchanbot(traceback.format_exc())
+        traceback.print_exc(file=sys.stdout)
         return None
 
 def get_daemon_rpc_url(coin: str = None):

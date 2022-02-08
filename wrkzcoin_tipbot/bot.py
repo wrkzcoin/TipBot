@@ -901,12 +901,8 @@ async def on_message(message):
         return
 
     if isinstance(message.channel, discord.DMChannel) == False and message.author.bot == False and len(message.content) > 0 and message.author != bot.user:
-        if config.Enable_Message_Logging == 1:
-            await add_msg_redis(json.dumps([str(message.guild.id), message.guild.name, str(message.channel.id), message.channel.name, 
-                                             str(message.author.id), message.author.name, str(message.id), message.content, int(time.time())]), False)
-        else:
-            await add_msg_redis(json.dumps([str(message.guild.id), message.guild.name, str(message.channel.id), message.channel.name, 
-                                             str(message.author.id), message.author.name, str(message.id), '', int(time.time())]), False)
+        await add_msg_redis(json.dumps([str(message.guild.id), message.guild.name, str(message.channel.id), message.channel.name, 
+                                        str(message.author.id), message.author.name, str(message.id), int(time.time())]), False)
 
     # mute channel
     if isinstance(message.channel, discord.DMChannel) == False and MUTE_CHANNEL and str(message.guild.id) in MUTE_CHANNEL:

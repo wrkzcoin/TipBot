@@ -313,8 +313,42 @@ def seconds_str(time: float):
     return "{:02d}:{:02d}:{:02d}".format(hour, minutes, seconds)
 
 
-def num_format_coin(amount):
-    return '{:,.4f}'.format(amount)
+def num_format_coin(amount, coin: str, coin_decimal: int, atomic: bool=False):
+    COIN_NAME = coin.upper() 
+    if amount == 0:
+        return "0.0"
+    coin_decimal = int(10**coin_decimal)
+    if atomic == True:
+        amount = amount / coin_decimal
+    amount_str = 'Invalid.'
+    if coin_decimal == 1:
+        amount_test = '{:,f}'.format(float(('%f' % amount).rstrip('0').rstrip('.')))
+        if '.' in amount_test and len(amount_test.split('.')[1]) > 6:
+            amount_str = '{:,.6f}'.format(amount)
+        else:
+            amount_str = amount_test
+    elif coin_decimal < 10**4:
+        amount_str = '{:,.2f}'.format(amount)
+    elif coin_decimal < 10**6:
+        amount_test = '{:,f}'.format(float(('%f' % amount).rstrip('0').rstrip('.')))
+        if '.' in amount_test and len(amount_test.split('.')[1]) > 5:
+            amount_str = '{:,.6f}'.format(amount)
+        else:
+            amount_str = amount_test
+    elif coin_decimal < 10**18:
+        amount_test = '{:,f}'.format(float(('%f' % (amount)).rstrip('0').rstrip('.')))
+        if '.' in amount_test and len(amount_test.split('.')[1]) > 5:
+            amount_str = '{:,.5f}'.format(amount)
+        else:
+            amount_str = amount_test
+    else:
+        # > 10**18
+        amount_test = '{:,f}'.format(float(('%f' % (amount)).rstrip('0').rstrip('.')))
+        if '.' in amount_test and len(amount_test.split('.')[1]) > 8:
+            amount_str = '{:,.8f}'.format(amount)
+        else:
+            amount_str =  amount_test
+    return amount_str.rstrip('0').rstrip('.') if '.' in amount_str else amount_str 
 
 
 def randomString(stringLength=8):

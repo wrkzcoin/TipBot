@@ -10,7 +10,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 
-from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.firefox.options import Options
 
 from xvfbwrapper import Xvfb
 
@@ -44,7 +44,7 @@ def openRedis():
 def get_coin360():
     global redis_pool, redis_conn
     image_name = None
-    key = "TIPBOT:COIN360:MAP"
+    key = config.redis.prefix + ":COIN360:MAP"
     try:
         if redis_conn is None: redis_conn = redis.Redis(connection_pool=redis_pool)
         if redis_conn and redis_conn.exists(key):
@@ -62,10 +62,19 @@ def get_coin360():
         # https://github.com/cgoldberg/xvfbwrapper
         # launch stuff inside virtual display here.
         # Wait for 20s
-        opts = Options()
-        opts.add_argument(config.selenium_setting.user_agent)
-        
-        driver = webdriver.Chrome()
+
+        options = Options()
+        options.add_argument('--no-sandbox') # Bypass OS security model
+        options.add_argument('--disable-gpu')  # applicable to windows os only
+        options.add_argument('start-maximized') # 
+        options.add_argument('disable-infobars')
+        options.add_argument("--disable-extensions")
+        userAgent = config.selenium_setting.user_agent
+        options.add_argument(f'user-agent={userAgent}')
+        options.add_argument("--user-data-dir=chrome-data")
+        options.headless = False
+
+        driver = webdriver.Firefox(options=options)
         driver.set_window_position(0, 0)
         driver.set_window_size(config.selenium_setting.win_w, config.selenium_setting.win_h)
 

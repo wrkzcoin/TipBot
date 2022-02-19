@@ -3,8 +3,6 @@ import secrets, sha3
 import sys, re
 from binascii import hexlify, unhexlify
 from config import config
-import wallet
-
 import ed25519
 
 # byte-oriented StringIO was moved to io.BytesIO in py3k
@@ -17,8 +15,6 @@ except ImportError:
 b = ed25519.b
 q = ed25519.q
 l = ed25519.l
-
-ENABLE_COIN = config.Enable_Coin.split(",")
 
 # CN:
 def cn_fast_hash(s):
@@ -254,84 +250,53 @@ def intToHexStr(i):
     return hexlify(i.to_bytes(32, "little")).decode("latin-1")
 
 
-def validate_address_cn(wallet_address: str, coin: str):
-    if coin.upper() in ENABLE_COIN:
-        return validate_address(wallet_address, coin.upper())
-    else:
-        return None
-
-
-def validate_integrated_cn(wallet_address: str, coin: str):
-    if coin.upper() in ENABLE_COIN:
-        return validate_integrated(wallet_address, coin.upper())
-    else:
-        return None
-
-
-def make_integrated_cn(wallet_address, coin, integrated_id=None):
-    if coin.upper() in ENABLE_COIN:
-        return make_integrated(wallet_address, coin.upper(), integrated_id)
-    else:
-        return None
-
-
-# Validate address:
-def validate_address(wallet_address, coin: str):
-    prefix=wallet.get_prefix(coin.upper())
-    prefix_hex=varint_encode(prefix).hex()
-    main_address_len=wallet.get_addrlen(coin.upper())
-    prefix_char=wallet.get_prefix_char(coin.upper())
-    remain_length=main_address_len-len(prefix_char)
-    my_regex = r""+prefix_char+r"[a-zA-Z0-9]"+r"{"+str(remain_length)+",}"
-    if (len(wallet_address) != int(main_address_len)):
+# Validate CN address:
+def cn_validate_address(wallet_address: str, get_prefix: int, get_addrlen: int, get_prefix_char: str):
+    prefix_hex = varint_encode(get_prefix).hex()
+    remain_length = get_addrlen - len(get_prefix_char)
+    my_regex = r"" + get_prefix_char + r"[a-zA-Z0-9]" + r"{" + str(remain_length) + ",}"
+    if len(wallet_address) != int(get_addrlen):
         return None
     if not re.match(my_regex, wallet_address.strip()):
         return None
     try:
         address_hex = decode(wallet_address)
-        if(address_hex.startswith(prefix_hex)):
-            i=len(prefix_hex)-1
+        if address_hex.startswith(prefix_hex):
+            i = len(prefix_hex) - 1
             address_no_prefix = address_hex[i:]
             spend = address_no_prefix[1:65]
             view = address_no_prefix[65:129]
             checksum = address_no_prefix[129:137]
             expectedChecksum = cn_fast_hash(prefix_hex+spend + view)[0:8]
-            if(checksum==expectedChecksum):
+            if checksum == expectedChecksum:
                 return wallet_address
-            else:
-                return None
-        else:
-            return None
     except Exception as e:
-        return None
         pass
+    return None
 
 
 # Validate address:
-def validate_integrated(wallet_address, coin: str):
-    prefix=wallet.get_prefix(coin.upper())
-    prefix_hex=varint_encode(prefix).hex()
-    int_address_len=wallet.get_intaddrlen(coin.upper())
-    prefix_char=wallet.get_prefix_char(coin.upper())
-    remain_length=int_address_len-len(prefix_char)
-    my_regex = r""+prefix_char+r"[a-zA-Z0-9]"+r"{"+str(remain_length)+",}"
-    if (len(wallet_address) != int(int_address_len)):
+def cn_validate_integrated(wallet_address: str, get_prefix_char: str, get_prefix: int, get_intaddrlen: int):
+    prefix_hex = varint_encode(get_prefix).hex()
+    remain_length = get_intaddrlen - len(get_prefix_char)
+    my_regex = r"" + get_prefix_char + r"[a-zA-Z0-9]"+r"{" + str(remain_length) + ",}"
+    if len(wallet_address) != int(get_intaddrlen):
         return None
     if not re.match(my_regex, wallet_address.strip()):
         return None
     try:
         address_hex = decode(wallet_address)
-        if(address_hex.startswith(prefix_hex)):
-            i=len(prefix_hex)-1
+        if address_hex.startswith(prefix_hex):
+            i = len(prefix_hex) - 1
             address_no_prefix = address_hex[i:]
             integrated_id = address_no_prefix[1:129]
             spend = address_no_prefix[(128+1):(128+65)]
             view = address_no_prefix[(128+65):(128+129)]
             checksum = address_no_prefix[(128+129):(128+137)]
             expectedChecksum = cn_fast_hash(prefix_hex+integrated_id+spend + view)[0:8]
-            if(checksum==expectedChecksum):
+            if checksum == expectedChecksum:
                 checksum = cn_fast_hash(prefix_hex + spend + view);
-                address_b58=encode(prefix_hex+spend+view + checksum[0:8])
+                address_b58 = encode(prefix_hex+spend+view + checksum[0:8])
                 result = {}
                 result['address']=str(address_b58)
                 result['integrated_id']=str(hextostr(integrated_id))
@@ -343,16 +308,13 @@ def validate_integrated(wallet_address, coin: str):
 
 
 # make_integrated address:
-def make_integrated(wallet_address, coin: str, integrated_id=None):
-    prefix=wallet.get_prefix(coin.upper())
-    prefix_hex=varint_encode(prefix).hex()
-    main_address_len=wallet.get_addrlen(coin.upper())
-    prefix_char=wallet.get_prefix_char(coin.upper())
-    remain_length=main_address_len-len(prefix_char)
-    my_regex = r""+prefix_char+r"[a-zA-Z0-9]"+r"{"+str(remain_length)+",}"
+def cn_make_integrated(wallet_address, get_prefix_char: str, get_prefix: int, get_addrlen: int, integrated_id=None):
+    prefix_hex = varint_encode(get_prefix).hex()
+    remain_length = get_addrlen - len(get_prefix_char)
+    my_regex = r""+ get_prefix_char + r"[a-zA-Z0-9]"+r"{" + str(remain_length) + ",}"
     if integrated_id is None:
-        integrated_id=paymentid()
-    if len(wallet_address) != int(main_address_len):
+        integrated_id = paymentid()
+    if len(wallet_address) != get_addrlen:
         return None
     if not re.match(my_regex, wallet_address.strip()):
         return None
@@ -371,21 +333,17 @@ def make_integrated(wallet_address, coin: str, integrated_id=None):
             address = (prefix_hex + integrated_id + spend + view + expectedChecksum)
             address = str(encode(address))
             result = {}
-            result['address']=wallet_address
-            result['paymentid']=checkPaymentID
-            result['integrated_address']=address
+            result['address'] = wallet_address
+            result['paymentid'] = checkPaymentID
+            result['integrated_address'] = address
             return result
-        else:
-            return None
     except Exception as e:
-        return None
         pass
-
+    return None
 
 ## make random paymentid:
 def paymentid(length=None):
-    if length is None:
-        length=32
+    if length is None: length = 32
     return secrets.token_hex(length) 
 
 

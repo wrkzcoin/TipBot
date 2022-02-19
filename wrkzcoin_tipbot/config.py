@@ -4,7 +4,7 @@ import yaml
 from munch import Munch
 
 config_file_path = os.path.join(
-    os.path.dirname(__file__), os.path.pardir, 'config.yml')
+    os.path.dirname(__file__), 'config.yml')
 
 config = None
 

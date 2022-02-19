@@ -3,6 +3,13 @@ from io import BytesIO
 import sys, traceback
 import asyncio
 import aiohttp
+from shutil import copyfile
+import os
+import os.path
+
+from Bot import *
+from config import config
+
 
 async def action(url_image1: str, url_image2: str, saved_path: str, funcmd: str, gif_image: str):
     funcmd = funcmd.upper()
@@ -25,8 +32,20 @@ async def action(url_image1: str, url_image2: str, saved_path: str, funcmd: str,
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
 
-    animated_gif = Image.open(gif_image)
+    
     if res_data1 and res_data2:
+        hash_object1 = hashlib.sha256(res_data1)
+        hex_dig1 = str(hash_object1.hexdigest())
+
+        hash_object2 = hashlib.sha256(res_data2)
+        hex_dig2 = str(hash_object2.hexdigest())
+        cache_path = config.fun.fun_img_path + funcmd.upper() + "_" + hex_dig1 + hex_dig2 + ".gif"
+        if os.path.exists(cache_path):
+            # copyfile(cache_path, saved_path)
+            print("usge cache")
+            return cache_path
+
+        animated_gif = Image.open(gif_image)
         frames = []
         basewidth = 85
         if funcmd == 'PRAISE':
@@ -60,7 +79,10 @@ async def action(url_image1: str, url_image2: str, saved_path: str, funcmd: str,
                 frame.thumbnail(size, Image.ANTIALIAS)
                 frames.append(frame)
             frames[0].save(saved_path, format='GIF', save_all=True, append_images=frames[1:], optimize=True, quality=75)
-            return saved_path
+            # Copy to cache
+            copyfile(saved_path, cache_path)
+            os.remove(saved_path)
+            return cache_path
         elif funcmd == 'PUNCH':
             for frame in ImageSequence.Iterator(animated_gif):
                 frame = frame.convert('RGBA') # new
@@ -71,7 +93,10 @@ async def action(url_image1: str, url_image2: str, saved_path: str, funcmd: str,
                 frame.paste(img2, (220, 30), mask=img2)
                 frames.append(frame)
             frames[0].save(saved_path, format='GIF', save_all=True, append_images=frames[1:], optimize=True, quality=75)
-            return saved_path
+            # Copy to cache
+            copyfile(saved_path, cache_path)
+            os.remove(saved_path)
+            return cache_path
         elif funcmd == 'SLAP':
             for frame in ImageSequence.Iterator(animated_gif):
                 frame = frame.convert('RGBA') # new
@@ -82,7 +107,10 @@ async def action(url_image1: str, url_image2: str, saved_path: str, funcmd: str,
                 frame.paste(img2, (30, 110), mask=img2)
                 frames.append(frame)
             frames[0].save(saved_path, format='GIF', save_all=True, append_images=frames[1:], optimize=True, quality=75)
-            return saved_path
+            # Copy to cache
+            copyfile(saved_path, cache_path)
+            os.remove(saved_path)
+            return cache_path
         elif funcmd == 'PRAISE':
             for frame in ImageSequence.Iterator(animated_gif):
                 frame = frame.convert('RGBA') # new
@@ -106,7 +134,10 @@ async def action(url_image1: str, url_image2: str, saved_path: str, funcmd: str,
                 frame.paste(img1, (10, 140), mask=img1)
                 frames.append(frame)
             frames[0].save(saved_path, format='GIF', save_all=True, append_images=frames[1:], optimize=True, quality=75)
-            return saved_path
+            # Copy to cache
+            copyfile(saved_path, cache_path)
+            os.remove(saved_path)
+            return cache_path
         elif funcmd == 'SHOOT':
             for frame in ImageSequence.Iterator(animated_gif):
                 frame = frame.convert('RGBA') # new
@@ -120,7 +151,10 @@ async def action(url_image1: str, url_image2: str, saved_path: str, funcmd: str,
                 # frame.thumbnail(size, Image.ANTIALIAS)
                 frames.append(frame)
             frames[0].save(saved_path, format='GIF', save_all=True, append_images=frames[1:], optimize=True, quality=75)
-            return saved_path
+            # Copy to cache
+            copyfile(saved_path, cache_path)
+            os.remove(saved_path)
+            return cache_path
         elif funcmd == 'KICK':
             for frame in ImageSequence.Iterator(animated_gif):
                 frame = frame.convert('RGBA') # new
@@ -132,7 +166,10 @@ async def action(url_image1: str, url_image2: str, saved_path: str, funcmd: str,
 
                 frames.append(frame)
             frames[0].save(saved_path, format='GIF', save_all=True, append_images=frames[1:], optimize=True, quality=75)
-            return saved_path
+            # Copy to cache
+            copyfile(saved_path, cache_path)
+            os.remove(saved_path)
+            return cache_path
         elif funcmd == 'FISTBUMP':
             for frame in ImageSequence.Iterator(animated_gif):
                 frame = frame.convert('RGBA') # new
@@ -144,7 +181,10 @@ async def action(url_image1: str, url_image2: str, saved_path: str, funcmd: str,
 
                 frames.append(frame)
             frames[0].save(saved_path, format='GIF', save_all=True, append_images=frames[1:], optimize=True, quality=75)
-            return saved_path
+            # Copy to cache
+            copyfile(saved_path, cache_path)
+            os.remove(saved_path)
+            return cache_path
         elif funcmd == 'DANCE':
             for frame in ImageSequence.Iterator(animated_gif):
                 frame = frame.convert('RGBA') # new
@@ -156,7 +196,10 @@ async def action(url_image1: str, url_image2: str, saved_path: str, funcmd: str,
 
                 frames.append(frame)
             frames[0].save(saved_path, format='GIF', save_all=True, append_images=frames[1:], optimize=True, quality=75)
-            return saved_path
+            # Copy to cache
+            copyfile(saved_path, cache_path)
+            os.remove(saved_path)
+            return cache_path
         else:
             return None
     else:

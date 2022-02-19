@@ -1,22 +1,8 @@
 web-deposit/
-wrkzcoin_tipbot/_DOGE_addresses_to_tbl_doge_addresses.py
-wrkzcoin_tipbot/NetMonDaemons.py
 config.yml
-wrkzcoin_tipbot/_priv/
-wrkzcoin_tipbot/test.py
-wrkzcoin_tipbot/store_test.py
-wrkzcoin_tipbot/merge_cn.py
-wrkzcoin_tipbot/_DOGE_addresses_import.py
 
 redeem.bot.tips/config.php
 deposit.bot.tips/config.php
-wrkzcoin_tipbot/test.2.py
-wrkzcoin_tipbot/test.js
-wrkzcoin_tipbot/selenium_support.py
 wrkzcoin_tipbot/tb/test.py
 wrkzcoin_tipbot/tb/*.gif
-wrkzcoin_tipbot/cogs/
-wrkzcoin_tipbot/ethFilter_xDai.py
-wrkzcoin_tipbot/ethFilter_Arbitrum.py
-wrkzcoin_tipbot/trx10_test.py
 

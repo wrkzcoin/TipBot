@@ -306,3 +306,101 @@ async def delete_discord_bot_message(message_id: str, owner_id: str):
         await logchanbot(traceback.format_exc())
     return None
 # End owner message
+
+# get coin_setting
+async def get_coin_settings(coin_type: str=None):
+    global pool
+    try:
+        sql_coin_type = ""
+        if coin_type: sql_coin_type = """ AND `type`='""" + coin_type.upper() + """'"""
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM `coin_settings` WHERE `is_maintenance`=%s """ + sql_coin_type
+                await cur.execute(sql, (0))
+                result = await cur.fetchall()
+                if result: return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return []
+
+
+async def sql_nano_get_user_wallets(coin: str):
+    global pool
+    COIN_NAME = coin.upper()
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM nano_user WHERE `coin_name` = %s """
+                await cur.execute(sql, (COIN_NAME,))
+                result = await cur.fetchall()
+                return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return []
+
+
+async def sql_get_new_tx_table(notified: str = 'NO', failed_notify: str = 'NO'):
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM `discord_notify_new_tx` WHERE `notified`=%s AND `failed_notify`=%s """
+                await cur.execute(sql, (notified, failed_notify,))
+                result = await cur.fetchall()
+                return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return []
+
+
+async def sql_update_notify_tx_table(payment_id: str, owner_id: str, owner_name: str, notified: str = 'YES', failed_notify: str = 'NO'):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ UPDATE `discord_notify_new_tx` SET `owner_id`=%s, `owner_name`=%s, `notified`=%s, `failed_notify`=%s, 
+                          `notified_time`=%s WHERE `payment_id`=%s """
+                await cur.execute(sql, (owner_id, owner_name, notified, failed_notify, float("%.3f" % time.time()), payment_id,))
+                await conn.commit()
+                return True
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return False
+
+
+async def sql_get_userwallet_by_paymentid(paymentid: str, coin: str, coin_family: str, user_server: str):
+    COIN_NAME = coin.upper()
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                result = None
+                if coin_family in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                    sql = """ SELECT * FROM `cn_user_paymentid` WHERE `paymentid`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """
+                    await cur.execute(sql, (paymentid, COIN_NAME, user_server))
+                    result = await cur.fetchone()
+                elif coin_family == "CHIA":
+                    sql = """ SELECT * FROM `xch_user` WHERE `balance_wallet_address`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """
+                    await cur.execute(sql, (paymentid, COIN_NAME, user_server))
+                    result = await cur.fetchone()
+                elif coin_family == "BTC":
+                    # if doge family, address is paymentid
+                    sql = """ SELECT * FROM `doge_user` WHERE `balance_wallet_address`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """
+                    await cur.execute(sql, (paymentid, COIN_NAME, user_server))
+                    result = await cur.fetchone()
+                elif coin_family == "NANO":
+                    # if doge family, address is paymentid
+                    sql = """ SELECT * FROM `nano_user` WHERE `balance_wallet_address`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """
+                    await cur.execute(sql, (paymentid, COIN_NAME, user_server))
+                    result = await cur.fetchone()
+                return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return None

@@ -404,3 +404,163 @@ async def sql_get_userwallet_by_paymentid(paymentid: str, coin: str, coin_family
         traceback.print_exc(file=sys.stdout)
         await logchanbot(traceback.format_exc())
     return None
+
+
+# ERC, TRC scan
+async def get_txscan_stored_list_erc(net_name: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM `erc20_contract_scan` WHERE `net_name`=%s ORDER BY `blockNumber` DESC LIMIT 4000 """
+                await cur.execute(sql, (net_name))
+                result = await cur.fetchall()
+                if result and len(result) > 0: return {'txHash_unique': [item['contract_blockNumber_Tx_from_to_uniq'] for item in result]}
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return {'txHash_unique': []}
+
+
+async def get_latest_stored_scanning_height_erc(net_name: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT MAX(`blockNumber`) as TopBlock FROM `erc20_contract_scan` WHERE `net_name`=%s """
+                await cur.execute(sql, (net_name))
+                result = await cur.fetchone()
+                if result and result['TopBlock']: return int(result['TopBlock'])
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return 1
+
+
+async def get_monit_contract_tx_insert_erc(list_data):
+    global pool
+    if len(list_data) == 0:
+        return 0
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ INSERT IGNORE INTO `erc20_contract_scan` (`net_name`, `contract`, `topics_dump`, `from_addr`, `to_addr`, `blockNumber`, `blockTime`, `transactionHash`, `contract_blockNumber_Tx_from_to_uniq`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                await cur.executemany(sql, list_data)
+                await conn.commit()
+                return cur.rowcount
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        pass
+    return 0
+
+# single is working OK
+async def get_monit_contract_tx_insert_each(list_data):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ INSERT INTO `erc20_contract_scan` (`net_name`, `contract`, `topics_dump`, `from_addr`, `to_addr`, `blockNumber`, `blockTime`, `transactionHash`, `contract_blockNumber_Tx_from_to_uniq`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE `update_duplicated`=%s """
+                await cur.execute(sql, list_data)
+                await conn.commit()
+                return cur.rowcount
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        pass
+    return 0
+
+async def get_monit_scanning_net_name_update_height(net_name: str, new_height: int):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ UPDATE `coin_ethscan_setting` SET `scanned_from_height`=%s WHERE `net_name`=%s AND `scanned_from_height`<%s  LIMIT 1 """
+                await cur.execute(sql, (new_height, net_name, new_height))
+                await conn.commit()
+                return new_height
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+
+async def erc_get_block_number(url: str, timeout: int=64):
+    data = '{"jsonrpc":"2.0", "method":"eth_blockNumber", "params":[], "id":1}'
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, headers={'Content-Type': 'application/json'}, json=json.loads(data), timeout=timeout) as response:
+                if response.status == 200:
+                    res_data = await response.read()
+                    res_data = res_data.decode('utf-8')
+                    await session.close()
+                    decoded_data = json.loads(res_data)
+                    if decoded_data and 'result' in decoded_data:
+                        return int(decoded_data['result'], 16)
+    except asyncio.TimeoutError:
+        print('TIMEOUT: get block number {}s'.format(timeout))
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return None
+
+
+async def erc_get_block_info(url: str, height: int, timeout: int=32):
+    try:
+        data = '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["'+str(hex(height))+'", false],"id":1}'
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, headers={'Content-Type': 'application/json'}, json=json.loads(data), timeout=timeout) as response:
+                    if response.status == 200:
+                        res_data = await response.read()
+                        res_data = res_data.decode('utf-8')
+                        await session.close()
+                        decoded_data = json.loads(res_data)
+                        if decoded_data and 'result' in decoded_data:
+                            return decoded_data['result']
+        except asyncio.TimeoutError:
+            print('TIMEOUT: erc_get_block_info for {}s'.format(timeout))
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+    except ValueError:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+
+# TODO: this is for ERC-20 only
+async def http_wallet_getbalance(url: str, address: str, coin: str, contract: str=None, timeout: int = 64) -> Dict:
+    TOKEN_NAME = coin.upper()
+    if contract is None:
+        data = '{"jsonrpc":"2.0","method":"eth_getBalance","params":["'+address+'", "latest"],"id":1}'
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, headers={'Content-Type': 'application/json'}, json=json.loads(data), timeout=timeout) as response:
+                    if response.status == 200:
+                        res_data = await response.read()
+                        res_data = res_data.decode('utf-8')
+                        decoded_data = json.loads(res_data)
+                        if decoded_data and 'result' in decoded_data:
+                            return int(decoded_data['result'], 16)
+        except asyncio.TimeoutError:
+            print('TIMEOUT: get balance {} for {}s'.format(TOKEN_NAME, timeout))
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+    else:
+        data = '{"jsonrpc":"2.0","method":"eth_call","params":[{"to": "'+contract+'", "data": "0x70a08231000000000000000000000000'+address[2:]+'"}, "latest"],"id":1}'
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, headers={'Content-Type': 'application/json'}, json=json.loads(data), timeout=timeout) as response:
+                    if response.status == 200:
+                        res_data = await response.read()
+                        res_data = res_data.decode('utf-8')
+                        decoded_data = json.loads(res_data)
+                        if decoded_data and 'result' in decoded_data:
+                            return int(decoded_data['result'], 16)
+        except asyncio.TimeoutError:
+            print('TIMEOUT: get balance {} for {}s'.format(TOKEN_NAME, timeout))
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+    return None

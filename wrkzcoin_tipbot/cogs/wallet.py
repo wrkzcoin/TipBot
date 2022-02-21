@@ -57,6 +57,8 @@ class Wallet(commands.Cog):
         self.update_balance_nano.start()
         # TRTL-API
         self.update_balance_trtl_api.start()
+        # TRTL-SERVICE
+        self.update_balance_trtl_service.start()
         # XMR
         self.update_balance_xmr.start()
         # BTC
@@ -153,6 +155,8 @@ class Wallet(commands.Cog):
                                     if redis_utils.redis_conn.exists(key_tx_json): eachTx = json.loads(redis_utils.redis_conn.get(key_tx_json).decode())
                                 except Exception as e:
                                     traceback.print_exc(file=sys.stdout)
+                                if eachTx is None: continue
+
                                 COIN_NAME = eachTx['coin_name']
                                 coin_family = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
                                 if eachTx and coin_family in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR", "BTC", "CHIA"]:
@@ -296,6 +300,95 @@ class Wallet(commands.Cog):
             await logchanbot(traceback.format_exc())
 
 
+
+    @tasks.loop(seconds=20.0)
+    async def update_balance_trtl_service(self):
+        await asyncio.sleep(5.0)
+        try:
+            list_trtl_service = await store.get_coin_settings("TRTL-SERVICE")
+            if len(list_trtl_service) > 0:
+                list_coins = [each['coin_name'].upper() for each in list_trtl_service]
+                for COIN_NAME in list_coins:
+                    # print(f"Check balance {COIN_NAME}")
+                    gettopblock = await self.gettopblock(COIN_NAME, time_out=32)
+                    height = int(gettopblock['block_header']['height'])
+                    try:
+                        redis_utils.redis_conn.set(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}', str(height))
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
+
+                    url = getattr(getattr(self.bot.coin_list, COIN_NAME), "wallet_address")
+                    get_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
+                    coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+                    get_min_deposit_amount = int(getattr(getattr(self.bot.coin_list, COIN_NAME), "real_min_deposit") * 10**coin_decimal)
+                    
+                    get_transfers = await self.trtl_service_getTransactions(url, COIN_NAME, height - 2000, height)
+                    list_balance_user = {}
+                    if get_transfers and len(get_transfers) >= 1:
+                        await store.openConnection()
+                        async with store.pool.acquire() as conn:
+                            async with conn.cursor() as cur:
+                                sql = """ SELECT * FROM `cn_get_transfers` WHERE `coin_name` = %s """
+                                await cur.execute(sql, (COIN_NAME,))
+                                result = await cur.fetchall()
+                                d = [i['txid'] for i in result]
+                                # print('=================='+COIN_NAME+'===========')
+                                # print(d)
+                                # print('=================='+COIN_NAME+'===========')
+                                for txes in get_transfers:
+                                    tx_in_block = txes['transactions']
+                                    for tx in tx_in_block:
+                                        # Could be one block has two or more tx with different payment ID
+                                        # add to balance only confirmation depth meet
+                                        if height >= int(tx['blockIndex']) + get_confirm_depth and tx['amount'] >= get_min_deposit_amount and 'paymentId' in tx:
+                                            if 'paymentId' in tx and tx['paymentId'] in list_balance_user:
+                                                if tx['amount'] > 0: list_balance_user[tx['paymentId']] += tx['amount']
+                                            elif 'paymentId' in tx and tx['paymentId'] not in list_balance_user:
+                                                if tx['amount'] > 0: list_balance_user[tx['paymentId']] = tx['amount']
+                                            try:
+                                                if tx['transactionHash'] not in d:
+                                                    addresses = tx['transfers']
+                                                    address = ''
+                                                    for each_add in addresses:
+                                                        if len(each_add['address']) > 0: address = each_add['address']
+                                                        break
+                                                        
+                                                    sql = """ INSERT IGNORE INTO `cn_get_transfers` (`coin_name`, `txid`, `payment_id`, `height`, `timestamp`, `amount`, `fee`, `decimal`, `address`, time_insert) 
+                                                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                                    await cur.execute(sql, (COIN_NAME, tx['transactionHash'], tx['paymentId'], tx['blockIndex'], tx['timestamp'], float(tx['amount']/10**coin_decimal), float(tx['fee']/10**coin_decimal), coin_decimal, address, int(time.time())))
+                                                    await conn.commit()
+                                                    # add to notification list also
+                                                    sql = """ INSERT IGNORE INTO `discord_notify_new_tx` (`coin_name`, `txid`, `payment_id`, `height`, `amount`, `fee`, `decimal`) 
+                                                              VALUES (%s, %s, %s, %s, %s, %s, %s) """
+                                                    await cur.execute(sql, (COIN_NAME, tx['transactionHash'], tx['paymentId'], tx['blockIndex'], float(tx['amount']/10**coin_decimal), float(tx['fee']/10**coin_decimal), coin_decimal))
+                                                    await conn.commit()
+                                            except Exception as e:
+                                                traceback.print_exc(file=sys.stdout)
+                                                await logchanbot(traceback.format_exc())
+                                        elif height < int(tx['blockIndex']) + get_confirm_depth and tx['amount'] >= get_min_deposit_amount and 'paymentId' in tx:
+                                            # add notify to redis and alert deposit. Can be clean later?
+                                            if config.notify_new_tx.enable_new_no_confirm == 1:
+                                                key_tx_new = config.redis.prefix_new_tx + 'NOCONFIRM'
+                                                key_tx_json = config.redis.prefix_new_tx + tx['transactionHash']
+                                                try:
+                                                    if redis_utils.redis_conn.llen(key_tx_new) > 0:
+                                                        list_new_tx = redis_utils.redis_conn.lrange(key_tx_new, 0, -1)
+                                                        if list_new_tx and len(list_new_tx) > 0 and tx['transactionHash'].encode() not in list_new_tx:
+                                                            redis_utils.redis_conn.lpush(key_tx_new, tx['transactionHash'])
+                                                            redis_utils.redis_conn.set(key_tx_json, json.dumps({'coin_name': COIN_NAME, 'txid': tx['transactionHash'], 'payment_id': tx['paymentId'], 'height': tx['blockIndex'], 'amount': float(tx['amount']/10**coin_decimal), 'fee': tx['fee'], 'decimal': coin_decimal}), ex=86400)
+                                                    elif redis_utils.redis_conn.llen(key_tx_new) == 0:
+                                                        redis_utils.redis_conn.lpush(key_tx_new, tx['transactionHash'])
+                                                        redis_utils.redis_conn.set(key_tx_json, json.dumps({'coin_name': COIN_NAME, 'txid': tx['transactionHash'], 'payment_id': tx['paymentId'], 'height': tx['blockIndex'], 'amount': float(tx['amount']/10**coin_decimal), 'fee': tx['fee'], 'decimal': coin_decimal}), ex=86400)
+                                                except Exception as e:
+                                                    traceback.print_exc(file=sys.stdout)
+                                                    await logchanbot(traceback.format_exc())
+                    # TODO: update user balance
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+
+
     @tasks.loop(seconds=20.0)
     async def update_balance_xmr(self):
         await asyncio.sleep(5.0)
@@ -304,7 +397,7 @@ class Wallet(commands.Cog):
             if len(list_xmr_api) > 0:
                 list_coins = [each['coin_name'].upper() for each in list_xmr_api]
                 for COIN_NAME in list_coins:
-                    print(f"Check balance {COIN_NAME}")
+                    # print(f"Check balance {COIN_NAME}")
                     gettopblock = await self.gettopblock(COIN_NAME, time_out=32)
                     height = int(gettopblock['block_header']['height'])
                     try:
@@ -397,7 +490,7 @@ class Wallet(commands.Cog):
             if len(list_btc_api) > 0:
                 list_coins = [each['coin_name'].upper() for each in list_btc_api]
                 for COIN_NAME in list_coins:
-                    print(f"Check balance {COIN_NAME}")
+                    # print(f"Check balance {COIN_NAME}")
                     gettopblock = await self.call_doge('getblockchaininfo', COIN_NAME)
                     height = int(gettopblock['blocks'])
                     try:
@@ -485,7 +578,7 @@ class Wallet(commands.Cog):
             if len(list_chia_api) > 0:
                 list_coins = [each['coin_name'].upper() for each in list_chia_api]
                 for COIN_NAME in list_coins:
-                    print(f"Check balance {COIN_NAME}")
+                    # print(f"Check balance {COIN_NAME}")
                     gettopblock = await self.gettopblock(COIN_NAME, time_out=32)
                     height = int(gettopblock['height'])
 
@@ -572,7 +665,7 @@ class Wallet(commands.Cog):
             if len(list_nano) > 0:
                 list_coins = [each['coin_name'].upper() for each in list_nano]
                 for COIN_NAME in list_coins:
-                    print(f"Check balance {COIN_NAME}")
+                    # print(f"Check balance {COIN_NAME}")
                     start = time.time()
                     timeout = 16
                     try:
@@ -635,7 +728,7 @@ class Wallet(commands.Cog):
                                 traceback.print_exc(file=sys.stdout)
                                 await logchanbot(traceback.format_exc())
                     end = time.time()
-                    print('Done update balance: '+ COIN_NAME+ ' updated *'+str(updated)+'* duration (s): '+str(end - start))
+                    # print('Done update balance: '+ COIN_NAME+ ' updated *'+str(updated)+'* duration (s): '+str(end - start))
                     await asyncio.sleep(4.0)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
@@ -942,6 +1035,19 @@ class Wallet(commands.Cog):
                 await logchanbot('trtl_api_get_transfers: ' + str(traceback.format_exc()))
 
 
+    async def trtl_service_getTransactions(self, url: str, coin: str, firstBlockIndex: int=2000000, blockCount: int= 200000):
+        COIN_NAME = coin.upper()
+        time_out = 64
+        payload = {
+            'firstBlockIndex': firstBlockIndex if firstBlockIndex > 0 else 1,
+            'blockCount': blockCount,
+            }
+        result = await self.call_aiohttp_wallet_xmr_bcn('getTransactions', COIN_NAME, time_out=time_out, payload=payload)
+        if result and 'items' in result:
+            return result['items']
+        return []
+
+
     # Mostly for BCN/XMR
     async def call_daemon(self, get_daemon_rpc_url: str, method_name: str, coin: str, time_out: int = None, payload: Dict = None) -> Dict:
         full_payload = {
@@ -975,7 +1081,7 @@ class Wallet(commands.Cog):
         result = None
         timeout = time_out or 32
 
-        if coin_family in ["LTHN", "BCN", "TRTL-API"]:
+        if COIN_NAME in ["LTHN"] or coin_family in ["BCN", "TRTL-API", "TRTL-SERVICE"]:
             method_name = "getblockcount"
             full_payload = {
                 'params': {},
@@ -1028,7 +1134,12 @@ class Wallet(commands.Cog):
                 async with aiohttp.ClientSession() as session:
                     async with session.post(get_daemon_rpc_url + '/json_rpc', json=full_payload, timeout=timeout) as response:
                         if response.status == 200:
-                            res_data = await response.json()
+                            try:
+                                res_data = await response.json()
+                            except Exception:
+                                res_data = await response.read()
+                                res_data = res_data.decode('utf-8')
+                                res_data = json.loads(res_data)
                             result = None
                             if res_data and 'result' in res_data:
                                 result = res_data['result']
@@ -1252,53 +1363,6 @@ class Wallet(commands.Cog):
                         traceback.print_exc(file=sys.stdout)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-        return None
-
-
-    # TODO: this is for TRC-10, TRC-20, ERC-20 only
-    async def http_wallet_getbalance(self, address: str, coin: str, use_url: str=None) -> Dict:
-        TOKEN_NAME = coin.upper()
-        timeout = 64
-        url = config.ftm.default_rpc
-        if use_url and use_url != "":
-            url = use_url
-            # print("fetching from {}".format(use_url))
-        if TOKEN_NAME == "BNB" or TOKEN_NAME == "XDAI" or TOKEN_NAME == "MATIC" or TOKEN_NAME == "FTM":
-            data = '{"jsonrpc":"2.0","method":"eth_getBalance","params":["'+address+'", "latest"],"id":1}'
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(url, headers={'Content-Type': 'application/json'}, json=json.loads(data), timeout=timeout) as response:
-                        if response.status == 200:
-                            res_data = await response.read()
-                            res_data = res_data.decode('utf-8')
-                            
-                            decoded_data = json.loads(res_data)
-                            if decoded_data and 'result' in decoded_data:
-                                return int(decoded_data['result'], 16)
-            except asyncio.TimeoutError:
-                print('TIMEOUT: get balance {} for {}s'.format(TOKEN_NAME, timeout))
-            except Exception as e:
-                traceback.print_exc(file=sys.stdout)
-                await logchanbot(traceback.format_exc())
-        else:
-            token_info = (await get_all_token())[TOKEN_NAME]
-            contract = token_info['contract']
-            data = '{"jsonrpc":"2.0","method":"eth_call","params":[{"to": "'+contract+'", "data": "0x70a08231000000000000000000000000'+address[2:]+'"}, "latest"],"id":1}'
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(url, headers={'Content-Type': 'application/json'}, json=json.loads(data), timeout=timeout) as response:
-                        if response.status == 200:
-                            res_data = await response.read()
-                            res_data = res_data.decode('utf-8')
-                            
-                            decoded_data = json.loads(res_data)
-                            if decoded_data and 'result' in decoded_data:
-                                return int(decoded_data['result'], 16)
-            except asyncio.TimeoutError:
-                print('TIMEOUT: get balance {} for {}s'.format(TOKEN_NAME, timeout))
-            except Exception as e:
-                traceback.print_exc(file=sys.stdout)
-                await logchanbot(traceback.format_exc())
         return None
 
 

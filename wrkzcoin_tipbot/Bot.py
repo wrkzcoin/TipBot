@@ -112,9 +112,6 @@ EMOJI_INFORMATION = "\u2139"
 
 NOTIFICATION_OFF_CMD = 'Type: `/notifytip off` to turn off this notification.'
 
-bot_help_admin_shutdown = "Restart bot."
-bot_help_admin_maintenance = "Bot to be in maintenance mode ON / OFF"
-
 
 def init():
     global redis_pool
@@ -173,7 +170,13 @@ bot.TX_IN_PROCESS = []
 bot.LOG_CHAN = config.discord.logchan
 bot.MINGPOOLSTAT_IN_PROCESS = []
 
-bot.FTM_NODE_URL = ""
+bot.erc_node_list = {
+    "FTM": config.default_endpoints.ftm, 
+    "BSC": config.default_endpoints.bsc, 
+    "MATIC": config.default_endpoints.matic, 
+    "xDai": config.default_endpoints.xdai, 
+    "ETH": config.default_endpoints.eth
+    }
 
 
 @bot.command(usage="load <cog>")

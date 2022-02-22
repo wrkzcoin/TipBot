@@ -185,9 +185,12 @@ class EthScan(commands.Cog):
             try:
                 fromHeight = hex(height)
                 if to_block - height > reddit_blocks - 1:
-                    # print("eth_getLogs {} from: {} to: {}".format(contract, height, to_block))
+                    # print("{} eth_getLogs {} from: {} to: {}".format(net_name, contract, height, to_block))
                     pass
                 data = '{"jsonrpc":"2.0","method":"eth_getLogs","params":[{"fromBlock": "'+fromHeight+'", "toBlock": "'+to_bloc_str+'", "address": '+contract+'}],"id":0}'
+                if net_name == "xDai":
+                    # xDai need camel case
+                    data = '{"jsonrpc":"2.0","method":"eth_getLogs","params":[{"FromBlock": "'+fromHeight+'", "ToBlock": "'+to_bloc_str+'", "Address": '+contract+'}],"id":0}'
                 try:
                     async with aiohttp.ClientSession() as session:
                         async with session.post(url, headers={'Content-Type': 'application/json'}, json=json.loads(data), timeout=timeout) as response:
@@ -200,7 +203,7 @@ class EthScan(commands.Cog):
                                 elif decoded_data and 'result' in decoded_data:
                                     records = decoded_data['result']
                                     if len(records) > 0:
-                                        # print("{} Got {} record(s).".format(net_name, len(records))) # For later debug
+                                        print("{} Got {} record(s).".format(net_name, len(records))) # For later debug
                                         pass
                                     if len(records) > 0:
                                         rows = []

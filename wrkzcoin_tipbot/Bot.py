@@ -49,6 +49,8 @@ import numpy as np
 # ascii table
 from terminaltables import AsciiTable
 
+import base58
+
 # Encrypt
 from cryptography.fernet import Fernet
 
@@ -362,6 +364,19 @@ def randomString(stringLength=8):
 def truncate(number, digits) -> float:
     stepper = pow(10.0, digits)
     return math.trunc(stepper * number) / stepper
+
+
+def hex_to_base58(hex_string):
+    if hex_string[:2] in ["0x", "0X"]:
+        hex_string = "41" + hex_string[2:]
+    bytes_str = bytes.fromhex(hex_string)
+    base58_str = base58.b58encode_check(bytes_str)
+    return base58_str.decode("UTF-8")
+
+
+def base58_to_hex(base58_string):
+    asc_string = base58.b58decode_check(base58_string)
+    return asc_string.hex().upper()
 
 
 async def get_guild_prefix(ctx):

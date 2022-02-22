@@ -40,6 +40,7 @@ class Coininfo(commands.Cog):
         Max_Tx = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_max_tx")
         Fee_Tx = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_withdraw_fee")
         type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
+        net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
         deposit_fee = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_deposit_fee")
         contract = None
         if getattr(getattr(self.bot.coin_list, COIN_NAME), "contract") and len(getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")) > 4:
@@ -50,7 +51,7 @@ class Coininfo(commands.Cog):
         response_text += "```"
         try:
             if getattr(getattr(self.bot.coin_list, COIN_NAME), "is_maintenance") != 1:
-                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix_daemon_height}{COIN_NAME}').decode())
+                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
                 if height: response_text += "Height: {:,.0f}".format(height) + "\n"
             response_text += "Confirmation: {} Blocks".format(confim_depth) + "\n"
             tip_deposit_withdraw_stat = ["ON", "ON", "ON"]
@@ -70,7 +71,7 @@ class Coininfo(commands.Cog):
             if deposit_fee > 0:
                 response_text += "Deposit Tx Fee: {} {}\n".format(num_format_coin(deposit_fee, COIN_NAME, coin_decimal, False), COIN_NAME)
 
-            if type_coin in ["TRC-20", "ERC-20"]:
+            if type_coin in ["TRC-10", "TRC-20", "ERC-20"]:
                 if contract and len(contract) == 42:
                     response_text += "Contract:\n   {}\n".format(contract)
                 elif contract and len(contract) > 4:

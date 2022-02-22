@@ -65,6 +65,35 @@ class Wallet(commands.Cog):
         self.update_balance_btc.start()
         # CHIA
         self.update_balance_chia.start()
+        # ERC-20
+        self.update_balance_erc20.start()
+        self.unlocked_move_pending_erc20.start()
+        self.update_balance_address_history_erc20.start()
+        self.notify_new_confirmed_spendable_erc20.start()
+
+
+    # Notify user
+    @tasks.loop(seconds=15.0)
+    async def notify_new_confirmed_spendable_erc20(self):
+        await asyncio.sleep(3.0)
+        try:
+            notify_list = await store.sql_get_pending_notification_users_erc20(SERVER_BOT)
+            if notify_list and len(notify_list) > 0:
+                for each_notify in notify_list:
+                    is_notify_failed = False
+                    member = self.bot.get_user(int(each_notify['user_id']))
+                    if member:
+                        msg = "You got a new deposit confirmed: ```" + "Amount: {} {}".format(num_format_coin(each_notify['real_amount'], each_notify['token_name'], each_notify['token_decimal'], False), each_notify['token_name']) + "```"
+                        try:
+                            await member.send(msg)
+                        except (disnake.Forbidden, disnake.errors.Forbidden) as e:
+                            is_notify_failed = True
+                        except Exception as e:
+                            traceback.print_exc(file=sys.stdout)
+                            await logchanbot(traceback.format_exc())
+                        update_status = await store.sql_updating_pending_move_deposit_erc20(True, is_notify_failed, each_notify['txn'])
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
 
 
     # Notify user
@@ -735,6 +764,58 @@ class Wallet(commands.Cog):
         await asyncio.sleep(5.0)
 
 
+    @tasks.loop(seconds=20.0)
+    async def update_balance_erc20(self):
+        await asyncio.sleep(5.0)
+        erc_contracts = await self.get_all_contracts("ERC-20")
+        if len(erc_contracts) > 0:
+            for each_c in erc_contracts:
+                try:
+                    await store.sql_check_minimum_deposit_erc20(self.bot.erc_node_list[each_c['net_name']], each_c['net_name'], each_c['coin_name'], each_c['contract'], each_c['decimal'], each_c['min_move_deposit'], each_c['min_gas_tx'], each_c['gas_ticker'], each_c['move_gas_amount'], each_c['chain_id'], each_c['real_deposit_fee'], 7200)
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+        await asyncio.sleep(5.0)
+
+
+    @tasks.loop(seconds=20.0)
+    async def unlocked_move_pending_erc20(self):
+        await asyncio.sleep(5.0)
+        erc_contracts = await self.get_all_contracts("ERC-20")
+        depth = max([each['deposit_confirm_depth'] for each in erc_contracts])
+        net_names = await self.get_all_net_names()
+        net_names = list(net_names.keys())
+        if len(net_names) > 0:
+            for each_name in net_names:
+                try:
+                    await store.sql_check_pending_move_deposit_erc20(self.bot.erc_node_list[each_name], each_name, depth)
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+        await asyncio.sleep(5.0)
+
+
+    @tasks.loop(seconds=30.0)
+    async def update_balance_address_history_erc20(self):
+        await asyncio.sleep(5.0)
+        erc_contracts = await self.get_all_contracts("ERC-20")
+        depth = max([each['deposit_confirm_depth'] for each in erc_contracts])
+        net_names = await self.get_all_net_names()
+        net_names = list(net_names.keys())
+        if len(net_names) > 0:
+            for each_name in net_names:
+                try:
+                    get_recent_tx = await store.get_monit_scanning_contract_balance_address_erc20(each_name, 7200)
+                    if get_recent_tx and len(get_recent_tx) > 0:
+                        tx_update_call = []
+                        for each_tx in get_recent_tx:
+                            to_addr = "0x" + each_tx['to_addr'][26:]
+                            tx_update_call.append((each_tx['blockTime'], to_addr))
+                        if len(tx_update_call) > 0:
+                            update_call = await store.sql_update_erc_user_update_call_many_erc20(tx_update_call)
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+        await asyncio.sleep(5.0)
+
+
     async def create_address_eth(self):
         def create_eth_wallet():
             seed = ethwallet.generate_mnemonic()
@@ -1187,8 +1268,24 @@ class Wallet(commands.Cog):
             return None
 
 
+    async def get_all_contracts(self, type_token: str):
+        # type_token: ERC-20, TRC-20
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `coin_settings` WHERE `type`=%s AND `contract` IS NOT NULL AND `net_name` IS NOT NULL """
+                    await cur.execute(sql, (type_token,))
+                    result = await cur.fetchall()
+                    if result and len(result) > 0: return result
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return []
+ 
+
     async def sql_get_userwallet(self, userID, coin: str, netname: str, type_coin: str, user_server: str = 'DISCORD', chat_id: int = 0):
-        # type_coin: 'ERC-20','TRC-20','TRTL-API','TRTL-SERVICE','BCN','XMR','NANO','BTC','CHIA','OTHER'
+        # type_coin: 'ERC-20', 'TRC-10', 'TRC-20','TRTL-API','TRTL-SERVICE','BCN','XMR','NANO','BTC','CHIA','OTHER'
         # netname null or None, xDai, MATIC, TRX, BSC
         user_server = user_server.upper()
         COIN_NAME = coin.upper()
@@ -1196,9 +1293,10 @@ class Wallet(commands.Cog):
             user_id_erc20 = str(userID) + "_" + type_coin.upper()
         elif type_coin.upper() == "ERC-20" and COIN_NAME == netname.upper():
             user_id_erc20 = str(userID) + "_" + COIN_NAME
-        if type_coin.upper() == "TRC-20" and COIN_NAME != netname.upper():
+        if type_coin.upper() in ["TRC-20", "TRC-10"] and COIN_NAME != netname.upper():
+            type_coin = "TRC-20"
             user_id_erc20 = str(userID) + "_" + type_coin.upper()
-        elif type_coin.upper() == "TRC-20" and COIN_NAME == netname.upper():
+        elif type_coin.upper() in ["TRC-20", "TRC-10"] and COIN_NAME == netname.upper():
             user_id_erc20 = str(userID) + "_" + COIN_NAME
         try:
             await store.openConnection()
@@ -1259,16 +1357,17 @@ class Wallet(commands.Cog):
                 user_id_erc20 = str(userID) + "_" + type_coin.upper()
             elif type_coin.upper() == "ERC-20" and COIN_NAME == netname.upper():
                 user_id_erc20 = str(userID) + "_" + COIN_NAME
-            if type_coin.upper() == "TRC-20" and COIN_NAME != netname.upper():
+            if type_coin.upper() in ["TRC-20", "TRC-10"] and COIN_NAME != netname.upper():
+                type_coin = "TRC-20"
                 user_id_erc20 = str(userID) + "_" + type_coin.upper()
-            elif type_coin.upper() == "TRC-20" and COIN_NAME == netname.upper():
+            elif type_coin.upper() in ["TRC-20", "TRC-10"] and COIN_NAME == netname.upper():
                 user_id_erc20 = str(userID) + "_" + COIN_NAME
 
             if type_coin.upper() == "ERC-20":
                 # passed test XDAI, MATIC
                 w = await self.create_address_eth()
                 balance_address = w['address']
-            elif type_coin.upper() == "TRC-20":
+            elif type_coin.upper() in ["TRC-20", "TRC-10"]:
                 # passed test TRX, USDT
                 w = await self.create_address_trx()
                 balance_address = w
@@ -1364,6 +1463,25 @@ class Wallet(commands.Cog):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         return None
+
+
+    async def get_all_net_names(self):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `coin_ethscan_setting` WHERE `enable`=%s """
+                    await cur.execute(sql, (1,))
+                    result = await cur.fetchall()
+                    net_names = {}
+                    if result and len(result) > 0:
+                        for each in result:
+                            net_names[each['net_name']] = each
+                        return net_names
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return {}
 
 
     async def generate_qr_address(

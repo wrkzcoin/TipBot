@@ -47,7 +47,7 @@ class Stats(commands.Cog):
                     if main_balance:
                         main_balance_balance = num_format_coin(float(main_balance / 10** coin_decimal), COIN_NAME, coin_decimal, False)
                         embed.add_field(name="WALLET **{}**".format(display_name), value=main_balance_balance, inline=False)
-                elif type_coin == "TRC-20":
+                elif type_coin in ["TRC-20", "TRC-10"]:
                     print("TODO:")
                 elif type_coin == "TRTL-API":
                     print("TODO")

@@ -28,6 +28,8 @@ class EthScan(commands.Cog):
         self.fetch_bsc_node.start()
         self.pull_trc20_scanning.start()
         self.pull_erc20_scanning.start()
+        
+        self.remove_all_tx_ethscan.start()
 
 
 
@@ -45,6 +47,16 @@ class EthScan(commands.Cog):
                         await logchanbot(f"Can not fetch best node for BSC.")
             await asyncio.sleep(10.0)
 
+
+    @tasks.loop(seconds=60.0)
+    async def remove_all_tx_ethscan(self):
+        await asyncio.sleep(5.0)
+        try:
+            remove_old_tx_erc20 = await store.contract_tx_remove_after("ERC-20", 48*3600) # 48hrs , any type will remove from erc20 table
+            remove_old_tx_trc20 = await store.contract_tx_remove_after("TRC-20", 48*3600) # 48hrs
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        await asyncio.sleep(5.0)
 
 
     # Token contract only, not user's address
@@ -141,6 +153,9 @@ class EthScan(commands.Cog):
     async def fetch_txes(self, url: str, net_name: str, contracts, scanned_from_height: int, timeout: int=64):
         # contracts: List
         try:
+            # get all addresses in DB
+            all_addresses_in_db = await store.get_all_coin_token_addresses()
+
             reddit_blocks = 1000
             limit_notification = 0
             contract = json.dumps(contracts)
@@ -208,20 +223,24 @@ class EthScan(commands.Cog):
                                     if len(records) > 0:
                                         rows = []
                                         for each in records:
-                                            blockTime = 0
-                                            if str(int(each['blockNumber'], 16)) in self.blockTime:
-                                                blockTime = self.blockTime[str(int(each['blockNumber'], 16))]
-                                            else:
-                                                try:
-                                                    get_blockinfo = await store.erc_get_block_info(url, int(each['blockNumber'], 16))
-                                                    if get_blockinfo:
-                                                        blockTime = int(get_blockinfo['timestamp'], 16)
-                                                        self.blockTime[str(int(each['blockNumber'], 16))] = blockTime
-                                                except Exception as e:
-                                                    traceback.print_exc(file=sys.stdout)
                                             if each['topics'] and len(each['topics']) >= 3:
                                                 from_addr = each['topics'][1]
                                                 to_addr = each['topics'][2]
+                                                to_addr_tmp = "0x" + each['topics'][2][26:]
+                                                if to_addr_tmp not in all_addresses_in_db:
+                                                    continue
+
+                                                blockTime = 0
+                                                if str(int(each['blockNumber'], 16)) in self.blockTime:
+                                                    blockTime = self.blockTime[str(int(each['blockNumber'], 16))]
+                                                else:
+                                                    try:
+                                                        get_blockinfo = await store.erc_get_block_info(url, int(each['blockNumber'], 16))
+                                                        if get_blockinfo:
+                                                            blockTime = int(get_blockinfo['timestamp'], 16)
+                                                            self.blockTime[str(int(each['blockNumber'], 16))] = blockTime
+                                                    except Exception as e:
+                                                        traceback.print_exc(file=sys.stdout)
                                                 key = "{}_{}_{}_{}".format(each['address'], int(each['blockNumber'], 16), each['transactionHash'], from_addr, to_addr)
                                                 def lower_txes(txHash_unique):
                                                     return [x.lower() for x in txHash_unique]
@@ -274,6 +293,9 @@ class EthScan(commands.Cog):
         COIN_NAME = coin.upper()
         net_name = "TRX"
         try:
+            # get all addresses in DB
+            all_addresses_in_db = await store.get_all_coin_token_addresses()
+            
             txHash_unique = []
             list_tx = await store.get_txscan_stored_list_erc(net_name)
             if len(list_tx['txHash_unique']) > 0:
@@ -310,21 +332,23 @@ class EthScan(commands.Cog):
                                         to_block = int(records[0]['block_timestamp'] / 1000)
                                         rows = []
                                         for each in records:
-                                            blockTime = 0
-                                            if str(each['block_number']) in self.blockTime:
-                                                blockTime = self.blockTime[str(each['block_number'])]
-                                            else:
-                                                try:
-                                                    get_blockinfo = await store.trx_get_block_info(config.Tron_Node.fullnode, each['block_number'])
-                                                    if get_blockinfo:
-                                                        blockTime = int(get_blockinfo['timestamp'] / 1000)
-                                                        self.blockTime[str(each['block_number'])] = blockTime
-                                                except Exception as e:
-                                                    traceback.print_exc(file=sys.stdout)
                                             if each['result'] and len(each['result']) >= 6:
                                                 try:
                                                     from_addr = hex_to_base58(each['result']['0'])
                                                     to_addr = hex_to_base58(each['result']['1'])
+                                                    if to_addr not in all_addresses_in_db:
+                                                        continue
+                                                    blockTime = 0
+                                                    if str(each['block_number']) in self.blockTime:
+                                                        blockTime = self.blockTime[str(each['block_number'])]
+                                                    else:
+                                                        try:
+                                                            get_blockinfo = await store.trx_get_block_info(config.Tron_Node.fullnode, each['block_number'])
+                                                            if get_blockinfo:
+                                                                blockTime = int(get_blockinfo['timestamp'] / 1000)
+                                                                self.blockTime[str(each['block_number'])] = blockTime
+                                                        except Exception as e:
+                                                            traceback.print_exc(file=sys.stdout)
                                                 except Exception as e:
                                                     traceback.print_exc(file=sys.stdout)
                                                     print(each['result'])

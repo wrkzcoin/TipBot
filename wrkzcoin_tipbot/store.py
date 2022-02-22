@@ -934,3 +934,48 @@ async def sql_updating_pending_move_deposit_erc20(notified_confirmation: bool, f
         traceback.print_exc(file=sys.stdout)
         await logchanbot(traceback.format_exc())
     return None
+
+
+async def get_all_coin_token_addresses():
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """   (SELECT t1.balance_wallet_address as addresses FROM erc20_user t1)
+                            UNION
+                            (SELECT t2.balance_wallet_address FROM trc20_user t2)
+                            UNION
+                            (SELECT t3.balance_wallet_address FROM cn_user_paymentid t3)
+                            UNION
+                            (SELECT t4.balance_wallet_address FROM xch_user t4)
+                            UNION
+                            (SELECT t5.balance_wallet_address FROM doge_user t5)
+                            UNION
+                            (SELECT t6.balance_wallet_address FROM nano_user t6)  """
+                await cur.execute(sql, ())
+                result = await cur.fetchall()
+                if result and len(result) > 0: return [each['addresses'] for each in result]
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return []
+
+
+async def contract_tx_remove_after(type_coin: str, duration: int=1200):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            lap = int(time.time()) - duration
+            async with conn.cursor() as cur:
+                if type_coin == "TRC-20":
+                    sql = """ DELETE FROM `trc20_contract_scan` WHERE `blockTime`<%s """
+                    await cur.execute(sql, (lap))
+                    return True
+                else:
+                    sql = """ DELETE FROM `erc20_contract_scan` WHERE `blockTime`<%s """
+                    await cur.execute(sql, (lap))
+                    return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return False

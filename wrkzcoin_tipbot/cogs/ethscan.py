@@ -218,7 +218,7 @@ class EthScan(commands.Cog):
                                 elif decoded_data and 'result' in decoded_data:
                                     records = decoded_data['result']
                                     if len(records) > 0:
-                                        print("{} Got {} record(s).".format(net_name, len(records))) # For later debug
+                                        # print("{} Got {} record(s).".format(net_name, len(records))) # For later debug
                                         pass
                                     if len(records) > 0:
                                         rows = []

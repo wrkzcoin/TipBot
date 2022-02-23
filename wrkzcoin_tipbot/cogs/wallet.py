@@ -1416,19 +1416,19 @@ class Wallet(commands.Cog):
                         if netname and netname not in ["TRX"]:
                             sql = """ INSERT INTO `erc20_user` (`user_id`, `user_id_erc20`, `balance_wallet_address`, `address_ts`, 
                                       `seed`, `create_dump`, `private_key`, `public_key`, `xprivate_key`, `xpublic_key`, 
-                                      `user_server`) 
-                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                      `called_Update`, `user_server`) 
+                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
                             await cur.execute(sql, (str(userID), user_id_erc20, w['address'], int(time.time()), 
                                               encrypt_string(w['seed']), encrypt_string(str(w)), encrypt_string(str(w['private_key'])), w['public_key'], 
-                                              encrypt_string(str(w['xprivate_key'])), w['xpublic_key'], user_server))
+                                              encrypt_string(str(w['xprivate_key'])), w['xpublic_key'], int(time.time()), user_server))
                             await conn.commit()
                             return {'balance_wallet_address': w['address']}
                         elif netname and netname in ["TRX"]:
                             sql = """ INSERT INTO `trc20_user` (`user_id`, `user_id_trc20`, `balance_wallet_address`, `hex_address`, `address_ts`, 
-                                      `private_key`, `public_key`, `user_server`) 
-                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                                      `private_key`, `public_key`, `called_Update`, `user_server`) 
+                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
                             await cur.execute(sql, (str(userID), user_id_erc20, w['base58check_address'], w['hex_address'], int(time.time()), 
-                                              encrypt_string(str(w['private_key'])), w['public_key'], user_server))
+                                              encrypt_string(str(w['private_key'])), w['public_key'], int(time.time()), user_server))
                             await conn.commit()
                             return {'balance_wallet_address': w['base58check_address']}
                         elif type_coin.upper() in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:

@@ -41,6 +41,7 @@ import cn_addressvalidation
 from Bot import get_token_list, num_format_coin, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_ARROW_RIGHTHOOK, SERVER_BOT, RowButton_close_message, RowButton_row_close_any_message, human_format, text_to_num, truncate, seconds_str, encrypt_string, decrypt_string
 from config import config
 import redis_utils
+from utils import MenuPage
 
 Account.enable_unaudited_hdwallet_features()
 
@@ -335,8 +336,9 @@ class Wallet(commands.Cog):
         await asyncio.sleep(5.0)
         try:
             list_trtl_service = await store.get_coin_settings("TRTL-SERVICE")
-            if len(list_trtl_service) > 0:
-                list_coins = [each['coin_name'].upper() for each in list_trtl_service]
+            list_bcn_service = await store.get_coin_settings("BCN")
+            if len(list_trtl_service+list_bcn_service) > 0:
+                list_coins = [each['coin_name'].upper() for each in list_trtl_service+list_bcn_service]
                 for COIN_NAME in list_coins:
                     # print(f"Check balance {COIN_NAME}")
                     gettopblock = await self.gettopblock(COIN_NAME, time_out=32)
@@ -610,6 +612,11 @@ class Wallet(commands.Cog):
                     # print(f"Check balance {COIN_NAME}")
                     gettopblock = await self.gettopblock(COIN_NAME, time_out=32)
                     height = int(gettopblock['height'])
+                    try:
+                        redis_utils.redis_conn.set(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}', str(height))
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
 
                     get_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
                     coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
@@ -1616,6 +1623,247 @@ class Wallet(commands.Cog):
         plain: str = 'embed'
     ):
         await self.async_deposit(ctx, token, plain)
+    # End of deposit
+
+
+    # Balance
+    async def async_balance(self, ctx, token: str=None):
+        COIN_NAME = None
+        if token is None:
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(f'{ctx.author.mention}, token name is missing.')
+            else:
+                await ctx.reply(f'{ctx.author.mention}, token name is missing.')
+            return
+        else:
+            COIN_NAME = token.upper()
+            # print(self.bot.coin_list)
+            if not hasattr(self.bot.coin_list, COIN_NAME):
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.')
+                else:
+                    await ctx.reply(f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.')
+                return
+            else:
+                if getattr(getattr(self.bot.coin_list, COIN_NAME), "is_maintenance") == 1:
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.response.send_message(f'{ctx.author.mention}, **{COIN_NAME}** is currently under maintenance.')
+                    else:
+                        await ctx.reply(f'{ctx.author.mention}, **{COIN_NAME}** is currently under maintenance.')
+                    return
+        # Do the job
+        try:
+            netname = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
+            type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
+            deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
+            coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+            get_deposit = await self.sql_get_userwallet(str(ctx.author.id), COIN_NAME, netname, type_coin, SERVER_BOT, 0)
+            if get_deposit is None:
+                get_deposit = await self.sql_register_user(str(ctx.author.id), COIN_NAME, netname, type_coin, SERVER_BOT, 0)
+
+            wallet_address = get_deposit['balance_wallet_address']
+            if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                wallet_address = get_deposit['paymentid']
+
+            height = None
+            try:
+                if type_coin in ["ERC-10", "TRC-20"]:
+                    height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
+                else:
+                    height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+
+            description = ""
+            token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
+            embed = disnake.Embed(title=f'Balance for {ctx.author.name}#{ctx.author.discriminator}', timestamp=datetime.utcnow())
+            embed.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
+            try:
+                userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+                total_balance = userdata_balance['adjust']
+                embed.add_field(name="Token/Coin {}".format(token_display), value="```Available: {} {}```".format(num_format_coin(total_balance, COIN_NAME, coin_decimal, False), token_display), inline=False)
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(embed=embed)
+            else:
+                await ctx.reply(embed=embed)
+            return
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+
+
+    # Balances
+    async def async_balances(self, ctx, tokens: str=None):
+        COIN_NAME = None
+        mytokens = []
+        unknown_tokens = []
+        if tokens is None:
+            # do all coins/token which is not under maintenance
+            mytokens = await store.get_coin_settings(coin_type=None)
+        else:
+            # get list of coin/token from tokens
+            get_tokens = await store.get_coin_settings(coin_type=None)
+            token_list = None
+            if "," in tokens:
+                token_list = tokens.upper().split(",")
+            elif ";" in tokens:
+                token_list = tokens.upper().split(",")
+            elif "." in tokens:
+                token_list = tokens.upper().split(",")
+            elif " " in tokens:
+                token_list = tokens.upper().split()
+            if token_list and len(token_list) > 0:
+                token_list = list(set(token_list))
+                for each_token in token_list:
+                    try:
+                        if getattr(self.bot.coin_list, each_token):
+                            mytokens.append(getattr(self.bot.coin_list, each_token))
+                    except Exception as e:
+                        unknown_tokens.append(each_token)
+
+        if len(mytokens) == 0:
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(f'{ctx.author.mention}, no token or not exist.')
+            else:
+                await ctx.reply(f'{ctx.author.mention}, no token or not exist.')
+            return
+        else:
+            all_pages = []
+            all_names = [each['coin_name'] for each in mytokens]
+            total_coins = len(mytokens)
+            page = disnake.Embed(title='[ YOUR BALANCE LIST ]',
+                                  description="Thank you for using TipBot!",
+                                  color=disnake.Color.blue(),
+                                  timestamp=datetime.utcnow(), )
+            page.add_field(name="Coin/Tokens: [{}]".format(len(all_names)), 
+                           value="```"+", ".join(all_names)+"```", inline=False)
+            if len(unknown_tokens) > 0:
+                unknown_tokens = list(set(unknown_tokens))
+                page.add_field(name="Unknown Tokens: {}".format(len(unknown_tokens)), 
+                               value="```"+", ".join(unknown_tokens)+"```", inline=False)
+            page.set_thumbnail(url=ctx.author.display_avatar)
+            page.set_footer(text="Use the reactions to flip pages.")
+            all_pages.append(page)
+            num_coins = 0
+            per_page = 8
+            if type(ctx) != disnake.ApplicationCommandInteraction:
+                tmp_msg = await ctx.reply("Loading...")
+            for each_token in mytokens:
+                TOKEN_NAME = each_token['coin_name']
+                type_coin = getattr(getattr(self.bot.coin_list, TOKEN_NAME), "type")
+                net_name = getattr(getattr(self.bot.coin_list, TOKEN_NAME), "net_name")
+                deposit_confirm_depth = getattr(getattr(self.bot.coin_list, TOKEN_NAME), "deposit_confirm_depth")
+                coin_decimal = getattr(getattr(self.bot.coin_list, TOKEN_NAME), "decimal")
+                token_display = getattr(getattr(self.bot.coin_list, TOKEN_NAME), "display_name")
+
+                get_deposit = await self.sql_get_userwallet(str(ctx.author.id), TOKEN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                if get_deposit is None:
+                    get_deposit = await self.sql_register_user(str(ctx.author.id), TOKEN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                wallet_address = get_deposit['balance_wallet_address']
+                if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                    wallet_address = get_deposit['paymentid']
+
+                height = None
+                try:
+                    if type_coin in ["ERC-20", "TRC-20"]:
+                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
+                    else:
+                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{TOKEN_NAME}').decode())
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+
+                if num_coins == 0 or num_coins % per_page == 0:
+                    page = disnake.Embed(title='[ YOUR BALANCE LIST ]',
+                                         description="Thank you for using TipBot!",
+                                         color=disnake.Color.blue(),
+                                         timestamp=datetime.utcnow(), )
+                    page.set_thumbnail(url=ctx.author.display_avatar)
+                    page.set_footer(text="Use the reactions to flip pages.")
+                userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), TOKEN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+                total_balance = userdata_balance['adjust']
+                if height is None:
+                    page.add_field(name=token_display, value="```{} {}```".format("***", token_display), inline=True)
+                else:
+                    page.add_field(name=token_display, value="```{} {}```".format(num_format_coin(total_balance, TOKEN_NAME, coin_decimal, False), token_display), inline=True)
+                num_coins += 1
+                if num_coins > 0 and num_coins % per_page == 0:
+                    all_pages.append(page)
+                    if num_coins < total_coins:
+                        page = disnake.Embed(title='[ YOUR BALANCE LIST ]',
+                                             description="Thank you for using TipBot!",
+                                             color=disnake.Color.blue(),
+                                             timestamp=datetime.utcnow(), )
+                        page.set_thumbnail(url=ctx.author.display_avatar)
+                        page.set_footer(text="Use the reactions to flip pages.")
+                    else:
+                        all_pages.append(page)
+                        break
+                elif num_coins == total_coins:
+                    all_pages.append(page)
+                    break
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(embed=all_pages[0], view=MenuPage(ctx, all_pages))
+            else:
+                await tmp_msg.edit(embed=all_pages[0], view=MenuPage(ctx, all_pages))
+
+
+    @commands.command(
+        usage='balance <token>', 
+        aliases=['balance', 'bal'],
+        description="Get your token's balance."
+    )
+    async def _balance(
+        self, 
+        ctx, 
+        token: str
+    ):
+        await self.async_balance(ctx, token)
+
+
+    @commands.slash_command(
+        usage='balance <token>', 
+        options=[
+            Option('token', 'token', OptionType.string, required=True)
+        ],
+        description="Get your token's balance."
+    )
+    async def balance(
+        self, 
+        ctx, 
+        token: str
+    ):
+        await self.async_balance(ctx, token)
+
+
+    @commands.command(
+        usage='balances', 
+        aliases=['balances', 'bals'],
+        description="Get all your token's balance."
+    )
+    async def _balances(
+        self, 
+        ctx, 
+        *, 
+        tokens: str=None
+    ):
+        await self.async_balances(ctx, tokens)
+
+
+    @commands.slash_command(
+        usage='balances', 
+        options=[
+            Option('tokens', 'tokens', OptionType.string, required=False)
+        ],
+        description="Get all your token's balance."
+    )
+    async def balances(
+        self, 
+        ctx,
+        tokens: str=None
+    ):
+        await self.async_balances(ctx, tokens)
+    # End of Balance
 
 
 def setup(bot):

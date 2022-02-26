@@ -51,12 +51,16 @@ class Coininfo(commands.Cog):
         response_text += "```"
         try:
             if getattr(getattr(self.bot.coin_list, COIN_NAME), "is_maintenance") != 1:
-                if type_coin in ["ERC-20", "TRC-20"]:
-                    height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
-                    if height: response_text += "Height: {:,.0f}".format(height) + "\n"
-                else:
-                    height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
-                    if height: response_text += "Height: {:,.0f}".format(height) + "\n"
+                try:
+                    if type_coin in ["ERC-20", "TRC-20"]:
+                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
+                        if height: response_text += "Height: {:,.0f}".format(height) + "\n"
+                    else:
+                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
+                        if height: response_text += "Height: {:,.0f}".format(height) + "\n"
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                    response_text += "Height: N/A (*)" + "\n"
             response_text += "Confirmation: {} Blocks".format(confim_depth) + "\n"
             tip_deposit_withdraw_stat = ["ON", "ON", "ON"]
             if  getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_tip") == 0:

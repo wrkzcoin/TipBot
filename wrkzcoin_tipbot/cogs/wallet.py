@@ -1780,11 +1780,11 @@ class Wallet(commands.Cog):
                                          timestamp=datetime.utcnow(), )
                     page.set_thumbnail(url=ctx.author.display_avatar)
                     page.set_footer(text="Use the reactions to flip pages.")
-                userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), TOKEN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
-                total_balance = userdata_balance['adjust']
                 if height is None:
                     page.add_field(name=token_display, value="```{} {}```".format("***", token_display), inline=True)
                 else:
+                    userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), TOKEN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+                    total_balance = userdata_balance['adjust']
                     page.add_field(name=token_display, value="```{} {}```".format(num_format_coin(total_balance, TOKEN_NAME, coin_decimal, False), token_display), inline=True)
                 num_coins += 1
                 if num_coins > 0 and num_coins % per_page == 0:
@@ -1805,7 +1805,7 @@ class Wallet(commands.Cog):
             if type(ctx) == disnake.ApplicationCommandInteraction:
                 await ctx.response.send_message(embed=all_pages[0], view=MenuPage(ctx, all_pages))
             else:
-                await tmp_msg.edit(embed=all_pages[0], view=MenuPage(ctx, all_pages))
+                await tmp_msg.edit(content=None, embed=all_pages[0], view=MenuPage(ctx, all_pages))
 
 
     @commands.command(

@@ -1548,11 +1548,11 @@ class Wallet(commands.Cog):
                     
         # Do the job
         try:
-            netname = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
+            net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
             type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
-            get_deposit = await self.sql_get_userwallet(str(ctx.author.id), COIN_NAME, netname, type_coin, SERVER_BOT, 0)
+            get_deposit = await self.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
             if get_deposit is None:
-                get_deposit = await self.sql_register_user(str(ctx.author.id), COIN_NAME, netname, type_coin, SERVER_BOT, 0)
+                get_deposit = await self.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
                 
             wallet_address = get_deposit['balance_wallet_address']
             description = ""
@@ -1679,6 +1679,7 @@ class Wallet(commands.Cog):
             embed = disnake.Embed(title=f'Balance for {ctx.author.name}#{ctx.author.discriminator}', timestamp=datetime.utcnow())
             embed.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
             try:
+                # height can be None
                 userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
                 total_balance = userdata_balance['adjust']
                 embed.add_field(name="Token/Coin {}".format(token_display), value="```Available: {} {}```".format(num_format_coin(total_balance, COIN_NAME, coin_decimal, False), token_display), inline=False)
@@ -1780,12 +1781,10 @@ class Wallet(commands.Cog):
                                          timestamp=datetime.utcnow(), )
                     page.set_thumbnail(url=ctx.author.display_avatar)
                     page.set_footer(text="Use the reactions to flip pages.")
-                if height is None:
-                    page.add_field(name=token_display, value="```{} {}```".format("***", token_display), inline=True)
-                else:
-                    userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), TOKEN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
-                    total_balance = userdata_balance['adjust']
-                    page.add_field(name=token_display, value="```{} {}```".format(num_format_coin(total_balance, TOKEN_NAME, coin_decimal, False), token_display), inline=True)
+                # height can be None
+                userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), TOKEN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+                total_balance = userdata_balance['adjust']
+                page.add_field(name=token_display, value="```{} {}```".format(num_format_coin(total_balance, TOKEN_NAME, coin_decimal, False), token_display), inline=True)
                 num_coins += 1
                 if num_coins > 0 and num_coins % per_page == 0:
                     all_pages.append(page)

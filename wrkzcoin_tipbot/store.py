@@ -187,7 +187,11 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
     # address: TRTL/BCN/XMR = paymentId
     TOKEN_NAME = coin.upper()
     user_server = user_server.upper()
-    nos_block = top_block - confirmed_depth
+    if top_block is None:
+        # If we can not get top block, confirm after 20mn. This is second not number of block
+        nos_block = 20*60
+    else:
+        nos_block = top_block - confirmed_depth
     confirmed_inserted = 2*60
     try:
         await openConnection()
@@ -255,9 +259,14 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
                     else:
                         tx_expense = 0
 
-                    sql = """ SELECT SUM(amount) AS incoming_tx FROM `cn_get_transfers` WHERE `payment_id`=%s AND `coin_name` = %s 
-                              AND `amount`>0 AND `height`< %s """
-                    await cur.execute(sql, (address, TOKEN_NAME, nos_block))
+                    if top_block is None:
+                        sql = """ SELECT SUM(amount) AS incoming_tx FROM `cn_get_transfers` WHERE `payment_id`=%s AND `coin_name` = %s 
+                                  AND `amount`>0 AND `time_insert`< %s """
+                        await cur.execute(sql, (address, TOKEN_NAME, int(time.time())-nos_block)) # seconds
+                    else:
+                        sql = """ SELECT SUM(amount) AS incoming_tx FROM `cn_get_transfers` WHERE `payment_id`=%s AND `coin_name` = %s 
+                                  AND `amount`>0 AND `height`< %s """
+                        await cur.execute(sql, (address, TOKEN_NAME, nos_block))
                     result = await cur.fetchone()
                     if result and result['incoming_tx']:
                         incoming_tx = result['incoming_tx']
@@ -306,9 +315,14 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
                     else:
                         tx_expense = 0
 
-                    sql = """ SELECT SUM(amount) AS incoming_tx FROM `xch_get_transfers` WHERE `address`=%s AND `coin_name` = %s 
-                              AND `amount`>0 AND `height`<%s """
-                    await cur.execute(sql, (address, TOKEN_NAME, nos_block))
+                    if top_block is None:
+                        sql = """ SELECT SUM(amount) AS incoming_tx FROM `xch_get_transfers` WHERE `address`=%s AND `coin_name` = %s 
+                                  AND `amount`>0 AND `time_insert`< %s """
+                        await cur.execute(sql, (address, TOKEN_NAME, nos_block)) # seconds
+                    else:
+                        sql = """ SELECT SUM(amount) AS incoming_tx FROM `xch_get_transfers` WHERE `address`=%s AND `coin_name` = %s 
+                                  AND `amount`>0 AND `height`<%s """
+                        await cur.execute(sql, (address, TOKEN_NAME, nos_block))
                     result = await cur.fetchone()
                     if result and result['incoming_tx']:
                         incoming_tx = result['incoming_tx']
@@ -1087,3 +1101,327 @@ async def contract_tx_remove_after(type_coin: str, duration: int=1200):
         traceback.print_exc(file=sys.stdout)
     return False
 
+
+## math tip
+async def insert_discord_mathtip(token_name: str, contract: str, from_userid: str, from_username: str, message_id: str, eval_content: str, eval_answer: float, wrong_answer_1: float, wrong_answer_2: float, wrong_answer_3: float, guild_id: str, channel_id: str, real_amount: float, token_decimal: int, math_endtime: int, network: str, status: str="ONGOING"):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ INSERT INTO discord_mathtip_tmp (`token_name`, `contract`, `from_userid`, `from_username`, `message_id`, `eval_content`, `eval_answer`, `wrong_answer_1`, `wrong_answer_2`, `wrong_answer_3`, `guild_id`, `channel_id`, `real_amount`, `token_decimal`, `message_time`, `math_endtime`, `network`, `status`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                await cur.execute(sql, (token_name, contract, from_userid, from_username, message_id, eval_content, eval_answer, wrong_answer_1, wrong_answer_2, wrong_answer_3, guild_id, channel_id, real_amount, token_decimal, int(time.time()), math_endtime, network, status))
+                await conn.commit()
+                return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return False
+
+
+async def get_discord_mathtip_by_msgid(msg_id: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM `discord_mathtip_tmp` WHERE `message_id`=%s """
+                await cur.execute(sql, (msg_id))
+                result = await cur.fetchone()
+                if result: return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return None
+
+
+async def get_discord_mathtip_by_chanid(chan_id: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                swap_in = 0.0
+                sql = """ SELECT * FROM `discord_mathtip_tmp` WHERE `channel_id`=%s AND `status`=%s ORDER BY `math_endtime` ASC LIMIT 10 """
+                await cur.execute(sql, (chan_id, "ONGOING"))
+                result = await cur.fetchall()
+                if result: return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return []
+
+
+async def discord_mathtip_update(message_id: str, status: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ UPDATE `discord_mathtip_tmp` SET `status`=%s WHERE `message_id`=%s AND `status`<>%s LIMIT 1 """
+                await cur.execute(sql, (status, message_id, status))
+                await conn.commit()
+                return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return None
+
+
+async def get_math_responders_by_message_id(message_id: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                swap_in = 0.0
+                sql = """ SELECT * FROM `discord_mathtip_responder` WHERE `message_id`=%s """
+                await cur.execute(sql, (message_id))
+                result = await cur.fetchall()
+                if result and len(result) > 0:
+                    wrong_ids = []
+                    right_ids = []
+                    wrong_names = []
+                    right_names = []
+                    for each in result:
+                        if each['result'] == "RIGHT":
+                            right_ids.append(each['responder_id'])
+                            right_names.append(each['responder_name'])
+                        else:
+                            wrong_ids.append(each['responder_id'])
+                            wrong_names.append(each['responder_name'])
+                        
+                    return {'total': len(result), 'wrong_ids': wrong_ids, 'wrong_names': wrong_names, 'right_ids': right_ids, 'right_names': right_names}
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return {'total': 0, 'wrong_ids': [], 'wrong_names': [], 'right_ids': [], 'right_names': []}
+
+
+async def check_if_mathtip_responder_in(message_id: str, from_userid: str, responder_id: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                swap_in = 0.0
+                sql = """ SELECT * FROM `discord_mathtip_responder` WHERE `message_id`=%s AND `from_userid`=%s AND `responder_id`=%s LIMIT 1 """
+                await cur.execute(sql, (message_id, from_userid, responder_id))
+                result = await cur.fetchone()
+                if result and len(result) > 0: return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return False
+
+
+async def insert_mathtip_responder(message_id: str, guild_id: str, from_userid: str, responder_id: str, responder_name: str, result: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ INSERT IGNORE INTO discord_mathtip_responder (`message_id`, `guild_id`, `from_userid`, `responder_id`, `responder_name`, `from_and_responder_uniq`, `result`, `inserted_time`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                await cur.execute(sql, (message_id, guild_id, from_userid, responder_id, responder_name, "{}-{}-{}".format(message_id, from_userid, responder_id), result, int(time.time())))
+                await conn.commit()
+                return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return False
+# end of math tip
+
+## Trivia
+async def get_random_q_db(level: str):
+    # level = EASY, MEDIUM, HARD
+    difficulty = ""
+    if level in ["EASY", "MEDIUM", "HARD"]:
+        difficulty = "`difficulty`='"+level+"'"
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                swap_in = 0.0
+                sql = """ SELECT * FROM `trivia_db` WHERE `is_enable`=%s """+difficulty+""" ORDER BY RAND() LIMIT 1 """
+                await cur.execute(sql, (1))
+                result = await cur.fetchone()
+                if result: return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+
+async def get_q_db(q_id: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                swap_in = 0.0
+                sql = """ SELECT * FROM `trivia_db` WHERE `id`=%s LIMIT 1 """
+                await cur.execute(sql, (q_id))
+                result = await cur.fetchone()
+                if result: return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+
+async def get_active_discord_triviatip():
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                swap_in = 0.0
+                sql = """ SELECT * FROM `discord_triviatip_tmp` WHERE `status`=%s """
+                await cur.execute(sql, ("ONGOING"))
+                result = await cur.fetchall()
+                if result and len(result) > 0: return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return []
+
+
+async def get_discord_triviatip_by_msgid(message_id: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                swap_in = 0.0
+                sql = """ SELECT * FROM `discord_triviatip_tmp` WHERE `message_id`=%s LIMIT 1 """
+                await cur.execute(sql, (message_id))
+                result = await cur.fetchone()
+                if result: return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return None
+
+
+async def check_if_trivia_responder_in(message_id: str, from_userid: str, responder_id: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                swap_in = 0.0
+                sql = """ SELECT * FROM `discord_triviatip_responder` WHERE `message_id`=%s AND `from_userid`=%s AND `responder_id`=%s LIMIT 1 """
+                await cur.execute(sql, (message_id, from_userid, responder_id))
+                result = await cur.fetchone()
+                if result and len(result) > 0: return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return False
+
+
+async def get_responders_by_message_id(message_id: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                swap_in = 0.0
+                sql = """ SELECT * FROM `discord_triviatip_responder` WHERE `message_id`=%s """
+                await cur.execute(sql, (message_id))
+                result = await cur.fetchall()
+                if result and len(result) > 0:
+                    wrong_ids = []
+                    right_ids = []
+                    wrong_names = []
+                    right_names = []
+                    for each in result:
+                        if each['result'] == "RIGHT":
+                            right_ids.append(each['responder_id'])
+                            right_names.append(each['responder_name'])
+                        else:
+                            wrong_ids.append(each['responder_id'])
+                            wrong_names.append(each['responder_name'])
+                        
+                    return {'total': len(result), 'wrong_ids': wrong_ids, 'wrong_names': wrong_names, 'right_ids': right_ids, 'right_names': right_names}
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return {'total': 0, 'wrong_ids': [], 'wrong_names': [], 'right_ids': [], 'right_names': []}
+
+
+async def insert_discord_triviatip(token_name: str, contract: str, from_userid: str, from_owner_name: str, message_id: str, question_content: str, question_id: int, button_correct_answer: str, guild_id: str, channel_id: str, real_amount: float, token_decimal: int, trivia_endtime: int, network: str, status: str="ONGOING"):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ INSERT INTO discord_triviatip_tmp (`token_name`, `contract`, `from_userid`, `from_owner_name`, `message_id`, `question_content`, `question_id`, `button_correct_answer`, `guild_id`, `channel_id`, `real_amount`, `token_decimal`, `message_time`, `trivia_endtime`, `network`, `status`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                await cur.execute(sql, (token_name, contract, from_userid, from_owner_name, message_id, question_content, question_id, button_correct_answer, guild_id, channel_id, real_amount, token_decimal, int(time.time()), trivia_endtime, network, status))
+                await conn.commit()
+                sql = """ UPDATE trivia_db SET numb_asked=numb_asked+1 WHERE `id`=%s """
+                await cur.execute(sql, (question_id))
+                await conn.commit()
+                return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return False
+
+
+async def insert_trivia_responder(message_id: str, guild_id: str, question_id: str, from_userid: str, responder_id: str, responder_name: str, result: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ INSERT IGNORE INTO discord_triviatip_responder (`message_id`, `guild_id`, `question_id`, `from_userid`, `responder_id`, `responder_name`, `from_and_responder_uniq`, `result`, `inserted_time`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                await cur.execute(sql, (message_id, guild_id, question_id, from_userid, responder_id, responder_name, "{}-{}-{}".format(message_id, from_userid, responder_id), result, int(time.time())))
+                await conn.commit()
+                return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return False
+
+
+async def discord_triviatip_update(message_id: str, status: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ UPDATE `discord_triviatip_tmp` SET `status`=%s WHERE `message_id`=%s AND `status`<>%s LIMIT 1 """
+                await cur.execute(sql, (status, message_id, status))
+                await conn.commit()
+                return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return None
+## End of Trivia
+
+
+async def sql_user_balance_mv_multiple(user_from: str, user_tos, guild_id: str, channel_id: str, amount_each: float, coin: str, tiptype: str, token_decimal: int, contract: str):
+    # user_tos is array "account1", "account2", ....
+    global pool
+    TOKEN_NAME = coin.upper()
+    if tiptype.upper() not in ["TIPS", "TIPALL", "FREETIP", "TRIVIATIP", "MATHTIP"]:
+        return False
+    values_str = []
+    currentTs = int(time.time())
+    for item in user_tos:
+        values_str.append(f"('{TOKEN_NAME}', '{contract}', '{user_from}', '{item}', '{guild_id}', '{channel_id}', {amount_each}, {token_decimal}, '{tiptype.upper()}', {currentTs})\n")
+    values_sql = "VALUES " + ",".join(values_str)
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            
+            async with conn.cursor() as cur:
+                sql = """ INSERT INTO user_balance_mv (`token_name`, `contract`, `from_userid`, `to_userid`, `guild_id`, `channel_id`, `real_amount`, `token_decimal`, `type`, `date`) """+values_sql+""" """
+                await cur.execute(sql,)
+                await conn.commit()
+                return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return False

@@ -192,7 +192,7 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
         nos_block = 20*60
     else:
         nos_block = top_block - confirmed_depth
-    confirmed_inserted = 2*60
+    confirmed_inserted = 30 # 30s for nano
     try:
         await openConnection()
         async with pool.acquire() as conn:
@@ -341,8 +341,8 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
 
                     # in case deposit fee -real_deposit_fee
                     sql = """ SELECT SUM(real_amount-real_deposit_fee) AS incoming_tx FROM `erc20_move_deposit` WHERE `user_id`=%s 
-                              AND `token_name` = %s AND `confirmed_depth`> %s """
-                    await cur.execute(sql, (userID, TOKEN_NAME, confirmed_depth))
+                              AND `token_name` = %s AND `confirmed_depth`> %s AND `status`=%s """
+                    await cur.execute(sql, (userID, TOKEN_NAME, confirmed_depth, "CONFIRMED"))
                     result = await cur.fetchone()
                     if result:
                         incoming_tx = result['incoming_tx']
@@ -361,8 +361,8 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
 
                     # in case deposit fee -real_deposit_fee
                     sql = """ SELECT SUM(real_amount-real_deposit_fee) AS incoming_tx FROM `trc20_move_deposit` WHERE `user_id`=%s 
-                              AND `token_name` = %s AND `confirmed_depth`> %s """
-                    await cur.execute(sql, (userID, TOKEN_NAME, confirmed_depth))
+                              AND `token_name` = %s AND `confirmed_depth`> %s AND `status`=%s """
+                    await cur.execute(sql, (userID, TOKEN_NAME, confirmed_depth, "CONFIRMED"))
                     result = await cur.fetchone()
                     if result:
                         incoming_tx = result['incoming_tx']
@@ -998,7 +998,7 @@ async def sql_get_pending_move_deposit_erc20(net_name: str):
 
 
 async def sql_get_tx_info_erc20(url: str, tx: str, timeout: int=64):
-    data = '{"jsonrpc":"2.0", "method": "eth_getTransactionByHash", "params":["'+tx+'"], "id":1}'
+    data = '{"jsonrpc":"2.0", "method": "eth_getTransactionReceipt", "params":["'+tx+'"], "id":1}'
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(url, headers={'Content-Type': 'application/json'}, json=json.loads(data), timeout=timeout) as response:
@@ -1032,11 +1032,14 @@ async def sql_check_pending_move_deposit_erc20(url: str, net_name: str, deposit_
             check_tx = await sql_get_tx_info_erc20(url, each_tx['txn'], 64)
             if check_tx:
                 tx_block_number = int(check_tx['blockNumber'], 16)
+                status = "CONFIRMED"                    
+                if 'status' in check_tx and int(check_tx['status'], 16) == 0:
+                    status = "FAILED"
                 if topBlock - deposit_confirm_depth > tx_block_number:
-                    confirming_tx = await sql_update_confirming_move_tx_erc20(each_tx['txn'], tx_block_number, topBlock - tx_block_number)
+                    confirming_tx = await sql_update_confirming_move_tx_erc20(each_tx['txn'], tx_block_number, topBlock - tx_block_number, status)
 
 
-async def sql_update_confirming_move_tx_erc20(tx: str, blockNumber: int, confirmed_depth: int):
+async def sql_update_confirming_move_tx_erc20(tx: str, blockNumber: int, confirmed_depth: int, status):
     global pool
     try:
         await openConnection()
@@ -1044,7 +1047,7 @@ async def sql_update_confirming_move_tx_erc20(tx: str, blockNumber: int, confirm
             
             async with conn.cursor() as cur:
                 sql = """ UPDATE erc20_move_deposit SET `status`=%s, `blockNumber`=%s, `confirmed_depth`=%s WHERE `txn`=%s """
-                await cur.execute(sql, ('CONFIRMED', blockNumber, confirmed_depth, tx))
+                await cur.execute(sql, (status, blockNumber, confirmed_depth, tx))
                 await conn.commit()
                 return True
     except Exception as e:

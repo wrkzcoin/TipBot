@@ -1484,19 +1484,19 @@ class Wallet(commands.Cog):
 
     async def nano_validate_address(self, coin: str, account: str) -> str:
         COIN_NAME = coin.upper()
-        valid_address = await rpc_client.call_nano(COIN_NAME, payload='{ "action": "validate_account_number", "account": "'+account+'" }')
+        valid_address = await self.call_nano(COIN_NAME, payload='{ "action": "validate_account_number", "account": "'+account+'" }')
         if valid_address and valid_address['valid'] == "1":
             return True
         return None
 
-    async def send_external_nano(self, main_address: str, user_from: str, amount: int, to_address: str, coin: str, coin_decimal):
+    async def send_external_nano(self, main_address: str, user_from: str, amount: float, to_address: str, coin: str, coin_decimal):
         global pool
         COIN_NAME = coin.upper()
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    tx_hash = await self.nano_sendtoaddress(main_address, to_address, amount, COIN_NAME)
+                    tx_hash = await self.nano_sendtoaddress(main_address, to_address, int(Decimal(amount)*10**coin_decimal), COIN_NAME)
                     if tx_hash:
                         updateTime = int(time.time())
                         async with conn.cursor() as cur: 
@@ -2619,7 +2619,7 @@ class Wallet(commands.Cog):
                     else:
                         try:
                             main_address = getattr(getattr(self.bot.coin_list, COIN_NAME), "MainAddress")
-                            SendTx = await self.nano_sendtoaddress(main_address, str(ctx.author.id), amount*10**coin_decimal, address, COIN_NAME, coin_decimal)
+                            SendTx = await self.send_external_nano(main_address, str(ctx.author.id), amount, address, COIN_NAME, coin_decimal)
                             if SendTx:
                                 SendTx_hash = SendTx['block']
                                 msg = f'{EMOJI_ARROW_RIGHTHOOK} You have sent {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME} to `{address}`.\nTransaction hash: `{SendTx_hash}`'

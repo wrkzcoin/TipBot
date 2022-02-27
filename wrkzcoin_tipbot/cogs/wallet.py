@@ -541,7 +541,7 @@ class Wallet(commands.Cog):
                     coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
                     get_min_deposit_amount = int(getattr(getattr(self.bot.coin_list, COIN_NAME), "real_min_deposit") * 10**coin_decimal)
 
-                    payload = '"*", 50, 0'
+                    payload = '"*", 100, 0'
                     get_transfers = await self.call_doge('listtransactions', COIN_NAME, payload=payload)
                     if get_transfers and len(get_transfers) >= 1:
                         try:

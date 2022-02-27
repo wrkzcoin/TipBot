@@ -663,7 +663,7 @@ async def trx_get_block_number(timeout: int = 64):
                     if decoded_data and 'block_header' in decoded_data:
                         height = decoded_data['block_header']['raw_data']['number']
     except asyncio.TimeoutError:
-        print('TRX: get block number {}s for TOKEN {}'.format(timeout))
+        print('TRX: get block number {}s for TOKEN {}'.format(timeout, "TRX"))
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         await logchanbot(traceback.format_exc())
@@ -983,7 +983,6 @@ async def sql_get_pending_move_deposit_erc20(net_name: str):
     try:
         await openConnection()
         async with pool.acquire() as conn:
-            
             async with conn.cursor() as cur:
                 sql = """ SELECT * FROM erc20_move_deposit 
                           WHERE `status`=%s AND `network`=%s 
@@ -1030,13 +1029,19 @@ async def sql_check_pending_move_deposit_erc20(url: str, net_name: str, deposit_
         for each_tx in list_pending:
             # Check tx from RPC
             check_tx = await sql_get_tx_info_erc20(url, each_tx['txn'], 64)
-            if check_tx:
+            if check_tx is not None:
                 tx_block_number = int(check_tx['blockNumber'], 16)
                 status = "CONFIRMED"                    
                 if 'status' in check_tx and int(check_tx['status'], 16) == 0:
                     status = "FAILED"
                 if topBlock - deposit_confirm_depth > tx_block_number:
                     confirming_tx = await sql_update_confirming_move_tx_erc20(each_tx['txn'], tx_block_number, topBlock - tx_block_number, status)
+            elif check_tx is None:
+                # None found
+                if int(time.time()) - 4*3600 > each_tx['time_insert']:
+                    status = "FAILED"
+                    tx_block_number = 0
+                    failed_tx = await sql_update_confirming_move_tx_erc20(each_tx['txn'], tx_block_number, topBlock - tx_block_number, status)
 
 
 async def sql_update_confirming_move_tx_erc20(tx: str, blockNumber: int, confirmed_depth: int, status):

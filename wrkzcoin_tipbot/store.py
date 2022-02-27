@@ -251,7 +251,7 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
 
                 # Each coin
                 if coin_family in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
-                    sql = """ SELECT SUM(amount+fee) AS tx_expense FROM `cn_external_tx` WHERE `user_id`=%s AND `coin_name` = %s AND `user_server` = %s """
+                    sql = """ SELECT SUM(amount+withdraw_fee) AS tx_expense FROM `cn_external_tx` WHERE `user_id`=%s AND `coin_name` = %s AND `user_server` = %s """
                     await cur.execute(sql, (userID, TOKEN_NAME, user_server))
                     result = await cur.fetchone()
                     if result:
@@ -273,7 +273,7 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
                     else:
                         incoming_tx = 0
                 elif coin_family == "BTC":
-                    sql = """ SELECT SUM(amount+fee) AS tx_expense FROM `doge_external_tx` WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s """
+                    sql = """ SELECT SUM(amount+withdraw_fee) AS tx_expense FROM `doge_external_tx` WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s """
                     await cur.execute(sql, (userID, TOKEN_NAME, user_server))
                     result = await cur.fetchone()
                     if result:
@@ -307,7 +307,7 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
                     else:
                         incoming_tx = 0
                 elif coin_family == "CHIA":
-                    sql = """ SELECT SUM(amount+fee) AS tx_expense FROM `xch_external_tx` WHERE `user_id`=%s AND `coin_name` = %s AND `user_server` = %s """
+                    sql = """ SELECT SUM(amount+withdraw_fee) AS tx_expense FROM `xch_external_tx` WHERE `user_id`=%s AND `coin_name` = %s AND `user_server` = %s """
                     await cur.execute(sql, (userID, TOKEN_NAME, user_server))
                     result = await cur.fetchone()
                     if result:
@@ -796,97 +796,166 @@ async def sql_check_minimum_deposit_erc20(url: str, net_name: str, coin: str, co
     global pool
     TOKEN_NAME = coin.upper()
     list_user_addresses = await sql_get_all_erc_user(time_lap)
-    # get withdraw gas balance    
-    gas_main_balance = await http_wallet_getbalance(url, config.eth.MainAddress, TOKEN_NAME, None, 64)
-    
-    # main balance has gas?
-    main_balance_gas_sufficient = True
-    if gas_main_balance and gas_main_balance / 10**18 >= min_gas_tx:
-        pass
+    if contract is None:
+        # Main Token
+        # we do not need gas, we move straight
+        balance_below_min = 0
+        balance_above_min = 0
+        msg_deposit = ""
+        if list_user_addresses and len(list_user_addresses) > 0:
+            # OK check them one by one
+            for each_address in list_user_addresses:
+                deposited_balance = await http_wallet_getbalance(url, each_address['balance_wallet_address'], TOKEN_NAME, None, 64)
+                if deposited_balance is None:
+                    continue
+                real_deposited_balance = float("%.6f" % (int(deposited_balance) / 10**coin_decimal))
+                if real_deposited_balance < min_move_deposit:
+                    balance_below_min += 1
+                    # skip balance move below this
+                    # print("Skipped {}, {}. Having {}, minimum {}".format(TOKEN_NAME, each_address['balance_wallet_address'], real_deposited_balance, min_move_deposit))
+                    pass
+                # config.eth.MainAddress => each_address['balance_wallet_address']
+                else:
+                    balance_above_min += 1
+                    try:
+                        w3 = Web3(Web3.HTTPProvider(url))
+
+                        # inject the poa compatibility middleware to the innermost layer
+                        # w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+
+                        if net_name == "MATIC":
+                            nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(each_address['balance_wallet_address']), 'pending')
+                        else:
+                            nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(each_address['balance_wallet_address']))
+
+                        # get gas price
+                        gasPrice = int(w3.eth.gasPrice * 1.0)
+
+                        estimateGas = w3.eth.estimateGas({'to': w3.toChecksumAddress(config.eth.MainAddress), 'from': w3.toChecksumAddress(each_address['balance_wallet_address']), 'value':  deposited_balance})
+                        print("TX {} deposited_balance: {}, gasPrice*estimateGas: {}*{}={}, ".format(TOKEN_NAME, deposited_balance/10**coin_decimal, gasPrice, estimateGas, gasPrice*estimateGas/10**coin_decimal))
+                        transaction = {
+                                'from': w3.toChecksumAddress(each_address['balance_wallet_address']),
+                                'to': w3.toChecksumAddress(config.eth.MainAddress),
+                                'value': deposited_balance - gasPrice*estimateGas,
+                                'nonce': nonce,
+                                'gasPrice': gasPrice,
+                                'gas': estimateGas,
+                                'chainId': chainId
+                            }
+                        acct = Account.from_mnemonic(mnemonic=decrypt_string(each_address['seed']))
+                        signed_txn = w3.eth.account.sign_transaction(transaction, private_key=acct.key)
+
+                        # send Transaction for gas:
+                        sent_tx = w3.eth.sendRawTransaction(signed_txn.rawTransaction)
+                        if signed_txn and sent_tx:
+                            # Add to SQL
+                            try:
+                                inserted = await sql_move_deposit_for_spendable(TOKEN_NAME, None, each_address['user_id'], each_address['balance_wallet_address'], config.eth.MainAddress, real_deposited_balance, real_deposit_fee,  coin_decimal, sent_tx.hex(), each_address['user_server'], net_name)
+                            except Exception as e:
+                                traceback.print_exc(file=sys.stdout)
+                                #await logchanbot(traceback.format_exc())
+                    except Exception as e:
+                        print("ERROR TOKEN: {} - from {} to {}".format(TOKEN_NAME, each_address['balance_wallet_address'], config.eth.MainAddress))
+                        traceback.print_exc(file=sys.stdout)
+                        #await logchanbot(traceback.format_exc())
+            msg_deposit += "TOKEN {}: Total deposit address: {}: Below min.: {} Above min. {}".format(TOKEN_NAME, len(list_user_addresses), balance_below_min, balance_above_min)
+        else:
+            msg_deposit += "TOKEN {}: No deposit address.".format(TOKEN_NAME)
     else:
-        main_balance_gas_sufficient = False
-        pass
-    # If zero gas enable_zero_gas
-    if config.eth.enable_zero_gas == 1:
+        # ERC
+        # get withdraw gas balance    
+        gas_main_balance = await http_wallet_getbalance(url, config.eth.MainAddress, TOKEN_NAME, None, 64)
+        
+        # main balance has gas?
         main_balance_gas_sufficient = True
+        if gas_main_balance and gas_main_balance / 10**18 >= min_gas_tx:
+            pass
+        else:
+            main_balance_gas_sufficient = False
+            pass
+        # If zero gas enable_zero_gas
+        if config.eth.enable_zero_gas == 1:
+            main_balance_gas_sufficient = True
 
-    if list_user_addresses and len(list_user_addresses) > 0:
-        # OK check them one by one
-        print("{} addresses for updating balance".format(len(list_user_addresses)))
-        for each_address in list_user_addresses:
-            deposited_balance = await http_wallet_getbalance(url, each_address['balance_wallet_address'], TOKEN_NAME, contract, 64)
-            real_deposited_balance = deposited_balance / 10**coin_decimal
-            if real_deposited_balance < min_move_deposit:
-                pass
-            else:
-                # Check if there is gas remaining to spend there
-                gas_of_address = await http_wallet_getbalance(url, each_address['balance_wallet_address'], gas_ticker, None, 64)
-                if (gas_of_address / 10**18 >= min_gas_tx and config.eth.enable_zero_gas != 1) or config.eth.enable_zero_gas == 1:
-                    print('Address {} still has gas {}{} or Zero gas is needed.'.format(each_address['balance_wallet_address'], gas_ticker, gas_of_address / 10**18))
-                    # TODO: Let's move balance from there to withdraw address and save Tx
-                    # HTTPProvider:
-                    w3 = Web3(Web3.HTTPProvider(url))
+        if list_user_addresses and len(list_user_addresses) > 0:
+            # OK check them one by one
+            print("{} addresses for updating balance".format(len(list_user_addresses)))
+            for each_address in list_user_addresses:
+                deposited_balance = await http_wallet_getbalance(url, each_address['balance_wallet_address'], TOKEN_NAME, contract, 64)
+                if deposited_balance is None:
+                    continue
+                real_deposited_balance = deposited_balance / 10**coin_decimal
+                if real_deposited_balance < min_move_deposit:
+                    pass
+                else:
+                    # Check if there is gas remaining to spend there
+                    gas_of_address = await http_wallet_getbalance(url, each_address['balance_wallet_address'], gas_ticker, None, 64)
+                    if (gas_of_address / 10**18 >= min_gas_tx and config.eth.enable_zero_gas != 1) or config.eth.enable_zero_gas == 1:
+                        print('Address {} still has gas {}{} or Zero gas is needed.'.format(each_address['balance_wallet_address'], gas_ticker, gas_of_address / 10**18))
+                        # TODO: Let's move balance from there to withdraw address and save Tx
+                        # HTTPProvider:
+                        w3 = Web3(Web3.HTTPProvider(url))
 
-                    # inject the poa compatibility middleware to the innermost layer
-                    w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+                        # inject the poa compatibility middleware to the innermost layer
+                        w3.middleware_onion.inject(geth_poa_middleware, layer=0)
 
-                    unicorns = w3.eth.contract(address=w3.toChecksumAddress(contract), abi=EIP20_ABI)
-                    nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(each_address['balance_wallet_address']))
-                    
-                    unicorn_txn = unicorns.functions.transfer(
-                         w3.toChecksumAddress(config.eth.MainAddress),
-                         deposited_balance # amount to send
-                     ).buildTransaction({
-                         'from': w3.toChecksumAddress(each_address['balance_wallet_address']),
-                         'gasPrice': w3.eth.gasPrice,
-                         'nonce': nonce
-                     })
+                        unicorns = w3.eth.contract(address=w3.toChecksumAddress(contract), abi=EIP20_ABI)
+                        nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(each_address['balance_wallet_address']))
+                        
+                        unicorn_txn = unicorns.functions.transfer(
+                             w3.toChecksumAddress(config.eth.MainAddress),
+                             deposited_balance # amount to send
+                         ).buildTransaction({
+                             'from': w3.toChecksumAddress(each_address['balance_wallet_address']),
+                             'gasPrice': w3.eth.gasPrice,
+                             'nonce': nonce
+                         })
 
-                    acct = Account.from_mnemonic(
-                        mnemonic=decrypt_string(each_address['seed']))
-                    signed_txn = w3.eth.account.signTransaction(unicorn_txn, private_key=acct.key)
-                    sent_tx = w3.eth.sendRawTransaction(signed_txn.rawTransaction)
-                    if signed_txn and sent_tx:
-                        # Add to SQL
-                        try:
-                            inserted = await sql_move_deposit_for_spendable(TOKEN_NAME, contract, each_address['user_id'], each_address['balance_wallet_address'], config.eth.MainAddress, real_deposited_balance, real_deposit_fee,  coin_decimal, sent_tx.hex(), each_address['user_server'], net_name)
-                        except Exception as e:
-                            traceback.print_exc(file=sys.stdout)
-                            await logchanbot(traceback.format_exc())
-                elif gas_of_address / 10**18 < min_gas_tx and main_balance_gas_sufficient and config.eth.enable_zero_gas != 1:
-                    # HTTPProvider:
-                    w3 = Web3(Web3.HTTPProvider(url))
+                        acct = Account.from_mnemonic(
+                            mnemonic=decrypt_string(each_address['seed']))
+                        signed_txn = w3.eth.account.signTransaction(unicorn_txn, private_key=acct.key)
+                        sent_tx = w3.eth.sendRawTransaction(signed_txn.rawTransaction)
+                        if signed_txn and sent_tx:
+                            # Add to SQL
+                            try:
+                                inserted = await sql_move_deposit_for_spendable(TOKEN_NAME, contract, each_address['user_id'], each_address['balance_wallet_address'], config.eth.MainAddress, real_deposited_balance, real_deposit_fee,  coin_decimal, sent_tx.hex(), each_address['user_server'], net_name)
+                            except Exception as e:
+                                traceback.print_exc(file=sys.stdout)
+                                await logchanbot(traceback.format_exc())
+                    elif gas_of_address / 10**18 < min_gas_tx and main_balance_gas_sufficient and config.eth.enable_zero_gas != 1:
+                        # HTTPProvider:
+                        w3 = Web3(Web3.HTTPProvider(url))
 
-                    # inject the poa compatibility middleware to the innermost layer
-                    w3.middleware_onion.inject(geth_poa_middleware, layer=0)
-                    # TODO: Let's move gas from main to have sufficient to move
-                    nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(config.eth.MainAddress))
+                        # inject the poa compatibility middleware to the innermost layer
+                        w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+                        # TODO: Let's move gas from main to have sufficient to move
+                        nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(config.eth.MainAddress))
 
-                    # get gas price
-                    gasPrice = w3.eth.gasPrice
+                        # get gas price
+                        gasPrice = w3.eth.gasPrice
 
-                    estimateGas = w3.eth.estimateGas({'to': w3.toChecksumAddress(each_address['balance_wallet_address']), 'from': w3.toChecksumAddress(config.eth.MainAddress), 'value':  int(move_gas_amount * 10**18)})
+                        estimateGas = w3.eth.estimateGas({'to': w3.toChecksumAddress(each_address['balance_wallet_address']), 'from': w3.toChecksumAddress(config.eth.MainAddress), 'value':  int(move_gas_amount * 10**18)})
 
-                    amount_gas_move = int(move_gas_amount * 10**18)
-                    if amount_gas_move < move_gas_amount * 10**18: amount_gas_move = int(move_gas_amount * 10**18)
-                    transaction = {
-                            'from': w3.toChecksumAddress(config.eth.MainAddress),
-                            'to': w3.toChecksumAddress(each_address['balance_wallet_address']),
-                            'value': amount_gas_move,
-                            'nonce': nonce,
-                            'gasPrice': gasPrice,
-                            'gas': estimateGas,
-                            'chainId': int(chainId, 16)
-                        }
-                    acct = Account.from_mnemonic(
-                        mnemonic=config.eth.MainAddress_seed)
-                    signed = w3.eth.account.sign_transaction(transaction, private_key=acct.key)
-                    # send Transaction for gas:
-                    send_gas_tx = w3.eth.sendRawTransaction(signed.rawTransaction)
-                elif gas_of_address / 10**18 < min_gas_tx and main_balance_gas_sufficient == False and config.eth.enable_zero_gas != 1:
-                    print('Main address has no sufficient balance to supply gas {}'.format(each_address['balance_wallet_address']))
-                elif config.eth.enable_zero_gas != 1:
-                    print('Internal error for gas checking {}'.format(each_address['balance_wallet_address']))
+                        amount_gas_move = int(move_gas_amount * 10**18)
+                        if amount_gas_move < move_gas_amount * 10**18: amount_gas_move = int(move_gas_amount * 10**18)
+                        transaction = {
+                                'from': w3.toChecksumAddress(config.eth.MainAddress),
+                                'to': w3.toChecksumAddress(each_address['balance_wallet_address']),
+                                'value': amount_gas_move,
+                                'nonce': nonce,
+                                'gasPrice': gasPrice,
+                                'gas': estimateGas,
+                                'chainId': int(chainId, 16)
+                            }
+                        acct = Account.from_mnemonic(
+                            mnemonic=config.eth.MainAddress_seed)
+                        signed = w3.eth.account.sign_transaction(transaction, private_key=acct.key)
+                        # send Transaction for gas:
+                        send_gas_tx = w3.eth.sendRawTransaction(signed.rawTransaction)
+                    elif gas_of_address / 10**18 < min_gas_tx and main_balance_gas_sufficient == False and config.eth.enable_zero_gas != 1:
+                        print('Main address has no sufficient balance to supply gas {}'.format(each_address['balance_wallet_address']))
+                    elif config.eth.enable_zero_gas != 1:
+                        print('Internal error for gas checking {}'.format(each_address['balance_wallet_address']))
 
 
 async def sql_move_deposit_for_spendable(token_name: str, contract: str, user_id: str, balance_wallet_address: str, to_main_address: str, \
@@ -1405,8 +1474,6 @@ async def sql_user_balance_mv_multiple(user_from: str, user_tos, guild_id: str, 
     # user_tos is array "account1", "account2", ....
     global pool
     TOKEN_NAME = coin.upper()
-    if tiptype.upper() not in ["TIPS", "TIPALL", "FREETIP", "TRIVIATIP", "MATHTIP"]:
-        return False
     values_str = []
     currentTs = int(time.time())
     for item in user_tos:
@@ -1425,3 +1492,19 @@ async def sql_user_balance_mv_multiple(user_from: str, user_tos, guild_id: str, 
         traceback.print_exc(file=sys.stdout)
         await logchanbot(traceback.format_exc())
     return False
+
+
+async def sql_update_erc20_user_update_call(userID: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ UPDATE `erc20_user` SET `called_Update`=%s WHERE `user_id`=%s """
+                await cur.execute(sql, (int(time.time()), userID))
+                await conn.commit()
+                return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return None

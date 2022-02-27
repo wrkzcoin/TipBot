@@ -130,7 +130,7 @@ class TriviaTips(commands.Cog):
 
         height = None
         try:
-            if type_coin in ["ERC-10", "TRC-20"]:
+            if type_coin in ["ERC-20", "TRC-20"]:
                 height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
             else:
                 height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{TOKEN_NAME}').decode())

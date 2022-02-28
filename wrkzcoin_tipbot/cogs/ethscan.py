@@ -85,9 +85,11 @@ class EthScan(commands.Cog):
             for each_c in erc_contracts:
                 if each_c['net_name'] not in contracts:
                     contracts[each_c['net_name']] = []
-                    contracts[each_c['net_name']].append(each_c['contract'])
+                    if each_c['contract']:
+                        contracts[each_c['net_name']].append(each_c['contract'])
                 else:
-                    contracts[each_c['net_name']].append(each_c['contract'])
+                    if each_c['contract']:
+                        contracts[each_c['net_name']].append(each_c['contract'])
             
             # Update contract list setting
             for k, v in contracts.items():

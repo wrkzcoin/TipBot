@@ -1904,8 +1904,10 @@ class Wallet(commands.Cog):
 
             if type_coin.upper() == "ERC-20" and COIN_NAME != netname.upper():
                 user_id_erc20 = str(userID) + "_" + type_coin.upper()
+                type_coin_user = "ERC-20"
             elif type_coin.upper() == "ERC-20" and COIN_NAME == netname.upper():
                 user_id_erc20 = str(userID) + "_" + COIN_NAME
+                type_coin_user = COIN_NAME
             if type_coin.upper() in ["TRC-20", "TRC-10"] and COIN_NAME != netname.upper():
                 type_coin = "TRC-20"
                 user_id_erc20 = str(userID) + "_" + type_coin.upper()
@@ -1963,11 +1965,11 @@ class Wallet(commands.Cog):
                 async with conn.cursor() as cur:
                     try:
                         if netname and netname not in ["TRX"]:
-                            sql = """ INSERT INTO `erc20_user` (`user_id`, `user_id_erc20`, `balance_wallet_address`, `address_ts`, 
+                            sql = """ INSERT INTO `erc20_user` (`user_id`, `user_id_erc20`, `type`, `balance_wallet_address`, `address_ts`, 
                                       `seed`, `create_dump`, `private_key`, `public_key`, `xprivate_key`, `xpublic_key`, 
                                       `called_Update`, `user_server`) 
-                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                            await cur.execute(sql, (str(userID), user_id_erc20, w['address'], int(time.time()), 
+                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                            await cur.execute(sql, (str(userID), user_id_erc20, type_coin_user, w['address'], int(time.time()), 
                                               encrypt_string(w['seed']), encrypt_string(str(w)), encrypt_string(str(w['private_key'])), w['public_key'], 
                                               encrypt_string(str(w['xprivate_key'])), w['xpublic_key'], int(time.time()), user_server))
                             await conn.commit()

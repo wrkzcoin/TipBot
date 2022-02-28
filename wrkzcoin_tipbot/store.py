@@ -727,7 +727,7 @@ async def erc_get_block_info(url: str, height: int, timeout: int=32):
     return None
 
 
-async def sql_get_all_erc_user(called_Update: int=0):
+async def sql_get_all_erc_user(type_coin_user: str, called_Update: int=0):
     # Check update only who has recently called for balance
     # If called_Update = 3600, meaning who called balance for last 1 hr
     global pool
@@ -737,15 +737,15 @@ async def sql_get_all_erc_user(called_Update: int=0):
             
             async with conn.cursor() as cur:
                 if called_Update == 0:
-                    sql = """ SELECT `user_id`, `balance_wallet_address`, `seed`, `user_server` FROM `erc20_user` """
-                    await cur.execute(sql, ())
+                    sql = """ SELECT `user_id`, `balance_wallet_address`, `seed`, `user_server` FROM `erc20_user` WHERE `type`=%s """
+                    await cur.execute(sql, (type_coin_user))
                     result = await cur.fetchall()
                     if result: return result
                 elif called_Update > 0:
                     lap = int(time.time()) - called_Update
                     sql = """ SELECT `user_id`, `balance_wallet_address`, `seed`, `user_server` FROM erc20_user 
-                              WHERE (`called_Update`>%s) OR (`is_discord_guild`=1) """
-                    await cur.execute(sql, (lap,))
+                              WHERE (`called_Update`>%s OR `is_discord_guild`=1) AND `type`=%s """
+                    await cur.execute(sql, (lap, type_coin_user))
                     result = await cur.fetchall()
                     if result: return result
     except Exception as e:
@@ -795,7 +795,10 @@ async def http_wallet_getbalance(url: str, address: str, coin: str, contract: st
 async def sql_check_minimum_deposit_erc20(url: str, net_name: str, coin: str, contract: str, coin_decimal: int, min_move_deposit: float, min_gas_tx: float, gas_ticker: str, move_gas_amount: float, chainId: str, real_deposit_fee: float, time_lap: int=0):
     global pool
     TOKEN_NAME = coin.upper()
-    list_user_addresses = await sql_get_all_erc_user(time_lap)
+    if net_name == TOKEN_NAME:
+        list_user_addresses = await sql_get_all_erc_user(net_name, time_lap)
+    else:
+        list_user_addresses = await sql_get_all_erc_user("ERC-20", time_lap)
     if contract is None:
         # Main Token
         # we do not need gas, we move straight

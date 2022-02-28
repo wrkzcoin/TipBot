@@ -177,7 +177,9 @@ bot.erc_node_list = {
     "BSC": config.default_endpoints.bsc, 
     "MATIC": config.default_endpoints.matic, 
     "xDai": config.default_endpoints.xdai, 
-    "ETH": config.default_endpoints.eth
+    "ETH": config.default_endpoints.eth,
+    "TLOS": config.default_endpoints.tlos,
+    "AVAX": config.default_endpoints.avax
     }
 
 

@@ -353,7 +353,6 @@ class EthScan(commands.Cog):
                                                             traceback.print_exc(file=sys.stdout)
                                                 except Exception as e:
                                                     traceback.print_exc(file=sys.stdout)
-                                                    print(each['result'])
                                                     continue
                                                 key = "{}_{}_{}_{}".format(each['contract_address'], each['block_number'], each['transaction_id'], from_addr, to_addr)
                                                 def lower_txes(txHash_unique):

@@ -565,12 +565,12 @@ async def get_txscan_stored_list_erc(net_name: str):
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 if net_name == "TRX":
-                    sql = """ SELECT * FROM `trc20_contract_scan` WHERE `net_name`=%s ORDER BY `blockNumber` DESC LIMIT 4000 """
+                    sql = """ SELECT * FROM `trc20_contract_scan` WHERE `net_name`=%s ORDER BY `blockNumber` DESC LIMIT 500 """
                     await cur.execute(sql, (net_name))
                     result = await cur.fetchall()
                     if result and len(result) > 0: return {'txHash_unique': [item['contract_blockNumber_Tx_from_to_uniq'] for item in result]}
                 else:
-                    sql = """ SELECT * FROM `erc20_contract_scan` WHERE `net_name`=%s ORDER BY `blockNumber` DESC LIMIT 4000 """
+                    sql = """ SELECT * FROM `erc20_contract_scan` WHERE `net_name`=%s ORDER BY `blockNumber` DESC LIMIT 500 """
                     await cur.execute(sql, (net_name))
                     result = await cur.fetchall()
                     if result and len(result) > 0: return {'txHash_unique': [item['contract_blockNumber_Tx_from_to_uniq'] for item in result]}
@@ -743,7 +743,6 @@ async def sql_get_all_erc_user(type_coin_user: str, called_Update: int=0):
     try:
         await openConnection()
         async with pool.acquire() as conn:
-            
             async with conn.cursor() as cur:
                 if called_Update == 0:
                     sql = """ SELECT `user_id`, `balance_wallet_address`, `seed`, `user_server` FROM `erc20_user` WHERE `type`=%s """
@@ -760,7 +759,7 @@ async def sql_get_all_erc_user(type_coin_user: str, called_Update: int=0):
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         await logchanbot(traceback.format_exc())
-    return None
+    return []
 
 
 # TODO: this is for ERC-20 only
@@ -814,7 +813,7 @@ async def sql_check_minimum_deposit_erc20(url: str, net_name: str, coin: str, co
         balance_below_min = 0
         balance_above_min = 0
         msg_deposit = ""
-        if list_user_addresses and len(list_user_addresses) > 0:
+        if len(list_user_addresses) > 0:
             # OK check them one by one
             for each_address in list_user_addresses:
                 deposited_balance = await http_wallet_getbalance(url, each_address['balance_wallet_address'], TOKEN_NAME, None, 64)
@@ -891,7 +890,7 @@ async def sql_check_minimum_deposit_erc20(url: str, net_name: str, coin: str, co
 
         if list_user_addresses and len(list_user_addresses) > 0:
             # OK check them one by one
-            print("{} addresses for updating balance".format(len(list_user_addresses)))
+            # print("{} addresses for updating balance".format(len(list_user_addresses)))
             for each_address in list_user_addresses:
                 deposited_balance = await http_wallet_getbalance(url, each_address['balance_wallet_address'], TOKEN_NAME, contract, 64)
                 if deposited_balance is None:
@@ -1061,7 +1060,6 @@ async def sql_update_confirming_move_tx_erc20(tx: str, blockNumber: int, confirm
     try:
         await openConnection()
         async with pool.acquire() as conn:
-            
             async with conn.cursor() as cur:
                 sql = """ UPDATE erc20_move_deposit SET `status`=%s, `blockNumber`=%s, `confirmed_depth`=%s WHERE `txn`=%s """
                 await cur.execute(sql, (status, blockNumber, confirmed_depth, tx))
@@ -1095,7 +1093,6 @@ async def sql_update_erc_user_update_call_many_erc20(list_data):
     try:
         await openConnection()
         async with pool.acquire() as conn:
-            
             async with conn.cursor() as cur:
                 sql = """ UPDATE erc20_user SET `called_Update`=%s WHERE `balance_wallet_address`=%s """
                 await cur.executemany(sql, list_data)
@@ -1112,7 +1109,6 @@ async def sql_get_pending_notification_users_erc20(user_server: str='DISCORD'):
     try:
         await openConnection()
         async with pool.acquire() as conn:
-            
             async with conn.cursor() as cur:
                 sql = """ SELECT * FROM `erc20_move_deposit` 
                           WHERE `status`=%s 
@@ -1124,7 +1120,7 @@ async def sql_get_pending_notification_users_erc20(user_server: str='DISCORD'):
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         await logchanbot(traceback.format_exc())
-    return None
+    return []
 
 
 async def sql_updating_pending_move_deposit_erc20(notified_confirmation: bool, failed_notification: bool, txn: str):
@@ -1837,6 +1833,25 @@ async def discord_triviatip_update(message_id: str, status: str):
 ## End of Trivia
 
 
+async def sql_user_balance_mv_single(from_userid: str, to_userid: str, guild_id: str, channel_id: str, real_amount: float, coin: str, tiptype: str, token_decimal: int, contract: str):
+    global pool
+    TOKEN_NAME = coin.upper()
+    currentTs = int(time.time())
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ INSERT INTO user_balance_mv (`token_name`, `contract`, `from_userid`, `to_userid`, `guild_id`, `channel_id`, `real_amount`, `token_decimal`, `type`, `date`) 
+                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                await cur.execute(sql, ( TOKEN_NAME, contract, from_userid, to_userid, guild_id, channel_id, real_amount, token_decimal, tiptype, currentTs ))
+                await conn.commit()
+                return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return None
+
+
 async def sql_user_balance_mv_multiple(user_from: str, user_tos, guild_id: str, channel_id: str, amount_each: float, coin: str, tiptype: str, token_decimal: int, contract: str):
     # user_tos is array "account1", "account2", ....
     global pool
@@ -1849,7 +1864,6 @@ async def sql_user_balance_mv_multiple(user_from: str, user_tos, guild_id: str, 
     try:
         await openConnection()
         async with pool.acquire() as conn:
-            
             async with conn.cursor() as cur:
                 sql = """ INSERT INTO user_balance_mv (`token_name`, `contract`, `from_userid`, `to_userid`, `guild_id`, `channel_id`, `real_amount`, `token_decimal`, `type`, `date`) """+values_sql+""" """
                 await cur.execute(sql,)
@@ -1911,3 +1925,20 @@ real_amount: float, real_deposit_fee: float, token_decimal: int, txn: str, block
         traceback.print_exc(file=sys.stdout)
         await logchanbot(traceback.format_exc())
     return False
+
+
+async def sql_get_tipnotify():
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT `user_id`, `date` FROM `bot_tipnotify_user` """
+                await cur.execute(sql,)
+                result = await cur.fetchall()
+                ignorelist = []
+                for row in result:
+                    ignorelist.append(row['user_id'])
+                return ignorelist
+    except Exception as e:
+        await logchanbot(traceback.format_exc())

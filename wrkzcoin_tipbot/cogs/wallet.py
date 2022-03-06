@@ -91,7 +91,7 @@ class Wallet(commands.Cog):
         await asyncio.sleep(3.0)
         try:
             notify_list = await store.sql_get_pending_notification_users_erc20(SERVER_BOT)
-            if notify_list and len(notify_list) > 0:
+            if len(notify_list) > 0:
                 for each_notify in notify_list:
                     is_notify_failed = False
                     member = self.bot.get_user(int(each_notify['user_id']))
@@ -145,7 +145,6 @@ class Wallet(commands.Cog):
                     coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
                     if coin_family in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR", "BTC", "CHIA", "NANO"]:
                         user_tx = await store.sql_get_userwallet_by_paymentid(eachTx['payment_id'], eachTx['coin_name'], coin_family, SERVER_BOT)
-                        # if eachTx['coin_name'] == "PGO": print(user_tx)
                         if user_tx:
                             user_found = self.bot.get_user(int(user_tx['user_id']))
                             if user_found:
@@ -584,7 +583,6 @@ class Wallet(commands.Cog):
                                     # print('=================='+COIN_NAME+'===========')
                                     list_balance_user = {}
                                     for tx in get_transfers:
-                                        # if COIN_NAME == "PGO": print(tx)
                                         # add to balance only confirmation depth meet
                                         if get_confirm_depth <= int(tx['confirmations']) and tx['amount'] >= get_min_deposit_amount:
                                             if 'address' in tx and tx['address'] in list_balance_user and tx['amount'] > 0:
@@ -593,7 +591,6 @@ class Wallet(commands.Cog):
                                                 list_balance_user[tx['address']] = tx['amount']
                                             try:
                                                 if tx['txid'] not in d:
-                                                    # print(tx['txid'] + " not in DB.")
                                                     # generate from mining
                                                     if tx['category'] == "receive" or tx['category'] == "generate":
                                                         sql = """ INSERT IGNORE INTO `doge_get_transfers` (`coin_name`, `txid`, `blockhash`, `address`, `blocktime`, `amount`, `fee`, `confirmations`, `category`, `time_insert`) 
@@ -1181,7 +1178,6 @@ class Wallet(commands.Cog):
                                 if 'result' in decoded_data:
                                     return decoded_data['result']
                                 else:
-                                    print(decoded_data)
                                     return None
                 except asyncio.TimeoutError:
                     await logchanbot('call_aiohttp_wallet: method_name: {} COIN_NAME {} - timeout {}\nfull_payload:\n{}'.format(method_name, COIN_NAME, timeout, json.dumps(payload)))
@@ -1197,7 +1193,7 @@ class Wallet(commands.Cog):
                             # sometimes => "message": "Not enough unlocked money" for checking fee
                             if method_name == "transfer":
                                 print('{} - transfer'.format(COIN_NAME))
-                                print(full_payload)
+                                # print(full_payload)
                             if response.status == 200:
                                 res_data = await response.read()
                                 res_data = res_data.decode('utf-8')
@@ -1649,13 +1645,13 @@ class Wallet(commands.Cog):
             data = '{"jsonrpc": "1.0", "id":"'+str(uuid.uuid4())+'", "method": "'+method_name+'", "params": ['+payload+'] }'
         
         url = getattr(getattr(self.bot.coin_list, COIN_NAME), "daemon_address")
+        # print(url, method_name)
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(url, data=data, timeout=timeout) as response:
                     if response.status == 200:
                         res_data = await response.read()
                         res_data = res_data.decode('utf-8')
-                        
                         decoded_data = json.loads(res_data)
                         return decoded_data['result']
                     else:
@@ -1963,7 +1959,7 @@ class Wallet(commands.Cog):
     # TODO: all coin, to register
     # ERC-20, TRC-20, native is one
     # Gas Token like BNB, xDAI, MATIC, TRX will be a different address
-    async def sql_register_user(self, userID, coin: str, netname: str, type_coin: str, user_server: str, chat_id: int = 0):
+    async def sql_register_user(self, userID, coin: str, netname: str, type_coin: str, user_server: str, chat_id: int = 0, is_discord_guild: int=0):
         try:
             COIN_NAME = coin.upper()
             user_server = user_server.upper()
@@ -2037,46 +2033,46 @@ class Wallet(commands.Cog):
                         if netname and netname not in ["TRX"]:
                             sql = """ INSERT INTO `erc20_user` (`user_id`, `user_id_erc20`, `type`, `balance_wallet_address`, `address_ts`, 
                                       `seed`, `create_dump`, `private_key`, `public_key`, `xprivate_key`, `xpublic_key`, 
-                                      `called_Update`, `user_server`) 
-                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                      `called_Update`, `user_server`, `is_discord_guild`) 
+                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
                             await cur.execute(sql, (str(userID), user_id_erc20, type_coin_user, w['address'], int(time.time()), 
                                               encrypt_string(w['seed']), encrypt_string(str(w)), encrypt_string(str(w['private_key'])), w['public_key'], 
-                                              encrypt_string(str(w['xprivate_key'])), w['xpublic_key'], int(time.time()), user_server))
+                                              encrypt_string(str(w['xprivate_key'])), w['xpublic_key'], int(time.time()), user_server, is_discord_guild))
                             await conn.commit()
                             return {'balance_wallet_address': w['address']}
                         elif netname and netname in ["TRX"]:
                             sql = """ INSERT INTO `trc20_user` (`user_id`, `user_id_trc20`, `type`, `balance_wallet_address`, `hex_address`, `address_ts`, 
-                                      `private_key`, `public_key`, `called_Update`, `user_server`) 
-                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                      `private_key`, `public_key`, `called_Update`, `user_server`, `is_discord_guild`) 
+                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
                             await cur.execute(sql, (str(userID), user_id_erc20, type_coin_user, w['base58check_address'], w['hex_address'], int(time.time()), 
-                                              encrypt_string(str(w['private_key'])), w['public_key'], int(time.time()), user_server))
+                                              encrypt_string(str(w['private_key'])), w['public_key'], int(time.time()), user_server, is_discord_guild))
                             await conn.commit()
                             return {'balance_wallet_address': w['base58check_address']}
                         elif type_coin.upper() in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                             sql = """ INSERT INTO cn_user_paymentid (`coin_name`, `user_id`, `user_id_coin`, `main_address`, `paymentid`, 
-                                      `balance_wallet_address`, `paymentid_ts`, `user_server`) 
-                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                                      `balance_wallet_address`, `paymentid_ts`, `user_server`, `is_discord_guild`) 
+                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
                             await cur.execute(sql, (COIN_NAME, str(userID), "{}_{}".format(userID, COIN_NAME), main_address, balance_address['payment_id'], 
-                                                    balance_address['integrated_address'], int(time.time()), user_server))
+                                                    balance_address['integrated_address'], int(time.time()), user_server, is_discord_guild))
                             await conn.commit()
-                            return {'balance_wallet_address': balance_address['integrated_address']}
+                            return {'balance_wallet_address': balance_address['integrated_address'], 'paymentid': balance_address['payment_id']}
                         elif type_coin.upper() == "NANO":
-                            sql = """ INSERT INTO `nano_user` (`coin_name`, `user_id`, `user_id_coin`, `balance_wallet_address`, `address_ts`, `user_server`) 
-                                      VALUES (%s, %s, %s, %s, %s, %s) """
-                            await cur.execute(sql, (COIN_NAME, str(userID), "{}_{}".format(userID, COIN_NAME), balance_address['account'], int(time.time()), user_server))
+                            sql = """ INSERT INTO `nano_user` (`coin_name`, `user_id`, `user_id_coin`, `balance_wallet_address`, `address_ts`, `user_server`, `is_discord_guild`) 
+                                      VALUES (%s, %s, %s, %s, %s, %s, %s) """
+                            await cur.execute(sql, (COIN_NAME, str(userID), "{}_{}".format(userID, COIN_NAME), balance_address['account'], int(time.time()), user_server, is_discord_guild))
                             await conn.commit()
                             return {'balance_wallet_address': balance_address['account']}
                         elif type_coin.upper() == "BTC":
-                            sql = """ INSERT INTO `doge_user` (`coin_name`, `user_id`, `user_id_coin`, `balance_wallet_address`, `address_ts`, `privateKey`, `user_server`) 
-                                      VALUES (%s, %s, %s, %s, %s, %s, %s) """
+                            sql = """ INSERT INTO `doge_user` (`coin_name`, `user_id`, `user_id_coin`, `balance_wallet_address`, `address_ts`, `privateKey`, `user_server`, `is_discord_guild`) 
+                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
                             await cur.execute(sql, (COIN_NAME, str(userID), "{}_{}".format(userID, COIN_NAME), balance_address['address'], int(time.time()), 
-                                                    encrypt_string(balance_address['privateKey']), user_server))
+                                                    encrypt_string(balance_address['privateKey']), user_server, is_discord_guild))
                             await conn.commit()
                             return {'balance_wallet_address': balance_address['address']}
                         elif type_coin.upper() == "CHIA":
-                            sql = """ INSERT INTO `xch_user` (`coin_name`, `user_id`, `user_id_coin`, `balance_wallet_address`, `address_ts`, `user_server`) 
-                                      VALUES (%s, %s, %s, %s, %s, %s) """
-                            await cur.execute(sql, (COIN_NAME, str(userID), "{}_{}".format(userID, COIN_NAME), balance_address['address'], int(time.time()), user_server))
+                            sql = """ INSERT INTO `xch_user` (`coin_name`, `user_id`, `user_id_coin`, `balance_wallet_address`, `address_ts`, `user_server`, `is_discord_guild`) 
+                                      VALUES (%s, %s, %s, %s, %s, %s, %s) """
+                            await cur.execute(sql, (COIN_NAME, str(userID), "{}_{}".format(userID, COIN_NAME), balance_address['address'], int(time.time()), user_server, is_discord_guild))
                             await conn.commit()
                             return {'balance_wallet_address': balance_address['address']}
                     except Exception as e:
@@ -2184,7 +2180,7 @@ class Wallet(commands.Cog):
             type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
             get_deposit = await self.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
             if get_deposit is None:
-                get_deposit = await self.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                get_deposit = await self.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
                 
             wallet_address = get_deposit['balance_wallet_address']
             description = ""
@@ -2291,7 +2287,7 @@ class Wallet(commands.Cog):
             coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
             get_deposit = await self.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
             if get_deposit is None:
-                get_deposit = await self.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                get_deposit = await self.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
 
             wallet_address = get_deposit['balance_wallet_address']
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -2353,6 +2349,9 @@ class Wallet(commands.Cog):
                 token_list = tokens.upper().split(",")
             elif " " in tokens:
                 token_list = tokens.upper().split()
+            else:
+                # one token
+                token_list = [tokens.upper().strip()]
             if token_list and len(token_list) > 0:
                 token_list = list(set(token_list))
                 for each_token in token_list:
@@ -2399,7 +2398,7 @@ class Wallet(commands.Cog):
 
                 get_deposit = await self.sql_get_userwallet(str(ctx.author.id), TOKEN_NAME, net_name, type_coin, SERVER_BOT, 0)
                 if get_deposit is None:
-                    get_deposit = await self.sql_register_user(str(ctx.author.id), TOKEN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                    get_deposit = await self.sql_register_user(str(ctx.author.id), TOKEN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
                 wallet_address = get_deposit['balance_wallet_address']
                 if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                     wallet_address = get_deposit['paymentid']
@@ -2545,7 +2544,7 @@ class Wallet(commands.Cog):
             fee_limit = getattr(getattr(self.bot.coin_list, COIN_NAME), "fee_limit")
             get_deposit = await self.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
             if get_deposit is None:
-                get_deposit = await self.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                get_deposit = await self.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
 
             wallet_address = get_deposit['balance_wallet_address']
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:

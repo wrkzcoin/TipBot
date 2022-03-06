@@ -179,7 +179,8 @@ bot.erc_node_list = {
     "xDai": config.default_endpoints.xdai, 
     "ETH": config.default_endpoints.eth,
     "TLOS": config.default_endpoints.tlos,
-    "AVAX": config.default_endpoints.avax
+    "AVAX": config.default_endpoints.avax, 
+    "TRX": config.Tron_Node.fullnode
     }
 
 

@@ -48,7 +48,19 @@ class Stats(commands.Cog):
                         main_balance_balance = num_format_coin(float(main_balance / 10** coin_decimal), COIN_NAME, coin_decimal, False)
                         embed.add_field(name="WALLET **{}**".format(display_name), value=main_balance_balance, inline=False)
                 elif type_coin in ["TRC-20", "TRC-10"]:
-                    print("TODO:")
+                    type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
+                    explorer_link = getattr(getattr(self.bot.coin_list, COIN_NAME), "explorer_link")
+                    net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
+                    contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
+                    coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+                    display_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
+                    if contract is None or (contract and len(contract) < 1):
+                        contract = None
+                    main_balance = await store.trx_wallet_getbalance(config.trc.MainAddress, COIN_NAME, coin_decimal, type_coin, contract)
+                    if main_balance:
+                        # already divided decimal
+                        main_balance_balance = num_format_coin(float(main_balance), COIN_NAME, coin_decimal, False)
+                        embed.add_field(name="WALLET **{}**".format(display_name), value=main_balance_balance, inline=False)
                 elif type_coin == "TRTL-API":
                     print("TODO")
                 elif type_coin == "TRTL-SERVICE":

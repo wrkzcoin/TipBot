@@ -14,12 +14,15 @@ from disnake import ActionRow, Button, ButtonStyle
 from disnake.enums import OptionType
 from disnake.app_commands import Option, OptionChoice
 from typing import List
+from Bot import RowButton_row_close_any_message
 
 
 # Defines a simple paginator of buttons for the embed.
 class MenuPage(disnake.ui.View):
-    def __init__(self, inter, embeds: List[disnake.Embed]):
-        super().__init__(timeout=None)
+    message: disnake.Message
+
+    def __init__(self, inter, embeds: List[disnake.Embed], timeout: float=60):
+        super().__init__(timeout=timeout)
         self.inter = inter
 
         # Sets the embed list variable.
@@ -36,6 +39,18 @@ class MenuPage(disnake.ui.View):
         # Sets the footer of the embeds with their respective page numbers.
         for i, embed in enumerate(self.embeds):
             embed.set_footer(text=f"Page {i + 1} of {len(self.embeds)}")
+
+
+    async def on_timeout(self):
+        for child in self.children:
+            if isinstance(child, disnake.ui.Button):
+                child.disabled = True
+
+        if type(self.inter) == disnake.ApplicationCommandInteraction:
+            await self.inter.edit_original_message(view=RowButton_row_close_any_message())
+        else:
+            if self.message:
+                await self.message.edit(view=RowButton_row_close_any_message())
 
 
     @disnake.ui.button(label="⏪", style=disnake.ButtonStyle.red)

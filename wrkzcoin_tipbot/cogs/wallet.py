@@ -78,6 +78,11 @@ class Wallet(commands.Cog):
         self.unlocked_move_pending_erc20.start()
         self.update_balance_address_history_erc20.start()
         self.notify_new_confirmed_spendable_erc20.start()
+        
+        # TRC-20
+        self.update_balance_trc20.start()
+        self.unlocked_move_pending_trc20.start()
+        self.notify_new_confirmed_spendable_trc20.start()
 
 
     # Notify user
@@ -103,6 +108,28 @@ class Wallet(commands.Cog):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
+
+    @tasks.loop(seconds=15.0)
+    async def notify_new_confirmed_spendable_trc20(self):
+        await asyncio.sleep(3.0)
+        try:
+            notify_list = await store.sql_get_pending_notification_users_trc20(SERVER_BOT)
+            if notify_list and len(notify_list) > 0:
+                for each_notify in notify_list:
+                    is_notify_failed = False
+                    member = self.bot.get_user(int(each_notify['user_id']))
+                    if member:
+                        msg = "You got a new deposit confirmed: ```" + "Amount: {} {}".format(num_format_coin(each_notify['real_amount'], each_notify['token_name'], each_notify['token_decimal'], False), each_notify['token_name']) + "```"
+                        try:
+                            await member.send(msg)
+                        except (disnake.Forbidden, disnake.errors.Forbidden) as e:
+                            is_notify_failed = True
+                        except Exception as e:
+                            traceback.print_exc(file=sys.stdout)
+                            await logchanbot(traceback.format_exc())
+                        update_status = await store.sql_updating_pending_move_deposit_trc20(True, is_notify_failed, each_notify['txn'])
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
 
     # Notify user
     @tasks.loop(seconds=15.0)
@@ -799,6 +826,30 @@ class Wallet(commands.Cog):
 
 
     @tasks.loop(seconds=20.0)
+    async def update_balance_trc20(self):
+        await asyncio.sleep(5.0)
+        erc_contracts = await self.get_all_contracts("TRC-20", False)
+        if len(erc_contracts) > 0:
+            for each_c in erc_contracts:
+                try:
+                    type_name = each_c['type']
+                    await store.trx_check_minimum_deposit(each_c['coin_name'], type_name, each_c['contract'], each_c['decimal'], each_c['min_move_deposit'], each_c['min_gas_tx'], each_c['gas_ticker'], each_c['move_gas_amount'], each_c['chain_id'], each_c['real_deposit_fee'], 7200, SERVER_BOT)
+                    pass
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+        main_tokens = await self.get_all_contracts("TRC-20", True)
+        if len(main_tokens) > 0:
+            for each_c in main_tokens:
+                try:
+                    type_name = each_c['type']
+                    await store.trx_check_minimum_deposit(each_c['coin_name'], type_name, None, each_c['decimal'], each_c['min_move_deposit'], each_c['min_gas_tx'], each_c['gas_ticker'], each_c['move_gas_amount'], each_c['chain_id'], each_c['real_deposit_fee'], 7200, SERVER_BOT)
+                    pass
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+        await asyncio.sleep(5.0)
+
+
+    @tasks.loop(seconds=20.0)
     async def unlocked_move_pending_erc20(self):
         await asyncio.sleep(5.0)
         erc_contracts = await self.get_all_contracts("ERC-20", False)
@@ -809,6 +860,23 @@ class Wallet(commands.Cog):
             for each_name in net_names:
                 try:
                     await store.sql_check_pending_move_deposit_erc20(self.bot.erc_node_list[each_name], each_name, depth)
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+        await asyncio.sleep(5.0)
+
+
+    @tasks.loop(seconds=10.0)
+    async def unlocked_move_pending_trc20(self):
+        await asyncio.sleep(5.0)
+        trc_contracts = await self.get_all_contracts("TRC-20", False)
+        depth = max([each['deposit_confirm_depth'] for each in trc_contracts])
+        net_names = await self.get_all_net_names_tron()
+        net_names = list(net_names.keys())
+
+        if len(net_names) > 0:
+            for each_name in net_names:
+                try:
+                    await store.sql_check_pending_move_deposit_trc20(each_name, depth, "PENDING")
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
         await asyncio.sleep(5.0)
@@ -962,10 +1030,10 @@ class Wallet(commands.Cog):
                             await conn.ping(reconnect=True)
                             async with conn.cursor() as cur:
                                 sql = """ INSERT INTO trc20_external_tx (`token_name`, `contract`, `user_id`, `real_amount`, 
-                                          `real_external_fee`, `token_decimal`, `to_address`, `date`, `txn`, 
-                                          `type`, `user_server`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                          `real_external_fee`, `token_decimal`, `to_address`, `date`, `txn`, `user_server`) 
+                                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
                                 await cur.execute(sql, (TOKEN_NAME, contract, user_id, amount, real_withdraw_fee, coin_decimal, 
-                                                        to_address, int(time.time()), txn_ret['txid'], tiptype.upper(), user_server))
+                                                        to_address, int(time.time()), txn_ret['txid'], user_server))
                                 await conn.commit()
                                 return txn_ret['txid']
                     except Exception as e:
@@ -1910,9 +1978,11 @@ class Wallet(commands.Cog):
                 type_coin_user = COIN_NAME
             if type_coin.upper() in ["TRC-20", "TRC-10"] and COIN_NAME != netname.upper():
                 type_coin = "TRC-20"
+                type_coin_user = "TRC-20"
                 user_id_erc20 = str(userID) + "_" + type_coin.upper()
             elif type_coin.upper() in ["TRC-20", "TRC-10"] and COIN_NAME == netname.upper():
                 user_id_erc20 = str(userID) + "_" + COIN_NAME
+                type_coin_user = "TRX"
 
             if type_coin.upper() == "ERC-20":
                 # passed test XDAI, MATIC
@@ -1975,10 +2045,10 @@ class Wallet(commands.Cog):
                             await conn.commit()
                             return {'balance_wallet_address': w['address']}
                         elif netname and netname in ["TRX"]:
-                            sql = """ INSERT INTO `trc20_user` (`user_id`, `user_id_trc20`, `balance_wallet_address`, `hex_address`, `address_ts`, 
+                            sql = """ INSERT INTO `trc20_user` (`user_id`, `user_id_trc20`, `type`, `balance_wallet_address`, `hex_address`, `address_ts`, 
                                       `private_key`, `public_key`, `called_Update`, `user_server`) 
-                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                            await cur.execute(sql, (str(userID), user_id_erc20, w['base58check_address'], w['hex_address'], int(time.time()), 
+                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                            await cur.execute(sql, (str(userID), user_id_erc20, type_coin_user, w['base58check_address'], w['hex_address'], int(time.time()), 
                                               encrypt_string(str(w['private_key'])), w['public_key'], int(time.time()), user_server))
                             await conn.commit()
                             return {'balance_wallet_address': w['base58check_address']}
@@ -2034,6 +2104,24 @@ class Wallet(commands.Cog):
             await logchanbot(traceback.format_exc())
         return {}
 
+
+    async def get_all_net_names_tron(self):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `coin_tronscan_setting` WHERE `enable`=%s """
+                    await cur.execute(sql, (1,))
+                    result = await cur.fetchall()
+                    net_names = {}
+                    if result and len(result) > 0:
+                        for each in result:
+                            net_names[each['net_name']] = each
+                        return net_names
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return {}
 
     async def generate_qr_address(
         self, 
@@ -2235,7 +2323,10 @@ class Wallet(commands.Cog):
                 await ctx.reply(embed=embed)
             # Add update for future call
             try:
-                update_call = await store.sql_update_erc20_user_update_call(str(ctx.author.id))
+                if type_coin == "ERC-20":
+                    update_call = await store.sql_update_erc20_user_update_call(str(ctx.author.id))
+                elif type_coin == "TRC-10" or type_coin == "TRC-20":
+                    update_call = await store.sql_update_trc20_user_update_call(str(ctx.author.id))
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
         except Exception as e:
@@ -2349,10 +2440,12 @@ class Wallet(commands.Cog):
                 elif num_coins == total_coins:
                     all_pages.append(page)
                     break
+            view = MenuPage(ctx, all_pages, timeout=30)
             if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(embed=all_pages[0], view=MenuPage(ctx, all_pages))
+                view.message = await ctx.response.send_message(embed=all_pages[0], view=view)
             else:
-                await tmp_msg.edit(content=None, embed=all_pages[0], view=MenuPage(ctx, all_pages))
+                await tmp_msg.delete()
+                view.message = await ctx.reply(content=None, embed=all_pages[0], view=view)
 
 
     @commands.command(

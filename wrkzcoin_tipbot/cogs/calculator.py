@@ -16,7 +16,43 @@ class Calculator(commands.Cog):
         self.bot = bot
 
 
-    @commands.guild_only()
+    async def async_calc(self, ctx, eval_string: str=None):
+        if eval_string is None:
+            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, Example: `cal 2+3+4/2`'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
+        else:
+            eval_string_original = eval_string
+            eval_string = eval_string.replace(",", "")
+            supported_function = ['+', '-', '*', '/', '(', ')', '.', ',']
+            additional_support = ['exp', 'sqrt', 'abs', 'log10', 'log', 'sinh', 'cosh', 'tanh', 'sin', 'cos', 'tan']
+            test_string = eval_string
+            for each in additional_support:
+                test_string = test_string.replace(each, "")
+            if all([c.isdigit() or c in supported_function for c in test_string]):
+                try:
+                    result = numexpr.evaluate(eval_string).item()
+                    msg = f'{EMOJI_INFORMATION} {ctx.author.mention} result of `{eval_string_original}`:```{result}```'
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.reply(msg)
+                except Exception as e:
+                    msg = f'{EMOJI_ERROR} {ctx.author.mention} I can not find the result for `{eval_string_original}`.'
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.reply(msg)
+            else:
+                msg = f'{EMOJI_ERROR} {ctx.author.mention} Unsupported usage for `{eval_string_original}`.'
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(msg)
+                else:
+                    await ctx.reply(msg)
+
+
     @commands.slash_command(
         usage="cal <expression>",
         options=[
@@ -29,27 +65,9 @@ class Calculator(commands.Cog):
         ctx, 
         eval_string: str = None
     ):
-        if eval_string is None:
-            await ctx.reply(f'{EMOJI_INFORMATION} {ctx.author.mention}, Example: `cal 2+3+4/2`')
-        else:
-            eval_string_original = eval_string
-            eval_string = eval_string.replace(",", "")
-            supported_function = ['+', '-', '*', '/', '(', ')', '.', ',']
-            additional_support = ['exp', 'sqrt', 'abs', 'log10', 'log', 'sinh', 'cosh', 'tanh', 'sin', 'cos', 'tan']
-            test_string = eval_string
-            for each in additional_support:
-                test_string = test_string.replace(each, "")
-            if all([c.isdigit() or c in supported_function for c in test_string]):
-                try:
-                    result = numexpr.evaluate(eval_string).item()
-                    await ctx.response.send_message(f'{EMOJI_INFORMATION} {ctx.author.mention} result of `{eval_string_original}`:```{result}```')
-                except Exception as e:
-                    await ctx.response.send_message(f'{EMOJI_ERROR} {ctx.author.mention} I can not find the result for `{eval_string_original}`.')
-            else:
-                await ctx.response.send_message(f'{EMOJI_ERROR} {ctx.author.mention} Unsupported usage for `{eval_string_original}`.')
+        await self.async_calc(ctx, eval_string)
 
 
-    @commands.guild_only()
     @commands.command(
         usage="cal <expression>", 
         aliases=['cal', 'calc', 'calculate'], 
@@ -60,24 +78,7 @@ class Calculator(commands.Cog):
         ctx, 
         eval_string: str = None
     ):
-        if eval_string is None:
-            await ctx.reply(f'{EMOJI_INFORMATION} {ctx.author.mention}, Example: `cal 2+3+4/2`')
-        else:
-            eval_string_original = eval_string
-            eval_string = eval_string.replace(",", "")
-            supported_function = ['+', '-', '*', '/', '(', ')', '.', ',']
-            additional_support = ['exp', 'sqrt', 'abs', 'log10', 'log', 'sinh', 'cosh', 'tanh', 'sin', 'cos', 'tan']
-            test_string = eval_string
-            for each in additional_support:
-                test_string = test_string.replace(each, "")
-            if all([c.isdigit() or c in supported_function for c in test_string]):
-                try:
-                    result = numexpr.evaluate(eval_string).item()
-                    await ctx.reply(f'{EMOJI_INFORMATION} {ctx.author.mention} result of `{eval_string_original}`:```{result}```')
-                except Exception as e:
-                    await ctx.reply(f'{EMOJI_ERROR} {ctx.author.mention} I can not find the result for `{eval_string_original}`.')
-            else:
-                await ctx.reply(f'{EMOJI_ERROR} {ctx.author.mention} Unsupported usage for `{eval_string_original}`.')
+        await self.async_calc(ctx, eval_string)
 
 
 def setup(bot):

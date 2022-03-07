@@ -415,6 +415,23 @@ def decrypt_string(decrypted: str):
     return decrypted.decode()
 
 
+## https://github.com/MrJacob12/StringProgressBar
+def createBox(value, maxValue, size, show_percentage: bool=False):
+    percentage = value / maxValue
+    progress = round((size * percentage))
+    emptyProgress = size - progress
+        
+    progressText = '█'
+    emptyProgressText = '—'
+    percentageText = str(round(percentage * 100)) + '%'
+
+    if show_percentage:
+        bar = '[' + progressText*progress + emptyProgressText*emptyProgress + ']' + percentageText
+    else:
+        bar = '[' + progressText*progress + emptyProgressText*emptyProgress + ']'
+    return bar
+
+
 @click.command()
 def main():
     for filename in os.listdir('./cogs/'):

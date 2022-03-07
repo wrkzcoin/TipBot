@@ -7,4 +7,4 @@ wrkzcoin_tipbot/tb/test.py
 wrkzcoin_tipbot/tb/*.gif
 
 testing_note.txt
-wrkzcoin_tipbot/testing_notes/tipbot_remark.txt
+wrkzcoin_tipbot/testing_notes/*

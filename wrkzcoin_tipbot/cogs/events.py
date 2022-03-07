@@ -10,15 +10,22 @@ from disnake.ext import commands
 from attrdict import AttrDict
 
 import Bot
+from Bot import SERVER_BOT, num_format_coin, EMOJI_INFORMATION, seconds_str
+
 import store
 from config import config
 from Bot import truncate, logchanbot
+from cogs.economy import database_economy
+from cogs.wallet import WalletAPI
+import redis_utils
+
 
 class Events(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
         self.ttlcache = TTLCache(maxsize=500, ttl=60.0)
+        redis_utils.openRedis()
 
 
     async def get_coin_setting(self):
@@ -95,8 +102,7 @@ class Events(commands.Cog):
                 get_message = await store.get_discord_triviatip_by_msgid(str(inter.message.id))
                 if get_message and int(get_message['from_userid']) == inter.author.id:
                     ## await inter.response.send_message(content="You are the owner of trivia id: {}".format(str(inter.message.id)), ephemeral=True)
-                    ## return
-                    pass
+                    return
                 # Check if user in
                 check_if_in = await store.check_if_trivia_responder_in(str(inter.message.id), get_message['from_userid'], str(inter.author.id))
                 if check_if_in:
@@ -138,8 +144,7 @@ class Events(commands.Cog):
                 get_message = await store.get_discord_mathtip_by_msgid(str(inter.message.id))
                 if get_message and int(get_message['from_userid']) == inter.author.id:
                     ## await inter.response.send_message(content="You are the owner of trivia id: {}".format(str(inter.message.id)), ephemeral=True)
-                    # return
-                    pass
+                    return
                 # Check if user in
                 check_if_in = await store.check_if_mathtip_responder_in(str(inter.message.id), get_message['from_userid'], str(inter.author.id))
                 if check_if_in:
@@ -175,6 +180,128 @@ class Events(commands.Cog):
                 )
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
+        elif inter.message.author == self.bot.user and inter.component.custom_id.startswith("economy_{}_".format(inter.author.id)):
+            print("OK, it's you")
+            if inter.component.custom_id.startswith("economy_{}_eat_".format(inter.author.id)):
+                # Eat
+                name = inter.component.custom_id.replace("economy_{}_eat_".format(inter.author.id), "")
+                db = database_economy()
+                get_foodlist_guild = await db.economy_get_guild_foodlist(str(inter.guild.id), False)
+                all_food_in_guild = {}
+                if get_foodlist_guild and len(get_foodlist_guild) > 0:
+                    for each_food in get_foodlist_guild:
+                        all_food_in_guild[str(each_food['food_emoji'])] = each_food['food_id']
+                get_food_id = await db.economy_get_food_id(all_food_in_guild[name])
+                COIN_NAME = get_food_id['cost_coin_name'].upper()
+                User_WalletAPI = WalletAPI(self.bot)
+                net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
+                type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
+                deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
+                get_deposit = await User_WalletAPI.sql_get_userwallet(str(inter.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                if get_deposit is None:
+                    get_deposit = await User_WalletAPI.sql_register_user(str(inter.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                    
+                if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                    wallet_address = get_deposit['paymentid']
+
+                height = None
+                try:
+                    if type_coin in ["ERC-20", "TRC-20"]:
+                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
+                    else:
+                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                # height can be None
+                userdata_balance = await store.sql_user_balance_single(str(inter.author.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+                total_balance = userdata_balance['adjust']
+
+                # Negative check
+                try:
+                    if total_balance < 0:
+                        msg_negative = 'Negative balance detected:\nUser: '+str(inter.author.id)+'\nCoin: '+COIN_NAME+'\nBalance: '+str(total_balance)
+                        await logchanbot(msg_negative)
+                except Exception as e:
+                    await logchanbot(traceback.format_exc())
+                # End negative check
+                food_name = get_food_id['food_name']
+                if get_food_id['cost_expense_amount'] > total_balance:
+                    if inter.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                        self.bot.GAME_INTERACTIVE_ECO.remove(inter.author.id)
+                    await inter.response.send_message(content=f"{EMOJI_RED_NO} {inter.author.mention}, Insufficient balance to eat `{food_name}`.")
+                else:
+                    # Else, go on and Insert work to DB
+                    add_energy = get_food_id['gained_energy']
+                    get_userinfo = await db.economy_get_user(str(inter.author.id), '{}#{}'.format(inter.author.name, inter.author.discriminator))
+                    
+                    if get_userinfo['energy_current'] + add_energy > get_userinfo['energy_total']:
+                        add_energy = get_userinfo['energy_total'] - get_userinfo['energy_current']
+                    total_energy = get_userinfo['energy_current'] + add_energy
+                    COIN_NAME = get_food_id['cost_coin_name']
+                    coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+                    # Not to duplicate
+                    key = inter.component.custom_id
+                    try:
+                        if self.ttlcache[key] == key:
+                            return
+                        else:
+                            self.ttlcache[key] = key
+                    except Exception as e:
+                        pass
+                    # Not to duplicate
+                    insert_eating = await db.economy_insert_eating(str(inter.author.id), str(inter.guild.id), get_food_id['cost_coin_name'], 
+                                                                   get_food_id['cost_expense_amount'], get_food_id['fee_ratio']*get_food_id['cost_expense_amount'], 
+                                                                   coin_decimal, add_energy)
+
+                    paid_money = '{} {}'.format(num_format_coin(get_food_id['cost_expense_amount'], get_food_id['cost_coin_name'], coin_decimal, False), COIN_NAME)
+                    if insert_eating:
+                        await inter.response.send_message(f'{EMOJI_INFORMATION} {inter.author.mention} You paid `{paid_money}` and ate `{food_name}`. You gained `{add_energy}` energy. You have total `{total_energy}` energy.')
+                        await inter.message.delete()
+                    else:
+                        await inter.response.send_message(content=f"{EMOJI_RED_NO} {inter.author.mention}, Internal error.")
+                if inter.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                    self.bot.GAME_INTERACTIVE_ECO.remove(inter.author.id)
+            elif inter.component.custom_id.startswith("economy_{}_work_".format(inter.author.id)):
+                # Work
+                name = inter.component.custom_id.replace("economy_{}_work_".format(inter.author.id), "")
+                db = database_economy()
+                all_work_in_guild = {}
+                get_worklist_guild = await db.economy_get_guild_worklist(str(inter.guild.id), False)
+                if get_worklist_guild and len(get_worklist_guild) > 0:
+                    get_userinfo = await db.economy_get_user(str(inter.author.id), '{}#{}'.format(inter.author.name, inter.author.discriminator))
+                    for each_work in get_worklist_guild:
+                        all_work_in_guild[each_work['work_emoji']] = each_work['work_id']
+
+                    # Insert work to DB
+                    get_work_id = await db.economy_get_workd_id(all_work_in_guild[name])
+                    add_energy = get_work_id['exp_gained_loss']
+                    
+                    if get_userinfo['energy_current'] + get_work_id['energy_loss'] > get_userinfo['energy_total'] and get_work_id['energy_loss'] > 0:
+                        add_energy = get_userinfo['energy_total'] - get_userinfo['energy_current']
+                    COIN_NAME = get_work_id['reward_coin_name']
+                    coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+                    # Not to duplicate
+                    key = inter.component.custom_id
+                    try:
+                        if self.ttlcache[key] == key:
+                            return
+                        else:
+                            self.ttlcache[key] = key
+                    except Exception as e:
+                        pass
+                    # Not to duplicate
+                    insert_activity = await db.economy_insert_activity(str(inter.author.id), str(inter.guild.id), all_work_in_guild[name], get_work_id['duration_in_second'], COIN_NAME, get_work_id['reward_expense_amount'], get_work_id['reward_expense_amount']*get_work_id['fee_ratio'], coin_decimal, add_energy, get_work_id['health_loss'], get_work_id['energy_loss'])
+                    if insert_activity:
+                        additional_text = " You can claim in: `{}`.".format(seconds_str(get_work_id['duration_in_second']))
+                        task_name = "{} {}".format(get_work_id['work_name'], get_work_id['work_emoji'])
+                        await inter.response.send_message(f'{EMOJI_INFORMATION} {inter.author.mention} You started a new task - {task_name}! {additional_text}')
+                        await inter.message.delete()
+                    else:
+                        return {"error": f"{EMOJI_INFORMATION} {inter.author.mention}, Internal error."}
+                    if inter.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                        self.bot.GAME_INTERACTIVE_ECO.remove(inter.author.id)
+
+
 
     @commands.Cog.listener()
     async def on_shard_ready(self, shard_id):

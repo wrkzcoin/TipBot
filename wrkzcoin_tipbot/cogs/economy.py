@@ -10,6 +10,8 @@ from config import config
 from Bot import *
 from Bot import logchanbot
 import store
+from cogs.wallet import WalletAPI
+import redis_utils
 
 
 class database_economy():
@@ -895,6 +897,7 @@ class Economy(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        redis_utils.openRedis()
         self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
         self.db = database_economy()
 
@@ -925,7 +928,7 @@ class Economy(commands.Cog):
         else:
             return  {"error": f"{EMOJI_RED_NO} {ctx.author.mention}, There is no economy channel yet!"}
 
-        if ctx.author.id in GAME_INTERACTIVE_ECO:
+        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
             return {"error": f"{ctx.author.mention} You are ongoing with one **game economy** play."}
 
         return {"result": True}
@@ -1000,8 +1003,8 @@ class Economy(commands.Cog):
                             elif level < get_shop_item['limit_level']:
                                 return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} Your level `{level}` is still low. Needed level `{str(needed_level)}`."}
                             else:
-                                if ctx.author.id not in GAME_INTERACTIVE_ECO:
-                                    GAME_INTERACTIVE_ECO.append(ctx.author.id)
+                                if ctx.author.id not in self.bot.GAME_INTERACTIVE_ECO:
+                                    self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
                                 # Make order
                                 add_item_numbers = get_shop_item['item_numbers']
                                 update_item = await store.discord_economy_userinfo_what(str(ctx.guild.id), str(ctx.author.id), get_shop_item['id'], item_name, 0, add_item_numbers)
@@ -1028,8 +1031,8 @@ class Economy(commands.Cog):
                             elif need_fishing_exp > 0 and your_fishing_exp <  need_fishing_exp:
                                 return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} Your fishing exp `{your_fishing_exp}`  is still low. Needed fishing exp `{str(need_fishing_exp)}`."}
                             else:
-                                if ctx.author.id not in GAME_INTERACTIVE_ECO:
-                                    GAME_INTERACTIVE_ECO.append(ctx.author.id)
+                                if ctx.author.id not in self.bot.GAME_INTERACTIVE_ECO:
+                                    self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
                                 # Make order
                                 add_item_numbers = get_shop_item['item_numbers']
                                 if (item_name.upper() == "BAIT" or item_name == "🎣") and get_userinfo['fishing_bait'] + add_item_numbers > config.economy.max_bait_per_user:
@@ -1052,7 +1055,7 @@ class Economy(commands.Cog):
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
-                if ctx.author.id in GAME_INTERACTIVE_ECO: GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+                if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO: self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
         else:
             return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} Internal error."}
 
@@ -1090,8 +1093,8 @@ class Economy(commands.Cog):
                         else:
                             # Enough to sell. Update credit, and mark fish as sold
                             # We round credit earning
-                            if ctx.author.id not in GAME_INTERACTIVE_ECO:
-                                GAME_INTERACTIVE_ECO.append(ctx.author.id)
+                            if ctx.author.id not in self.bot.GAME_INTERACTIVE_ECO:
+                                self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
                             total_earn = int(float(selected_fishes['Weights']) * float(selected_fishes['credit_per_kg']) * market_factored)
                             total_weight = float(selected_fishes['Weights'])
                             get_userinfo['credit'] += total_earn
@@ -1116,8 +1119,8 @@ class Economy(commands.Cog):
                         # No minimum to sell
                         # Enough to sell. Update credit, and mark fish as sold
                         # We round credit earning
-                        if ctx.author.id not in GAME_INTERACTIVE_ECO:
-                            GAME_INTERACTIVE_ECO.append(ctx.author.id)
+                        if ctx.author.id not in self.bot.GAME_INTERACTIVE_ECO:
+                            self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
                         total_earn = int(float(selected_item['total_products']) * float(selected_item['credit_per_item']) * market_factored)
                         get_userinfo = await self.db.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
                         get_userinfo['credit'] += total_earn
@@ -1183,8 +1186,8 @@ class Economy(commands.Cog):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
-        if ctx.author.id in GAME_INTERACTIVE_ECO:
-            GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+            self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
         return
 
 
@@ -1277,8 +1280,8 @@ class Economy(commands.Cog):
         elif get_user_inventory and len(get_user_inventory) > 0:
             # list all of them
             try:
-                if ctx.author.id not in GAME_INTERACTIVE_ECO:
-                    GAME_INTERACTIVE_ECO.append(ctx.author.id)
+                if ctx.author.id not in self.bot.GAME_INTERACTIVE_ECO:
+                    self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
                     # Add work if he needs to do
                     e = disnake.Embed(title="{}#{} Item in backpack".format(ctx.author.name, ctx.author.discriminator), description="Economy [Testing]", timestamp=datetime.utcnow())
                     all_item_backpack = {}
@@ -1306,8 +1309,8 @@ class Economy(commands.Cog):
                             try:
                                 reaction, user = await self.bot.wait_for('reaction_add', timeout=60, check=check)
                             except asyncio.TimeoutError:
-                                if ctx.author.id in GAME_INTERACTIVE_ECO:
-                                    GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+                                if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                                    self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                                 try:
                                     await msg.delete()
                                 except Exception as e:
@@ -1343,22 +1346,22 @@ class Economy(commands.Cog):
                                         await msg.delete()
                                     else:
                                         return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} Internal error."}
-                                    if ctx.author.id in GAME_INTERACTIVE_ECO:
-                                        GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+                                    if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                                        self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                                     break
                                 except Exception as e:
                                     await logchanbot(traceback.format_exc())
                             elif str(reaction.emoji) == EMOJI_OK_BOX:
-                                if ctx.author.id in GAME_INTERACTIVE_ECO:
-                                    GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+                                if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                                    self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                                 return {"result": True} ## True: No need to reply after call this function
                     else:
-                        if ctx.author.id in GAME_INTERACTIVE_ECO:
-                            GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+                        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                            self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                         return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} You do not have anything in your backpack."}
             except Exception as e:
-                if ctx.author.id in GAME_INTERACTIVE_ECO:
-                    GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+                if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                    self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                 traceback.print_exc(file=sys.stdout)
         else:
             return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} You do not have anything in your backpack."}
@@ -1449,30 +1452,30 @@ class Economy(commands.Cog):
                 will_plant = config.economy.max_farm_plant_per_user - check_planting_nos
             # If health less than 50%, stop
             if get_userinfo['health_current']/get_userinfo['health_total'] < 0.5:
-                if ctx.author.id in GAME_INTERACTIVE_ECO:
-                    GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+                if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                    self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                 return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} Your health is having issue. Do some heatlh check."}
             # If energy less than 20%, stop
             if get_userinfo['energy_current']/get_userinfo['energy_total'] < 0.2:
-                if ctx.author.id in GAME_INTERACTIVE_ECO:
-                    GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+                if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                    self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                 return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} You have very small energy. Eat to powerup."}
 
-            if ctx.author.id in GAME_INTERACTIVE_ECO:
+            if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
                 return {"error": f"{ctx.author.mention} You are ongoing with one **game economy** play."}
             else:
-                GAME_INTERACTIVE_ECO.append(ctx.author.id)
+                self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
 
             if plant_name not in plant_list_names and plant_name != "TREE":
                 plant_name_str = ", ".join(plant_list_names)
-                if ctx.author.id in GAME_INTERACTIVE_ECO:
-                    GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+                if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                    self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                 return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} They are not available. Please use any of this `{plant_name_str}`."}
             # TODO: check if user already has max planted
             
             if check_planting_nos >= config.economy.max_farm_plant_per_user and plant_name != "TREE":
-                if ctx.author.id in GAME_INTERACTIVE_ECO:
-                    GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+                if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                    self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                 return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} You planted maximum number of crops already."}
             elif plant_name == "TREE":
                 await asyncio.sleep(1.0)
@@ -1507,8 +1510,8 @@ class Economy(commands.Cog):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
-        if ctx.author.id in GAME_INTERACTIVE_ECO:
-            GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+            self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
 
 
     async def eco_collect(self, ctx, what):
@@ -1527,8 +1530,8 @@ class Economy(commands.Cog):
             return {"error": f"{ctx.author.mention}, You do not have any chicken."}
         elif what == "MILK":
             try:
-                if ctx.author.id not in GAME_INTERACTIVE_ECO:
-                    GAME_INTERACTIVE_ECO.append(ctx.author.id)
+                if ctx.author.id not in self.bot.GAME_INTERACTIVE_ECO:
+                    self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
                 total_can_collect = 0
                 qty_collect = 0.0
                 get_cows = await self.db.economy_dairy_cow_ownership(str(ctx.author.id))
@@ -1553,8 +1556,8 @@ class Economy(commands.Cog):
                 await logchanbot(traceback.format_exc())
         elif what == "EGG":
             try:
-                if ctx.author.id not in GAME_INTERACTIVE_ECO:
-                    GAME_INTERACTIVE_ECO.append(ctx.author.id)
+                if ctx.author.id not in self.bot.GAME_INTERACTIVE_ECO:
+                    self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
                 total_can_collect = 0
                 qty_collect = 0.0
                 get_chickens = await self.db.economy_chicken_farm_ownership(str(ctx.author.id))
@@ -1579,8 +1582,8 @@ class Economy(commands.Cog):
                 await logchanbot(traceback.format_exc())
         else:
             return {"error": f"{ctx.author.mention}, Sorry `{what}` is not available."}
-        if ctx.author.id in GAME_INTERACTIVE_ECO:
-            GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+            self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
 
 
     async def eco_dairy(self, ctx, member):
@@ -1839,15 +1842,15 @@ class Economy(commands.Cog):
         if "error" in check_this_ctx:
             return check_this_ctx
 
-        if ctx.author.id in GAME_INTERACTIVE_ECO:
+        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
             return {"error": f"{EMOJI_RED_NO} {ctx.author.mention}, You are ongoing with one **game economy** play."}        
 
         get_userinfo = await self.db.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
         if get_userinfo and get_userinfo['numb_farm'] == 0:
             return {"error": f"{EMOJI_RED_NO} {ctx.author.mention}, You do not have any farm."}
         try:
-            if ctx.author.id not in GAME_INTERACTIVE_ECO:
-                GAME_INTERACTIVE_ECO.append(ctx.author.id)
+            if ctx.author.id not in self.bot.GAME_INTERACTIVE_ECO:
+                self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
             total_can_harvest = 0
             can_harvest = []
             havested_crops = ""
@@ -1871,8 +1874,8 @@ class Economy(commands.Cog):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
-        if ctx.author.id in GAME_INTERACTIVE_ECO:
-            GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+            self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
 
 
     async def eco_fishing(self, ctx):
@@ -1897,21 +1900,21 @@ class Economy(commands.Cog):
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
 
-        if ctx.author.id in GAME_INTERACTIVE_ECO:
+        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
             return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} You are ongoing with one **game economy** play."}
         else:
-            GAME_INTERACTIVE_ECO.append(ctx.author.id)
+            self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
 
         try:
             # If health less than 50%, stop
             if get_userinfo['health_current']/get_userinfo['health_total'] < 0.5:
-                if ctx.author.id in GAME_INTERACTIVE_ECO:
-                    GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+                if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                    self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                 return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} Your health is having issue. Do some heatlh check."}
             # If energy less than 20%, stop
             if get_userinfo['energy_current']/get_userinfo['energy_total'] < 0.2:
-                if ctx.author.id in GAME_INTERACTIVE_ECO:
-                    GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+                if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                    self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                 return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} You have very small energy. Eat to powerup."}
 
             has_boat = False
@@ -1991,8 +1994,8 @@ class Economy(commands.Cog):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
-        if ctx.author.id in GAME_INTERACTIVE_ECO:
-            GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+            self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
         return
 
 
@@ -2008,19 +2011,19 @@ class Economy(commands.Cog):
 
         # If health less than 50%, stop
         if get_userinfo['health_current']/get_userinfo['health_total'] < 0.5:
-            if ctx.author.id in GAME_INTERACTIVE_ECO:
-                GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+            if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
             return {"error": f"{EMOJI_RED_NO} {ctx.author.mention}, Your health is having issue. Do some heatlh check."}
         # If energy less than 20%, stop
         if get_userinfo['energy_current']/get_userinfo['energy_total'] < 0.5:
-            if ctx.author.id in GAME_INTERACTIVE_ECO:
-                GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+            if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
             return {"error": f"{EMOJI_RED_NO} {ctx.author.mention}, You have very small energy. Eat to powerup."}
 
-        if ctx.author.id in GAME_INTERACTIVE_ECO:
+        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
             return {"error": f"{EMOJI_RED_NO} {ctx.author.mention}, You are ongoing with one **game economy** play."}
         else:
-            GAME_INTERACTIVE_ECO.append(ctx.author.id)
+            self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
 
         try:
             # Get list of items:
@@ -2041,8 +2044,8 @@ class Economy(commands.Cog):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
-        if ctx.author.id in GAME_INTERACTIVE_ECO:
-            GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+            self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
         return
 
 
@@ -2065,10 +2068,10 @@ class Economy(commands.Cog):
             remaining = config.economy.search_duration_lap - int(time.time()) + get_last_searching[0]['date']
             return {"error": f"{EMOJI_RED_NO} {ctx.author.mention}, You just searched recently. Try again in `{seconds_str(remaining)}`."}
 
-        if ctx.author.id in GAME_INTERACTIVE_ECO:
+        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
             return {"error": f"{EMOJI_RED_NO} {ctx.author.mention}, You are ongoing with one **game economy** play."}
         else:
-            GAME_INTERACTIVE_ECO.append(ctx.author.id)
+            self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
 
         try:
             # Get list of items:
@@ -2102,8 +2105,8 @@ class Economy(commands.Cog):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
-        if ctx.author.id in GAME_INTERACTIVE_ECO:
-            GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+            self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
         return
 
 
@@ -2112,7 +2115,7 @@ class Economy(commands.Cog):
         if "error" in check_this_ctx:
             return check_this_ctx
 
-        if ctx.author.id in GAME_INTERACTIVE_ECO:
+        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
             return {"error": f"{EMOJI_RED_NO} {ctx.author.mention}, You are ongoing with one **game economy** play."}
 
         # If a user ate a lot already for the last 12h
@@ -2133,8 +2136,8 @@ class Economy(commands.Cog):
             # If energy less than 20%, stop
             if get_userinfo['energy_current']/get_userinfo['energy_total'] > 0.95:
                 return {"error": f"{EMOJI_RED_NO} {ctx.author.mention}, You still have much energy."}
-            if ctx.author.id not in GAME_INTERACTIVE_ECO:
-                GAME_INTERACTIVE_ECO.append(ctx.author.id)
+            if ctx.author.id not in self.bot.GAME_INTERACTIVE_ECO:
+                self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
                     # Add work if he needs to do
                 e = disnake.Embed(title="{}#{} Food list in guild: {}".format(ctx.author.name, ctx.author.discriminator, ctx.guild.name), description="Economy [Testing]", timestamp=datetime.utcnow())
                 get_foodlist_guild = await self.db.economy_get_guild_foodlist(str(ctx.guild.id), False)
@@ -2155,8 +2158,8 @@ class Economy(commands.Cog):
                         try:
                             reaction, user = await self.bot.wait_for('reaction_add', timeout=60, check=check)
                         except asyncio.TimeoutError:
-                            if ctx.author.id in GAME_INTERACTIVE_ECO:
-                                GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+                            if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                                self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                             if type(ctx) is not disnake.interactions.MessageInteraction:
                                 await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
                             try:
@@ -2170,40 +2173,42 @@ class Economy(commands.Cog):
                                 get_food_id = await self.db.economy_get_food_id(all_food_in_guild[str(reaction.emoji)])
                                 # Check balance:
                                 COIN_NAME = get_food_id['cost_coin_name'].upper()
-                                user_from = await store.sql_get_userwallet(str(ctx.author.id), COIN_NAME)
+                                User_WalletAPI = WalletAPI(self.bot)
+                                net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
+                                type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
+                                deposit_confirm_depth = getattr(getattr(self.bot.coin_list, TOKEN_NAME), "deposit_confirm_depth")
+                                user_from = await User_WalletAPI.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
                                 if user_from is None:
-                                    if COIN_NAME in ENABLE_COIN_ERC:
-                                        w = await create_address_eth()
-                                        user_from = await store.sql_register_user(str(ctx.author.id), COIN_NAME, SERVER_BOT, 0, w)
-                                    elif COIN_NAME in ENABLE_COIN_TRC:
-                                        result = await store.create_address_trx()
-                                        user_from = await store.sql_register_user(str(ctx.author.id), COIN_NAME, SERVER_BOT, 0, result)
+                                    user_from = await User_WalletAPI.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                                    
+                                if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                                    wallet_address = get_deposit['paymentid']
+
+                                height = None
+                                try:
+                                    if type_coin in ["ERC-20", "TRC-20"]:
+                                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
                                     else:
-                                        user_from = await store.sql_register_user(str(ctx.author.id), COIN_NAME, SERVER_BOT, 0)
-                                userdata_balance = await store.sql_user_balance(str(ctx.author.id), COIN_NAME)
-                                xfer_in = 0
-                                if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
-                                    xfer_in = await store.sql_user_balance_get_xfer_in(str(ctx.author.id), COIN_NAME)
-                                if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
-                                    actual_balance = float(xfer_in) + float(userdata_balance['Adjust'])
-                                elif COIN_NAME in ENABLE_COIN_NANO:
-                                    actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
-                                    actual_balance = round(actual_balance / get_decimal(COIN_NAME), 6) * get_decimal(COIN_NAME)
-                                else:
-                                    actual_balance = int(xfer_in) + int(userdata_balance['Adjust'])
+                                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
+                                except Exception as e:
+                                    traceback.print_exc(file=sys.stdout)
+
+                                # height can be None
+                                userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+                                total_balance = userdata_balance['adjust']
 
                                 # Negative check
                                 try:
-                                    if actual_balance < 0:
-                                        msg_negative = 'Negative balance detected:\nUser: '+str(ctx.author.id)+'\nCoin: '+COIN_NAME+'\nAtomic Balance: '+str(actual_balance)
+                                    if total_balance < 0:
+                                        msg_negative = 'Negative balance detected:\nUser: '+str(ctx.author.id)+'\nCoin: '+COIN_NAME+'\nBalance: '+str(total_balance)
                                         await logchanbot(msg_negative)
                                 except Exception as e:
                                     await logchanbot(traceback.format_exc())
                                 # End negative check
                                 food_name = get_food_id['food_name']
-                                if get_food_id['cost_expense_amount'] > actual_balance:
-                                    if ctx.author.id in GAME_INTERACTIVE_ECO:
-                                        GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+                                if get_food_id['cost_expense_amount'] > total_balance:
+                                    if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                                        self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                                     return {"error": f"{EMOJI_RED_NO} {ctx.author.mention}, Insufficient balance to eat `{food_name}`."}
                                 # Else, go on and Insert work to DB
                                 add_energy = get_food_id['gained_energy']
@@ -2221,18 +2226,18 @@ class Economy(commands.Cog):
                                     await ctx.message.add_reaction(reaction.emoji)
                                 else:
                                     return {"error": f"{EMOJI_RED_NO} {ctx.author.mention}, Internal error."}
-                                if ctx.author.id in GAME_INTERACTIVE_ECO:
-                                    GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+                                if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                                    self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                                 break
                             except Exception as e:
                                 await logchanbot(traceback.format_exc())
                         elif str(reaction.emoji) == EMOJI_OK_BOX:
-                            if ctx.author.id in GAME_INTERACTIVE_ECO:
-                                GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+                            if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                                self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                             return
                 else:
-                    if ctx.author.id in GAME_INTERACTIVE_ECO:
-                        GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+                    if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                        self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                     return {"error": f"{EMOJI_RED_NO} {ctx.author.mention}, Sorry, there is no available work yet."}
         else:
             return {"error": f"{EMOJI_RED_NO} {ctx.author.mention}, Internal error."}
@@ -2260,7 +2265,7 @@ class Economy(commands.Cog):
         else:
             return {"error": f"{EMOJI_RED_NO} {ctx.author.mention}, There is no economy channel yet!"}
 
-        if ctx.author.id in GAME_INTERACTIVE_ECO:
+        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
             return {"error": f"{EMOJI_RED_NO} {ctx.author.mention}, You are ongoing with one **game economy** play."}
 
         # Get all available work in the guild
@@ -2274,19 +2279,19 @@ class Economy(commands.Cog):
                 return {"error": f"{EMOJI_INFORMATION} {ctx.author.mention}, Your health is having issue. Do some heatlh check."}
                 
             elif get_userinfo['health_current']/get_userinfo['health_total'] < 0.3:
-                if ctx.author.id in GAME_INTERACTIVE_ECO:
-                    GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+                if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                    self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                 return {"error": f"{EMOJI_INFORMATION} {ctx.author.mention}, Your health is having issue."}
             # If energy less than 20%, stop
             if get_userinfo['energy_current']/get_userinfo['energy_total'] < 0.2:
-                if ctx.author.id in GAME_INTERACTIVE_ECO:
-                    GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+                if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                    self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                 return {"error": f"{EMOJI_INFORMATION} {ctx.author.mention}, You have very small energy. Eat to powerup."}
             try:
                 get_last_act = await self.db.economy_get_last_activities(str(ctx.author.id), False)
                 if (get_last_act and get_last_act['status'] == 'COMPLETED') or get_last_act is None:
-                    if ctx.author.id not in GAME_INTERACTIVE_ECO:
-                        GAME_INTERACTIVE_ECO.append(ctx.author.id)
+                    if ctx.author.id not in self.bot.GAME_INTERACTIVE_ECO:
+                        self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
                     # Add work if he needs to do
                     e = disnake.Embed(title="{}#{} Work list in guild: {}".format(ctx.author.name, ctx.author.discriminator, ctx.guild.name), description="Economy [Testing]", timestamp=datetime.utcnow())
                     get_worklist_guild = await self.db.economy_get_guild_worklist(str(ctx.guild.id), False)
@@ -2309,8 +2314,8 @@ class Economy(commands.Cog):
                             try:
                                 reaction, user = await self.bot.wait_for('reaction_add', timeout=60, check=check)
                             except asyncio.TimeoutError:
-                                if ctx.author.id in GAME_INTERACTIVE_ECO:
-                                    GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+                                if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                                    self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                                 if type(ctx) is not disnake.interactions.MessageInteraction:
                                     await ctx.message.add_reaction(EMOJI_ALARMCLOCK)
                                 try:
@@ -2340,64 +2345,67 @@ class Economy(commands.Cog):
                                             await ctx.message.add_reaction(reaction.emoji)
                                     else:
                                         return {"error": f"{EMOJI_INFORMATION} {ctx.author.mention}, Internal error."}
-                                    if ctx.author.id in GAME_INTERACTIVE_ECO:
-                                        GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+                                    if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                                        self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                                     break
                                 except Exception as e:
                                     await logchanbot(traceback.format_exc())
                             elif str(reaction.emoji) == EMOJI_OK_BOX:
-                                if ctx.author.id in GAME_INTERACTIVE_ECO:
-                                    GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+                                if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                                    self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                                 return
                     else:
-                        if ctx.author.id in GAME_INTERACTIVE_ECO:
-                            GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+                        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                            self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                         return {"error": f"{EMOJI_ERROR} {ctx.author.mention}, Sorry, there is no available work yet."}
                 else:
                     # He is not free
                     if claim and claim.upper() == 'CLAIM':
-                        if ctx.author.id not in GAME_INTERACTIVE_ECO:
-                            GAME_INTERACTIVE_ECO.append(ctx.author.id)
+                        if ctx.author.id not in self.bot.GAME_INTERACTIVE_ECO:
+                            self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
                         # Check if he can complete the last work
                         if get_last_act and get_last_act['status'] == 'ONGOING' and get_last_act['started'] + get_last_act['duration_in_second'] <= int(time.time()):
                             # Get guild's balance not ctx.guild
                             played_guild = self.bot.get_guild(int(get_last_act['guild_id']))
                             # Check guild's balance:
                             COIN_NAME = get_last_act['reward_coin_name'].upper()
-                            guild_game = await store.sql_get_userwallet(get_last_act['guild_id'], COIN_NAME)
-                            if guild_game is None:
-                                if COIN_NAME in ENABLE_COIN_ERC:
-                                    w = await create_address_eth()
-                                    guild_game = await store.sql_register_user(get_last_act['guild_id'], COIN_NAME, SERVER_BOT, 0, w)
-                                elif COIN_NAME in ENABLE_COIN_TRC:
-                                    result = await store.create_address_trx()
-                                    guild_game = await store.sql_register_user(get_last_act['guild_id'], COIN_NAME, SERVER_BOT, 0, result)
+
+                            User_WalletAPI = WalletAPI(self.bot)                            
+                            net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
+                            type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
+                            deposit_confirm_depth = getattr(getattr(self.bot.coin_list, TOKEN_NAME), "deposit_confirm_depth")
+                            get_deposit = await User_WalletAPI.sql_get_userwallet(get_last_act['guild_id'], COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                            if get_deposit is None:
+                                get_deposit = await User_WalletAPI.sql_register_user(get_last_act['guild_id'], COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                            wallet_address = get_deposit['balance_wallet_address']
+                            if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                                wallet_address = get_deposit['paymentid']
+
+                            height = None
+                            try:
+                                if type_coin in ["ERC-20", "TRC-20"]:
+                                    height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
                                 else:
-                                    guild_game = await store.sql_register_user(get_last_act['guild_id'], COIN_NAME, SERVER_BOT, 0)
-                            guilddata_balance = await store.sql_user_balance(get_last_act['guild_id'], COIN_NAME)
-                            xfer_in = 0
-                            if COIN_NAME not in ENABLE_COIN_ERC+ENABLE_COIN_TRC:
-                                xfer_in = await store.sql_user_balance_get_xfer_in(get_last_act['guild_id'], COIN_NAME)
-                            if COIN_NAME in ENABLE_COIN_DOGE+ENABLE_COIN_ERC+ENABLE_COIN_TRC:
-                                actual_balance = float(xfer_in) + float(guilddata_balance['Adjust'])
-                            elif COIN_NAME in ENABLE_COIN_NANO:
-                                actual_balance = int(xfer_in) + int(guilddata_balance['Adjust'])
-                                actual_balance = round(actual_balance / get_decimal(COIN_NAME), 6) * get_decimal(COIN_NAME)
-                            else:
-                                actual_balance = int(xfer_in) + int(guilddata_balance['Adjust'])
+                                    height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
+                            except Exception as e:
+                                traceback.print_exc(file=sys.stdout)
+
+                            # height can be None
+                            userdata_balance = await store.sql_user_balance_single(get_last_act['guild_id'], COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+                            total_balance = userdata_balance['adjust']
 
                             # Negative check
                             try:
-                                if actual_balance < 0:
-                                    msg_negative = 'Negative balance detected:\Guild: '+str(get_last_act['guild_id'])+'\nCoin: '+COIN_NAME+'\nAtomic Balance: '+str(actual_balance)
+                                if total_balance < 0:
+                                    msg_negative = 'Negative balance detected:\Guild: '+str(get_last_act['guild_id'])+'\nCoin: '+COIN_NAME+'\nBalance: '+str(total_balance)
                                     await logchanbot(msg_negative)
                             except Exception as e:
                                 await logchanbot(traceback.format_exc())
                             # End negative check
-                            if get_last_act['reward_amount'] > actual_balance:
-                                await logchanbot(str(get_last_act['guild_id']) + ' runs out of balance for coin {COIN_NAME}. Stop rewarding.')
-                                if ctx.author.id in GAME_INTERACTIVE_ECO:
-                                    GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+                            if get_last_act['reward_amount'] > total_balance:
+                                await logchanbot(str(get_last_act['guild_id']) + f' runs out of balance for coin {COIN_NAME}. Stop rewarding.')
+                                if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                                    self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                                 return {"error": f"{EMOJI_ERROR} {ctx.author.mention}, This guild runs out of balance to give reward."}
                             # OK, let him claim
                             try:
@@ -2439,12 +2447,12 @@ class Economy(commands.Cog):
                             remaining = 0
                             additional_claim_msg = "You shall claim it now!"
                         return {"error": f"{EMOJI_ERROR} {ctx.author.mention}, Sorry, you are still busy with other activity. Remaining time `{seconds_str(remaining)}`. {additional_claim_msg}"}
-                    if ctx.author.id in GAME_INTERACTIVE_ECO:
-                        GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+                    if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                        self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                     return
             except:
-                if ctx.author.id in GAME_INTERACTIVE_ECO:
-                    GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+                if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                    self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                 traceback.print_exc(file=sys.stdout)
                 error = disnake.Embed(title=":exclamation: Error", description=" :warning: internal error!")
                 await ctx.reply(embed=error)
@@ -2471,7 +2479,7 @@ class Economy(commands.Cog):
         eco_items = await self.eco_items(ctx)
         if eco_items and "error" in eco_items:
             await ctx.reply(eco_items['error'], ephemeral=False)
-        if ctx.author.id in GAME_INTERACTIVE_ECO: GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO: self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
 
 
     @eco.sub_command(
@@ -2530,14 +2538,14 @@ class Economy(commands.Cog):
         if item_name is None:
             item_name = "LIST"
         if item_name.upper() == "LIST":
-            if ctx.author.id in GAME_INTERACTIVE_ECO: GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+            if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO: self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
             return
 
         if eco_buy and "error" in eco_buy:
             await ctx.reply(eco_buy['error'], ephemeral=False)
         elif eco_buy and "result" in eco_buy:
             await ctx.reply(eco_buy['result'], ephemeral=False)
-        if ctx.author.id in GAME_INTERACTIVE_ECO: GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO: self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
 
     @eco.sub_command(
         usage="eco lumber <member>", 
@@ -2603,7 +2611,7 @@ class Economy(commands.Cog):
         eco_plant = await self.eco_plant(ctx, plant_name)
         if eco_plant and "error" in eco_plant:
             await ctx.reply(eco_plant['error'], ephemeral=False)
-        if ctx.author.id in GAME_INTERACTIVE_ECO: GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO: self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
 
 
     @eco.sub_command(
@@ -2625,7 +2633,7 @@ class Economy(commands.Cog):
         eco_collect = await self.eco_collect(ctx, what)
         if eco_collect and "error" in eco_collect:
             await ctx.reply(eco_collect['error'], ephemeral=False)
-        if ctx.author.id in GAME_INTERACTIVE_ECO: GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO: self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
 
 
     @eco.sub_command(
@@ -2817,14 +2825,14 @@ class Economy(commands.Cog):
             item_name = "LIST"
         eco_buy = await self.eco_buy(ctx, item_name)
         if item_name.upper() == "LIST":
-            if ctx.author.id in GAME_INTERACTIVE_ECO: GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+            if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO: self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
             return
 
         if eco_buy and "error" in eco_buy:
             await ctx.reply(eco_buy['error'])
         elif eco_buy and "result" in eco_buy:
             await ctx.reply(eco_buy['result'])
-        if ctx.author.id in GAME_INTERACTIVE_ECO: GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO: self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
 
 
     @economy.command(
@@ -2856,7 +2864,7 @@ class Economy(commands.Cog):
         eco_items = await self.eco_items(ctx)
         if eco_items and "error" in eco_items:
             await ctx.reply(eco_items['error'])
-        if ctx.author.id in GAME_INTERACTIVE_ECO: GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO: self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
 
 
     @economy.command(

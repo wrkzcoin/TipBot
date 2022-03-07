@@ -89,7 +89,92 @@ class Events(commands.Cog):
                     await inter.message.delete()
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
-
+        elif hasattr(inter, "message") and inter.message.author == self.bot.user and inter.component.custom_id.startswith("trivia_answers_"):
+            try:
+                msg = "Nothing to do!"
+                get_message = await store.get_discord_triviatip_by_msgid(str(inter.message.id))
+                if get_message and int(get_message['from_userid']) == inter.author.id:
+                    ## await inter.response.send_message(content="You are the owner of trivia id: {}".format(str(inter.message.id)), ephemeral=True)
+                    ## return
+                    pass
+                # Check if user in
+                check_if_in = await store.check_if_trivia_responder_in(str(inter.message.id), get_message['from_userid'], str(inter.author.id))
+                if check_if_in:
+                    # await inter.response.send_message(content="You already answer of trivia id: {}".format(str(inter.message.id)), ephemeral=True)
+                    await inter.response.defer()
+                    return
+                else:
+                    # If time already pass
+                    if int(time.time()) > get_message['trivia_endtime']:
+                        return
+                    else:
+                        key = "triviatip_{}_{}".format(str(inter.message.id), str(inter.author.id))
+                        try:
+                            if self.ttlcache[key] == key:
+                                return
+                            else:
+                                self.ttlcache[key] = key
+                        except Exception as e:
+                            pass
+                        # Check if buttun is wrong or right
+                        result = "WRONG"
+                        if inter.component.label == get_message['button_correct_answer']:
+                            result = "RIGHT"
+                        insert_triviatip = await store.insert_trivia_responder(str(inter.message.id), get_message['guild_id'], get_message['question_id'], get_message['from_userid'], str(inter.author.id), "{}#{}".format(inter.author.name, inter.author.discriminator), result)
+                        msg = "You answered to trivia id: {}".format(str(inter.message.id))
+                        await inter.response.defer()
+                        await inter.response.send_message(content=msg, ephemeral=True)
+                        return
+            except (disnake.InteractionResponded, disnake.InteractionTimedOut, disnake.NotFound) as e:
+                return await inter.followup.send(
+                    msg,
+                    ephemeral=True,
+                )
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+        elif hasattr(inter, "message") and inter.message.author == self.bot.user and inter.component.custom_id.startswith("mathtip_answers_"):
+            try:
+                msg = "Nothing to do!"
+                get_message = await store.get_discord_mathtip_by_msgid(str(inter.message.id))
+                if get_message and int(get_message['from_userid']) == inter.author.id:
+                    ## await inter.response.send_message(content="You are the owner of trivia id: {}".format(str(inter.message.id)), ephemeral=True)
+                    # return
+                    pass
+                # Check if user in
+                check_if_in = await store.check_if_mathtip_responder_in(str(inter.message.id), get_message['from_userid'], str(inter.author.id))
+                if check_if_in:
+                    # await inter.response.send_message(content="You already answer of trivia id: {}".format(str(inter.message.id)), ephemeral=True)
+                    await inter.response.defer()
+                    return
+                else:
+                    # If time already pass
+                    if int(time.time()) > get_message['math_endtime']:
+                        return
+                    else:
+                        key = "mathtip_{}_{}".format(str(inter.message.id), str(inter.author.id))
+                        try:
+                            if self.ttlcache[key] == key:
+                                return
+                            else:
+                                self.ttlcache[key] = key
+                        except Exception as e:
+                            pass
+                        # Check if buttun is wrong or right
+                        result = "WRONG"
+                        if float(inter.component.label) == float(get_message['eval_answer']):
+                            result = "RIGHT"
+                        insert_triviatip = await store.insert_mathtip_responder(str(inter.message.id), get_message['guild_id'], get_message['from_userid'], str(inter.author.id), "{}#{}".format(inter.author.name, inter.author.discriminator), result)
+                        msg = "You answered to trivia id: {}".format(str(inter.message.id))
+                        await inter.response.defer()
+                        await inter.response.send_message(content=msg, ephemeral=True)
+                        return
+            except (disnake.InteractionResponded, disnake.InteractionTimedOut, disnake.NotFound) as e:
+                return await inter.followup.send(
+                    msg,
+                    ephemeral=True,
+                )
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
 
     @commands.Cog.listener()
     async def on_shard_ready(self, shard_id):

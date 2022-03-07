@@ -7,6 +7,7 @@ from datetime import datetime
 import random
 import qrcode
 import uuid
+from decimal import Decimal
 
 import disnake
 from disnake.ext import tasks, commands
@@ -18,7 +19,7 @@ import store
 from Bot import get_token_list, num_format_coin, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_ARROW_RIGHTHOOK, SERVER_BOT, RowButton_close_message, RowButton_row_close_any_message, human_format, text_to_num, truncate, NOTIFICATION_OFF_CMD
 
 from config import config
-from cogs.wallet import Wallet
+from cogs.wallet import WalletAPI
 import redis_utils
 from utils import MenuPage
 
@@ -84,10 +85,10 @@ class Guild(commands.Cog):
             coin_decimal = getattr(getattr(self.bot.coin_list, TOKEN_NAME), "decimal")
             token_display = getattr(getattr(self.bot.coin_list, TOKEN_NAME), "display_name")
 
-            WalletAPI = Wallet(self.bot)
-            get_deposit = await WalletAPI.sql_get_userwallet(str(ctx.guild.id), TOKEN_NAME, net_name, type_coin, SERVER_BOT, 0)
+            Guild_WalletAPI = WalletAPI(self.bot)
+            get_deposit = await Guild_WalletAPI.sql_get_userwallet(str(ctx.guild.id), TOKEN_NAME, net_name, type_coin, SERVER_BOT, 0)
             if get_deposit is None:
-                get_deposit = await WalletAPI.sql_register_user(str(ctx.guild.id), TOKEN_NAME, net_name, type_coin, SERVER_BOT, 0, 1)
+                get_deposit = await Guild_WalletAPI.sql_register_user(str(ctx.guild.id), TOKEN_NAME, net_name, type_coin, SERVER_BOT, 0, 1)
             wallet_address = get_deposit['balance_wallet_address']
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                 wallet_address = get_deposit['paymentid']
@@ -184,11 +185,11 @@ class Guild(commands.Cog):
             token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
             MinTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_min_tip")
             MaxTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_max_tip")
-            WalletAPI = Wallet(self.bot)
-            
-            get_deposit = await WalletAPI.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+
+            Guild_WalletAPI = WalletAPI(self.bot)
+            get_deposit = await Guild_WalletAPI.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
             if get_deposit is None:
-                get_deposit = await WalletAPI.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
+                get_deposit = await Guild_WalletAPI.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
 
             wallet_address = get_deposit['balance_wallet_address']
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -220,8 +221,8 @@ class Guild(commands.Cog):
                     return
             # end of check if amount is all
             userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
-            actual_balance = float(userdata_balance['adjust'])
-            amount = float(amount)
+            actual_balance = Decimal(userdata_balance['adjust'])
+            amount = Decimal(amount)
             if amount <= 0:
                 if type(ctx) == disnake.ApplicationCommandInteraction:
                     await ctx.response.send_message(f'{EMOJI_RED_NO} {ctx.author.mention}, please topup more {COIN_NAME}')
@@ -256,7 +257,7 @@ class Guild(commands.Cog):
             else:
                 self.bot.TX_IN_PROCESS.append(ctx.author.id)
                 try:
-                    tip = await store.sql_user_balance_mv_single(str(ctx.author.id), str(ctx.guild.id), str(ctx.guild.id), str(ctx.channel.id), amount, COIN_NAME, 'GUILDDEPOSIT', coin_decimal, contract)
+                    tip = await store.sql_user_balance_mv_single(str(ctx.author.id), str(ctx.guild.id), str(ctx.guild.id), str(ctx.channel.id), amount, COIN_NAME, 'GUILDDEPOSIT', coin_decimal, SERVER_BOT, contract)
                     if tip:
                         try:
                             msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention} **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}** was transferred to {ctx.guild.name}.'
@@ -277,7 +278,6 @@ class Guild(commands.Cog):
                                                           f'{NOTIFICATION_OFF_CMD}\n')
                                 except (disnake.Forbidden, disnake.errors.Forbidden, disnake.errors.HTTPException) as e:
                                     pass
-                        return
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
                 if ctx.author.id in self.bot.TX_IN_PROCESS:

@@ -50,7 +50,10 @@ class MenuPage(disnake.ui.View):
             await self.inter.edit_original_message(view=RowButton_row_close_any_message())
         else:
             if self.message:
-                await self.message.edit(view=RowButton_row_close_any_message())
+                try:
+                    await self.message.edit(view=RowButton_row_close_any_message())
+                except Exception as e:
+                    pass
 
 
     @disnake.ui.button(label="⏪", style=disnake.ButtonStyle.red)

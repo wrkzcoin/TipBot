@@ -218,7 +218,7 @@ class Pools(commands.Cog):
                         embed.set_footer(text="Data from https://miningpoolstats.stream")
                         try:
                             if type(ctx) == disnake.ApplicationCommandInteraction:
-                                await ctx.response.send_message(embed=embed)
+                                await ctx.response.send_message(embed=embed, view=RowButton_row_close_any_message())
                             else:
                                 msg = await ctx.reply(embed=embed, view=RowButton_row_close_any_message())
                             respond_date = int(time.time())
@@ -296,7 +296,11 @@ class Pools(commands.Cog):
                                     all_pages.append(page)
                                     break
                             try:
-                                await ctx.send(embed=all_pages[0], view=MenuPage(ctx, all_pages))
+                                view = MenuPage(ctx, all_pages, timeout=30)
+                                if type(ctx) == disnake.ApplicationCommandInteraction:
+                                    view.message = await ctx.response.send_message(embed=all_pages[0], view=view)
+                                else:
+                                    view.message = await ctx.reply(content=None, embed=all_pages[0], view=view)
                                 await self.sql_miningpoolstat_fetch(COIN_NAME, str(ctx.author.id), 
                                                                     '{}#{}'.format(ctx.author.name, ctx.author.discriminator), 
                                                                     requested_date, int(time.time()), json.dumps(get_pool_data), str(ctx.guild.id) if isinstance(ctx.channel, disnake.DMChannel) == False else 'DM', 

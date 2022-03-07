@@ -12,6 +12,10 @@ from typing import List, Dict
 import disnake
 from disnake.ext import commands, tasks
 from disnake import ActionRow, Button
+
+from disnake.enums import OptionType
+from disnake.app_commands import Option
+
 from disnake.enums import ButtonStyle
 import copy
 
@@ -23,7 +27,7 @@ from Bot import num_format_coin, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EM
 from config import config
 import redis_utils
 
-from cogs.wallet import Wallet
+from cogs.wallet import WalletAPI
 
 
 class MyMathBtn(disnake.ui.Button):
@@ -78,7 +82,7 @@ class MathButton(disnake.ui.View):
             embed.set_footer(text=f"Trivia tip by {owner_displayname}")
 
             if len(answered_msg_id['right_ids']) > 0:
-                trivia_tipping = await store.sql_user_balance_mv_multiple(get_mathtip['from_userid'], answered_msg_id['right_ids'], get_mathtip['guild_id'], get_mathtip['channel_id'], float(indiv_amount), TOKEN_NAME, "MATHTIP", coin_decimal, token_info['contract'])
+                trivia_tipping = await store.sql_user_balance_mv_multiple(get_mathtip['from_userid'], answered_msg_id['right_ids'], get_mathtip['guild_id'], get_mathtip['channel_id'], float(indiv_amount), TOKEN_NAME, "MATHTIP", coin_decimal, SERVER_BOT, token_info['contract'])
             # Change status
             change_status = await store.discord_mathtip_update(get_mathtip['message_id'], "COMPLETED")
             await self.message.edit(embed=embed, view=self)
@@ -93,8 +97,8 @@ class MathTips(commands.Cog):
 
 
     @commands.guild_only()
-    @commands.command(usage='mathtips', description="List ongoing math tips")
-    async def mathtips(self, ctx):
+    @commands.command(usage='mathtips', aliases=['mathtips'], description="List ongoing math tips")
+    async def _mathtips(self, ctx):
         get_mathtips = await store.get_discord_mathtip_by_chanid(str(ctx.channel.id))
         if len(get_mathtips) > 0:
             is_are = "is" if len(get_mathtips) == 1 else "are"
@@ -109,17 +113,16 @@ class MathTips(commands.Cog):
         return
 
 
-    @commands.guild_only()
-    @commands.command(usage='mathtip <amount> <token> <duration> <math expression>', aliases=['tipmath'], description="Spread math tip by user's answer")
-    async def mathtip(self, ctx, amount: str, token: str, duration: str, *, math_exp: str = None):
+    async def async_mathtip(self, ctx, amount: str, token: str, duration: str, math_exp: str=None):
         TOKEN_NAME = token.upper()
 
         # Token name check
         if not hasattr(self.bot.coin_list, TOKEN_NAME):
+            msg = f'{ctx.author.mention}, **{TOKEN_NAME}** does not exist with us.'
             if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(f'{ctx.author.mention}, **{TOKEN_NAME}** does not exist with us.')
+                await ctx.response.send_message(msg)
             else:
-                await ctx.reply(f'{ctx.author.mention}, **{TOKEN_NAME}** does not exist with us.')
+                await ctx.reply(msg)
             return
         # End token name check
 
@@ -132,10 +135,10 @@ class MathTips(commands.Cog):
             deposit_confirm_depth = getattr(getattr(self.bot.coin_list, TOKEN_NAME), "deposit_confirm_depth")
             coin_decimal = getattr(getattr(self.bot.coin_list, TOKEN_NAME), "decimal")
             
-            WalletAPI = Wallet(self.bot)
-            get_deposit = await WalletAPI.sql_get_userwallet(str(ctx.author.id), TOKEN_NAME, net_name, type_coin, SERVER_BOT, 0)
+            User_WalletAPI = WalletAPI(self.bot)
+            get_deposit = await User_WalletAPI.sql_get_userwallet(str(ctx.author.id), TOKEN_NAME, net_name, type_coin, SERVER_BOT, 0)
             if get_deposit is None:
-                get_deposit = await WalletAPI.sql_register_user(str(ctx.author.id), TOKEN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                get_deposit = await User_WalletAPI.sql_register_user(str(ctx.author.id), TOKEN_NAME, net_name, type_coin, SERVER_BOT, 0)
 
             wallet_address = get_deposit['balance_wallet_address']
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -162,20 +165,31 @@ class MathTips(commands.Cog):
             amount = amount.replace(",", "")
             amount = text_to_num(amount)
             if amount is None:
-                await ctx.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid given amount.')
+                msg = f'{EMOJI_RED_NO} {ctx.author.mention} Invalid given amount.'
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(msg)
+                else:
+                    await ctx.reply(msg)
                 return
         # end of check if amount is all
 
         # Check if tx in progress
         if ctx.author.id in self.bot.TX_IN_PROCESS:
-            await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
-            msg = await ctx.reply(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+            msg = f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
             return
 
         try:
             amount = float(amount)
         except ValueError:
-            await ctx.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid amount.')
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention} Invalid amount.'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
             return
 
         def hms_to_seconds(time_string):
@@ -203,7 +217,11 @@ class MathTips(commands.Cog):
             duration_s = hms_to_seconds(duration)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-            await ctx.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid duration.')
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention} Invalid duration.'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
             return
 
         if duration_s == 0:
@@ -212,13 +230,21 @@ class MathTips(commands.Cog):
             duration_s = default_duration
             # Just info, continue
         elif duration_s < config.mathtip.duration_min or duration_s > config.mathtip.duration_max:
-            msg = await ctx.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid duration. Please use between {str(config.mathtip.duration_min)}s to {str(config.mathtip.duration_max)}s.')
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention} Invalid duration. Please use between {str(config.mathtip.duration_min)}s to {str(config.mathtip.duration_max)}s.'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
             return
 
         try:
             amount = float(amount)
         except ValueError:
-            msg = await ctx.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid amount.')
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention} Invalid amount.'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
             return
 
         result_float = None
@@ -235,7 +261,11 @@ class MathTips(commands.Cog):
             for each_op in ['exp', 'sqrt', 'abs', 'log10', 'log', 'sinh', 'cosh', 'tanh', 'sin', 'cos', 'tan', '+', '-', '*', '/', '!', '^']:
                 if each_op in math_exp: has_operation = True
             if has_operation == False:
-                await ctx.reply(f'{EMOJI_RED_NO} {ctx.author.mention}, nothing to calculate.')
+                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, nothing to calculate.'
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(msg)
+                else:
+                    await ctx.reply(msg)
                 return
             test_string = math_exp
             for each in additional_support:
@@ -246,10 +276,18 @@ class MathTips(commands.Cog):
                     listrand = [2, 3, 4, 5, 6, 7, 8, 9, 10]
                     # OK have result. Check it if it's bigger than 10**10 or below 0.0001
                     if abs(result) > 10**10:
-                        await ctx.reply(f'{EMOJI_RED_NO} Result for `{eval_string_original}` is too big.')
+                        msg = f'{EMOJI_RED_NO} Result for `{eval_string_original}` is too big.'
+                        if type(ctx) == disnake.ApplicationCommandInteraction:
+                            await ctx.response.send_message(msg)
+                        else:
+                            await ctx.reply(msg)
                         return
                     elif abs(result) < 0.0001:
-                        await ctx.reply(f'{EMOJI_RED_NO} Result for `{eval_string_original}` is too small.')
+                        msg = f'{EMOJI_RED_NO} Result for `{eval_string_original}` is too small.'
+                        if type(ctx) == disnake.ApplicationCommandInteraction:
+                            await ctx.response.send_message(msg)
+                        else:
+                            await ctx.reply(msg)
                         return
                     else:
                         # store result in float XX.XXXX
@@ -264,13 +302,25 @@ class MathTips(commands.Cog):
                             wrong_answer_2 = - abs(truncate(float(result+random.choice(listrand)), 4))
                             wrong_answer_3 = - abs(truncate(float(result-random.choice(listrand)), 4))
                 except Exception as e:
-                    await ctx.reply(f'{EMOJI_RED_NO} Invalid result for `{eval_string_original}`.')
+                    msg = f'{EMOJI_RED_NO} Invalid result for `{eval_string_original}`.'
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.reply(msg)
                     return
             else:
-                await ctx.reply(f'{EMOJI_ERROR} {ctx.author.mention} Unsupported usage for `{eval_string_original}`.')
+                msg = f'{EMOJI_ERROR} {ctx.author.mention} Unsupported usage for `{eval_string_original}`.'
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(msg)
+                else:
+                    await ctx.reply(msg)
                 return
         else:
-            msg = await ctx.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid math expression.')
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention} Invalid math expression.'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
             return
 
         MinTx = float(token_info['real_min_tip'])
@@ -280,11 +330,18 @@ class MathTips(commands.Cog):
         actual_balance = float(userdata_balance['adjust'])
 
         if amount > MaxTx or amount < MinTx:
-            await ctx.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than '
-                            f'**{num_format_coin(MaxTx, TOKEN_NAME, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(MinTx, TOKEN_NAME, coin_decimal, False)} {token_display}**.')
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than **{num_format_coin(MaxTx, TOKEN_NAME, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(MinTx, TOKEN_NAME, coin_decimal, False)} {token_display}**.'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
             return
         elif amount > actual_balance:
-            await ctx.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to do a math tip of **{num_format_coin(amount, TOKEN_NAME, coin_decimal, False)} {token_display}**.')
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to do a math tip of **{num_format_coin(amount, TOKEN_NAME, coin_decimal, False)} {token_display}**.'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
             return
 
         ## add to DB
@@ -302,13 +359,46 @@ class MathTips(commands.Cog):
         
         view = MathButton(answers, index_answer, duration_s, self.bot.coin_list)
         await asyncio.sleep(0.2)
-        view.message = await ctx.reply(embed=embed, view=view)
+
+        if type(ctx) == disnake.ApplicationCommandInteraction:
+            view.message = await ctx.channel.send(embed=embed, view=view)
+            await ctx.response.send_message("Math Tip ID: {} created!".format(view.message.id), ephemeral=True)
+        else:
+            view.message = await ctx.reply(embed=embed, view=view)
 
         insert_mathtip = await store.insert_discord_mathtip(TOKEN_NAME, token_info['contract'], str(ctx.author.id), owner_displayname, str(view.message.id), eval_string_original, result_float, wrong_answer_1, wrong_answer_2, wrong_answer_3, str(ctx.guild.id), str(ctx.channel.id), amount, token_info['decimal'], int(time.time())+duration_s, net_name)
-        if insert_mathtip:
+        if insert_mathtip and type(ctx) != disnake.ApplicationCommandInteraction:
             await ctx.message.add_reaction("🧮")
         if ctx.author.id in self.bot.TX_IN_PROCESS:
             self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+
+
+    @commands.guild_only()
+    @commands.slash_command(
+        usage='mathtip <amount> <token> <duration> <math expression>', 
+        options=[
+            Option('amount', 'amount', OptionType.string, required=True),
+            Option('token', 'token', OptionType.string, required=True),
+            Option('duration', 'duration', OptionType.string, required=True),
+            Option('math_exp', 'math_exp', OptionType.string, required=True)
+        ],
+        description="Spread math tip by user's answer"
+    )
+    async def mathtip(
+        self, 
+        ctx, 
+        amount: str, 
+        token: str, 
+        duration: str, 
+        math_exp: str
+    ):
+        await self.async_mathtip(ctx, amount, token, duration, math_exp)
+
+
+    @commands.guild_only()
+    @commands.command(usage='mathtip <amount> <token> <duration> <math expression>', aliases=['tipmath', 'mathtip'], description="Spread math tip by user's answer")
+    async def _mathtip(self, ctx, amount: str, token: str, duration: str, *, math_exp: str = None):
+        await self.async_mathtip(ctx, amount, token, duration, math_exp)
 
 
     @mathtip.error

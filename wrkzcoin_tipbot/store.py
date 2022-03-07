@@ -5,6 +5,7 @@ import aiohttp, asyncio, aiomysql
 from aiomysql.cursors import DictCursor
 from discord_webhook import DiscordWebhook
 import disnake
+from decimal import Decimal
 
 from config import config
 import sys, traceback
@@ -207,25 +208,13 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 # moving tip + / -
-                sql = """ SELECT SUM(real_amount) AS expense, SUM(real_amount_usd) AS expense_usd FROM `user_balance_mv` WHERE `from_userid`=%s AND `token_name` = %s AND `user_server` = %s """
+                sql = """ SELECT `balance` AS mv_balance FROM `user_balance_mv_data` WHERE `user_id`=%s AND `token_name` = %s AND `user_server` = %s LIMIT 1 """
                 await cur.execute(sql, (userID, TOKEN_NAME, user_server))
                 result = await cur.fetchone()
                 if result:
-                    expense = result['expense']
-                    expense_usd = result['expense_usd']
+                    mv_balance = result['mv_balance']
                 else:
-                    expense = 0
-                    expense_usd = 0
-
-                sql = """ SELECT SUM(real_amount) AS income, SUM(real_amount_usd) AS income_usd FROM `user_balance_mv` WHERE `to_userid`=%s AND `token_name` = %s AND `user_server` = %s """
-                await cur.execute(sql, (userID, TOKEN_NAME, user_server))
-                result = await cur.fetchone()
-                if result:
-                    income = result['income']
-                    income_usd = result['income_usd']
-                else:
-                    income = 0
-                    income_usd = 0
+                    mv_balance = 0
 
                 # pending airdrop
                 sql = """ SELECT SUM(real_amount) AS airdropping FROM `discord_airdrop_tmp` WHERE `from_userid`=%s 
@@ -256,7 +245,6 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
                     triviatip = result['triviatip']
                 else:
                     triviatip = 0
-                # TODO: expense or reward from gaming & economy
 
                 # Each coin
                 if coin_family in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -382,12 +370,7 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
             balance = {}
             balance['adjust'] = 0
 
-            balance['income'] = float("%.4f" % income) if income else 0
-            balance['expense'] = float("%.4f" % expense) if expense else 0
-            # income_usd
-            balance['income_usd'] = float("%.4f" % income_usd) if income_usd else 0
-            # expense_usd
-            balance['expense_usd'] = float("%.4f" % expense_usd) if expense_usd else 0
+            balance['mv_balance'] = float("%.4f" % mv_balance) if mv_balance else 0
 
             balance['airdropping'] = float("%.4f" % airdropping) if airdropping else 0
             balance['mathtip'] = float("%.4f" % mathtip) if mathtip else 0
@@ -396,7 +379,7 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
             balance['tx_expense'] = float("%.4f" % tx_expense) if tx_expense else 0
             balance['incoming_tx'] = float("%.4f" % incoming_tx) if incoming_tx else 0
 
-            balance['adjust'] = float("%.4f" % ( balance['income']+balance['incoming_tx']-balance['expense']-balance['airdropping']-balance['mathtip']-balance['triviatip']-balance['tx_expense'] ))
+            balance['adjust'] = float("%.4f" % ( balance['mv_balance']+balance['incoming_tx']-balance['airdropping']-balance['mathtip']-balance['triviatip']-balance['tx_expense'] ))
             # Negative check
             try:
                 if balance['adjust'] < 0:
@@ -1833,7 +1816,7 @@ async def discord_triviatip_update(message_id: str, status: str):
 ## End of Trivia
 
 
-async def sql_user_balance_mv_single(from_userid: str, to_userid: str, guild_id: str, channel_id: str, real_amount: float, coin: str, tiptype: str, token_decimal: int, contract: str):
+async def sql_user_balance_mv_single(from_userid: str, to_userid: str, guild_id: str, channel_id: str, real_amount: float, coin: str, tiptype: str, token_decimal: int, user_server: str, contract: str):
     global pool
     TOKEN_NAME = coin.upper()
     currentTs = int(time.time())
@@ -1841,9 +1824,24 @@ async def sql_user_balance_mv_single(from_userid: str, to_userid: str, guild_id:
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ INSERT INTO user_balance_mv (`token_name`, `contract`, `from_userid`, `to_userid`, `guild_id`, `channel_id`, `real_amount`, `token_decimal`, `type`, `date`) 
-                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                await cur.execute(sql, ( TOKEN_NAME, contract, from_userid, to_userid, guild_id, channel_id, real_amount, token_decimal, tiptype, currentTs ))
+                sql = """ INSERT INTO user_balance_mv 
+                          (`token_name`, `contract`, `from_userid`, `to_userid`, `guild_id`, `channel_id`, `real_amount`, `token_decimal`, `type`, `date`, `user_server`) 
+                          VALUES (%s, %s, %s, %s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s, %s, %s, %s);
+
+                          INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, `balance`, `update_date`) 
+                          VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
+                          UPDATE 
+                          `balance`=`balance`+VALUES(`balance`), 
+                          `update_date`=VALUES(`update_date`);
+
+                          INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, `balance`, `update_date`) 
+                          VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
+                          UPDATE 
+                          `balance`=`balance`+VALUES(`balance`), 
+                          `update_date`=VALUES(`update_date`);
+
+                          """
+                await cur.execute(sql, ( TOKEN_NAME, contract, from_userid, to_userid, guild_id, channel_id, real_amount, token_decimal, tiptype, currentTs, user_server, from_userid, TOKEN_NAME, user_server, -real_amount, currentTs, to_userid, TOKEN_NAME, user_server, real_amount, currentTs ))
                 await conn.commit()
                 return True
     except Exception as e:
@@ -1852,21 +1850,46 @@ async def sql_user_balance_mv_single(from_userid: str, to_userid: str, guild_id:
     return None
 
 
-async def sql_user_balance_mv_multiple(user_from: str, user_tos, guild_id: str, channel_id: str, amount_each: float, coin: str, tiptype: str, token_decimal: int, contract: str):
+async def sql_user_balance_mv_multiple(user_from: str, user_tos, guild_id: str, channel_id: str, amount_each: float, coin: str, tiptype: str, token_decimal: int, user_server: str, contract: str):
     # user_tos is array "account1", "account2", ....
     global pool
     TOKEN_NAME = coin.upper()
-    values_str = []
+    values_list = []
     currentTs = int(time.time())
+    #type_list = []
     for item in user_tos:
-        values_str.append(f"('{TOKEN_NAME}', '{contract}', '{user_from}', '{item}', '{guild_id}', '{channel_id}', {amount_each}, {token_decimal}, '{tiptype.upper()}', {currentTs})\n")
-    values_sql = "VALUES " + ",".join(values_str)
+        values_list.append(( TOKEN_NAME, contract, user_from, item, guild_id, channel_id, amount_each, token_decimal, tiptype.upper(), currentTs, user_server, user_from, TOKEN_NAME, user_server, -amount_each, currentTs, item, TOKEN_NAME, user_server, amount_each, currentTs, ))
+        #type_list.append((type(TOKEN_NAME), type(contract), type(user_from), type(item), type(guild_id), type(channel_id), type(float(amount_each)), type(token_decimal), type(tiptype.upper()), type(currentTs), type(user_server), type(user_from) , type(-float(amount_each))))
+        
+    if len(values_list) == 0:
+        print("sql_user_balance_mv_multiple: got 0 data inserting. return...")
+        return
+    print(values_list)
+    #print(type_list)
     try:
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ INSERT INTO user_balance_mv (`token_name`, `contract`, `from_userid`, `to_userid`, `guild_id`, `channel_id`, `real_amount`, `token_decimal`, `type`, `date`) """+values_sql+""" """
-                await cur.execute(sql,)
+                sql = """ INSERT INTO user_balance_mv (`token_name`, `contract`, `from_userid`, `to_userid`, `guild_id`, `channel_id`, `real_amount`, `token_decimal`, `type`, `date`, `user_server`) 
+                          VALUES (%s, %s, %s, %s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s, %s, %s, %s);
+                        
+                          INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, `balance`, `update_date`) 
+                          VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
+                          UPDATE 
+                          `balance`=`balance`+VALUES(`balance`), 
+                          `update_date`=VALUES(`update_date`);
+
+                          INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, `balance`, `update_date`) 
+                          VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
+                          UPDATE 
+                          `balance`=`balance`+VALUES(`balance`), 
+                          `update_date`=VALUES(`update_date`);
+                """
+                await cur.executemany(sql, values_list)
+                
+                # [('WRKZ', None, '386761001808166912', '386761001808166912', '422968579454140426', '905302454365741066', 10.0, 2, 'MATHTIP', 1646634269, 'DISCORD', '386761001808166912', 'WRKZ', 'DISCORD', -10.0, 1646634269, '386761001808166912', 'WRKZ', 'DISCORD', 10.0, 1646634269)]
+                # [(<class 'str'>, <class 'NoneType'>, <class 'str'>, <class 'str'>, <class 'str'>, <class 'str'>, <class 'float'>, <class 'int'>, <class 'str'>, <class 'int'>, <class 'str'>, <class 'str'>, <class 'float'>)]
+                
                 await conn.commit()
                 return True
     except Exception as e:

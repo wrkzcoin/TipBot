@@ -171,6 +171,7 @@ bot.coin_list = None
 bot.TX_IN_PROCESS = []
 bot.LOG_CHAN = config.discord.logchan
 bot.MINGPOOLSTAT_IN_PROCESS = []
+bot.GAME_INTERACTIVE_ECO = []
 
 bot.erc_node_list = {
     "FTM": config.default_endpoints.ftm, 
@@ -325,8 +326,9 @@ def num_format_coin(amount, coin: str, coin_decimal: int, atomic: bool=False):
     COIN_NAME = coin.upper() 
     if amount == 0:
         return "0.0"
-    coin_decimal = int(10**coin_decimal)
+
     if atomic == True:
+        coin_decimal = int(10**coin_decimal)
         amount = amount / coin_decimal
     amount_str = 'Invalid.'
     if coin_decimal == 1:
@@ -335,22 +337,26 @@ def num_format_coin(amount, coin: str, coin_decimal: int, atomic: bool=False):
             amount_str = '{:,.6f}'.format(amount)
         else:
             amount_str = amount_test
-    elif coin_decimal < 10**4:
+    elif coin_decimal < 4:
+        amount = truncate(amount, 2)
         amount_str = '{:,.2f}'.format(amount)
-    elif coin_decimal < 10**6:
+    elif coin_decimal < 6:
+        amount = truncate(amount, 6)
         amount_test = '{:,f}'.format(float(('%f' % amount).rstrip('0').rstrip('.')))
         if '.' in amount_test and len(amount_test.split('.')[1]) > 5:
             amount_str = '{:,.6f}'.format(amount)
         else:
             amount_str = amount_test
-    elif coin_decimal < 10**18:
+    elif coin_decimal < 18:
+        amount = truncate(amount, 8)
         amount_test = '{:,f}'.format(float(('%f' % (amount)).rstrip('0').rstrip('.')))
         if '.' in amount_test and len(amount_test.split('.')[1]) > 5:
-            amount_str = '{:,.5f}'.format(amount)
+            amount_str = '{:,.8f}'.format(amount)
         else:
             amount_str = amount_test
     else:
         # > 10**18
+        amount = truncate(amount, 8)
         amount_test = '{:,f}'.format(float(('%f' % (amount)).rstrip('0').rstrip('.')))
         if '.' in amount_test and len(amount_test.split('.')[1]) > 8:
             amount_str = '{:,.8f}'.format(amount)
@@ -365,8 +371,8 @@ def randomString(stringLength=8):
 
 
 def truncate(number, digits) -> float:
-    stepper = pow(10.0, digits)
-    return math.trunc(stepper * number) / stepper
+    stepper = Decimal(pow(10.0, digits))
+    return math.trunc(stepper * Decimal(number)) / stepper
 
 
 def hex_to_base58(hex_string):

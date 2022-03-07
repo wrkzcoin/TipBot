@@ -53,6 +53,193 @@ class RPCException(Exception):
         super(RPCException, self).__init__(message)
 
 
+class WalletAPI(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+        
+
+    # ERC-20, TRC-20, native is one
+    # Gas Token like BNB, xDAI, MATIC, TRX will be a different address
+    async def sql_register_user(self, userID, coin: str, netname: str, type_coin: str, user_server: str, chat_id: int = 0, is_discord_guild: int=0):
+        try:
+            COIN_NAME = coin.upper()
+            user_server = user_server.upper()
+            balance_address = None
+            main_address = None
+
+            if type_coin.upper() == "ERC-20" and COIN_NAME != netname.upper():
+                user_id_erc20 = str(userID) + "_" + type_coin.upper()
+                type_coin_user = "ERC-20"
+            elif type_coin.upper() == "ERC-20" and COIN_NAME == netname.upper():
+                user_id_erc20 = str(userID) + "_" + COIN_NAME
+                type_coin_user = COIN_NAME
+            if type_coin.upper() in ["TRC-20", "TRC-10"] and COIN_NAME != netname.upper():
+                type_coin = "TRC-20"
+                type_coin_user = "TRC-20"
+                user_id_erc20 = str(userID) + "_" + type_coin.upper()
+            elif type_coin.upper() in ["TRC-20", "TRC-10"] and COIN_NAME == netname.upper():
+                user_id_erc20 = str(userID) + "_" + COIN_NAME
+                type_coin_user = "TRX"
+
+            if type_coin.upper() == "ERC-20":
+                # passed test XDAI, MATIC
+                w = await self.create_address_eth()
+                balance_address = w['address']
+            elif type_coin.upper() in ["TRC-20", "TRC-10"]:
+                # passed test TRX, USDT
+                w = await self.create_address_trx()
+                balance_address = w
+            elif type_coin.upper() in ["TRTL-API", "TRTL-SERVICE", "BCN"]:
+                # passed test WRKZ, DEGO
+                main_address = getattr(getattr(self.bot.coin_list, COIN_NAME), "MainAddress")
+                get_prefix_char = getattr(getattr(self.bot.coin_list, COIN_NAME), "get_prefix_char")
+                get_prefix = getattr(getattr(self.bot.coin_list, COIN_NAME), "get_prefix")
+                get_addrlen = getattr(getattr(self.bot.coin_list, COIN_NAME), "get_addrlen")
+                balance_address = {}
+                balance_address['payment_id'] = cn_addressvalidation.paymentid()
+                balance_address['integrated_address'] = cn_addressvalidation.cn_make_integrated(main_address, get_prefix_char, get_prefix, get_addrlen, balance_address['payment_id'])['integrated_address']
+            elif type_coin.upper() == "XMR":
+                # passed test WOW
+                main_address = getattr(getattr(self.bot.coin_list, COIN_NAME), "MainAddress")
+                balance_address = await self.make_integrated_address_xmr(main_address, COIN_NAME)
+            elif type_coin.upper() == "NANO":
+                walletkey = decrypt_string(getattr(getattr(self.bot.coin_list, COIN_NAME), "walletkey"))
+                balance_address = await self.call_nano(COIN_NAME, payload='{ "action": "account_create", "wallet": "'+walletkey+'" }')
+            elif type_coin.upper() == "BTC":
+                # passed test PGO, XMY
+                naming = config.redis.prefix + "_"+user_server+"_" + str(userID)
+                payload = f'"{naming}"'
+                address_call = await self.call_doge('getnewaddress', COIN_NAME, payload=payload)
+                reg_address = {}
+                reg_address['address'] = address_call
+                payload = f'"{address_call}"'
+                key_call = await self.call_doge('dumpprivkey', COIN_NAME, payload=payload)
+                reg_address['privateKey'] = key_call
+                if reg_address['address'] and reg_address['privateKey']:
+                    balance_address = reg_address
+            elif type_coin.upper() == "CHIA":
+                # passed test XFX
+                payload = {'wallet_id': 1, 'new_address': True}
+                try:
+                    address_call = await self.call_xch('get_next_address', COIN_NAME, payload=payload)
+                    if 'success' in address_call and address_call['address']:
+                        balance_address = address_call
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    try:
+                        if netname and netname not in ["TRX"]:
+                            sql = """ INSERT INTO `erc20_user` (`user_id`, `user_id_erc20`, `type`, `balance_wallet_address`, `address_ts`, 
+                                      `seed`, `create_dump`, `private_key`, `public_key`, `xprivate_key`, `xpublic_key`, 
+                                      `called_Update`, `user_server`, `is_discord_guild`) 
+                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                            await cur.execute(sql, (str(userID), user_id_erc20, type_coin_user, w['address'], int(time.time()), 
+                                              encrypt_string(w['seed']), encrypt_string(str(w)), encrypt_string(str(w['private_key'])), w['public_key'], 
+                                              encrypt_string(str(w['xprivate_key'])), w['xpublic_key'], int(time.time()), user_server, is_discord_guild))
+                            await conn.commit()
+                            return {'balance_wallet_address': w['address']}
+                        elif netname and netname in ["TRX"]:
+                            sql = """ INSERT INTO `trc20_user` (`user_id`, `user_id_trc20`, `type`, `balance_wallet_address`, `hex_address`, `address_ts`, 
+                                      `private_key`, `public_key`, `called_Update`, `user_server`, `is_discord_guild`) 
+                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                            await cur.execute(sql, (str(userID), user_id_erc20, type_coin_user, w['base58check_address'], w['hex_address'], int(time.time()), 
+                                              encrypt_string(str(w['private_key'])), w['public_key'], int(time.time()), user_server, is_discord_guild))
+                            await conn.commit()
+                            return {'balance_wallet_address': w['base58check_address']}
+                        elif type_coin.upper() in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                            sql = """ INSERT INTO cn_user_paymentid (`coin_name`, `user_id`, `user_id_coin`, `main_address`, `paymentid`, 
+                                      `balance_wallet_address`, `paymentid_ts`, `user_server`, `is_discord_guild`) 
+                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                            await cur.execute(sql, (COIN_NAME, str(userID), "{}_{}".format(userID, COIN_NAME), main_address, balance_address['payment_id'], 
+                                                    balance_address['integrated_address'], int(time.time()), user_server, is_discord_guild))
+                            await conn.commit()
+                            return {'balance_wallet_address': balance_address['integrated_address'], 'paymentid': balance_address['payment_id']}
+                        elif type_coin.upper() == "NANO":
+                            sql = """ INSERT INTO `nano_user` (`coin_name`, `user_id`, `user_id_coin`, `balance_wallet_address`, `address_ts`, `user_server`, `is_discord_guild`) 
+                                      VALUES (%s, %s, %s, %s, %s, %s, %s) """
+                            await cur.execute(sql, (COIN_NAME, str(userID), "{}_{}".format(userID, COIN_NAME), balance_address['account'], int(time.time()), user_server, is_discord_guild))
+                            await conn.commit()
+                            return {'balance_wallet_address': balance_address['account']}
+                        elif type_coin.upper() == "BTC":
+                            sql = """ INSERT INTO `doge_user` (`coin_name`, `user_id`, `user_id_coin`, `balance_wallet_address`, `address_ts`, `privateKey`, `user_server`, `is_discord_guild`) 
+                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                            await cur.execute(sql, (COIN_NAME, str(userID), "{}_{}".format(userID, COIN_NAME), balance_address['address'], int(time.time()), 
+                                                    encrypt_string(balance_address['privateKey']), user_server, is_discord_guild))
+                            await conn.commit()
+                            return {'balance_wallet_address': balance_address['address']}
+                        elif type_coin.upper() == "CHIA":
+                            sql = """ INSERT INTO `xch_user` (`coin_name`, `user_id`, `user_id_coin`, `balance_wallet_address`, `address_ts`, `user_server`, `is_discord_guild`) 
+                                      VALUES (%s, %s, %s, %s, %s, %s, %s) """
+                            await cur.execute(sql, (COIN_NAME, str(userID), "{}_{}".format(userID, COIN_NAME), balance_address['address'], int(time.time()), user_server, is_discord_guild))
+                            await conn.commit()
+                            return {'balance_wallet_address': balance_address['address']}
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
+    async def sql_get_userwallet(self, userID, coin: str, netname: str, type_coin: str, user_server: str = 'DISCORD', chat_id: int = 0):
+        # netname null or None, xDai, MATIC, TRX, BSC
+        user_server = user_server.upper()
+        COIN_NAME = coin.upper()
+        if type_coin.upper() == "ERC-20" and COIN_NAME != netname.upper():
+            user_id_erc20 = str(userID) + "_" + type_coin.upper()
+        elif type_coin.upper() == "ERC-20" and COIN_NAME == netname.upper():
+            user_id_erc20 = str(userID) + "_" + COIN_NAME
+        if type_coin.upper() in ["TRC-20", "TRC-10"] and COIN_NAME != netname.upper():
+            type_coin = "TRC-20"
+            user_id_erc20 = str(userID) + "_" + type_coin.upper()
+        elif type_coin.upper() in ["TRC-20", "TRC-10"] and COIN_NAME == netname.upper():
+            user_id_erc20 = str(userID) + "_" + COIN_NAME
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    if netname and netname not in ["TRX"]:
+                        sql = """ SELECT * FROM `erc20_user` WHERE `user_id`=%s 
+                                  AND `user_id_erc20`=%s AND `user_server` = %s LIMIT 1 """
+                        await cur.execute(sql, (str(userID), user_id_erc20, user_server))
+                        result = await cur.fetchone()
+                        if result: return result
+                    elif netname and netname in ["TRX"]:
+                        sql = """ SELECT * FROM `trc20_user` WHERE `user_id`=%s 
+                                  AND `user_id_trc20`=%s AND `user_server` = %s LIMIT 1 """
+                        await cur.execute(sql, (str(userID), user_id_erc20, user_server))
+                        result = await cur.fetchone()
+                        if result: return result
+                    elif type_coin.upper() in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                        sql = """ SELECT * FROM `cn_user_paymentid` WHERE `user_id`=%s 
+                                  AND `coin_name`=%s AND `user_server` = %s LIMIT 1 """
+                        await cur.execute(sql, (str(userID), COIN_NAME, user_server))
+                        result = await cur.fetchone()
+                        if result: return result
+                    elif type_coin.upper() == "NANO":
+                        sql = """ SELECT * FROM `nano_user` WHERE `user_id`=%s 
+                                  AND `coin_name`=%s AND `user_server` = %s LIMIT 1 """
+                        await cur.execute(sql, (str(userID), COIN_NAME, user_server))
+                        result = await cur.fetchone()
+                        if result: return result
+                    elif type_coin.upper() == "BTC":
+                        sql = """ SELECT * FROM `doge_user` WHERE `user_id`=%s 
+                                  AND `coin_name`=%s AND `user_server` = %s LIMIT 1 """
+                        await cur.execute(sql, (str(userID), COIN_NAME, user_server))
+                        result = await cur.fetchone()
+                        if result: return result
+                    elif type_coin.upper() == "CHIA":
+                        sql = """ SELECT * FROM `xch_user` WHERE `user_id`=%s 
+                                  AND `coin_name`=%s AND `user_server` = %s LIMIT 1 """
+                        await cur.execute(sql, (str(userID), COIN_NAME, user_server))
+                        result = await cur.fetchone()
+                        if result: return result
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
+
 class Wallet(commands.Cog):
 
     def __init__(self, bot):
@@ -103,7 +290,6 @@ class Wallet(commands.Cog):
                             is_notify_failed = True
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
-                            await logchanbot(traceback.format_exc())
                         update_status = await store.sql_updating_pending_move_deposit_erc20(True, is_notify_failed, each_notify['txn'])
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
@@ -126,7 +312,6 @@ class Wallet(commands.Cog):
                             is_notify_failed = True
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
-                            await logchanbot(traceback.format_exc())
                         update_status = await store.sql_updating_pending_move_deposit_trc20(True, is_notify_failed, each_notify['txn'])
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
@@ -163,7 +348,6 @@ class Wallet(commands.Cog):
                                     pass
                                 except Exception as e:
                                     traceback.print_exc(file=sys.stdout)
-                                    await logchanbot(traceback.format_exc())
                                 update_notify_tx = await store.sql_update_notify_tx_table(eachTx['payment_id'], user_tx['user_id'], user_found.name, 'YES', 'NO' if is_notify_failed == False else 'YES')
                             else:
                                 # try to find if it is guild
@@ -192,7 +376,6 @@ class Wallet(commands.Cog):
                                     pass
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
-                    await logchanbot(traceback.format_exc())
 
 
     @tasks.loop(seconds=10.0)
@@ -266,10 +449,8 @@ class Wallet(commands.Cog):
                                     redis_utils.redis_conn.lpush(key_tx_no_confirmed_sent, tx)
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
-                            await logchanbot(traceback.format_exc())
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
-                await logchanbot(traceback.format_exc())
 
 
     @tasks.loop(seconds=20.0)
@@ -288,7 +469,6 @@ class Wallet(commands.Cog):
                         redis_utils.redis_conn.set(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}', str(height))
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
-                        await logchanbot(traceback.format_exc())
 
                     url = getattr(getattr(self.bot.coin_list, COIN_NAME), "wallet_address")
                     key = getattr(getattr(self.bot.coin_list, COIN_NAME), "header")
@@ -338,8 +518,6 @@ class Wallet(commands.Cog):
                                                 await conn.commit()
                                         except Exception as e:
                                             traceback.print_exc(file=sys.stdout)
-                                            traceback.print_exc(file=sys.stdout)
-                                            await logchanbot(traceback.format_exc())
                                     elif len(tx['transfers']) > 0 and height < int(tx['blockHeight']) + get_confirm_depth and tx['transfers'][0]['amount'] >= get_min_deposit_amount and 'paymentID' in tx:
                                         # add notify to redis and alert deposit. Can be clean later?
                                         if config.notify_new_tx.enable_new_no_confirm == 1:
@@ -356,12 +534,9 @@ class Wallet(commands.Cog):
                                                     redis_utils.redis_conn.set(key_tx_json, json.dumps({'coin_name': COIN_NAME, 'txid': tx['hash'], 'payment_id': tx['paymentID'], 'height': tx['blockHeight'], 'amount': float(int(tx['transfers'][0]['amount'])/10**coin_decimal), 'fee': float(int(tx['fee'])/10**coin_decimal), 'decimal': coin_decimal}), ex=86400)
                                             except Exception as e:
                                                 traceback.print_exc(file=sys.stdout)
-                                                await logchanbot(traceback.format_exc())
                                 # TODO: update balance cache
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
-
 
 
     @tasks.loop(seconds=20.0)
@@ -380,7 +555,6 @@ class Wallet(commands.Cog):
                         redis_utils.redis_conn.set(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}', str(height))
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
-                        await logchanbot(traceback.format_exc())
 
                     url = getattr(getattr(self.bot.coin_list, COIN_NAME), "wallet_address")
                     get_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
@@ -429,7 +603,6 @@ class Wallet(commands.Cog):
                                                     await conn.commit()
                                             except Exception as e:
                                                 traceback.print_exc(file=sys.stdout)
-                                                await logchanbot(traceback.format_exc())
                                         elif height < int(tx['blockIndex']) + get_confirm_depth and tx['amount'] >= get_min_deposit_amount and 'paymentId' in tx:
                                             # add notify to redis and alert deposit. Can be clean later?
                                             if config.notify_new_tx.enable_new_no_confirm == 1:
@@ -446,11 +619,9 @@ class Wallet(commands.Cog):
                                                         redis_utils.redis_conn.set(key_tx_json, json.dumps({'coin_name': COIN_NAME, 'txid': tx['transactionHash'], 'payment_id': tx['paymentId'], 'height': tx['blockIndex'], 'amount': float(tx['amount']/10**coin_decimal), 'fee': tx['fee'], 'decimal': coin_decimal}), ex=86400)
                                                 except Exception as e:
                                                     traceback.print_exc(file=sys.stdout)
-                                                    await logchanbot(traceback.format_exc())
                     # TODO: update user balance
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
 
 
     @tasks.loop(seconds=20.0)
@@ -468,7 +639,6 @@ class Wallet(commands.Cog):
                         redis_utils.redis_conn.set(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}', str(height))
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
-                        await logchanbot(traceback.format_exc())
 
                     url = getattr(getattr(self.bot.coin_list, COIN_NAME), "wallet_address")
                     get_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
@@ -519,7 +689,7 @@ class Wallet(commands.Cog):
                                                     await cur.execute(sql, (COIN_NAME, tx['txid'], tx['payment_id'], tx['height'], float(tx['amount']/10**coin_decimal), float(tx['fee']/10**coin_decimal), coin_decimal))
                                                     await conn.commit()
                                             except Exception as e:
-                                                await logchanbot(traceback.format_exc())
+                                                traceback.print_exc(file=sys.stdout)
                                         elif height < int(tx['height']) + get_confirm_depth and tx['amount'] >= get_min_deposit_amount and 'payment_id' in tx:
                                             # add notify to redis and alert deposit. Can be clean later?
                                             if config.notify_new_tx.enable_new_no_confirm == 1:
@@ -536,16 +706,14 @@ class Wallet(commands.Cog):
                                                         redis_utils.redis_conn.set(key_tx_json, json.dumps({'coin_name': COIN_NAME, 'txid': tx['txid'], 'payment_id': tx['payment_id'], 'height': tx['height'], 'amount': float(tx['amount']/10**coin_decimal), 'fee': float(tx['fee']/10**coin_decimal), 'decimal': coin_decimal}), ex=86400)
                                                 except Exception as e:
                                                     traceback.print_exc(file=sys.stdout)
-                                                    await logchanbot(traceback.format_exc())
                                     # TODO: update user balance
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
-                            await logchanbot(traceback.format_exc())
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
 
-    @tasks.loop(seconds=20.0)
+
+    @tasks.loop(seconds=10.0)
     async def update_balance_btc(self):
         await asyncio.sleep(5.0)
         try:
@@ -561,7 +729,9 @@ class Wallet(commands.Cog):
                         redis_utils.redis_conn.set(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}', str(height))
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
-                        await logchanbot(traceback.format_exc())
+                        print("sleep 5s")
+                        await asyncio.sleep(5.0)
+                        continue
 
                     get_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
                     coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
@@ -605,7 +775,6 @@ class Wallet(commands.Cog):
                                                         await conn.commit()
                                             except Exception as e:
                                                 traceback.print_exc(file=sys.stdout)
-                                                await logchanbot(traceback.format_exc())
                                         if get_confirm_depth > int(tx['confirmations']) > 0 and tx['amount'] >= get_min_deposit_amount:
                                             # add notify to redis and alert deposit. Can be clean later?
                                             if config.notify_new_tx.enable_new_no_confirm == 1:
@@ -621,14 +790,13 @@ class Wallet(commands.Cog):
                                                         redis_utils.redis_conn.lpush(key_tx_new, tx['txid'])
                                                         redis_utils.redis_conn.set(key_tx_json, json.dumps({'coin_name': COIN_NAME, 'txid': tx['txid'], 'payment_id': tx['address'], 'blockhash': tx['blockhash'], 'amount': tx['amount'], 'decimal': coin_decimal}), ex=86400)
                                                 except Exception as e:
-                                                    await logchanbot(traceback.format_exc())
-                                                    await logchanbot(json.dumps(tx))
+                                                    traceback.print_exc(file=sys.stdout)
                                     # TODO: update balance cache
                         except Exception as e:
-                            await logchanbot(traceback.format_exc())
+                            traceback.print_exc(file=sys.stdout)
+                    await asyncio.sleep(3.0)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
 
 
 
@@ -647,7 +815,6 @@ class Wallet(commands.Cog):
                         redis_utils.redis_conn.set(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}', str(height))
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
-                        await logchanbot(traceback.format_exc())
 
                     get_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
                     coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
@@ -695,7 +862,6 @@ class Wallet(commands.Cog):
                                                             await conn.commit()
                                                 except Exception as e:
                                                     traceback.print_exc(file=sys.stdout)
-                                                    await logchanbot(traceback.format_exc())
                                             if height < get_confirm_depth + int(tx['confirmed_at_height']) and tx['amount'] >= get_min_deposit_amount:
                                                 # add notify to redis and alert deposit. Can be clean later?
                                                 if config.notify_new_tx.enable_new_no_confirm == 1:
@@ -712,15 +878,11 @@ class Wallet(commands.Cog):
                                                             redis_utils.redis_conn.set(key_tx_json, json.dumps({'coin_name': COIN_NAME, 'txid': tx['name'], 'payment_id': tx['to_address'], 'height': tx['confirmed_at_height'], 'amount': float(tx['amount']/10**coin_decimal), 'decimal': coin_decimal}), ex=86400)
                                                     except Exception as e:
                                                         traceback.print_exc(file=sys.stdout)
-                                                        await logchanbot(traceback.format_exc())
-                                                        await logchanbot(json.dumps(tx))
                                         # TODO: update balance users
                             except Exception as e:
                                 traceback.print_exc(file=sys.stdout)
-                                await logchanbot(traceback.format_exc())
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
 
 
     @tasks.loop(seconds=20.0)
@@ -744,10 +906,8 @@ class Wallet(commands.Cog):
                                 redis_utils.redis_conn.set(f'{config.redis.prefix + config.redis.daemon_height}{COIN_NAME}', str(height))
                             except Exception as e:
                                 traceback.print_exc(file=sys.stdout)
-                                await logchanbot(traceback.format_exc())
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
-                        await logchanbot(traceback.format_exc())
                     get_balance = await self.nano_get_wallet_balance_elements(COIN_NAME)
                     all_user_info = await store.sql_nano_get_user_wallets(COIN_NAME)
                     all_deposit_address = {}
@@ -787,19 +947,15 @@ class Wallet(commands.Cog):
                                                         await conn.commit()
                                             except Exception as e:
                                                 traceback.print_exc(file=sys.stdout)
-                                                await logchanbot(traceback.format_exc())
                                     except Exception as e:
                                         traceback.print_exc(file=sys.stdout)
-                                        await logchanbot(traceback.format_exc())
                             except Exception as e:
                                 traceback.print_exc(file=sys.stdout)
-                                await logchanbot(traceback.format_exc())
                     end = time.time()
                     # print('Done update balance: '+ COIN_NAME+ ' updated *'+str(updated)+'* duration (s): '+str(end - start))
                     await asyncio.sleep(4.0)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-        await asyncio.sleep(5.0)
 
 
     @tasks.loop(seconds=20.0)
@@ -819,7 +975,6 @@ class Wallet(commands.Cog):
                     await store.sql_check_minimum_deposit_erc20(self.bot.erc_node_list[each_c['net_name']], each_c['net_name'], each_c['coin_name'], None, each_c['decimal'], each_c['min_move_deposit'], each_c['min_gas_tx'], each_c['gas_ticker'], each_c['move_gas_amount'], each_c['chain_id'], each_c['real_deposit_fee'], 7200)
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
-        await asyncio.sleep(5.0)
 
 
     @tasks.loop(seconds=20.0)
@@ -843,7 +998,6 @@ class Wallet(commands.Cog):
                     pass
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
-        await asyncio.sleep(5.0)
 
 
     @tasks.loop(seconds=20.0)
@@ -859,7 +1013,6 @@ class Wallet(commands.Cog):
                     await store.sql_check_pending_move_deposit_erc20(self.bot.erc_node_list[each_name], each_name, depth)
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
-        await asyncio.sleep(5.0)
 
 
     @tasks.loop(seconds=10.0)
@@ -876,10 +1029,9 @@ class Wallet(commands.Cog):
                     await store.sql_check_pending_move_deposit_trc20(each_name, depth, "PENDING")
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
-        await asyncio.sleep(5.0)
 
 
-    @tasks.loop(seconds=30.0)
+    @tasks.loop(seconds=20.0)
     async def update_balance_address_history_erc20(self):
         await asyncio.sleep(5.0)
         erc_contracts = await self.get_all_contracts("ERC-20", False)
@@ -899,7 +1051,6 @@ class Wallet(commands.Cog):
                             update_call = await store.sql_update_erc_user_update_call_many_erc20(tx_update_call)
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
-        await asyncio.sleep(5.0)
 
 
     async def create_address_eth(self):
@@ -1598,13 +1749,14 @@ class Wallet(commands.Cog):
                         decoded_data = json.loads(res_data)
                         return decoded_data
                     else:
-                        await logchanbot(f'Call {COIN_NAME} returns {str(response.status)} with method {method_name}')
+                        print(f'Call {COIN_NAME} returns {str(response.status)} with method {method_name}')
         except asyncio.TimeoutError:
             print('TIMEOUT: method_name: {} - COIN: {} - timeout {}'.format(method_name, COIN_NAME, timeout))
             await logchanbot('call_doge: method_name: {} - COIN: {} - timeout {}'.format(method_name, COIN_NAME, timeout))
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
+
 
     async def send_external_xch(self, user_from: str, amount: float, to_address: str, coin: str, coin_decimal: int, tx_fee: float, withdraw_fee: float, user_server: str='DISCORD'):
         global pool
@@ -1633,8 +1785,9 @@ class Wallet(commands.Cog):
             await logchanbot(traceback.format_exc())
         return None
 
+
     async def call_doge(self, method_name: str, coin: str, payload: str = None) -> Dict:
-        timeout = 100
+        timeout = 64
         COIN_NAME = coin.upper()
         headers = {
             'content-type': 'text/plain;',
@@ -1655,7 +1808,9 @@ class Wallet(commands.Cog):
                         decoded_data = json.loads(res_data)
                         return decoded_data['result']
                     else:
-                        await logchanbot(f'Call {COIN_NAME} returns {str(response.status)} with method {method_name}')
+                        print(f'Call {COIN_NAME} returns {str(response.status)} with method {method_name}')
+                        print(data)
+                        print(url)
         except asyncio.TimeoutError:
             print('TIMEOUT: method_name: {} - COIN: {} - timeout {}'.format(method_name, coin.upper(), timeout))
             await logchanbot('call_doge: method_name: {} - COIN: {} - timeout {}'.format(method_name, coin.upper(), timeout))
@@ -1896,190 +2051,15 @@ class Wallet(commands.Cog):
             await logchanbot(traceback.format_exc())
         return []
  
-
+ 
     async def sql_get_userwallet(self, userID, coin: str, netname: str, type_coin: str, user_server: str = 'DISCORD', chat_id: int = 0):
-        # type_coin: 'ERC-20', 'TRC-10', 'TRC-20','TRTL-API','TRTL-SERVICE','BCN','XMR','NANO','BTC','CHIA','OTHER'
-        # netname null or None, xDai, MATIC, TRX, BSC
-        user_server = user_server.upper()
-        COIN_NAME = coin.upper()
-        if type_coin.upper() == "ERC-20" and COIN_NAME != netname.upper():
-            user_id_erc20 = str(userID) + "_" + type_coin.upper()
-        elif type_coin.upper() == "ERC-20" and COIN_NAME == netname.upper():
-            user_id_erc20 = str(userID) + "_" + COIN_NAME
-        if type_coin.upper() in ["TRC-20", "TRC-10"] and COIN_NAME != netname.upper():
-            type_coin = "TRC-20"
-            user_id_erc20 = str(userID) + "_" + type_coin.upper()
-        elif type_coin.upper() in ["TRC-20", "TRC-10"] and COIN_NAME == netname.upper():
-            user_id_erc20 = str(userID) + "_" + COIN_NAME
-        try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
-                async with conn.cursor() as cur:
-                    if netname and netname not in ["TRX"]:
-                        sql = """ SELECT * FROM `erc20_user` WHERE `user_id`=%s 
-                                  AND `user_id_erc20`=%s AND `user_server` = %s LIMIT 1 """
-                        await cur.execute(sql, (str(userID), user_id_erc20, user_server))
-                        result = await cur.fetchone()
-                        if result: return result
-                    elif netname and netname in ["TRX"]:
-                        sql = """ SELECT * FROM `trc20_user` WHERE `user_id`=%s 
-                                  AND `user_id_trc20`=%s AND `user_server` = %s LIMIT 1 """
-                        await cur.execute(sql, (str(userID), user_id_erc20, user_server))
-                        result = await cur.fetchone()
-                        if result: return result
-                    elif type_coin.upper() in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
-                        sql = """ SELECT * FROM `cn_user_paymentid` WHERE `user_id`=%s 
-                                  AND `coin_name`=%s AND `user_server` = %s LIMIT 1 """
-                        await cur.execute(sql, (str(userID), COIN_NAME, user_server))
-                        result = await cur.fetchone()
-                        if result: return result
-                    elif type_coin.upper() == "NANO":
-                        sql = """ SELECT * FROM `nano_user` WHERE `user_id`=%s 
-                                  AND `coin_name`=%s AND `user_server` = %s LIMIT 1 """
-                        await cur.execute(sql, (str(userID), COIN_NAME, user_server))
-                        result = await cur.fetchone()
-                        if result: return result
-                    elif type_coin.upper() == "BTC":
-                        sql = """ SELECT * FROM `doge_user` WHERE `user_id`=%s 
-                                  AND `coin_name`=%s AND `user_server` = %s LIMIT 1 """
-                        await cur.execute(sql, (str(userID), COIN_NAME, user_server))
-                        result = await cur.fetchone()
-                        if result: return result
-                    elif type_coin.upper() == "CHIA":
-                        sql = """ SELECT * FROM `xch_user` WHERE `user_id`=%s 
-                                  AND `coin_name`=%s AND `user_server` = %s LIMIT 1 """
-                        await cur.execute(sql, (str(userID), COIN_NAME, user_server))
-                        result = await cur.fetchone()
-                        if result: return result
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-        return None
+        User_WalletAPI = WalletAPI(self.bot)
+        return await User_WalletAPI.sql_get_userwallet(userID, coin, netname, type_coin, user_server, chat_id)
 
 
-    # TODO: all coin, to register
-    # ERC-20, TRC-20, native is one
-    # Gas Token like BNB, xDAI, MATIC, TRX will be a different address
     async def sql_register_user(self, userID, coin: str, netname: str, type_coin: str, user_server: str, chat_id: int = 0, is_discord_guild: int=0):
-        try:
-            COIN_NAME = coin.upper()
-            user_server = user_server.upper()
-            balance_address = None
-            main_address = None
-
-            if type_coin.upper() == "ERC-20" and COIN_NAME != netname.upper():
-                user_id_erc20 = str(userID) + "_" + type_coin.upper()
-                type_coin_user = "ERC-20"
-            elif type_coin.upper() == "ERC-20" and COIN_NAME == netname.upper():
-                user_id_erc20 = str(userID) + "_" + COIN_NAME
-                type_coin_user = COIN_NAME
-            if type_coin.upper() in ["TRC-20", "TRC-10"] and COIN_NAME != netname.upper():
-                type_coin = "TRC-20"
-                type_coin_user = "TRC-20"
-                user_id_erc20 = str(userID) + "_" + type_coin.upper()
-            elif type_coin.upper() in ["TRC-20", "TRC-10"] and COIN_NAME == netname.upper():
-                user_id_erc20 = str(userID) + "_" + COIN_NAME
-                type_coin_user = "TRX"
-
-            if type_coin.upper() == "ERC-20":
-                # passed test XDAI, MATIC
-                w = await self.create_address_eth()
-                balance_address = w['address']
-            elif type_coin.upper() in ["TRC-20", "TRC-10"]:
-                # passed test TRX, USDT
-                w = await self.create_address_trx()
-                balance_address = w
-            elif type_coin.upper() in ["TRTL-API", "TRTL-SERVICE", "BCN"]:
-                # passed test WRKZ, DEGO
-                main_address = getattr(getattr(self.bot.coin_list, COIN_NAME), "MainAddress")
-                get_prefix_char = getattr(getattr(self.bot.coin_list, COIN_NAME), "get_prefix_char")
-                get_prefix = getattr(getattr(self.bot.coin_list, COIN_NAME), "get_prefix")
-                get_addrlen = getattr(getattr(self.bot.coin_list, COIN_NAME), "get_addrlen")
-                balance_address = {}
-                balance_address['payment_id'] = cn_addressvalidation.paymentid()
-                balance_address['integrated_address'] = cn_addressvalidation.cn_make_integrated(main_address, get_prefix_char, get_prefix, get_addrlen, balance_address['payment_id'])['integrated_address']
-            elif type_coin.upper() == "XMR":
-                # passed test WOW
-                main_address = getattr(getattr(self.bot.coin_list, COIN_NAME), "MainAddress")
-                balance_address = await self.make_integrated_address_xmr(main_address, COIN_NAME)
-            elif type_coin.upper() == "NANO":
-                walletkey = decrypt_string(getattr(getattr(self.bot.coin_list, COIN_NAME), "walletkey"))
-                balance_address = await self.call_nano(COIN_NAME, payload='{ "action": "account_create", "wallet": "'+walletkey+'" }')
-            elif type_coin.upper() == "BTC":
-                # passed test PGO, XMY
-                naming = config.redis.prefix + "_"+user_server+"_" + str(userID)
-                payload = f'"{naming}"'
-                address_call = await self.call_doge('getnewaddress', COIN_NAME, payload=payload)
-                reg_address = {}
-                reg_address['address'] = address_call
-                payload = f'"{address_call}"'
-                key_call = await self.call_doge('dumpprivkey', COIN_NAME, payload=payload)
-                reg_address['privateKey'] = key_call
-                if reg_address['address'] and reg_address['privateKey']:
-                    balance_address = reg_address
-            elif type_coin.upper() == "CHIA":
-                # passed test XFX
-                payload = {'wallet_id': 1, 'new_address': True}
-                try:
-                    address_call = await self.call_xch('get_next_address', COIN_NAME, payload=payload)
-                    if 'success' in address_call and address_call['address']:
-                        balance_address = address_call
-                except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
-
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
-                async with conn.cursor() as cur:
-                    try:
-                        if netname and netname not in ["TRX"]:
-                            sql = """ INSERT INTO `erc20_user` (`user_id`, `user_id_erc20`, `type`, `balance_wallet_address`, `address_ts`, 
-                                      `seed`, `create_dump`, `private_key`, `public_key`, `xprivate_key`, `xpublic_key`, 
-                                      `called_Update`, `user_server`, `is_discord_guild`) 
-                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                            await cur.execute(sql, (str(userID), user_id_erc20, type_coin_user, w['address'], int(time.time()), 
-                                              encrypt_string(w['seed']), encrypt_string(str(w)), encrypt_string(str(w['private_key'])), w['public_key'], 
-                                              encrypt_string(str(w['xprivate_key'])), w['xpublic_key'], int(time.time()), user_server, is_discord_guild))
-                            await conn.commit()
-                            return {'balance_wallet_address': w['address']}
-                        elif netname and netname in ["TRX"]:
-                            sql = """ INSERT INTO `trc20_user` (`user_id`, `user_id_trc20`, `type`, `balance_wallet_address`, `hex_address`, `address_ts`, 
-                                      `private_key`, `public_key`, `called_Update`, `user_server`, `is_discord_guild`) 
-                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                            await cur.execute(sql, (str(userID), user_id_erc20, type_coin_user, w['base58check_address'], w['hex_address'], int(time.time()), 
-                                              encrypt_string(str(w['private_key'])), w['public_key'], int(time.time()), user_server, is_discord_guild))
-                            await conn.commit()
-                            return {'balance_wallet_address': w['base58check_address']}
-                        elif type_coin.upper() in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
-                            sql = """ INSERT INTO cn_user_paymentid (`coin_name`, `user_id`, `user_id_coin`, `main_address`, `paymentid`, 
-                                      `balance_wallet_address`, `paymentid_ts`, `user_server`, `is_discord_guild`) 
-                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                            await cur.execute(sql, (COIN_NAME, str(userID), "{}_{}".format(userID, COIN_NAME), main_address, balance_address['payment_id'], 
-                                                    balance_address['integrated_address'], int(time.time()), user_server, is_discord_guild))
-                            await conn.commit()
-                            return {'balance_wallet_address': balance_address['integrated_address'], 'paymentid': balance_address['payment_id']}
-                        elif type_coin.upper() == "NANO":
-                            sql = """ INSERT INTO `nano_user` (`coin_name`, `user_id`, `user_id_coin`, `balance_wallet_address`, `address_ts`, `user_server`, `is_discord_guild`) 
-                                      VALUES (%s, %s, %s, %s, %s, %s, %s) """
-                            await cur.execute(sql, (COIN_NAME, str(userID), "{}_{}".format(userID, COIN_NAME), balance_address['account'], int(time.time()), user_server, is_discord_guild))
-                            await conn.commit()
-                            return {'balance_wallet_address': balance_address['account']}
-                        elif type_coin.upper() == "BTC":
-                            sql = """ INSERT INTO `doge_user` (`coin_name`, `user_id`, `user_id_coin`, `balance_wallet_address`, `address_ts`, `privateKey`, `user_server`, `is_discord_guild`) 
-                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
-                            await cur.execute(sql, (COIN_NAME, str(userID), "{}_{}".format(userID, COIN_NAME), balance_address['address'], int(time.time()), 
-                                                    encrypt_string(balance_address['privateKey']), user_server, is_discord_guild))
-                            await conn.commit()
-                            return {'balance_wallet_address': balance_address['address']}
-                        elif type_coin.upper() == "CHIA":
-                            sql = """ INSERT INTO `xch_user` (`coin_name`, `user_id`, `user_id_coin`, `balance_wallet_address`, `address_ts`, `user_server`, `is_discord_guild`) 
-                                      VALUES (%s, %s, %s, %s, %s, %s, %s) """
-                            await cur.execute(sql, (COIN_NAME, str(userID), "{}_{}".format(userID, COIN_NAME), balance_address['address'], int(time.time()), user_server, is_discord_guild))
-                            await conn.commit()
-                            return {'balance_wallet_address': balance_address['address']}
-                    except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-        return None
+        User_WalletAPI = WalletAPI(self.bot)
+        return await User_WalletAPI.sql_register_user(userID, coin, netname, type_coin, user_server, chat_id, is_discord_guild)
 
 
     async def get_all_net_names(self):
@@ -2804,3 +2784,4 @@ class Wallet(commands.Cog):
 
 def setup(bot):
     bot.add_cog(Wallet(bot))
+    bot.add_cog(WalletAPI(bot))

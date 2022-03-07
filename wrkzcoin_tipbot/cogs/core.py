@@ -94,7 +94,11 @@ class Core(commands.Cog):
                         name += f" | Alias – `{ctx.prefix + cmd.aliases[0]}`"
                     page.add_field(name=name, value=cmd.description, inline=False)
             all_pages.append(page)
-        await ctx.send(embed=all_pages[0], view=MenuPage(ctx, all_pages))
+        view = MenuPage(ctx, all_pages, timeout=30)
+        if type(ctx) == disnake.ApplicationCommandInteraction:
+            view.message = await ctx.response.send_message(embed=all_pages[0], view=view)
+        else:
+            view.message = await ctx.reply(content=None, embed=all_pages[0], view=view)
 
 
     @commands.command(name='commands', usage="commands", description="View a full list of all available commands.",

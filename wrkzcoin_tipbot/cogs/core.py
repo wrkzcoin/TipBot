@@ -16,10 +16,30 @@ class Core(commands.Cog):
         self.bot = bot
 
 
-    @commands.command(usage="uptime", description="Tells how long the bot has been running.")
-    async def uptime(self, ctx):
+    async def async_uptime(self, ctx):
         uptime_seconds = round((datetime.now() - self.bot.start_time).total_seconds())
-        await ctx.reply(f"Current Uptime: {'{:0>8}'.format(str(timedelta(seconds=uptime_seconds)))}")
+        msg = f"Current Uptime: {'{:0>8}'.format(str(timedelta(seconds=uptime_seconds)))}"
+        if type(ctx) == disnake.ApplicationCommandInteraction:
+            await ctx.response.send_message(content=msg)
+        else:
+            await ctx.reply(content=msg)
+
+
+    @commands.command(usage="uptime", aliases=["uptime"], description="Tells how long the bot has been running.")
+    async def _uptime(self, ctx):
+        return await self.async_uptime(ctx)
+
+
+    @commands.slash_command(
+        usage="uptime",
+        description="Tells how long the bot has been running."
+    )
+    async def uptime(
+        self, 
+        ctx
+    ):
+        return await self.async_uptime(ctx)
+
 
 
     @commands.bot_has_permissions(add_reactions=True)

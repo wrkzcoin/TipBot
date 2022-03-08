@@ -2,13 +2,18 @@ import sys, traceback
 import time, timeago
 import disnake
 from disnake.ext import commands
-
+from datetime import datetime
+from disnake import ActionRow, Button, ButtonStyle
 from disnake.enums import OptionType
 from disnake.app_commands import Option, OptionChoice
 
+import random
+import asyncio
+import math
+
 from config import config
-from Bot import *
-from Bot import logchanbot
+from Bot import logchanbot, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_INFORMATION, num_format_coin, seconds_str, RowButton_row_close_any_message, SERVER_BOT, createBox
+
 import store
 from cogs.wallet import WalletAPI
 import redis_utils
@@ -1002,7 +1007,7 @@ class Economy(commands.Cog):
                                     self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
                                 # Make order
                                 add_item_numbers = get_shop_item['item_numbers']
-                                update_item = await store.discord_economy_userinfo_what(str(ctx.guild.id), str(ctx.author.id), get_shop_item['id'], item_name, 0, add_item_numbers)
+                                update_item = await self.db.discord_economy_userinfo_what(str(ctx.guild.id), str(ctx.author.id), get_shop_item['id'], item_name, 0, add_item_numbers)
                                 if update_item:
                                     item_desc = get_shop_item['item_name'] + " " + get_shop_item['item_emoji'] + " x" + str(add_item_numbers)
                                     return {"result": f"{ctx.author.mention}, {EMOJI_INFORMATION} You successfully purchased {item_desc}."}
@@ -1036,7 +1041,7 @@ class Economy(commands.Cog):
                                     add_item_numbers = config.economy.max_seed_per_user - get_userinfo['tree_seed']
                                 update_item = None
                                 try:
-                                    update_item = await store.discord_economy_userinfo_what(str(ctx.guild.id), str(ctx.author.id), get_shop_item['id'], item_name, add_item_numbers, -get_shop_item['credit_cost'])
+                                    update_item = await self.db.discord_economy_userinfo_what(str(ctx.guild.id), str(ctx.author.id), get_shop_item['id'], item_name, add_item_numbers, -get_shop_item['credit_cost'])
                                 except Exception as e:
                                     traceback.print_exc(file=sys.stdout)
                                     await logchanbot(traceback.format_exc())
@@ -1292,64 +1297,9 @@ class Economy(commands.Cog):
                                 pass
                                 #e.add_field(name=each_item['item_name'] + " " + each_item['item_emoji'] + "x" +str(each_item['numbers']), value="```Gem: {}```".format(each_item['item_gem']), inline=False)
                         e.set_footer(text=f"User {ctx.author.name}#{ctx.author.discriminator}")
-                        e.set_thumbnail(url=ctx.author.display_avatar)
-                        msg = await ctx.response.send_message(embed=e)
-                        for key, value in all_item_backpack.items():
-                            await msg.add_reaction(key)
-                        
-
-                        def check(reaction, user):
-                            return user == ctx.author and reaction.message.author == self.bot.user and reaction.message.id == msg.id
-                        while True:
-                            try:
-                                reaction, user = await self.bot.wait_for('reaction_add', timeout=60, check=check)
-                            except asyncio.TimeoutError:
-                                if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-                                    self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-                                try:
-                                    await msg.delete()
-                                except Exception as e:
-                                    pass
-                                break
-                                return
-                            if reaction.emoji and str(reaction.emoji) in all_item_backpack:
-                                try:
-                                    get_item_id = await self.db.economy_get_item_id(all_item_backpack[str(reaction.emoji)])
-                                    # Else, go on and Insert work to DB
-                                    add_energy = 0
-                                    add_energy_health_str = ""
-                                    if get_item_id['item_energy'] > 0:
-                                        add_energy = get_item_id['item_energy']
-                                        if get_userinfo['energy_current'] + add_energy > get_userinfo['energy_total']:
-                                            add_energy = get_userinfo['energy_total'] - get_userinfo['energy_current']
-                                        add_energy_health_str = "{} energy".format(add_energy)
-                                        total_energy = get_userinfo['energy_current'] + add_energy
-                                        total_energy_health_str = f"You have total `{total_energy}` energy."
-                                    add_health = 0
-                                    if get_item_id['item_health'] > 0:
-                                        add_health = get_item_id['item_health']
-                                        if get_userinfo['health_current'] + add_health > get_userinfo['health_total']:
-                                            add_health = get_userinfo['health_total'] - get_userinfo['health_current']
-                                        add_energy_health_str = "{} health".format(add_health)
-                                        total_health = get_userinfo['health_current'] + add_health
-                                        total_energy_health_str = f"You have total `{total_health}` health."
-                                    # Update userinfo
-                                    update_userinfo = await self.db.economy_item_update_used(str(ctx.author.id), all_item_backpack[str(reaction.emoji)], add_energy, add_health)
-                                    using_item = '{} {}'.format(get_item_id['item_name'], get_item_id['item_emoji'])
-                                    if update_userinfo:
-                                        await ctx.response.send_message(f'{EMOJI_INFORMATION} {ctx.author.mention} You used `{using_item}`. You gained `{add_energy_health_str}`. {total_energy_health_str}')
-                                        await msg.delete()
-                                    else:
-                                        return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} Internal error."}
-                                    if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-                                        self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-                                    break
-                                except Exception as e:
-                                    await logchanbot(traceback.format_exc())
-                            elif str(reaction.emoji) == EMOJI_OK_BOX:
-                                if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-                                    self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-                                return {"result": True} ## True: No need to reply after call this function
+                        e.set_thumbnail(url=ctx.author.display_avatar)                        
+                        view = EconomyButton([each_items for each_items in all_item_backpack.keys()], str(ctx.author.id), "item", 10)
+                        await ctx.response.send_message(embed=e, view=view)
                     else:
                         if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
                             self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
@@ -1407,7 +1357,6 @@ class Economy(commands.Cog):
 
 
     async def eco_plant(self, ctx, plant_name):
-        prefix = await get_guild_prefix(ctx)
         check_this_ctx = await self.check_guild(ctx)
         if "error" in check_this_ctx:
             return check_this_ctx
@@ -1429,7 +1378,7 @@ class Economy(commands.Cog):
         # Getting list of work in the guild and re-act
         get_userinfo = await self.db.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
         if get_userinfo and get_userinfo['tree_seed'] <= 0:
-            return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} You do not have any seed. Please buy `{prefix}eco buy seed`."}
+            return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} You do not have any seed. Please buy eco buy seed`."}
 
         if get_userinfo['numb_farm'] == 0 and plant_name != "TREE":
             return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} You do not have any farm."}
@@ -1482,10 +1431,6 @@ class Economy(commands.Cog):
             else:
                 # Not tree and not max, let's plant
                 # Using tractor, loss same energy but gain more experience
-                if has_tractor and type(ctx) is not disnake.interactions.app_command_interaction.SlashInteraction:
-                    await ctx.message.add_reaction("🚜")
-                elif not has_tractor and type(ctx) is not disnake.interactions.app_command_interaction.SlashInteraction:
-                    await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
                 await asyncio.sleep(1.0)
                 exp_gained = config.economy.plant_exp_gained
                 energy_loss = exp_gained * 2
@@ -1965,10 +1910,6 @@ class Economy(commands.Cog):
             total_energy_loss = round(total_energy_loss, 2)
             total_exp = round(total_exp, 2)
             if will_fishing > 0: 
-                if has_boat and type(ctx) is not disnake.interactions.app_command_interaction.SlashInteraction:
-                    await ctx.message.add_reaction("🚣")
-                elif not has_boat and type(ctx) is not disnake.interactions.app_command_interaction.SlashInteraction:
-                    await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
                 await asyncio.sleep(1.0)
                 insert_item = await self.db.economy_insert_fishing_multiple(selected_item_list, total_energy_loss, total_exp, str(ctx.author.id))
                 if numb_caught > 0:
@@ -2022,8 +1963,6 @@ class Economy(commands.Cog):
 
         try:
             # Get list of items:
-            if type(ctx) is not disnake.interactions.MessageInteraction:
-                await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
             await asyncio.sleep(1.0)
             timber_volume = math.floor(random.uniform(config.economy.plant_volume_rand_min, config.economy.plant_volume_rand_max)) + 1
             leaf_kg = math.floor(config.economy.leaf_per_volume * timber_volume) + 1
@@ -2070,8 +2009,6 @@ class Economy(commands.Cog):
 
         try:
             # Get list of items:
-            if type(ctx) is not disnake.interactions.MessageInteraction:
-                await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
             await asyncio.sleep(1.0)
             if random.randint(1,100) < config.economy.luck_search:
                 # You get luck
@@ -2090,7 +2027,6 @@ class Economy(commands.Cog):
                         await ctx.response.send_message(f'{EMOJI_INFORMATION} {ctx.author.mention} Nice! You have found a box and with {item_info} inside. You put it into your backpack.')
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
-                    await logchanbot(traceback.format_exc())
             else:
                 # Get empty box
                 #economy_insert_secret_findings(item_id: int, user_id: str, guild_id: str, item_health: float, item_energy: float, item_gem: int, can_use: bool=True):
@@ -2099,10 +2035,8 @@ class Economy(commands.Cog):
                     await ctx.response.send_message(f'{EMOJI_INFORMATION} {ctx.author.mention} You found an empty box. Good luck next time!')
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
         if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
             self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-        return
 
 
     async def eco_eat(self, ctx):

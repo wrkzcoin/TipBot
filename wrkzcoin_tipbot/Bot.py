@@ -172,6 +172,11 @@ bot.TX_IN_PROCESS = []
 bot.LOG_CHAN = config.discord.logchan
 bot.MINGPOOLSTAT_IN_PROCESS = []
 bot.GAME_INTERACTIVE_ECO = []
+bot.GAME_INTERACTIVE_PRGORESS = []
+bot.GAME_SLOT_IN_PRGORESS = []
+bot.GAME_MAZE_IN_PROCESS = []
+bot.GAME_DICE_IN_PRGORESS = []
+
 
 bot.erc_node_list = {
     "FTM": config.default_endpoints.ftm, 

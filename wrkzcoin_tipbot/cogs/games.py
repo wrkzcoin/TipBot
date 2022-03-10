@@ -61,7 +61,56 @@ class database_games():
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         return None
-    
+
+
+    async def sql_game_get_level_user(self, userid: str, game_name: str):
+        level = -1
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM discord_game WHERE `played_user`=%s 
+                              AND `game_type`=%s AND `win_lose`=%s ORDER BY `played_at` DESC LIMIT 1 """
+                    await cur.execute(sql, (userid, game_name.upper(), 'WIN'))
+                    result = await cur.fetchone()
+                    if result and len(result) > 0:
+                        try:
+                            level = int(result['game_result'])
+                        except Exception as e:
+                            await logchanbot(traceback.format_exc())
+
+                    sql = """ SELECT * FROM discord_game_free WHERE `played_user`=%s 
+                              AND `game_type`=%s AND `win_lose`=%s ORDER BY `played_at` DESC LIMIT 1 """
+                    await cur.execute(sql, (userid, game_name.upper(), 'WIN'))
+                    result = await cur.fetchone()
+                    if result and len(result) > 0:
+                        try:
+                            if level and int(result['game_result']) > level:
+                                level = int(result['game_result'])
+                        except Exception as e:
+                            await logchanbot(traceback.format_exc())
+                    return level
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
+        return level
+
+
+    async def sql_game_get_level_tpl(self, level: int, game_name: str):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM discord_game_level_tpl WHERE `level`=%s 
+                              AND `game_name`=%s LIMIT 1 """
+                    await cur.execute(sql, (level, game_name.upper()))
+                    result = await cur.fetchone()
+                    if result and len(result) > 0:
+                        return result
+                    else:
+                        return None
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
+        return None
     
 # Defines a simple view of row buttons.
 class BlackJack_Buttons(disnake.ui.View):
@@ -472,7 +521,733 @@ class Maze_Buttons(disnake.ui.View):
             if isinstance(child, disnake.ui.Button):
                 child.disabled = True
         await self.message.edit(view=self)
+        await self.message.reply(f'{self.ctx.author.mention}, you gave up the current game.')
+        self.game_over = True
         await interaction.response.defer()
+
+
+# Defines a simple view of row buttons.
+class g2048_Buttons(disnake.ui.View):
+    message: disnake.Message
+
+    def __init__(self, ctx, free_game: bool=False, timeout: float=30.0):
+        super().__init__(timeout=timeout)
+        self.ctx = ctx
+        self.free_game = free_game
+        self.db = database_games()
+        self.time_start = int(time.time())
+
+        self.score = 0
+        self.gameBoard = g2048_getNewBoard()
+        self.board = g2048_drawBoard(self.gameBoard)
+
+
+    async def on_timeout(self):
+        if self.game_over == False:
+            for child in self.children:
+                if isinstance(child, disnake.ui.Button):
+                    child.disabled = True
+            await self.message.edit(view=self)
+            await self.message.reply(f'{self.ctx.author.mention}, time running out.')
+
+
+    @disnake.ui.button(label="🔼", style=ButtonStyle.red)
+    async def up_button(
+        self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
+    ):
+        if self.ctx.author.id != interaction.author.id:
+            # Not you
+            await interaction.response.defer()
+            return
+
+        self.gameBoard = g2048_makeMove(self.gameBoard, 'W')
+        g2048_addTwoToBoard(self.gameBoard)
+        self.board = g2048_drawBoard(self.gameBoard)
+        self.score = g2048_getScore(self.gameBoard)
+        if g2048_isFull(self.gameBoard):
+            if self.ctx.author.id in self.bot.GAME_INTERACTIVE_PRGORESS:
+                self.bot.GAME_INTERACTIVE_PRGORESS.remove(self.ctx.author.id)
+            self.board = g2048_drawBoard(self.gameBoard)
+            duration = seconds_str(int(time.time()) - self.time_start)
+            result = 'You got reward of **{yyyy} {yyy}** to Tip balance!'
+            if self.free_game == True:
+                result = f'You do not get any reward because it is a free game! Waiting to refresh your paid plays (24h max).'
+
+            for child in self.children:
+                if isinstance(child, disnake.ui.Button):
+                    child.disabled = True
+
+            await self.message.edit(content=f'**{self.ctx.author.mention} Game Over**```{self.board}```Your score: **{self.score}**\nYou have spent time: **{duration}**\n{result}', view=None)
+        else:
+            await self.message.edit(content=f'{self.ctx.author.mention}```GAME 2048\n{self.board}```Your score: **{self.score}**', view=self)
+        # Defer
+        await interaction.response.defer()
+
+
+    @disnake.ui.button(label="🔽", style=ButtonStyle.red)
+    async def down_button(
+        self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
+    ):
+        if self.ctx.author.id != interaction.author.id:
+            # Not you
+            await interaction.response.defer()
+            return
+
+        self.gameBoard = g2048_makeMove(self.gameBoard, 'S')
+        g2048_addTwoToBoard(self.gameBoard)
+        self.board = g2048_drawBoard(self.gameBoard)
+        self.score = g2048_getScore(self.gameBoard)
+        if g2048_isFull(self.gameBoard):
+            if self.ctx.author.id in self.bot.GAME_INTERACTIVE_PRGORESS:
+                self.bot.GAME_INTERACTIVE_PRGORESS.remove(self.ctx.author.id)
+            self.board = g2048_drawBoard(self.gameBoard)
+            duration = seconds_str(int(time.time()) - self.time_start)
+            result = 'You got reward of **{yyyy} {yyy}** to Tip balance!'
+            if self.free_game == True:
+                result = f'You do not get any reward because it is a free game! Waiting to refresh your paid plays (24h max).'
+
+            for child in self.children:
+                if isinstance(child, disnake.ui.Button):
+                    child.disabled = True
+
+            await self.message.edit(content=f'**{self.ctx.author.mention} Game Over**```{self.board}```Your score: **{self.score}**\nYou have spent time: **{duration}**\n{result}', view=None)
+        else:
+            await self.message.edit(content=f'{self.ctx.author.mention}```GAME 2048\n{self.board}```Your score: **{self.score}**', view=self)
+        # Defer
+        await interaction.response.defer()
+
+
+    @disnake.ui.button(label="◀️", style=ButtonStyle.red)
+    async def left_button(
+        self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
+    ):
+        if self.ctx.author.id != interaction.author.id:
+            # Not you
+            await interaction.response.defer()
+            return
+
+        self.gameBoard = g2048_makeMove(self.gameBoard, 'A')
+        g2048_addTwoToBoard(self.gameBoard)
+        self.board = g2048_drawBoard(self.gameBoard)
+        self.score = g2048_getScore(self.gameBoard)
+        if g2048_isFull(self.gameBoard):
+            if self.ctx.author.id in self.bot.GAME_INTERACTIVE_PRGORESS:
+                self.bot.GAME_INTERACTIVE_PRGORESS.remove(self.ctx.author.id)
+            self.board = g2048_drawBoard(self.gameBoard)
+            duration = seconds_str(int(time.time()) - self.time_start)
+            result = 'You got reward of **{yyyy} {yyy}** to Tip balance!'
+            if self.free_game == True:
+                result = f'You do not get any reward because it is a free game! Waiting to refresh your paid plays (24h max).'
+
+            for child in self.children:
+                if isinstance(child, disnake.ui.Button):
+                    child.disabled = True
+
+            await self.message.edit(content=f'**{self.ctx.author.mention} Game Over**```{self.board}```Your score: **{self.score}**\nYou have spent time: **{duration}**\n{result}', view=None)
+        else:
+            await self.message.edit(content=f'{self.ctx.author.mention}```GAME 2048\n{self.board}```Your score: **{self.score}**', view=self)
+        # Defer
+        await interaction.response.defer()
+
+
+    @disnake.ui.button(label="▶️", style=ButtonStyle.red)
+    async def right_button(
+        self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
+    ):
+        if self.ctx.author.id != interaction.author.id:
+            # Not you
+            await interaction.response.defer()
+            return
+
+        self.gameBoard = g2048_makeMove(self.gameBoard, 'D')
+        g2048_addTwoToBoard(self.gameBoard)
+        self.board = g2048_drawBoard(self.gameBoard)
+        self.score = g2048_getScore(self.gameBoard)
+        if g2048_isFull(self.gameBoard):
+            if self.ctx.author.id in self.bot.GAME_INTERACTIVE_PRGORESS:
+                self.bot.GAME_INTERACTIVE_PRGORESS.remove(self.ctx.author.id)
+            self.board = g2048_drawBoard(self.gameBoard)
+            duration = seconds_str(int(time.time()) - self.time_start)
+            result = 'You got reward of **{yyyy} {yyy}** to Tip balance!'
+            if self.free_game == True:
+                result = f'You do not get any reward because it is a free game! Waiting to refresh your paid plays (24h max).'
+
+            for child in self.children:
+                if isinstance(child, disnake.ui.Button):
+                    child.disabled = True
+
+            await self.message.edit(content=f'**{self.ctx.author.mention} Game Over**```{self.board}```Your score: **{self.score}**\nYou have spent time: **{duration}**\n{result}', view=None)
+        else:
+            await self.message.edit(content=f'{self.ctx.author.mention}```GAME 2048\n{self.board}```Your score: **{self.score}**', view=self)
+        # Defer
+        await interaction.response.defer()
+
+
+    @disnake.ui.button(label="⏹️", style=ButtonStyle.red)
+    async def stop_button(
+        self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
+    ):
+        if self.ctx.author.id != interaction.author.id:
+            # Not you
+            await interaction.response.defer()
+            return
+
+        for child in self.children:
+            if isinstance(child, disnake.ui.Button):
+                child.disabled = True
+        await self.message.edit(view=self)
+        await self.message.reply(f'{self.ctx.author.mention}, you gave up the current game.')
+        self.game_over = True
+        await interaction.response.defer()
+
+
+# Defines a simple view of row buttons.
+class Sokoban_Buttons(disnake.ui.View):
+    message: disnake.Message
+
+    def __init__(self, ctx, free_game: bool=False, timeout: float=30.0):
+        super().__init__(timeout=timeout)
+        self.ctx = ctx
+        self.free_game = free_game
+        self.db = database_games()
+        self.time_start = int(time.time())
+
+        self.level = None
+        self.currentLevel = None
+        # Set up the constants:
+        self.WIDTH = 'width'
+        self.HEIGHT = 'height'
+
+        self.playerX = None
+        self.playerY = None
+
+        # Characters in level files that represent objects:
+        self.WALL = '#'
+        self.FACE = '@'
+        self.CRATE = '$'
+        self.GOAL = '.'
+        self.CRATE_ON_GOAL = '*'
+        self.PLAYER_ON_GOAL = '+'
+        self.EMPTY = ' '
+
+        self.CRATE_DISPLAY = '🟫'
+        # GOAL_DISPLAY = ':negative_squared_cross_mark:'
+        self.GOAL_DISPLAY = '❎'
+
+        # How objects should be displayed on the screen:
+        # WALL_DISPLAY = random.choice([':red_square:', ':orange_square:', ':yellow_square:', ':blue_square:', ':purple_square:']) # '#' # chr(9617)   # Character 9617 is '░'
+        self.WALL_DISPLAY = random.choice(['🟥', '🟧', '🟨', '🟦', '🟪'])
+        self.FACE_DISPLAY = ':zany_face:' # '<:smiling_face:700888455877754991>' some guild not support having this
+
+        # A list of chr() codes is at https://inventwithpython.com/chr
+        # CRATE_ON_GOAL_DISPLAY = ':green_square:'
+        self.CRATE_ON_GOAL_DISPLAY = '🟩'
+        self.PLAYER_ON_GOAL_DISPLAY = '😁' # '<:grinning_face:700888456028487700>'
+        # EMPTY_DISPLAY = ':black_large_square:'
+        self.EMPTY_DISPLAY = '⬛' # already initial
+
+        self.CHAR_MAP = {self.WALL: self.WALL_DISPLAY, self.FACE: self.FACE_DISPLAY,
+                    self.CRATE: self.CRATE_DISPLAY, self.PLAYER_ON_GOAL: self.PLAYER_ON_GOAL_DISPLAY,
+                    self.GOAL: self.GOAL_DISPLAY, self.CRATE_ON_GOAL: self.CRATE_ON_GOAL_DISPLAY,
+                    self.EMPTY: self.EMPTY_DISPLAY}
+
+
+    def loadLevel(self, level_str: str):
+        self.currentLevel = {self.WIDTH: 0, self.HEIGHT: 0}
+        y = 0
+
+        # Add the line to the current level.
+        # We use line[:-1] so we don't include the newline:
+        for line in level_str.splitlines():
+            line += "\n"
+            for x, levelChar in enumerate(line[:-1]):
+                self.currentLevel[(x, y)] = levelChar
+            y += 1
+
+            if len(line) - 1 > self.currentLevel[self.WIDTH]:
+                self.currentLevel[self.WIDTH] = len(line) - 1
+            if y > self.currentLevel[self.HEIGHT]:
+                self.currentLevel[self.HEIGHT] = y
+
+        return self.currentLevel
+
+    def displayLevel(self, levelData):
+        # Draw the current level.
+        solvedCrates = 0
+        unsolvedCrates = 0
+
+        level_display = ''
+        for y in range(levelData[self.HEIGHT]):
+            for x in range(levelData[self.WIDTH]):
+                if levelData.get((x, y), self.EMPTY) == self.CRATE:
+                    unsolvedCrates += 1
+                elif levelData.get((x, y), self.EMPTY) == self.CRATE_ON_GOAL:
+                    solvedCrates += 1
+                prettyChar = self.CHAR_MAP[levelData.get((x, y), self.EMPTY)]
+                level_display += prettyChar
+            level_display += '\n'
+        totalCrates = unsolvedCrates + solvedCrates
+        level_display += "\nSolved: {}/{}".format(solvedCrates, totalCrates)
+        return level_display
+
+
+    async def on_timeout(self):
+        if self.game_over == False:
+            for child in self.children:
+                if isinstance(child, disnake.ui.Button):
+                    child.disabled = True
+            await self.message.edit(view=self)
+            await self.message.reply(f'{self.ctx.author.mention}, time running out.')
+
+
+    @disnake.ui.button(label="🔼", style=ButtonStyle.red)
+    async def up_button(
+        self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
+    ):
+        if self.ctx.author.id != interaction.author.id:
+            # Not you
+            await interaction.response.defer()
+            return
+
+        try:
+            # Find the player position:
+            for position, character in self.currentLevel.items():
+                if character in (self.FACE, self.PLAYER_ON_GOAL):
+                    self.playerX, self.playerY = position
+
+            moveX, moveY = 0, -1
+            moveToX = self.playerX + moveX
+            moveToY = self.playerY + moveY
+            moveToSpace = self.currentLevel.get((moveToX, moveToY), self.EMPTY)
+
+            # If the move-to space is empty or a goal, just move there:
+            if moveToSpace == self.EMPTY or moveToSpace == self.GOAL:
+                # Change the player's old position:
+                if self.currentLevel[(self.playerX, self.playerY)] == self.FACE:
+                    self.currentLevel[(self.playerX, self.playerY)] = self.EMPTY
+                elif self.currentLevel[(self.playerX, self.playerY)] == self.PLAYER_ON_GOAL:
+                    self.currentLevel[(self.playerX, self.playerY)] = self.GOAL
+
+                # Set the player's new position:
+                if moveToSpace == self.EMPTY:
+                    self.currentLevel[(moveToX, moveToY)] = self.FACE
+                elif moveToSpace == self.GOAL:
+                    self.currentLevel[(moveToX, moveToY)] = self.PLAYER_ON_GOAL
+
+            # If the move-to space is a wall, don't move at all:
+            elif moveToSpace == self.WALL:
+                pass
+
+            # If the move-to space has a crate, see if we can push it:
+            elif moveToSpace in (self.CRATE, self.CRATE_ON_GOAL):
+                behindMoveToX = self.playerX + (moveX * 2)
+                behindMoveToY = self.playerY + (moveY * 2)
+                behindMoveToSpace = self.currentLevel.get((behindMoveToX, behindMoveToY), self.EMPTY)
+                if behindMoveToSpace in (self.WALL, self.CRATE, self.CRATE_ON_GOAL):
+                    # Can't push the crate because there's a wall or
+                    # crate behind it:
+                    pass
+                elif behindMoveToSpace in (self.GOAL, self.EMPTY):
+                    # Change the player's old position:
+                    if self.currentLevel[(self.playerX, self.playerY)] == self.FACE:
+                        self.currentLevel[(self.playerX, self.playerY)] = self.EMPTY
+                    elif self.currentLevel[(self.playerX, self.playerY)] == self.PLAYER_ON_GOAL:
+                        self.currentLevel[(self.playerX, self.playerY)] = self.GOAL
+
+                    # Set the player's new position:
+                    if moveToSpace == self.CRATE:
+                        self.currentLevel[(moveToX, moveToY)] = self.FACE
+                    elif moveToSpace == self.CRATE_ON_GOAL:
+                        self.currentLevel[(moveToX, moveToY)] = self.PLAYER_ON_GOAL
+
+                    # Set the crate's new position:
+                    if behindMoveToSpace == self.EMPTY:
+                        self.currentLevel[(behindMoveToX, behindMoveToY)] = self.CRATE
+                    elif behindMoveToSpace == self.GOAL:
+                        self.currentLevel[(behindMoveToX, behindMoveToY)] = self.CRATE_ON_GOAL
+
+            # Check if the player has finished the level:
+            levelIsSolved = True
+            for position, character in self.currentLevel.items():
+                if character == self.CRATE:
+                    levelIsSolved = False
+                    break
+
+            if levelIsSolved == True:
+                display_level = self.displayLevel(self.currentLevel)
+                embed = disnake.Embed(title=f'SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}', description=f'{display_level}', timestamp=datetime.utcnow())
+                embed.add_field(name="LEVEL", value=f'{self.level}')
+                embed.add_field(name="OTHER LINKS", value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(config.discord.invite_link, config.discord.support_server_link, config.discord.github_link), inline=False)
+                
+                ## game end
+                for child in self.children:
+                    if isinstance(child, disnake.ui.Button):
+                        child.disabled = True
+                await interaction.response.defer()
+                await self.message.edit(embed=embed, view=self)
+                self.game_over = True
+                result = 'You got reward of **{yyyy} {yyy}** to Tip balance!'
+                if self.free_game == True:
+                    result = f'You do not get any reward because it is a free game! Waiting to refresh your paid plays (24h max).'
+
+                duration = seconds_str(int(time.time()) - self.time_start)
+                # TODO: insert level update for user
+                await self.message.reply(content=f'**Level {self.level} completed. You have spent time: **{duration}**\n{result}', view=None)
+            else:
+                display_level = self.displayLevel(self.currentLevel)
+                embed = disnake.Embed(title=f'SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}', description=f'{display_level}', timestamp=datetime.utcnow())
+                embed.add_field(name="LEVEL", value=f'{self.level}')
+                embed.add_field(name="OTHER LINKS", value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(config.discord.invite_link, config.discord.support_server_link, config.discord.github_link), inline=False)
+                await interaction.response.defer()
+                await self.message.edit(embed=embed, view=self)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        # Defer
+        try:
+            await interaction.response.defer()
+        except Exception as e:
+            pass
+
+
+    @disnake.ui.button(label="🔽", style=ButtonStyle.red)
+    async def down_button(
+        self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
+    ):
+        if self.ctx.author.id != interaction.author.id:
+            # Not you
+            await interaction.response.defer()
+            return
+
+        try:
+            # Find the player position:
+            for position, character in self.currentLevel.items():
+                if character in (self.FACE, self.PLAYER_ON_GOAL):
+                    self.playerX, self.playerY = position
+
+            moveX, moveY = 0, 1
+            moveToX = self.playerX + moveX
+            moveToY = self.playerY + moveY
+            moveToSpace = self.currentLevel.get((moveToX, moveToY), self.EMPTY)
+
+            # If the move-to space is empty or a goal, just move there:
+            if moveToSpace == self.EMPTY or moveToSpace == self.GOAL:
+                # Change the player's old position:
+                if self.currentLevel[(self.playerX, self.playerY)] == self.FACE:
+                    self.currentLevel[(self.playerX, self.playerY)] = self.EMPTY
+                elif self.currentLevel[(self.playerX, self.playerY)] == self.PLAYER_ON_GOAL:
+                    self.currentLevel[(self.playerX, self.playerY)] = self.GOAL
+
+                # Set the player's new position:
+                if moveToSpace == self.EMPTY:
+                    self.currentLevel[(moveToX, moveToY)] = self.FACE
+                elif moveToSpace == self.GOAL:
+                    self.currentLevel[(moveToX, moveToY)] = self.PLAYER_ON_GOAL
+
+            # If the move-to space is a wall, don't move at all:
+            elif moveToSpace == self.WALL:
+                pass
+
+            # If the move-to space has a crate, see if we can push it:
+            elif moveToSpace in (self.CRATE, self.CRATE_ON_GOAL):
+                behindMoveToX = self.playerX + (moveX * 2)
+                behindMoveToY = self.playerY + (moveY * 2)
+                behindMoveToSpace = self.currentLevel.get((behindMoveToX, behindMoveToY), self.EMPTY)
+                if behindMoveToSpace in (self.WALL, self.CRATE, self.CRATE_ON_GOAL):
+                    # Can't push the crate because there's a wall or
+                    # crate behind it:
+                    pass
+                elif behindMoveToSpace in (self.GOAL, self.EMPTY):
+                    # Change the player's old position:
+                    if self.currentLevel[(self.playerX, self.playerY)] == self.FACE:
+                        self.currentLevel[(self.playerX, self.playerY)] = self.EMPTY
+                    elif self.currentLevel[(self.playerX, self.playerY)] == self.PLAYER_ON_GOAL:
+                        self.currentLevel[(self.playerX, self.playerY)] = self.GOAL
+
+                    # Set the player's new position:
+                    if moveToSpace == self.CRATE:
+                        self.currentLevel[(moveToX, moveToY)] = self.FACE
+                    elif moveToSpace == self.CRATE_ON_GOAL:
+                        self.currentLevel[(moveToX, moveToY)] = self.PLAYER_ON_GOAL
+
+                    # Set the crate's new position:
+                    if behindMoveToSpace == self.EMPTY:
+                        self.currentLevel[(behindMoveToX, behindMoveToY)] = self.CRATE
+                    elif behindMoveToSpace == self.GOAL:
+                        self.currentLevel[(behindMoveToX, behindMoveToY)] = self.CRATE_ON_GOAL
+
+            # Check if the player has finished the level:
+            levelIsSolved = True
+            for position, character in self.currentLevel.items():
+                if character == self.CRATE:
+                    levelIsSolved = False
+                    break
+
+            if levelIsSolved == True:
+                display_level = self.displayLevel(self.currentLevel)
+                embed = disnake.Embed(title=f'SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}', description=f'{display_level}', timestamp=datetime.utcnow())
+                embed.add_field(name="LEVEL", value=f'{self.level}')
+                embed.add_field(name="OTHER LINKS", value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(config.discord.invite_link, config.discord.support_server_link, config.discord.github_link), inline=False)
+                
+                ## game end
+                for child in self.children:
+                    if isinstance(child, disnake.ui.Button):
+                        child.disabled = True
+                await interaction.response.defer()
+                await self.message.edit(embed=embed, view=self)
+                self.game_over = True
+                result = 'You got reward of **{yyyy} {yyy}** to Tip balance!'
+                if self.free_game == True:
+                    result = f'You do not get any reward because it is a free game! Waiting to refresh your paid plays (24h max).'
+
+                duration = seconds_str(int(time.time()) - self.time_start)
+                # TODO: insert level update for user
+                await self.message.reply(content=f'**Level {self.level} completed. You have spent time: **{duration}**\n{result}', view=None)
+            else:
+                display_level = self.displayLevel(self.currentLevel)
+                embed = disnake.Embed(title=f'SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}', description=f'{display_level}', timestamp=datetime.utcnow())
+                embed.add_field(name="LEVEL", value=f'{self.level}')
+                embed.add_field(name="OTHER LINKS", value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(config.discord.invite_link, config.discord.support_server_link, config.discord.github_link), inline=False)
+                await interaction.response.defer()
+                await self.message.edit(embed=embed, view=self)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        # Defer
+        try:
+            await interaction.response.defer()
+        except Exception as e:
+            pass
+
+
+    @disnake.ui.button(label="◀️", style=ButtonStyle.red)
+    async def left_button(
+        self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
+    ):
+        if self.ctx.author.id != interaction.author.id:
+            # Not you
+            await interaction.response.defer()
+            return
+
+        try:
+            # Find the player position:
+            for position, character in self.currentLevel.items():
+                if character in (self.FACE, self.PLAYER_ON_GOAL):
+                    self.playerX, self.playerY = position
+
+            moveX, moveY = -1, 0
+            moveToX = self.playerX + moveX
+            moveToY = self.playerY + moveY
+            moveToSpace = self.currentLevel.get((moveToX, moveToY), self.EMPTY)
+
+            # If the move-to space is empty or a goal, just move there:
+            if moveToSpace == self.EMPTY or moveToSpace == self.GOAL:
+                # Change the player's old position:
+                if self.currentLevel[(self.playerX, self.playerY)] == self.FACE:
+                    self.currentLevel[(self.playerX, self.playerY)] = self.EMPTY
+                elif self.currentLevel[(self.playerX, self.playerY)] == self.PLAYER_ON_GOAL:
+                    self.currentLevel[(self.playerX, self.playerY)] = self.GOAL
+
+                # Set the player's new position:
+                if moveToSpace == self.EMPTY:
+                    self.currentLevel[(moveToX, moveToY)] = self.FACE
+                elif moveToSpace == self.GOAL:
+                    self.currentLevel[(moveToX, moveToY)] = self.PLAYER_ON_GOAL
+
+            # If the move-to space is a wall, don't move at all:
+            elif moveToSpace == self.WALL:
+                pass
+
+            # If the move-to space has a crate, see if we can push it:
+            elif moveToSpace in (self.CRATE, self.CRATE_ON_GOAL):
+                behindMoveToX = self.playerX + (moveX * 2)
+                behindMoveToY = self.playerY + (moveY * 2)
+                behindMoveToSpace = self.currentLevel.get((behindMoveToX, behindMoveToY), self.EMPTY)
+                if behindMoveToSpace in (self.WALL, self.CRATE, self.CRATE_ON_GOAL):
+                    # Can't push the crate because there's a wall or
+                    # crate behind it:
+                    pass
+                elif behindMoveToSpace in (self.GOAL, self.EMPTY):
+                    # Change the player's old position:
+                    if self.currentLevel[(self.playerX, self.playerY)] == self.FACE:
+                        self.currentLevel[(self.playerX, self.playerY)] = self.EMPTY
+                    elif self.currentLevel[(self.playerX, self.playerY)] == self.PLAYER_ON_GOAL:
+                        self.currentLevel[(self.playerX, self.playerY)] = self.GOAL
+
+                    # Set the player's new position:
+                    if moveToSpace == self.CRATE:
+                        self.currentLevel[(moveToX, moveToY)] = self.FACE
+                    elif moveToSpace == self.CRATE_ON_GOAL:
+                        self.currentLevel[(moveToX, moveToY)] = self.PLAYER_ON_GOAL
+
+                    # Set the crate's new position:
+                    if behindMoveToSpace == self.EMPTY:
+                        self.currentLevel[(behindMoveToX, behindMoveToY)] = self.CRATE
+                    elif behindMoveToSpace == self.GOAL:
+                        self.currentLevel[(behindMoveToX, behindMoveToY)] = self.CRATE_ON_GOAL
+
+            # Check if the player has finished the level:
+            levelIsSolved = True
+            for position, character in self.currentLevel.items():
+                if character == self.CRATE:
+                    levelIsSolved = False
+                    break
+
+            if levelIsSolved == True:
+                display_level = self.displayLevel(self.currentLevel)
+                embed = disnake.Embed(title=f'SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}', description=f'{display_level}', timestamp=datetime.utcnow())
+                embed.add_field(name="LEVEL", value=f'{self.level}')
+                embed.add_field(name="OTHER LINKS", value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(config.discord.invite_link, config.discord.support_server_link, config.discord.github_link), inline=False)
+                
+                ## game end
+                for child in self.children:
+                    if isinstance(child, disnake.ui.Button):
+                        child.disabled = True
+                await interaction.response.defer()
+                await self.message.edit(embed=embed, view=self)
+                self.game_over = True
+                result = 'You got reward of **{yyyy} {yyy}** to Tip balance!'
+                if self.free_game == True:
+                    result = f'You do not get any reward because it is a free game! Waiting to refresh your paid plays (24h max).'
+
+                duration = seconds_str(int(time.time()) - self.time_start)
+                # TODO: insert level update for user
+                await self.message.reply(content=f'**Level {self.level} completed. You have spent time: **{duration}**\n{result}', view=None)
+            else:
+                display_level = self.displayLevel(self.currentLevel)
+                embed = disnake.Embed(title=f'SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}', description=f'{display_level}', timestamp=datetime.utcnow())
+                embed.add_field(name="LEVEL", value=f'{self.level}')
+                embed.add_field(name="OTHER LINKS", value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(config.discord.invite_link, config.discord.support_server_link, config.discord.github_link), inline=False)
+                await interaction.response.defer()
+                await self.message.edit(embed=embed, view=self)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        # Defer
+        try:
+            await interaction.response.defer()
+        except Exception as e:
+            pass
+
+
+    @disnake.ui.button(label="▶️", style=ButtonStyle.red)
+    async def right_button(
+        self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
+    ):
+        if self.ctx.author.id != interaction.author.id:
+            # Not you
+            await interaction.response.defer()
+            return
+        try:
+            # Find the player position:
+            for position, character in self.currentLevel.items():
+                if character in (self.FACE, self.PLAYER_ON_GOAL):
+                    self.playerX, self.playerY = position
+                        
+            moveX, moveY = 1, 0
+            moveToX = self.playerX + moveX
+            moveToY = self.playerY + moveY
+            moveToSpace = self.currentLevel.get((moveToX, moveToY), self.EMPTY)
+
+            # If the move-to space is empty or a goal, just move there:
+            if moveToSpace == self.EMPTY or moveToSpace == self.GOAL:
+                # Change the player's old position:
+                if self.currentLevel[(self.playerX, self.playerY)] == self.FACE:
+                    self.currentLevel[(self.playerX, self.playerY)] = self.EMPTY
+                elif self.currentLevel[(self.playerX, self.playerY)] == self.PLAYER_ON_GOAL:
+                    self.currentLevel[(self.playerX, self.playerY)] = self.GOAL
+
+                # Set the player's new position:
+                if moveToSpace == self.EMPTY:
+                    self.currentLevel[(moveToX, moveToY)] = self.FACE
+                elif moveToSpace == self.GOAL:
+                    self.currentLevel[(moveToX, moveToY)] = self.PLAYER_ON_GOAL
+
+            # If the move-to space is a wall, don't move at all:
+            elif moveToSpace == self.WALL:
+                pass
+
+            # If the move-to space has a crate, see if we can push it:
+            elif moveToSpace in (self.CRATE, self.CRATE_ON_GOAL):
+                behindMoveToX = self.playerX + (moveX * 2)
+                behindMoveToY = self.playerY + (moveY * 2)
+                behindMoveToSpace = self.currentLevel.get((behindMoveToX, behindMoveToY), self.EMPTY)
+                if behindMoveToSpace in (self.WALL, self.CRATE, self.CRATE_ON_GOAL):
+                    # Can't push the crate because there's a wall or
+                    # crate behind it:
+                    pass
+                elif behindMoveToSpace in (self.GOAL, self.EMPTY):
+                    # Change the player's old position:
+                    if self.currentLevel[(self.playerX, self.playerY)] == self.FACE:
+                        self.currentLevel[(self.playerX, self.playerY)] = self.EMPTY
+                    elif self.currentLevel[(self.playerX, self.playerY)] == self.PLAYER_ON_GOAL:
+                        self.currentLevel[(self.playerX, self.playerY)] = self.GOAL
+
+                    # Set the player's new position:
+                    if moveToSpace == self.CRATE:
+                        self.currentLevel[(moveToX, moveToY)] = self.FACE
+                    elif moveToSpace == self.CRATE_ON_GOAL:
+                        self.currentLevel[(moveToX, moveToY)] = self.PLAYER_ON_GOAL
+
+                    # Set the crate's new position:
+                    if behindMoveToSpace == self.EMPTY:
+                        self.currentLevel[(behindMoveToX, behindMoveToY)] = self.CRATE
+                    elif behindMoveToSpace == self.GOAL:
+                        self.currentLevel[(behindMoveToX, behindMoveToY)] = self.CRATE_ON_GOAL
+
+            # Check if the player has finished the level:
+            levelIsSolved = True
+            for position, character in self.currentLevel.items():
+                if character == self.CRATE:
+                    levelIsSolved = False
+                    break
+
+            if levelIsSolved == True:
+                display_level = self.displayLevel(self.currentLevel)
+                embed = disnake.Embed(title=f'SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}', description=f'{display_level}', timestamp=datetime.utcnow())
+                embed.add_field(name="LEVEL", value=f'{self.level}')
+                embed.add_field(name="OTHER LINKS", value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(config.discord.invite_link, config.discord.support_server_link, config.discord.github_link), inline=False)
+                
+                ## game end
+                for child in self.children:
+                    if isinstance(child, disnake.ui.Button):
+                        child.disabled = True
+                await interaction.response.defer()
+                await self.message.edit(embed=embed, view=self)
+                self.game_over = True
+                result = 'You got reward of **{yyyy} {yyy}** to Tip balance!'
+                if self.free_game == True:
+                    result = f'You do not get any reward because it is a free game! Waiting to refresh your paid plays (24h max).'
+
+                duration = seconds_str(int(time.time()) - self.time_start)
+                # TODO: insert level update for user
+                await self.message.reply(content=f'**Level {self.level} completed. You have spent time: **{duration}**\n{result}', view=None)
+            else:
+                display_level = self.displayLevel(self.currentLevel)
+                embed = disnake.Embed(title=f'SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}', description=f'{display_level}', timestamp=datetime.utcnow())
+                embed.add_field(name="LEVEL", value=f'{self.level}')
+                embed.add_field(name="OTHER LINKS", value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(config.discord.invite_link, config.discord.support_server_link, config.discord.github_link), inline=False)
+                await interaction.response.defer()
+                await self.message.edit(embed=embed, view=self)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        # Defer
+        try:
+            await interaction.response.defer()
+        except Exception as e:
+            pass
+
+
+    @disnake.ui.button(label="⏹️", style=ButtonStyle.red)
+    async def stop_button(
+        self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
+    ):
+        if self.ctx.author.id != interaction.author.id:
+            # Not you
+            await interaction.response.defer()
+            return
+
+        for child in self.children:
+            if isinstance(child, disnake.ui.Button):
+                child.disabled = True
+        await self.message.edit(view=self)
         await self.message.reply(f'{self.ctx.author.mention}, you gave up the current game.')
         self.game_over = True
         await interaction.response.defer()
@@ -923,174 +1698,12 @@ class Games(commands.Cog):
         if ctx.author.id in self.bot.GAME_INTERACTIVE_PRGORESS:
             return {"error": f"{ctx.author.mention} You are ongoing with one **game** play."}
 
-        score = 0
-        game_text = '''
-    Slide all the tiles on the board in one of four directions. Tiles with
-    like numbers will combine into larger-numbered tiles. A new 2 tile is
-    added to the board on each move. You win if you can create a 2048 tile.
-    You lose if the board fills up the tiles before then.'''
-        # We do not always show credit
-        if random.randint(1,100) < 30:
-            msg = await ctx.reply(f'{ctx.author.mention} ```{game_text}```')
-            await msg.add_reaction(EMOJI_OK_BOX)
-
-        game_over = False
-        gameBoard = g2048_getNewBoard()
+        view = g2048_Buttons(ctx, free_game, timeout=15.0)
         try:
-            board = g2048_drawBoard(gameBoard) # string
-            try:
-                msg = await ctx.reply(f'**GAME 2048 starts**...')
-            except Exception as e:
-                if ctx.author.id in self.bot.GAME_INTERACTIVE_PRGORESS:
-                    self.bot.GAME_INTERACTIVE_PRGORESS.remove(ctx.author.id)
-                await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} **GAME 2048** failed to send message in {ctx.guild.name} / {ctx.guild.id}')
-                return
-
-            # Create a row of buttons
-            row = ActionRow(
-                Button(
-                    style=ButtonStyle.blurple,
-                    label="🔼",
-                    custom_id="up"
-                ),
-                Button(
-                    style=ButtonStyle.blurple,
-                    label="🔽",
-                    custom_id="down"
-                ),
-                Button(
-                    style=ButtonStyle.blurple,
-                    label="◀️",
-                    custom_id="left"
-                ),
-                Button(
-                    style=ButtonStyle.blurple,
-                    label="▶️",
-                    custom_id="right"
-                ),
-                Button(
-                    style=ButtonStyle.blurple,
-                    label="⏹️",
-                    custom_id="stop"
-                )
-            )
-            time_start = int(time.time())
-            inter_msg = False
-            while not game_over:
-                try:
-                    if inter_msg == False: await msg.edit(content=f'{ctx.author.mention}```GAME 2048\n{board}```Your score: **{score}**', components=[row])
-                except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
-                    if ctx.author.id in self.bot.GAME_INTERACTIVE_PRGORESS:
-                        self.bot.GAME_INTERACTIVE_PRGORESS.remove(ctx.author.id)
-                    await ctx.reply(f'{EMOJI_RED_NO} {ctx.author.mention} **GAME 2048** was deleted or I can not find it. Game stop!')
-                    return
-                except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
-                score = g2048_getScore(gameBoard)
-
-                if IS_RESTARTING:
-                    if type(ctx) is not disnake.interactions.MessageInteraction: await ctx.message.add_reaction(EMOJI_REFRESH)
-                    await ctx.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is going to restart soon. Wait until it is back for using this.')
-                    return
-
-                def check(inter):
-                    return inter.message.id == msg.id and ctx.author == inter.author
-                try:
-                    inter = await self.bot.wait_for('button_click', check=check, timeout=120)
-                except asyncio.TimeoutError:
-                    if ctx.author.id in self.bot.GAME_INTERACTIVE_PRGORESS:
-                        self.bot.GAME_INTERACTIVE_PRGORESS.remove(ctx.author.id)
-                    if free_game == True:
-                        try:
-                            await store.sql_game_free_add(board, str(ctx.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), '2048', int(time.time()) - time_start, SERVER_BOT)
-                        except Exception as e:
-                            await logchanbot(traceback.format_exc())
-                    else:
-                        try:
-                            reward = await store.sql_game_add(board, str(ctx.author.id), 'None', 'WIN' if won else 'LOSE', 0, 0, str(ctx.guild.id), '2048', int(time.time()) - time_start, SERVER_BOT)
-                        except Exception as e:
-                            await logchanbot(traceback.format_exc())
-                    await ctx.reply(f'{ctx.author.mention} **2048 GAME** has waited you too long. Game exits. Your score **{score}**.')
-                    game_over = True
-                    return
-
-                if inter.clicked_button.custom_id == "stop":
-                    await ctx.reply(f'{ctx.author.mention} You gave up the current game. Your score **{score}**.')
-                    game_over = True
-                    if ctx.author.id in self.bot.GAME_INTERACTIVE_PRGORESS:
-                        self.bot.GAME_INTERACTIVE_PRGORESS.remove(ctx.author.id)
-
-                    if free_game == True:
-                        try:
-                            await store.sql_game_free_add(board, str(ctx.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), '2048', int(time.time()) - time_start, SERVER_BOT)
-                        except Exception as e:
-                            await logchanbot(traceback.format_exc())
-                    else:
-                        try:
-                            reward = await store.sql_game_add(board, str(ctx.author.id), 'None', 'WIN' if won else 'LOSE', 0, 0, str(ctx.guild.id), '2048', int(time.time()) - time_start, SERVER_BOT)
-                        except Exception as e:
-                            await logchanbot(traceback.format_exc())
-                    await asyncio.sleep(1)
-                    try:
-                        await msg.delete()
-                    except Exception as e:
-                        pass
-                    break
-                    return
-
-                playerMove = None
-                if inter.clicked_button.custom_id == "up":
-                    playerMove = 'W'
-                elif inter.clicked_button.custom_id == "down":
-                    playerMove = 'S'
-                elif inter.clicked_button.custom_id == "left":
-                    playerMove = 'A'
-                elif inter.clicked_button.custom_id == "right":
-                    playerMove = 'D'
-                if playerMove in ('W', 'A', 'S', 'D'):
-                    gameBoard = g2048_makeMove(gameBoard, playerMove)
-                    g2048_addTwoToBoard(gameBoard)
-                    board = g2048_drawBoard(gameBoard)
-                if g2048_isFull(gameBoard):
-                    game_over = True
-                    won = True # we assume won but it is not a winner
-                    if ctx.author.id in self.bot.GAME_INTERACTIVE_PRGORESS:
-                        self.bot.GAME_INTERACTIVE_PRGORESS.remove(ctx.author.id)
-                    board = g2048_drawBoard(gameBoard)
-
-                    # Handle whether the player won, lost, or tied:
-                    COIN_NAME = random.choice(GAME_COIN)
-                    amount = GAME_SLOT_REWARD[COIN_NAME] * (int(score / 100) if score / 100 > 1 else 1) # testing first
-                    if COIN_NAME in ENABLE_COIN_ERC:
-                        coin_family = "ERC-20"
-                    elif COIN_NAME in ENABLE_COIN_TRC:
-                        coin_family = "TRC-20"
-                    else:
-                        coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-                    real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO", "XCH"] else float(amount)
-                    result = f'You got reward of **{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}** to Tip balance!'
-                    duration = seconds_str(int(time.time()) - time_start)
-                    if free_game == True:
-                        result = f'You do not get any reward because it is a free game! Waiting to refresh your paid plays (24h max).'
-                        try:
-                            await store.sql_game_free_add(board, str(ctx.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), '2048', int(time.time()) - time_start, SERVER_BOT)
-                        except Exception as e:
-                            await logchanbot(traceback.format_exc())
-                    else:
-                        try:
-                            reward = await store.sql_game_add(board, str(ctx.author.id), COIN_NAME, 'WIN' if won else 'LOSE', real_amount if won else 0, get_decimal(COIN_NAME) if won else 0, str(ctx.guild.id), '2048', int(time.time()) - time_start, SERVER_BOT)
-                        except Exception as e:
-                            await logchanbot(traceback.format_exc())
-                    await inter.create_response(content=f'**{ctx.author.mention} Game Over**```{board}```Your score: **{score}**\nYou have spent time: **{duration}**\n{result}', type=dislash.ResponseType.UpdateMessage)
-                    return
-                else:
-                    inter_msg = True
-                    await inter.create_response(content=f'{ctx.author.mention}```GAME 2048\n{board}```Your score: **{score}**', components=[row], type=dislash.ResponseType.UpdateMessage)
-
-        except Exception as e:
-            await logchanbot(traceback.format_exc())
-        if ctx.author.id in self.bot.GAME_INTERACTIVE_PRGORESS:
-            self.bot.GAME_INTERACTIVE_PRGORESS.remove(ctx.author.id)
+            await ctx.response.send_message("New 2048 Game! tap button...", ephemeral=True)                
+            view.message = await ctx.channel.send(content=f'{ctx.author.mention}```GAME 2048\n{view.board}```Your score: **{0}**', view=view)
+        except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
+            return
 
 
     async def game_sokoban(
@@ -1121,338 +1734,47 @@ class Games(commands.Cog):
         if ctx.author.id in self.bot.GAME_INTERACTIVE_PRGORESS:
             return {"error": f"{ctx.author.mention} You are ongoing with one **game** play."}
 
-        # Set up the constants:
-        WIDTH = 'width'
-        HEIGHT = 'height'
-
-        # Characters in level files that represent objects:
-        WALL = '#'
-        FACE = '@'
-        CRATE = '$'
-        GOAL = '.'
-        CRATE_ON_GOAL = '*'
-        PLAYER_ON_GOAL = '+'
-        EMPTY = ' '
-
-        # How objects should be displayed on the screen:
-        # WALL_DISPLAY = random.choice([':red_square:', ':orange_square:', ':yellow_square:', ':blue_square:', ':purple_square:']) # '#' # chr(9617)   # Character 9617 is '░'
-        WALL_DISPLAY = random.choice(['🟥', '🟧', '🟨', '🟦', '🟪'])
-        FACE_DISPLAY = ':zany_face:' # '<:smiling_face:700888455877754991>' some guild not support having this
-        # CRATE_DISPLAY = ':brown_square:'  # Character 9679 is '▪'
-        CRATE_DISPLAY = '🟫'
-        # GOAL_DISPLAY = ':negative_squared_cross_mark:'
-        GOAL_DISPLAY = '❎'
-        # A list of chr() codes is at https://inventwithpython.com/chr
-        # CRATE_ON_GOAL_DISPLAY = ':green_square:'
-        CRATE_ON_GOAL_DISPLAY = '🟩'
-        PLAYER_ON_GOAL_DISPLAY = '😁' # '<:grinning_face:700888456028487700>'
-        # EMPTY_DISPLAY = ':black_large_square:'
-        # EMPTY_DISPLAY = '⬛' already initial
-
-        CHAR_MAP = {WALL: WALL_DISPLAY, FACE: FACE_DISPLAY,
-                    CRATE: CRATE_DISPLAY, PLAYER_ON_GOAL: PLAYER_ON_GOAL_DISPLAY,
-                    GOAL: GOAL_DISPLAY, CRATE_ON_GOAL: CRATE_ON_GOAL_DISPLAY,
-                    EMPTY: EMPTY_DISPLAY}
-
-        won = False
-        game_text = f'''Push the solid crates {CRATE_DISPLAY} onto the {GOAL_DISPLAY}. You can only push,
-    you cannot pull. Re-act with direction to move up-left-down-right,
-    respectively. You can also reload game level.'''
-        # We do not always show credit
-        if random.randint(1,100) < 30:
-            msg = await ctx.reply(f'{ctx.author.mention} ```{game_text}```')
-            await msg.add_reaction(EMOJI_OK_BOX)
-
-        # get max level user already played.
-        level = 0
-        get_level_user = await store.sql_game_get_level_user(str(ctx.author.id), 'SOKOBAN')
-        if get_level_user < 0:
-            level = 0
-        elif get_level_user >= 0:
-            level = get_level_user + 1
-
-        get_level = await store.sql_game_get_level_tpl(level, 'SOKOBAN')
-        
-        if get_level is None:
-            if ctx.author.id in self.bot.GAME_INTERACTIVE_PRGORESS:
-                self.bot.GAME_INTERACTIVE_PRGORESS.remove(ctx.author.id)
-            await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} **GAME SOKOBAN** failed get level **{str(level)}** in {ctx.guild.name} / {ctx.guild.id}')
-            return {"error": f"{ctx.author.mention} Game sokban loading failed. Check back later."}
-
-
-        def loadLevel(level_str: str):
-            level_str = level_str
-            currentLevel = {WIDTH: 0, HEIGHT: 0}
-            y = 0
-
-            # Add the line to the current level.
-            # We use line[:-1] so we don't include the newline:
-            for line in level_str.splitlines():
-                line += "\n"
-                for x, levelChar in enumerate(line[:-1]):
-                    currentLevel[(x, y)] = levelChar
-                y += 1
-
-                if len(line) - 1 > currentLevel[WIDTH]:
-                    currentLevel[WIDTH] = len(line) - 1
-                if y > currentLevel[HEIGHT]:
-                    currentLevel[HEIGHT] = y
-
-            return currentLevel
-
-        def displayLevel(levelData):
-            # Draw the current level.
-            solvedCrates = 0
-            unsolvedCrates = 0
-
-            level_display = ''
-            for y in range(levelData[HEIGHT]):
-                for x in range(levelData[WIDTH]):
-                    if levelData.get((x, y), EMPTY) == CRATE:
-                        unsolvedCrates += 1
-                    elif levelData.get((x, y), EMPTY) == CRATE_ON_GOAL:
-                        solvedCrates += 1
-                    prettyChar = CHAR_MAP[levelData.get((x, y), EMPTY)]
-                    level_display += prettyChar
-                level_display += '\n'
-            totalCrates = unsolvedCrates + solvedCrates
-            level_display += "\nSolved: {}/{}".format(solvedCrates, totalCrates)
-            return level_display
-
-        game_over = False
-
+        view = Sokoban_Buttons(ctx, free_game, timeout=15.0)
         try:
-            currentLevel = loadLevel(get_level['template_str'])
-            display_level = displayLevel(currentLevel)
+            # CRATE_DISPLAY = ':brown_square:'  # Character 9679 is '▪'
+            CRATE_DISPLAY = '🟫'
+            # GOAL_DISPLAY = ':negative_squared_cross_mark:'
+            GOAL_DISPLAY = '❎'
+            game_text = f'''```Push the solid crates {CRATE_DISPLAY} onto the {GOAL_DISPLAY}. You can only push, you cannot pull. Re-act with direction to move up-left-down-right, respectively. You can also reload game level.```'''
+            await ctx.channel.send(content=game_text)
 
-            embed = disnake.Embed(title=f'SOKOBAN GAME {ctx.author.name}#{ctx.author.discriminator}', description='**SOKOBAN GAME** starts...', timestamp=datetime.utcnow(), colour=7047495)
-            embed.add_field(name="LEVEL", value=f'{level}')
-            embed.add_field(name="OTHER LINKS", value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(config.discord.invite_link, config.discord.support_server_link, config.discord.github_link), inline=False)
-            try:
-                msg = await ctx.reply(embed=embed)
-            except Exception as e:
+            # get max level user already played.
+            level = 0
+            get_level_user = await self.db.sql_game_get_level_user(str(ctx.author.id), 'SOKOBAN')
+            if get_level_user < 0:
+                level = 0
+            elif get_level_user >= 0:
+                level = get_level_user + 1
+
+            get_level = await self.db.sql_game_get_level_tpl(level, 'SOKOBAN')
+            if get_level is None:
                 if ctx.author.id in self.bot.GAME_INTERACTIVE_PRGORESS:
                     self.bot.GAME_INTERACTIVE_PRGORESS.remove(ctx.author.id)
-                await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} **GAME SOKOBAN** failed to send embed in {ctx.guild.name} / {ctx.guild.id}')
-                return {"error": f"{ctx.author.mention} I can not send any embed message here. Seemed no permission."}
+                return {"error": f"{ctx.author.mention} Game sokban loading failed. Check back later."}
 
-            # Create a row of buttons
-            row = ActionRow(
-                Button(
-                    style=ButtonStyle.blurple,
-                    label="🔼",
-                    custom_id="up"
-                ),
-                Button(
-                    style=ButtonStyle.blurple,
-                    label="🔽",
-                    custom_id="down"
-                ),
-                Button(
-                    style=ButtonStyle.blurple,
-                    label="◀️",
-                    custom_id="left"
-                ),
-                Button(
-                    style=ButtonStyle.blurple,
-                    label="▶️",
-                    custom_id="right"
-                ),
-                Button(
-                    style=ButtonStyle.blurple,
-                    label="⏹️",
-                    custom_id="stop"
-                )
-            )
-            time_start = int(time.time())
-            inter_msg = False
-            while not game_over:
-                if IS_RESTARTING:
-                    await ctx.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Bot is going to restart soon. Wait until it is back for using this.')
-                    return
-
-                display_level = displayLevel(currentLevel)
-                embed = disnake.Embed(title=f'SOKOBAN GAME {ctx.author.name}#{ctx.author.discriminator}', description=f'{display_level}', timestamp=datetime.utcnow(), colour=7047495)
+            view = Sokoban_Buttons(ctx, free_game, timeout=15.0)
+            try:
+                await ctx.response.send_message("New Sokoban Game! tap button...", ephemeral=True)
+                view.currentLevel = view.loadLevel(get_level['template_str'])
+                display_level = view.displayLevel(view.currentLevel)
+                embed = disnake.Embed(title=f'SOKOBAN GAME {ctx.author.name}#{ctx.author.discriminator}', description=f'{display_level}', timestamp=datetime.utcnow())
                 embed.add_field(name="LEVEL", value=f'{level}')
                 embed.add_field(name="OTHER LINKS", value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(config.discord.invite_link, config.discord.support_server_link, config.discord.github_link), inline=False)
-                try:
-                    if inter_msg ==False:
-                        await msg.edit(embed=embed, components=[row])
-                    else:
-                        await inter.create_response(embed=embed, components=[row], type=dislash.ResponseType.UpdateMessage)
-                except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
-                    if ctx.author.id in self.bot.GAME_INTERACTIVE_PRGORESS:
-                        self.bot.GAME_INTERACTIVE_PRGORESS.remove(ctx.author.id)
-                    return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} **GAME SOKOBAN** was deleted or I can not find it. Game stop!"}
+                view.message = await ctx.channel.send(embed=embed, view=view)
+                view.level = level
                 # Find the player position:
-                for position, character in currentLevel.items():
-                    if character in (FACE, PLAYER_ON_GOAL):
-                        playerX, playerY = position
-
-                def check(inter):
-                    return inter.message.id == msg.id and ctx.author == inter.author
-                try:
-                    inter = await self.bot.wait_for('button_click', check=check, timeout=120)
-                    inter_msg = True
-                except (asyncio.TimeoutError, asyncio.exceptions.TimeoutError) as e:
-                    if ctx.author.id in self.bot.GAME_INTERACTIVE_PRGORESS:
-                        self.bot.GAME_INTERACTIVE_PRGORESS.remove(ctx.author.id)
-                    await ctx.reply(f'{ctx.author.mention} **SOKOBAN GAME** has waited you too long. Game exits.')
-                    game_over = True
-                    if free_game == True:
-                        try:
-                            await store.sql_game_free_add(str(level), str(ctx.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'SOKOBAN', int(time.time()) - time_start, SERVER_BOT)
-                        except Exception as e:
-                            await logchanbot(traceback.format_exc())
-                    else:
-                        try:
-                            reward = await store.sql_game_add(str(level), str(ctx.author.id), 'None', 'WIN' if won else 'LOSE', 0, 0, str(ctx.guild.id), 'SOKOBAN', int(time.time()) - time_start, SERVER_BOT)
-                        except Exception as e:
-                            await logchanbot(traceback.format_exc())
-                    return
-                if inter.clicked_button.custom_id == "stop":
-                    await ctx.reply(f'{ctx.author.mention} **SOKOBAN GAME** You gave up the current game.')
-                    game_over = True
-                    if ctx.author.id in self.bot.GAME_INTERACTIVE_PRGORESS:
-                        self.bot.GAME_INTERACTIVE_PRGORESS.remove(ctx.author.id)
-
-                    if free_game == True:
-                        try:
-                            await store.sql_game_free_add(str(level), str(ctx.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'SOKOBAN', int(time.time()) - time_start, SERVER_BOT)
-                        except Exception as e:
-                            await logchanbot(traceback.format_exc())
-                    else:
-                        try:
-                            reward = await store.sql_game_add(str(level), str(ctx.author.id), 'None', 'WIN' if won else 'LOSE', 0, 0, str(ctx.guild.id), 'SOKOBAN', int(time.time()) - time_start, SERVER_BOT)
-                        except Exception as e:
-                            await logchanbot(traceback.format_exc())
-                    await asyncio.sleep(1)
-                    try:
-                        await msg.delete()
-                    except Exception as e:
-                        pass
-                    return
-                elif inter.clicked_button.custom_id == "up":
-                    moveX, moveY = 0, -1
-                elif inter.clicked_button.custom_id == "down":
-                    moveX, moveY = 0, 1
-                elif inter.clicked_button.custom_id == "left":
-                    moveX, moveY = -1, 0
-                elif inter.clicked_button.custom_id == "right":
-                     moveX, moveY = 1, 0
-     
-                moveToX = playerX + moveX
-                moveToY = playerY + moveY
-                moveToSpace = currentLevel.get((moveToX, moveToY), EMPTY)
-
-                # If the move-to space is empty or a goal, just move there:
-                if moveToSpace == EMPTY or moveToSpace == GOAL:
-                    # Change the player's old position:
-                    if currentLevel[(playerX, playerY)] == FACE:
-                        currentLevel[(playerX, playerY)] = EMPTY
-                    elif currentLevel[(playerX, playerY)] == PLAYER_ON_GOAL:
-                        currentLevel[(playerX, playerY)] = GOAL
-
-                    # Set the player's new position:
-                    if moveToSpace == EMPTY:
-                        currentLevel[(moveToX, moveToY)] = FACE
-                    elif moveToSpace == GOAL:
-                        currentLevel[(moveToX, moveToY)] = PLAYER_ON_GOAL
-
-                # If the move-to space is a wall, don't move at all:
-                elif moveToSpace == WALL:
-                    pass
-
-                # If the move-to space has a crate, see if we can push it:
-                elif moveToSpace in (CRATE, CRATE_ON_GOAL):
-                    behindMoveToX = playerX + (moveX * 2)
-                    behindMoveToY = playerY + (moveY * 2)
-                    behindMoveToSpace = currentLevel.get((behindMoveToX, behindMoveToY), EMPTY)
-                    if behindMoveToSpace in (WALL, CRATE, CRATE_ON_GOAL):
-                        # Can't push the crate because there's a wall or
-                        # crate behind it:
-                        continue
-                    if behindMoveToSpace in (GOAL, EMPTY):
-                        # Change the player's old position:
-                        if currentLevel[(playerX, playerY)] == FACE:
-                            currentLevel[(playerX, playerY)] = EMPTY
-                        elif currentLevel[(playerX, playerY)] == PLAYER_ON_GOAL:
-                            currentLevel[(playerX, playerY)] = GOAL
-
-                        # Set the player's new position:
-                        if moveToSpace == CRATE:
-                            currentLevel[(moveToX, moveToY)] = FACE
-                        elif moveToSpace == CRATE_ON_GOAL:
-                            currentLevel[(moveToX, moveToY)] = PLAYER_ON_GOAL
-
-                        # Set the crate's new position:
-                        if behindMoveToSpace == EMPTY:
-                            currentLevel[(behindMoveToX, behindMoveToY)] = CRATE
-                        elif behindMoveToSpace == GOAL:
-                            currentLevel[(behindMoveToX, behindMoveToY)] = CRATE_ON_GOAL
-
-                # Check if the player has finished the level:
-                levelIsSolved = True
-                for position, character in currentLevel.items():
-                    if character == CRATE:
-                        levelIsSolved = False
-                        break
-                display_level = displayLevel(currentLevel)
-                if levelIsSolved:
-                    won = True
-                    # game end, check win or lose
-                    try:
-                        result = ''
-                        if free_game == False:
-                            won_x = 2
-                            if won:
-                                COIN_NAME = random.choice(GAME_COIN)
-                                amount = GAME_SLOT_REWARD[COIN_NAME] * won_x
-                                if COIN_NAME in ENABLE_COIN_ERC:
-                                    coin_family = "ERC-20"
-                                elif COIN_NAME in ENABLE_COIN_TRC:
-                                    coin_family = "TRC-20"
-                                else:
-                                    coin_family = getattr(getattr(config,"daemon"+COIN_NAME),"coin_family","TRTL")
-                                real_amount = int(amount * get_decimal(COIN_NAME)) if coin_family in ["BCN", "XMR", "TRTL", "NANO", "XCH"] else float(amount)
-                                reward = await store.sql_game_add(str(level), str(ctx.author.id), COIN_NAME, 'WIN', real_amount, get_decimal(COIN_NAME), str(ctx.guild.id), 'SOKOBAN', int(time.time()) - time_start, SERVER_BOT)
-                                result = f'You won! {ctx.author.mention} got reward of **{num_format_coin(real_amount, COIN_NAME)} {COIN_NAME}** to Tip balance!'
-                            else:
-                                reward = await store.sql_game_add(str(level), 'None', 'LOSE', 0, 0, str(ctx.guild.id), 'SOKOBAN', int(time.time()) - time_start, SERVER_BOT)
-                                result = f'You lose!'
-                        else:
-                            if won:
-                                result = f'You won! but this is a free game without **reward**! Waiting to refresh your paid plays (24h max).'
-                            else:
-                                result = f'You lose!'
-                            try:
-                                await store.sql_game_free_add(str(level), str(ctx.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id), 'SOKOBAN', int(time.time()) - time_start, SERVER_BOT)
-                            except Exception as e:
-                                await logchanbot(traceback.format_exc())
-                        await ctx.reply(f'{ctx.author.mention} **SOKOBAN GAME** {result}')
-                        if ctx.author.id in self.bot.GAME_INTERACTIVE_PRGORESS:
-                            self.bot.GAME_INTERACTIVE_PRGORESS.remove(ctx.author.id)
-
-                    except Exception as e: # edit
-                        await logchanbot(traceback.format_exc())
-                    embed = disnake.Embed(title=f'SOKOBAN GAME FINISHED {ctx.author.name}#{ctx.author.discriminator}', description=f'{display_level}', timestamp=datetime.utcnow(), colour=7047495)
-                    embed.add_field(name="LEVEL", value=f'{level}')
-                    duration = seconds_str(int(time.time()) - time_start)
-                    embed.add_field(name="DURATION", value=f'{duration}')
-                    embed.add_field(name="OTHER LINKS", value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(config.discord.invite_link, config.discord.support_server_link, config.discord.github_link), inline=False)
-                    inter_msg = True
-                    await inter.create_response(embed=embed, components=[row], type=dislash.ResponseType.UpdateMessage)
-                    game_over = True
-                    break
-                    return
-
-            if ctx.author.id in self.bot.GAME_INTERACTIVE_PRGORESS:
-                self.bot.GAME_INTERACTIVE_PRGORESS.remove(ctx.author.id)
-            return
+                for position, character in view.currentLevel.items():
+                    if character in (view.FACE, view.PLAYER_ON_GOAL):
+                        view.playerX, view.playerY = position
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
         except Exception as e:
-            await logchanbot(traceback.format_exc())
-        if ctx.author.id in self.bot.GAME_INTERACTIVE_PRGORESS:
-            self.bot.GAME_INTERACTIVE_PRGORESS.remove(ctx.author.id)
+            traceback.print_exc(file=sys.stdout)
 
 
     @commands.slash_command(description="Various game commands.")
@@ -1471,7 +1793,7 @@ class Games(commands.Cog):
         await self.bot_log()
         game_blackjack = await self.game_blackjack(ctx)
         if game_blackjack and "error" in game_blackjack:
-            await ctx.reply(game_blackjack['error'])
+            await ctx.response.send_message(game_blackjack['error'])
 
 
     @game.sub_command(
@@ -1503,7 +1825,7 @@ class Games(commands.Cog):
         try:
             game_maze = await self.game_maze(ctx)
             if game_maze and "error" in game_maze:
-                await ctx.reply(game_maze['error'])
+                await ctx.response.send_message(game_maze['error'])
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
@@ -1520,7 +1842,7 @@ class Games(commands.Cog):
         try:
             game_dice = await self.game_dice(ctx)
             if game_dice and "error" in game_dice:
-                await ctx.reply(game_dice['error'])
+                await ctx.response.send_message(game_dice['error'])
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
@@ -1541,13 +1863,13 @@ class Games(commands.Cog):
         try:
             game_snail = await self.game_snail(ctx, bet_numb)
             if game_snail and "error" in game_snail:
-                await ctx.reply(game_snail['error'])
+                await ctx.response.send_message(game_snail['error'])
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
 
     @game.sub_command(
-        usage="game g2048", 
+        usage="game g2048",  
         description="Classic 2048 game. Slide all the tiles on the board in one of four directions."
     )
     async def g2048(
@@ -1558,7 +1880,7 @@ class Games(commands.Cog):
         try:
             game_2048 = await self.game_2048(ctx)
             if game_2048 and "error" in game_2048:
-                await ctx.reply(game_2048['error'])
+                await ctx.response.send_message(game_2048['error'])
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
@@ -1575,7 +1897,8 @@ class Games(commands.Cog):
         try:
             game_sokoban = await self.game_sokoban(ctx)
             if game_sokoban and "error" in game_sokoban:
-                await ctx.reply(game_sokoban['error'])
+                print(game_sokoban['error'])
+                await ctx.response.send_message(game_sokoban['error'])
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 

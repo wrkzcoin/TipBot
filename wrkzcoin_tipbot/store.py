@@ -1885,11 +1885,7 @@ async def sql_user_balance_mv_multiple(user_from: str, user_tos, guild_id: str, 
                           `balance`=`balance`+VALUES(`balance`), 
                           `update_date`=VALUES(`update_date`);
                 """
-                await cur.executemany(sql, values_list)
-                
-                # [('WRKZ', None, '386761001808166912', '386761001808166912', '422968579454140426', '905302454365741066', 10.0, 2, 'MATHTIP', 1646634269, 'DISCORD', '386761001808166912', 'WRKZ', 'DISCORD', -10.0, 1646634269, '386761001808166912', 'WRKZ', 'DISCORD', 10.0, 1646634269)]
-                # [(<class 'str'>, <class 'NoneType'>, <class 'str'>, <class 'str'>, <class 'str'>, <class 'str'>, <class 'float'>, <class 'int'>, <class 'str'>, <class 'int'>, <class 'str'>, <class 'str'>, <class 'float'>)]
-                
+                await cur.executemany(sql, values_list)                
                 await conn.commit()
                 return True
     except Exception as e:
@@ -1950,6 +1946,42 @@ real_amount: float, real_deposit_fee: float, token_decimal: int, txn: str, block
     return False
 
 
+async def sql_toggle_tipnotify(user_id: str, onoff: str):
+    # Bot will add user_id if it failed to DM
+    global pool
+    onoff = onoff.upper()
+    if onoff == "OFF":
+        try:
+            await openConnection()
+            async with pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `bot_tipnotify_user` WHERE `user_id` = %s LIMIT 1 """
+                    await cur.execute(sql, (user_id))
+                    result = await cur.fetchone()
+                    if result is None:
+                        sql = """ INSERT INTO `bot_tipnotify_user` (`user_id`, `date`)
+                                  VALUES (%s, %s) """    
+                        await cur.execute(sql, (user_id, int(time.time())))
+                        await conn.commit()
+        except pymysql.err.Warning as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+    elif onoff == "ON":
+        try:
+            await openConnection()
+            async with pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ DELETE FROM `bot_tipnotify_user` WHERE `user_id` = %s """
+                    await cur.execute(sql, str(user_id))
+                    await conn.commit()
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+
+
 async def sql_get_tipnotify():
     global pool
     try:
@@ -1965,3 +1997,120 @@ async def sql_get_tipnotify():
                 return ignorelist
     except Exception as e:
         await logchanbot(traceback.format_exc())
+
+# FreeTip
+async def insert_freetip_collector(message_id: str, from_userid: str, collector_id: str, collector_name: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ INSERT IGNORE INTO discord_airdrop_collector (`message_id`, `from_userid`, `collector_id`, `collector_name`, `from_and_collector_uniq`, `inserted_time`) VALUES (%s, %s, %s, %s, %s, %s) """
+                await cur.execute(sql, (message_id, from_userid, collector_id, collector_name, "{}-{}-{}".format(message_id, from_userid, collector_id), int(time.time())))
+                await conn.commit()
+                return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return False
+
+
+async def check_if_freetip_collector_in(message_id: str, from_userid: str, collector_id: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                swap_in = 0.0
+                sql = """ SELECT * FROM `discord_airdrop_collector` WHERE `message_id`=%s AND `from_userid`=%s AND `collector_id`=%s LIMIT 1 """
+                await cur.execute(sql, (message_id, from_userid, collector_id))
+                result = await cur.fetchone()
+                if result and len(result) > 0: return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return False
+
+
+async def get_freetip_collector_by_id(message_id: str, from_userid: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                swap_in = 0.0
+                sql = """ SELECT * FROM `discord_airdrop_collector` WHERE `message_id`=%s AND `from_userid`=%s """
+                await cur.execute(sql, (message_id, from_userid))
+                result = await cur.fetchall()
+                if result and len(result) > 0: return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return []
+
+
+async def insert_discord_freetip(token_name: str, contract: str, from_userid: str, from_name: str, message_id: str, airdrop_content: str, guild_id: str, channel_id: str, real_amount: float, token_decimal: int, airdrop_time: int, status: str="ONGOING"):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ INSERT INTO discord_airdrop_tmp (`token_name`, `contract`, `from_userid`, `from_ownername`, `message_id`, `airdrop_content`, `guild_id`, `channel_id`, `real_amount`, `token_decimal`, `message_time`, `airdrop_time`, `status`) 
+                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                await cur.execute(sql, (token_name, contract, from_userid, from_name, message_id, airdrop_content, guild_id, channel_id, real_amount, token_decimal, int(time.time()), airdrop_time, status))
+                await conn.commit()
+                return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return False
+
+
+async def get_active_discord_freetip():
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                swap_in = 0.0
+                sql = """ SELECT * FROM `discord_airdrop_tmp` WHERE `status`=%s """
+                await cur.execute(sql, ("ONGOING"))
+                result = await cur.fetchall()
+                if result and len(result) > 0: return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return []
+
+
+async def get_discord_freetip_by_msgid(message_id: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                swap_in = 0.0
+                sql = """ SELECT * FROM `discord_airdrop_tmp` WHERE `message_id`=%s LIMIT 1 """
+                await cur.execute(sql, (message_id))
+                result = await cur.fetchone()
+                if result: return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return None
+
+async def discord_freetip_update(message_id: str, status: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ UPDATE `discord_airdrop_tmp` SET `status`=%s WHERE `message_id`=%s AND `status`<>%s LIMIT 1 """
+                await cur.execute(sql, (status, message_id, status))
+                await conn.commit()
+                return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return None
+# End of FreeTip

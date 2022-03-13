@@ -31,6 +31,8 @@ class Price(commands.Cog):
                 await ctx.reply(msg)
             return
 
+        token_list = []
+        invalid_token_list = []
         if amount is None and token is None:
             msg = f"{ctx.author.mention}, invalid command usage!"
             if type(ctx) == disnake.ApplicationCommandInteraction:
@@ -51,13 +53,40 @@ class Price(commands.Cog):
                     await ctx.reply(msg)
                 return
             COIN_NAME = token.upper()
+            token_list = [COIN_NAME]
         elif amount and not amount.isdigit() and token is None:
-            # token only
-            COIN_NAME = amount.upper()
-            amount_old = 1
-            amount = 1
+            if "," in amount:
+                # several token
+                tokens = amount.split(",")
+                for each in tokens:
+                    if each.upper() in self.bot.coin_paprika_symbol_list:
+                        token_list.append(each.upper())
+                    else:
+                        invalid_token_list.append(each.upper())
+                if len(token_list) == 1:
+                    COIN_NAME = token_list[0].upper()
+                    amount_old = 1
+                    amount = 1
+            elif " " in amount:
+                # several token
+                tokens = amount.split(" ")
+                for each in tokens:
+                    if each.upper() in self.bot.coin_paprika_symbol_list:
+                        token_list.append(each.upper())
+                    else:
+                        invalid_token_list.append(each.upper())
+                if len(token_list) == 1:
+                    COIN_NAME = token_list[0].upper()
+                    amount_old = 1
+                    amount = 1
+            else:
+                # token only
+                COIN_NAME = amount.upper()
+                token_list = [COIN_NAME]
+                amount_old = 1
+                amount = 1
 
-        if COIN_NAME in self.bot.coin_paprika_symbol_list:
+        if len(token_list) == 1 and COIN_NAME in self.bot.coin_paprika_symbol_list:
             try:
                 per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME]['price_usd']
                 total_price = float(amount)*per_unit
@@ -77,7 +106,7 @@ class Price(commands.Cog):
                 embed = disnake.Embed(title="PRICE CHECK", description=f'**{COIN_NAME}** | _{name}_', timestamp=update_date)
                 embed.add_field(name="Price", value="```{} {} = {} {}```".format(amount_old, COIN_NAME, total_price_str, "USD"), inline=False)
                 embed.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
-                embed.set_footer(text="Credit: https://api.coinpaprika.com/".format(self.bot.coin_paprika_symbol_list[COIN_NAME]['last_updated']))
+                embed.set_footer(text="Credit: https://api.coinpaprika.com/")
                 try:
                     if type(ctx) == disnake.ApplicationCommandInteraction:
                         await ctx.response.send_message(embed=embed, view=RowButton_row_close_any_message())
@@ -85,6 +114,37 @@ class Price(commands.Cog):
                         await ctx.reply(embed=embed, view=RowButton_row_close_any_message())
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+        elif len(token_list) > 1:
+            token_list = list(set(token_list))
+            coin_price = []
+            for each_coin in token_list:
+                per_unit = self.bot.coin_paprika_symbol_list[each_coin]['price_usd']
+                per_unit_str = ""
+                if per_unit > 1000:
+                    per_unit_str = "{:,.2f}".format(per_unit)
+                elif per_unit > 100:
+                    per_unit_str = "{:.2f}".format(per_unit)
+                elif per_unit > 1:
+                    per_unit_str = "{:.3f}".format(per_unit)
+                elif per_unit > 0.01:
+                    per_unit_str = "{:.4f}".format(per_unit)
+                else:
+                    per_unit_str = "{:.8f}".format(per_unit)
+                coin_price.append("{} {} = {} {}".format(1, each_coin, per_unit_str, "USD"))
+            embed = disnake.Embed(title="PRICE CHECK", description='```{}```'.format(", ".join(token_list)), timestamp=datetime.datetime.utcnow())
+            embed.add_field(name="Price List", value="```{}```".format("\n".join(coin_price)), inline=False)
+            if len(invalid_token_list) > 0:
+                invalid_token_list = list(set(invalid_token_list))
+                embed.add_field(name="Invalid Coin/Token", value="```{}```".format(", ".join(invalid_token_list)), inline=False)
+            embed.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
+            embed.set_footer(text="Credit: https://api.coinpaprika.com/")
+            try:
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(embed=embed, view=RowButton_row_close_any_message())
+                else:
+                    await ctx.reply(embed=embed, view=RowButton_row_close_any_message())
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
         else:

@@ -2250,7 +2250,6 @@ class Wallet(commands.Cog):
             return
         else:
             COIN_NAME = token.upper()
-            # print(self.bot.coin_list)
             if not hasattr(self.bot.coin_list, COIN_NAME):
                 if type(ctx) == disnake.ApplicationCommandInteraction:
                     await ctx.response.send_message(f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.')
@@ -2270,6 +2269,8 @@ class Wallet(commands.Cog):
             type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
             deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
             coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
+
             get_deposit = await self.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
             if get_deposit is None:
                 get_deposit = await self.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
@@ -2295,7 +2296,25 @@ class Wallet(commands.Cog):
                 # height can be None
                 userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
                 total_balance = userdata_balance['adjust']
-                embed.add_field(name="Token/Coin {}".format(token_display), value="```Available: {} {}```".format(num_format_coin(total_balance, COIN_NAME, coin_decimal, False), token_display), inline=False)
+                equivalent_usd = ""
+                if usd_equivalent_enable == 1:
+                    native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
+                    COIN_NAME_FOR_PRICE = COIN_NAME
+                    if native_token_name:
+                        COIN_NAME_FOR_PRICE = native_token_name
+                    per_unit = None
+                    if COIN_NAME_FOR_PRICE in self.bot.token_hints:
+                        id = self.bot.token_hints[COIN_NAME_FOR_PRICE]['ticker_name']
+                        per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+                    else:
+                        per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
+                    if per_unit and per_unit > 0:
+                        total_in_usd = float(Decimal(total_balance) * Decimal(per_unit))
+                        if total_in_usd >= 0.01:
+                            equivalent_usd = " ~ {:,.2f}$".format(total_in_usd)
+                        elif total_in_usd >= 0.0001:
+                            equivalent_usd = " ~ {:,.4f}$".format(total_in_usd)
+                embed.add_field(name="Token/Coin {}{}".format(token_display, equivalent_usd), value="```Available: {} {}```".format(num_format_coin(total_balance, COIN_NAME, coin_decimal, False), token_display), inline=False)
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
             if type(ctx) == disnake.ApplicationCommandInteraction:
@@ -2374,16 +2393,17 @@ class Wallet(commands.Cog):
             if type(ctx) != disnake.ApplicationCommandInteraction:
                 tmp_msg = await ctx.reply("Loading...")
             for each_token in mytokens:
-                TOKEN_NAME = each_token['coin_name']
-                type_coin = getattr(getattr(self.bot.coin_list, TOKEN_NAME), "type")
-                net_name = getattr(getattr(self.bot.coin_list, TOKEN_NAME), "net_name")
-                deposit_confirm_depth = getattr(getattr(self.bot.coin_list, TOKEN_NAME), "deposit_confirm_depth")
-                coin_decimal = getattr(getattr(self.bot.coin_list, TOKEN_NAME), "decimal")
-                token_display = getattr(getattr(self.bot.coin_list, TOKEN_NAME), "display_name")
+                COIN_NAME = each_token['coin_name']
+                type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
+                net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
+                deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
+                coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+                token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
+                usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
 
-                get_deposit = await self.sql_get_userwallet(str(ctx.author.id), TOKEN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                get_deposit = await self.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
                 if get_deposit is None:
-                    get_deposit = await self.sql_register_user(str(ctx.author.id), TOKEN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
+                    get_deposit = await self.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
                 wallet_address = get_deposit['balance_wallet_address']
                 if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                     wallet_address = get_deposit['paymentid']
@@ -2393,7 +2413,7 @@ class Wallet(commands.Cog):
                     if type_coin in ["ERC-20", "TRC-20"]:
                         height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
                     else:
-                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{TOKEN_NAME}').decode())
+                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
 
@@ -2405,9 +2425,28 @@ class Wallet(commands.Cog):
                     page.set_thumbnail(url=ctx.author.display_avatar)
                     page.set_footer(text="Use the reactions to flip pages.")
                 # height can be None
-                userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), TOKEN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+                userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
                 total_balance = userdata_balance['adjust']
-                page.add_field(name=token_display, value="```{} {}```".format(num_format_coin(total_balance, TOKEN_NAME, coin_decimal, False), token_display), inline=True)
+                equivalent_usd = ""
+                if usd_equivalent_enable == 1:
+                    native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
+                    COIN_NAME_FOR_PRICE = COIN_NAME
+                    if native_token_name:
+                        COIN_NAME_FOR_PRICE = native_token_name
+                    per_unit = None
+                    if COIN_NAME_FOR_PRICE in self.bot.token_hints:
+                        id = self.bot.token_hints[COIN_NAME_FOR_PRICE]['ticker_name']
+                        per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+                    else:
+                        per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
+                    if per_unit and per_unit > 0:
+                        total_in_usd = float(Decimal(total_balance) * Decimal(per_unit))
+                        if total_in_usd >= 0.01:
+                            equivalent_usd = " ~ {:,.2f}$".format(total_in_usd)
+                        elif total_in_usd >= 0.0001:
+                            equivalent_usd = " ~ {:,.4f}$".format(total_in_usd)
+                         
+                page.add_field(name="{}{}".format(token_display, equivalent_usd) , value="```{}```".format(num_format_coin(total_balance, COIN_NAME, coin_decimal, False)), inline=True)
                 num_coins += 1
                 if num_coins > 0 and num_coins % per_page == 0:
                     all_pages.append(page)
@@ -2638,6 +2677,24 @@ class Wallet(commands.Cog):
                         await ctx.reply(msg)
                     return
 
+                equivalent_usd = ""
+                total_in_usd = 0.0
+                per_unit = None
+                if usd_equivalent_enable == 1:
+                    native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
+                    COIN_NAME_FOR_PRICE = COIN_NAME
+                    if native_token_name:
+                        COIN_NAME_FOR_PRICE = native_token_name
+                    if COIN_NAME_FOR_PRICE in self.bot.token_hints:
+                        id = self.bot.token_hints[COIN_NAME_FOR_PRICE]['ticker_name']
+                        per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+                    else:
+                        per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
+                    if per_unit and per_unit > 0:
+                        total_in_usd = float(Decimal(amount) * Decimal(per_unit))
+                        if total_in_usd >= 0.0001:
+                            equivalent_usd = " ~ {:,.4f} USD".format(total_in_usd)
+
                 if type_coin in ["ERC-20"]:
                     # Check address
                     valid_address = self.check_address_erc20(address)
@@ -2674,7 +2731,7 @@ class Wallet(commands.Cog):
 
                     if SendTx:
                         try:
-                            msg = f'{EMOJI_ARROW_RIGHTHOOK} You withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display} to `{address}`.\nTransaction hash: `{SendTx}`'
+                            msg = f'{EMOJI_ARROW_RIGHTHOOK} You withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`'
                             if type(ctx) == disnake.ApplicationCommandInteraction:
                                 await ctx.response.send_message(msg, ephemeral=True)
                             else:
@@ -2683,7 +2740,7 @@ class Wallet(commands.Cog):
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
                         try:
-                            await logchanbot(f'[{SERVER_BOT}] A user {ctx.author.name}#{ctx.author.discriminator} sucessfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}')
+                            await logchanbot(f'[{SERVER_BOT}] A user {ctx.author.name}#{ctx.author.discriminator} sucessfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}')
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
                 elif type_coin in ["TRC-20", "TRC-10"]:
@@ -2708,7 +2765,7 @@ class Wallet(commands.Cog):
 
                     if SendTx:
                         try:
-                            msg = f'{EMOJI_ARROW_RIGHTHOOK} You withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display} to `{address}`.\nTransaction hash: `{SendTx}`'
+                            msg = f'{EMOJI_ARROW_RIGHTHOOK} You withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`'
                             if type(ctx) == disnake.ApplicationCommandInteraction:
                                 await ctx.response.send_message(msg, ephemeral=True)
                             else:
@@ -2717,7 +2774,7 @@ class Wallet(commands.Cog):
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
                         try:
-                            await logchanbot(f'[{SERVER_BOT}] A user {ctx.author.name}#{ctx.author.discriminator} sucessfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}')
+                            await logchanbot(f'[{SERVER_BOT}] A user {ctx.author.name}#{ctx.author.discriminator} sucessfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}')
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
                 elif type_coin == "NANO":
@@ -2735,38 +2792,38 @@ class Wallet(commands.Cog):
                             SendTx = await self.WalletAPI.send_external_nano(main_address, str(ctx.author.id), amount, address, COIN_NAME, coin_decimal)
                             if SendTx:
                                 SendTx_hash = SendTx['block']
-                                msg = f'{EMOJI_ARROW_RIGHTHOOK} You have sent {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME} to `{address}`.\nTransaction hash: `{SendTx_hash}`'
+                                msg = f'{EMOJI_ARROW_RIGHTHOOK} You have sent {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx_hash}`'
                                 if type(ctx) == disnake.ApplicationCommandInteraction:
                                     await ctx.response.send_message(msg, ephemeral=True)
                                 else:
                                     await ctx.reply(msg)
-                                await logchanbot(f'A user successfully executed withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}.')
+                                await logchanbot(f'A user successfully executed withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                             else:
-                                await logchanbot(f'A user failed to execute withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}.')
+                                await logchanbot(f'A user failed to execute withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                         except Exception as e:
                             await logchanbot(traceback.format_exc())
                 elif type_coin == "CHIA":
                     SendTx = await self.WalletAPI.send_external_xch(str(ctx.author.id), amount, address, COIN_NAME, coin_decimal, tx_fee, NetFee, SERVER_BOT)
                     if SendTx:
-                        await logchanbot(f'A user successfully executed send {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}.')
-                        msg = f'{EMOJI_ARROW_RIGHTHOOK} You have sent {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME} to `{address}`.\nTransaction hash: `{SendTx}`'
+                        await logchanbot(f'A user successfully executed send {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
+                        msg = f'{EMOJI_ARROW_RIGHTHOOK} You have sent {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`'
                         if type(ctx) == disnake.ApplicationCommandInteraction:
                             await ctx.response.send_message(msg, ephemeral=True)
                         else:
                             await ctx.reply(msg)
                     else:
-                        await logchanbot(f'A user failed to execute to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}`.')
+                        await logchanbot(f'A user failed to execute to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                 elif type_coin == "BTC":
                     SendTx = await self.WalletAPI.send_external_doge(str(ctx.author.id), amount, address, COIN_NAME, 0, NetFee, SERVER_BOT) # tx_fee=0
                     if SendTx:
-                        msg = f'{EMOJI_ARROW_RIGHTHOOK} You have sent {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME} to `{address}`.\nTransaction hash: `{SendTx}`'
+                        msg = f'{EMOJI_ARROW_RIGHTHOOK} You have sent {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`'
                         if type(ctx) == disnake.ApplicationCommandInteraction:
                             await ctx.response.send_message(msg, ephemeral=True)
                         else:
                             await ctx.reply(msg)
-                        await logchanbot(f'A user successfully executed withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}.')
+                        await logchanbot(f'A user successfully executed withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                     else:
-                        await logchanbot(f'A user failed to execute to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}.')
+                        await logchanbot(f'A user failed to execute to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                 elif type_coin == "XMR" or type_coin == "TRTL-API" or type_coin == "TRTL-SERVICE" or type_coin == "BCN":
                     main_address = getattr(getattr(self.bot.coin_list, COIN_NAME), "MainAddress")
                     mixin = getattr(getattr(self.bot.coin_list, COIN_NAME), "mixin")
@@ -2775,14 +2832,14 @@ class Wallet(commands.Cog):
                     is_fee_per_byte = getattr(getattr(self.bot.coin_list, COIN_NAME), "is_fee_per_byte")
                     SendTx = await self.send_external_xmr(type_coin, main_address, str(ctx.author.id), amount, address, COIN_NAME, coin_decimal, tx_fee, NetFee, is_fee_per_byte, mixin, SERVER_BOT, wallet_address, header, None) # paymentId: None (end)
                     if SendTx:
-                        msg = f'{EMOJI_ARROW_RIGHTHOOK} You have sent {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME} to `{address}`.\nTransaction hash: `{SendTx}`'
+                        msg = f'{EMOJI_ARROW_RIGHTHOOK} You have sent {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`'
                         if type(ctx) == disnake.ApplicationCommandInteraction:
                             await ctx.response.send_message(msg, ephemeral=True)
                         else:
                             await ctx.reply(msg)
-                        await logchanbot(f'A user successfully executed withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}.')
+                        await logchanbot(f'A user successfully executed withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                     else:
-                        await logchanbot(f'A user failed to execute to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}.')
+                        await logchanbot(f'A user failed to execute to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 

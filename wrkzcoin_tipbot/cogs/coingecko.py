@@ -9,6 +9,7 @@ from disnake.ext import commands, tasks
 from disnake.enums import OptionType
 from disnake.app_commands import Option, OptionChoice
 import time
+import datetime
 
 from Bot import EMOJI_CHART_DOWN, EMOJI_ERROR, EMOJI_RED_NO, logchanbot
 import redis_utils
@@ -24,7 +25,7 @@ class CoinGecko(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
-        self.fetch_gecko_price.start()
+
         self.fetch_gecko_coinlist.start()
         self.fetch_gecko_pricelist.start()
 
@@ -82,48 +83,11 @@ class CoinGecko(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
 
-    @tasks.loop(seconds=30.0)
-    async def fetch_gecko_price(self):
-        await asyncio.sleep(3.0)
-        if self.bot.token_hint_names and len(self.bot.token_hint_names) > 0:
-            keys = [each.lower() for each in self.bot.token_hint_names.keys()]
-            key_list = ",".join(keys)
-            url = "https://api.coingecko.com/api/v3/simple/price?ids="+key_list+"&vs_currencies=usd"
-            try:
-                async with aiohttp.ClientSession() as cs:
-                    async with cs.get(url, timeout=30) as r:
-                        res_data = await r.read()
-                        res_data = res_data.decode('utf-8')
-                        decoded_data = json.loads(res_data)
-                        update_time = int(time.time())
-                        if len(decoded_data) > 0:
-                            update_list = []
-                            for k, v in decoded_data.items():
-                                update_list.append((v['usd'], update_time, k))
-                            try:
-                                await store.openConnection()
-                                async with store.pool.acquire() as conn:
-                                    async with conn.cursor() as cur:
-                                        sql = """ UPDATE coin_alias_price SET `coingecko_price_usd`=%s, `coingecko_price_time`=%s WHERE `name`=%s """
-                                        await cur.executemany(sql, update_list)
-                            except Exception as e:
-                                traceback.print_exc(file=sys.stdout)
-            except asyncio.TimeoutError:
-                print('TIMEOUT: Fetching from coingecko price')
-            except Exception:
-                traceback.print_exc(file=sys.stdout)
-
-
-    @tasks.loop(seconds=30.0)
+    @tasks.loop(seconds=15.0)
     async def fetch_gecko_pricelist(self):
         await asyncio.sleep(3.0)
         existing_coinlist = await self.get_coingecko_list_db()
         if len(existing_coinlist) > 0:
-            # split name to several ids
-            def chunks(l, n):
-                import more_itertools as mit
-                return [list(c) for c in mit.divide(n, l)]
-
             chunk = []
             chunk_str = ""
             for each_coin in existing_coinlist:
@@ -141,26 +105,36 @@ class CoinGecko(commands.Cog):
                                 res_data = res_data.decode('utf-8')
                                 decoded_data = json.loads(res_data)
                                 update_time = int(time.time())
+                                update_date = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
                                 if len(decoded_data) > 0:
                                     update_list = []
+                                    insert_list = []
                                     for k, v in decoded_data.items():
                                         if 'usd' in v:
-                                            update_list.append((v['usd'], update_time, k))
+                                            update_list.append((v['usd'], update_time, update_date.strftime('%Y-%m-%d %H:%M:%S'), k))
+                                            insert_list.append((k, v['usd'], update_time, update_date.strftime('%Y-%m-%d %H:%M:%S')))
                                     try:
                                         await store.openConnection()
                                         async with store.pool.acquire() as conn:
                                             async with conn.cursor() as cur:
-                                                sql = """ UPDATE coin_coingecko_list SET `price_usd`=%s, `price_time`=%s WHERE `id`=%s """
+                                                sql = """ UPDATE coin_coingecko_list SET `price_usd`=%s, `price_time`=%s, `price_date`=%s WHERE `id`=%s """
                                                 await cur.executemany(sql, update_list)
+                                                await conn.commit()
+
                                                 chunk = []
                                                 chunk_str = ""
+                                                sql = """ INSERT INTO coin_coingecko_price_history (`id`, `price_usd`, `price_time`, `price_date`) 
+                                                          VALUES (%s, %s, %s, %s) """
+                                                await cur.executemany(sql, insert_list)
+                                                await conn.commit()
+                                                insert_list = []
                                     except Exception as e:
                                         traceback.print_exc(file=sys.stdout)
                     except asyncio.TimeoutError:
                         print('TIMEOUT: Fetching from coingecko price')
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
-                    await asyncio.sleep(5.0)
+                    await asyncio.sleep(3.0)
 
 
     async def bot_log(self):

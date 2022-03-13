@@ -320,6 +320,8 @@ class Wallet(commands.Cog):
     @tasks.loop(seconds=15.0)
     async def notify_new_tx_user(self):
         await asyncio.sleep(5.0)
+        await self.bot.wait_until_ready()
+
         pending_tx = await store.sql_get_new_tx_table('NO', 'NO')
         if len(pending_tx) > 0:
             # let's notify_new_tx_user
@@ -381,6 +383,8 @@ class Wallet(commands.Cog):
     @tasks.loop(seconds=10.0)
     async def notify_new_tx_user_noconfirmation(self):
         await asyncio.sleep(5.0)
+        await self.bot.wait_until_ready()
+
         if config.notify_new_tx.enable_new_no_confirm == 1:
             key_tx_new = config.redis.prefix_new_tx + 'NOCONFIRM'
             key_tx_no_confirmed_sent = config.redis.prefix_new_tx + 'NOCONFIRM:SENT'

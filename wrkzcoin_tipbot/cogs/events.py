@@ -71,6 +71,52 @@ class Events(commands.Cog):
         return None
 
 
+    # coin_paprika_list
+    async def get_coin_paprika_list(self):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `coin_paprika_list` """
+                    await cur.execute(sql, ())
+                    result = await cur.fetchall()
+                    if result and len(result) > 0:
+                        id_list = {}
+                        symbol_list = {}
+                        for each_item in result:
+                            id_list[each_item['id']] = each_item # key example: btc-bitcoin	
+                            symbol_list[each_item['symbol'].upper()] = each_item # key example: BTC
+                        self.bot.coin_paprika_id_list = id_list
+                        self.bot.coin_paprika_symbol_list = symbol_list
+                        return True
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return None
+
+    # get_coingecko_list
+    async def get_coingecko_list(self):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `coin_coingecko_list` """
+                    await cur.execute(sql, ())
+                    result = await cur.fetchall()
+                    if result and len(result) > 0:
+                        id_list = {}
+                        symbol_list = {}
+                        for each_item in result:
+                            id_list[each_item['id']] = each_item # key example: btc-bitcoin	
+                            symbol_list[each_item['symbol'].upper()] = each_item # key example: BTC
+                        self.bot.coin_coingecko_id_list = id_list
+                        self.bot.coin_coingecko_symbol_list = symbol_list
+                        return True
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return None
+
     @commands.Cog.listener()
     async def on_ready(self):
         print('Logged in as')
@@ -88,9 +134,25 @@ class Events(commands.Cog):
                 print("coin setting loaded...")
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
+
+        # Load token hints
         try:
             await self.get_token_hints()
             print("token_hints loaded...")
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+
+        # Get get_coin_paprika_list list to it
+        try:
+            await self.get_coin_paprika_list()
+            print("get_coin_paprika_list loaded...")
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+
+        # Get get_coingecko_list list to it
+        try:
+            await self.get_coingecko_list()
+            print("get_coingecko_list loaded...")
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 

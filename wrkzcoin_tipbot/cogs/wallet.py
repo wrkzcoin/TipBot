@@ -58,6 +58,8 @@ class WalletAPI(commands.Cog):
         self.bot = bot
         
 
+
+
     # ERC-20, TRC-20, native is one
     # Gas Token like BNB, xDAI, MATIC, TRX will be a different address
     async def sql_register_user(self, userID, coin: str, netname: str, type_coin: str, user_server: str, chat_id: int = 0, is_discord_guild: int=0):
@@ -240,10 +242,247 @@ class WalletAPI(commands.Cog):
         return None
 
 
+    async def call_nano(self, coin: str, payload: str) -> Dict:
+        timeout = 100
+        COIN_NAME = coin.upper()
+        url = getattr(getattr(self.bot.coin_list, COIN_NAME), "rpchost")
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, data=payload, timeout=timeout) as response:
+                    if response.status == 200:
+                        res_data = await response.read()
+                        res_data = res_data.decode('utf-8')
+                        decoded_data = json.loads(res_data)
+                        return decoded_data
+        except asyncio.TimeoutError:
+            print('TIMEOUT: COIN: {} - timeout {}'.format(coin.upper(), timeout))
+            await logchanbot('TIMEOUT: call_nano COIN: {} - timeout {}'.format(coin.upper(), timeout))
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return None
+
+    async def nano_get_wallet_balance_elements(self, coin: str) -> str:
+        COIN_NAME = coin.upper()
+        walletkey = decrypt_string(getattr(getattr(self.bot.coin_list, COIN_NAME), "walletkey"))
+        get_wallet_balance = await self.call_nano(COIN_NAME, payload='{ "action": "wallet_balances", "wallet": "'+walletkey+'" }')
+        if get_wallet_balance and 'balances' in get_wallet_balance:
+            return get_wallet_balance['balances']
+        return None
+
+    async def nano_sendtoaddress(self, source: str, to_address: str, atomic_amount: int, coin: str) -> str:
+        COIN_NAME = coin.upper()
+        walletkey = decrypt_string(getattr(getattr(self.bot.coin_list, COIN_NAME), "walletkey"))
+        payload = '{ "action": "send", "wallet": "'+walletkey+'", "source": "'+source+'", "destination": "'+to_address+'", "amount": "'+str(atomic_amount)+'" }'
+        sending = await self.call_nano(COIN_NAME, payload=payload)
+        if sending and 'block' in sending:
+            return sending
+        return None
+
+    async def nano_validate_address(self, coin: str, account: str) -> str:
+        COIN_NAME = coin.upper()
+        valid_address = await self.call_nano(COIN_NAME, payload='{ "action": "validate_account_number", "account": "'+account+'" }')
+        if valid_address and valid_address['valid'] == "1":
+            return True
+        return None
+
+    async def send_external_nano(self, main_address: str, user_from: str, amount: float, to_address: str, coin: str, coin_decimal):
+        global pool
+        COIN_NAME = coin.upper()
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    tx_hash = await self.nano_sendtoaddress(main_address, to_address, int(Decimal(amount)*10**coin_decimal), COIN_NAME)
+                    if tx_hash:
+                        updateTime = int(time.time())
+                        async with conn.cursor() as cur: 
+                            sql = """ INSERT INTO nano_external_tx (`coin_name`, `user_id`, `amount`, `decimal`, `to_address`, `date`, `tx_hash`) 
+                                      VALUES (%s, %s, %s, %s, %s, %s, %s) """
+                            await cur.execute(sql, (COIN_NAME, user_from, amount, coin_decimal, to_address, int(time.time()), tx_hash['block'],))
+                            await conn.commit()
+                            return tx_hash
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
+        return None
+
+
+    async def call_xch(self, method_name: str, coin: str, payload: Dict=None) -> Dict:
+        timeout = 100
+        COIN_NAME = coin.upper()
+
+        headers = {
+            'Content-Type': 'application/json',
+        }
+        if payload is None:
+            data = '{}'
+        else:
+            data = payload
+        url = getattr(getattr(self.bot.coin_list, COIN_NAME), "rpchost") + '/' + method_name.lower()
+        try:
+            ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+            ssl_context.load_cert_chain(getattr(getattr(self.bot.coin_list, COIN_NAME), "cert_path"), getattr(getattr(self.bot.coin_list, COIN_NAME), "key_path"))
+            async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
+                async with session.post(url, json=data, headers=headers, timeout=timeout, ssl=ssl_context) as response:
+                    if response.status == 200:
+                        res_data = await response.read()
+                        res_data = res_data.decode('utf-8')
+                        
+                        decoded_data = json.loads(res_data)
+                        return decoded_data
+                    else:
+                        print(f'Call {COIN_NAME} returns {str(response.status)} with method {method_name}')
+        except asyncio.TimeoutError:
+            print('TIMEOUT: method_name: {} - COIN: {} - timeout {}'.format(method_name, COIN_NAME, timeout))
+            await logchanbot('call_doge: method_name: {} - COIN: {} - timeout {}'.format(method_name, COIN_NAME, timeout))
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+
+
+    async def send_external_xch(self, user_from: str, amount: float, to_address: str, coin: str, coin_decimal: int, tx_fee: float, withdraw_fee: float, user_server: str='DISCORD'):
+        global pool
+        COIN_NAME = coin.upper()
+        try:
+            payload = {
+                "wallet_id": 1,
+                "amount": int(amount*10**coin_decimal),
+                "address": to_address,
+                "fee": int(tx_fee*10**coin_decimal)
+            }
+            result = await self.call_xch('send_transaction', COIN_NAME, payload=payload)
+            if result:
+                result['tx_hash'] = result['transaction']
+                result['transaction_id'] = result['transaction_id']
+                await store.openConnection()
+                async with store.pool.acquire() as conn:
+                    async with conn.cursor() as cur:
+                        async with conn.cursor() as cur: 
+                            sql = """ INSERT INTO xch_external_tx (`coin_name`, `user_id`, `amount`, `tx_fee`, `withdraw_fee`, `decimal`, `to_address`, `date`, `tx_hash`, `user_server`) 
+                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                            await cur.execute(sql, (COIN_NAME, user_from, amount, float(result['tx_hash']['fee_amount']/10**coin_decimal), withdraw_fee, coin_decimal, to_address, int(time.time()), result['tx_hash']['name'], user_server,))
+                            await conn.commit()
+                            return result['tx_hash']['name']
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
+        return None
+
+
+    async def call_doge(self, method_name: str, coin: str, payload: str = None) -> Dict:
+        timeout = 64
+        COIN_NAME = coin.upper()
+        headers = {
+            'content-type': 'text/plain;',
+        }
+        if payload is None:
+            data = '{"jsonrpc": "1.0", "id":"'+str(uuid.uuid4())+'", "method": "'+method_name+'", "params": [] }'
+        else:
+            data = '{"jsonrpc": "1.0", "id":"'+str(uuid.uuid4())+'", "method": "'+method_name+'", "params": ['+payload+'] }'
+        
+        url = getattr(getattr(self.bot.coin_list, COIN_NAME), "daemon_address")
+        # print(url, method_name)
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, data=data, timeout=timeout) as response:
+                    if response.status == 200:
+                        res_data = await response.read()
+                        res_data = res_data.decode('utf-8')
+                        decoded_data = json.loads(res_data)
+                        return decoded_data['result']
+                    else:
+                        print(f'Call {COIN_NAME} returns {str(response.status)} with method {method_name}')
+                        print(data)
+                        print(url)
+        except asyncio.TimeoutError:
+            print('TIMEOUT: method_name: {} - COIN: {} - timeout {}'.format(method_name, coin.upper(), timeout))
+            await logchanbot('call_doge: method_name: {} - COIN: {} - timeout {}'.format(method_name, coin.upper(), timeout))
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+
+
+    async def send_external_doge(self, user_from: str, amount: float, to_address: str, coin: str, tx_fee: float, withdraw_fee: float, user_server: str):
+        global pool
+        user_server = user_server.upper()
+        COIN_NAME = coin.upper()
+        try:
+            comment = user_from
+            comment_to = to_address
+            payload = f'"{to_address}", {amount}, "{comment}", "{comment_to}", false'
+            if COIN_NAME in ["PGO"]:
+                payload = f'"{to_address}", {amount}, "{comment}", "{comment_to}"'
+            txHash = await self.call_doge('sendtoaddress', COIN_NAME, payload=payload)
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ INSERT INTO doge_external_tx (`coin_name`, `user_id`, `amount`, `tx_fee`, `withdraw_fee`, `to_address`, `date`, `tx_hash`, `user_server`) 
+                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                    await cur.execute(sql, (COIN_NAME, user_from, amount, tx_fee, withdraw_fee, to_address, int(time.time()), txHash, user_server))
+                    await conn.commit()
+                    return txHash
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
+        return False
+
+
+    async def make_integrated_address_xmr(self, address: str, coin: str, paymentid: str = None):
+        COIN_NAME = coin.upper()
+        if paymentid:
+            try:
+                value = int(paymentid, 16)
+            except ValueError:
+                return False
+        else:
+            paymentid = cn_addressvalidation.paymentid(8)
+
+        if COIN_NAME == "LTHN":
+            payload = {
+                "payment_id": {} or paymentid
+            }
+            address_ia = await self.call_aiohttp_wallet_xmr_bcn('make_integrated_address', COIN_NAME, payload=payload)
+            if address_ia: return address_ia
+            return None
+        else:
+            payload = {
+                "standard_address" : address,
+                "payment_id": {} or paymentid
+            }
+            address_ia = await self.call_aiohttp_wallet_xmr_bcn('make_integrated_address', COIN_NAME, payload=payload)
+            if address_ia: return address_ia
+            return None
+
+    async def create_address_eth(self):
+        def create_eth_wallet():
+            seed = ethwallet.generate_mnemonic()
+            w = ethwallet.create_wallet(network="ETH", seed=seed, children=1)
+            return w
+
+        wallet_eth = functools.partial(create_eth_wallet)
+        create_wallet = await self.bot.loop.run_in_executor(None, wallet_eth)
+        return create_wallet
+
+    async def create_address_trx(self):
+        try:
+            _http_client = AsyncClient(limits=Limits(max_connections=100, max_keepalive_connections=20),
+                                       timeout=Timeout(timeout=10, connect=5, read=5))
+            TronClient = AsyncTron(provider=AsyncHTTPProvider(config.Tron_Node.fullnode, client=_http_client))
+            create_wallet = TronClient.generate_address()
+            await TronClient.close()
+            return create_wallet
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+
+
+    def check_address_erc20(self, address: str):
+        if is_hex_address(address):
+            return address
+        return False
+
 class Wallet(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        self.WalletAPI = WalletAPI(self.bot)
+        
         redis_utils.openRedis()
         self.notify_new_tx_user_noconfirmation.start()
         self.notify_new_tx_user.start()
@@ -727,7 +966,7 @@ class Wallet(commands.Cog):
                 list_coins = [each['coin_name'].upper() for each in list_btc_api]
                 for COIN_NAME in list_coins:
                     # print(f"Check balance {COIN_NAME}")
-                    gettopblock = await self.call_doge('getblockchaininfo', COIN_NAME)
+                    gettopblock = await self.WalletAPI.call_doge('getblockchaininfo', COIN_NAME)
                     height = int(gettopblock['blocks'])
                     try:
                         redis_utils.redis_conn.set(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}', str(height))
@@ -742,7 +981,7 @@ class Wallet(commands.Cog):
                     get_min_deposit_amount = int(getattr(getattr(self.bot.coin_list, COIN_NAME), "real_min_deposit") * 10**coin_decimal)
 
                     payload = '"*", 100, 0'
-                    get_transfers = await self.call_doge('listtransactions', COIN_NAME, payload=payload)
+                    get_transfers = await self.WalletAPI.call_doge('listtransactions', COIN_NAME, payload=payload)
                     if get_transfers and len(get_transfers) >= 1:
                         try:
                             await store.openConnection()
@@ -825,7 +1064,7 @@ class Wallet(commands.Cog):
                     get_min_deposit_amount = int(getattr(getattr(self.bot.coin_list, COIN_NAME), "real_min_deposit") * 10**coin_decimal)
 
                     payload = {'wallet_id': 1}
-                    list_tx = await self.call_xch('get_transactions', COIN_NAME, payload=payload)
+                    list_tx = await self.WalletAPI.call_xch('get_transactions', COIN_NAME, payload=payload)
                     if 'success' in list_tx and list_tx['transactions'] and len(list_tx['transactions']) > 0:
                         get_transfers =  list_tx['transactions']
                         if get_transfers and len(get_transfers) >= 1:
@@ -902,7 +1141,7 @@ class Wallet(commands.Cog):
                     start = time.time()
                     timeout = 16
                     try:
-                        gettopblock = await self.call_nano(COIN_NAME, payload='{ "action": "block_count" }')
+                        gettopblock = await self.WalletAPI.call_nano(COIN_NAME, payload='{ "action": "block_count" }')
                         if gettopblock and 'count' in gettopblock:
                             height = int(gettopblock['count'])
                             # store in redis
@@ -912,7 +1151,7 @@ class Wallet(commands.Cog):
                                 traceback.print_exc(file=sys.stdout)
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
-                    get_balance = await self.nano_get_wallet_balance_elements(COIN_NAME)
+                    get_balance = await self.WalletAPI.nano_get_wallet_balance_elements(COIN_NAME)
                     all_user_info = await store.sql_nano_get_user_wallets(COIN_NAME)
                     all_deposit_address = {}
                     all_deposit_address_keys = []
@@ -930,7 +1169,7 @@ class Wallet(commands.Cog):
                                     # let's move balance to main_address
                                     try:
                                         main_address = getattr(getattr(self.bot.coin_list, COIN_NAME), "MainAddress")
-                                        move_to_deposit = await self.nano_sendtoaddress(address, main_address, int(balance['balance']), COIN_NAME) # atomic
+                                        move_to_deposit = await self.WalletAPI.nano_sendtoaddress(address, main_address, int(balance['balance']), COIN_NAME) # atomic
                                         # add to DB
                                         if move_to_deposit:
                                             try:
@@ -1056,16 +1295,6 @@ class Wallet(commands.Cog):
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
 
-
-    async def create_address_eth(self):
-        def create_eth_wallet():
-            seed = ethwallet.generate_mnemonic()
-            w = ethwallet.create_wallet(network="ETH", seed=seed, children=1)
-            return w
-
-        wallet_eth = functools.partial(create_eth_wallet)
-        create_wallet = await self.bot.loop.run_in_executor(None, wallet_eth)
-        return create_wallet
 
 
     async def send_external_erc20(self, url: str, network: str, user_id: str, to_address: str, amount: float, coin: str, coin_decimal: int, real_withdraw_fee: float, user_server: str, chain_id: str=None, contract: str=None):
@@ -1268,24 +1497,6 @@ class Wallet(commands.Cog):
                         traceback.print_exc(file=sys.stdout)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-        return False
-
-
-    async def create_address_trx(self):
-        try:
-            _http_client = AsyncClient(limits=Limits(max_connections=100, max_keepalive_connections=20),
-                                       timeout=Timeout(timeout=10, connect=5, read=5))
-            TronClient = AsyncTron(provider=AsyncHTTPProvider(config.Tron_Node.fullnode, client=_http_client))
-            create_wallet = TronClient.generate_address()
-            await TronClient.close()
-            return create_wallet
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-
-
-    def check_address_erc20(self, address: str):
-        if is_hex_address(address):
-            return address
         return False
 
 
@@ -1634,216 +1845,6 @@ class Wallet(commands.Cog):
         except Exception as e:
             await logchanbot(traceback.format_exc())
         return None
-
-
-    async def make_integrated_address_xmr(self, address: str, coin: str, paymentid: str = None):
-        COIN_NAME = coin.upper()
-        if paymentid:
-            try:
-                value = int(paymentid, 16)
-            except ValueError:
-                return False
-        else:
-            paymentid = cn_addressvalidation.paymentid(8)
-
-        if COIN_NAME == "LTHN":
-            payload = {
-                "payment_id": {} or paymentid
-            }
-            address_ia = await self.call_aiohttp_wallet_xmr_bcn('make_integrated_address', COIN_NAME, payload=payload)
-            if address_ia: return address_ia
-            return None
-        else:
-            payload = {
-                "standard_address" : address,
-                "payment_id": {} or paymentid
-            }
-            address_ia = await self.call_aiohttp_wallet_xmr_bcn('make_integrated_address', COIN_NAME, payload=payload)
-            if address_ia: return address_ia
-            return None
-
-
-    async def call_nano(self, coin: str, payload: str) -> Dict:
-        timeout = 100
-        COIN_NAME = coin.upper()
-        url = getattr(getattr(self.bot.coin_list, COIN_NAME), "rpchost")
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(url, data=payload, timeout=timeout) as response:
-                    if response.status == 200:
-                        res_data = await response.read()
-                        res_data = res_data.decode('utf-8')
-                        decoded_data = json.loads(res_data)
-                        return decoded_data
-        except asyncio.TimeoutError:
-            print('TIMEOUT: COIN: {} - timeout {}'.format(coin.upper(), timeout))
-            await logchanbot('TIMEOUT: call_nano COIN: {} - timeout {}'.format(coin.upper(), timeout))
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
-        return None
-
-
-    async def nano_get_wallet_balance_elements(self, coin: str) -> str:
-        COIN_NAME = coin.upper()
-        walletkey = decrypt_string(getattr(getattr(self.bot.coin_list, COIN_NAME), "walletkey"))
-        get_wallet_balance = await self.call_nano(COIN_NAME, payload='{ "action": "wallet_balances", "wallet": "'+walletkey+'" }')
-        if get_wallet_balance and 'balances' in get_wallet_balance:
-            return get_wallet_balance['balances']
-        return None
-
-    async def nano_sendtoaddress(self, source: str, to_address: str, atomic_amount: int, coin: str) -> str:
-        COIN_NAME = coin.upper()
-        walletkey = decrypt_string(getattr(getattr(self.bot.coin_list, COIN_NAME), "walletkey"))
-        payload = '{ "action": "send", "wallet": "'+walletkey+'", "source": "'+source+'", "destination": "'+to_address+'", "amount": "'+str(atomic_amount)+'" }'
-        sending = await self.call_nano(COIN_NAME, payload=payload)
-        if sending and 'block' in sending:
-            return sending
-        return None
-
-    async def nano_validate_address(self, coin: str, account: str) -> str:
-        COIN_NAME = coin.upper()
-        valid_address = await self.call_nano(COIN_NAME, payload='{ "action": "validate_account_number", "account": "'+account+'" }')
-        if valid_address and valid_address['valid'] == "1":
-            return True
-        return None
-
-    async def send_external_nano(self, main_address: str, user_from: str, amount: float, to_address: str, coin: str, coin_decimal):
-        global pool
-        COIN_NAME = coin.upper()
-        try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
-                async with conn.cursor() as cur:
-                    tx_hash = await self.nano_sendtoaddress(main_address, to_address, int(Decimal(amount)*10**coin_decimal), COIN_NAME)
-                    if tx_hash:
-                        updateTime = int(time.time())
-                        async with conn.cursor() as cur: 
-                            sql = """ INSERT INTO nano_external_tx (`coin_name`, `user_id`, `amount`, `decimal`, `to_address`, `date`, `tx_hash`) 
-                                      VALUES (%s, %s, %s, %s, %s, %s, %s) """
-                            await cur.execute(sql, (COIN_NAME, user_from, amount, coin_decimal, to_address, int(time.time()), tx_hash['block'],))
-                            await conn.commit()
-                            return tx_hash
-        except Exception as e:
-            await logchanbot(traceback.format_exc())
-        return None
-
-
-    async def call_xch(self, method_name: str, coin: str, payload: Dict=None) -> Dict:
-        timeout = 100
-        COIN_NAME = coin.upper()
-
-        headers = {
-            'Content-Type': 'application/json',
-        }
-        if payload is None:
-            data = '{}'
-        else:
-            data = payload
-        url = getattr(getattr(self.bot.coin_list, COIN_NAME), "rpchost") + '/' + method_name.lower()
-        try:
-            ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-            ssl_context.load_cert_chain(getattr(getattr(self.bot.coin_list, COIN_NAME), "cert_path"), getattr(getattr(self.bot.coin_list, COIN_NAME), "key_path"))
-            async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
-                async with session.post(url, json=data, headers=headers, timeout=timeout, ssl=ssl_context) as response:
-                    if response.status == 200:
-                        res_data = await response.read()
-                        res_data = res_data.decode('utf-8')
-                        
-                        decoded_data = json.loads(res_data)
-                        return decoded_data
-                    else:
-                        print(f'Call {COIN_NAME} returns {str(response.status)} with method {method_name}')
-        except asyncio.TimeoutError:
-            print('TIMEOUT: method_name: {} - COIN: {} - timeout {}'.format(method_name, COIN_NAME, timeout))
-            await logchanbot('call_doge: method_name: {} - COIN: {} - timeout {}'.format(method_name, COIN_NAME, timeout))
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
-
-
-    async def send_external_xch(self, user_from: str, amount: float, to_address: str, coin: str, coin_decimal: int, tx_fee: float, withdraw_fee: float, user_server: str='DISCORD'):
-        global pool
-        COIN_NAME = coin.upper()
-        try:
-            payload = {
-                "wallet_id": 1,
-                "amount": int(amount*10**coin_decimal),
-                "address": to_address,
-                "fee": int(tx_fee*10**coin_decimal)
-            }
-            result = await self.call_xch('send_transaction', COIN_NAME, payload=payload)
-            if result:
-                result['tx_hash'] = result['transaction']
-                result['transaction_id'] = result['transaction_id']
-                await store.openConnection()
-                async with store.pool.acquire() as conn:
-                    async with conn.cursor() as cur:
-                        async with conn.cursor() as cur: 
-                            sql = """ INSERT INTO xch_external_tx (`coin_name`, `user_id`, `amount`, `tx_fee`, `withdraw_fee`, `decimal`, `to_address`, `date`, `tx_hash`, `user_server`) 
-                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                            await cur.execute(sql, (COIN_NAME, user_from, amount, float(result['tx_hash']['fee_amount']/10**coin_decimal), withdraw_fee, coin_decimal, to_address, int(time.time()), result['tx_hash']['name'], user_server,))
-                            await conn.commit()
-                            return result['tx_hash']['name']
-        except Exception as e:
-            await logchanbot(traceback.format_exc())
-        return None
-
-
-    async def call_doge(self, method_name: str, coin: str, payload: str = None) -> Dict:
-        timeout = 64
-        COIN_NAME = coin.upper()
-        headers = {
-            'content-type': 'text/plain;',
-        }
-        if payload is None:
-            data = '{"jsonrpc": "1.0", "id":"'+str(uuid.uuid4())+'", "method": "'+method_name+'", "params": [] }'
-        else:
-            data = '{"jsonrpc": "1.0", "id":"'+str(uuid.uuid4())+'", "method": "'+method_name+'", "params": ['+payload+'] }'
-        
-        url = getattr(getattr(self.bot.coin_list, COIN_NAME), "daemon_address")
-        # print(url, method_name)
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(url, data=data, timeout=timeout) as response:
-                    if response.status == 200:
-                        res_data = await response.read()
-                        res_data = res_data.decode('utf-8')
-                        decoded_data = json.loads(res_data)
-                        return decoded_data['result']
-                    else:
-                        print(f'Call {COIN_NAME} returns {str(response.status)} with method {method_name}')
-                        print(data)
-                        print(url)
-        except asyncio.TimeoutError:
-            print('TIMEOUT: method_name: {} - COIN: {} - timeout {}'.format(method_name, coin.upper(), timeout))
-            await logchanbot('call_doge: method_name: {} - COIN: {} - timeout {}'.format(method_name, coin.upper(), timeout))
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-
-
-    async def send_external_doge(self, user_from: str, amount: float, to_address: str, coin: str, tx_fee: float, withdraw_fee: float, user_server: str):
-        global pool
-        user_server = user_server.upper()
-        COIN_NAME = coin.upper()
-        try:
-            comment = user_from
-            comment_to = to_address
-            payload = f'"{to_address}", {amount}, "{comment}", "{comment_to}", false'
-            if COIN_NAME in ["PGO"]:
-                payload = f'"{to_address}", {amount}, "{comment}", "{comment_to}"'
-            txHash = await self.call_doge('sendtoaddress', COIN_NAME, payload=payload)
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
-                async with conn.cursor() as cur:
-                    sql = """ INSERT INTO doge_external_tx (`coin_name`, `user_id`, `amount`, `tx_fee`, `withdraw_fee`, `to_address`, `date`, `tx_hash`, `user_server`) 
-                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                    await cur.execute(sql, (COIN_NAME, user_from, amount, tx_fee, withdraw_fee, to_address, int(time.time()), txHash, user_server))
-                    await conn.commit()
-                    return txHash
-        except Exception as e:
-            await logchanbot(traceback.format_exc())
-        return False
 
 
     async def trtl_api_get_transfers(self, url: str, key: str, coin: str, height_start: int = None, height_end: int = None):
@@ -2686,7 +2687,7 @@ class Wallet(commands.Cog):
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
                 elif type_coin == "NANO":
-                    valid_address = await self.nano_validate_address(COIN_NAME, address)
+                    valid_address = await self.WalletAPI.nano_validate_address(COIN_NAME, address)
                     if not valid_address == True:
                         msg = f"{EMOJI_RED_NO} Address: `{address}` is invalid."
                         if type(ctx) == disnake.ApplicationCommandInteraction:
@@ -2697,7 +2698,7 @@ class Wallet(commands.Cog):
                     else:
                         try:
                             main_address = getattr(getattr(self.bot.coin_list, COIN_NAME), "MainAddress")
-                            SendTx = await self.send_external_nano(main_address, str(ctx.author.id), amount, address, COIN_NAME, coin_decimal)
+                            SendTx = await self.WalletAPI.send_external_nano(main_address, str(ctx.author.id), amount, address, COIN_NAME, coin_decimal)
                             if SendTx:
                                 SendTx_hash = SendTx['block']
                                 msg = f'{EMOJI_ARROW_RIGHTHOOK} You have sent {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME} to `{address}`.\nTransaction hash: `{SendTx_hash}`'
@@ -2711,7 +2712,7 @@ class Wallet(commands.Cog):
                         except Exception as e:
                             await logchanbot(traceback.format_exc())
                 elif type_coin == "CHIA":
-                    SendTx = await self.send_external_xch(str(ctx.author.id), amount, address, COIN_NAME, coin_decimal, tx_fee, NetFee, SERVER_BOT)
+                    SendTx = await self.WalletAPI.send_external_xch(str(ctx.author.id), amount, address, COIN_NAME, coin_decimal, tx_fee, NetFee, SERVER_BOT)
                     if SendTx:
                         await logchanbot(f'A user successfully executed send {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}.')
                         msg = f'{EMOJI_ARROW_RIGHTHOOK} You have sent {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME} to `{address}`.\nTransaction hash: `{SendTx}`'
@@ -2722,7 +2723,7 @@ class Wallet(commands.Cog):
                     else:
                         await logchanbot(f'A user failed to execute to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}`.')
                 elif type_coin == "BTC":
-                    SendTx = await self.send_external_doge(str(ctx.author.id), amount, address, COIN_NAME, 0, NetFee, SERVER_BOT) # tx_fee=0
+                    SendTx = await self.WalletAPI.send_external_doge(str(ctx.author.id), amount, address, COIN_NAME, 0, NetFee, SERVER_BOT) # tx_fee=0
                     if SendTx:
                         msg = f'{EMOJI_ARROW_RIGHTHOOK} You have sent {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME} to `{address}`.\nTransaction hash: `{SendTx}`'
                         if type(ctx) == disnake.ApplicationCommandInteraction:

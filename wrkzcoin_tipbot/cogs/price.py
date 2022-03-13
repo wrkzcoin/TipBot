@@ -59,10 +59,10 @@ class Price(commands.Cog):
                 # several token
                 tokens = amount.split(",")
                 for each in tokens:
-                    if each.upper() in self.bot.coin_paprika_symbol_list:
-                        token_list.append(each.upper())
+                    if each.upper().strip() in self.bot.coin_paprika_symbol_list:
+                        token_list.append(each.upper().strip())
                     else:
-                        invalid_token_list.append(each.upper())
+                        invalid_token_list.append(each.upper().strip())
                 if len(token_list) == 1:
                     COIN_NAME = token_list[0].upper()
                     amount_old = 1
@@ -74,7 +74,8 @@ class Price(commands.Cog):
                     if each.upper() in self.bot.coin_paprika_symbol_list:
                         token_list.append(each.upper())
                     else:
-                        invalid_token_list.append(each.upper())
+                        if each.upper().strip() != "":
+                            invalid_token_list.append(each.upper().strip())
                 if len(token_list) == 1:
                     COIN_NAME = token_list[0].upper()
                     amount_old = 1
@@ -87,8 +88,14 @@ class Price(commands.Cog):
                 amount = 1
 
         if len(token_list) == 1 and COIN_NAME in self.bot.coin_paprika_symbol_list:
-            try:
+            if COIN_NAME in self.bot.token_hints:
+                id = self.bot.token_hints[COIN_NAME]['ticker_name']
+                per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+                name = self.bot.coin_paprika_id_list[id]['name']
+            else:
                 per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME]['price_usd']
+                name = self.bot.coin_paprika_symbol_list[COIN_NAME]['name']
+            try:
                 total_price = float(amount)*per_unit
                 total_price_str = ""
                 if total_price > 1000:
@@ -101,7 +108,7 @@ class Price(commands.Cog):
                     total_price_str = "{:.4f}".format(total_price)
                 else:
                     total_price_str = "{:.8f}".format(total_price)
-                name = self.bot.coin_paprika_symbol_list[COIN_NAME]['name']
+
                 update_date = self.bot.coin_paprika_symbol_list[COIN_NAME]['last_updated'].replace(tzinfo=datetime.timezone.utc)
                 embed = disnake.Embed(title="PRICE CHECK", description=f'**{COIN_NAME}** | _{name}_', timestamp=update_date)
                 embed.add_field(name="Price", value="```{} {} = {} {}```".format(amount_old, COIN_NAME, total_price_str, "USD"), inline=False)
@@ -120,7 +127,11 @@ class Price(commands.Cog):
             token_list = list(set(token_list))
             coin_price = []
             for each_coin in token_list:
-                per_unit = self.bot.coin_paprika_symbol_list[each_coin]['price_usd']
+                if each_coin in self.bot.token_hints:
+                    id = self.bot.token_hints[each_coin]['ticker_name']
+                    per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+                else:
+                    per_unit = self.bot.coin_paprika_symbol_list[each_coin]['price_usd']
                 per_unit_str = ""
                 if per_unit > 1000:
                     per_unit_str = "{:,.2f}".format(per_unit)
@@ -137,7 +148,7 @@ class Price(commands.Cog):
             embed.add_field(name="Price List", value="```{}```".format("\n".join(coin_price)), inline=False)
             if len(invalid_token_list) > 0:
                 invalid_token_list = list(set(invalid_token_list))
-                embed.add_field(name="Invalid Coin/Token", value="```{}```".format(", ".join(invalid_token_list)), inline=False)
+                embed.add_field(name="Invalid Coin/Token", value="```{}```".format(", ".join(invalid_token_list).strip()), inline=False)
             embed.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
             embed.set_footer(text="Credit: https://api.coinpaprika.com/")
             try:

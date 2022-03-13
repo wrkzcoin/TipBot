@@ -35,7 +35,7 @@ class Paprika(commands.Cog):
             self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
 
 
-    @tasks.loop(seconds=60)
+    @tasks.loop(seconds=3600)
     async def fetch_paprika_pricelist(self):
         await asyncio.sleep(3.0)
         url = "https://api.coinpaprika.com/v1/tickers"

@@ -83,7 +83,7 @@ class CoinGecko(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
 
-    @tasks.loop(seconds=15.0)
+    @tasks.loop(seconds=1200.0)
     async def fetch_gecko_pricelist(self):
         await asyncio.sleep(3.0)
         existing_coinlist = await self.get_coingecko_list_db()

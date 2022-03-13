@@ -112,6 +112,11 @@ EMOJI_PARTY = "\U0001F389"
 EMOJI_SPEAK = "\U0001F4AC"
 EMOJI_INFORMATION = "\u2139"
 
+EMOJI_UP_RIGHT = "\u2197"
+EMOJI_DOWN_RIGHT = "\u2198"
+EMOJI_CHART_DOWN = "\U0001F4C9"
+EMOJI_CHART_UP = "\U0001F4C8"
+
 NOTIFICATION_OFF_CMD = 'Type: `/notifytip off` to turn off this notification.'
 
 
@@ -167,6 +172,8 @@ bot = commands.Bot(command_prefix=get_prefix, owner_id=config.discord.ownerID, i
 bot.remove_command('help')
 bot.owner_id = config.discord.ownerID
 bot.coin_list = None
+bot.token_hints = None
+bot.token_hint_names = None
 
 bot.TX_IN_PROCESS = []
 bot.LOG_CHAN = config.discord.logchan

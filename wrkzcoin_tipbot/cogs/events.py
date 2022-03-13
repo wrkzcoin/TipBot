@@ -47,6 +47,30 @@ class Events(commands.Cog):
         return None
 
 
+    # This token hints is priority
+    async def get_token_hints(self):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `coin_alias_price` """
+                    await cur.execute(sql, ())
+                    result = await cur.fetchall()
+                    if result and len(result) > 0:
+                        hints = {}
+                        hint_names = {}
+                        for each_item in result:
+                            hints[each_item['ticker']] = each_item
+                            hint_names[each_item['name'].upper()] = each_item
+                        self.bot.token_hints = hints
+                        self.bot.token_hint_names = hint_names
+                        return True
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return None
+
+
     @commands.Cog.listener()
     async def on_ready(self):
         print('Logged in as')
@@ -62,6 +86,11 @@ class Events(commands.Cog):
             if coin_list:
                 self.bot.coin_list = coin_list
                 print("coin setting loaded...")
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        try:
+            await self.get_token_hints()
+            print("token_hints loaded...")
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 

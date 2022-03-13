@@ -2522,6 +2522,8 @@ class Wallet(commands.Cog):
             MaxTx = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_max_tx")
             NetFee = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_withdraw_fee")
             tx_fee = getattr(getattr(self.bot.coin_list, COIN_NAME), "tx_fee")
+            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
+
             if tx_fee is None:
                 tx_fee = NetFee
             token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
@@ -2562,17 +2564,49 @@ class Wallet(commands.Cog):
                     all_amount = True
                     userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), TOKEN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
                     amount = float(userdata_balance['adjust']) - NetFee
+                # If $ is in amount, let's convert to coin/token
+                elif "$" in amount[-1] or "$" in amount[0]: # last is $
+                    # Check if conversion is allowed for this coin.
+                    amount = amount.replace(",", "").replace("$", "")
+                    if usd_equivalent_enable == 0:
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{COIN_NAME}`."
+                        if type(ctx) == disnake.ApplicationCommandInteraction:
+                            await ctx.response.send_message(msg)
+                        else:
+                            await ctx.reply(msg)
+                        return
+                    else:
+                        native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
+                        COIN_NAME_FOR_PRICE = COIN_NAME
+                        if native_token_name:
+                            COIN_NAME_FOR_PRICE = native_token_name
+                        per_unit = None
+                        if COIN_NAME_FOR_PRICE in self.bot.token_hints:
+                            id = self.bot.token_hints[COIN_NAME_FOR_PRICE]['ticker_name']
+                            per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+                        else:
+                            per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
+                        if per_unit and per_unit > 0:
+                            amount = float(Decimal(amount) / Decimal(per_unit))
+                        else:
+                            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, I cannot fetch equivalent price. Try with different method.'
+                            if type(ctx) == disnake.ApplicationCommandInteraction:
+                                await ctx.response.send_message(msg)
+                            else:
+                                await ctx.reply(msg)
+                            return
                 else:
                     amount = amount.replace(",", "")
                     amount = text_to_num(amount)
                     if amount is None:
                         await ctx.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid given amount.')
                         return
+
                 # end of check if amount is all
                 amount = float(amount)
-
                 userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
                 actual_balance = float(userdata_balance['adjust'])
+
                 # If balance 0, no need to check anything
                 if actual_balance <= 0:
                     msg = f'{EMOJI_RED_NO} {ctx.author.mention} Please check your **{token_display}** balance.'

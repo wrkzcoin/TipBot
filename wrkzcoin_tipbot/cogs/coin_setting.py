@@ -36,6 +36,30 @@ class CoinSetting(commands.Cog):
         return None
 
 
+    # This token hints is priority
+    async def get_token_hints(self):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `coin_alias_price` """
+                    await cur.execute(sql, ())
+                    result = await cur.fetchall()
+                    if result and len(result) > 0:
+                        hints = {}
+                        hint_names = {}
+                        for each_item in result:
+                            hints[each_item['ticker']] = each_item
+                            hint_names[each_item['name'].upper()] = each_item
+                        self.bot.token_hints = hints
+                        self.bot.token_hint_names = hint_names
+                        return True
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return None
+
+
     @commands.command(hidden=True, usage="config", description="Reload coin setting")
     async def config(self, ctx, cmd: str=None):
         if config.discord.owner != ctx.author.id:
@@ -51,6 +75,10 @@ class CoinSetting(commands.Cog):
                 if coin_list:
                     self.bot.coin_list = coin_list
                 await ctx.reply(f"{ctx.author.mention}, coin list reloaded...")
+                await logchanbot(f"{ctx.author.name}#{ctx.author.discriminator} reloaded `{cmd}`.")
+            elif cmd.lower() == "coinalias":
+                await self.get_token_hints()
+                await ctx.reply(f"{ctx.author.mention}, coin aliases reloaded...")
                 await logchanbot(f"{ctx.author.name}#{ctx.author.discriminator} reloaded `{cmd}`.")
             else:
                 await ctx.reply(f"{ctx.author.mention}, unknown command. Available for reload `coinlist`")

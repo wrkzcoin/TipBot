@@ -117,6 +117,7 @@ class Events(commands.Cog):
             await logchanbot(traceback.format_exc())
         return None
 
+
     @commands.Cog.listener()
     async def on_ready(self):
         print('Logged in as')

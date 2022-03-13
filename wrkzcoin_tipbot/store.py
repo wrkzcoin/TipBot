@@ -1518,14 +1518,14 @@ async def contract_tx_remove_after(type_coin: str, duration: int=1200):
 
 
 ## math tip
-async def insert_discord_mathtip(token_name: str, contract: str, from_userid: str, from_username: str, message_id: str, eval_content: str, eval_answer: float, wrong_answer_1: float, wrong_answer_2: float, wrong_answer_3: float, guild_id: str, channel_id: str, real_amount: float, token_decimal: int, math_endtime: int, network: str, status: str="ONGOING"):
+async def insert_discord_mathtip(token_name: str, contract: str, from_userid: str, from_username: str, message_id: str, eval_content: str, eval_answer: float, wrong_answer_1: float, wrong_answer_2: float, wrong_answer_3: float, guild_id: str, channel_id: str, real_amount: float, real_amount_usd: float, real_amount_usd_text: str, unit_price_usd: float, token_decimal: int, math_endtime: int, network: str, status: str="ONGOING"):
     global pool
     try:
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ INSERT INTO discord_mathtip_tmp (`token_name`, `contract`, `from_userid`, `from_username`, `message_id`, `eval_content`, `eval_answer`, `wrong_answer_1`, `wrong_answer_2`, `wrong_answer_3`, `guild_id`, `channel_id`, `real_amount`, `token_decimal`, `message_time`, `math_endtime`, `network`, `status`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                await cur.execute(sql, (token_name, contract, from_userid, from_username, message_id, eval_content, eval_answer, wrong_answer_1, wrong_answer_2, wrong_answer_3, guild_id, channel_id, real_amount, token_decimal, int(time.time()), math_endtime, network, status))
+                sql = """ INSERT INTO discord_mathtip_tmp (`token_name`, `contract`, `from_userid`, `from_username`, `message_id`, `eval_content`, `eval_answer`, `wrong_answer_1`, `wrong_answer_2`, `wrong_answer_3`, `guild_id`, `channel_id`, `real_amount`, `real_amount_usd`, `real_amount_usd_text`, `unit_price_usd`, `token_decimal`, `message_time`, `math_endtime`, `network`, `status`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                await cur.execute(sql, (token_name, contract, from_userid, from_username, message_id, eval_content, eval_answer, wrong_answer_1, wrong_answer_2, wrong_answer_3, guild_id, channel_id, real_amount, real_amount_usd, real_amount_usd_text, unit_price_usd, token_decimal, int(time.time()), math_endtime, network, status))
                 await conn.commit()
                 return True
     except Exception as e:
@@ -1764,14 +1764,14 @@ async def get_responders_by_message_id(message_id: str):
     return {'total': 0, 'wrong_ids': [], 'wrong_names': [], 'right_ids': [], 'right_names': []}
 
 
-async def insert_discord_triviatip(token_name: str, contract: str, from_userid: str, from_owner_name: str, message_id: str, question_content: str, question_id: int, button_correct_answer: str, guild_id: str, channel_id: str, real_amount: float, token_decimal: int, trivia_endtime: int, network: str, status: str="ONGOING"):
+async def insert_discord_triviatip(token_name: str, contract: str, from_userid: str, from_owner_name: str, message_id: str, question_content: str, question_id: int, button_correct_answer: str, guild_id: str, channel_id: str, real_amount: float, real_amount_usd: float, real_amount_usd_text: str, unit_price_usd: float, token_decimal: int, trivia_endtime: int, network: str, status: str="ONGOING"):
     global pool
     try:
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ INSERT INTO discord_triviatip_tmp (`token_name`, `contract`, `from_userid`, `from_owner_name`, `message_id`, `question_content`, `question_id`, `button_correct_answer`, `guild_id`, `channel_id`, `real_amount`, `token_decimal`, `message_time`, `trivia_endtime`, `network`, `status`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                await cur.execute(sql, (token_name, contract, from_userid, from_owner_name, message_id, question_content, question_id, button_correct_answer, guild_id, channel_id, real_amount, token_decimal, int(time.time()), trivia_endtime, network, status))
+                sql = """ INSERT INTO discord_triviatip_tmp (`token_name`, `contract`, `from_userid`, `from_owner_name`, `message_id`, `question_content`, `question_id`, `button_correct_answer`, `guild_id`, `channel_id`, `real_amount`, `real_amount_usd`, `real_amount_usd_text`, `unit_price_usd`, `token_decimal`, `message_time`, `trivia_endtime`, `network`, `status`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                await cur.execute(sql, (token_name, contract, from_userid, from_owner_name, message_id, question_content, question_id, button_correct_answer, guild_id, channel_id, real_amount, real_amount_usd, real_amount_usd_text, unit_price_usd, token_decimal, int(time.time()), trivia_endtime, network, status))
                 await conn.commit()
                 sql = """ UPDATE trivia_db SET numb_asked=numb_asked+1 WHERE `id`=%s """
                 await cur.execute(sql, (question_id))
@@ -1850,7 +1850,7 @@ async def sql_user_balance_mv_single(from_userid: str, to_userid: str, guild_id:
     return None
 
 
-async def sql_user_balance_mv_multiple(user_from: str, user_tos, guild_id: str, channel_id: str, amount_each: float, coin: str, tiptype: str, token_decimal: int, user_server: str, contract: str):
+async def sql_user_balance_mv_multiple(user_from: str, user_tos, guild_id: str, channel_id: str, amount_each: float, coin: str, tiptype: str, token_decimal: int, user_server: str, contract: str, real_amount_usd: float):
     # user_tos is array "account1", "account2", ....
     global pool
     TOKEN_NAME = coin.upper()
@@ -1870,8 +1870,8 @@ async def sql_user_balance_mv_multiple(user_from: str, user_tos, guild_id: str, 
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ INSERT INTO user_balance_mv (`token_name`, `contract`, `from_userid`, `to_userid`, `guild_id`, `channel_id`, `real_amount`, `token_decimal`, `type`, `date`, `user_server`) 
-                          VALUES (%s, %s, %s, %s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s, %s, %s, %s);
+                sql = """ INSERT INTO user_balance_mv (`token_name`, `contract`, `from_userid`, `to_userid`, `guild_id`, `channel_id`, `real_amount`, `token_decimal`, `type`, `date`, `user_server`, `real_amount_usd`) 
+                          VALUES (%s, %s, %s, %s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s, %s, %s, %s, %s);
                         
                           INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, `balance`, `update_date`) 
                           VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
@@ -2049,15 +2049,15 @@ async def get_freetip_collector_by_id(message_id: str, from_userid: str):
     return []
 
 
-async def insert_discord_freetip(token_name: str, contract: str, from_userid: str, from_name: str, message_id: str, airdrop_content: str, guild_id: str, channel_id: str, real_amount: float, token_decimal: int, airdrop_time: int, status: str="ONGOING"):
+async def insert_discord_freetip(token_name: str, contract: str, from_userid: str, from_name: str, message_id: str, airdrop_content: str, guild_id: str, channel_id: str, real_amount: float, real_amount_usd: float, real_amount_usd_text: str, unit_price_usd: float, token_decimal: int, airdrop_time: int, status: str="ONGOING"):
     global pool
     try:
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ INSERT INTO discord_airdrop_tmp (`token_name`, `contract`, `from_userid`, `from_ownername`, `message_id`, `airdrop_content`, `guild_id`, `channel_id`, `real_amount`, `token_decimal`, `message_time`, `airdrop_time`, `status`) 
-                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                await cur.execute(sql, (token_name, contract, from_userid, from_name, message_id, airdrop_content, guild_id, channel_id, real_amount, token_decimal, int(time.time()), airdrop_time, status))
+                sql = """ INSERT INTO discord_airdrop_tmp (`token_name`, `contract`, `from_userid`, `from_ownername`, `message_id`, `airdrop_content`, `guild_id`, `channel_id`, `real_amount`, `real_amount_usd`, `real_amount_usd_text`, `unit_price_usd`, `token_decimal`, `message_time`, `airdrop_time`, `status`) 
+                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                await cur.execute(sql, (token_name, contract, from_userid, from_name, message_id, airdrop_content, guild_id, channel_id, real_amount, real_amount_usd, real_amount_usd_text, unit_price_usd, token_decimal, int(time.time()), airdrop_time, status))
                 await conn.commit()
                 return True
     except Exception as e:

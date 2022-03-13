@@ -64,16 +64,35 @@ class MathButton(disnake.ui.View):
         if get_mathtip['status'] == "ONGOING":
             answered_msg_id = await store.get_math_responders_by_message_id(str(self.message.id))
             amount = get_mathtip['real_amount']
-            TOKEN_NAME = get_mathtip['token_name']
-            token_info = getattr(self.coin_list, TOKEN_NAME)
-            token_display = token_info['display_name']
+            COIN_NAME = get_mathtip['token_name']
             owner_displayname = get_mathtip['from_username']
             total_answer = answered_msg_id['total']
-            coin_decimal = getattr(getattr(self.coin_list, TOKEN_NAME), "decimal")
+            coin_decimal = getattr(getattr(self.coin_list, COIN_NAME), "decimal")
+            contract = getattr(getattr(self.coin_list, COIN_NAME), "contract")
+            token_display = getattr(getattr(self.coin_list, COIN_NAME), "display_name")
+            usd_equivalent_enable = getattr(getattr(self.coin_list, COIN_NAME), "usd_equivalent_enable")
 
-            indiv_amount_str = num_format_coin(truncate(amount / len(answered_msg_id['right_ids']), 4), TOKEN_NAME, coin_decimal, False) if len(answered_msg_id['right_ids']) > 0 else num_format_coin(truncate(amount, 4), TOKEN_NAME, coin_decimal, False)
+            indiv_amount_str = num_format_coin(truncate(amount / len(answered_msg_id['right_ids']), 4), COIN_NAME, coin_decimal, False) if len(answered_msg_id['right_ids']) > 0 else num_format_coin(truncate(amount, 4), COIN_NAME, coin_decimal, False)
             indiv_amount = truncate(amount / len(answered_msg_id['right_ids']), 4) if len(answered_msg_id['right_ids']) > 0 else truncate(amount, 4)
-            embed = disnake.Embed(title=f"🧮 Math Tip {num_format_coin(amount, TOKEN_NAME, coin_decimal, False)} {token_display} - Total answer {total_answer}", description=get_mathtip['eval_content'], timestamp=datetime.fromtimestamp(get_mathtip['math_endtime']))
+
+            amount_in_usd = 0.0
+            each_amount_in_usd = 0.0
+
+            total_equivalent_usd = ""
+            per_unit = None
+            if usd_equivalent_enable == 1:
+                per_unit = get_mathtip['unit_price_usd']
+                if per_unit and per_unit > 0 and len(answered_msg_id['right_ids']) > 0:
+                    each_amount_in_usd = per_unit * float(indiv_amount)
+                    if each_amount_in_usd > 0.0001:
+                        num = len(answered_msg_id['right_ids']) if len(answered_msg_id['right_ids']) > 0 else 1
+                        total_equivalent_usd = " ~ {:,.4f} USD".format(each_amount_in_usd * num)
+                elif per_unit and per_unit > 0 and len(answered_msg_id['right_ids']) == 0:
+                    each_amount_in_usd = per_unit * float(indiv_amount)
+                    total_equivalent_usd = " ~ {:,.4f} USD".format(each_amount_in_usd)
+                        
+
+            embed = disnake.Embed(title=f"🧮 Math Tip {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display} {total_equivalent_usd} - Total answer {total_answer}", description=get_mathtip['eval_content'], timestamp=datetime.fromtimestamp(get_mathtip['math_endtime']))
             embed.add_field(name="Correct answer", value=get_mathtip['eval_answer'], inline=False)
             embed.add_field(name="Correct ( {} )".format(len(answered_msg_id['right_ids'])), value="{}".format(" | ".join(answered_msg_id['right_names']) if len(answered_msg_id['right_names']) > 0 else "N/A"), inline=False)
             embed.add_field(name="Incorrect ( {} )".format(len(answered_msg_id['wrong_ids'])), value="{}".format(" | ".join(answered_msg_id['wrong_names']) if len(answered_msg_id['wrong_names']) > 0 else "N/A"), inline=False)
@@ -82,7 +101,7 @@ class MathButton(disnake.ui.View):
             embed.set_footer(text=f"Trivia tip by {owner_displayname}")
 
             if len(answered_msg_id['right_ids']) > 0:
-                trivia_tipping = await store.sql_user_balance_mv_multiple(get_mathtip['from_userid'], answered_msg_id['right_ids'], get_mathtip['guild_id'], get_mathtip['channel_id'], float(indiv_amount), TOKEN_NAME, "MATHTIP", coin_decimal, SERVER_BOT, token_info['contract'])
+                trivia_tipping = await store.sql_user_balance_mv_multiple(get_mathtip['from_userid'], answered_msg_id['right_ids'], get_mathtip['guild_id'], get_mathtip['channel_id'], float(indiv_amount), COIN_NAME, "MATHTIP", coin_decimal, SERVER_BOT, contract, float(each_amount_in_usd))
             # Change status
             change_status = await store.discord_mathtip_update(get_mathtip['message_id'], "COMPLETED")
             await self.message.edit(embed=embed, view=self)
@@ -114,11 +133,11 @@ class MathTips(commands.Cog):
 
 
     async def async_mathtip(self, ctx, amount: str, token: str, duration: str, math_exp: str=None):
-        TOKEN_NAME = token.upper()
+        COIN_NAME = token.upper()
 
         # Token name check
-        if not hasattr(self.bot.coin_list, TOKEN_NAME):
-            msg = f'{ctx.author.mention}, **{TOKEN_NAME}** does not exist with us.'
+        if not hasattr(self.bot.coin_list, COIN_NAME):
+            msg = f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.'
             if type(ctx) == disnake.ApplicationCommandInteraction:
                 await ctx.response.send_message(msg)
             else:
@@ -127,18 +146,21 @@ class MathTips(commands.Cog):
         # End token name check
 
         try:
-            token_info = getattr(self.bot.coin_list, TOKEN_NAME)
-            token_display = token_info['display_name']
+            token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
+            contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
 
-            net_name = getattr(getattr(self.bot.coin_list, TOKEN_NAME), "net_name")
-            type_coin = getattr(getattr(self.bot.coin_list, TOKEN_NAME), "type")
-            deposit_confirm_depth = getattr(getattr(self.bot.coin_list, TOKEN_NAME), "deposit_confirm_depth")
-            coin_decimal = getattr(getattr(self.bot.coin_list, TOKEN_NAME), "decimal")
+            net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
+            type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
+            deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
+            coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+            MinTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_min_tip")
+            MaxTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_max_tip")
+            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
             
             User_WalletAPI = WalletAPI(self.bot)
-            get_deposit = await User_WalletAPI.sql_get_userwallet(str(ctx.author.id), TOKEN_NAME, net_name, type_coin, SERVER_BOT, 0)
+            get_deposit = await User_WalletAPI.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
             if get_deposit is None:
-                get_deposit = await User_WalletAPI.sql_register_user(str(ctx.author.id), TOKEN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                get_deposit = await User_WalletAPI.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
 
             wallet_address = get_deposit['balance_wallet_address']
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -151,7 +173,7 @@ class MathTips(commands.Cog):
             if type_coin in ["ERC-20", "TRC-20"]:
                 height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
             else:
-                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{TOKEN_NAME}').decode())
+                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
@@ -159,8 +181,39 @@ class MathTips(commands.Cog):
         all_amount = False
         if not amount.isdigit() and amount.upper() == "ALL":
             all_amount = True
-            userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), TOKEN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+            userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
             amount = float(userdata_balance['adjust'])
+        # If $ is in amount, let's convert to coin/token
+        elif "$" in amount[-1] or "$" in amount[0]: # last is $
+            # Check if conversion is allowed for this coin.
+            amount = amount.replace(",", "").replace("$", "")
+            if usd_equivalent_enable == 0:
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{COIN_NAME}`."
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(msg)
+                else:
+                    await ctx.reply(msg)
+                return
+            else:
+                native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
+                COIN_NAME_FOR_PRICE = COIN_NAME
+                if native_token_name:
+                    COIN_NAME_FOR_PRICE = native_token_name
+                per_unit = None
+                if COIN_NAME_FOR_PRICE in self.bot.token_hints:
+                    id = self.bot.token_hints[COIN_NAME_FOR_PRICE]['ticker_name']
+                    per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+                else:
+                    per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
+                if per_unit and per_unit > 0:
+                    amount = float(Decimal(amount) / Decimal(per_unit))
+                else:
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, I cannot fetch equivalent price. Try with different method.'
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.reply(msg)
+                    return
         else:
             amount = amount.replace(",", "")
             amount = text_to_num(amount)
@@ -186,6 +239,14 @@ class MathTips(commands.Cog):
             amount = float(amount)
         except ValueError:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention} Invalid amount.'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
+            return
+
+        if amount <= 0:
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please get more {token_display}.'
             if type(ctx) == disnake.ApplicationCommandInteraction:
                 await ctx.response.send_message(msg)
             else:
@@ -323,21 +384,19 @@ class MathTips(commands.Cog):
                 await ctx.reply(msg)
             return
 
-        MinTx = float(token_info['real_min_tip'])
-        MaxTx = float(token_info['real_max_tip'])
-        
-        userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), TOKEN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+       
+        userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
         actual_balance = float(userdata_balance['adjust'])
 
-        if amount > MaxTx or amount < MinTx:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than **{num_format_coin(MaxTx, TOKEN_NAME, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(MinTx, TOKEN_NAME, coin_decimal, False)} {token_display}**.'
+        if amount > MaxTip or amount < MinTip:
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than **{num_format_coin(MaxTip, COIN_NAME, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(MinTip, COIN_NAME, coin_decimal, False)} {token_display}**.'
             if type(ctx) == disnake.ApplicationCommandInteraction:
                 await ctx.response.send_message(msg)
             else:
                 await ctx.reply(msg)
             return
         elif amount > actual_balance:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to do a math tip of **{num_format_coin(amount, TOKEN_NAME, coin_decimal, False)} {token_display}**.'
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to do a math tip of **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}**.'
             if type(ctx) == disnake.ApplicationCommandInteraction:
                 await ctx.response.send_message(msg)
             else:
@@ -348,8 +407,26 @@ class MathTips(commands.Cog):
         if ctx.author.id not in self.bot.TX_IN_PROCESS:
             self.bot.TX_IN_PROCESS.append(ctx.author.id)
 
+        equivalent_usd = ""
+        total_in_usd = 0.0
+        per_unit = None
+        if usd_equivalent_enable == 1:
+            native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
+            COIN_NAME_FOR_PRICE = COIN_NAME
+            if native_token_name:
+                COIN_NAME_FOR_PRICE = native_token_name
+            if COIN_NAME_FOR_PRICE in self.bot.token_hints:
+                id = self.bot.token_hints[COIN_NAME_FOR_PRICE]['ticker_name']
+                per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+            else:
+                per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
+            if per_unit and per_unit > 0:
+                total_in_usd = float(Decimal(amount) * Decimal(per_unit))
+                if total_in_usd >= 0.0001:
+                    equivalent_usd = " ~ {:,.4f} USD".format(total_in_usd)
+
         owner_displayname = "{}#{}".format(ctx.author.name, ctx.author.discriminator)
-        embed = disnake.Embed(title=f"🧮 Math Tip {num_format_coin(amount, TOKEN_NAME, coin_decimal, False)} {token_display}", description=eval_string_original, timestamp=datetime.fromtimestamp(int(time.time())+duration_s))
+        embed = disnake.Embed(title=f"🧮 Math Tip {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display} {equivalent_usd}", description=eval_string_original, timestamp=datetime.fromtimestamp(int(time.time())+duration_s))
         embed.add_field(name="Answering", value="None", inline=False)
         embed.set_footer(text=f"Math tip by {owner_displayname}")
 
@@ -366,7 +443,7 @@ class MathTips(commands.Cog):
         else:
             view.message = await ctx.reply(embed=embed, view=view)
 
-        insert_mathtip = await store.insert_discord_mathtip(TOKEN_NAME, token_info['contract'], str(ctx.author.id), owner_displayname, str(view.message.id), eval_string_original, result_float, wrong_answer_1, wrong_answer_2, wrong_answer_3, str(ctx.guild.id), str(ctx.channel.id), amount, token_info['decimal'], int(time.time())+duration_s, net_name)
+        insert_mathtip = await store.insert_discord_mathtip(COIN_NAME, contract, str(ctx.author.id), owner_displayname, str(view.message.id), eval_string_original, result_float, wrong_answer_1, wrong_answer_2, wrong_answer_3, str(ctx.guild.id), str(ctx.channel.id), amount, total_in_usd, equivalent_usd, per_unit, coin_decimal, int(time.time())+duration_s, net_name)
         if insert_mathtip and type(ctx) != disnake.ApplicationCommandInteraction:
             await ctx.message.add_reaction("🧮")
         if ctx.author.id in self.bot.TX_IN_PROCESS:

@@ -44,6 +44,7 @@ class FreeTip_Button(disnake.ui.View):
         if get_freetip['status'] == "ONGOING":
             amount = get_freetip['real_amount']
             COIN_NAME = get_freetip['token_name']
+            equivalent_usd = get_freetip['real_amount_usd_text']
 
             net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
             type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
@@ -51,6 +52,7 @@ class FreeTip_Button(disnake.ui.View):
             coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
             contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
             token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
+            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
 
             found_owner = False
             owner_displayname = "N/A"
@@ -72,7 +74,7 @@ class FreeTip_Button(disnake.ui.View):
                 print("FreeTip msg ID {} timeout..".format(str(self.message.id)))
 
             if len(attend_list) == 0:
-                embed = disnake.Embed(title=f"FreeTip appears {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}", description=f"Already expired", timestamp=datetime.fromtimestamp(get_freetip['airdrop_time']))
+                embed = disnake.Embed(title=f"FreeTip appears {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display} {equivalent_usd}", description=f"Already expired", timestamp=datetime.fromtimestamp(get_freetip['airdrop_time']))
                 if get_freetip['airdrop_content'] and len(get_freetip['airdrop_content']) > 0:
                     embed.add_field(name="Comment", value=get_freetip['airdrop_content'], inline=False)
                 embed.set_footer(text=f"FreeTip by {owner_displayname}, and no one collected!")
@@ -101,13 +103,25 @@ class FreeTip_Button(disnake.ui.View):
                     ActualSpend_str = num_format_coin(amountDiv * len(attend_list_id), COIN_NAME, coin_decimal, False)
                     amountDiv_str = num_format_coin(amountDiv, COIN_NAME, coin_decimal, False)
 
+                    each_equivalent_usd = ""
+                    actual_spending_usd = ""
+                    amount_in_usd = 0.0
+                    per_unit = None
+                    if usd_equivalent_enable == 1:
+                        per_unit = get_mathtip['unit_price_usd']
+                        if per_unit and per_unit > 0:
+                            amount_in_usd = per_unit * float(amountDiv)
+                            if amount_in_usd > 0.0001:
+                                each_equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
+                                actual_spending_usd = " ~ {:,.4f} USD".format(amount_in_usd * len(attend_list_id))
+
                     try:
-                        tips = await store.sql_mv_erc_multiple(get_freetip['from_userid'], attend_list_id, get_freetip['guild_id'], get_freetip['channel_id'], amountDiv, COIN_NAME, "FREETIP", coin_decimal, SERVER_BOT, contract)
+                        tips = await store.sql_user_balance_mv_multiple(get_freetip['from_userid'], attend_list_id, get_freetip['guild_id'], get_freetip['channel_id'], float(amountDiv), COIN_NAME, "FREETIP", coin_decimal, SERVER_BOT, contract, float(amount_in_usd))
                         # If tip, update status
                         change_status = await store.discord_freetip_update(get_freetip['message_id'], "COMPLETED")
                         # Edit embed
                         try:
-                            embed = disnake.Embed(title=f"FreeTip appears {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}", description=f"Click to collect", timestamp=datetime.fromtimestamp(get_freetip['airdrop_time']))
+                            embed = disnake.Embed(title=f"FreeTip appears {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display} {equivalent_usd}", description=f"Click to collect", timestamp=datetime.fromtimestamp(get_freetip['airdrop_time']))
                             if get_freetip['airdrop_content'] and len(get_freetip['airdrop_content']) > 0:
                                 embed.add_field(name="Comment", value=get_freetip['airdrop_content'], inline=False)
                             if len(attend_list_names) >= 1000: attend_list_names = attend_list_names[:1000]
@@ -618,6 +632,7 @@ class Tips(commands.Cog):
         coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
         MinTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_min_tip")
         MaxTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_max_tip")
+        usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
 
         # token_info = getattr(self.bot.coin_list, COIN_NAME)
         token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
@@ -657,6 +672,37 @@ class Tips(commands.Cog):
             all_amount = True
             userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
             amount = float(userdata_balance['adjust'])
+        # If $ is in amount, let's convert to coin/token
+        elif "$" in amount[-1] or "$" in amount[0]: # last is $
+            # Check if conversion is allowed for this coin.
+            amount = amount.replace(",", "").replace("$", "")
+            if usd_equivalent_enable == 0:
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{COIN_NAME}`."
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(msg)
+                else:
+                    await ctx.reply(msg)
+                return
+            else:
+                native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
+                COIN_NAME_FOR_PRICE = COIN_NAME
+                if native_token_name:
+                    COIN_NAME_FOR_PRICE = native_token_name
+                per_unit = None
+                if COIN_NAME_FOR_PRICE in self.bot.token_hints:
+                    id = self.bot.token_hints[COIN_NAME_FOR_PRICE]['ticker_name']
+                    per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+                else:
+                    per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
+                if per_unit and per_unit > 0:
+                    amount = float(Decimal(amount) / Decimal(per_unit))
+                else:
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, I cannot fetch equivalent price. Try with different method.'
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.reply(msg)
+                    return
         else:
             amount = amount.replace(",", "")
             amount = text_to_num(amount)
@@ -715,6 +761,14 @@ class Tips(commands.Cog):
                 await ctx.reply(msg)
             return
 
+        if amount <= 0:
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please get more {token_display}.'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
+            return
+
         notifyList = await store.sql_get_tipnotify()
         userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
         actual_balance = float(userdata_balance['adjust'])
@@ -734,8 +788,25 @@ class Tips(commands.Cog):
                 await ctx.reply(msg)
             return
         
-        attend_list = []
-        embed = disnake.Embed(title=f"FreeTip appears {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}", description=f"Click to collect", timestamp=datetime.utcnow())
+        equivalent_usd = ""
+        total_in_usd = 0.0
+        per_unit = None
+        if usd_equivalent_enable == 1:
+            native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
+            COIN_NAME_FOR_PRICE = COIN_NAME
+            if native_token_name:
+                COIN_NAME_FOR_PRICE = native_token_name
+            if COIN_NAME_FOR_PRICE in self.bot.token_hints:
+                id = self.bot.token_hints[COIN_NAME_FOR_PRICE]['ticker_name']
+                per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+            else:
+                per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
+            if per_unit and per_unit > 0:
+                total_in_usd = float(Decimal(amount) * Decimal(per_unit))
+                if total_in_usd >= 0.0001:
+                    equivalent_usd = " ~ {:,.4f} USD".format(total_in_usd)
+
+        embed = disnake.Embed(title=f"FreeTip appears {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display} {equivalent_usd}", description=f"Click to collect", timestamp=datetime.utcnow())
         add_index = 0
         try:
             if comment and len(comment) > 0:
@@ -754,7 +825,7 @@ class Tips(commands.Cog):
                 comment_str = comment
             if ctx.author.id not in self.bot.TX_IN_PROCESS:
                 self.bot.TX_IN_PROCESS.append(ctx.author.id)
-            insert_freetip = await store.insert_discord_freetip(COIN_NAME, contract, str(ctx.author.id), "{}#{}".format(ctx.author.name, ctx.author.discriminator), str(view.message.id), comment_str, str(ctx.guild.id), str(ctx.channel.id), amount, coin_decimal, int(time.time())+duration_s, "ONGOING")
+            insert_freetip = await store.insert_discord_freetip(COIN_NAME, contract, str(ctx.author.id), "{}#{}".format(ctx.author.name, ctx.author.discriminator), str(view.message.id), comment_str, str(ctx.guild.id), str(ctx.channel.id), amount, total_in_usd, equivalent_usd, per_unit, coin_decimal, int(time.time())+duration_s, "ONGOING")
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         if ctx.author.id in self.bot.TX_IN_PROCESS:

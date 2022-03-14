@@ -1816,7 +1816,7 @@ async def discord_triviatip_update(message_id: str, status: str):
 ## End of Trivia
 
 
-async def sql_user_balance_mv_single(from_userid: str, to_userid: str, guild_id: str, channel_id: str, real_amount: float, coin: str, tiptype: str, token_decimal: int, user_server: str, contract: str):
+async def sql_user_balance_mv_single(from_userid: str, to_userid: str, guild_id: str, channel_id: str, real_amount: float, coin: str, tiptype: str, token_decimal: int, user_server: str, contract: str, real_amount_usd: float):
     global pool
     TOKEN_NAME = coin.upper()
     currentTs = int(time.time())
@@ -1825,8 +1825,8 @@ async def sql_user_balance_mv_single(from_userid: str, to_userid: str, guild_id:
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 sql = """ INSERT INTO user_balance_mv 
-                          (`token_name`, `contract`, `from_userid`, `to_userid`, `guild_id`, `channel_id`, `real_amount`, `token_decimal`, `type`, `date`, `user_server`) 
-                          VALUES (%s, %s, %s, %s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s, %s, %s, %s);
+                          (`token_name`, `contract`, `from_userid`, `to_userid`, `guild_id`, `channel_id`, `real_amount`, `real_amount_usd`, `token_decimal`, `type`, `date`, `user_server`) 
+                          VALUES (%s, %s, %s, %s, %s, %s, CAST(%s AS DECIMAL(32,8)), CAST(%s AS DECIMAL(32,8)), %s, %s, %s, %s);
 
                           INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, `balance`, `update_date`) 
                           VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
@@ -1841,7 +1841,7 @@ async def sql_user_balance_mv_single(from_userid: str, to_userid: str, guild_id:
                           `update_date`=VALUES(`update_date`);
 
                           """
-                await cur.execute(sql, ( TOKEN_NAME, contract, from_userid, to_userid, guild_id, channel_id, real_amount, token_decimal, tiptype, currentTs, user_server, from_userid, TOKEN_NAME, user_server, -real_amount, currentTs, to_userid, TOKEN_NAME, user_server, real_amount, currentTs ))
+                await cur.execute(sql, ( TOKEN_NAME, contract, from_userid, to_userid, guild_id, channel_id, real_amount, real_amount_usd, token_decimal, tiptype, currentTs, user_server, from_userid, TOKEN_NAME, user_server, -real_amount, currentTs, to_userid, TOKEN_NAME, user_server, real_amount, currentTs ))
                 await conn.commit()
                 return True
     except Exception as e:
@@ -1858,14 +1858,12 @@ async def sql_user_balance_mv_multiple(user_from: str, user_tos, guild_id: str, 
     currentTs = int(time.time())
     #type_list = []
     for item in user_tos:
-        values_list.append(( TOKEN_NAME, contract, user_from, item, guild_id, channel_id, amount_each, token_decimal, tiptype.upper(), currentTs, user_server, user_from, TOKEN_NAME, user_server, -amount_each, currentTs, item, TOKEN_NAME, user_server, amount_each, currentTs, ))
-        #type_list.append((type(TOKEN_NAME), type(contract), type(user_from), type(item), type(guild_id), type(channel_id), type(float(amount_each)), type(token_decimal), type(tiptype.upper()), type(currentTs), type(user_server), type(user_from) , type(-float(amount_each))))
+        values_list.append(( TOKEN_NAME, contract, user_from, item, guild_id, channel_id, amount_each, token_decimal, tiptype.upper(), currentTs, user_server, real_amount_usd, user_from, TOKEN_NAME, user_server, -amount_each, currentTs, item, TOKEN_NAME, user_server, amount_each, currentTs, ))
         
     if len(values_list) == 0:
         print("sql_user_balance_mv_multiple: got 0 data inserting. return...")
         return
-    print(values_list)
-    #print(type_list)
+
     try:
         await openConnection()
         async with pool.acquire() as conn:

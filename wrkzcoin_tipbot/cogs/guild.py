@@ -73,22 +73,26 @@ class Guild(commands.Cog):
         self,
         ctx
     ):
+        total_all_balance_usd = 0.0
         mytokens = await store.get_coin_settings(coin_type=None)
         if type(ctx) != disnake.ApplicationCommandInteraction:
             tmp_msg = await ctx.reply("Loading...")
         coin_balance_list = {}
+        coin_balance = {}
+        coin_balance_usd = {}
+        coin_balance_equivalent_usd = {}
         for each_token in mytokens:
-            TOKEN_NAME = each_token['coin_name']
-            type_coin = getattr(getattr(self.bot.coin_list, TOKEN_NAME), "type")
-            net_name = getattr(getattr(self.bot.coin_list, TOKEN_NAME), "net_name")
-            deposit_confirm_depth = getattr(getattr(self.bot.coin_list, TOKEN_NAME), "deposit_confirm_depth")
-            coin_decimal = getattr(getattr(self.bot.coin_list, TOKEN_NAME), "decimal")
-            token_display = getattr(getattr(self.bot.coin_list, TOKEN_NAME), "display_name")
+            COIN_NAME = each_token['coin_name']
+            type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
+            net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
+            deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
+            coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+            token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
 
             Guild_WalletAPI = WalletAPI(self.bot)
-            get_deposit = await Guild_WalletAPI.sql_get_userwallet(str(ctx.guild.id), TOKEN_NAME, net_name, type_coin, SERVER_BOT, 0)
+            get_deposit = await Guild_WalletAPI.sql_get_userwallet(str(ctx.guild.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
             if get_deposit is None:
-                get_deposit = await Guild_WalletAPI.sql_register_user(str(ctx.guild.id), TOKEN_NAME, net_name, type_coin, SERVER_BOT, 0, 1)
+                get_deposit = await Guild_WalletAPI.sql_register_user(str(ctx.guild.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 1)
             wallet_address = get_deposit['balance_wallet_address']
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                 wallet_address = get_deposit['paymentid']
@@ -98,36 +102,66 @@ class Guild(commands.Cog):
                 if type_coin in ["ERC-20", "TRC-20"]:
                     height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
                 else:
-                    height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{TOKEN_NAME}').decode())
+                    height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
 
             # height can be None
-            userdata_balance = await store.sql_user_balance_single(str(ctx.guild.id), TOKEN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+            userdata_balance = await store.sql_user_balance_single(str(ctx.guild.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
             total_balance = userdata_balance['adjust']
             if total_balance > 0:
-                coin_balance_list[TOKEN_NAME] = "{} {}".format(num_format_coin(total_balance, TOKEN_NAME, coin_decimal, False), token_display)
+                coin_balance_list[COIN_NAME] = "{} {}".format(num_format_coin(total_balance, COIN_NAME, coin_decimal, False), token_display)
+                coin_balance[COIN_NAME] = total_balance
+                usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
+                coin_balance_usd[COIN_NAME] = 0.0
+                coin_balance_equivalent_usd[COIN_NAME] = ""
+                if usd_equivalent_enable == 1:
+                    native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
+                    COIN_NAME_FOR_PRICE = COIN_NAME
+                    if native_token_name:
+                        COIN_NAME_FOR_PRICE = native_token_name
+                    per_unit = None
+                    if COIN_NAME_FOR_PRICE in self.bot.token_hints:
+                        id = self.bot.token_hints[COIN_NAME_FOR_PRICE]['ticker_name']
+                        per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+                    else:
+                        per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
+                    if per_unit and per_unit > 0:
+                        coin_balance_usd[COIN_NAME] = float(Decimal(total_balance) * Decimal(per_unit))
+                        total_all_balance_usd += coin_balance_usd[COIN_NAME]
+                        if coin_balance_usd[COIN_NAME] >= 0.01:
+                            coin_balance_equivalent_usd[COIN_NAME] = " ~ {:,.2f}$".format(coin_balance_usd[COIN_NAME])
+                        elif coin_balance_usd[COIN_NAME] >= 0.0001:
+                            coin_balance_equivalent_usd[COIN_NAME] = " ~ {:,.4f}$".format(coin_balance_usd[COIN_NAME])
+                            
 
         ## add page
         all_pages = []
         num_coins = 0
         per_page = 8
+        
+        if total_all_balance_usd >= 0.01:
+            total_all_balance_usd = "Having ~ {:,.2f}$".format(total_all_balance_usd)
+        elif total_all_balance_usd >= 0.0001:
+            total_all_balance_usd = "Having ~ {:,.4f}$".format(total_all_balance_usd)
+        else:
+            total_all_balance_usd = "Thank you for using TipBot!"
+            
         for k, v in coin_balance_list.items():
             if num_coins == 0 or num_coins % per_page == 0:
                 page = disnake.Embed(title=f'[ GUILD **{ctx.guild.name.upper()}** BALANCE LIST ]',
-                                     description="Thank you for using TipBot!",
+                                     description=f"`{total_all_balance_usd}`",
                                      color=disnake.Color.red(),
                                      timestamp=datetime.utcnow(), )
                 page.set_thumbnail(url=ctx.author.display_avatar)
                 page.set_footer(text="Use the reactions to flip pages.")
-            ##
-            page.add_field(name=k, value="```{}```".format(v), inline=True)
+            page.add_field(name="{}{}".format(k, coin_balance_equivalent_usd[k]), value="```{}```".format(v), inline=True)
             num_coins += 1
             if num_coins > 0 and num_coins % per_page == 0:
                 all_pages.append(page)
                 if num_coins < len(coin_balance_list):
                     page = disnake.Embed(title=f'[ GUILD **{ctx.guild.name.upper()}** BALANCE LIST ]',
-                                         description="Thank you for using TipBot!",
+                                         description=f"`{total_all_balance_usd}`",
                                          color=disnake.Color.red(),
                                          timestamp=datetime.utcnow(), )
                     page.set_thumbnail(url=ctx.author.display_avatar)
@@ -185,6 +219,7 @@ class Guild(commands.Cog):
             token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
             MinTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_min_tip")
             MaxTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_max_tip")
+            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
 
             Guild_WalletAPI = WalletAPI(self.bot)
             get_deposit = await Guild_WalletAPI.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
@@ -210,6 +245,37 @@ class Guild(commands.Cog):
                 all_amount = True
                 userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
                 amount = float(userdata_balance['adjust'])
+            # If $ is in amount, let's convert to coin/token
+            elif "$" in amount[-1] or "$" in amount[0]: # last is $
+                # Check if conversion is allowed for this coin.
+                amount = amount.replace(",", "").replace("$", "")
+                if usd_equivalent_enable == 0:
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{COIN_NAME}`."
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.reply(msg)
+                    return
+                else:
+                    native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
+                    COIN_NAME_FOR_PRICE = COIN_NAME
+                    if native_token_name:
+                        COIN_NAME_FOR_PRICE = native_token_name
+                    per_unit = None
+                    if COIN_NAME_FOR_PRICE in self.bot.token_hints:
+                        id = self.bot.token_hints[COIN_NAME_FOR_PRICE]['ticker_name']
+                        per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+                    else:
+                        per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
+                    if per_unit and per_unit > 0:
+                        amount = float(Decimal(amount) / Decimal(per_unit))
+                    else:
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, I cannot fetch equivalent price. Try with different method.'
+                        if type(ctx) == disnake.ApplicationCommandInteraction:
+                            await ctx.response.send_message(msg)
+                        else:
+                            await ctx.reply(msg)
+                        return
             else:
                 amount = amount.replace(",", "")
                 amount = text_to_num(amount)
@@ -224,10 +290,11 @@ class Guild(commands.Cog):
             actual_balance = Decimal(userdata_balance['adjust'])
             amount = Decimal(amount)
             if amount <= 0:
+                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please topup more {COIN_NAME}'
                 if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(f'{EMOJI_RED_NO} {ctx.author.mention}, please topup more {COIN_NAME}')
+                    await ctx.response.send_message(msg)
                 else:
-                    await ctx.reply(f'{EMOJI_RED_NO} {ctx.author.mention}, please topup more {COIN_NAME}')
+                    await ctx.reply(msg)
                 return
                 
             if amount > actual_balance:
@@ -246,6 +313,24 @@ class Guild(commands.Cog):
                     await ctx.reply(msg)
                 return
 
+            equivalent_usd = ""
+            amount_in_usd = 0.0
+            per_unit = None
+            if usd_equivalent_enable == 1:
+                native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
+                COIN_NAME_FOR_PRICE = COIN_NAME
+                if native_token_name:
+                    COIN_NAME_FOR_PRICE = native_token_name
+                if COIN_NAME_FOR_PRICE in self.bot.token_hints:
+                    id = self.bot.token_hints[COIN_NAME_FOR_PRICE]['ticker_name']
+                    per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+                else:
+                    per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
+                if per_unit and per_unit > 0:
+                    amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
+                    if amount_in_usd > 0.0001:
+                        equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
+
             # OK, move fund
             if ctx.author.id in self.bot.TX_IN_PROCESS:
                 if type(ctx) == disnake.ApplicationCommandInteraction:
@@ -257,10 +342,10 @@ class Guild(commands.Cog):
             else:
                 self.bot.TX_IN_PROCESS.append(ctx.author.id)
                 try:
-                    tip = await store.sql_user_balance_mv_single(str(ctx.author.id), str(ctx.guild.id), str(ctx.guild.id), str(ctx.channel.id), amount, COIN_NAME, 'GUILDDEPOSIT', coin_decimal, SERVER_BOT, contract)
+                    tip = await store.sql_user_balance_mv_single(str(ctx.author.id), str(ctx.guild.id), str(ctx.guild.id), str(ctx.channel.id), amount, COIN_NAME, 'GUILDDEPOSIT', coin_decimal, SERVER_BOT, contract, amount_in_usd)
                     if tip:
                         try:
-                            msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention} **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}** was transferred to {ctx.guild.name}.'
+                            msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention} **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}**{equivalent_usd} was transferred to {ctx.guild.name}.'
                             if type(ctx) == disnake.ApplicationCommandInteraction:
                                 await ctx.response.send_message(msg)
                             else:
@@ -273,9 +358,7 @@ class Guild(commands.Cog):
                             notifyList = await store.sql_get_tipnotify()
                             if str(guild_found.owner.id) not in notifyList:
                                 try:
-                                    await user_found.send(f'Your guild **{ctx.guild.name}** got a deposit of **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} '
-                                                          f'{COIN_NAME}** from {ctx.author.name}#{ctx.author.discriminator} in `#{ctx.channel.name}`\n'
-                                                          f'{NOTIFICATION_OFF_CMD}\n')
+                                    await user_found.send(f'Your guild **{ctx.guild.name}** got a deposit of **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}**{equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator} in `#{ctx.channel.name}`\n{NOTIFICATION_OFF_CMD}')
                                 except (disnake.Forbidden, disnake.errors.Forbidden, disnake.errors.HTTPException) as e:
                                     pass
                 except Exception as e:

@@ -2337,6 +2337,7 @@ class Wallet(commands.Cog):
     async def async_balances(self, ctx, tokens: str=None):
         COIN_NAME = None
         mytokens = []
+        zero_tokens = []
         unknown_tokens = []
         if tokens is None:
             # do all coins/token which is not under maintenance
@@ -2372,6 +2373,7 @@ class Wallet(commands.Cog):
                 await ctx.reply(f'{ctx.author.mention}, no token or not exist.')
             return
         else:
+            total_all_balance_usd = 0.0
             all_pages = []
             all_names = [each['coin_name'] for each in mytokens]
             total_coins = len(mytokens)
@@ -2427,6 +2429,9 @@ class Wallet(commands.Cog):
                 # height can be None
                 userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
                 total_balance = userdata_balance['adjust']
+                if total_balance == 0:
+                    zero_tokens.append(COIN_NAME)
+                    continue
                 equivalent_usd = ""
                 if usd_equivalent_enable == 1:
                     native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
@@ -2441,6 +2446,7 @@ class Wallet(commands.Cog):
                         per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
                     if per_unit and per_unit > 0:
                         total_in_usd = float(Decimal(total_balance) * Decimal(per_unit))
+                        total_all_balance_usd += total_in_usd
                         if total_in_usd >= 0.01:
                             equivalent_usd = " ~ {:,.2f}$".format(total_in_usd)
                         elif total_in_usd >= 0.0001:
@@ -2463,6 +2469,34 @@ class Wallet(commands.Cog):
                 elif num_coins == total_coins:
                     all_pages.append(page)
                     break
+
+            # Replace first page
+            if total_all_balance_usd > 0.01:
+                total_all_balance_usd = "Having ~ {:,.2f}$".format(total_all_balance_usd)
+            elif total_all_balance_usd > 0.0001:
+                total_all_balance_usd = "Having ~ {:,.4f}$".format(total_all_balance_usd)
+            else:
+                total_all_balance_usd = "Thank you for using TipBot!"
+            page = disnake.Embed(title='[ YOUR BALANCE LIST ]',
+                                  description=f"`{total_all_balance_usd}`",
+                                  color=disnake.Color.blue(),
+                                  timestamp=datetime.utcnow(), )
+            # Remove zero from all_names
+            all_names = [each for each in all_names if each not in zero_tokens]
+            page.add_field(name="Coin/Tokens: [{}]".format(len(all_names)), 
+                           value="```"+", ".join(all_names)+"```", inline=False)
+            if len(unknown_tokens) > 0:
+                unknown_tokens = list(set(unknown_tokens))
+                page.add_field(name="Unknown Tokens: {}".format(len(unknown_tokens)), 
+                               value="```"+", ".join(unknown_tokens)+"```", inline=False)
+            if len(zero_tokens) > 0:
+                zero_tokens = list(set(zero_tokens))
+                page.add_field(name="Zero Balances: [{}]".format(len(zero_tokens)), 
+                               value="```"+", ".join(zero_tokens)+"```", inline=False)
+            page.set_thumbnail(url=ctx.author.display_avatar)
+            page.set_footer(text="Use the reactions to flip pages.")
+            all_pages[0] = page
+
             view = MenuPage(ctx, all_pages, timeout=30)
             if type(ctx) == disnake.ApplicationCommandInteraction:
                 view.message = await ctx.response.send_message(embed=all_pages[0], view=view)

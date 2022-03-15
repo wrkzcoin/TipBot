@@ -40,7 +40,7 @@ from eth_utils import is_hex_address # Check hex only
 import store, utils
 import cn_addressvalidation
 
-from Bot import get_token_list, num_format_coin, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_ARROW_RIGHTHOOK, SERVER_BOT, RowButton_close_message, RowButton_row_close_any_message, human_format, text_to_num, truncate, seconds_str, encrypt_string, decrypt_string
+from Bot import get_token_list, num_format_coin, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_ARROW_RIGHTHOOK, SERVER_BOT, RowButton_close_message, RowButton_row_close_any_message, human_format, text_to_num, truncate, seconds_str, encrypt_string, decrypt_string, EMOJI_HOURGLASS_NOT_DONE
 from config import config
 import redis_utils
 from utils import MenuPage
@@ -2578,25 +2578,30 @@ class Wallet(commands.Cog):
 
     # Withdraw
     async def async_withdraw(self, ctx, amount: str, token: str, address: str):
+        withdraw_tx_ephemeral = False
+
         COIN_NAME = token.upper()
         if not hasattr(self.bot.coin_list, COIN_NAME):
             if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.')
+                msg = f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.'
+                await ctx.response.send_message(msg)
             else:
-                await ctx.reply(f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.')
+                await ctx.reply(msg)
             return
         else:
             if getattr(getattr(self.bot.coin_list, COIN_NAME), "is_maintenance") == 1:
+                msg = f'{ctx.author.mention}, **{COIN_NAME}** is currently under maintenance.'
                 if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(f'{ctx.author.mention}, **{COIN_NAME}** is currently under maintenance.')
+                    await ctx.response.send_message(msg)
                 else:
-                    await ctx.reply(f'{ctx.author.mention}, **{COIN_NAME}** is currently under maintenance.')
+                    await ctx.reply(msg)
                 return
             if getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_withdraw") != 1:
+                msg = f'{ctx.author.mention}, **{COIN_NAME}** withdraw is currently disable.'
                 if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(f'{ctx.author.mention}, **{COIN_NAME}** withdraw is currently disable.')
+                    await ctx.response.send_message(msg)
                 else:
-                    await ctx.reply(f'{ctx.author.mention}, **{COIN_NAME}** withdraw is currently disable.')
+                    await ctx.reply(msg)
                 return
         # Do the job
         try:
@@ -2625,11 +2630,12 @@ class Wallet(commands.Cog):
 
             # Check if tx in progress
             if ctx.author.id in self.bot.TX_IN_PROCESS:
+                msg = f'{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress.'
                 if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+                    await ctx.response.send_message(msg)
                 else:
                     await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
-                    msg = await ctx.reply(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+                    msg = await ctx.reply(msg)
                 return
 
             height = None
@@ -2644,6 +2650,8 @@ class Wallet(commands.Cog):
                 await ctx.reply(f'{ctx.author.mention}, **{COIN_NAME}** cannot pull information from network. Try again later.')
                 return
             else:
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(f"{EMOJI_HOURGLASS_NOT_DONE} Checking withdraw for {ctx.author.mention}..", delete_after=4.0) # delete_after can not have ephemeral=True 
                 # check if amount is all
                 all_amount = False
                 if not amount.isdigit() and amount.upper() == "ALL":
@@ -2657,7 +2665,7 @@ class Wallet(commands.Cog):
                     if usd_equivalent_enable == 0:
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{COIN_NAME}`."
                         if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.response.send_message(msg)
+                            await ctx.followup.send(msg)
                         else:
                             await ctx.reply(msg)
                         return
@@ -2677,7 +2685,7 @@ class Wallet(commands.Cog):
                         else:
                             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, I cannot fetch equivalent price. Try with different method.'
                             if type(ctx) == disnake.ApplicationCommandInteraction:
-                                await ctx.response.send_message(msg)
+                                await ctx.followup.send(msg)
                             else:
                                 await ctx.reply(msg)
                             return
@@ -2685,7 +2693,7 @@ class Wallet(commands.Cog):
                     amount = amount.replace(",", "")
                     amount = text_to_num(amount)
                     if amount is None:
-                        await ctx.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid given amount.')
+                        await ctx.reply(f'{EMOJI_RED_NO} {ctx.author.mention}, invalid given amount.')
                         return
 
                 # end of check if amount is all
@@ -2695,31 +2703,31 @@ class Wallet(commands.Cog):
 
                 # If balance 0, no need to check anything
                 if actual_balance <= 0:
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention} Please check your **{token_display}** balance.'
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please check your **{token_display}** balance.'
                     if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg, ephemeral=True)
+                        await ctx.followup.send(msg)
                     else:
                         await ctx.reply(msg)
                     return
                 if amount > actual_balance:
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send out {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}.'
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to send out {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}.'
                     if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg, ephemeral=True)
+                        await ctx.followup.send(msg)
                     else:
                         await ctx.reply(msg)
                     return
 
                 if amount + NetFee > actual_balance:
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to send out {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}. You need to leave at least network fee: {num_format_coin(NetFee, COIN_NAME, coin_decimal, False)} {token_display}.'
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to send out {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}. You need to leave at least network fee: {num_format_coin(NetFee, COIN_NAME, coin_decimal, False)} {token_display}.'
                     if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg, ephemeral=True)
+                        await ctx.followup.send(msg)
                     else:
                         await ctx.reply(msg)
                     return
                 elif amount < MinTx or amount > MaxTx:
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention} Transaction cannot be smaller than {num_format_coin(MinTx, COIN_NAME, coin_decimal, False)} {token_display} or bigger than {num_format_coin(MaxTx, COIN_NAME, coin_decimal, False)} {token_display}.'
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, transaction cannot be smaller than {num_format_coin(MinTx, COIN_NAME, coin_decimal, False)} {token_display} or bigger than {num_format_coin(MaxTx, COIN_NAME, coin_decimal, False)} {token_display}.'
                     if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg, ephemeral=True)
+                        await ctx.followup.send(msg)
                     else:
                         await ctx.reply(msg)
                     return
@@ -2749,9 +2757,9 @@ class Wallet(commands.Cog):
                     if valid_address and valid_address.upper() == address.upper():
                         valid = True
                     else:
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention} Invalid address:\n`{address}`'
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid address:\n`{address}`'
                         if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.response.send_message(msg)
+                            await ctx.followup.send(msg)
                         else:
                             await ctx.reply(msg)
                         return
@@ -2769,25 +2777,25 @@ class Wallet(commands.Cog):
                         self.bot.TX_IN_PROCESS.remove(ctx.author.id)
                     else:
                         # reject and tell to wait
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention} You have another tx in process. Please wait it to finish.'
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
                         if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.response.send_message(msg, ephemeral=True)
+                            await ctx.followup.send(msg)
                         else:
                             await ctx.reply(msg)
                         return
 
                     if SendTx:
                         try:
-                            msg = f'{EMOJI_ARROW_RIGHTHOOK} You withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`'
+                            msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`'
                             if type(ctx) == disnake.ApplicationCommandInteraction:
-                                await ctx.response.send_message(msg, ephemeral=True)
+                                await ctx.followup.send(msg, ephemeral=withdraw_tx_ephemeral)
                             else:
                                 await ctx.reply(msg)
                             return
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
                         try:
-                            await logchanbot(f'[{SERVER_BOT}] A user {ctx.author.name}#{ctx.author.discriminator} sucessfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}')
+                            await logchanbot(f'[{SERVER_BOT}] A user {ctx.author.mention} sucessfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}')
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
                 elif type_coin in ["TRC-20", "TRC-10"]:
@@ -2803,25 +2811,25 @@ class Wallet(commands.Cog):
                         self.bot.TX_IN_PROCESS.remove(ctx.author.id)
                     else:
                         # reject and tell to wait
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention} You have another tx in process. Please wait it to finish.'
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
                         if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.response.send_message(msg, ephemeral=True)
+                            await ctx.followup.send(msg)
                         else:
                             await ctx.reply(msg)
                         return
 
                     if SendTx:
                         try:
-                            msg = f'{EMOJI_ARROW_RIGHTHOOK} You withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`'
+                            msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`'
                             if type(ctx) == disnake.ApplicationCommandInteraction:
-                                await ctx.response.send_message(msg, ephemeral=True)
+                                await ctx.followup.send(msg, ephemeral=withdraw_tx_ephemeral)
                             else:
                                 await ctx.reply(msg)
                             return
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
                         try:
-                            await logchanbot(f'[{SERVER_BOT}] A user {ctx.author.name}#{ctx.author.discriminator} sucessfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}')
+                            await logchanbot(f'[{SERVER_BOT}] A user {ctx.author.mention} sucessfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}')
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
                 elif type_coin == "NANO":
@@ -2829,7 +2837,7 @@ class Wallet(commands.Cog):
                     if not valid_address == True:
                         msg = f"{EMOJI_RED_NO} Address: `{address}` is invalid."
                         if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.response.send_message(msg, ephemeral=True)
+                            await ctx.followup.send(msg)
                         else:
                             await ctx.reply(msg)
                         return
@@ -2839,38 +2847,38 @@ class Wallet(commands.Cog):
                             SendTx = await self.WalletAPI.send_external_nano(main_address, str(ctx.author.id), amount, address, COIN_NAME, coin_decimal)
                             if SendTx:
                                 SendTx_hash = SendTx['block']
-                                msg = f'{EMOJI_ARROW_RIGHTHOOK} You have sent {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx_hash}`'
+                                msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx_hash}`'
                                 if type(ctx) == disnake.ApplicationCommandInteraction:
-                                    await ctx.response.send_message(msg, ephemeral=True)
+                                    await ctx.followup.send(msg, ephemeral=withdraw_tx_ephemeral)
                                 else:
                                     await ctx.reply(msg)
-                                await logchanbot(f'A user successfully executed withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
+                                await logchanbot(f'A user {ctx.author.mention} successfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                             else:
-                                await logchanbot(f'A user failed to execute withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
+                                await logchanbot(f'A user {ctx.author.mention} failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                         except Exception as e:
                             await logchanbot(traceback.format_exc())
                 elif type_coin == "CHIA":
                     SendTx = await self.WalletAPI.send_external_xch(str(ctx.author.id), amount, address, COIN_NAME, coin_decimal, tx_fee, NetFee, SERVER_BOT)
                     if SendTx:
-                        await logchanbot(f'A user successfully executed send {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
-                        msg = f'{EMOJI_ARROW_RIGHTHOOK} You have sent {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`'
+                        await logchanbot(f'A user {ctx.author.mention} successfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
+                        msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`'
                         if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.response.send_message(msg, ephemeral=True)
+                            await ctx.followup.send(msg, ephemeral=withdraw_tx_ephemeral)
                         else:
                             await ctx.reply(msg)
                     else:
-                        await logchanbot(f'A user failed to execute to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
+                        await logchanbot(f'A user {ctx.author.mention} failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                 elif type_coin == "BTC":
                     SendTx = await self.WalletAPI.send_external_doge(str(ctx.author.id), amount, address, COIN_NAME, 0, NetFee, SERVER_BOT) # tx_fee=0
                     if SendTx:
-                        msg = f'{EMOJI_ARROW_RIGHTHOOK} You have sent {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`'
+                        msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`'
                         if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.response.send_message(msg, ephemeral=True)
+                            await ctx.followup.send(msg, ephemeral=withdraw_tx_ephemeral)
                         else:
                             await ctx.reply(msg)
-                        await logchanbot(f'A user successfully executed withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
+                        await logchanbot(f'A user {ctx.author.mention} successfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                     else:
-                        await logchanbot(f'A user failed to execute to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
+                        await logchanbot(f'A user {ctx.author.mention} failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                 elif type_coin == "XMR" or type_coin == "TRTL-API" or type_coin == "TRTL-SERVICE" or type_coin == "BCN":
                     main_address = getattr(getattr(self.bot.coin_list, COIN_NAME), "MainAddress")
                     mixin = getattr(getattr(self.bot.coin_list, COIN_NAME), "mixin")
@@ -2879,14 +2887,14 @@ class Wallet(commands.Cog):
                     is_fee_per_byte = getattr(getattr(self.bot.coin_list, COIN_NAME), "is_fee_per_byte")
                     SendTx = await self.WalletAPI.send_external_xmr(type_coin, main_address, str(ctx.author.id), amount, address, COIN_NAME, coin_decimal, tx_fee, NetFee, is_fee_per_byte, mixin, SERVER_BOT, wallet_address, header, None) # paymentId: None (end)
                     if SendTx:
-                        msg = f'{EMOJI_ARROW_RIGHTHOOK} You have sent {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`'
+                        msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`'
                         if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.response.send_message(msg, ephemeral=True)
+                            await ctx.followup.send(msg, ephemeral=withdraw_tx_ephemeral)
                         else:
                             await ctx.reply(msg)
-                        await logchanbot(f'A user successfully executed withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
+                        await logchanbot(f'A user {ctx.author.mention} successfully executed withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                     else:
-                        await logchanbot(f'A user failed to execute to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
+                        await logchanbot(f'A user {ctx.author.mention} failed to execute to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 

@@ -462,9 +462,9 @@ class Tips(commands.Cog):
                                     return
                                 elif len(message_talker) < num_user:
                                     try:
-                                        msg = f'{EMOJI_INFORMATION} {ctx.author.mention} I could not find sufficient talkers up to **{num_user}**. I found only **{len(message_talker)}** and will random to one of those **{len(message_talker)}** users.'
+                                        msg = f'{EMOJI_INFORMATION} {ctx.author.mention} I could not find sufficient talkers up to **{num_user}**. I found only **{len(message_talker)}** and random to one of those **{len(message_talker)}** users.'
                                         if type(ctx) == disnake.ApplicationCommandInteraction:
-                                            await ctx.response.send_message(msg)
+                                            await ctx.channel.send(msg)
                                         else:
                                             await ctx.reply(msg)
                                     except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
@@ -495,41 +495,44 @@ class Tips(commands.Cog):
                     else:
                         await ctx.reply(msg)
                     return
+
             if has_last is False and listMembers and len(listMembers) >= minimum_users:
                 rand_user = random.choice(listMembers)
                 max_loop = 0
-                while True:
-                    if rand_user != ctx.author and rand_user.bot is False:
-                        break
-                    else:
-                        rand_user = random.choice(listMembers)
-                    max_loop += 1
-                    if max_loop >= 5:
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention} {token_display} Please try again, maybe guild doesnot have so many users.'
-                        if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.response.send_message(msg)
+                if rand_user == ctx.author:
+                    while True:
+                        if rand_user != ctx.author:
+                            break
                         else:
-                            await ctx.reply(msg)
-                        return
+                            rand_user = random.choice(listMembers)
+                        max_loop += 1
+                        if max_loop >= 5:
+                            msg = f'{EMOJI_RED_NO} {ctx.author.mention} {token_display} Please try again, maybe guild doesnot have so many users.'
+                            if type(ctx) == disnake.ApplicationCommandInteraction:
+                                await ctx.response.send_message(msg)
+                            else:
+                                await ctx.reply(msg)
+                            return
 
             elif has_last is True and message_talker and len(message_talker) >= minimum_users:
                 rand_user_id = random.choice(message_talker)
                 max_loop = 0
-                while True:
-                    rand_user = self.bot.get_user(rand_user_id)
-                    if rand_user and rand_user != ctx.author and rand_user.bot is False and rand_user in ctx.guild.members:
-                        break
-                    else:
-                        rand_user_id = random.choice(message_talker)
+                if rand_user_id == ctx.author.id:
+                    while True:
                         rand_user = self.bot.get_user(rand_user_id)
-                    max_loop += 1
-                    if max_loop >= 10:
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention} {token_display} Please try again, maybe guild doesnot have so many users.'
-                        if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.response.send_message(msg)
+                        if rand_user and rand_user != ctx.author and rand_user in ctx.guild.members:
+                            break
                         else:
-                            await ctx.reply(msg)
-                        break
+                            rand_user_id = random.choice(message_talker)
+                            rand_user = self.bot.get_user(rand_user_id)
+                        max_loop += 1
+                        if max_loop >= 10:
+                            msg = f'{EMOJI_RED_NO} {ctx.author.mention} {token_display} Please try again, maybe guild doesnot have so many users.'
+                            if type(ctx) == disnake.ApplicationCommandInteraction:
+                                await ctx.response.send_message(msg)
+                            else:
+                                await ctx.reply(msg)
+                            break
             else:
                 msg = f'{EMOJI_RED_NO} {ctx.author.mention} {token_display} not enough member for random tip.'
                 if type(ctx) == disnake.ApplicationCommandInteraction:
@@ -538,11 +541,10 @@ class Tips(commands.Cog):
                     await ctx.reply(msg)
                 if ctx.author.id in self.bot.TX_IN_PROCESS:
                     self.bot.TX_IN_PROCESS.remove(ctx.author.id)
-            return
+                return
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
-            return
 
         notifyList = await store.sql_get_tipnotify()
         userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
@@ -564,9 +566,7 @@ class Tips(commands.Cog):
             return
 
         # add queue also randtip
-        if ctx.author.id not in self.bot.TX_IN_PROCESS:
-            self.bot.TX_IN_PROCESS.append(ctx.author.id)
-        else:
+        if ctx.author.id in self.bot.TX_IN_PROCESS:
             msg = f'{EMOJI_ERROR} {ctx.author.mention} {EMOJI_HOURGLASS_NOT_DONE} You have another tx in progress.'
             if type(ctx) == disnake.ApplicationCommandInteraction:
                 await ctx.response.send_message(msg)
@@ -597,6 +597,8 @@ class Tips(commands.Cog):
 
         tip = None
         if rand_user is not None:
+            if ctx.author.id not in self.bot.TX_IN_PROCESS:
+                self.bot.TX_IN_PROCESS.append(ctx.author.id)
             Tip_WalletAPI = WalletAPI(self.bot)
             user_to = await User_WalletAPI.sql_get_userwallet(str(rand_user.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
             if user_to is None:
@@ -619,15 +621,15 @@ class Tips(commands.Cog):
             self.bot.TX_IN_PROCESS.remove(ctx.author.id)
 
         if tip:
-            randtip_public_respond = False
             # tipper shall always get DM. Ignore notifyList
             try:
                 msg = f'{EMOJI_ARROW_RIGHTHOOK} {rand_user.name}#{rand_user.discriminator} got your random tip of **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}** in server `{ctx.guild.name}`'
                 if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg, ephemeral=True)
+                    await ctx.response.send_message(msg)
+                    await ctx.response.defer()
                 else:
                     await ctx.author.send(msg)
-            except (disnake.Forbidden, disnake.errors.Forbidden) as e:
+            except (disnake.Forbidden, disnake.errors.Forbidden, disnake.errors.InteractionResponded) as e:
                 pass
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
@@ -644,11 +646,8 @@ class Tips(commands.Cog):
             try:
                 # try message in public also
                 msg = f'{rand_user.name}#{rand_user.discriminator} got a random tip of **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}** from {ctx.author.name}#{ctx.author.discriminator}'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
+                if type(ctx) != disnake.ApplicationCommandInteraction:
                     await ctx.reply(msg)
-                randtip_public_respond = True
             except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                 pass
             except Exception as e:
@@ -892,10 +891,8 @@ class Tips(commands.Cog):
                     equivalent_usd = " ~ {:,.4f} USD".format(total_in_usd)
 
         embed = disnake.Embed(title=f"FreeTip appears {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display} {equivalent_usd}", description=f"Click to collect", timestamp=datetime.utcnow())
-        add_index = 0
         try:
             if comment and len(comment) > 0:
-                add_index = 1
                 embed.add_field(name="Comment", value=comment, inline=True)
             embed.add_field(name="Attendees", value="React below to join!", inline=False)
             embed.add_field(name="Individual Tip Amount", value=f"{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}", inline=True)
@@ -904,13 +901,19 @@ class Tips(commands.Cog):
             
             view = FreeTip_Button(self.bot, duration_s)
             view.message = await ctx.channel.send(embed=embed, view=view)
-
+            
             comment_str = ""
             if comment and len(comment) > 0:
                 comment_str = comment
             if ctx.author.id not in self.bot.TX_IN_PROCESS:
                 self.bot.TX_IN_PROCESS.append(ctx.author.id)
             insert_freetip = await store.insert_discord_freetip(COIN_NAME, contract, str(ctx.author.id), "{}#{}".format(ctx.author.name, ctx.author.discriminator), str(view.message.id), comment_str, str(ctx.guild.id), str(ctx.channel.id), amount, total_in_usd, equivalent_usd, per_unit, coin_decimal, int(time.time())+duration_s, "ONGOING")
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message("FreeTip created!", ephemeral=True)
+                try:
+                    await ctx.response.defer()
+                except Exception as e:
+                    pass
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         if ctx.author.id in self.bot.TX_IN_PROCESS:
@@ -1207,7 +1210,7 @@ class Tips(commands.Cog):
                             list_user_not_mention_str = ", ".join(list_user_not_mention)
                         try:
                             if len(list_user_mention_str) > 5 or len(list_user_not_mention_str) > 5:
-                                msg = f'{EMOJI_MONEYFACE} {list_user_mention_str} {list_user_not_mention_str}, You got a tip of **{amountDiv_str} {token_display}** {equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator}{NOTIFICATION_OFF_CMD}'
+                                msg = f'{EMOJI_MONEYFACE} {list_user_mention_str} {list_user_not_mention_str}, you got a tip of **{amountDiv_str} {token_display}** {equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator}{NOTIFICATION_OFF_CMD}'
                                 if type(ctx) == disnake.ApplicationCommandInteraction:
                                     await ctx.response.send_message(msg)
                                 else:
@@ -1231,7 +1234,7 @@ class Tips(commands.Cog):
                     remaining_str = ""
                     if numb_mention < total_found:
                         remaining_str = " and other {} members".format(total_found-numb_mention)
-                    msg = f'{EMOJI_MONEYFACE} {list_user_mention_str} {list_user_not_mention_str} {remaining_str}, You got a tip of **{amountDiv_str} {token_display}** {equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator}{NOTIFICATION_OFF_CMD}'
+                    msg = f'{EMOJI_MONEYFACE} {list_user_mention_str} {list_user_not_mention_str} {remaining_str}, you got a tip of **{amountDiv_str} {token_display}** {equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator}{NOTIFICATION_OFF_CMD}'
                     if type(ctx) == disnake.ApplicationCommandInteraction:
                         await ctx.response.send_message(msg)
                     else:
@@ -1243,7 +1246,7 @@ class Tips(commands.Cog):
             try:
                 msg = f'{EMOJI_ARROW_RIGHTHOOK} Tip of {tipAmount} {token_display} was sent to ({len(memids)}) members in server `{ctx.guild.name}`.\nEach member got: **{amountDiv_str} {token_display}** {equivalent_usd}\nActual spending: **{ActualSpend_str} {token_display}** {total_equivalent_usd}'
                 if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg, ephemeral=True)
+                    await ctx.response.send_message(msg)
                 else:
                     await ctx.author.send(msg)
             except (disnake.Forbidden, disnake.errors.Forbidden) as e:
@@ -1316,12 +1319,12 @@ class Tips(commands.Cog):
                             list_member_ids += role_listMember
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
-            # Print before set
             list_member_ids = list(set(list_member_ids))
-            print("List user: {}".format(len(list_member_ids)))
             if len(list_member_ids) > 0:
                 try:
                     await self.multiple_tip(ctx, amount, COIN_NAME, list_member_ids, False)
+                except (disnake.Forbidden, disnake.errors.Forbidden) as e:
+                    pass
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
                 return
@@ -1369,17 +1372,18 @@ class Tips(commands.Cog):
                                     else:
                                         await ctx.reply(msg)
                                 elif len(message_talker) < len(ctx.guild.members) - 1:  # minus bot
-                                    msg = f'{EMOJI_INFORMATION} {ctx.author.mention} I could not find sufficient talkers up to **{num_user}**. I found only **{len(message_talker)}** and tip to those **{len(message_talker)}** users if they are still here.'
+                                    msg = f'{EMOJI_INFORMATION} {ctx.author.mention} I could not find sufficient talkers up to **{num_user}**. I found only **{len(message_talker)}** and tip to those **{len(message_talker)}**.'
                                     if type(ctx) == disnake.ApplicationCommandInteraction:
-                                        await ctx.response.send_message(msg)
+                                        await ctx.channel.send(msg)
                                     else:
                                         await ctx.reply(msg)
                                     # tip all user who are in the list
                                     try:
                                         await self.multiple_tip_talker(ctx, amount, COIN_NAME, getattr(self.bot.coin_list, COIN_NAME), message_talker, False)
+                                    except (disnake.Forbidden, disnake.errors.Forbidden) as e:
+                                        pass
                                     except Exception as e:
                                         traceback.print_exc(file=sys.stdout)
-                                        await logchanbot(traceback.format_exc())
                                 return
                             elif num_user > 0:
                                 message_talker = await store.sql_get_messages(str(ctx.guild.id), str(ctx.channel.id), 0, num_user + 1)
@@ -1403,9 +1407,9 @@ class Tips(commands.Cog):
                                         await ctx.reply(msg)
                                 elif len(message_talker) < num_user:
                                     try:
-                                        msg = f'{EMOJI_INFORMATION} {ctx.author.mention} I could not find sufficient talkers up to **{num_user}**. I found only **{len(message_talker)}** and tip to those **{len(message_talker)}** users if they are still here.'
+                                        msg = f'{EMOJI_INFORMATION} {ctx.author.mention} I could not find sufficient talkers up to **{num_user}**. I found only **{len(message_talker)}** and tip to those **{len(message_talker)}**.'
                                         if type(ctx) == disnake.ApplicationCommandInteraction:
-                                            await ctx.response.send_message(msg)
+                                            await ctx.channel.send(msg)
                                         else:
                                             await ctx.reply(msg)
                                     except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
@@ -1416,15 +1420,17 @@ class Tips(commands.Cog):
                                     # tip all user who are in the list
                                     try:
                                         await self.multiple_tip_talker(ctx, amount, COIN_NAME, getattr(self.bot.coin_list, COIN_NAME), message_talker, False)
+                                    except (disnake.Forbidden, disnake.errors.Forbidden) as e:
+                                        pass
                                     except Exception as e:
                                         traceback.print_exc(file=sys.stdout)
-                                        await logchanbot(traceback.format_exc())
                                 else:
                                     try:
                                         await self.multiple_tip_talker(ctx, amount, COIN_NAME, getattr(self.bot.coin_list, COIN_NAME), message_talker, False)
+                                    except (disnake.Forbidden, disnake.errors.Forbidden) as e:
+                                        pass
                                     except Exception as e:
                                         traceback.print_exc(file=sys.stdout)
-                                        await logchanbot(traceback.format_exc())
                                 return
                             else:
                                 msg = f'{EMOJI_RED_NO} {ctx.author.mention} What is this **{num_user}** number? Please give a number bigger than 0 :) '
@@ -1484,9 +1490,10 @@ class Tips(commands.Cog):
                                 else:
                                     try:
                                         await self.multiple_tip_talker(ctx, amount, COIN_NAME, getattr(self.bot.coin_list, COIN_NAME), message_talker, False)
+                                    except (disnake.Forbidden, disnake.errors.Forbidden) as e:
+                                        pass
                                     except Exception as e:
                                         traceback.print_exc(file=sys.stdout)
-                                        await logchanbot(traceback.format_exc())
                             return
                 else:
                     try:
@@ -1505,7 +1512,6 @@ class Tips(commands.Cog):
                     await ctx.response.send_message(msg)
                 else:
                     await ctx.reply(msg)
-                return
 
 
     @commands.guild_only()
@@ -1733,28 +1739,47 @@ class Tips(commands.Cog):
             tip_type = "TIP"
             if len(memids) > 1:
                 tip_type = "TIPS"
+            if int(id_tipper) not in self.bot.TX_IN_PROCESS:
+                self.bot.TX_IN_PROCESS.append(int(id_tipper))
             tips = await store.sql_user_balance_mv_multiple(id_tipper, memids, str(ctx.guild.id), str(ctx.channel.id), amount, COIN_NAME, tip_type, coin_decimal, SERVER_BOT, contract, float(amount_in_usd))
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
+        if int(id_tipper) in self.bot.TX_IN_PROCESS:
+            self.bot.TX_IN_PROCESS.remove(int(id_tipper))
         if tips:
             # tipper shall always get DM. Ignore notifyList
             try:
-                msg = f'{EMOJI_ARROW_RIGHTHOOK} {tip_type_text} of **{tipAmount} {token_display}** {total_equivalent_usd} was sent to ({len(memids)}) members in server `{ctx.guild.name}`.\nEach member got: **{amountDiv_str} {token_display}** {equivalent_usd}\n'
+                if len(memids) > 20:
+                    msg = f'{EMOJI_ARROW_RIGHTHOOK} {tip_type_text} of **{tipAmount} {token_display}** {total_equivalent_usd} was sent to ({len(memids)}) members in server `{ctx.guild.name}`.\nEach member got: **{amountDiv_str} {token_display}** {equivalent_usd}\n'
+                elif len(memids) >= 1:
+                    incl_msg = []
+                    incl_msg_str = ""
+                    for each_m in list_mentions:
+                        if ctx.author.id != member.id and member.id != self.bot.user.id and str(member.id) not in notifyList:
+                            incl_msg.append(each_m.mention)
+                        if ctx.author.id != member.id and member.id != self.bot.user.id and str(member.id) in notifyList:
+                            incl_msg.append("{}#{}".format(each_m.name, each_m.discriminator))
+                    if len(incl_msg) > 0: incl_msg_str = ", ".join(incl_msg)
+                    msg = f'{EMOJI_ARROW_RIGHTHOOK} {tip_type_text} of **{tipAmount} {token_display}** {total_equivalent_usd} was sent to {incl_msg_str} in server `{ctx.guild.name}`.'
+                    if len(memids) > 1:
+                        msg += f'\nEach member got: **{amountDiv_str} {token_display}** {equivalent_usd}\n'
                 if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg, ephemeral=True)
+                    await ctx.response.send_message(msg)
                 else:
                     await ctx.author.send(msg)
             except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                 pass
-            for member in list_mentions:
-                # print(member.name) # you'll just print out Member objects your way.
-                if ctx.author.id != member.id and member.id != self.bot.user.id and str(member.id) not in notifyList:
-                    try:
-                        msg = f'{EMOJI_MONEYFACE} You got a {tip_type_text} of **{amountDiv_str} {token_display}** {equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator} in server `{ctx.guild.name}`\n{NOTIFICATION_OFF_CMD}'
-                        await member.send(msg)
-                    except (disnake.Forbidden, disnake.errors.Forbidden) as e:
-                        pass
+            if len(list_mentions) >= 1:
+                for member in list_mentions:
+                    # print(member.name) # you'll just print out Member objects your way.
+                    if ctx.author.id != member.id and member.id != self.bot.user.id and member.bot == False and str(member.id) not in notifyList:
+                        try:
+                            msg = f'{EMOJI_MONEYFACE} You got a {tip_type_text} of **{amountDiv_str} {token_display}** {equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator} in server `{ctx.guild.name}`\n{NOTIFICATION_OFF_CMD}'
+                            await member.send(msg)
+                        except (disnake.Forbidden, disnake.errors.Forbidden) as e:
+                            pass
+
 
 
     # Multiple tip
@@ -1985,14 +2010,16 @@ class Tips(commands.Cog):
             else:
                 per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
             if per_unit and per_unit > 0:
-                amount_in_usd = per_unit * Decimal(amount)
+                amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                 if amount_in_usd > 0.0001:
                     equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
-                total_amount_in_usd = per_unit * Decimal(TotalAmount)
+                total_amount_in_usd = float(Decimal(per_unit) * Decimal(TotalAmount))
                 if total_amount_in_usd > 0.0001:
                     total_equivalent_usd = " ~ {:,.4f} USD".format(total_amount_in_usd)
 
         try:
+            if int(id_tipper) not in self.bot.TX_IN_PROCESS:
+                self.bot.TX_IN_PROCESS.append(int(id_tipper))
             tiptalk = await store.sql_user_balance_mv_multiple(id_tipper, list_receivers, str(ctx.guild.id), str(ctx.channel.id), amount, COIN_NAME, "TIPTALK", coin_decimal, SERVER_BOT, contract, float(amount_in_usd))
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
@@ -2007,7 +2034,7 @@ class Tips(commands.Cog):
             try:
                 msg = f'{EMOJI_ARROW_RIGHTHOOK} {tip_type_text} of **{num_format_coin(TotalAmount, COIN_NAME, coin_decimal, False)} {token_display}** {total_equivalent_usd} was sent to ({len(list_receivers)}) members in server `{ctx.guild.name}` for active talking.\nEach member got: **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}** {equivalent_usd}\n'
                 if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg, ephemeral=True)
+                    await ctx.response.send_message(msg)
                 else:
                     await ctx.author.send(msg)
             except (disnake.Forbidden, disnake.errors.Forbidden) as e:
@@ -2050,7 +2077,7 @@ class Tips(commands.Cog):
                             list_user_not_mention_str = ", ".join(list_user_not_mention)
                         try:
                             if len(list_user_mention_str) > 5 or len(list_user_not_mention_str) > 5:
-                                msg = f'{EMOJI_MONEYFACE} {list_user_mention_str} {list_user_not_mention_str}, You got a tip of **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display} {equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator}{NOTIFICATION_OFF_CMD}'
+                                msg = f'{EMOJI_MONEYFACE} {list_user_mention_str} {list_user_not_mention_str}, you got a tip of **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display} {equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator}{NOTIFICATION_OFF_CMD}'
                                 if type(ctx) == disnake.ApplicationCommandInteraction:
                                     await ctx.response.send_message(msg)
                                 else:
@@ -2074,7 +2101,7 @@ class Tips(commands.Cog):
                     remaining_str = ""
                     if numb_mention < total_found:
                         remaining_str = " and other {} members".format(total_found-numb_mention)
-                    msg = f'{EMOJI_MONEYFACE} {list_user_mention_str} {list_user_not_mention_str} {remaining_str}, You got a tip of **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}** {equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator}{NOTIFICATION_OFF_CMD}'
+                    msg = f'{EMOJI_MONEYFACE} {list_user_mention_str} {list_user_not_mention_str} {remaining_str}, you got a tip of **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}** {equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator}{NOTIFICATION_OFF_CMD}'
                     if type(ctx) == disnake.ApplicationCommandInteraction:
                         await ctx.response.send_message(msg)
                     else:

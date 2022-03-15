@@ -6,8 +6,9 @@ import datetime
 from cachetools import TTLCache
 
 import disnake
-from disnake.ext import commands
+from disnake.ext import commands, tasks
 from attrdict import AttrDict
+import asyncio
 
 import Bot
 from Bot import SERVER_BOT, num_format_coin, EMOJI_INFORMATION, seconds_str
@@ -26,6 +27,39 @@ class Events(commands.Cog):
         self.bot = bot
         self.ttlcache = TTLCache(maxsize=500, ttl=60.0)
         redis_utils.openRedis()
+        self.saving_message = False
+        self.process_saving_message.start()
+        self.max_saving_message = 5
+
+
+    async def insert_discord_message(self, list_message):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ INSERT INTO discord_messages (`serverid`, `server_name`, `channel_id`, `channel_name`, `user_id`, 
+                               `message_author`, `message_id`, `message_time`) 
+                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                    await cur.executemany(sql, list_message)
+                    return True
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return None
+
+
+    @tasks.loop(seconds=30.0)
+    async def process_saving_message(self):
+        await asyncio.sleep(5.0)
+        if self.saving_message == False and len(self.bot.message_list) > 0:
+            # saving_message
+            self.saving_message = True
+            try:
+                saving = await self.insert_discord_message(self.bot.message_list)
+                if saving: self.bot.message_list = []
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            self.saving_message = False
 
 
     async def get_coin_setting(self):
@@ -156,6 +190,26 @@ class Events(commands.Cog):
             print("get_coingecko_list loaded...")
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
+
+
+    @commands.Cog.listener()
+    async def on_message(self, message):
+        # should ignore webhook message
+        if isinstance(message.channel, disnake.DMChannel) == False and message.webhook_id:
+            return
+
+        if isinstance(message.channel, disnake.DMChannel) == False and message.author.bot == False and message.author != self.bot.user:
+            self.bot.message_list.append((str(message.guild.id), message.guild.name, str(message.channel.id), message.channel.name, str(message.author.id), "{}#{}".format(message.author.name, message.author.discriminator), str(message.id), int(time.time())))
+            # TODO: adjust number message to save
+            if self.saving_message == False and len(self.bot.message_list) >= self.max_saving_message:
+                # saving_message
+                self.saving_message = True
+                try:
+                    saving = await self.insert_discord_message(self.bot.message_list)
+                    if saving: self.bot.message_list = []
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                self.saving_message = False
 
 
     @commands.Cog.listener()
@@ -458,7 +512,6 @@ class Events(commands.Cog):
 
 
 
-
     @commands.Cog.listener()
     async def on_shard_ready(self, shard_id):
         print(f'Shard {shard_id} connected')
@@ -471,16 +524,6 @@ class Events(commands.Cog):
     @commands.Cog.listener()
     async def on_guild_remove(self, guild):
         pass
-
-    @commands.Cog.listener()
-    async def on_message(self, message):
-        # should ignore webhook message
-        if isinstance(message.channel, disnake.DMChannel) == False and message.webhook_id:
-            return
-
-        if isinstance(message.channel, disnake.DMChannel) == False and message.author.bot == False and message.author != self.bot.user:
-            await Bot.add_msg_redis(json.dumps([str(message.guild.id), message.guild.name, str(message.channel.id), message.channel.name,
-                                                str(message.author.id), message.author.name, str(message.id), int(time.time())]), False)
 
 
     @commands.Cog.listener()

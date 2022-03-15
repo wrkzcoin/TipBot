@@ -175,6 +175,9 @@ bot.coin_list = None
 bot.token_hints = None
 bot.token_hint_names = None
 
+# messages
+bot.message_list = []
+
 # Price List
 bot.coin_paprika_id_list = None
 bot.coin_paprika_symbol_list = None

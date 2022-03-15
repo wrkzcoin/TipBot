@@ -13,6 +13,8 @@ import os.path
 
 # redis
 import redis
+import ssl
+from aiohttp import TCPConnector
 
 from tronpy import AsyncTron
 from tronpy.async_contract import AsyncContract, ShieldedTRC20, AsyncContractMethod
@@ -671,16 +673,15 @@ async def trx_get_block_info(url: str, height: int, timeout: int=32):
         await TronClient.close()
         if getBlock:
             return getBlock['block_header']['raw_data']
-            # Example: {'raw_data': {'number': 38321740, 'txTrieRoot': '2e6b6b527669ae016dae6f6985226c8e8114680386449e25a741fd7d981fde4b', 'witness_address': 'TVrdyw1qCMzW59QycTytDXVbbXFDBgBj42', 'parentHash': '000000000248be4bca00fffc2d72d2e134e9d3dba2e3a5bf4272d615e7bb76a4', 'version': 23, 'timestamp': 1645510917000}
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     return False
 
-
+            
 async def erc_get_block_number(url: str, timeout: int=64):
     data = '{"jsonrpc":"2.0", "method":"eth_blockNumber", "params":[], "id":1}'
     try:
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(connector=TCPConnector(ssl=False)) as session:
             async with session.post(url, headers={'Content-Type': 'application/json'}, json=json.loads(data), timeout=timeout) as response:
                 if response.status == 200:
                     res_data = await response.read()
@@ -693,7 +694,6 @@ async def erc_get_block_number(url: str, timeout: int=64):
         print('TIMEOUT: get block number {}s'.format(timeout))
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
-        await logchanbot(traceback.format_exc())
     return None
 
 
@@ -701,7 +701,7 @@ async def erc_get_block_info(url: str, height: int, timeout: int=32):
     try:
         data = '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["'+str(hex(height))+'", false],"id":1}'
         try:
-            async with aiohttp.ClientSession() as session:
+            async with aiohttp.ClientSession(connector=TCPConnector(ssl=False)) as session:
                 async with session.post(url, headers={'Content-Type': 'application/json'}, json=json.loads(data), timeout=timeout) as response:
                     if response.status == 200:
                         res_data = await response.read()
@@ -751,7 +751,7 @@ async def http_wallet_getbalance(url: str, address: str, coin: str, contract: st
     if contract is None:
         data = '{"jsonrpc":"2.0","method":"eth_getBalance","params":["'+address+'", "latest"],"id":1}'
         try:
-            async with aiohttp.ClientSession() as session:
+            async with aiohttp.ClientSession(connector=TCPConnector(ssl=False)) as session:
                 async with session.post(url, headers={'Content-Type': 'application/json'}, json=json.loads(data), timeout=timeout) as response:
                     if response.status == 200:
                         res_data = await response.read()
@@ -763,11 +763,10 @@ async def http_wallet_getbalance(url: str, address: str, coin: str, contract: st
             print('TIMEOUT: get balance {} for {}s'.format(TOKEN_NAME, timeout))
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
     else:
         data = '{"jsonrpc":"2.0","method":"eth_call","params":[{"to": "'+contract+'", "data": "0x70a08231000000000000000000000000'+address[2:]+'"}, "latest"],"id":1}'
         try:
-            async with aiohttp.ClientSession() as session:
+            async with aiohttp.ClientSession(connector=TCPConnector(ssl=False)) as session:
                 async with session.post(url, headers={'Content-Type': 'application/json'}, json=json.loads(data), timeout=timeout) as response:
                     if response.status == 200:
                         res_data = await response.read()
@@ -779,7 +778,6 @@ async def http_wallet_getbalance(url: str, address: str, coin: str, contract: st
             print('TIMEOUT: get balance {} for {}s'.format(TOKEN_NAME, timeout))
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
     return None
 
 
@@ -1006,7 +1004,6 @@ async def sql_get_tx_info_erc20(url: str, tx: str, timeout: int=64):
         print('TIMEOUT: get block number {}s'.format(timeout))
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
-        await logchanbot(traceback.format_exc())
     return None
 
 

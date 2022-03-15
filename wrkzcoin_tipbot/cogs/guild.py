@@ -73,6 +73,7 @@ class Guild(commands.Cog):
         self,
         ctx
     ):
+        has_none_balance = True
         total_all_balance_usd = 0.0
         mytokens = await store.get_coin_settings(coin_type=None)
         if type(ctx) != disnake.ApplicationCommandInteraction:
@@ -110,6 +111,7 @@ class Guild(commands.Cog):
             userdata_balance = await store.sql_user_balance_single(str(ctx.guild.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
             total_balance = userdata_balance['adjust']
             if total_balance > 0:
+                has_none_balance = False
                 coin_balance_list[COIN_NAME] = "{} {}".format(num_format_coin(total_balance, COIN_NAME, coin_decimal, False), token_display)
                 coin_balance[COIN_NAME] = total_balance
                 usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
@@ -135,57 +137,65 @@ class Guild(commands.Cog):
                             coin_balance_equivalent_usd[COIN_NAME] = " ~ {:,.4f}$".format(coin_balance_usd[COIN_NAME])
                             
 
-        ## add page
-        all_pages = []
-        num_coins = 0
-        per_page = 8
-        
-        if total_all_balance_usd >= 0.01:
-            total_all_balance_usd = "Having ~ {:,.2f}$".format(total_all_balance_usd)
-        elif total_all_balance_usd >= 0.0001:
-            total_all_balance_usd = "Having ~ {:,.4f}$".format(total_all_balance_usd)
+        if has_none_balance == True:
+            msg = f'{ctx.author.mention}, this guild does not have any balance.'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
+            return
         else:
-            total_all_balance_usd = "Thank you for using TipBot!"
+            ## add page
+            all_pages = []
+            num_coins = 0
+            per_page = 8
             
-        for k, v in coin_balance_list.items():
-            if num_coins == 0 or num_coins % per_page == 0:
-                page = disnake.Embed(title=f'[ GUILD **{ctx.guild.name.upper()}** BALANCE LIST ]',
-                                     description=f"`{total_all_balance_usd}`",
-                                     color=disnake.Color.red(),
-                                     timestamp=datetime.utcnow(), )
-                page.set_thumbnail(url=ctx.author.display_avatar)
-                page.set_footer(text="Use the reactions to flip pages.")
-            page.add_field(name="{}{}".format(k, coin_balance_equivalent_usd[k]), value="```{}```".format(v), inline=True)
-            num_coins += 1
-            if num_coins > 0 and num_coins % per_page == 0:
-                all_pages.append(page)
-                if num_coins < len(coin_balance_list):
+            if total_all_balance_usd >= 0.01:
+                total_all_balance_usd = "Having ~ {:,.2f}$".format(total_all_balance_usd)
+            elif total_all_balance_usd >= 0.0001:
+                total_all_balance_usd = "Having ~ {:,.4f}$".format(total_all_balance_usd)
+            else:
+                total_all_balance_usd = "Thank you for using TipBot!"
+                
+            for k, v in coin_balance_list.items():
+                if num_coins == 0 or num_coins % per_page == 0:
                     page = disnake.Embed(title=f'[ GUILD **{ctx.guild.name.upper()}** BALANCE LIST ]',
                                          description=f"`{total_all_balance_usd}`",
                                          color=disnake.Color.red(),
                                          timestamp=datetime.utcnow(), )
                     page.set_thumbnail(url=ctx.author.display_avatar)
                     page.set_footer(text="Use the reactions to flip pages.")
-                else:
+                page.add_field(name="{}{}".format(k, coin_balance_equivalent_usd[k]), value="```{}```".format(v), inline=True)
+                num_coins += 1
+                if num_coins > 0 and num_coins % per_page == 0:
+                    all_pages.append(page)
+                    if num_coins < len(coin_balance_list):
+                        page = disnake.Embed(title=f'[ GUILD **{ctx.guild.name.upper()}** BALANCE LIST ]',
+                                             description=f"`{total_all_balance_usd}`",
+                                             color=disnake.Color.red(),
+                                             timestamp=datetime.utcnow(), )
+                        page.set_thumbnail(url=ctx.author.display_avatar)
+                        page.set_footer(text="Use the reactions to flip pages.")
+                    else:
+                        all_pages.append(page)
+                        break
+                elif num_coins == len(coin_balance_list):
                     all_pages.append(page)
                     break
-            elif num_coins == len(coin_balance_list):
-                all_pages.append(page)
-                break
 
-        if len(all_pages) == 1:
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(embed=all_pages[0], view=RowButton_close_message())
+            if len(all_pages) == 1:
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(embed=all_pages[0], view=RowButton_close_message())
+                else:
+                    await tmp_msg.delete()
+                    await ctx.reply(content=None, embed=all_pages[0], view=RowButton_close_message())
             else:
-                await tmp_msg.delete()
-                await ctx.reply(content=None, embed=all_pages[0], view=RowButton_close_message())
-        else:
-            view = MenuPage(ctx, all_pages, timeout=30)
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                view.message = await ctx.response.send_message(embed=all_pages[0], view=view)
-            else:
-                await tmp_msg.delete()
-                view.message = await ctx.reply(content=None, embed=all_pages[0], view=view)
+                view = MenuPage(ctx, all_pages, timeout=30)
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    view.message = await ctx.response.send_message(embed=all_pages[0], view=view)
+                else:
+                    await tmp_msg.delete()
+                    view.message = await ctx.reply(content=None, embed=all_pages[0], view=view)
 
 
     @guild.sub_command(

@@ -327,7 +327,6 @@ class WalletAPI(commands.Cog):
                     if response.status == 200:
                         res_data = await response.read()
                         res_data = res_data.decode('utf-8')
-                        
                         decoded_data = json.loads(res_data)
                         return decoded_data
                     else:
@@ -476,6 +475,354 @@ class WalletAPI(commands.Cog):
         if is_hex_address(address):
             return address
         return False
+
+
+    async def call_aiohttp_wallet_xmr_bcn(self, method_name: str, coin: str, time_out: int = None, payload: Dict = None) -> Dict:
+        COIN_NAME = coin.upper()
+        coin_family = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
+        full_payload = {
+            'params': payload or {},
+            'jsonrpc': '2.0',
+            'id': str(uuid.uuid4()),
+            'method': f'{method_name}'
+        }
+        url = getattr(getattr(self.bot.coin_list, COIN_NAME), "wallet_address")
+        timeout = time_out or 60
+        if method_name == "save" or method_name == "store":
+            timeout = 300
+        elif method_name == "sendTransaction":
+            timeout = 180
+        elif method_name == "createAddress" or method_name == "getSpendKeys":
+            timeout = 60
+        try:
+            if COIN_NAME == "LTHN":
+                # Copied from XMR below
+                try:
+                    async with aiohttp.ClientSession(headers={'Content-Type': 'application/json'}) as session:
+                        async with session.post(url, json=full_payload, timeout=timeout) as response:
+                            # sometimes => "message": "Not enough unlocked money" for checking fee
+                            if method_name == "split_integrated_address":
+                                # we return all data including error
+                                if response.status == 200:
+                                    res_data = await response.read()
+                                    res_data = res_data.decode('utf-8')
+                                    decoded_data = json.loads(res_data)
+                                    return decoded_data
+                            elif method_name == "transfer":
+                                print('{} - transfer'.format(COIN_NAME))
+
+                            if response.status == 200:
+                                res_data = await response.read()
+                                res_data = res_data.decode('utf-8')
+                                if method_name == "transfer":
+                                    print(res_data)
+                                
+                                decoded_data = json.loads(res_data)
+                                if 'result' in decoded_data:
+                                    return decoded_data['result']
+                                else:
+                                    return None
+                except asyncio.TimeoutError:
+                    await logchanbot('call_aiohttp_wallet: method_name: {} COIN_NAME {} - timeout {}\nfull_payload:\n{}'.format(method_name, COIN_NAME, timeout, json.dumps(payload)))
+                    print('TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method_name, COIN_NAME, timeout))
+                    return None
+                except Exception:
+                    await logchanbot(traceback.format_exc())
+                    return None
+            elif coin_family == "XMR":
+                try:
+                    async with aiohttp.ClientSession(headers={'Content-Type': 'application/json'}) as session:
+                        async with session.post(url, json=full_payload, timeout=timeout) as response:
+                            # sometimes => "message": "Not enough unlocked money" for checking fee
+                            if method_name == "transfer":
+                                print('{} - transfer'.format(COIN_NAME))
+                                # print(full_payload)
+                            if response.status == 200:
+                                res_data = await response.read()
+                                res_data = res_data.decode('utf-8')
+                                if method_name == "transfer":
+                                    print(res_data)
+                                
+                                decoded_data = json.loads(res_data)
+                                if 'result' in decoded_data:
+                                    return decoded_data['result']
+                                else:
+                                    return None
+                except asyncio.TimeoutError:
+                    await logchanbot('call_aiohttp_wallet: method_name: {} COIN_NAME {} - timeout {}\nfull_payload:\n{}'.format(method_name, COIN_NAME, timeout, json.dumps(payload)))
+                    print('TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method_name, COIN_NAME, timeout))
+                    return None
+                except Exception:
+                    await logchanbot(traceback.format_exc())
+                    return None
+            elif coin_family in ["TRTL-SERVICE", "BCN"]:
+                try:
+                    async with aiohttp.ClientSession() as session:
+                        async with session.post(url, json=full_payload, timeout=timeout) as response:
+                            if response.status == 200 or response.status == 201:
+                                res_data = await response.read()
+                                res_data = res_data.decode('utf-8')
+                                
+                                decoded_data = json.loads(res_data)
+                                if 'result' in decoded_data:
+                                    return decoded_data['result']
+                                else:
+                                    await logchanbot(str(res_data))
+                                    return None
+                            else:
+                                await logchanbot(str(response))
+                                return None
+                except asyncio.TimeoutError:
+                    await logchanbot('call_aiohttp_wallet: {} COIN_NAME {} - timeout {}\nfull_payload:\n{}'.format(method_name, COIN_NAME, timeout, json.dumps(payload)))
+                    print('TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method_name, COIN_NAME, timeout))
+                    return None
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(traceback.format_exc())
+                    return None
+        except asyncio.TimeoutError:
+            await logchanbot('call_aiohttp_wallet: method_name: {} - coin_family: {} - timeout {}'.format(method_name, coin_family, timeout))
+            print('TIMEOUT: method_name: {} - coin_family: {} - timeout {}'.format(method_name, coin_family, timeout))
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+
+
+    async def send_external_xmr(self, type_coin: str, from_address: str, user_from: str, amount: float, to_address: str, coin: str, coin_decimal: int, tx_fee: float, withdraw_fee: float, is_fee_per_byte: int, get_mixin: int, user_server: str, wallet_api_url: str=None, wallet_api_header: str=None, paymentId: str=None):
+        global pool
+        COIN_NAME = coin.upper()
+        user_server = user_server.upper()
+        time_out = 32
+        if COIN_NAME == "DEGO":
+            time_out = 120
+        try:
+            if type_coin == "XMR":
+                acc_index = 0
+                payload = {
+                    "destinations": [{'amount': int(amount*10**coin_decimal), 'address': to_address}],
+                    "account_index": acc_index,
+                    "subaddr_indices": [],
+                    "priority": 1,
+                    "unlock_time": 0,
+                    "get_tx_key": True,
+                    "get_tx_hex": False,
+                    "get_tx_metadata": False
+                }
+                if COIN_NAME == "UPX":
+                    payload = {
+                        "destinations": [{'amount': int(amount*10**coin_decimal), 'address': to_address}],
+                        "account_index": acc_index,
+                        "subaddr_indices": [],
+                        "ring_size": 11,
+                        "get_tx_key": True,
+                        "get_tx_hex": False,
+                        "get_tx_metadata": False
+                    }
+                result = await self.call_aiohttp_wallet_xmr_bcn('transfer', COIN_NAME, time_out=time_out, payload=payload)
+                if result and 'tx_hash' in result and 'tx_key' in result:
+                    await store.openConnection()
+                    async with store.pool.acquire() as conn:
+                        async with conn.cursor() as cur:
+                            sql = """ INSERT INTO cn_external_tx (`coin_name`, `user_id`, `amount`, `tx_fee`, `withdraw_fee`, `decimal`, `to_address`, `date`, `tx_hash`, `tx_key`, `user_server`) 
+                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                            await cur.execute(sql, (COIN_NAME, user_from, amount, tx_fee, withdraw_fee, coin_decimal, to_address, int(time.time()), result['tx_hash'], result['tx_key'], user_server,))
+                            await conn.commit()
+                            return result['tx_hash']
+            elif (type_coin == "TRTL-SERVICE" or type_coin == "BCN") and paymentId is None:
+                if is_fee_per_byte != 1:
+                    payload = {
+                        'addresses': [from_address],
+                        'transfers': [{
+                            "amount": int(amount*10**coin_decimal),
+                            "address": to_address
+                        }],
+                        'fee': int(tx_fee*10**coin_decimal),
+                        'anonymity': get_mixin
+                    }
+                else:
+                    payload = {
+                        'addresses': [from_address],
+                        'transfers': [{
+                            "amount": int(amount*10**coin_decimal),
+                            "address": to_address
+                        }],
+                        'anonymity': get_mixin
+                    }
+                result = await self.call_aiohttp_wallet_xmr_bcn('sendTransaction', COIN_NAME, time_out=time_out, payload=payload)
+                if result and 'transactionHash' in result:
+                    if is_fee_per_byte != 1:
+                        tx_hash = {"transactionHash": result['transactionHash'], "fee": tx_fee}
+                    else:
+                        tx_hash = {"transactionHash": result['transactionHash'], "fee": result['fee']}
+                        tx_fee = float(tx_hash['fee']/10**coin_decimal)
+                    try:
+                        await store.openConnection()
+                        async with store.pool.acquire() as conn:
+                            async with conn.cursor() as cur:
+                                sql = """ INSERT INTO cn_external_tx (`coin_name`, `user_id`, `amount`, `tx_fee`, `withdraw_fee`, `decimal`, `to_address`, `date`, `tx_hash`, `user_server`) 
+                                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                await cur.execute(sql, (COIN_NAME, user_from, amount, tx_fee, withdraw_fee, coin_decimal, to_address, int(time.time()), tx_hash['transactionHash'], user_server))
+                                await conn.commit()
+                                return tx_hash['transactionHash']
+                    except Exception as e:
+                        await logchanbot(traceback.format_exc())
+            elif type_coin == "TRTL-API" and paymentId is None:
+                if is_fee_per_byte != 1:
+                    json_data = {
+                        "destinations": [{"address": to_address, "amount": int(amount*10**coin_decimal)}],
+                        "mixin": get_mixin,
+                        "fee": int(tx_fee*10**coin_decimal),
+                        "sourceAddresses": [
+                            from_address
+                        ],
+                        "paymentID": "",
+                        "changeAddress": from_address
+                    }
+                else:
+                    json_data = {
+                        "destinations": [{"address": to_address, "amount": int(amount*10**coin_decimal)}],
+                        "mixin": get_mixin,
+                        "sourceAddresses": [
+                            from_address
+                        ],
+                        "paymentID": "",
+                        "changeAddress": from_address
+                    }
+                method = "/transactions/send/advanced"
+                try:
+                    headers = {
+                        'X-API-KEY': wallet_api_header,
+                        'Content-Type': 'application/json'
+                    }
+                    async with aiohttp.ClientSession() as session:
+                        async with session.post(wallet_api_url + method, headers=headers, json=json_data, timeout=time_out) as response:
+                            json_resp = await response.json()
+                            if response.status == 200 or response.status == 201:
+                                if is_fee_per_byte != 1:
+                                    tx_hash = {"transactionHash": json_resp['transactionHash'], "fee": tx_fee}
+                                else:
+                                    tx_hash = {"transactionHash": json_resp['transactionHash'], "fee": json_resp['fee']}
+                                    tx_fee = float(tx_hash['fee']/10**coin_decimal)
+                                try:
+                                    await store.openConnection()
+                                    async with store.pool.acquire() as conn:
+                                        async with conn.cursor() as cur:
+                                            sql = """ INSERT INTO cn_external_tx (`coin_name`, `user_id`, `amount`, `tx_fee`, `withdraw_fee`, `decimal`, `to_address`, `date`, `tx_hash`, `user_server`) 
+                                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                            await cur.execute(sql, (COIN_NAME, user_from, amount, tx_fee, withdraw_fee, coin_decimal, to_address, int(time.time()), tx_hash['transactionHash'], user_server))
+                                            await conn.commit()
+                                            return tx_hash['transactionHash']
+                                except Exception as e:
+                                    await logchanbot(traceback.format_exc())
+                            elif 'errorMessage' in json_resp:
+                                raise RPCException(json_resp['errorMessage'])
+                            else:
+                                await logchanbot('walletapi_send_transaction: {} response: {}'.format(method, response))
+                except asyncio.TimeoutError:
+                    await logchanbot('walletapi_send_transaction: TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method, COIN_NAME, time_out))
+            elif (type_coin == "TRTL-SERVICE" or type_coin == "BCN") and paymentId is not None:
+                if COIN_NAME == "DEGO":
+                    time_out = 300
+                if is_fee_per_byte != 1:
+                    payload = {
+                        'addresses': [from_address],
+                        'transfers': [{
+                            "amount": int(amount*10**coin_decimal),
+                            "address": to_address
+                        }],
+                        'fee': int(tx_fee*10**coin_decimal),
+                        'anonymity': get_mixin,
+                        'paymentId': paymentid,
+                        'changeAddress': from_address
+                    }
+                else:
+                    payload = {
+                        'addresses': [from_address],
+                        'transfers': [{
+                            "amount": int(amount*10**coin_decimal),
+                            "address": to_address
+                        }],
+                        'anonymity': get_mixin,
+                        'paymentId': paymentid,
+                        'changeAddress': from_address
+                    }
+                result = None
+                result = await rpc_client.call_aiohttp_wallet_xmr_bcn('sendTransaction', COIN_NAME, time_out=time_out, payload=payload)
+                if result and 'transactionHash' in result:
+                    if is_fee_per_byte != 1:
+                        tx_hash = {"transactionHash": result['transactionHash'], "fee": tx_fee}
+                    else:
+                        tx_hash = {"transactionHash": result['transactionHash'], "fee": result['fee']}
+                        tx_fee = float(tx_hash['fee']/10**coin_decimal)
+                    try:
+                        await store.openConnection()
+                        async with store.pool.acquire() as conn:
+                            async with conn.cursor() as cur:
+                                sql = """ INSERT INTO cn_external_tx (`coin_name`, `user_id`, `amount`, `tx_fee`, `withdraw_fee`, `decimal`, `to_address`, `paymentid`, `date`, `tx_hash`, `user_server`) 
+                                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                await cur.execute(sql, (COIN_NAME, user_from, amount, tx_fee, withdraw_fee, coin_decimal, to_address, paymentid, int(time.time()), tx_hash['transactionHash'], user_server))
+                                await conn.commit()
+                                return tx_hash['transactionHash']
+                    except Exception as e:
+                        await logchanbot(traceback.format_exc())
+            elif type_coin == "TRTL-API" and paymentId is not None:
+                if is_fee_per_byte != 1:
+                    json_data = {
+                        'sourceAddresses': [from_address],
+                        'destinations': [{
+                            "amount": int(amount*10**coin_decimal),
+                            "address": to_address
+                        }],
+                        'fee': int(tx_fee*10**coin_decimal),
+                        'mixin': get_mixin,
+                        'paymentID': paymentid,
+                        'changeAddress': from_address
+                    }
+                else:
+                    json_data = {
+                        'sourceAddresses': [from_address],
+                        'destinations': [{
+                            "amount": int(amount*10**coin_decimal),
+                            "address": to_address
+                        }],
+                        'mixin': get_mixin,
+                        'paymentID': paymentid,
+                        'changeAddress': from_address
+                    }
+                method = "/transactions/send/advanced"
+                try:
+                    headers = {
+                        'X-API-KEY': wallet_api_header,
+                        'Content-Type': 'application/json'
+                    }
+                    async with aiohttp.ClientSession() as session:
+                        async with session.post(wallet_api_url + method, headers=headers, json=json_data, timeout=time_out) as response:
+                            json_resp = await response.json()
+                            if response.status == 200 or response.status == 201:
+                                if is_fee_per_byte != 1:
+                                    tx_hash = {"transactionHash": json_resp['transactionHash'], "fee": tx_fee}
+                                else:
+                                    tx_hash = {"transactionHash": json_resp['transactionHash'], "fee": json_resp['fee']}
+                                    tx_fee = float(tx_hash['fee']/10**coin_decimal)
+                                try:
+                                    await store.openConnection()
+                                    async with store.pool.acquire() as conn:
+                                        async with conn.cursor() as cur:
+                                            sql = """ INSERT INTO cn_external_tx (`coin_name`, `user_id`, `amount`, `tx_fee`, `withdraw_fee`, `decimal`, `to_address`, `paymentid`, `date`, `tx_hash`, `user_server`) 
+                                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                            await cur.execute(sql, (COIN_NAME, user_from, amount, tx_fee, withdraw_fee, coin_decimal, to_address, paymentid, int(time.time()), tx_hash['transactionHash'], user_server))
+                                            await conn.commit()
+                                            return tx_hash['transactionHash']
+                                except Exception as e:
+                                    await logchanbot(traceback.format_exc())
+                            elif 'errorMessage' in json_resp:
+                                raise RPCException(json_resp['errorMessage'])
+                except asyncio.TimeoutError:
+                    await logchanbot('walletapi_send_transaction_id: TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method, COIN_NAME, time_out))
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
+        return None
+
 
 class Wallet(commands.Cog):
 
@@ -898,7 +1245,8 @@ class Wallet(commands.Cog):
                         "min_height": height - 2000,
                         "max_height": height
                     }
-                    get_transfers = await self.call_aiohttp_wallet_xmr_bcn('get_transfers', COIN_NAME, payload=payload)
+                    
+                    get_transfers = await self.WalletAPI.call_aiohttp_wallet_xmr_bcn('get_transfers', COIN_NAME, payload=payload)
                     if get_transfers and len(get_transfers) >= 1 and 'in' in get_transfers:
                         try:
                             await store.openConnection()
@@ -1500,353 +1848,6 @@ class Wallet(commands.Cog):
         return False
 
 
-    async def call_aiohttp_wallet_xmr_bcn(self, method_name: str, coin: str, time_out: int = None, payload: Dict = None) -> Dict:
-        COIN_NAME = coin.upper()
-        coin_family = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
-        full_payload = {
-            'params': payload or {},
-            'jsonrpc': '2.0',
-            'id': str(uuid.uuid4()),
-            'method': f'{method_name}'
-        }
-        url = getattr(getattr(self.bot.coin_list, COIN_NAME), "wallet_address")
-        timeout = time_out or 60
-        if method_name == "save" or method_name == "store":
-            timeout = 300
-        elif method_name == "sendTransaction":
-            timeout = 180
-        elif method_name == "createAddress" or method_name == "getSpendKeys":
-            timeout = 60
-        try:
-            if COIN_NAME == "LTHN":
-                # Copied from XMR below
-                try:
-                    async with aiohttp.ClientSession(headers={'Content-Type': 'application/json'}) as session:
-                        async with session.post(url, json=full_payload, timeout=timeout) as response:
-                            # sometimes => "message": "Not enough unlocked money" for checking fee
-                            if method_name == "split_integrated_address":
-                                # we return all data including error
-                                if response.status == 200:
-                                    res_data = await response.read()
-                                    res_data = res_data.decode('utf-8')
-                                    decoded_data = json.loads(res_data)
-                                    return decoded_data
-                            elif method_name == "transfer":
-                                print('{} - transfer'.format(COIN_NAME))
-
-                            if response.status == 200:
-                                res_data = await response.read()
-                                res_data = res_data.decode('utf-8')
-                                if method_name == "transfer":
-                                    print(res_data)
-                                
-                                decoded_data = json.loads(res_data)
-                                if 'result' in decoded_data:
-                                    return decoded_data['result']
-                                else:
-                                    return None
-                except asyncio.TimeoutError:
-                    await logchanbot('call_aiohttp_wallet: method_name: {} COIN_NAME {} - timeout {}\nfull_payload:\n{}'.format(method_name, COIN_NAME, timeout, json.dumps(payload)))
-                    print('TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method_name, COIN_NAME, timeout))
-                    return None
-                except Exception:
-                    await logchanbot(traceback.format_exc())
-                    return None
-            elif coin_family == "XMR":
-                try:
-                    async with aiohttp.ClientSession(headers={'Content-Type': 'application/json'}) as session:
-                        async with session.post(url, json=full_payload, timeout=timeout) as response:
-                            # sometimes => "message": "Not enough unlocked money" for checking fee
-                            if method_name == "transfer":
-                                print('{} - transfer'.format(COIN_NAME))
-                                # print(full_payload)
-                            if response.status == 200:
-                                res_data = await response.read()
-                                res_data = res_data.decode('utf-8')
-                                if method_name == "transfer":
-                                    print(res_data)
-                                
-                                decoded_data = json.loads(res_data)
-                                if 'result' in decoded_data:
-                                    return decoded_data['result']
-                                else:
-                                    return None
-                except asyncio.TimeoutError:
-                    await logchanbot('call_aiohttp_wallet: method_name: {} COIN_NAME {} - timeout {}\nfull_payload:\n{}'.format(method_name, COIN_NAME, timeout, json.dumps(payload)))
-                    print('TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method_name, COIN_NAME, timeout))
-                    return None
-                except Exception:
-                    await logchanbot(traceback.format_exc())
-                    return None
-            elif coin_family in ["TRTL-SERVICE", "BCN"]:
-                try:
-                    async with aiohttp.ClientSession() as session:
-                        async with session.post(url, json=full_payload, timeout=timeout) as response:
-                            if response.status == 200 or response.status == 201:
-                                res_data = await response.read()
-                                res_data = res_data.decode('utf-8')
-                                
-                                decoded_data = json.loads(res_data)
-                                if 'result' in decoded_data:
-                                    return decoded_data['result']
-                                else:
-                                    await logchanbot(str(res_data))
-                                    return None
-                            else:
-                                await logchanbot(str(response))
-                                return None
-                except asyncio.TimeoutError:
-                    await logchanbot('call_aiohttp_wallet: {} COIN_NAME {} - timeout {}\nfull_payload:\n{}'.format(method_name, COIN_NAME, timeout, json.dumps(payload)))
-                    print('TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method_name, COIN_NAME, timeout))
-                    return None
-                except Exception:
-                    traceback.print_exc(file=sys.stdout)
-                    await logchanbot(traceback.format_exc())
-                    return None
-        except asyncio.TimeoutError:
-            await logchanbot('call_aiohttp_wallet: method_name: {} - coin_family: {} - timeout {}'.format(method_name, coin_family, timeout))
-            print('TIMEOUT: method_name: {} - coin_family: {} - timeout {}'.format(method_name, coin_family, timeout))
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
-
-
-    async def send_external_xmr(self, type_coin: str, from_address: str, user_from: str, amount: float, to_address: str, coin: str, coin_decimal: int, tx_fee: float, withdraw_fee: float, is_fee_per_byte: int, get_mixin: int, user_server: str, wallet_api_url: str=None, wallet_api_header: str=None, paymentId: str=None):
-        global pool
-        COIN_NAME = coin.upper()
-        user_server = user_server.upper()
-        time_out = 32
-        if COIN_NAME == "DEGO":
-            time_out = 120
-        try:
-            if type_coin == "XMR":
-                acc_index = 0
-                payload = {
-                    "destinations": [{'amount': int(amount*10**coin_decimal), 'address': to_address}],
-                    "account_index": acc_index,
-                    "subaddr_indices": [],
-                    "priority": 1,
-                    "unlock_time": 0,
-                    "get_tx_key": True,
-                    "get_tx_hex": False,
-                    "get_tx_metadata": False
-                }
-                if COIN_NAME == "UPX":
-                    payload = {
-                        "destinations": [{'amount': int(amount*10**coin_decimal), 'address': to_address}],
-                        "account_index": acc_index,
-                        "subaddr_indices": [],
-                        "ring_size": 11,
-                        "get_tx_key": True,
-                        "get_tx_hex": False,
-                        "get_tx_metadata": False
-                    }
-                result = await self.call_aiohttp_wallet_xmr_bcn('transfer', COIN_NAME, time_out=time_out, payload=payload)
-                if result and 'tx_hash' in result and 'tx_key' in result:
-                    await store.openConnection()
-                    async with store.pool.acquire() as conn:
-                        async with conn.cursor() as cur:
-                            sql = """ INSERT INTO cn_external_tx (`coin_name`, `user_id`, `amount`, `tx_fee`, `withdraw_fee`, `decimal`, `to_address`, `date`, `tx_hash`, `tx_key`, `user_server`) 
-                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                            await cur.execute(sql, (COIN_NAME, user_from, amount, tx_fee, withdraw_fee, coin_decimal, to_address, int(time.time()), result['tx_hash'], result['tx_key'], user_server,))
-                            await conn.commit()
-                            return result['tx_hash']
-            elif (type_coin == "TRTL-SERVICE" or type_coin == "BCN") and paymentId is None:
-                if is_fee_per_byte != 1:
-                    payload = {
-                        'addresses': [from_address],
-                        'transfers': [{
-                            "amount": int(amount*10**coin_decimal),
-                            "address": to_address
-                        }],
-                        'fee': int(tx_fee*10**coin_decimal),
-                        'anonymity': get_mixin
-                    }
-                else:
-                    payload = {
-                        'addresses': [from_address],
-                        'transfers': [{
-                            "amount": int(amount*10**coin_decimal),
-                            "address": to_address
-                        }],
-                        'anonymity': get_mixin
-                    }
-                result = await self.call_aiohttp_wallet_xmr_bcn('sendTransaction', COIN_NAME, time_out=time_out, payload=payload)
-                if result and 'transactionHash' in result:
-                    if is_fee_per_byte != 1:
-                        tx_hash = {"transactionHash": result['transactionHash'], "fee": tx_fee}
-                    else:
-                        tx_hash = {"transactionHash": result['transactionHash'], "fee": result['fee']}
-                        tx_fee = float(tx_hash['fee']/10**coin_decimal)
-                    try:
-                        await store.openConnection()
-                        async with store.pool.acquire() as conn:
-                            async with conn.cursor() as cur:
-                                sql = """ INSERT INTO cn_external_tx (`coin_name`, `user_id`, `amount`, `tx_fee`, `withdraw_fee`, `decimal`, `to_address`, `date`, `tx_hash`, `user_server`) 
-                                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                                await cur.execute(sql, (COIN_NAME, user_from, amount, tx_fee, withdraw_fee, coin_decimal, to_address, int(time.time()), tx_hash['transactionHash'], user_server))
-                                await conn.commit()
-                                return tx_hash['transactionHash']
-                    except Exception as e:
-                        await logchanbot(traceback.format_exc())
-            elif type_coin == "TRTL-API" and paymentId is None:
-                if is_fee_per_byte != 1:
-                    json_data = {
-                        "destinations": [{"address": to_address, "amount": int(amount*10**coin_decimal)}],
-                        "mixin": get_mixin,
-                        "fee": int(tx_fee*10**coin_decimal),
-                        "sourceAddresses": [
-                            from_address
-                        ],
-                        "paymentID": "",
-                        "changeAddress": from_address
-                    }
-                else:
-                    json_data = {
-                        "destinations": [{"address": to_address, "amount": int(amount*10**coin_decimal)}],
-                        "mixin": get_mixin,
-                        "sourceAddresses": [
-                            from_address
-                        ],
-                        "paymentID": "",
-                        "changeAddress": from_address
-                    }
-                method = "/transactions/send/advanced"
-                try:
-                    headers = {
-                        'X-API-KEY': wallet_api_header,
-                        'Content-Type': 'application/json'
-                    }
-                    async with aiohttp.ClientSession() as session:
-                        async with session.post(wallet_api_url + method, headers=headers, json=json_data, timeout=time_out) as response:
-                            json_resp = await response.json()
-                            if response.status == 200 or response.status == 201:
-                                if is_fee_per_byte != 1:
-                                    tx_hash = {"transactionHash": json_resp['transactionHash'], "fee": tx_fee}
-                                else:
-                                    tx_hash = {"transactionHash": json_resp['transactionHash'], "fee": json_resp['fee']}
-                                    tx_fee = float(tx_hash['fee']/10**coin_decimal)
-                                try:
-                                    await store.openConnection()
-                                    async with store.pool.acquire() as conn:
-                                        async with conn.cursor() as cur:
-                                            sql = """ INSERT INTO cn_external_tx (`coin_name`, `user_id`, `amount`, `tx_fee`, `withdraw_fee`, `decimal`, `to_address`, `date`, `tx_hash`, `user_server`) 
-                                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                                            await cur.execute(sql, (COIN_NAME, user_from, amount, tx_fee, withdraw_fee, coin_decimal, to_address, int(time.time()), tx_hash['transactionHash'], user_server))
-                                            await conn.commit()
-                                            return tx_hash['transactionHash']
-                                except Exception as e:
-                                    await logchanbot(traceback.format_exc())
-                            elif 'errorMessage' in json_resp:
-                                raise RPCException(json_resp['errorMessage'])
-                            else:
-                                await logchanbot('walletapi_send_transaction: {} response: {}'.format(method, response))
-                except asyncio.TimeoutError:
-                    await logchanbot('walletapi_send_transaction: TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method, COIN_NAME, time_out))
-            elif (type_coin == "TRTL-SERVICE" or type_coin == "BCN") and paymentId is not None:
-                if COIN_NAME == "DEGO":
-                    time_out = 300
-                if is_fee_per_byte != 1:
-                    payload = {
-                        'addresses': [from_address],
-                        'transfers': [{
-                            "amount": int(amount*10**coin_decimal),
-                            "address": to_address
-                        }],
-                        'fee': int(tx_fee*10**coin_decimal),
-                        'anonymity': get_mixin,
-                        'paymentId': paymentid,
-                        'changeAddress': from_address
-                    }
-                else:
-                    payload = {
-                        'addresses': [from_address],
-                        'transfers': [{
-                            "amount": int(amount*10**coin_decimal),
-                            "address": to_address
-                        }],
-                        'anonymity': get_mixin,
-                        'paymentId': paymentid,
-                        'changeAddress': from_address
-                    }
-                result = None
-                result = await rpc_client.call_aiohttp_wallet_xmr_bcn('sendTransaction', COIN_NAME, time_out=time_out, payload=payload)
-                if result and 'transactionHash' in result:
-                    if is_fee_per_byte != 1:
-                        tx_hash = {"transactionHash": result['transactionHash'], "fee": tx_fee}
-                    else:
-                        tx_hash = {"transactionHash": result['transactionHash'], "fee": result['fee']}
-                        tx_fee = float(tx_hash['fee']/10**coin_decimal)
-                    try:
-                        await store.openConnection()
-                        async with store.pool.acquire() as conn:
-                            async with conn.cursor() as cur:
-                                sql = """ INSERT INTO cn_external_tx (`coin_name`, `user_id`, `amount`, `tx_fee`, `withdraw_fee`, `decimal`, `to_address`, `paymentid`, `date`, `tx_hash`, `user_server`) 
-                                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                                await cur.execute(sql, (COIN_NAME, user_from, amount, tx_fee, withdraw_fee, coin_decimal, to_address, paymentid, int(time.time()), tx_hash['transactionHash'], user_server))
-                                await conn.commit()
-                                return tx_hash['transactionHash']
-                    except Exception as e:
-                        await logchanbot(traceback.format_exc())
-            elif type_coin == "TRTL-API" and paymentId is not None:
-                if is_fee_per_byte != 1:
-                    json_data = {
-                        'sourceAddresses': [from_address],
-                        'destinations': [{
-                            "amount": int(amount*10**coin_decimal),
-                            "address": to_address
-                        }],
-                        'fee': int(tx_fee*10**coin_decimal),
-                        'mixin': get_mixin,
-                        'paymentID': paymentid,
-                        'changeAddress': from_address
-                    }
-                else:
-                    json_data = {
-                        'sourceAddresses': [from_address],
-                        'destinations': [{
-                            "amount": int(amount*10**coin_decimal),
-                            "address": to_address
-                        }],
-                        'mixin': get_mixin,
-                        'paymentID': paymentid,
-                        'changeAddress': from_address
-                    }
-                method = "/transactions/send/advanced"
-                try:
-                    headers = {
-                        'X-API-KEY': wallet_api_header,
-                        'Content-Type': 'application/json'
-                    }
-                    async with aiohttp.ClientSession() as session:
-                        async with session.post(wallet_api_url + method, headers=headers, json=json_data, timeout=time_out) as response:
-                            json_resp = await response.json()
-                            if response.status == 200 or response.status == 201:
-                                if is_fee_per_byte != 1:
-                                    tx_hash = {"transactionHash": json_resp['transactionHash'], "fee": tx_fee}
-                                else:
-                                    tx_hash = {"transactionHash": json_resp['transactionHash'], "fee": json_resp['fee']}
-                                    tx_fee = float(tx_hash['fee']/10**coin_decimal)
-                                try:
-                                    await store.openConnection()
-                                    async with store.pool.acquire() as conn:
-                                        async with conn.cursor() as cur:
-                                            sql = """ INSERT INTO cn_external_tx (`coin_name`, `user_id`, `amount`, `tx_fee`, `withdraw_fee`, `decimal`, `to_address`, `paymentid`, `date`, `tx_hash`, `user_server`) 
-                                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                                            await cur.execute(sql, (COIN_NAME, user_from, amount, tx_fee, withdraw_fee, coin_decimal, to_address, paymentid, int(time.time()), tx_hash['transactionHash'], user_server))
-                                            await conn.commit()
-                                            return tx_hash['transactionHash']
-                                except Exception as e:
-                                    await logchanbot(traceback.format_exc())
-                            elif 'errorMessage' in json_resp:
-                                raise RPCException(json_resp['errorMessage'])
-                except asyncio.TimeoutError:
-                    await logchanbot('walletapi_send_transaction_id: TIMEOUT: {} COIN_NAME {} - timeout {}'.format(method, COIN_NAME, time_out))
-        except Exception as e:
-            await logchanbot(traceback.format_exc())
-        return None
-
-
     async def trtl_api_get_transfers(self, url: str, key: str, coin: str, height_start: int = None, height_end: int = None):
         time_out = 30
         method = "/transactions"
@@ -1890,7 +1891,7 @@ class Wallet(commands.Cog):
             'firstBlockIndex': firstBlockIndex if firstBlockIndex > 0 else 1,
             'blockCount': blockCount,
             }
-        result = await self.call_aiohttp_wallet_xmr_bcn('getTransactions', COIN_NAME, time_out=time_out, payload=payload)
+        result = await self.WalletAPI.call_aiohttp_wallet_xmr_bcn('getTransactions', COIN_NAME, time_out=time_out, payload=payload)
         if result and 'items' in result:
             return result['items']
         return []
@@ -2339,6 +2340,7 @@ class Wallet(commands.Cog):
         mytokens = []
         zero_tokens = []
         unknown_tokens = []
+        has_none_balance = True
         if tokens is None:
             # do all coins/token which is not under maintenance
             mytokens = await store.get_coin_settings(coin_type=None)
@@ -2367,10 +2369,11 @@ class Wallet(commands.Cog):
                         unknown_tokens.append(each_token)
 
         if len(mytokens) == 0:
+            msg = f'{ctx.author.mention}, no token or not exist.'
             if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(f'{ctx.author.mention}, no token or not exist.')
+                await ctx.response.send_message(msg)
             else:
-                await ctx.reply(f'{ctx.author.mention}, no token or not exist.')
+                await ctx.reply(msg)
             return
         else:
             total_all_balance_usd = 0.0
@@ -2432,6 +2435,8 @@ class Wallet(commands.Cog):
                 if total_balance == 0:
                     zero_tokens.append(COIN_NAME)
                     continue
+                elif total_balance > 0:
+                    has_none_balance = False
                 equivalent_usd = ""
                 if usd_equivalent_enable == 1:
                     native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
@@ -2482,27 +2487,35 @@ class Wallet(commands.Cog):
                                   color=disnake.Color.blue(),
                                   timestamp=datetime.utcnow(), )
             # Remove zero from all_names
-            all_names = [each for each in all_names if each not in zero_tokens]
-            page.add_field(name="Coin/Tokens: [{}]".format(len(all_names)), 
-                           value="```"+", ".join(all_names)+"```", inline=False)
-            if len(unknown_tokens) > 0:
-                unknown_tokens = list(set(unknown_tokens))
-                page.add_field(name="Unknown Tokens: {}".format(len(unknown_tokens)), 
-                               value="```"+", ".join(unknown_tokens)+"```", inline=False)
-            if len(zero_tokens) > 0:
-                zero_tokens = list(set(zero_tokens))
-                page.add_field(name="Zero Balances: [{}]".format(len(zero_tokens)), 
-                               value="```"+", ".join(zero_tokens)+"```", inline=False)
-            page.set_thumbnail(url=ctx.author.display_avatar)
-            page.set_footer(text="Use the reactions to flip pages.")
-            all_pages[0] = page
-
-            view = MenuPage(ctx, all_pages, timeout=30)
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                view.message = await ctx.response.send_message(embed=all_pages[0], view=view)
+            if has_none_balance == True:
+                msg = f'{ctx.author.mention}, you do not have any balance.'
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(msg)
+                else:
+                    await ctx.reply(msg)
+                return
             else:
-                await tmp_msg.delete()
-                view.message = await ctx.reply(content=None, embed=all_pages[0], view=view)
+                all_names = [each for each in all_names if each not in zero_tokens]
+                page.add_field(name="Coin/Tokens: [{}]".format(len(all_names)), 
+                               value="```"+", ".join(all_names)+"```", inline=False)
+                if len(unknown_tokens) > 0:
+                    unknown_tokens = list(set(unknown_tokens))
+                    page.add_field(name="Unknown Tokens: {}".format(len(unknown_tokens)), 
+                                   value="```"+", ".join(unknown_tokens)+"```", inline=False)
+                if len(zero_tokens) > 0:
+                    zero_tokens = list(set(zero_tokens))
+                    page.add_field(name="Zero Balances: [{}]".format(len(zero_tokens)), 
+                                   value="```"+", ".join(zero_tokens)+"```", inline=False)
+                page.set_thumbnail(url=ctx.author.display_avatar)
+                page.set_footer(text="Use the reactions to flip pages.")
+                all_pages[0] = page
+
+                view = MenuPage(ctx, all_pages, timeout=30)
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    view.message = await ctx.response.send_message(embed=all_pages[0], view=view)
+                else:
+                    await tmp_msg.delete()
+                    view.message = await ctx.reply(content=None, embed=all_pages[0], view=view)
 
 
     @commands.command(
@@ -2864,7 +2877,7 @@ class Wallet(commands.Cog):
                     wallet_address = getattr(getattr(self.bot.coin_list, COIN_NAME), "wallet_address")
                     header = getattr(getattr(self.bot.coin_list, COIN_NAME), "header")
                     is_fee_per_byte = getattr(getattr(self.bot.coin_list, COIN_NAME), "is_fee_per_byte")
-                    SendTx = await self.send_external_xmr(type_coin, main_address, str(ctx.author.id), amount, address, COIN_NAME, coin_decimal, tx_fee, NetFee, is_fee_per_byte, mixin, SERVER_BOT, wallet_address, header, None) # paymentId: None (end)
+                    SendTx = await self.WalletAPI.send_external_xmr(type_coin, main_address, str(ctx.author.id), amount, address, COIN_NAME, coin_decimal, tx_fee, NetFee, is_fee_per_byte, mixin, SERVER_BOT, wallet_address, header, None) # paymentId: None (end)
                     if SendTx:
                         msg = f'{EMOJI_ARROW_RIGHTHOOK} You have sent {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`'
                         if type(ctx) == disnake.ApplicationCommandInteraction:

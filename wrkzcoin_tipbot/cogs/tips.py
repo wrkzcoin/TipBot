@@ -1161,7 +1161,7 @@ class Tips(commands.Cog):
         if ctx.author.id not in self.bot.TX_IN_PROCESS:
             self.bot.TX_IN_PROCESS.append(ctx.author.id)
             try:
-                tips = await store.sql_user_balance_mv_multiple(str(ctx.author.id), memids, gstr(ctx.guild.id), str(ctx.channel.id), float(amountDiv), COIN_NAME, "TIPALL", coin_decimal, SERVER_BOT, contract, float(amount_in_usd))
+                tips = await store.sql_user_balance_mv_multiple(str(ctx.author.id), memids, str(ctx.guild.id), str(ctx.channel.id), float(amountDiv), COIN_NAME, "TIPALL", coin_decimal, SERVER_BOT, contract, float(amount_in_usd))
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot(traceback.format_exc())
@@ -1270,7 +1270,7 @@ class Tips(commands.Cog):
         user: str="ONLINE"
     ):
         try:
-            await self.async_tipall(ctx, amount, token, duration, comment)
+            await self.async_tipall(ctx, amount, token, user)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
@@ -1289,8 +1289,11 @@ class Tips(commands.Cog):
     # Tip Normal
     async def async_tip(self, ctx, amount: str, token: str, args):
         COIN_NAME = token.upper()
-        print(args)
-        get_list_member_n_role = re.findall(r'<?\w*\d*>', args)
+        print("async_tip args: "+ str(args))
+        if args == "@everyone":
+            get_list_member_n_role = [str(member.id) for member in ctx.guild.members if member.id != ctx.author.id]
+        else:
+            get_list_member_n_role = re.findall(r'<?\w*\d*>', args)
         list_member_ids = []
 
         if len(get_list_member_n_role) > 0:
@@ -1301,8 +1304,6 @@ class Tips(commands.Cog):
                 try:
                     m = self.bot.get_user(int(each_m))
                     list_member_ids.append(m.id)
-                    # remove ID if that is valid
-                    get_list_member_n_role.remove(each_m)
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
             if len(get_list_member_n_role) > 0:

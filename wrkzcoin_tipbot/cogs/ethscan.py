@@ -4,6 +4,8 @@ from datetime import datetime
 import time
 
 import aiohttp, asyncio
+from aiohttp import TCPConnector
+
 import json
 from disnake.ext import tasks, commands
 import functools
@@ -209,7 +211,7 @@ class EthScan(commands.Cog):
                     # xDai need camel case
                     data = '{"jsonrpc":"2.0","method":"eth_getLogs","params":[{"FromBlock": "'+fromHeight+'", "ToBlock": "'+to_bloc_str+'", "Address": '+contract+'}],"id":0}'
                 try:
-                    async with aiohttp.ClientSession() as session:
+                    async with aiohttp.ClientSession(connector=TCPConnector(ssl=False)) as session:
                         async with session.post(url, headers={'Content-Type': 'application/json'}, json=json.loads(data), timeout=timeout) as response:
                             if response.status == 200:
                                 res_data = await response.read()

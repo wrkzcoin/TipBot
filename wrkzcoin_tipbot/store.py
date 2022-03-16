@@ -1332,7 +1332,7 @@ async def trx_wallet_getbalance(address: str, coin: str, coin_decimal: int, type
                 try:
                     cntr = await TronClient.get_contract(contract)
                     SYM = await cntr.functions.symbol()
-                    if TOKEN_NAME == SYM:
+                    if TOKEN_NAME.upper() == SYM.upper():
                         precision = await cntr.functions.decimals()
                         balance = await cntr.functions.balanceOf(address) / 10**precision
                     else:

@@ -9,6 +9,7 @@ import disnake
 from disnake.ext import tasks, commands
 from disnake.enums import OptionType
 from disnake.app_commands import Option, OptionChoice
+import re
 
 import store
 import utils
@@ -33,6 +34,8 @@ class Price(commands.Cog):
 
         token_list = []
         invalid_token_list = []
+        coin_paprika_symbol_list = [each.upper() for each in self.bot.coin_paprika_symbol_list.keys()]
+
         if amount is None and token is None:
             msg = f"{ctx.author.mention}, invalid command usage!"
             if type(ctx) == disnake.ApplicationCommandInteraction:
@@ -40,6 +43,33 @@ class Price(commands.Cog):
             else:
                 await ctx.reply(msg)
             return
+        if amount is not None and amount.upper().endswith(tuple(coin_paprika_symbol_list)):
+            # amount is something like 10,0.0BTC [Possible]
+            amount_tmp = re.findall(r'[\w\.\,]+[\d]', amount) # If amount "111WRKZ 222WRKZ", take only the first one
+            if len(amount_tmp) > 0:
+                amount_tmp = amount_tmp[0]
+                token_tmp = amount.replace(amount_tmp, "")
+                if token_tmp.upper() not in coin_paprika_symbol_list:
+                    msg = f"I can not find price of `{token_tmp.upper()}`."
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.reply(msg)
+                    return
+                else:
+                    amount_old = amount
+                    token_list = [token_tmp.upper()]
+                    COIN_NAME = token_tmp.upper()
+                    amount = amount_tmp.replace(",", "")
+                    amount = text_to_num(amount)
+                    if amount is None:
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention} Invalid given amount.'
+                        if type(ctx) == disnake.ApplicationCommandInteraction:
+                            await ctx.response.send_message(msg)
+                        else:
+                            await ctx.reply(msg)
+                        return
+                
         elif amount is not None and token is not None:
             # amount token
             amount_old = amount

@@ -454,6 +454,11 @@ def createBox(value, maxValue, size, show_percentage: bool=False):
     return bar
 
 
+# json.dumps for turple
+def remap_keys(mapping):
+    return [{'key':k, 'value': v} for k, v in mapping.items()]
+
+
 @click.command()
 def main():
     for filename in os.listdir('./cogs/'):

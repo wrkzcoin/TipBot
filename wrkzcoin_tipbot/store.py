@@ -1108,7 +1108,6 @@ async def sql_updating_pending_move_deposit_erc20(notified_confirmation: bool, f
     try:
         await openConnection()
         async with pool.acquire() as conn:
-            
             async with conn.cursor() as cur:
                 sql = """ UPDATE erc20_move_deposit 
                           SET `notified_confirmation`=%s, `failed_notification`=%s, `time_notified`=%s
@@ -1122,7 +1121,7 @@ async def sql_updating_pending_move_deposit_erc20(notified_confirmation: bool, f
     return None
 
 
-async def trx_check_minimum_deposit(coin: str, type_coin: str, contract: str, coin_decimal: int, min_move_deposit: float, min_gas_tx: float, gas_ticker: str, move_gas_amount: float, chainId: str, real_deposit_fee: float, time_lap: int=0, user_server: str='DISCORD'):
+async def trx_check_minimum_deposit(coin: str, type_coin: str, contract: str, coin_decimal: int, min_move_deposit: float, min_gas_tx: float, fee_limit_trx: float, gas_ticker: str, move_gas_amount: float, chainId: str, real_deposit_fee: float, time_lap: int=0, user_server: str='DISCORD'):
     global pool
     TOKEN_NAME = coin.upper()
     list_user_addresses = await sql_get_all_trx_user(TOKEN_NAME, time_lap)
@@ -1132,6 +1131,26 @@ async def trx_check_minimum_deposit(coin: str, type_coin: str, contract: str, co
     if list_user_addresses and len(list_user_addresses) > 0:
         # OK check them one by one
         for each_address in list_user_addresses:
+            # Check if they failed many time during last 8h, if yes, next
+            try:
+                lap = int(time.time()) - 6*3600
+                num_failed_limit = 3
+                await openConnection()
+                async with pool.acquire() as conn:
+                    async with conn.cursor() as cur:
+                        sql = """ SELECT COUNT(*) AS failed FROM `trc20_move_deposit` 
+                                  WHERE `balance_wallet_address`=%s 
+                                  AND `time_insert`>%s """
+                        await cur.execute(sql, (each_address['balance_wallet_address'], lap))
+                        result = await cur.fetchone()
+                        if result is not None and 'failed' in result and result['failed'] >= num_failed_limit:
+                            msg = "trx_check_minimum_deposit: skip address `{}`.. failed threshold.".format(each_address['balance_wallet_address'])
+                            print(msg)
+                            await logchanbot(msg)
+                            continue
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+
             deposited_balance = float(await trx_wallet_getbalance(each_address['balance_wallet_address'], TOKEN_NAME, coin_decimal, type_coin, contract))
             if deposited_balance is None or deposited_balance == 0:
                 continue
@@ -1143,16 +1162,17 @@ async def trx_check_minimum_deposit(coin: str, type_coin: str, contract: str, co
                 balance_above_min += 1
                 await asyncio.sleep(1.0)
                 if TOKEN_NAME == "TRX":
+                    # gas TRX is 6 coin_decimal
                     real_deposited_balance = deposited_balance-min_gas_tx
                     try:
                         _http_client = AsyncClient(limits=Limits(max_connections=100, max_keepalive_connections=20),
                                                    timeout=Timeout(timeout=10, connect=5, read=5))
                         TronClient = AsyncTron(provider=AsyncHTTPProvider(config.Tron_Node.fullnode, client=_http_client))
                         txb = (
-                            TronClient.trx.transfer(each_address['balance_wallet_address'], config.trc.MainAddress, int(real_deposited_balance*10**coin_decimal))
+                            TronClient.trx.transfer(each_address['balance_wallet_address'], config.trc.MainAddress, int(real_deposited_balance*10**6))
                             #.memo("test memo")
                             #.fee_limit(100_000_000)
-                            .fee_limit(int(min_gas_tx*10**coin_decimal))
+                            .fee_limit(int(fee_limit_trx*10**6))
                         )
                         
                         txn = await txb.build()
@@ -1181,13 +1201,15 @@ async def trx_check_minimum_deposit(coin: str, type_coin: str, contract: str, co
                             cntr = await TronClient.get_contract(contract)
                             precision = await cntr.functions.decimals()
                             balance = await cntr.functions.balanceOf(each_address['balance_wallet_address']) / 10**precision
+                            print("{} - {} - {}".format(TOKEN_NAME, each_address['balance_wallet_address'], balance))
                             # Check balance and Transfer gas to it
                             try:
-                                gas_balance = await trx_wallet_getbalance(each_address['balance_wallet_address'], TOKEN_NAME, coin_decimal, type_coin, contract)
+                                # Gas decimal is 6 for TRX
+                                gas_balance = await trx_wallet_getbalance(each_address['balance_wallet_address'], "TRX", 6, type_coin, contract)
                                 if gas_balance < min_gas_tx:
                                     txb_gas = (
-                                        TronClient.trx.transfer(config.trc.MainAddress, each_address['balance_wallet_address'], int(move_gas_amount*10**coin_decimal))
-                                        .fee_limit(int(min_gas_tx*10**coin_decimal))
+                                        TronClient.trx.transfer(config.trc.MainAddress, each_address['balance_wallet_address'], int(move_gas_amount*10**6))
+                                        .fee_limit(int(fee_limit_trx*10**6))
                                     )
                                     txn_gas = await txb_gas.build()
                                     priv_key_gas = PrivateKey(bytes.fromhex(config.trc.MainAddress_key))
@@ -1196,8 +1218,9 @@ async def trx_check_minimum_deposit(coin: str, type_coin: str, contract: str, co
                             except Exception as e:
                                 traceback.print_exc(file=sys.stdout)
                             txb = await cntr.functions.transfer(config.trc.MainAddress, int(balance*10**6))
-                            txb = txb.with_owner(each_address['balance_wallet_address']).fee_limit(int(min_gas_tx*10**coin_decimal))
+                            txb = txb.with_owner(each_address['balance_wallet_address']).fee_limit(int(fee_limit_trx*10**6))
                             txn = await txb.build()
+
                             priv_key = PrivateKey(bytes.fromhex(decrypt_string(each_address['private_key'])))
                             txn_ret = await txn.sign(priv_key).broadcast()
                             in_block = None
@@ -1226,7 +1249,7 @@ async def trx_check_minimum_deposit(coin: str, type_coin: str, contract: str, co
                                 if gas_balance < min_gas_tx:
                                     txb_gas = (
                                         TronClient.trx.transfer(config.trc.MainAddress, each_address['balance_wallet_address'], int(move_gas_amount*10**coin_decimal))
-                                        .fee_limit(int(min_gas_tx*10**coin_decimal))
+                                        .fee_limit(int(fee_limit_trx*10**6))
                                     )
                                     txn_gas = await txb_gas.build()
                                     priv_key_gas = PrivateKey(bytes.fromhex(config.trc.MainAddress_key))
@@ -1241,7 +1264,7 @@ async def trx_check_minimum_deposit(coin: str, type_coin: str, contract: str, co
                                 TronClient.trx.asset_transfer(
                                     each_address['balance_wallet_address'], config.trc.MainAddress, amount, token_id=int(contract)
                                 )
-                                .fee_limit(int(min_gas_tx*10**coin_decimal))
+                                .fee_limit(int(fee_limit_trx*10**6))
                             )
                             txn = await txb.build()
                             priv_key = PrivateKey(bytes.fromhex(decrypt_string(each_address['private_key'])))
@@ -1304,7 +1327,7 @@ async def trx_get_tx_info(tx: str):
         await TronClient.close()
         if getTx['ret'][0]['contractRet'] != "SUCCESS":
             # That failed.
-            await logchanbot("TRX {} not succeeded with tx: {}".format(tx))
+            await logchanbot("TRX not succeeded with tx: {}".format(tx))
             return False
         else:
             return True
@@ -1320,7 +1343,7 @@ async def trx_wallet_getbalance(address: str, coin: str, coin_decimal: int, type
         _http_client = AsyncClient(limits=Limits(max_connections=100, max_keepalive_connections=20),
                                    timeout=Timeout(timeout=10, connect=5, read=5))
         TronClient = AsyncTron(provider=AsyncHTTPProvider(config.Tron_Node.fullnode, client=_http_client))
-        if contract is None:
+        if contract is None or TOKEN_NAME == "TRX":
             try:
                 balance = await TronClient.get_account_balance(address)
             except AddressNotFound:

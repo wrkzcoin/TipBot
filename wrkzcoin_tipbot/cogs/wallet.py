@@ -1576,7 +1576,7 @@ class Wallet(commands.Cog):
             for each_c in erc_contracts:
                 try:
                     type_name = each_c['type']
-                    await store.trx_check_minimum_deposit(each_c['coin_name'], type_name, each_c['contract'], each_c['decimal'], each_c['min_move_deposit'], each_c['min_gas_tx'], each_c['gas_ticker'], each_c['move_gas_amount'], each_c['chain_id'], each_c['real_deposit_fee'], 7200, SERVER_BOT)
+                    await store.trx_check_minimum_deposit(each_c['coin_name'], type_name, each_c['contract'], each_c['decimal'], each_c['min_move_deposit'], each_c['min_gas_tx'], each_c['fee_limit'], each_c['gas_ticker'], each_c['move_gas_amount'], each_c['chain_id'], each_c['real_deposit_fee'], 7200, SERVER_BOT)
                     pass
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
@@ -1585,7 +1585,7 @@ class Wallet(commands.Cog):
             for each_c in main_tokens:
                 try:
                     type_name = each_c['type']
-                    await store.trx_check_minimum_deposit(each_c['coin_name'], type_name, None, each_c['decimal'], each_c['min_move_deposit'], each_c['min_gas_tx'], each_c['gas_ticker'], each_c['move_gas_amount'], each_c['chain_id'], each_c['real_deposit_fee'], 7200, SERVER_BOT)
+                    await store.trx_check_minimum_deposit(each_c['coin_name'], type_name, None, each_c['decimal'], each_c['min_move_deposit'], each_c['min_gas_tx'], each_c['fee_limit'], each_c['gas_ticker'], each_c['move_gas_amount'], each_c['chain_id'], each_c['real_deposit_fee'], 7200, SERVER_BOT)
                     pass
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
@@ -2416,6 +2416,14 @@ class Wallet(commands.Cog):
                 height = None
                 try:
                     if type_coin in ["ERC-20", "TRC-20"]:
+                        # Add update for future call
+                        try:
+                            if type_coin == "ERC-20":
+                                update_call = await store.sql_update_erc20_user_update_call(str(ctx.author.id))
+                            elif type_coin == "TRC-10" or type_coin == "TRC-20":
+                                update_call = await store.sql_update_trc20_user_update_call(str(ctx.author.id))
+                        except Exception as e:
+                            traceback.print_exc(file=sys.stdout)
                         height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
                     else:
                         height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())

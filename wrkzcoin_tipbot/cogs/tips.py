@@ -1245,9 +1245,7 @@ class Tips(commands.Cog):
             # tipper shall always get DM. Ignore notifyList
             try:
                 msg = f'{EMOJI_ARROW_RIGHTHOOK} Tip of {tipAmount} {token_display} was sent to ({len(memids)}) members in server `{ctx.guild.name}`.\nEach member got: **{amountDiv_str} {token_display}** {equivalent_usd}\nActual spending: **{ActualSpend_str} {token_display}** {total_equivalent_usd}'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
+                if type(ctx) != disnake.ApplicationCommandInteraction:
                     await ctx.author.send(msg)
             except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                 pass

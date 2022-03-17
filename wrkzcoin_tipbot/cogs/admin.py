@@ -66,6 +66,7 @@ class Admin(commands.Cog):
 
 
     @commands.is_owner()
+    @commands.dm_only()
     @commands.group(
         usage="admin <subcommand>", 
         hidden = True, 
@@ -161,7 +162,7 @@ class Admin(commands.Cog):
         text
     ):
         encrypt = encrypt_string(text)
-        if encrypt: return await ctx.reply(f"```{encrypt}```")
+        if encrypt: return await ctx.reply(f"```{encrypt}```", view=RowButton_row_close_any_message())
 
 
     @commands.is_owner()
@@ -176,7 +177,7 @@ class Admin(commands.Cog):
         text
     ):
         decrypt = decrypt_string(text)
-        if decrypt: return await ctx.reply(f"```{decrypt}```")
+        if decrypt: return await ctx.reply(f"```{decrypt}```", view=RowButton_row_close_any_message())
 
 
 def setup(bot):

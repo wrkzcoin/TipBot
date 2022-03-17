@@ -1133,7 +1133,7 @@ async def trx_check_minimum_deposit(coin: str, type_coin: str, contract: str, co
         for each_address in list_user_addresses:
             # Check if they failed many time during last 8h, if yes, next
             try:
-                lap = int(time.time()) - 6*3600
+                lap = int(time.time()) - 1*3600
                 num_failed_limit = 3
                 await openConnection()
                 async with pool.acquire() as conn:
@@ -1180,6 +1180,12 @@ async def trx_check_minimum_deposit(coin: str, type_coin: str, contract: str, co
                         txn_ret = await txn.sign(priv_key).broadcast()
                         try:
                             in_block = await txn_ret.wait()
+                            if 'result' in in_block and in_block['result'] == "FAILED":
+                                msg = json.dumps(in_block)
+                                await logchanbot(msg)
+                                await asyncio.sleep(2.0)
+                                continue
+                            await asyncio.sleep(0.5)
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
                         await TronClient.close()
@@ -1214,10 +1220,10 @@ async def trx_check_minimum_deposit(coin: str, type_coin: str, contract: str, co
                                     txn_gas = await txb_gas.build()
                                     priv_key_gas = PrivateKey(bytes.fromhex(config.trc.MainAddress_key))
                                     txn_ret_gas = await txn_gas.sign(priv_key_gas).broadcast()
-                                    await asyncio.sleep(3)
+                                    await asyncio.sleep(0.5)
                             except Exception as e:
                                 traceback.print_exc(file=sys.stdout)
-                            txb = await cntr.functions.transfer(config.trc.MainAddress, int(balance*10**6))
+                            txb = await cntr.functions.transfer(config.trc.MainAddress, int(balance*10**coin_decimal))
                             txb = txb.with_owner(each_address['balance_wallet_address']).fee_limit(int(fee_limit_trx*10**6))
                             txn = await txb.build()
 
@@ -1226,6 +1232,12 @@ async def trx_check_minimum_deposit(coin: str, type_coin: str, contract: str, co
                             in_block = None
                             try:
                                 in_block = await txn_ret.wait()
+                                if 'result' in in_block and in_block['result'] == "FAILED":
+                                    msg = json.dumps(in_block)
+                                    await logchanbot(msg)
+                                    await asyncio.sleep(2.0)
+                                    continue
+                                await asyncio.sleep(0.5)
                             except Exception as e:
                                 traceback.print_exc(file=sys.stdout)
                             await TronClient.close()
@@ -1234,7 +1246,7 @@ async def trx_check_minimum_deposit(coin: str, type_coin: str, contract: str, co
                                     inserted = await trx_move_deposit_for_spendable(TOKEN_NAME, contract, each_address['user_id'], each_address['balance_wallet_address'], config.trc.MainAddress, balance, real_deposit_fee, coin_decimal, txn_ret['txid'], in_block['blockNumber'], user_server)
                                 except Exception as e:
                                     traceback.print_exc(file=sys.stdout)
-                            await asyncio.sleep(3)
+                            await asyncio.sleep(0.5)
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
                     elif type_coin == "TRC-10":
@@ -1254,7 +1266,7 @@ async def trx_check_minimum_deposit(coin: str, type_coin: str, contract: str, co
                                     txn_gas = await txb_gas.build()
                                     priv_key_gas = PrivateKey(bytes.fromhex(config.trc.MainAddress_key))
                                     txn_ret_gas = await txn_gas.sign(priv_key_gas).broadcast()
-                                    await asyncio.sleep(3)
+                                    await asyncio.sleep(0.5)
                             except Exception as e:
                                 traceback.print_exc(file=sys.stdout)
                             ### here

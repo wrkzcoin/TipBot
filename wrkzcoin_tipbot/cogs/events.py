@@ -30,6 +30,9 @@ class Events(commands.Cog):
         self.saving_message = False
         self.process_saving_message.start()
         self.max_saving_message = 5
+        
+        self.reload_coin_paprika.start()
+        self.reload_coingecko.start()
 
 
     async def insert_discord_message(self, list_message):
@@ -60,6 +63,24 @@ class Events(commands.Cog):
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
             self.saving_message = False
+
+
+    @tasks.loop(seconds=120.0)
+    async def reload_coin_paprika(self):
+        try:
+            await self.get_coin_paprika_list()
+            print("reload_coin_paprika get_coin_paprika_list...")
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+
+
+    @tasks.loop(seconds=120.0)
+    async def reload_coingecko(self):
+        try:
+            await self.get_coingecko_list()
+            print("reload_coingecko get_coingecko_list...")
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
 
 
     async def get_coin_setting(self):

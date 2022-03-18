@@ -19,7 +19,7 @@ from aiohttp import TCPConnector
 from tronpy import AsyncTron
 from tronpy.async_contract import AsyncContract, ShieldedTRC20, AsyncContractMethod
 from tronpy.providers.async_http import AsyncHTTPProvider
-from tronpy.exceptions import AddressNotFound
+from tronpy.exceptions import AddressNotFound, UnknownError
 from tronpy.keys import PrivateKey
 
 
@@ -691,7 +691,7 @@ async def erc_get_block_number(url: str, timeout: int=64):
                     if decoded_data and 'result' in decoded_data:
                         return int(decoded_data['result'], 16)
     except asyncio.TimeoutError:
-        print('TIMEOUT: get block number {}s'.format(timeout))
+        print('TIMEOUT: {} get block number {}s'.format(url, timeout))
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     return None
@@ -1001,15 +1001,15 @@ async def sql_get_tx_info_erc20(url: str, tx: str, timeout: int=64):
                     if decoded_data and 'result' in decoded_data:
                         return decoded_data['result']
     except asyncio.TimeoutError:
-        print('TIMEOUT: get block number {}s'.format(timeout))
+        print('TIMEOUT: {} get block number {}s'.format(url, timeout))
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     return None
 
 
-async def sql_check_pending_move_deposit_erc20(url: str, net_name: str, deposit_confirm_depth: int):
+async def sql_check_pending_move_deposit_erc20(url: str, net_name: str, deposit_confirm_depth: int, block_timeout:int=64):
     global pool
-    topBlock = await erc_get_block_number(url, 64)
+    topBlock = await erc_get_block_number(url, block_timeout)
     if topBlock is None:
         print('Can not get top block.')
         return
@@ -1019,7 +1019,7 @@ async def sql_check_pending_move_deposit_erc20(url: str, net_name: str, deposit_
         # Have pending, let's check
         for each_tx in list_pending:
             # Check tx from RPC
-            check_tx = await sql_get_tx_info_erc20(url, each_tx['txn'], 64)
+            check_tx = await sql_get_tx_info_erc20(url, each_tx['txn'], block_timeout)
             if check_tx is not None:
                 tx_block_number = int(check_tx['blockNumber'], 16)
                 status = "CONFIRMED"                    
@@ -1372,17 +1372,21 @@ async def trx_wallet_getbalance(address: str, coin: str, coin_decimal: int, type
                         balance = await cntr.functions.balanceOf(address) / 10**precision
                     else:
                         await logchanbot("Mis-match SYM vs TOKEN NAME: {} vs {}".format(SYM, TOKEN_NAME))
+                except (AddressNotFound, UnknownError) as e:
+                    pass
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
             elif type_coin == "TRC-10":
                 try:
                     precision = coin_decimal
                     balance = await TronClient.get_account_asset_balance(addr=address, token_id=int(contract)) / 10**precision
-                except AddressNotFound:
+                except (AddressNotFound, UnknownError):
                     balance = 0.0
                 except Exception as e:
                     pass
         await TronClient.close()
+    except UnknownError as e:
+        pass
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     except AddressNotFound:

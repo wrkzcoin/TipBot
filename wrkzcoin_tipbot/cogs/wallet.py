@@ -53,11 +53,76 @@ class RPCException(Exception):
         super(RPCException, self).__init__(message)
 
 
+class Faucet(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+
+    async def get_faucet_coin_list(self):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT `reward_for`, `coin_name`, `reward_amount`
+                              FROM `coin_bot_reward_setting` 
+                              ORDER BY `coin_name` """
+                    await cur.execute(sql, ())
+                    result = await cur.fetchall()
+                    if result and len(result) > 0: 
+                        return result
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
+        return []
+
+    async def update_faucet_user(self, userId: str, coin_name: str, user_server: str):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ INSERT INTO `coin_user_reward_setting` (`user_id`, `coin_name`, `user_server`)
+                              VALUES (%s, %s, %s) ON DUPLICATE KEY 
+                              UPDATE 
+                              `coin_name`=VALUES(`coin_name`)
+                              """
+                    await cur.execute(sql, (userId, coin_name.upper(), user_server.upper(), ))
+                    await conn.commit()
+                    return True
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
+        return False
+    
+    async def get_user_faucet_coin(self, userId: str, user_server: str):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `coin_user_reward_setting` WHERE `user_id`=%s AND `user_server`=%s LIMIT 1 """
+                    await cur.execute(sql, ( userId, user_server.upper() ))
+                    result = await cur.fetchone()
+                    if result: return result
+                    return True
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
+        return None
+
+    async def insert_reward(self, userId: str, reward_for: str, reward_amount: float, coin_name: str, reward_time: int, user_server: str):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ INSERT INTO `coin_user_reward_list` (`user_id`, `reward_for`, `reward_amount`, `coin_name`, `reward_time`, `user_server`)
+                              VALUES (%s, %s, %s, %s, %s, %s)
+                              """
+                    await cur.execute(sql, (userId, reward_for, reward_amount, coin_name.upper(), reward_time, user_server.upper(), ))
+                    await conn.commit()
+                    return True
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
+        return False
+
+
 class WalletAPI(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        
-
 
 
     # ERC-20, TRC-20, native is one
@@ -1601,7 +1666,7 @@ class Wallet(commands.Cog):
         if len(net_names) > 0:
             for each_name in net_names:
                 try:
-                    await store.sql_check_pending_move_deposit_erc20(self.bot.erc_node_list[each_name], each_name, depth)
+                    await store.sql_check_pending_move_deposit_erc20(self.bot.erc_node_list[each_name], each_name, depth, 32)
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
 
@@ -2397,6 +2462,8 @@ class Wallet(commands.Cog):
             per_page = 8
             if type(ctx) != disnake.ApplicationCommandInteraction:
                 tmp_msg = await ctx.reply("Loading...")
+            else:
+                tmp_msg = await ctx.response.send_message("Loading...") # delete_after=3600.0
             for each_token in mytokens:
                 COIN_NAME = each_token['coin_name']
                 type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
@@ -2520,7 +2587,7 @@ class Wallet(commands.Cog):
 
                 view = MenuPage(ctx, all_pages, timeout=30)
                 if type(ctx) == disnake.ApplicationCommandInteraction:
-                    view.message = await ctx.response.send_message(embed=all_pages[0], view=view)
+                    view.message = await ctx.edit_original_message(embed=all_pages[0], view=view)
                 else:
                     await tmp_msg.delete()
                     view.message = await ctx.reply(content=None, embed=all_pages[0], view=view)
@@ -2939,7 +3006,100 @@ class Wallet(commands.Cog):
         address: str
     ):
         await self.async_withdraw(ctx, amount, token, address)
-    # End of Balance
+    # End of Withdraw
+
+
+    # Faucet
+    async def async_claim(self, ctx: str, token: str=None):
+        faucet = Faucet(self.bot)
+        list_coins = await faucet.get_faucet_coin_list()
+        list_coin_names = [each['coin_name'] for each in list_coins]
+        
+        list_coin_sets = {}
+        for each in list_coins:
+            if each['reward_for'] not in list_coin_sets:
+                list_coin_sets[each['reward_for']] = []
+                list_coin_sets[each['reward_for']].append({each['coin_name']: each['reward_amount']})
+            else:
+                list_coin_sets[each['reward_for']].append({each['coin_name']: each['reward_amount']})
+        list_coins_str = ", ".join(list_coin_names)
+        if token is None:
+            embed = disnake.Embed(title=f'Faucet Claim', description=f"```1] Set your reward coin claim with any of this {list_coins_str} with command /claim token_name\n\n2] Vote for TipBot in below links.\n\n```", timestamp=datetime.utcnow())
+            
+            for key in ["topgg", "discordbotlist"]:
+                reward_list = []
+                for each in list_coin_sets[key]:
+                    for k, v in each.items():
+                        reward_list.append("{}{}".format(v, k))
+                reward_list_str = ", ".join(reward_list)
+                embed.add_field(name="{}'s reward".format(key), value="Vote at: [{}]({})```{}```".format(key, getattr(config.bot_vote_link, key), reward_list_str), inline=False)
+            embed.set_footer(text="Requested by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
+            try:
+                get_user_coin = await faucet.get_user_faucet_coin(str(ctx.author.id), SERVER_BOT)
+                if get_user_coin is not None:
+                    embed.set_footer(text="Requested by: {}#{} | preferred token: {}".format(ctx.author.name, ctx.author.discriminator, get_user_coin['coin_name']))
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(embed=embed, view=RowButton_row_close_any_message())
+            else:
+                await ctx.reply(embed=embed, view=RowButton_row_close_any_message())
+            return
+        else:
+            COIN_NAME = token.upper()
+            if COIN_NAME not in list_coin_names:
+                msg = f'{ctx.author.mention}, `{COIN_NAME}` is invalid or does not existed in faucet list!'
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(msg)
+                else:
+                    await ctx.reply(msg)
+                return
+            else:
+                # Update user setting faucet
+                update = await faucet.update_faucet_user(str(ctx.author.id), COIN_NAME, SERVER_BOT)
+                if update:
+                    msg = f'{ctx.author.mention}, you updated your preferred faucet to `{COIN_NAME}`.'
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.reply(msg)
+                else:
+                    msg = f'{ctx.author.mention}, internal error!'
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.reply(msg)
+                return
+
+
+    @commands.command(
+        usage='claim <token>', 
+        aliases=['claim', 'take'],
+        description="Faucet claim."
+    )
+    async def _claim(
+        self, 
+        ctx,
+        token: str=None
+    ):
+        await self.async_claim(ctx, token)
+
+
+    @commands.slash_command(
+        usage='claim', 
+        options=[
+            Option('token', 'token', OptionType.string, required=False)
+        ],
+        description="Faucet claim."
+    )
+    async def claim(
+        self, 
+        ctx,
+        token: str=None
+    ):
+        await self.async_claim(ctx, token)
+    # End of Faucet
+
 
 def setup(bot):
     bot.add_cog(Wallet(bot))

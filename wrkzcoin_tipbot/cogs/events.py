@@ -69,7 +69,6 @@ class Events(commands.Cog):
     async def reload_coin_paprika(self):
         try:
             await self.get_coin_paprika_list()
-            print("reload_coin_paprika get_coin_paprika_list...")
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
@@ -78,7 +77,6 @@ class Events(commands.Cog):
     async def reload_coingecko(self):
         try:
             await self.get_coingecko_list()
-            print("reload_coingecko get_coingecko_list...")
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 

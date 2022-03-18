@@ -1149,7 +1149,7 @@ class Tips(commands.Cog):
                 amount_in_usd = float(Decimal(per_unit) * Decimal(amountDiv))
                 if amount_in_usd > 0.0001:
                     equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
-                total_amount_in_usd = float(Decimal(per_unit) * Decimal(amount_in_usd * len(memids)))
+                total_amount_in_usd = float(amount_in_usd * len(memids))
                 if total_amount_in_usd > 0.0001:
                     total_equivalent_usd = " ~ {:,.4f} USD".format(total_amount_in_usd)
 
@@ -1728,7 +1728,7 @@ class Tips(commands.Cog):
                 amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                 if amount_in_usd > 0.0001:
                     equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
-                total_amount_in_usd = float(Decimal(per_unit) * Decimal(amount_in_usd * len(memids)))
+                total_amount_in_usd = float(amount_in_usd * len(memids))
                 if total_amount_in_usd > 0.0001:
                     total_equivalent_usd = " ~ {:,.4f} USD".format(total_amount_in_usd)
 
@@ -1754,9 +1754,9 @@ class Tips(commands.Cog):
                     incl_msg = []
                     incl_msg_str = ""
                     for each_m in list_mentions:
-                        if ctx.author.id != member.id and member.id != self.bot.user.id and str(member.id) not in notifyList:
+                        if ctx.author.id != member.id and str(member.id) not in notifyList:
                             incl_msg.append(each_m.mention)
-                        if ctx.author.id != member.id and member.id != self.bot.user.id and str(member.id) in notifyList:
+                        if ctx.author.id != member.id and str(member.id) in notifyList:
                             incl_msg.append("{}#{}".format(each_m.name, each_m.discriminator))
                     if len(incl_msg) > 0: incl_msg_str = ", ".join(incl_msg)
                     msg = f'{EMOJI_ARROW_RIGHTHOOK} {tip_type_text} of **{tipAmount} {token_display}** {total_equivalent_usd} was sent to {incl_msg_str} in server `{ctx.guild.name}`.'

@@ -353,7 +353,7 @@ def num_format_coin(amount, coin: str, coin_decimal: int, atomic: bool=False):
         coin_decimal = int(10**coin_decimal)
         amount = amount / coin_decimal
     amount_str = 'Invalid.'
-    if coin_decimal == 1:
+    if coin_decimal == 0:
         amount_test = '{:,f}'.format(float(('%f' % amount).rstrip('0').rstrip('.')))
         if '.' in amount_test and len(amount_test.split('.')[1]) > 6:
             amount_str = '{:,.6f}'.format(amount)

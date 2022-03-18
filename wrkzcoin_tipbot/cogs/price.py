@@ -69,7 +69,20 @@ class Price(commands.Cog):
                         else:
                             await ctx.reply(msg)
                         return
-                
+            elif amount.upper() in coin_paprika_symbol_list:
+                # token only
+                COIN_NAME = amount.upper()
+                token_list = [COIN_NAME]
+                amount_old = 1
+                amount = 1
+            else:
+                msg = f'{EMOJI_RED_NO} {ctx.author.mention} Invalid given coin name or amount.'
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(msg)
+                else:
+                    await ctx.reply(msg)
+                return
+
         elif amount is not None and token is not None:
             # amount token
             amount_old = amount

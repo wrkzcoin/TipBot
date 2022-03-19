@@ -1836,6 +1836,7 @@ class Games(commands.Cog):
         self.db = database_games()
         self.bot = bot
         self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
+        self.enable_logchan = False
 
 
     async def bot_log(self):
@@ -1843,11 +1844,58 @@ class Games(commands.Cog):
             self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
 
 
+    async def get_guild_info(self, ctx):
+        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        if serverinfo is None:
+            # Let's add some info if server return None
+            add_server_info = await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
+            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        return serverinfo
+
+
     async def game_blackjack(
         self,
         ctx
     ):
         await self.bot_log()
+        serverinfo = await self.get_guild_info(ctx)
+        # Game enable check
+        if serverinfo and 'enable_game' in serverinfo and serverinfo['enable_game'] == "NO":
+            if self.enable_logchan:
+                await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried **/game** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING GAME`"
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
+            return
+        try:
+            name = "blackjack"
+            index_game = f"game_{name}_channel"
+            # check if bot channel is set:
+            if serverinfo and serverinfo[index_game] and ctx.channel.id != int(serverinfo[index_game]):
+                gameChan = self.bot.get_channel(int(serverinfo[index_game]))
+                if gameChan:
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, {gameChan.mention} is for game **{name}** channel!!!"
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.reply(msg)
+                    return
+            # If there is a bot channel
+            elif serverinfo and serverinfo['botchan'] and ctx.channel.id != int(serverinfo['botchan']):
+                msg = f"{EMOJI_RED_NO}, {ctx.channel.mention} is the bot channel here!"
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(msg)
+                else:
+                    await ctx.reply(msg)
+                return
+        except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
+            return
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        # End game enable check
+
         # check if user create account less than 3 days
         try:
             account_created = ctx.author.created_at
@@ -1863,8 +1911,6 @@ class Games(commands.Cog):
 
         free_game = False
         won = False
-
-        # TODO: Check if game is enabled in the guild, check if it's in game channel or bot channel
 
         count_played = await self.db.sql_game_count_user(str(ctx.author.id), config.game.duration_24h, SERVER_BOT, False)
         if count_played and count_played >= config.game.max_daily_play:
@@ -1893,6 +1939,45 @@ class Games(commands.Cog):
         ctx
     ):
         await self.bot_log()
+
+        serverinfo = await self.get_guild_info(ctx)
+        # Game enable check
+        if serverinfo and 'enable_game' in serverinfo and serverinfo['enable_game'] == "NO":
+            if self.enable_logchan:
+                await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried **/game** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING GAME`"
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
+            return
+        try:
+            name = "slot"
+            index_game = f"game_{name}_channel"
+            # check if bot channel is set:
+            if serverinfo and serverinfo[index_game] and ctx.channel.id != int(serverinfo[index_game]):
+                gameChan = self.bot.get_channel(int(serverinfo[index_game]))
+                if gameChan:
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, {gameChan.mention} is for game **{name}** channel!!!"
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.reply(msg)
+                    return
+            # If there is a bot channel
+            elif serverinfo and serverinfo['botchan'] and ctx.channel.id != int(serverinfo['botchan']):
+                msg = f"{EMOJI_RED_NO}, {ctx.channel.mention} is the bot channel here!"
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(msg)
+                else:
+                    await ctx.reply(msg)
+                return
+        except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
+            return
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        # End game enable check
+
         # check if user create account less than 3 days
         try:
             account_created = ctx.author.created_at
@@ -1904,8 +1989,6 @@ class Games(commands.Cog):
 
         free_game = False
         won = False
-
-        # TODO: Check if game is enabled in the guild, check if it's in game channel or bot channel
 
         count_played = await self.db.sql_game_count_user(str(ctx.author.id), config.game.duration_24h, SERVER_BOT, False)
         count_played_free = await self.db.sql_game_count_user(str(ctx.author.id), config.game.duration_24h, SERVER_BOT, True)
@@ -1987,6 +2070,45 @@ class Games(commands.Cog):
         ctx
     ):
         await self.bot_log()
+
+        serverinfo = await self.get_guild_info(ctx)
+        # Game enable check
+        if serverinfo and 'enable_game' in serverinfo and serverinfo['enable_game'] == "NO":
+            if self.enable_logchan:
+                await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried **/game** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING GAME`"
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
+            return
+        try:
+            name = "maze"
+            index_game = f"game_{name}_channel"
+            # check if bot channel is set:
+            if serverinfo and serverinfo[index_game] and ctx.channel.id != int(serverinfo[index_game]):
+                gameChan = self.bot.get_channel(int(serverinfo[index_game]))
+                if gameChan:
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, {gameChan.mention} is for game **{name}** channel!!!"
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.reply(msg)
+                    return
+            # If there is a bot channel
+            elif serverinfo and serverinfo['botchan'] and ctx.channel.id != int(serverinfo['botchan']):
+                msg = f"{EMOJI_RED_NO}, {ctx.channel.mention} is the bot channel here!"
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(msg)
+                else:
+                    await ctx.reply(msg)
+                return
+        except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
+            return
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        # End game enable check
+
         # check if user create account less than 3 days
         try:
             account_created = ctx.author.created_at
@@ -2019,6 +2141,45 @@ class Games(commands.Cog):
         ctx
     ):
         await self.bot_log()
+
+        serverinfo = await self.get_guild_info(ctx)
+        # Game enable check
+        if serverinfo and 'enable_game' in serverinfo and serverinfo['enable_game'] == "NO":
+            if self.enable_logchan:
+                await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried **/game** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING GAME`"
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
+            return
+        try:
+            name = "dice"
+            index_game = f"game_{name}_channel"
+            # check if bot channel is set:
+            if serverinfo and serverinfo[index_game] and ctx.channel.id != int(serverinfo[index_game]):
+                gameChan = self.bot.get_channel(int(serverinfo[index_game]))
+                if gameChan:
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, {gameChan.mention} is for game **{name}** channel!!!"
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.reply(msg)
+                    return
+            # If there is a bot channel
+            elif serverinfo and serverinfo['botchan'] and ctx.channel.id != int(serverinfo['botchan']):
+                msg = f"{EMOJI_RED_NO}, {ctx.channel.mention} is the bot channel here!"
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(msg)
+                else:
+                    await ctx.reply(msg)
+                return
+        except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
+            return
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        # End game enable check
+
         # check if user create account less than 3 days
         try:
             account_created = ctx.author.created_at
@@ -2162,6 +2323,45 @@ class Games(commands.Cog):
         bet_numb
     ):
         await self.bot_log()
+
+        serverinfo = await self.get_guild_info(ctx)
+        # Game enable check
+        if serverinfo and 'enable_game' in serverinfo and serverinfo['enable_game'] == "NO":
+            if self.enable_logchan:
+                await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried **/game** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING GAME`"
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
+            return
+        try:
+            name = "snail"
+            index_game = f"game_{name}_channel"
+            # check if bot channel is set:
+            if serverinfo and serverinfo[index_game] and ctx.channel.id != int(serverinfo[index_game]):
+                gameChan = self.bot.get_channel(int(serverinfo[index_game]))
+                if gameChan:
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, {gameChan.mention} is for game **{name}** channel!!!"
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.reply(msg)
+                    return
+            # If there is a bot channel
+            elif serverinfo and serverinfo['botchan'] and ctx.channel.id != int(serverinfo['botchan']):
+                msg = f"{EMOJI_RED_NO}, {ctx.channel.mention} is the bot channel here!"
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(msg)
+                else:
+                    await ctx.reply(msg)
+                return
+        except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
+            return
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        # End game enable check
+
         # check if user create account less than 3 days
         try:
             account_created = ctx.author.created_at
@@ -2352,6 +2552,45 @@ class Games(commands.Cog):
         ctx
     ):
         await self.bot_log()
+
+        serverinfo = await self.get_guild_info(ctx)
+        # Game enable check
+        if serverinfo and 'enable_game' in serverinfo and serverinfo['enable_game'] == "NO":
+            if self.enable_logchan:
+                await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried **/game** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING GAME`"
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
+            return
+        try:
+            name = "2048"
+            index_game = f"game_{name}_channel"
+            # check if bot channel is set:
+            if serverinfo and serverinfo[index_game] and ctx.channel.id != int(serverinfo[index_game]):
+                gameChan = self.bot.get_channel(int(serverinfo[index_game]))
+                if gameChan:
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, {gameChan.mention} is for game **{name}** channel!!!"
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.reply(msg)
+                    return
+            # If there is a bot channel
+            elif serverinfo and serverinfo['botchan'] and ctx.channel.id != int(serverinfo['botchan']):
+                msg = f"{EMOJI_RED_NO}, {ctx.channel.mention} is the bot channel here!"
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(msg)
+                else:
+                    await ctx.reply(msg)
+                return
+        except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
+            return
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        # End game enable check
+
         # check if user create account less than 3 days
         try:
             account_created = ctx.author.created_at
@@ -2388,6 +2627,45 @@ class Games(commands.Cog):
         is_test: bool=False
     ):
         await self.bot_log()
+
+        serverinfo = await self.get_guild_info(ctx)
+        # Game enable check
+        if serverinfo and 'enable_game' in serverinfo and serverinfo['enable_game'] == "NO":
+            if self.enable_logchan:
+                await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried **/game** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING GAME`"
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
+            return
+        try:
+            name = "sokoban"
+            index_game = f"game_{name}_channel"
+            # check if bot channel is set:
+            if serverinfo and serverinfo[index_game] and ctx.channel.id != int(serverinfo[index_game]):
+                gameChan = self.bot.get_channel(int(serverinfo[index_game]))
+                if gameChan:
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, {gameChan.mention} is for game **{name}** channel!!!"
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.reply(msg)
+                    return
+            # If there is a bot channel
+            elif serverinfo and serverinfo['botchan'] and ctx.channel.id != int(serverinfo['botchan']):
+                msg = f"{EMOJI_RED_NO}, {ctx.channel.mention} is the bot channel here!"
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(msg)
+                else:
+                    await ctx.reply(msg)
+                return
+        except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
+            return
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        # End game enable check
+
         # check if user create account less than 3 days
         try:
             account_created = ctx.author.created_at
@@ -2458,6 +2736,7 @@ class Games(commands.Cog):
         pass
 
 
+    @commands.guild_only()
     @game.sub_command(
         usage="game blackjack", 
         description="Blackjack, original code by Al Sweigart al@inventwithpython.com."
@@ -2472,6 +2751,7 @@ class Games(commands.Cog):
             await ctx.response.send_message(game_blackjack['error'])
 
 
+    @commands.guild_only()
     @game.sub_command(
         usage="game slot", 
         description="Play a slot game."
@@ -2489,6 +2769,7 @@ class Games(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
 
+    @commands.guild_only()
     @game.sub_command(
         usage="game maze", 
         description="Interactive 2D ascii maze game."
@@ -2506,6 +2787,7 @@ class Games(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
 
+    @commands.guild_only()
     @game.sub_command(
         usage="game dice", 
         description="Simple dice game."
@@ -2523,6 +2805,7 @@ class Games(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
 
+    @commands.guild_only()
     @game.sub_command(
         usage="game snail <bet number>", 
         options=[
@@ -2544,6 +2827,7 @@ class Games(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
 
+    @commands.guild_only()
     @game.sub_command(
         usage="game g2048",  
         description="Classic 2048 game. Slide all the tiles on the board in one of four directions."
@@ -2561,6 +2845,7 @@ class Games(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
 
+    @commands.guild_only()
     @game.sub_command(
         usage="game sokoban", 
         description="Sokoban interactive game."

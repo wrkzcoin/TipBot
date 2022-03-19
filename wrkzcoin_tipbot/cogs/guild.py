@@ -487,5 +487,98 @@ class Guild(commands.Cog):
                     traceback.print_exc(file=sys.stdout)
 
 
+    # Guild deposit
+    async def async_mdeposit(self, ctx, token: str=None, plain: str=None):
+        COIN_NAME = None
+        if token is None:
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(f'{ctx.author.mention}, token name is missing.')
+            else:
+                await ctx.reply(f'{ctx.author.mention}, token name is missing.')
+            return
+        else:
+            COIN_NAME = token.upper()
+            # print(self.bot.coin_list)
+            if not hasattr(self.bot.coin_list, COIN_NAME):
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.')
+                else:
+                    await ctx.reply(f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.')
+                return
+            else:
+                if getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_deposit") == 0:
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.response.send_message(f'{ctx.author.mention}, **{COIN_NAME}** deposit disable.')
+                    else:
+                        await ctx.reply(f'{ctx.author.mention}, **{COIN_NAME}** deposit disable.')
+                    return
+                    
+        # Do the job
+        try:
+            Guild_WalletAPI = WalletAPI(self.bot)
+            net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
+            type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
+            get_deposit = await Guild_WalletAPI.sql_get_userwallet(str(ctx.guild.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+            if get_deposit is None:
+                get_deposit = await Guild_WalletAPI.sql_register_user(str(ctx.guild.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
+                
+            wallet_address = get_deposit['balance_wallet_address']
+            description = ""
+            fee_txt = ""
+            guild_note = " This is guild's deposit address and NOT YOURS."
+            token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
+            if getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_note") and len(getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_note")) > 0:
+                description = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_note")
+            if getattr(getattr(self.bot.coin_list, COIN_NAME), "real_deposit_fee") and getattr(getattr(self.bot.coin_list, COIN_NAME), "real_deposit_fee") > 0:
+                fee_txt = " **{} {}** will be deducted from your deposit when it reaches minimum. ".format(getattr(getattr(self.bot.coin_list, COIN_NAME), "real_deposit_fee"), token_display)
+            embed = disnake.Embed(title=f'Deposit for guild {ctx.guild.name}', description=description + fee_txt + guild_note, timestamp=datetime.utcnow())
+            embed.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
+            try:
+                gen_qr_address = await Guild_WalletAPI.generate_qr_address(wallet_address)
+                embed.set_thumbnail(url=config.storage.deposit_url + wallet_address + ".png")
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            plain_msg = 'Guild {} deposit address: ```{}```'.format(ctx.guild.name, wallet_address)
+            embed.add_field(name="Guild {}".format(ctx.guild.name), value="`{}`".format(wallet_address), inline=False)
+            if getattr(getattr(self.bot.coin_list, COIN_NAME), "explorer_link") and len(getattr(getattr(self.bot.coin_list, COIN_NAME), "explorer_link")) > 0:
+                embed.add_field(name="Other links", value="[{}]({})".format("Explorer", getattr(getattr(self.bot.coin_list, COIN_NAME), "explorer_link")), inline=False)
+            embed.set_footer(text="Use: deposit plain (for plain text)")
+            try:
+                # Try DM first
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    if plain and plain.lower() == 'plain' or plain.lower() == 'text':
+                        await ctx.response.send_message(plain_msg, view=RowButton_row_close_any_message())
+                    else:
+                        await ctx.response.send_message(embed=embed, view=RowButton_row_close_any_message())
+                else:
+                    if plain and plain.lower() == 'plain' or plain.lower() == 'text':
+                        msg = await ctx.reply(plain_msg, view=RowButton_row_close_any_message())
+                    else:
+                        msg = await ctx.reply(embed=embed, view=RowButton_row_close_any_message())
+            except (disnake.Forbidden, disnake.errors.Forbidden) as e:
+                traceback.print_exc(file=sys.stdout)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+
+
+    @commands.guild_only()
+    @commands.slash_command(
+        usage="mdeposit <coin_name>", 
+        options=[
+            Option('token', 'token', OptionType.string, required=True),
+            Option('plain', 'plain', OptionType.string, required=False)
+        ],
+        description="Get a deposit address for a guild."
+    )
+    async def mdeposit(
+        self, 
+        ctx,
+        token: str,
+        plain: str = 'embed'
+    ):
+        await self.async_mdeposit(ctx, token, plain)
+    # Guild deposit
+
+
 def setup(bot):
     bot.add_cog(Guild(bot))

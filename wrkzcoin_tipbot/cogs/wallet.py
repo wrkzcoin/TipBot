@@ -125,6 +125,35 @@ class WalletAPI(commands.Cog):
         self.bot = bot
 
 
+    async def generate_qr_address(
+        self, 
+        address: str
+    ):
+        # return path to image
+        # address = wallet['balance_wallet_address']
+        # return address if success, else None
+        if not os.path.exists(config.storage.path_deposit_qr_create + address + ".png"):
+            try:
+                # do some QR code
+                qr = qrcode.QRCode(
+                    version=1,
+                    error_correction=qrcode.constants.ERROR_CORRECT_L,
+                    box_size=10,
+                    border=2,
+                )
+                qr.add_data(address)
+                qr.make(fit=True)
+                img = qr.make_image(fill_color="black", back_color="white")
+                img = img.resize((256, 256))
+                img.save(config.storage.path_deposit_qr_create + address + ".png")
+                return address
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
+        else:
+            return address
+        return None
+
     # ERC-20, TRC-20, native is one
     # Gas Token like BNB, xDAI, MATIC, TRX will be a different address
     async def sql_register_user(self, userID, coin: str, netname: str, type_coin: str, user_server: str, chat_id: int = 0, is_discord_guild: int=0):
@@ -2123,6 +2152,13 @@ class Wallet(commands.Cog):
         return []
  
  
+    async def generate_qr_address(
+        self, 
+        address: str
+    ):
+        User_WalletAPI = WalletAPI(self.bot)
+        return await User_WalletAPI.generate_qr_address(address)
+
     async def sql_get_userwallet(self, userID, coin: str, netname: str, type_coin: str, user_server: str = 'DISCORD', chat_id: int = 0):
         User_WalletAPI = WalletAPI(self.bot)
         return await User_WalletAPI.sql_get_userwallet(userID, coin, netname, type_coin, user_server, chat_id)
@@ -2169,35 +2205,6 @@ class Wallet(commands.Cog):
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return {}
-
-    async def generate_qr_address(
-        self, 
-        address: str
-    ):
-        # return path to image
-        # address = wallet['balance_wallet_address']
-        # return address if success, else None
-        if not os.path.exists(config.storage.path_deposit_qr_create + address + ".png"):
-            try:
-                # do some QR code
-                qr = qrcode.QRCode(
-                    version=1,
-                    error_correction=qrcode.constants.ERROR_CORRECT_L,
-                    box_size=10,
-                    border=2,
-                )
-                qr.add_data(address)
-                qr.make(fit=True)
-                img = qr.make_image(fill_color="black", back_color="white")
-                img = img.resize((256, 256))
-                img.save(config.storage.path_deposit_qr_create + address + ".png")
-                return address
-            except Exception as e:
-                traceback.print_exc(file=sys.stdout)
-                await logchanbot(traceback.format_exc())
-        else:
-            return address
-        return None
 
 
     async def async_deposit(self, ctx, token: str=None, plain: str=None):

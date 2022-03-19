@@ -898,6 +898,7 @@ class g2048_Buttons(disnake.ui.View):
         self.free_game = free_game
         self.db = database_games()
         self.time_start = int(time.time())
+        self.game_over = False
 
         self.score = 0
         self.gameBoard = g2048_getNewBoard()
@@ -1248,6 +1249,7 @@ class Sokoban_Buttons(disnake.ui.View):
         self.free_game = free_game
         self.db = database_games()
         self.time_start = int(time.time())
+        self.game_over = False
 
         self.level = None
         self.currentLevel = None
@@ -1333,7 +1335,8 @@ class Sokoban_Buttons(disnake.ui.View):
             if isinstance(child, disnake.ui.Button):
                 child.disabled = True
         await self.message.edit(view=self)
-        await self.message.reply(f'{self.ctx.author.mention}, time running out.')
+        if self.game_over == False:
+            await self.message.reply(f'{self.ctx.author.mention}, time running out.')
 
 
     @disnake.ui.button(label="🔼", style=ButtonStyle.red)

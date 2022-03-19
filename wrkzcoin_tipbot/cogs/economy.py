@@ -926,7 +926,7 @@ class Economy(commands.Cog):
         redis_utils.openRedis()
         self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
         self.db = database_economy()
-
+        self.enable_logchan = False
 
     async def check_guild(self, ctx):
         if self.botLogChan is None:
@@ -2234,7 +2234,24 @@ class Economy(commands.Cog):
         description="Economy game commands."
     )
     async def eco(self, ctx):
-        pass
+        # Check if there is economy channel
+        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        if serverinfo and 'enable_economy' in serverinfo and serverinfo['enable_economy'] == "NO":
+            if self.enable_logchan:
+                await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried **/economy** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+            msg = f"{ctx.author.mention}, economy game is not available in this guild yet. Please request TipBot dev team if you want to add with your customization."
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
+            return
+        elif serverinfo and 'enable_economy' in serverinfo and serverinfo['enable_economy'] == "YES" and serverinfo['economy_channel'] and int(serverinfo['economy_channel']) != ctx.channel.id:
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, {EcoChan.mention} is the economy channel!!!"
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
+            return
 
 
     @eco.sub_command(

@@ -1041,6 +1041,54 @@ class Guild(commands.Cog):
 
     @commands.has_permissions(manage_channels=True)
     @setting.sub_command(
+        usage="setting economychan", 
+        description="Set economy game channel to the commanded channel"
+    )
+    async def economychan(
+        self, 
+        ctx,
+    ):
+        await self.bot_log()
+        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        if serverinfo is None:
+            # Let's add some info if server return None
+            add_server_info = await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
+            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        if serverinfo['economy_channel']:
+            try: 
+                if ctx.channel.id == int(serverinfo['economy_channel']):
+                    msg = f"{EMOJI_RED_NO} {ctx.channel.mention} is already the economy game channel here!"
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.reply(msg)
+                    return
+                else:
+                    # change channel info
+                    changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'economy_channel', str(ctx.channel.id))
+                    msg = f'Economy game channel of guild {ctx.guild.name} has set to {ctx.channel.mention}.'
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.reply(msg)
+                    if self.enable_logchan:
+                        await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} change economy game channel {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.')
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
+        else:
+            # change channel info
+            changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'economy_channel', str(ctx.channel.id))
+            msg = f'Economy game channel of guild {ctx.guild.name} has set to {ctx.channel.mention}.'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
+            if self.enable_logchan:
+                await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} changed economy game channel {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.')
+
+    @commands.has_permissions(manage_channels=True)
+    @setting.sub_command(
         usage="setting faucet", 
         description="Toggle faucet enable ON/OFF in your guild"
     )
@@ -1081,29 +1129,7 @@ class Guild(commands.Cog):
                 await ctx.reply(msg)
 
 
-    @guild.sub_command(
-        usage="guild gamechan <game>", 
-        options=[
-            Option('game', 'game', OptionType.string, required=True, choices=[
-                OptionChoice("2048", "2048"),
-                OptionChoice("BLACKJACK", "BLACKJACK"),
-                OptionChoice("DICE", "DICE"),
-                OptionChoice("MAZE", "MAZE"),
-                OptionChoice("SLOT", "SLOT"),
-                OptionChoice("SNAIL", "SNAIL"),
-                OptionChoice("SOKOBAN", "SOKOBAN")
-            ]
-            )
-        ],
-        description="Set guild's specific game channel."
-    )
-    @commands.has_permissions(manage_channels=True)
-    async def gamechan(
-        self, 
-        ctx,
-        game: str
-    ):
-        await self.bot_log()
+    async def async_set_gamechan(self, ctx, game):
         game_list = config.game.game_list.split(",")
         if game is None:
             msg = f"{EMOJI_RED_NO} {ctx.channel.mention} please mention a game name to set game channel for it. Game list: {config.game.game_list}."
@@ -1162,6 +1188,31 @@ class Guild(commands.Cog):
                     if self.enable_logchan:
                         await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} set game **{game}** channel in {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.')
                     return
+
+    @guild.sub_command(
+        usage="guild gamechan <game>", 
+        options=[
+            Option('game', 'game', OptionType.string, required=True, choices=[
+                OptionChoice("2048", "2048"),
+                OptionChoice("BLACKJACK", "BLACKJACK"),
+                OptionChoice("DICE", "DICE"),
+                OptionChoice("MAZE", "MAZE"),
+                OptionChoice("SLOT", "SLOT"),
+                OptionChoice("SNAIL", "SNAIL"),
+                OptionChoice("SOKOBAN", "SOKOBAN")
+            ]
+            )
+        ],
+        description="Set guild's specific game channel."
+    )
+    @commands.has_permissions(manage_channels=True)
+    async def gamechan(
+        self, 
+        ctx,
+        game: str
+    ):
+        await self.bot_log()
+        await self.async_set_gamechan(ctx, game)
 
 
     @setting.sub_command(
@@ -1187,64 +1238,7 @@ class Guild(commands.Cog):
         game: str
     ):
         await self.bot_log()
-        game_list = config.game.game_list.split(",")
-        if game is None:
-            msg = f"{EMOJI_RED_NO} {ctx.channel.mention} please mention a game name to set game channel for it. Game list: {config.game.game_list}."
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
-            return
-        else:
-            game = game.lower()
-            if game not in game_list:
-                msg = f"{EMOJI_RED_NO} {ctx.channel.mention} please mention a game name within this list: {config.game.game_list}."
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
-                return
-            else:
-                serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
-                index_game = "game_" + game + "_channel"
-                if serverinfo is None:
-                    # Let's add some info if server return None
-                    add_server_info = await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
-                    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
-                if serverinfo[index_game]:
-                    try: 
-                        if ctx.channel.id == int(serverinfo[index_game]):
-                            msg = f"{EMOJI_RED_NO} {ctx.channel.mention} is already for game **{game}** channel here!"
-                            if type(ctx) == disnake.ApplicationCommandInteraction:
-                                await ctx.response.send_message(msg)
-                            else:
-                                await ctx.reply(msg)
-                            return
-                        else:
-                            # change channel info
-                            changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), index_game, str(ctx.channel.id))
-                            msg = f'{ctx.channel.mention} Game **{game}** channel has set to {ctx.channel.mention}.'
-                            if type(ctx) == disnake.ApplicationCommandInteraction:
-                                await ctx.response.send_message(msg)
-                            else:
-                                await ctx.reply(msg)
-                            if self.enable_logchan:
-                                await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} changed game **{game}** in channel {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.')
-                            return
-                    except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
-                        await logchanbot(traceback.format_exc())
-                else:
-                    # change channel info
-                    changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), index_game, str(ctx.channel.id))
-                    msg = f'{ctx.channel.mention} Game **{game}** channel has set to {ctx.channel.mention}.'
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
-                    if self.enable_logchan:
-                        await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} set game **{game}** channel in {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.')
-                    return
+        await self.async_set_gamechan(ctx, game)
     # End of setting
 
 def setup(bot):

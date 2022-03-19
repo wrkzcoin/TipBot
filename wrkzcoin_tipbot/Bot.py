@@ -118,7 +118,7 @@ EMOJI_CHART_DOWN = "\U0001F4C9"
 EMOJI_CHART_UP = "\U0001F4C8"
 
 NOTIFICATION_OFF_CMD = 'Type: `/notifytip off` to turn off this notification.'
-
+DEFAULT_TICKER = "WRKZ"
 
 def init():
     global redis_pool
@@ -174,6 +174,7 @@ bot.owner_id = config.discord.ownerID
 bot.coin_list = None
 bot.token_hints = None
 bot.token_hint_names = None
+bot.coin_name_list = None
 
 # messages
 bot.message_list = []

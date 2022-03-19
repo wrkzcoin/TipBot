@@ -87,13 +87,34 @@ class Events(commands.Cog):
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     coin_list = {}
+                    coin_list_name = []
                     sql = """ SELECT * FROM `coin_settings` """
                     await cur.execute(sql, ())
                     result = await cur.fetchall()
                     if result and len(result) > 0:
                         for each in result:
                             coin_list[each['coin_name']] = each
+                            coin_list_name.append(each['coin_name'])
                         return AttrDict(coin_list)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return None
+
+
+    async def get_coin_list_name(self):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    coin_list_name = []
+                    sql = """ SELECT `coin_name` FROM `coin_settings` """
+                    await cur.execute(sql, ())
+                    result = await cur.fetchall()
+                    if result and len(result) > 0:
+                        for each in result:
+                            coin_list_name.append(each['coin_name'])
+                        return coin_list_name
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
@@ -186,6 +207,10 @@ class Events(commands.Cog):
             if coin_list:
                 self.bot.coin_list = coin_list
                 print("coin setting loaded...")
+            coin_list_name = await self.get_coin_list_name()
+            if coin_list_name:
+                self.bot.coin_name_list = coin_list_name
+                print("coin_list_name loaded...")
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 

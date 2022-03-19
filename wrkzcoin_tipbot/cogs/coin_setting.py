@@ -35,6 +35,23 @@ class CoinSetting(commands.Cog):
             await logchanbot(traceback.format_exc())
         return None
 
+    async def get_coin_list_name(self):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    coin_list_name = []
+                    sql = """ SELECT `coin_name` FROM `coin_settings` """
+                    await cur.execute(sql, ())
+                    result = await cur.fetchall()
+                    if result and len(result) > 0:
+                        for each in result:
+                            coin_list_name.append(each['coin_name'])
+                        return coin_list_name
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return None
 
     # This token hints is priority
     async def get_token_hints(self):
@@ -74,7 +91,10 @@ class CoinSetting(commands.Cog):
                 coin_list = await self.get_coin_setting()
                 if coin_list:
                     self.bot.coin_list = coin_list
-                await ctx.reply(f"{ctx.author.mention}, coin list reloaded...")
+                coin_list_name = await self.get_coin_list_name()
+                if coin_list_name:
+                    self.bot.coin_name_list = coin_list_name
+                await ctx.reply(f"{ctx.author.mention}, coin list, name reloaded...")
                 await logchanbot(f"{ctx.author.name}#{ctx.author.discriminator} reloaded `{cmd}`.")
             elif cmd.lower() == "coinalias":
                 await self.get_token_hints()

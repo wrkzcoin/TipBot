@@ -34,6 +34,19 @@ class TopGGVote(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return None
 
+    async def guild_find_by_id(self, guild_id: str):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    date_vote = int(time.time())
+                    sql = """ SELECT * FROM `discord_server` WHERE `serverid`=%s """
+                    await cur.execute(sql, ( guild_id ))
+                    result = await cur.fetchone()
+                    if result: return result
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return None
 
     async def insert_guild_vote(self, user_id: str, directory: str, guild_id: str, type_vote: str):
         try:
@@ -41,8 +54,8 @@ class TopGGVote(commands.Cog):
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     date_vote = int(time.time())
-                    sql = """ INSERT IGNORE INTO guild_vote (`user_id`, `directory`, `guild_id`, `type`, `date_voted`, `uniq_user_id_date`) VALUES (%s, %s, %s, %s, %s, %s) """
-                    await cur.execute(sql, ( user_id, directory, guild_id, type_vote, date_vote, "{}-{}".format(user_id, date_vote) ))
+                    sql = """ INSERT IGNORE INTO guild_vote (`user_id`, `directory`, `guild_id`, `type`, `date_voted`) VALUES (%s, %s, %s, %s, %s) """
+                    await cur.execute(sql, ( user_id, directory, guild_id, type_vote, date_vote ))
                     await conn.commit()
                     return True
         except Exception as e:
@@ -56,14 +69,13 @@ class TopGGVote(commands.Cog):
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     date_vote = int(time.time())
-                    sql = """ INSERT IGNORE INTO bot_vote (`user_id`, `directory`, `bot_id`, `type`, `date_voted`, `uniq_user_id_date`) VALUES (%s, %s, %s, %s, %s, %s) """
-                    await cur.execute(sql, ( user_id, directory, bot_id, type_vote, date_vote, "{}-{}".format(user_id, date_vote) ))
+                    sql = """ INSERT IGNORE INTO bot_vote (`user_id`, `directory`, `bot_id`, `type`, `date_voted`) VALUES (%s, %s, %s, %s, %s) """
+                    await cur.execute(sql, ( user_id, directory, bot_id, type_vote, date_vote ))
                     await conn.commit()
                     return True
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         return False
-
 
     async def vote_logchan(self, content: str):
         try:
@@ -102,6 +114,68 @@ class TopGGVote(commands.Cog):
                             if get_guild_by_key and get_guild_by_key == key:
                                 # Check if bot is in that guild, if not post in log chan vote
                                 guild = self.bot.get_guild(int(guild_id))
+                                get_guild = await self.guild_find_by_id(guild_id)
+                                if get_guild['vote_reward_amount'] and get_guild['vote_reward_amount'] >  0:
+                                    # Tip
+                                    COIN_NAME = get_guild['vote_reward_coin']
+                                    # Check balance of guild
+                                    User_WalletAPI = WalletAPI(self.bot)
+                                    net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
+                                    type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
+                                    deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
+                                    coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+                                    contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
+                                    usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
+                                    user_from = await User_WalletAPI.sql_get_userwallet(guild_id, COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                                    if user_from is None:
+                                        user_from = await User_WalletAPI.sql_register_user(guild_id, COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                                    wallet_address = user_from['balance_wallet_address']
+                                    if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                                        wallet_address = user_from['paymentid']
+
+                                    height = None
+                                    try:
+                                        if type_coin in ["ERC-20", "TRC-20"]:
+                                            height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
+                                        else:
+                                            height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
+                                    except Exception as e:
+                                        traceback.print_exc(file=sys.stdout)
+
+                                    # height can be None
+                                    userdata_balance = await store.sql_user_balance_single(guild_id, COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+                                    total_balance = userdata_balance['adjust']
+                                    if total_balance < get_guild['vote_reward_amount']:
+                                        # Alert guild owner
+                                        guild_owner = self.bot.get_user(guild.owner.id)
+                                        await guild_owner.send(f'Your guild run out of guild\'s reward for {COIN_NAME}. Deposit more!')
+                                    else:
+                                        # Tip
+                                        try:
+                                            amount_in_usd = 0.0
+                                            if usd_equivalent_enable == 1:
+                                                native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
+                                                COIN_NAME_FOR_PRICE = COIN_NAME
+                                                if native_token_name:
+                                                    COIN_NAME_FOR_PRICE = native_token_name
+                                                if COIN_NAME_FOR_PRICE in self.bot.token_hints:
+                                                    id = self.bot.token_hints[COIN_NAME_FOR_PRICE]['ticker_name']
+                                                    per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+                                                else:
+                                                    per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
+                                                if per_unit and per_unit > 0:
+                                                    amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
+                                            tip = await store.sql_user_balance_mv_single(guild_id, user_vote, "TOPGG", "VOTE", amount, COIN_NAME, "GUILDVOTE", coin_decimal, SERVER_BOT, contract, amount_in_usd)
+                                            if member is not None:
+                                                msg = f"Thank you for voting guild `{guild.name}` at top.gg. You just got a reward of {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}."
+                                                try:
+                                                    await member.send(msg)
+                                                    guild_owner = self.bot.get_user(guild.owner.id)
+                                                    await guild_owner.send(f'User `{user_vote}` voted your guild {guild.name} at top.gg. He/she just got a reward of {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}.')
+                                                except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
+                                                    await self.vote_logchan(f'[{SERVER_BOT}] Failed to thank message to <@{user_vote}>.')
+                                        except Exception as e:
+                                            traceback.print_exc(file=sys.stdout)
                                 # TODO: Find bot channel
                                 if guild:
                                     try:
@@ -114,6 +188,7 @@ class TopGGVote(commands.Cog):
                                         await self.vote_logchan(f'[{SERVER_BOT}] A user <@{user_vote}> voted a guild `<@{guild_id}>` type `{type_vote}` in top.gg but I am not in that server or I can\'t find bot channel.')
                                     except Exception as e:
                                         traceback.print_exc(file=sys.stdout)
+                                return web.Response(text="Thank you!")
                             else:
                                 try:
                                     await self.vote_logchan(f'[{SERVER_BOT}] A user <@{user_vote}> voted a guild `<@{guild_id}>` type `{type_vote}` in top.gg but I am not in that guild or I cannot find it.')
@@ -178,7 +253,7 @@ class TopGGVote(commands.Cog):
                                                     userdata_balance = await store.sql_user_balance_single(str(config.discord.bot_id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
                                                     total_balance = userdata_balance['adjust']
                                                     if total_balance <= amount:
-                                                        await self.vote_logchan(f'[{SERVER_BOT}] vote reward for {COIN_NAME} empty!!!')
+                                                        await self.vote_logchan(f'[{SERVER_BOT}] vote reward for but TipBot for {COIN_NAME} but empty!!!')
                                                         return web.Response(text="Thank you!")
                                                     else:
                                                         # move reward

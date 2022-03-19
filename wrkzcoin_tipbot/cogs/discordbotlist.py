@@ -26,8 +26,8 @@ class DiscordBotList(commands.Cog):
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     date_vote = int(time.time())
-                    sql = """ INSERT IGNORE INTO bot_vote (`user_id`, `name`, `directory`, `bot_id`, `type`, `date_voted`, `uniq_user_id_date`) VALUES (%s, %s, %s, %s, %s, %s, %s) """
-                    await cur.execute(sql, ( user_id, voter, directory, bot_id, type_vote, date_vote, "{}-{}".format(user_id, date_vote) ))
+                    sql = """ INSERT IGNORE INTO bot_vote (`user_id`, `name`, `directory`, `bot_id`, `type`, `date_voted`) VALUES (%s, %s, %s, %s, %s, %s) """
+                    await cur.execute(sql, ( user_id, voter, directory, bot_id, type_vote, date_vote ))
                     await conn.commit()
                     return True
         except Exception as e:
@@ -115,7 +115,7 @@ class DiscordBotList(commands.Cog):
                                             userdata_balance = await store.sql_user_balance_single(str(config.discord.bot_id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
                                             total_balance = userdata_balance['adjust']
                                             if total_balance <= amount:
-                                                await self.vote_logchan(f'[{SERVER_BOT}] vote reward for {COIN_NAME} empty!!!')
+                                                await self.vote_logchan(f'[{SERVER_BOT}] vote reward for but TipBot for {COIN_NAME} but empty!!!')
                                                 return web.Response(text="Thank you!")
                                             else:
                                                 # move reward

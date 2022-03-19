@@ -14,6 +14,7 @@ from disnake.ext import tasks, commands
 
 from disnake.enums import OptionType
 from disnake.app_commands import Option, OptionChoice
+from discord_webhook import DiscordWebhook
 
 import store
 from Bot import get_token_list, num_format_coin, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_ARROW_RIGHTHOOK, SERVER_BOT, RowButton_close_message, RowButton_row_close_any_message, human_format, text_to_num, truncate, NOTIFICATION_OFF_CMD
@@ -30,6 +31,77 @@ class Guild(commands.Cog):
         self.bot = bot
         redis_utils.openRedis()
 
+        # Tasks
+        self.monitor_guild_reward_amount.start()
+
+    # Check if guild has at least 10x amount of reward or disable
+    @tasks.loop(seconds=30.0)
+    async def monitor_guild_reward_amount(self):
+        await asyncio.sleep(5.0)
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `discord_server` WHERE `vote_reward_amount`>0 """
+                    await cur.execute(sql, )
+                    result = await cur.fetchall()
+                    if result and len(result) > 0:
+                        for each_guild in result:
+                            # Check guild's balance
+                            COIN_NAME = each_guild['vote_reward_coin']
+                            net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
+                            type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
+                            deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
+                            coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+                            contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
+                            token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
+                            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
+                            
+                            Guild_WalletAPI = WalletAPI(self.bot)
+                            get_deposit = await Guild_WalletAPI.sql_get_userwallet(each_guild['serverid'], COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                            if get_deposit is None:
+                                get_deposit = await Guild_WalletAPI.sql_register_user(each_guild['serverid'], COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 1)
+
+                            wallet_address = get_deposit['balance_wallet_address']
+                            if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                                wallet_address = get_deposit['paymentid']
+
+                            height = None
+                            try:
+                                if type_coin in ["ERC-20", "TRC-20"]:
+                                    height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
+                                else:
+                                    height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
+                            except Exception as e:
+                                traceback.print_exc(file=sys.stdout)
+
+                            userdata_balance = await store.sql_user_balance_single(each_guild['serverid'], COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+                            actual_balance = float(userdata_balance['adjust'])
+                            if actual_balance < 10*float(each_guild['vote_reward_amount']):
+                                amount = 10*float(each_guild['vote_reward_amount'])
+                                # Disable it
+                                # Process, only guild owner can process
+                                update_reward = await self.update_reward(each_guild['serverid'], actual_balance, COIN_NAME, True)
+                                if update_reward is not None:
+                                    try:
+                                        guild_found = self.bot.get_guild(int(each_guild['serverid']))
+                                        user_found = self.bot.get_user(guild_found.owner.id)
+                                        if user_found is not None:
+                                            await user_found.send(f"Currently, your guild's balance of {COIN_NAME} is lower than 10x reward: {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}. Vote reward is disable.")
+                                    except Exception as e:
+                                        traceback.print_exc(file=sys.stdout)
+                                    await self.vote_logchan(f'[{SERVER_BOT}] Disable vote reward for {guild_found.name} / {guild_found.id}. Guild\'s balance below 10x: {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}.')
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+
+
+
+    async def vote_logchan(self, content: str):
+        try:
+            webhook = DiscordWebhook(url=config.topgg.topgg_votehook, content=content)
+            webhook.execute()
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
 
     async def guild_find_by_key(self, guild_id: str, secret: str):
         try:
@@ -44,7 +116,6 @@ class Guild(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return None
 
-
     async def guild_insert_key(self, guild_id: str, key: str, secret: str, update: bool=False):
         try:
             await store.openConnection()
@@ -54,6 +125,25 @@ class Guild(commands.Cog):
                     await cur.execute(sql, (key, guild_id))
                     await conn.commit()
                     return cur.rowcount
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
+    async def update_reward(self, guild_id: str, amount: float, coin_name: str, disable: bool=False):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    if disable == True:
+                        sql = """ UPDATE discord_server SET `vote_reward_amount`=%s, `vote_reward_coin`=%s WHERE `serverid`=%s LIMIT 1 """
+                        await cur.execute(sql, ( None, None, guild_id ))
+                        await conn.commit()
+                        return cur.rowcount
+                    else:
+                        sql = """ UPDATE discord_server SET `vote_reward_amount`=%s, `vote_reward_coin`=%s WHERE `serverid`=%s LIMIT 1 """
+                        await cur.execute(sql, ( amount, coin_name.upper(), guild_id ))
+                        await conn.commit()
+                        return cur.rowcount
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         return None
@@ -196,6 +286,115 @@ class Guild(commands.Cog):
                 else:
                     await tmp_msg.delete()
                     view.message = await ctx.reply(content=None, embed=all_pages[0], view=view)
+
+
+    @commands.has_permissions(administrator=True)
+    @guild.sub_command(
+        usage="guild votereward <amount> <coin/token>", 
+        options=[
+            Option('amount', 'amount', OptionType.string, required=True), 
+            Option('coin', 'coin', OptionType.string, required=True) 
+        ],
+        description="Set a reward when a user vote to your guild (topgg, ...)."
+    )
+    async def votereward(
+        self,
+        ctx,
+        amount: str, 
+        coin: str
+    ):
+        COIN_NAME = coin.upper()
+        if not hasattr(self.bot.coin_list, COIN_NAME):
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.')
+            else:
+                await ctx.reply(f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.')
+            return
+
+        net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
+        type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
+        deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
+        coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+        contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
+        token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
+        MinTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_min_tip")
+        MaxTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_max_tip")
+        usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
+        
+        Guild_WalletAPI = WalletAPI(self.bot)
+        get_deposit = await Guild_WalletAPI.sql_get_userwallet(str(ctx.guild.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+        if get_deposit is None:
+            get_deposit = await Guild_WalletAPI.sql_register_user(str(ctx.guild.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 1)
+
+        wallet_address = get_deposit['balance_wallet_address']
+        if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+            wallet_address = get_deposit['paymentid']
+
+        height = None
+        try:
+            if type_coin in ["ERC-20", "TRC-20"]:
+                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
+            else:
+                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+
+        userdata_balance = await store.sql_user_balance_single(str(ctx.guild.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+        actual_balance = float(userdata_balance['adjust'])
+
+        amount = amount.replace(",", "")
+        amount = text_to_num(amount)
+        if amount is None:
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention} Invalid given amount.'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
+            return
+        # We assume max reward by MaxTip / 10
+        elif amount < MinTip or amount > MaxTip / 10:
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention} Reward cannot be smaller than {num_format_coin(MinTip, COIN_NAME, coin_decimal, False)} {token_display} or bigger than {num_format_coin(MaxTip / 10, COIN_NAME, coin_decimal, False)} {token_display}.'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg, ephemeral=True)
+            else:
+                await ctx.reply(msg)
+            return
+        # We assume at least guild need to have 100x of reward or depends on guild's population
+        elif amount*100 > actual_balance:
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention} you need to have at least 100x reward balance. 100x rewards = {num_format_coin(amount*100, COIN_NAME, coin_decimal, False)} {token_display}.'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg, ephemeral=True)
+            else:
+                await ctx.reply(msg)
+            return
+        elif amount*len(ctx.guild.members) > actual_balance:
+            population = len(ctx.guild.members)
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention} you need to have at least {str(population)}x reward balance. {str(population)}x rewards = {num_format_coin(amount*population, COIN_NAME, coin_decimal, False)} {token_display}.'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg, ephemeral=True)
+            else:
+                await ctx.reply(msg)
+            return
+        else:
+            # Process, only guild owner can process
+            update_reward = await self.update_reward(str(ctx.guild.id), float(amount), COIN_NAME)
+            if update_reward is not None:
+                msg = f'{ctx.author.mention} Successfully set reward for voting in guild {ctx.guild.name} to {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}.'
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(msg, ephemeral=True)
+                else:
+                    await ctx.reply(msg)
+                try:
+                    await self.vote_logchan(f'[{SERVER_BOT}] A user {ctx.author.name}#{ctx.author.discriminator} set a vote reward in guild {ctx.guild.name} / {ctx.guild.id} to {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}.')
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+            else:
+                msg = f'{EMOJI_RED_NO} {ctx.author.mention} internal error.'
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(msg, ephemeral=True)
+                else:
+                    await ctx.reply(msg)
+            return
 
 
     @guild.sub_command(
@@ -520,7 +719,7 @@ class Guild(commands.Cog):
             type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
             get_deposit = await Guild_WalletAPI.sql_get_userwallet(str(ctx.guild.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
             if get_deposit is None:
-                get_deposit = await Guild_WalletAPI.sql_register_user(str(ctx.guild.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
+                get_deposit = await Guild_WalletAPI.sql_register_user(str(ctx.guild.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 1)
                 
             wallet_address = get_deposit['balance_wallet_address']
             description = ""

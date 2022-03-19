@@ -319,6 +319,14 @@ class Tips(commands.Cog):
                     await ctx.reply(msg)
                 return
         # End token name check
+        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        if serverinfo and serverinfo['tiponly'] and serverinfo['tiponly'] != "ALLCOIN" and COIN_NAME not in serverinfo['tiponly'].split(","):
+            msg = f'{ctx.author.mention}, **{COIN_NAME}** is not allowed here. Currently, allowed `{allowed_coins}`. You can ask guild owner to allow. `/SETTING TIPONLY coin1,coin2,...`'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
+            return
 
         net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
         type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
@@ -692,6 +700,7 @@ class Tips(commands.Cog):
     # FreeTip
     async def async_freetip(self, ctx, amount: str, token: str, duration: str=None, comment: str = None):
         COIN_NAME = token.upper()
+        
         # Token name check
         if not hasattr(self.bot.coin_list, COIN_NAME):
             msg = f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.'
@@ -709,6 +718,14 @@ class Tips(commands.Cog):
                     await ctx.reply(msg)
                 return
         # End token name check
+        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        if serverinfo and serverinfo['tiponly'] and serverinfo['tiponly'] != "ALLCOIN" and COIN_NAME not in serverinfo['tiponly'].split(","):
+            msg = f'{ctx.author.mention}, **{COIN_NAME}** is not allowed here. Currently, allowed `{allowed_coins}`. You can ask guild owner to allow. `/SETTING TIPONLY coin1,coin2,...`'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
+            return
 
         net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
         type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
@@ -977,6 +994,14 @@ class Tips(commands.Cog):
                     await ctx.reply(msg)
                 return
         # End token name check
+        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        if serverinfo and serverinfo['tiponly'] and serverinfo['tiponly'] != "ALLCOIN" and COIN_NAME not in serverinfo['tiponly'].split(","):
+            msg = f'{ctx.author.mention}, **{COIN_NAME}** is not allowed here. Currently, allowed `{allowed_coins}`. You can ask guild owner to allow. `/SETTING TIPONLY coin1,coin2,...`'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
+            return
 
         net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
         type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
@@ -1286,10 +1311,35 @@ class Tips(commands.Cog):
             traceback.print_exc(file=sys.stdout)
     # End of TipAll
 
-
     # Tip Normal
     async def async_tip(self, ctx, amount: str, token: str, args):
         COIN_NAME = token.upper()
+        # Token name check
+        if not hasattr(self.bot.coin_list, COIN_NAME):
+            msg = f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
+            return
+        else:
+            if getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_tip") != 1:
+                msg = f'{ctx.author.mention}, **{COIN_NAME}** tipping is disable.'
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(msg)
+                else:
+                    await ctx.reply(msg)
+                return
+        # End token name check
+        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        if serverinfo and serverinfo['tiponly'] and serverinfo['tiponly'] != "ALLCOIN" and COIN_NAME not in serverinfo['tiponly'].split(","):
+            msg = f'{ctx.author.mention}, **{COIN_NAME}** is not allowed here. Currently, allowed `{allowed_coins}`. You can ask guild owner to allow. `/SETTING TIPONLY coin1,coin2,...`'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
+            return
+
         print("async_tip args: "+ str(args))
         if args == "@everyone":
             get_list_member_n_role = [str(member.id) for member in ctx.guild.members if member.id != ctx.author.id]
@@ -1341,8 +1391,7 @@ class Tips(commands.Cog):
                         num_user = num_user.replace("people", "").replace("person", "").replace("users", "").replace("user", "").replace("u", "")
                         try:
                             num_user = int(num_user)
-                            # TODO: replace <= 2
-                            if len(ctx.guild.members) <= 1:
+                            if len(ctx.guild.members) <= 2:
                                 msg = f'{EMOJI_RED_NO} {ctx.author.mention} Please use normal tip command. There are only few users.'
                                 if type(ctx) == disnake.ApplicationCommandInteraction:
                                     await ctx.response.send_message(msg)
@@ -1536,6 +1585,107 @@ class Tips(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
 
+    async def async_gtip(self, ctx, amount: str, token: str, args):
+        COIN_NAME = token.upper()
+        # Token name check
+        if not hasattr(self.bot.coin_list, COIN_NAME):
+            msg = f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
+            return
+        else:
+            if getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_tip") != 1:
+                msg = f'{ctx.author.mention}, **{COIN_NAME}** tipping is disable.'
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(msg)
+                else:
+                    await ctx.reply(msg)
+                return
+        # End token name check
+        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        if serverinfo and serverinfo['tiponly'] and serverinfo['tiponly'] != "ALLCOIN" and COIN_NAME not in serverinfo['tiponly'].split(","):
+            allowed_coins = serverinfo['tiponly']
+            msg = f'{ctx.author.mention}, **{COIN_NAME}** is not allowed here. Currently, allowed `{allowed_coins}`. You can ask guild owner to allow. `/SETTING TIPONLY coin1,coin2,...`'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
+            return
+
+        print("async_tip args: "+ str(args))
+        if args == "@everyone":
+            get_list_member_n_role = [str(member.id) for member in ctx.guild.members if member.id != ctx.author.id]
+        else:
+            get_list_member_n_role = re.findall(r'<?\w*\d*>', args)
+        list_member_ids = []
+
+        if len(get_list_member_n_role) > 0:
+            get_list_member_n_role = [each.replace(">", "").replace("<", "") for each in get_list_member_n_role]
+            # There is member or role to check
+            # Check member
+            for each_m in get_list_member_n_role:
+                try:
+                    m = self.bot.get_user(int(each_m))
+                    list_member_ids.append(m.id)
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+            if len(get_list_member_n_role) > 0:
+                for each_r in get_list_member_n_role:
+                    try:
+                        # get list users in role
+                        get_role = disnake.utils.get(ctx.guild.roles, id=int(each_r))
+                        role_listMember = [member.id for member in ctx.guild.members if get_role in member.roles]
+                        if len(role_listMember) > 0:
+                            list_member_ids += role_listMember
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+            list_member_ids = list(set(list_member_ids))
+            if len(list_member_ids) > 0:
+                try:
+                    await self.multiple_tip(ctx, amount, COIN_NAME, list_member_ids, True)
+                except (disnake.Forbidden, disnake.errors.Forbidden) as e:
+                    pass
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                return
+        if len(get_list_member_n_role) == 0 or len(list_member_ids) == 0:
+            try:
+                msg = f'{EMOJI_RED_NO} {ctx.author.mention} You need at least one person to tip to.'
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(msg)
+                else:
+                    await ctx.reply(msg)
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
+            return
+
+    @commands.guild_only()
+    @commands.bot_has_permissions(send_messages=True)
+    @commands.has_permissions(manage_channels=True)
+    @commands.slash_command(
+        usage='guildtip <amount> <token> @mention @mention..', 
+        options=[
+            Option('amount', 'amount', OptionType.string, required=True), 
+            Option('token', 'token', OptionType.string, required=True),  
+            Option('args', '<@mention1> <@mention2> ... | <@role> ... ', OptionType.string, required=True)
+        ],
+        description="Tip other people using your guild's balance."
+    )
+    async def guildtip(
+        self, 
+        ctx,
+        amount: str,
+        token: str,
+        args: str
+    ):
+        try:
+            await self.async_gtip(ctx, amount, token, args)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+
     @commands.guild_only()
     @commands.bot_has_permissions(send_messages=True)
     @commands.command(usage='tip <amount> <token> <*args>', aliases=['tip'], description='Tip other people')
@@ -1704,7 +1854,7 @@ class Tips(commands.Cog):
                 await ctx.reply(msg)
             return
         elif actual_balance < TotalAmount:
-            msg = await ctx.reply(f'{EMOJI_RED_NO} {ctx.author.mention} You don\'t have sufficient balance.')
+            msg = await ctx.reply(f'{EMOJI_RED_NO} {ctx.author.mention}, not sufficient balance.')
             return
 
         tipAmount = num_format_coin(TotalAmount, COIN_NAME, coin_decimal, False)

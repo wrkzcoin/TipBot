@@ -2148,3 +2148,123 @@ async def discord_freetip_update(message_id: str, status: str):
         await logchanbot(traceback.format_exc())
     return None
 # End of FreeTip
+
+# Trade
+async def sql_count_open_order_by_sellerid(userID: str, user_server: str, status: str = None):
+    global pool
+    user_server = user_server.upper()
+    if status is None: status = 'OPEN'
+    if status: status = status.upper()
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT COUNT(*) FROM `open_order` WHERE `userid_sell` = %s 
+                          AND `status`=%s AND `sell_user_server`=%s """
+                await cur.execute(sql, (userID, status, user_server))
+                result = await cur.fetchone()
+                return int(result['COUNT(*)']) if 'COUNT(*)' in result else 0
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+        traceback.print_exc(file=sys.stdout)
+    return 0
+
+
+# use to store data
+async def sql_store_openorder(coin_sell: str, coin_decimal_sell: str, amount_sell: float, 
+                              amount_sell_after_fee: float, userid_sell: str, coin_get: str, coin_decimal_buy: str, 
+                              amount_get: float, amount_get_after_fee: float, sell_div_get: float, 
+                              sell_user_server: str = 'DISCORD'):
+    global pool
+    sell_user_server = sell_user_server.upper()
+    if amount_sell == 0 or amount_sell_after_fee == 0 or amount_get == 0 \
+    or amount_get_after_fee == 0 or sell_div_get == 0:
+        print("Catch zero amount in {sql_store_openorder}!!!")
+        return False
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ INSERT INTO open_order (`coin_sell`, `coin_sell_decimal`, 
+                          `amount_sell`, `amount_sell_after_fee`, `userid_sell`, `coin_get`, `coin_get_decimal`, 
+                          `amount_get`, `amount_get_after_fee`, `sell_div_get`, `order_created_date`, `pair_name`, 
+                          `status`, `sell_user_server`) 
+                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                await cur.execute(sql, (coin_sell, coin_decimal_sell,
+                                  amount_sell, amount_sell_after_fee, userid_sell, coin_get, coin_decimal_buy,
+                                  amount_get, amount_get_after_fee, sell_div_get, float("%.3f" % time.time()), coin_sell + "-" + coin_get, 
+                                  'OPEN', sell_user_server))
+                await conn.commit()
+                return cur.lastrowid
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+        traceback.print_exc(file=sys.stdout)
+    return False
+
+# If in Discord, notified = True
+# If API, notified = False
+async def sql_match_order_by_sellerid(userid_get: str, ref_numb: str, buy_user_server: str, sell_user_server: str, userid_sell: str, notified: bool=True):
+    global pool
+    buy_user_server = buy_user_server.upper()
+    if buy_user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
+        return
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                try:
+                    ref_numb = int(ref_numb)
+                    sql = """ UPDATE `open_order` SET `status`=%s, `order_completed_date`=%s, 
+                              `userid_get` = %s, `buy_user_server`=%s 
+                              WHERE `order_id`=%s AND `status`=%s """
+                    await cur.execute(sql, ('COMPLETE', float("%.3f" % time.time()), userid_get, buy_user_server, ref_numb, 'OPEN'))
+                    await conn.commit()
+                    # Insert into open_order_notify_complete table
+                    try:
+                        if notified:
+                            sql = """ INSERT INTO open_order_notify_complete (`order_id`, `userid_sell`, `complete_date`, `sell_user_server`) 
+                                      VALUES (%s, %s, %s, %s) """
+                            await cur.execute(sql, (ref_numb, userid_sell, int(time.time()), sell_user_server))
+                            await conn.commit()
+                        else:
+                            sql = """ INSERT INTO open_order_notify_complete (`order_id`, `userid_sell`, `complete_date`, `sell_user_server`, `notified_seller`) 
+                                      VALUES (%s, %s, %s, %s, %s) """
+                            await cur.execute(sql, (ref_numb, userid_sell, int(time.time()), sell_user_server, "NO"))
+                            await conn.commit()
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                    return True
+                except ValueError:
+                    return False
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+        traceback.print_exc(file=sys.stdout)
+    return False
+
+
+async def sql_get_open_order_by_alluser(coin: str, status: str, need_to_buy: bool, limit: int=50):
+    global pool
+    COIN_NAME = coin.upper()
+    limit_str = ""
+    if limit > 0:
+        limit_str = "LIMIT "+str(limit)
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                if need_to_buy: 
+                    sql = """ SELECT * FROM `open_order` WHERE `status`=%s AND `coin_get`=%s ORDER BY sell_div_get ASC """+limit_str
+                    await cur.execute(sql, (status, COIN_NAME))
+                elif COIN_NAME == 'ALL':
+                    sql = """ SELECT * FROM `open_order` WHERE `status`=%s ORDER BY order_created_date DESC """+limit_str
+                    await cur.execute(sql, (status))
+                else:
+                    sql = """ SELECT * FROM `open_order` WHERE `status`=%s AND `coin_sell`=%s ORDER BY sell_div_get ASC """+limit_str
+                    await cur.execute(sql, (status, COIN_NAME))
+                result = await cur.fetchall()
+                return result
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+        traceback.print_exc(file=sys.stdout)
+    return False
+# End of Trade

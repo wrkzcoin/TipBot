@@ -248,6 +248,17 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
                 else:
                     triviatip = 0
 
+                # Expense (negative)
+                sql = """ SELECT SUM(amount_sell) AS open_order FROM open_order WHERE `coin_sell`=%s AND `userid_sell`=%s 
+                          AND `status`=%s
+                      """
+                await cur.execute(sql, (TOKEN_NAME, userID, 'OPEN'))
+                result = await cur.fetchone()
+                if result:
+                    open_order = result['open_order']
+                else:
+                    open_order = 0
+
                 # Each coin
                 if coin_family in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                     sql = """ SELECT SUM(amount+withdraw_fee) AS tx_expense FROM `cn_external_tx` WHERE `user_id`=%s AND `coin_name` = %s AND `user_server` = %s """
@@ -380,8 +391,10 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
 
             balance['tx_expense'] = float("%.4f" % tx_expense) if tx_expense else 0
             balance['incoming_tx'] = float("%.4f" % incoming_tx) if incoming_tx else 0
+            
+            balance['open_order'] = float("%.4f" % open_order) if open_order else 0
 
-            balance['adjust'] = float("%.4f" % ( balance['mv_balance']+balance['incoming_tx']-balance['airdropping']-balance['mathtip']-balance['triviatip']-balance['tx_expense'] ))
+            balance['adjust'] = float("%.4f" % ( balance['mv_balance']+balance['incoming_tx']-balance['airdropping']-balance['mathtip']-balance['triviatip']-balance['tx_expense']-balance['open_order'] ))
             # Negative check
             try:
                 if balance['adjust'] < 0:
@@ -2213,12 +2226,58 @@ async def sql_match_order_by_sellerid(userid_get: str, ref_numb: str, buy_user_s
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 try:
+                    currentTs = int(time.time())
                     ref_numb = int(ref_numb)
                     sql = """ UPDATE `open_order` SET `status`=%s, `order_completed_date`=%s, 
                               `userid_get` = %s, `buy_user_server`=%s 
                               WHERE `order_id`=%s AND `status`=%s """
                     await cur.execute(sql, ('COMPLETE', float("%.3f" % time.time()), userid_get, buy_user_server, ref_numb, 'OPEN'))
                     await conn.commit()
+
+                    sql = """ SELECT * FROM `open_order` WHERE `order_id` = %s LIMIT 1 """
+                    await cur.execute(sql, ( ref_numb ))
+                    result = await cur.fetchone()
+                    if result is not None:
+                        # credit + / - to balance and add data to it.
+                        sql = """ INSERT INTO user_balance_mv 
+                                  (`token_name`, `contract`, `from_userid`, `to_userid`, `guild_id`, `channel_id`, `real_amount`, `real_amount_usd`, `token_decimal`, `type`, `date`, `user_server`) 
+                                  VALUES (%s, %s, %s, %s, %s, %s, CAST(%s AS DECIMAL(32,8)), CAST(%s AS DECIMAL(32,8)), %s, %s, %s, %s);
+
+                                  INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, `balance`, `update_date`) 
+                                  VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
+                                  UPDATE 
+                                  `balance`=`balance`+VALUES(`balance`), 
+                                  `update_date`=VALUES(`update_date`);
+
+                                  INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, `balance`, `update_date`) 
+                                  VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
+                                  UPDATE 
+                                  `balance`=`balance`+VALUES(`balance`), 
+                                  `update_date`=VALUES(`update_date`);
+
+                                  """
+                        await cur.execute(sql, ( result['coin_sell'], None, result['userid_sell'], result['userid_get'], "TRADE", "TRADE", result['amount_sell_after_fee'], 0.0, result['coin_sell_decimal'], "TRADE", currentTs, sell_user_server, result['userid_sell'], result['coin_sell'], sell_user_server, -result['amount_sell_after_fee'], currentTs, result['userid_get'], result['coin_sell'], sell_user_server, result['amount_sell_after_fee'], currentTs ))
+                        await conn.commit()
+
+                        sql = """ INSERT INTO user_balance_mv 
+                                  (`token_name`, `contract`, `from_userid`, `to_userid`, `guild_id`, `channel_id`, `real_amount`, `real_amount_usd`, `token_decimal`, `type`, `date`, `user_server`) 
+                                  VALUES (%s, %s, %s, %s, %s, %s, CAST(%s AS DECIMAL(32,8)), CAST(%s AS DECIMAL(32,8)), %s, %s, %s, %s);
+
+                                  INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, `balance`, `update_date`) 
+                                  VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
+                                  UPDATE 
+                                  `balance`=`balance`+VALUES(`balance`), 
+                                  `update_date`=VALUES(`update_date`);
+
+                                  INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, `balance`, `update_date`) 
+                                  VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
+                                  UPDATE 
+                                  `balance`=`balance`+VALUES(`balance`), 
+                                  `update_date`=VALUES(`update_date`);
+
+                                  """
+                        await cur.execute(sql, ( result['coin_get'], None, result['userid_get'], result['userid_sell'], "TRADE", "TRADE", result['amount_get_after_fee'], 0.0, result['coin_get_decimal'], "TRADE", currentTs, sell_user_server, result['userid_get'], result['coin_get'], sell_user_server, -result['amount_get_after_fee'], currentTs, result['userid_sell'], result['coin_get'], sell_user_server, result['amount_get_after_fee'], currentTs ))
+                        await conn.commit()
                     # Insert into open_order_notify_complete table
                     try:
                         if notified:
@@ -2261,6 +2320,124 @@ async def sql_get_open_order_by_alluser(coin: str, status: str, need_to_buy: boo
                 else:
                     sql = """ SELECT * FROM `open_order` WHERE `status`=%s AND `coin_sell`=%s ORDER BY sell_div_get ASC """+limit_str
                     await cur.execute(sql, (status, COIN_NAME))
+                result = await cur.fetchall()
+                return result
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+        traceback.print_exc(file=sys.stdout)
+    return False
+
+async def sql_get_open_order_by_alluser_by_coins(coin1: str, coin2: str, status: str, option_order: str, limit: int=50):
+    global pool
+    option_order = option_order.upper()
+    if option_order not in ["DESC", "ASC"]:
+        return False
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                if coin2.upper() == "ALL":
+                    sql = """ SELECT * FROM open_order WHERE `status`=%s AND `coin_sell`=%s 
+                              ORDER BY sell_div_get """+option_order+""" LIMIT """ + str(limit)
+                    await cur.execute(sql, (status, coin1.upper()))
+                    result = await cur.fetchall()
+                    return result
+                else:
+                    sql = """ SELECT * FROM open_order WHERE `status`=%s AND `coin_sell`=%s AND `coin_get`=%s 
+                              ORDER BY sell_div_get """+option_order+""" LIMIT """ + str(limit)
+                    await cur.execute(sql, (status, coin1.upper(), coin2.upper()))
+                    result = await cur.fetchall()
+                    return result
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+        traceback.print_exc(file=sys.stdout)
+    return False
+
+
+async def sql_get_order_numb(order_num: str, status: str = None):
+    global pool
+    if status is None: status = 'OPEN'
+    if status: status = status.upper()
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                result = None
+                if status == "ANY":
+                    sql = """ SELECT * FROM `open_order` WHERE `order_id` = %s LIMIT 1 """
+                    await cur.execute(sql, (order_num))
+                    result = await cur.fetchone()
+                else:
+                    sql = """ SELECT * FROM `open_order` WHERE `order_id` = %s 
+                              AND `status`=%s LIMIT 1 """
+                    await cur.execute(sql, (order_num, status))
+                    result = await cur.fetchone()
+                return result
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+        traceback.print_exc(file=sys.stdout)
+
+async def sql_get_open_order_by_sellerid_all(userid_sell: str, status: str = 'OPEN'):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM `open_order` WHERE `userid_sell`=%s 
+                          AND `status`=%s ORDER BY order_created_date DESC LIMIT 20 """
+                await cur.execute(sql, (userid_sell, status))
+                result = await cur.fetchall()
+                return result
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+        traceback.print_exc(file=sys.stdout)
+    return False
+
+async def sql_cancel_open_order_by_sellerid(userid_sell: str, coin: str = 'ALL'):
+    global pool
+    COIN_NAME = coin.upper()
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                if len(coin) < 6:
+                    if COIN_NAME == 'ALL':
+                        sql = """ UPDATE open_order SET `status`=%s, `cancel_date`=%s WHERE `userid_sell`=%s 
+                                  AND `status`=%s """
+                        await cur.execute(sql, ('CANCEL', float("%.3f" % time.time()), userid_sell, 'OPEN'))
+                        await conn.commit()
+                        return True
+                    else:
+                        sql = """ UPDATE open_order SET `status`=%s, `cancel_date`=%s WHERE `userid_sell`=%s 
+                                  AND `status`=%s AND `coin_sell`=%s """
+                        await cur.execute(sql, ('CANCEL', float("%.3f" % time.time()), userid_sell, 'OPEN', COIN_NAME))
+                        await conn.commit()
+                        return True
+                else:
+                    try:
+                        ref_numb = int(coin)
+                        sql = """ UPDATE open_order SET `status`=%s, `cancel_date`=%s WHERE `userid_sell`=%s 
+                                  AND `status`=%s AND `order_id`=%s """
+                        await cur.execute(sql, ('CANCEL', float("%.3f" % time.time()), userid_sell, 'OPEN', ref_numb))
+                        await conn.commit()
+                        return True
+                    except ValueError:
+                        return False
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+        traceback.print_exc(file=sys.stdout)
+    return False
+
+async def sql_get_open_order_by_sellerid(userid_sell: str, coin: str, status: str = 'OPEN'):
+    global pool
+    COIN_NAME = coin.upper()
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM `open_order` WHERE `userid_sell`=%s AND `coin_sell` = %s 
+                          AND `status`=%s ORDER BY order_created_date DESC LIMIT 20 """
+                await cur.execute(sql, (userid_sell, COIN_NAME, status))
                 result = await cur.fetchall()
                 return result
     except Exception as e:

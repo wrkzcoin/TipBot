@@ -25,6 +25,7 @@ class Trade(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.botLogChan = None
+        self.enable_logchan = False
         redis_utils.openRedis()
 
 
@@ -288,6 +289,23 @@ class Trade(commands.Cog):
         buy_ticker: str
     ):
         await self.bot_log()
+        try:
+            if isinstance(ctx.channel, disnake.DMChannel) != True:
+                serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                if isinstance(ctx.channel, disnake.DMChannel) == False and serverinfo \
+                and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention} Trade Command is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING TRADE`'
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.reply(msg)
+                    if self.enable_logchan:
+                        await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried **trade/market command** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+                    return
+        except Exception as e:
+            if isinstance(ctx.channel, disnake.DMChannel) == False:
+                return
+
         create_order = await self.make_open_order(ctx, sell_amount, sell_ticker, buy_amount, buy_ticker)
         if 'error' in create_order:
             await ctx.response.send_message('{} {} {}'.format(EMOJI_RED_NO, ctx.author.mention, create_order['error']))
@@ -313,6 +331,23 @@ class Trade(commands.Cog):
         option_order: str='desc'
     ):
         await self.bot_log()
+        try:
+            if isinstance(ctx.channel, disnake.DMChannel) != True:
+                serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                if isinstance(ctx.channel, disnake.DMChannel) == False and serverinfo \
+                and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention} Trade Command is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING TRADE`'
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.reply(msg)
+                    if self.enable_logchan:
+                        await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried **trade/market command** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+                    return
+        except Exception as e:
+            if isinstance(ctx.channel, disnake.DMChannel) == False:
+                return
+
         if option_order is None:
             option_order = "ASC" # ascending
         elif option_order and (option_order.upper() not in ["DESC", "ASC"]):

@@ -1231,6 +1231,7 @@ class Guild(commands.Cog):
         ],
         description="Set guild's specific game channel."
     )
+    
     @commands.has_permissions(manage_channels=True)
     async def gamechan(
         self, 
@@ -1239,6 +1240,50 @@ class Guild(commands.Cog):
     ):
         await self.bot_log()
         await self.async_set_gamechan(ctx, game)
+
+
+    @setting.sub_command(
+        usage="setting trade", 
+        description="Toggle trade enable ON/OFF in your guild"
+    )
+    @commands.has_permissions(manage_channels=True)
+    async def trade(
+        self, 
+        ctx,
+    ):
+        await self.bot_log()
+        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        if serverinfo is None:
+            # Let's add some info if server return None
+            add_server_info = await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
+            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                                                                
+        if serverinfo and serverinfo['enable_trade'] == "YES":
+            changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_trade', 'NO')
+            if self.enable_logchan:
+                await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} DISABLE trade in their guild {ctx.guild.name} / {ctx.guild.id}')
+            msg = f"{ctx.author.mention} DISABLE TRADE feature in this guild {ctx.guild.name}."
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
+            return
+        elif serverinfo and serverinfo['enable_trade'] == "NO":
+            changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_trade', 'YES')
+            if self.enable_logchan:
+                await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} ENABLE trade in their guild {ctx.guild.name} / {ctx.guild.id}')
+            msg = f"{ctx.author.mention} ENABLE TRADE feature in this guild {ctx.guild.name}."
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
+            return
+        else:
+            msg = f"{ctx.author.mention} Internal error when calling serverinfo function."
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
     # End of setting
 
 def setup(bot):

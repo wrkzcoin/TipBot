@@ -353,7 +353,6 @@ class WalletAPI(commands.Cog):
             await logchanbot('TIMEOUT: call_nano COIN: {} - timeout {}'.format(coin.upper(), timeout))
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
         return None
 
     async def nano_get_wallet_balance_elements(self, coin: str) -> str:

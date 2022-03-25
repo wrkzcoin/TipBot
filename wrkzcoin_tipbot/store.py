@@ -261,8 +261,8 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
 
                 # Each coin
                 if coin_family in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
-                    sql = """ SELECT SUM(amount+withdraw_fee) AS tx_expense FROM `cn_external_tx` WHERE `user_id`=%s AND `coin_name` = %s AND `user_server` = %s """
-                    await cur.execute(sql, (userID, TOKEN_NAME, user_server))
+                    sql = """ SELECT SUM(amount+withdraw_fee) AS tx_expense FROM `cn_external_tx` WHERE `user_id`=%s AND `coin_name` = %s AND `user_server` = %s AND `crediting`=%s """
+                    await cur.execute(sql, ( userID, TOKEN_NAME, user_server, "YES" ))
                     result = await cur.fetchone()
                     if result:
                         tx_expense = result['tx_expense']
@@ -272,19 +272,19 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
                     if top_block is None:
                         sql = """ SELECT SUM(amount) AS incoming_tx FROM `cn_get_transfers` WHERE `payment_id`=%s AND `coin_name` = %s 
                                   AND `amount`>0 AND `time_insert`< %s """
-                        await cur.execute(sql, (address, TOKEN_NAME, int(time.time())-nos_block)) # seconds
+                        await cur.execute(sql, ( address, TOKEN_NAME, int(time.time())-nos_block )) # seconds
                     else:
                         sql = """ SELECT SUM(amount) AS incoming_tx FROM `cn_get_transfers` WHERE `payment_id`=%s AND `coin_name` = %s 
                                   AND `amount`>0 AND `height`< %s """
-                        await cur.execute(sql, (address, TOKEN_NAME, nos_block))
+                        await cur.execute(sql, ( address, TOKEN_NAME, nos_block ))
                     result = await cur.fetchone()
                     if result and result['incoming_tx']:
                         incoming_tx = result['incoming_tx']
                     else:
                         incoming_tx = 0
                 elif coin_family == "BTC":
-                    sql = """ SELECT SUM(amount+withdraw_fee) AS tx_expense FROM `doge_external_tx` WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s """
-                    await cur.execute(sql, (userID, TOKEN_NAME, user_server))
+                    sql = """ SELECT SUM(amount+withdraw_fee) AS tx_expense FROM `doge_external_tx` WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s AND `crediting`=%s """
+                    await cur.execute(sql, ( userID, TOKEN_NAME, user_server, "YES" ))
                     result = await cur.fetchone()
                     if result:
                         tx_expense = result['tx_expense']
@@ -300,8 +300,8 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
                     else:
                         incoming_tx = 0
                 elif coin_family == "NANO":
-                    sql = """ SELECT SUM(amount) AS tx_expense FROM `nano_external_tx` WHERE `user_id`=%s AND `coin_name` = %s AND `user_server`=%s """
-                    await cur.execute(sql, (userID, TOKEN_NAME, user_server))
+                    sql = """ SELECT SUM(amount) AS tx_expense FROM `nano_external_tx` WHERE `user_id`=%s AND `coin_name` = %s AND `user_server`=%s AND `crediting`=%s """
+                    await cur.execute(sql, ( userID, TOKEN_NAME, user_server, "YES" ))
                     result = await cur.fetchone()
                     if result:
                         tx_expense = result['tx_expense']
@@ -317,8 +317,8 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
                     else:
                         incoming_tx = 0
                 elif coin_family == "CHIA":
-                    sql = """ SELECT SUM(amount+withdraw_fee) AS tx_expense FROM `xch_external_tx` WHERE `user_id`=%s AND `coin_name` = %s AND `user_server` = %s """
-                    await cur.execute(sql, (userID, TOKEN_NAME, user_server))
+                    sql = """ SELECT SUM(amount+withdraw_fee) AS tx_expense FROM `xch_external_tx` WHERE `user_id`=%s AND `coin_name` = %s AND `user_server` = %s AND `crediting`=%s """
+                    await cur.execute(sql, ( userID, TOKEN_NAME, user_server, "YES" ))
                     result = await cur.fetchone()
                     if result:
                         tx_expense = result['tx_expense']
@@ -341,8 +341,8 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
                 elif coin_family == "ERC-20":
                     # When sending tx out, (negative)
                     sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense FROM `erc20_external_tx` 
-                              WHERE `user_id`=%s AND `token_name` = %s """
-                    await cur.execute(sql, (userID, TOKEN_NAME))
+                              WHERE `user_id`=%s AND `token_name` = %s AND `crediting`=%s """
+                    await cur.execute(sql, ( userID, TOKEN_NAME, "YES" ))
                     result = await cur.fetchone()
                     if result:
                         tx_expense = result['tx_expense']
@@ -361,8 +361,8 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
                 elif coin_family == "TRC-20":
                     # When sending tx out, (negative)
                     sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense FROM `trc20_external_tx` 
-                              WHERE `user_id`=%s AND `token_name` = %s """
-                    await cur.execute(sql, (userID, TOKEN_NAME))
+                              WHERE `user_id`=%s AND `token_name` = %s AND `crediting`=%s """
+                    await cur.execute(sql, ( userID, TOKEN_NAME, "YES" ))
                     result = await cur.fetchone()
                     if result:
                         tx_expense = result['tx_expense']
@@ -398,7 +398,7 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
             # Negative check
             try:
                 if balance['adjust'] < 0:
-                    msg_negative = 'Negative balance detected:\nServer:'+user_server+'\nUser: '+str(username)+'\nToken: '+TOKEN_NAME+'\nBalance: '+str(balance['adjust'])
+                    msg_negative = 'Negative balance detected:\nServer:'+user_server+'\nUser: '+userID+'\nToken: '+TOKEN_NAME+'\nBalance: '+str(balance['adjust'])
                     await logchanbot(msg_negative)
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
@@ -2445,3 +2445,219 @@ async def sql_get_open_order_by_sellerid(userid_sell: str, coin: str, status: st
         traceback.print_exc(file=sys.stdout)
     return False
 # End of Trade
+
+# Faucet / Game stats
+async def sql_list_game_coins():
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT DISTINCT `coin_name` FROM `coin_bot_reward_games` """
+                await cur.execute(sql,)
+                result = await cur.fetchall()
+                if result and len(result) > 0:
+                    return [each['coin_name'] for each in result]
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return []
+
+async def sql_faucet_count_all():
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT COUNT(*) FROM discord_faucet """
+                await cur.execute(sql,)
+                result = await cur.fetchone()
+                return int(result['COUNT(*)']) if 'COUNT(*)' in result else 0
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return None
+
+async def sql_game_stat(game_coins):
+    global pool
+    if len(game_coins) == 0: return None
+    stat = {}
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM discord_game """
+                await cur.execute(sql,)
+                result_game = await cur.fetchall()
+                if result_game and len(result_game) > 0:
+                    stat['paid_play'] = len(result_game)
+                    # https://stackoverflow.com/questions/21518271/how-to-sum-values-of-the-same-key-in-a-dictionary
+                    stat['paid_hangman_play'] = sum(d.get('HANGMAN', 0) for d in result_game)
+                    stat['paid_bagel_play'] = sum(d.get('BAGEL', 0) for d in result_game)
+                    stat['paid_slot_play'] = sum(d.get('SLOT', 0) for d in result_game)
+                    for each in game_coins:
+                        stat[each] = sum(d.get('won_amount', 0) for d in result_game if d['coin_name'] == each)
+                sql = """ SELECT * FROM discord_game_free """
+                await cur.execute(sql,)
+                result_game_free = await cur.fetchall()
+                if result_game_free and len(result_game_free) > 0:
+                    stat['free_play'] = len(result_game_free)
+                    stat['free_hangman_play'] = sum(d.get('HANGMAN', 0) for d in result_game_free)
+                    stat['free_bagel_play'] = sum(d.get('BAGEL', 0) for d in result_game_free)
+                    stat['free_slot_play'] = sum(d.get('SLOT', 0) for d in result_game_free)
+            return stat
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+async def sql_faucet_sum_count_claimed(coin: str):
+    COIN_NAME = coin.upper()
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT SUM(claimed_amount) as claimed, COUNT(claimed_amount) as count FROM discord_faucet
+                          WHERE `coin_name`=%s """
+                await cur.execute(sql, (COIN_NAME))
+                result = await cur.fetchone()
+                # {'claimed_amount': xxx, 'count': xxx}
+                # print(result)
+                return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+async def sql_discord_userinfo_get(user_id: str, user_server: str='DISCORD'):
+    global pool
+    user_server = user_server.upper()
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
+        return
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                # select first
+                sql = """ SELECT * FROM discord_userinfo 
+                          WHERE `user_id` = %s AND `user_server`=%s """
+                await cur.execute(sql, (user_id, user_server))
+                result = await cur.fetchone()
+                if result: return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+
+async def sql_faucet_penalty_checkuser(userID: str, penalty_add: False, user_server: str = 'DISCORD'):
+    global pool, redis_conn, redis_pool
+    user_server = user_server.upper()
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
+        return
+    # Check if in redis already:
+    key = config.redis.prefix_faucet_take_penalty + user_server + "_" + userID
+    result = None
+    if penalty_add == False:
+        try:
+            if redis_conn is None: redis_conn = redis.Redis(connection_pool=redis_pool)
+            if redis_conn and redis_conn.exists(key):
+                penalty_at = redis_conn.get(key).decode()
+                result = {'penalty_at': penalty_at}
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+    else:
+        # add
+        try:
+            if redis_conn is None: redis_conn = redis.Redis(connection_pool=redis_pool)
+            if redis_conn: redis_conn.set(key, str(int(time.time())), int(int(config.faucet.interval)*3600/2)) # 12h
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+    return result
+
+async def sql_roach_get_by_id(roach_id: str, user_server: str = 'DISCORD'):
+    global pool
+    user_server = user_server.upper()
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
+        return
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                # select first
+                sql = """ SELECT `roach_id`, `main_id`, `date` FROM discord_faucetroach 
+                          WHERE (`roach_id` = %s OR `main_id` = %s) AND `user_server`=%s """
+                await cur.execute(sql, (roach_id, roach_id, user_server))
+                result = await cur.fetchall()
+                if result is None:
+                    return None
+                else:
+                    roaches = []
+                    for each in result:
+                        roaches.append(each['roach_id'])
+                        roaches.append(each['main_id'])
+                    return set(roaches)
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+
+async def sql_faucet_checkuser(userID: str, user_server: str = 'DISCORD'):
+    global pool, redis_conn, redis_pool
+    user_server = user_server.upper()
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
+        return
+
+    result = None
+    list_roach = None
+    if user_server == 'DISCORD':
+        list_roach = await sql_roach_get_by_id(userID, user_server)
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                if list_roach:
+                    roach_sql = "(" + ",".join(list_roach) + ")"
+                    sql = """ SELECT * FROM discord_faucet WHERE claimed_user IN """+roach_sql+""" AND `user_server`=%s 
+                              ORDER BY claimed_at DESC LIMIT 1"""
+                    await cur.execute(sql, (user_server,))
+                else:
+                    sql = """ SELECT * FROM discord_faucet WHERE `claimed_user` = %s AND `user_server`=%s 
+                              ORDER BY claimed_at DESC LIMIT 1"""
+                    await cur.execute(sql, (userID, (user_server,)))
+                result = await cur.fetchone()
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return result
+
+async def sql_faucet_count_user(userID: str, user_server: str = 'DISCORD'):
+    global pool
+    user_server = user_server.upper()
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
+        return
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT COUNT(*) FROM discord_faucet WHERE claimed_user = %s AND `user_server`=%s """
+                await cur.execute(sql, (userID, user_server))
+                result = await cur.fetchone()
+                return int(result['COUNT(*)']) if 'COUNT(*)' in result else 0
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return None
+
+async def sql_faucet_add(claimed_user: str, claimed_server: str, coin_name: str, claimed_amount: float, decimal: int, user_server: str = 'DISCORD'):
+    global pool, redis_conn
+    user_server = user_server.upper()
+    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
+        return
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ INSERT INTO discord_faucet (`claimed_user`, `coin_name`, `claimed_amount`, 
+                          `decimal`, `claimed_at`, `claimed_server`, `user_server`) 
+                          VALUES (%s, %s, %s, %s, %s, %s, %s) """
+                await cur.execute(sql, (claimed_user, coin_name, claimed_amount, decimal, 
+                                        int(time.time()), claimed_server, user_server))
+                await conn.commit()
+                return True
+    except Exception as e:
+        await logchanbot(traceback.format_exc())
+    return None
+# End Faucet / Game stats

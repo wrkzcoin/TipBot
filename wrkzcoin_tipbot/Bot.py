@@ -119,6 +119,7 @@ EMOJI_CHART_UP = "\U0001F4C8"
 
 NOTIFICATION_OFF_CMD = 'Type: `/notifytip off` to turn off this notification.'
 DEFAULT_TICKER = "WRKZ"
+MSG_LOCKED_ACCOUNT = "Your account is locked. Please contact pluton#8888 in WrkzCoin discord."
 
 def init():
     global redis_pool
@@ -175,6 +176,7 @@ bot.coin_list = None
 bot.token_hints = None
 bot.token_hint_names = None
 bot.coin_name_list = None
+bot.faucet_coins = None
 
 # messages
 bot.message_list = []
@@ -454,6 +456,18 @@ def createBox(value, maxValue, size, show_percentage: bool=False):
         bar = '[' + progressText*progress + emptyProgressText*emptyProgress + ']'
     return bar
 
+
+async def alert_if_userlock(ctx, cmd: str):
+    botLogChan = bot.get_channel(bot.LOG_CHAN)
+    get_discord_userinfo = None
+    try:
+        get_discord_userinfo = await store.sql_discord_userinfo_get(str(ctx.author.id))
+        if get_discord_userinfo is not None and get_discord_userinfo['locked'].upper() == "YES":
+            await botLogChan.send(f'{ctx.author.name}#{ctx.author.discriminator} locked but is commanding `{cmd}`')
+            return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return None
 
 # json.dumps for turple
 def remap_keys(mapping):

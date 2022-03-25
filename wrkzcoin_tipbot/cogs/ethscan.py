@@ -264,10 +264,10 @@ class EthScan(commands.Cog):
                                             # insert data
                                             #print(rows[-1])
                                             insert_data = await store.get_monit_contract_tx_insert_erc(rows)
-                                            if insert_data == 0:
-                                                print(f"Failed to insert minting to `erc_contract_scan` for net_name {net_name}")
-                                            else:
-                                                print(f"Insert {insert_data} minting to `erc_contract_scan` for net_name {net_name}")
+                                            # if insert_data == 0:
+                                                # print(f"Failed to insert minting to `erc_contract_scan` for net_name {net_name}")
+                                            # else:
+                                                # print(f"Insert {insert_data} minting to `erc_contract_scan` for net_name {net_name}")
                                             update_height = await store.get_monit_scanning_net_name_update_height(net_name, to_block)
                                             if update_height is None:
                                                 print(f"to_block {str(to_block)} No tx for `erc_contract_scan` for net_name {net_name}")
@@ -375,10 +375,10 @@ class EthScan(commands.Cog):
                                             # insert data
                                             #print(rows[-1])
                                             insert_data = await store.get_monit_contract_tx_insert_trc(rows)
-                                            if insert_data == 0:
-                                                print(f"Failed to insert minting to `erc_contract_scan` for net_name {net_name}")
-                                            else:
-                                                print(f"Insert {insert_data} minting to `erc_contract_scan` for net_name {net_name}")
+                                            # if insert_data == 0:
+                                                # print(f"Failed to insert minting to `erc_contract_scan` for net_name {net_name}")
+                                            # else:
+                                                # print(f"Insert {insert_data} minting to `erc_contract_scan` for net_name {net_name}")
                                             update_height = await store.get_monit_scanning_net_name_update_height(net_name, to_block, COIN_NAME)
                                             if update_height is None:
                                                 print(f"to_block {str(to_block)} No tx for `erc_contract_scan` for net_name {net_name}")

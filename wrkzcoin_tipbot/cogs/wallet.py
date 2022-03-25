@@ -10,7 +10,7 @@ import time
 import functools
 import aiohttp, asyncio
 import json
-
+import random
 import numpy as np
 
 import qrcode
@@ -35,12 +35,12 @@ from eth_account import Account
 from pywallet import wallet as ethwallet
 import ssl
 from eth_utils import is_hex_address # Check hex only
-
+from terminaltables import AsciiTable
 
 import store, utils
 import cn_addressvalidation
 
-from Bot import get_token_list, num_format_coin, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_ARROW_RIGHTHOOK, SERVER_BOT, RowButton_close_message, RowButton_row_close_any_message, human_format, text_to_num, truncate, seconds_str, encrypt_string, decrypt_string, EMOJI_HOURGLASS_NOT_DONE
+from Bot import get_token_list, num_format_coin, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_ARROW_RIGHTHOOK, SERVER_BOT, RowButton_close_message, RowButton_row_close_any_message, human_format, text_to_num, truncate, seconds_str, encrypt_string, decrypt_string, EMOJI_HOURGLASS_NOT_DONE, alert_if_userlock, MSG_LOCKED_ACCOUNT, EMOJI_MONEYFACE
 from config import config
 import redis_utils
 from utils import MenuPage
@@ -920,8 +920,11 @@ class WalletAPI(commands.Cog):
 class Wallet(commands.Cog):
 
     def __init__(self, bot):
+        self.enable_logchan = False
         self.bot = bot
         self.WalletAPI = WalletAPI(self.bot)
+        
+        self.botLogChan = None
         
         redis_utils.openRedis()
         self.notify_new_tx_user_noconfirmation.start()
@@ -950,6 +953,10 @@ class Wallet(commands.Cog):
         self.unlocked_move_pending_trc20.start()
         self.notify_new_confirmed_spendable_trc20.start()
 
+
+    async def bot_log(self):
+        if self.botLogChan is None:
+            self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
 
     # Notify user
     @tasks.loop(seconds=15.0)
@@ -3018,9 +3025,14 @@ class Wallet(commands.Cog):
     # Faucet
     async def async_claim(self, ctx: str, token: str=None):
         faucet = Faucet(self.bot)
+        get_user_coin = await faucet.get_user_faucet_coin(str(ctx.author.id), SERVER_BOT)
         list_coins = await faucet.get_faucet_coin_list()
-        list_coin_names = [each['coin_name'] for each in list_coins]
-        
+        list_coin_names = list(set([each['coin_name'] for each in list_coins]))
+        title_text = ""
+        if get_user_coin is None:
+            title_text = " [You haven't set any preferred reward!]"
+        else:
+            title_text = " [Preferred {}]".format(get_user_coin['coin_name'])
         list_coin_sets = {}
         for each in list_coins:
             if each['reward_for'] not in list_coin_sets:
@@ -3030,7 +3042,7 @@ class Wallet(commands.Cog):
                 list_coin_sets[each['reward_for']].append({each['coin_name']: each['reward_amount']})
         list_coins_str = ", ".join(list_coin_names)
         if token is None:
-            embed = disnake.Embed(title=f'Faucet Claim', description=f"```1] Set your reward coin claim with any of this {list_coins_str} with command /claim token_name\n\n2] Vote for TipBot in below links.\n\n```", timestamp=datetime.utcnow())
+            embed = disnake.Embed(title=f'Faucet Claim{title_text}', description=f"```1] Set your reward coin claim with any of this {list_coins_str} with command /claim token_name\n\n2] Vote for TipBot in below links.\n\n```", timestamp=datetime.utcnow())
             
             for key in ["topgg", "discordbotlist"]:
                 reward_list = []
@@ -3041,9 +3053,9 @@ class Wallet(commands.Cog):
                 embed.add_field(name="{}'s reward".format(key), value="Vote at: [{}]({})```{}```".format(key, getattr(config.bot_vote_link, key), reward_list_str), inline=False)
             embed.set_footer(text="Requested by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
             try:
-                get_user_coin = await faucet.get_user_faucet_coin(str(ctx.author.id), SERVER_BOT)
+                
                 if get_user_coin is not None:
-                    embed.set_footer(text="Requested by: {}#{} | preferred token: {}".format(ctx.author.name, ctx.author.discriminator, get_user_coin['coin_name']))
+                    embed.set_footer(text="Requested by: {}#{} | preferred: {}".format(ctx.author.name, ctx.author.discriminator, get_user_coin['coin_name']))
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
             if type(ctx) == disnake.ApplicationCommandInteraction:
@@ -3080,7 +3092,7 @@ class Wallet(commands.Cog):
 
     @commands.command(
         usage='claim <token>', 
-        aliases=['claim', 'take'],
+        aliases=['claim'],
         description="Faucet claim."
     )
     async def _claim(
@@ -3104,6 +3116,360 @@ class Wallet(commands.Cog):
         token: str=None
     ):
         await self.async_claim(ctx, token)
+
+
+    async def bot_faucet(
+        self,
+        ctx,
+        faucet_coins
+    ):
+        game_coins = await store.sql_list_game_coins()
+        get_game_stat = await store.sql_game_stat(game_coins)
+        table_data = [
+            ['TICKER', 'Available', 'Claimed / Game']
+        ]
+        for COIN_NAME in [coinItem.upper() for coinItem in faucet_coins]:
+            sum_sub = 0
+            net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
+            type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
+            deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
+            coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
+
+            get_deposit = await self.sql_get_userwallet(str(self.bot.user.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+            if get_deposit is None:
+                get_deposit = await self.sql_register_user(str(self.bot.user.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
+
+            wallet_address = get_deposit['balance_wallet_address']
+            if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                wallet_address = get_deposit['paymentid']
+
+            height = None
+            try:
+                if type_coin in ["ERC-20", "TRC-20"]:
+                    height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
+                else:
+                    height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+ 
+            userdata_balance = await store.sql_user_balance_single(str(self.bot.user.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+            actual_balance = float(userdata_balance['adjust'])
+            sum_sub = float(get_game_stat[COIN_NAME])
+ 
+            balance_actual = num_format_coin(actual_balance, COIN_NAME, coin_decimal, False)
+            get_claimed_count = await store.sql_faucet_sum_count_claimed(COIN_NAME)
+            sub_claim = num_format_coin(float(get_claimed_count['claimed']) + sum_sub, COIN_NAME, coin_decimal, False) if get_claimed_count['count'] > 0 else f"0.00{COIN_NAME}"
+            if actual_balance != 0:
+                table_data.append([COIN_NAME, balance_actual, sub_claim])
+            else:
+                table_data.append([COIN_NAME, '0', sub_claim])
+        print(table_data)
+        table = AsciiTable(table_data)
+        table.padding_left = 0
+        table.padding_right = 0
+        return table.table
+
+
+    async def take_action(
+        self,
+        ctx,
+        info: str=None
+    ):
+        await self.bot_log()
+        faucet_simu = False
+        # bot check in the first place
+        if ctx.author.bot == True:
+            if self.enable_logchan:
+                await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} (Bot) using **take** {ctx.guild.name} / {ctx.guild.id}')
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, Bot is not allowed using this."
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
+            return
+
+        if ctx.author.id in self.bot.TX_IN_PROCESS:
+            msg = f'{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress.'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
+            return
+
+        COIN_NAME = random.choice(self.bot.faucet_coins)
+        if info and info.upper() != "INFO":
+            COIN_NAME = info.upper()
+            if not hasattr(self.bot.coin_list, COIN_NAME):
+                msg = f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.'
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.followup.send(msg)
+                else:
+                    await ctx.reply(msg)
+                return
+            elif COIN_NAME  not in self.bot.faucet_coins:
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, {COIN_NAME} not available for faucet."
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.followup.send(msg)
+                else:
+                    await ctx.reply(msg)
+                return
+
+        remaining = ''
+        try:
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                tmp_msg = await ctx.response.send_message(f"{ctx.author.mention}, loading faucet...", delete_after=30.0)
+            else:
+                tmp_msg = await ctx.send(f"{ctx.author.mention}, loading faucet...")
+            remaining = await self.bot_faucet(ctx, self.bot.faucet_coins) or ''
+            if type(ctx) != disnake.ApplicationCommandInteraction:
+                await tmp_msg.delete()
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        total_claimed = '{:,.0f}'.format(await store.sql_faucet_count_all())
+        if info and info.upper()=="INFO":
+            msg = f'{ctx.author.mention} Faucet balance:\n```{remaining}```Total user claims: **{total_claimed}** times. Tip me if you want to feed these faucets. Use /claim to vote TipBot and get reward.'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.followup.send(msg)
+            else:
+                await ctx.reply(msg)
+            return
+
+        # offline can not take
+        if ctx.author.status == disnake.Status.offline:
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention} Offline status cannot claim faucet."
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.followup.send(msg)
+            else:
+                await ctx.reply(msg)
+            return
+
+        # check if account locked
+        account_lock = await alert_if_userlock(ctx, 'take')
+        if account_lock:
+            msg = f"{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}"
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.followup.send(msg)
+            else:
+                await ctx.reply(msg)
+            return
+        # end of check if account locked
+
+        # check if user create account less than 3 days
+        try:
+            account_created = ctx.author.created_at
+            if (datetime.utcnow().astimezone() - account_created).total_seconds() <= config.faucet.account_age_to_claim:
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using /take. Alternatively, vote for TipBot to get reward `/claim`."
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.followup.send(msg)
+                else:
+                    await ctx.reply(msg)
+                return
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+
+        try: 
+            # check if bot channel is set:
+            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            if serverinfo and serverinfo['botchan'] and ctx.channel.id != int(serverinfo['botchan']):
+                try:
+                    botChan = self.bot.get_channel(int(serverinfo['botchan']))
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} is the bot channel!!!'
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.followup.send(msg)
+                    else:
+                        await ctx.reply(msg)
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                # add penalty:
+                try:
+                    faucet_penalty = await store.sql_faucet_penalty_checkuser(str(ctx.author.id), True, SERVER_BOT)
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                return
+            if serverinfo and serverinfo['enable_faucet'] == "NO":
+                if self.enable_logchan:
+                    await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried **take** in {ctx.guild.name} / {ctx.guild.id} which is disable.')
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, **Faucet** in this guild is disable."
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.followup.send(msg)
+                else:
+                    await ctx.reply(msg)
+                return
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        # end of bot channel check
+
+        try:
+            claim_interval = config.faucet.interval
+            half_claim_interval = int(config.faucet.interval / 2)
+            # check penalty:
+            try:
+                faucet_penalty = await store.sql_faucet_penalty_checkuser(str(ctx.author.id), False, SERVER_BOT)
+                if faucet_penalty and not info:
+                    if half_claim_interval*3600 - int(time.time()) + int(faucet_penalty['penalty_at']) > 0:
+                        time_waiting = seconds_str(half_claim_interval*3600 - int(time.time()) + int(faucet_penalty['penalty_at']))
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention} You claimed in a wrong channel within last {str(half_claim_interval)}h. Waiting time {time_waiting} for next **take** and be sure to be the right channel set by the guild. Use /claim to vote TipBot and get reward.'
+                        if type(ctx) == disnake.ApplicationCommandInteraction:
+                            await ctx.followup.send(msg)
+                        else:
+                            await ctx.reply(msg)
+                        return
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+                return
+            # check user claim:
+            
+            if not info:
+                check_claimed = await store.sql_faucet_checkuser(str(ctx.author.id), SERVER_BOT)
+                if check_claimed:
+                    # limit 12 hours
+                    if int(time.time()) - check_claimed['claimed_at'] <= claim_interval*3600:
+                        time_waiting = seconds_str(claim_interval*3600 - int(time.time()) + check_claimed['claimed_at'])
+                        user_claims = await store.sql_faucet_count_user(str(ctx.author.id))
+                        number_user_claimed = '{:,.0f}'.format(user_claims, SERVER_BOT)
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention} You just claimed within last {claim_interval}h. Waiting time {time_waiting} for next **take**. Faucet balance:\n```{remaining}```Total user claims: **{total_claimed}** times. You have claimed: **{number_user_claimed}** time(s). Tip me if you want to feed these faucets. Use /claim to vote TipBot and get reward.'
+                        if type(ctx) == disnake.ApplicationCommandInteraction:
+                            await ctx.followup.send(msg)
+                        else:
+                            await ctx.reply(msg)
+                    return
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            return
+
+        net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
+        type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
+        deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
+        coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+        usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
+        contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
+
+        get_deposit = await self.sql_get_userwallet(str(self.bot.user.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+        if get_deposit is None:
+            get_deposit = await self.sql_register_user(str(self.bot.user.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
+
+        wallet_address = get_deposit['balance_wallet_address']
+        if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+            wallet_address = get_deposit['paymentid']
+
+        height = None
+        try:
+            if type_coin in ["ERC-20", "TRC-20"]:
+                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
+            else:
+                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+
+        userdata_balance = await store.sql_user_balance_single(str(self.bot.user.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+        actual_balance = float(userdata_balance['adjust'])
+
+        amount = random.uniform(getattr(getattr(self.bot.coin_list, COIN_NAME), "faucet_min"), getattr(getattr(self.bot.coin_list, COIN_NAME), "faucet_max"))
+        trunc_num = 4
+        if coin_decimal >= 8:
+            trunc_num = 8
+        elif coin_decimal >= 4:
+            trunc_num = 4
+        elif coin_decimal >= 2:
+            trunc_num = 2
+        else:
+            trunc_num = 6
+        amount = truncate(float(amount), trunc_num)
+        if amount == 0:
+            amount_msg_zero = 'Get 0 random amount requested faucet by: {}#{}'.format(ctx.author.name, ctx.author.discriminator)
+            await logchanbot(amount_msg_zero)
+            return
+
+        if amount > actual_balance and not info:
+            msg = f'{ctx.author.mention} Please try again later. Bot runs out of **{COIN_NAME}**'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.followup.send(msg)
+            else:
+                await ctx.reply(msg)
+            return
+
+        tip = None
+        if ctx.author.id not in self.bot.TX_IN_PROCESS:
+            self.bot.TX_IN_PROCESS.append(ctx.author.id)
+        else:
+            msg = f'{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress.'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.followup.send(msg)
+            else:
+                await ctx.reply(msg)
+            return
+        try:
+            if not info:
+                amount_in_usd = 0.0
+                if usd_equivalent_enable == 1:
+                    native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
+                    COIN_NAME_FOR_PRICE = COIN_NAME
+                    if native_token_name:
+                        COIN_NAME_FOR_PRICE = native_token_name
+                    if COIN_NAME_FOR_PRICE in self.bot.token_hints:
+                        id = self.bot.token_hints[COIN_NAME_FOR_PRICE]['ticker_name']
+                        per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+                    else:
+                        per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
+                    if per_unit and per_unit > 0:
+                        amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
+                tip = await store.sql_user_balance_mv_single(str(self.bot.user.id), str(ctx.author.id), str(ctx.guild.id), str(ctx.channel.id), amount, COIN_NAME, "FAUCET", coin_decimal, SERVER_BOT, contract, amount_in_usd)
+                try:
+                    faucet_add = await store.sql_faucet_add(str(ctx.author.id), str(ctx.guild.id), COIN_NAME, amount, coin_decimal, SERVER_BOT)
+                    msg = f'{EMOJI_MONEYFACE} {ctx.author.mention} You got a random faucet {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}'
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.followup.send(msg)
+                    else:
+                        await ctx.reply(msg)
+                    await logchanbot(f'[Discord] User {ctx.author.name}#{ctx.author.discriminator} claimed faucet {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME} in guild {ctx.guild.name}/{ctx.guild.id}')
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(traceback.format_exc())
+            else:
+                try:
+                    msg = f"Simulated faucet {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}. This is a test only. Use without **ticker** to do real faucet claim."
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.followup.send(msg)
+                    else:
+                        await ctx.reply(msg)
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(traceback.format_exc())
+                self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+                return
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+
+
+    @commands.guild_only()
+    @commands.slash_command(usage="take <info>",
+                            options=[
+                                Option('info', 'info', OptionType.string, required=False)
+                            ],
+                            description="Claim a random coin faucet.")
+    async def take(
+        self, 
+        ctx,
+        info: str=None
+    ):
+        await self.take_action(ctx, info)
+
+
+    @commands.guild_only()
+    @commands.command(
+        usage="take <info>", 
+        aliases=["take"],
+        description="Claim a random coin faucet."
+    )
+    async def _take(
+        self, 
+        ctx, 
+        info: str=None
+    ):
+        take_action = await self.take_action(ctx, info)
     # End of Faucet
 
 

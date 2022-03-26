@@ -43,7 +43,7 @@ class Price(commands.Cog):
             else:
                 await ctx.reply(msg)
             return
-        if amount is not None and amount.upper().endswith(tuple(coin_paprika_symbol_list)):
+        if amount is not None and amount.upper().endswith(tuple(coin_paprika_symbol_list)) and token is None:
             # amount is something like 10,0.0BTC [Possible]
             amount_tmp = re.findall(r'[\w\.\,]+[\d]', amount) # If amount "111WRKZ 222WRKZ", take only the first one
             if len(amount_tmp) > 0:

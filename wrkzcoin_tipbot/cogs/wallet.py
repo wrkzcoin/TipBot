@@ -2882,7 +2882,7 @@ class Wallet(commands.Cog):
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
                         try:
-                            await logchanbot(f'[{SERVER_BOT}] A user {ctx.author.mention} sucessfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}')
+                            await logchanbot(f'[{SERVER_BOT}] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} sucessfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}')
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
                 elif type_coin in ["TRC-20", "TRC-10"]:
@@ -2916,7 +2916,7 @@ class Wallet(commands.Cog):
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
                         try:
-                            await logchanbot(f'[{SERVER_BOT}] A user {ctx.author.mention} sucessfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}')
+                            await logchanbot(f'[{SERVER_BOT}] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} sucessfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}')
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
                 elif type_coin == "NANO":
@@ -2929,59 +2929,103 @@ class Wallet(commands.Cog):
                             await ctx.reply(msg)
                         return
                     else:
-                        try:
-                            main_address = getattr(getattr(self.bot.coin_list, COIN_NAME), "MainAddress")
-                            SendTx = await self.WalletAPI.send_external_nano(main_address, str(ctx.author.id), amount, address, COIN_NAME, coin_decimal)
-                            if SendTx:
-                                SendTx_hash = SendTx['block']
-                                msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx_hash}`'
-                                if type(ctx) == disnake.ApplicationCommandInteraction:
-                                    await ctx.followup.send(msg, ephemeral=withdraw_tx_ephemeral)
+                        if ctx.author.id not in self.bot.TX_IN_PROCESS:
+                            self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                            try:
+                                main_address = getattr(getattr(self.bot.coin_list, COIN_NAME), "MainAddress")
+                                SendTx = await self.WalletAPI.send_external_nano(main_address, str(ctx.author.id), amount, address, COIN_NAME, coin_decimal)
+                                if SendTx:
+                                    SendTx_hash = SendTx['block']
+                                    msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx_hash}`'
+                                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                                        await ctx.followup.send(msg, ephemeral=withdraw_tx_ephemeral)
+                                    else:
+                                        await ctx.reply(msg)
+                                    await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} successfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                                 else:
-                                    await ctx.reply(msg)
-                                await logchanbot(f'A user {ctx.author.mention} successfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
+                                    await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
+                            except Exception as e:
+                                await logchanbot(traceback.format_exc())
+                            self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+                        else:
+                            # reject and tell to wait
+                            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
+                            if type(ctx) == disnake.ApplicationCommandInteraction:
+                                await ctx.followup.send(msg)
                             else:
-                                await logchanbot(f'A user {ctx.author.mention} failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
-                        except Exception as e:
-                            await logchanbot(traceback.format_exc())
+                                await ctx.reply(msg)
+                            return
                 elif type_coin == "CHIA":
-                    SendTx = await self.WalletAPI.send_external_xch(str(ctx.author.id), amount, address, COIN_NAME, coin_decimal, tx_fee, NetFee, SERVER_BOT)
-                    if SendTx:
-                        await logchanbot(f'A user {ctx.author.mention} successfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
-                        msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`'
+                    if ctx.author.id not in self.bot.TX_IN_PROCESS:
+                        self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                        SendTx = await self.WalletAPI.send_external_xch(str(ctx.author.id), amount, address, COIN_NAME, coin_decimal, tx_fee, NetFee, SERVER_BOT)
+                        if SendTx:
+                            await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} successfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
+                            msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`'
+                            if type(ctx) == disnake.ApplicationCommandInteraction:
+                                await ctx.followup.send(msg, ephemeral=withdraw_tx_ephemeral)
+                            else:
+                                await ctx.reply(msg)
+                        else:
+                            await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
+                        self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+                    else:
+                        # reject and tell to wait
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
                         if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.followup.send(msg, ephemeral=withdraw_tx_ephemeral)
+                            await ctx.followup.send(msg)
                         else:
                             await ctx.reply(msg)
-                    else:
-                        await logchanbot(f'A user {ctx.author.mention} failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
+                        return
                 elif type_coin == "BTC":
-                    SendTx = await self.WalletAPI.send_external_doge(str(ctx.author.id), amount, address, COIN_NAME, 0, NetFee, SERVER_BOT) # tx_fee=0
-                    if SendTx:
-                        msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`'
+                    if ctx.author.id not in self.bot.TX_IN_PROCESS:
+                        self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                        SendTx = await self.WalletAPI.send_external_doge(str(ctx.author.id), amount, address, COIN_NAME, 0, NetFee, SERVER_BOT) # tx_fee=0
+                        if SendTx:
+                            msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`'
+                            if type(ctx) == disnake.ApplicationCommandInteraction:
+                                await ctx.followup.send(msg, ephemeral=withdraw_tx_ephemeral)
+                            else:
+                                await ctx.reply(msg)
+                            await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} successfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
+                        else:
+                            await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
+                        self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+                    else:
+                        # reject and tell to wait
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
                         if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.followup.send(msg, ephemeral=withdraw_tx_ephemeral)
+                            await ctx.followup.send(msg)
                         else:
                             await ctx.reply(msg)
-                        await logchanbot(f'A user {ctx.author.mention} successfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
-                    else:
-                        await logchanbot(f'A user {ctx.author.mention} failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
+                        return
                 elif type_coin == "XMR" or type_coin == "TRTL-API" or type_coin == "TRTL-SERVICE" or type_coin == "BCN":
-                    main_address = getattr(getattr(self.bot.coin_list, COIN_NAME), "MainAddress")
-                    mixin = getattr(getattr(self.bot.coin_list, COIN_NAME), "mixin")
-                    wallet_address = getattr(getattr(self.bot.coin_list, COIN_NAME), "wallet_address")
-                    header = getattr(getattr(self.bot.coin_list, COIN_NAME), "header")
-                    is_fee_per_byte = getattr(getattr(self.bot.coin_list, COIN_NAME), "is_fee_per_byte")
-                    SendTx = await self.WalletAPI.send_external_xmr(type_coin, main_address, str(ctx.author.id), amount, address, COIN_NAME, coin_decimal, tx_fee, NetFee, is_fee_per_byte, mixin, SERVER_BOT, wallet_address, header, None) # paymentId: None (end)
-                    if SendTx:
-                        msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`'
+                    if ctx.author.id not in self.bot.TX_IN_PROCESS:
+                        self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                        main_address = getattr(getattr(self.bot.coin_list, COIN_NAME), "MainAddress")
+                        mixin = getattr(getattr(self.bot.coin_list, COIN_NAME), "mixin")
+                        wallet_address = getattr(getattr(self.bot.coin_list, COIN_NAME), "wallet_address")
+                        header = getattr(getattr(self.bot.coin_list, COIN_NAME), "header")
+                        is_fee_per_byte = getattr(getattr(self.bot.coin_list, COIN_NAME), "is_fee_per_byte")
+                        SendTx = await self.WalletAPI.send_external_xmr(type_coin, main_address, str(ctx.author.id), amount, address, COIN_NAME, coin_decimal, tx_fee, NetFee, is_fee_per_byte, mixin, SERVER_BOT, wallet_address, header, None) # paymentId: None (end)
+                        if SendTx:
+                            msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`'
+                            if type(ctx) == disnake.ApplicationCommandInteraction:
+                                await ctx.followup.send(msg, ephemeral=withdraw_tx_ephemeral)
+                            else:
+                                await ctx.reply(msg)
+                            await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} successfully executed withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
+                        else:
+                            await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} failed to execute to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
+                        self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+                    else:
+                        # reject and tell to wait
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
                         if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.followup.send(msg, ephemeral=withdraw_tx_ephemeral)
+                            await ctx.followup.send(msg)
                         else:
                             await ctx.reply(msg)
-                        await logchanbot(f'A user {ctx.author.mention} successfully executed withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
-                    else:
-                        await logchanbot(f'A user {ctx.author.mention} failed to execute to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
+                        return
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 

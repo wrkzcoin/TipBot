@@ -5,6 +5,7 @@ from datetime import datetime
 import disnake
 from disnake.ext import commands
 import time
+from attrdict import AttrDict
 
 # For eval
 import contextlib
@@ -25,8 +26,6 @@ from eth_account import Account
 from pywallet import wallet as ethwallet
 
 import functools
-
-import Bot
 import store
 from Bot import get_token_list, num_format_coin, EMOJI_ERROR, SERVER_BOT, logchanbot, encrypt_string, decrypt_string, RowButton_row_close_any_message
 from config import config
@@ -40,6 +39,48 @@ class Admin(commands.Cog):
 
     async def cog_check(self, ctx):
         return commands.is_owner()
+
+    async def get_coin_setting(self):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    coin_list = {}
+                    sql = """ SELECT * FROM `coin_settings` """
+                    await cur.execute(sql, ())
+                    result = await cur.fetchall()
+                    if result and len(result) > 0:
+                        for each in result:
+                            coin_list[each['coin_name']] = each
+                        return AttrDict(coin_list)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return None
+
+
+    async def enable_disable_coin(self, coin: str, what: str, toggle: int):
+        COIN_NAME = coin.upper()
+        what = what.lower()
+        if what not in ["withdraw", "deposit", "tip"]:
+            return 0
+        if what == "withdraw":
+            what = "enable_withdraw"
+        elif what == "deposit":
+            what = "enable_deposit"
+        elif what == "tip":
+            what = "enable_tip"
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ UPDATE coin_settings SET `"""+what+"""`=%s WHERE `coin_name`=%s AND `"""+what+"""`<>%s LIMIT 1 """               
+                    await cur.execute(sql, ( toggle, COIN_NAME, toggle ))
+                    await conn.commit()
+                    return cur.rowcount
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return 0
 
 
     async def create_address_eth(self):
@@ -94,6 +135,123 @@ class Admin(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return
 
+
+    @commands.is_owner()
+    @admin.command(hidden=True, usage='withdraw', description='Enable/Disable withdraw for a coin')
+    async def withdraw(self, ctx, coin: str):
+        COIN_NAME = coin.upper()
+        command = "withdraw"
+        if not hasattr(self.bot.coin_list, COIN_NAME):
+            msg = f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
+            return
+        else:
+            enable_withdraw = getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_withdraw")
+            new_value = 1
+            new_text = "enable"
+            if enable_withdraw == 1:
+                new_value = 0
+                new_text = "disable"
+            toggle = await self.enable_disable_coin(COIN_NAME, command, new_value)
+            if toggle > 0:
+                msg = f"{ctx.author.mention}, **{COIN_NAME}** `{command}` is `{new_text}` now."
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(msg)
+                else:
+                    await ctx.reply(msg)
+            else:
+                msg = f"{ctx.author.mention}, **{COIN_NAME}** `{command}` is `{new_text}` failed to update."
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(msg)
+                else:
+                    await ctx.reply(msg)
+            coin_list = await self.get_coin_setting()
+            if coin_list:
+                self.bot.coin_list = coin_list
+            coin_list_name = await self.get_coin_list_name()
+            if coin_list_name:
+                self.bot.coin_name_list = coin_list_name
+
+    @commands.is_owner()
+    @admin.command(hidden=True, usage='tip', description='Enable/Disable tip for a coin')
+    async def tip(self, ctx, coin: str):
+        COIN_NAME = coin.upper()
+        command = "tip"
+        if not hasattr(self.bot.coin_list, COIN_NAME):
+            msg = f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
+            return
+        else:
+            enable_tip = getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_tip")
+            new_value = 1
+            new_text = "enable"
+            if enable_tip == 1:
+                new_value = 0
+                new_text = "disable"
+            toggle = await self.enable_disable_coin(COIN_NAME, command, new_value)
+            if toggle > 0:
+                msg = f"{ctx.author.mention}, **{COIN_NAME}** `{command}` is `{new_text}` now."
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(msg)
+                else:
+                    await ctx.reply(msg)
+            else:
+                msg = f"{ctx.author.mention}, **{COIN_NAME}** `{command}` is `{new_text}` failed to update."
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(msg)
+                else:
+                    await ctx.reply(msg)
+            coin_list = await self.get_coin_setting()
+            if coin_list:
+                self.bot.coin_list = coin_list
+            coin_list_name = await self.get_coin_list_name()
+            if coin_list_name:
+                self.bot.coin_name_list = coin_list_name
+
+    @commands.is_owner()
+    @admin.command(hidden=True, usage='deposit', description='Enable/Disable deposit for a coin')
+    async def deposit(self, ctx, coin: str):
+        COIN_NAME = coin.upper()
+        command = "deposit"
+        if not hasattr(self.bot.coin_list, COIN_NAME):
+            msg = f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
+            return
+        else:
+            enable_deposit = getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_deposit")
+            new_value = 1
+            new_text = "enable"
+            if enable_deposit == 1:
+                new_value = 0
+                new_text = "disable"
+            toggle = await self.enable_disable_coin(COIN_NAME, command, new_value)
+            if toggle > 0:
+                msg = f"{ctx.author.mention}, **{COIN_NAME}** `{command}` is `{new_text}` now."
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(msg)
+                else:
+                    await ctx.reply(msg)
+            else:
+                msg = f"{ctx.author.mention}, **{COIN_NAME}** `{command}` is `{new_text}` failed to update."
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(msg)
+                else:
+                    await ctx.reply(msg)
+            coin_list = await self.get_coin_setting()
+            if coin_list:
+                self.bot.coin_list = coin_list
+            coin_list_name = await self.get_coin_list_name()
+            if coin_list_name:
+                self.bot.coin_name_list = coin_list_name
 
     @commands.is_owner()
     @commands.command(hidden=True, usage='cleartx', description='Clear TX_IN_PROCESS')

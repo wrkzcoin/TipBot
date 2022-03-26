@@ -29,7 +29,7 @@ class Events(commands.Cog):
         redis_utils.openRedis()
         self.saving_message = False
         self.process_saving_message.start()
-        self.max_saving_message = 5
+        self.max_saving_message = 500
         
         self.reload_coin_paprika.start()
         self.reload_coingecko.start()

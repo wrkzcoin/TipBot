@@ -49,7 +49,7 @@ class Price(commands.Cog):
             if len(amount_tmp) > 0:
                 amount_tmp = amount_tmp[0]
                 token_tmp = amount.replace(amount_tmp, "")
-                if token_tmp.upper() not in coin_paprika_symbol_list:
+                if token_tmp.upper().strip() not in coin_paprika_symbol_list:
                     msg = f"I can not find price of `{token_tmp.upper()}`."
                     if type(ctx) == disnake.ApplicationCommandInteraction:
                         await ctx.response.send_message(msg)
@@ -58,8 +58,8 @@ class Price(commands.Cog):
                     return
                 else:
                     amount_old = amount
-                    token_list = [token_tmp.upper()]
-                    COIN_NAME = token_tmp.upper()
+                    token_list = [token_tmp.upper().strip()]
+                    COIN_NAME = token_tmp.upper().strip()
                     amount = amount_tmp.replace(",", "")
                     amount = text_to_num(amount)
                     if amount is None:

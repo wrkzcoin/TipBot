@@ -146,12 +146,18 @@ class TopGGVote(commands.Cog):
                                     # height can be None
                                     userdata_balance = await store.sql_user_balance_single(guild_id, COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
                                     total_balance = userdata_balance['adjust']
-                                    if total_balance < get_guild['vote_reward_amount']:
+                                    amount = get_guild['vote_reward_amount']
+                                    if total_balance < amount:
                                         # Alert guild owner
                                         guild_owner = self.bot.get_user(guild.owner.id)
                                         await guild_owner.send(f'Your guild run out of guild\'s reward for {COIN_NAME}. Deposit more!')
                                     else:
                                         # Tip
+                                        member = None
+                                        try:
+                                            member = self.bot.get_user(int(user_vote))
+                                        except Exception as e:
+                                            traceback.print_exc(file=sys.stdout)
                                         try:
                                             amount_in_usd = 0.0
                                             if usd_equivalent_enable == 1:
@@ -181,18 +187,18 @@ class TopGGVote(commands.Cog):
                                 if guild:
                                     try:
                                         # TODO: change to bot channel
-                                        await self.vote_logchan(f'[{SERVER_BOT}] A user <@{user_vote}> voted a guild `<@{guild_id}>` type `{type_vote}` in top.gg.')
+                                        await self.vote_logchan(f'[{SERVER_BOT}] A user <@{user_vote}> voted a guild `{guild_id}` type `{type_vote}` in top.gg.')
                                     except Exception as e:
                                         traceback.print_exc(file=sys.stdout)
                                 else:
                                     try:
-                                        await self.vote_logchan(f'[{SERVER_BOT}] A user <@{user_vote}> voted a guild `<@{guild_id}>` type `{type_vote}` in top.gg but I am not in that server or I can\'t find bot channel.')
+                                        await self.vote_logchan(f'[{SERVER_BOT}] A user <@{user_vote}> voted a guild `{guild_id}` type `{type_vote}` in top.gg but I am not in that server or I can\'t find bot channel.')
                                     except Exception as e:
                                         traceback.print_exc(file=sys.stdout)
                                 return web.Response(text="Thank you!")
                             else:
                                 try:
-                                    await self.vote_logchan(f'[{SERVER_BOT}] A user <@{user_vote}> voted a guild `<@{guild_id}>` type `{type_vote}` in top.gg but I am not in that guild or I cannot find it.')
+                                    await self.vote_logchan(f'[{SERVER_BOT}] A user <@{user_vote}> voted a guild `{guild_id}` type `{type_vote}` in top.gg but I am not in that guild or I cannot find it.')
                                 except Exception as e:
                                     traceback.print_exc(file=sys.stdout)
                                 return web.Response(text="No such server by this key! Or not up to date!")

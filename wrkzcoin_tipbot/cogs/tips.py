@@ -126,7 +126,7 @@ class FreeTip_Button(disnake.ui.View):
                     amount_in_usd = 0.0
                     per_unit = None
                     if usd_equivalent_enable == 1:
-                        per_unit = get_mathtip['unit_price_usd']
+                        per_unit = get_freetip['unit_price_usd']
                         if per_unit and per_unit > 0:
                             amount_in_usd = per_unit * float(amountDiv)
                             if amount_in_usd > 0.0001:
@@ -1131,7 +1131,7 @@ class Tips(commands.Cog):
 
 
         listMembers = []
-        if user.upper() == "ANY":
+        if user.upper() == "ANY" or user.upper() == "ALL":
             listMembers = [member for member in ctx.guild.members]
         else:
             listMembers = [member for member in ctx.guild.members if member.status != disnake.Status.offline and member.bot is False]

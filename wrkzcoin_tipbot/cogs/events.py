@@ -33,7 +33,13 @@ class Events(commands.Cog):
         
         self.reload_coin_paprika.start()
         self.reload_coingecko.start()
+        
+        self.botLogChan = None
 
+
+    async def bot_log(self):
+        if self.botLogChan is None:
+            self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
 
     async def insert_discord_message(self, list_message):
         try:
@@ -583,11 +589,18 @@ class Events(commands.Cog):
 
     @commands.Cog.listener()
     async def on_guild_join(self, guild):
-        pass
+        await self.bot_log()
+        add_server_info = await store.sql_addinfo_by_server(str(guild.id), guild.name, config.discord.prefixCmd, "WRKZ", True)
+        await self.botLogChan.send(f'Bot joins a new guild {guild.name} / {guild.id} / Users: {len(guild.members)}. Total guilds: {len(self.bot.guilds)}.')
+        return
+
 
     @commands.Cog.listener()
     async def on_guild_remove(self, guild):
-        pass
+        await self.bot_log()
+        add_server_info = await store.sql_updateinfo_by_server(str(guild.id), "status", "REMOVED")
+        await self.botLogChan.send(f'Bot was removed from guild {guild.name} / {guild.id}. Total guilds: {len(self.bot.guilds)}')
+        return
 
 
     @commands.Cog.listener()

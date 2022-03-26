@@ -2661,3 +2661,26 @@ async def sql_faucet_add(claimed_user: str, claimed_server: str, coin_name: str,
         await logchanbot(traceback.format_exc())
     return None
 # End Faucet / Game stats
+
+# Guild
+async def sql_updateinfo_by_server(server_id: str, what: str, value: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT serverid, servername, prefix, default_coin, numb_user, numb_bot, tiponly 
+                          FROM discord_server WHERE serverid = %s """
+                await cur.execute(sql, (server_id,))
+                result = await cur.fetchone()
+                if result is None:
+                    return None
+                else:
+                    if what in ["servername", "prefix", "default_coin", "tiponly", "status"]:
+                        sql = """ UPDATE discord_server SET `"""+what+"""`=%s WHERE serverid=%s """
+                        await cur.execute(sql, (value, server_id,))
+                        await conn.commit()
+                    else:
+                        return None
+    except Exception as e:
+        await logchanbot(str(traceback.format_exc()) + "\n\n" + f"({sql}, ({what}, {value}, {server_id},)")

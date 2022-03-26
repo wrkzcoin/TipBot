@@ -44,7 +44,7 @@ class Guild(commands.Cog):
     # Check if guild has at least 10x amount of reward or disable
     @tasks.loop(seconds=30.0)
     async def monitor_guild_reward_amount(self):
-        await asyncio.sleep(5.0)
+        await self.bot.wait_until_ready()
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:

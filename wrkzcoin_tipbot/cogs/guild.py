@@ -585,6 +585,7 @@ class Guild(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
 
+    @commands.has_permissions(administrator=True)
     @guild.sub_command(
         usage="guild topgg [resetkey]", 
         options=[
@@ -639,6 +640,7 @@ class Guild(commands.Cog):
                     traceback.print_exc(file=sys.stdout)
 
 
+    @commands.has_permissions(administrator=True)
     @guild.sub_command(
         usage="guild discordlist [resetkey]", 
         options=[
@@ -1039,6 +1041,7 @@ class Guild(commands.Cog):
             if self.enable_logchan:
                 await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} changed bot channel {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.')
 
+
     @commands.has_permissions(manage_channels=True)
     @setting.sub_command(
         usage="setting economychan", 
@@ -1086,6 +1089,7 @@ class Guild(commands.Cog):
                 await ctx.reply(msg)
             if self.enable_logchan:
                 await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} changed economy game channel {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.')
+
 
     @commands.has_permissions(manage_channels=True)
     @setting.sub_command(
@@ -1189,6 +1193,7 @@ class Guild(commands.Cog):
                         await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} set game **{game}** channel in {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.')
                     return
 
+    @commands.has_permissions(manage_channels=True)
     @guild.sub_command(
         usage="guild gamechan <game>", 
         options=[
@@ -1215,6 +1220,7 @@ class Guild(commands.Cog):
         await self.async_set_gamechan(ctx, game)
 
 
+    @commands.has_permissions(manage_channels=True)
     @setting.sub_command(
         usage="setting gamechan <game>", 
         options=[

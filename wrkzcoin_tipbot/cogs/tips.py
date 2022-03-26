@@ -1355,7 +1355,7 @@ class Tips(commands.Cog):
                 await ctx.reply(msg)
             return
 
-        print("async_tip args: "+ str(args))
+        # print("async_tip args: "+ str(args))
         if args == "@everyone":
             get_list_member_n_role = [str(member.id) for member in ctx.guild.members if member.id != ctx.author.id]
         else:
@@ -1629,7 +1629,7 @@ class Tips(commands.Cog):
                 await ctx.reply(msg)
             return
 
-        print("async_tip args: "+ str(args))
+        # print("async_tip args: "+ str(args))
         if args == "@everyone":
             get_list_member_n_role = [str(member.id) for member in ctx.guild.members if member.id != ctx.author.id]
         else:

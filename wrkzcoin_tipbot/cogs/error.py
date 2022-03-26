@@ -142,8 +142,8 @@ class Error(commands.Cog):
         if isinstance(error, commands.CommandError):
             if ctx.command: return await ctx.reply(f"Unhandled error while executing command `{ctx.command.name}`: {str(error)}", view=RowButton_row_close_any_message())
 
-        logging.error("Ignoring exception in command {}:".format(ctx.command))
-        logging.error("\n" + "".join(traceback.format_exception(type(error), error, error.__traceback__)))
+        #logging.error("Ignoring exception in command {}:".format(ctx.command))
+        #logging.error("\n" + "".join(traceback.format_exception(type(error), error, error.__traceback__)))
 
 
 def setup(client):

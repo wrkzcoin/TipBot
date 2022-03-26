@@ -41,8 +41,7 @@ class Core(commands.Cog):
         return await self.async_uptime(ctx)
 
 
-
-    @commands.bot_has_permissions(add_reactions=True)
+    @commands.bot_has_permissions(send_messages=True)
     @commands.command(usage="help [command/cog]",
                       aliases=["h"], description="Shows the help menu or information for a specific command or cog when specified.")
     async def help(self, ctx, *, opt: str = None):

@@ -907,7 +907,7 @@ class Tips(commands.Cog):
                 if total_in_usd >= 0.0001:
                     equivalent_usd = " ~ {:,.4f} USD".format(total_in_usd)
 
-        embed = disnake.Embed(title=f"FreeTip appears {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display} {equivalent_usd}", description=f"Click to collect", timestamp=datetime.utcnow())
+        embed = disnake.Embed(title=f"FreeTip appears {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display} {equivalent_usd}", description=f"Click to collect", timestamp=datetime.fromtimestamp(int(time.time())+duration_s))
         try:
             if comment and len(comment) > 0:
                 embed.add_field(name="Comment", value=comment, inline=True)

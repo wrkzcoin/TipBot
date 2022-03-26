@@ -3213,25 +3213,46 @@ class Wallet(commands.Cog):
                     await ctx.reply(msg)
                 return
 
-        remaining = ''
         try:
             if type(ctx) == disnake.ApplicationCommandInteraction:
                 tmp_msg = await ctx.response.send_message(f"{ctx.author.mention}, loading faucet...", delete_after=30.0)
             else:
                 tmp_msg = await ctx.send(f"{ctx.author.mention}, loading faucet...")
-            remaining = await self.bot_faucet(ctx, self.bot.faucet_coins) or ''
             if type(ctx) != disnake.ApplicationCommandInteraction:
                 await tmp_msg.delete()
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
+
         total_claimed = '{:,.0f}'.format(await store.sql_faucet_count_all())
-        if info and info.upper()=="INFO":
+        if info and info.upper() == "INFO":
+            remaining = await self.bot_faucet(ctx, self.bot.faucet_coins) or ''
             msg = f'{ctx.author.mention} Faucet balance:\n```{remaining}```Total user claims: **{total_claimed}** times. Tip me if you want to feed these faucets. Use /claim to vote TipBot and get reward.'
             if type(ctx) == disnake.ApplicationCommandInteraction:
                 await ctx.followup.send(msg)
             else:
                 await ctx.reply(msg)
             return
+
+        claim_interval = config.faucet.interval
+        half_claim_interval = int(config.faucet.interval / 2)
+
+        # check user claim:
+        try:
+            if info is None:
+                check_claimed = await store.sql_faucet_checkuser(str(ctx.author.id), SERVER_BOT)
+                if check_claimed is not None:
+                    if int(time.time()) - check_claimed['claimed_at'] <= claim_interval*3600:
+                        time_waiting = seconds_str(claim_interval*3600 - int(time.time()) + check_claimed['claimed_at'])
+                        user_claims = await store.sql_faucet_count_user(str(ctx.author.id))
+                        number_user_claimed = '{:,.0f}'.format(user_claims)
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention} You just claimed within last {claim_interval}h. Waiting time {time_waiting} for next **take**. Total user claims: **{total_claimed}** times. You have claimed: **{number_user_claimed}** time(s). Tip me if you want to feed these faucets. Use /claim to vote TipBot and get reward.'
+                        if type(ctx) == disnake.ApplicationCommandInteraction:
+                            await ctx.followup.send(msg)
+                        else:
+                            await ctx.reply(msg)
+                        return
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
 
         # offline can not take
         if ctx.author.status == disnake.Status.offline:
@@ -3299,8 +3320,6 @@ class Wallet(commands.Cog):
         # end of bot channel check
 
         try:
-            claim_interval = config.faucet.interval
-            half_claim_interval = int(config.faucet.interval / 2)
             # check penalty:
             try:
                 faucet_penalty = await store.sql_faucet_penalty_checkuser(str(ctx.author.id), False, SERVER_BOT)
@@ -3316,22 +3335,6 @@ class Wallet(commands.Cog):
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
                 return
-            # check user claim:
-            
-            if not info:
-                check_claimed = await store.sql_faucet_checkuser(str(ctx.author.id), SERVER_BOT)
-                if check_claimed:
-                    # limit 12 hours
-                    if int(time.time()) - check_claimed['claimed_at'] <= claim_interval*3600:
-                        time_waiting = seconds_str(claim_interval*3600 - int(time.time()) + check_claimed['claimed_at'])
-                        user_claims = await store.sql_faucet_count_user(str(ctx.author.id))
-                        number_user_claimed = '{:,.0f}'.format(user_claims, SERVER_BOT)
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention} You just claimed within last {claim_interval}h. Waiting time {time_waiting} for next **take**. Faucet balance:\n```{remaining}```Total user claims: **{total_claimed}** times. You have claimed: **{number_user_claimed}** time(s). Tip me if you want to feed these faucets. Use /claim to vote TipBot and get reward.'
-                        if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.followup.send(msg)
-                        else:
-                            await ctx.reply(msg)
-                    return
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
             return

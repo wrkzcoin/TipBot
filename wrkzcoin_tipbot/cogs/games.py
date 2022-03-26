@@ -1887,12 +1887,14 @@ class Games(commands.Cog):
                     return
             # If there is a bot channel
             elif serverinfo and serverinfo['botchan'] and serverinfo[index_game] is None and ctx.channel.id != int(serverinfo['botchan']):
-                msg = f"{EMOJI_RED_NO}, {ctx.channel.mention} is the bot channel here!"
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
-                return
+                bot_chan = self.bot.get_channel(int(serverinfo['botchan']))
+                if bot_chan:
+                    msg = f"{EMOJI_RED_NO}, {bot_chan.mention} is the bot channel here!"
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.reply(msg)
+                    return
         except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
             return
         except Exception as e:
@@ -1969,12 +1971,14 @@ class Games(commands.Cog):
                     return
             # If there is a bot channel
             elif serverinfo and serverinfo['botchan'] and serverinfo[index_game] is None and ctx.channel.id != int(serverinfo['botchan']):
-                msg = f"{EMOJI_RED_NO}, {ctx.channel.mention} is the bot channel here!"
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
-                return
+                bot_chan = self.bot.get_channel(int(serverinfo['botchan']))
+                if bot_chan:
+                    msg = f"{EMOJI_RED_NO}, {bot_chan.mention} is the bot channel here!"
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.reply(msg)
+                    return
         except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
             return
         except Exception as e:
@@ -2100,12 +2104,14 @@ class Games(commands.Cog):
                     return
             # If there is a bot channel
             elif serverinfo and serverinfo['botchan'] and serverinfo[index_game] is None and ctx.channel.id != int(serverinfo['botchan']):
-                msg = f"{EMOJI_RED_NO}, {ctx.channel.mention} is the bot channel here!"
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
-                return
+                bot_chan = self.bot.get_channel(int(serverinfo['botchan']))
+                if bot_chan:
+                    msg = f"{EMOJI_RED_NO}, {bot_chan.mention} is the bot channel here!"
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.reply(msg)
+                    return
         except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
             return
         except Exception as e:
@@ -2171,12 +2177,14 @@ class Games(commands.Cog):
                     return
             # If there is a bot channel
             elif serverinfo and serverinfo['botchan'] and serverinfo[index_game] is None and ctx.channel.id != int(serverinfo['botchan']):
-                msg = f"{EMOJI_RED_NO}, {ctx.channel.mention} is the bot channel here!"
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
-                return
+                bot_chan = self.bot.get_channel(int(serverinfo['botchan']))
+                if bot_chan:
+                    msg = f"{EMOJI_RED_NO}, {bot_chan.mention} is the bot channel here!"
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.reply(msg)
+                    return
         except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
             return
         except Exception as e:
@@ -2353,12 +2361,14 @@ class Games(commands.Cog):
                     return
             # If there is a bot channel
             elif serverinfo and serverinfo['botchan'] and serverinfo[index_game] is None and ctx.channel.id != int(serverinfo['botchan']):
-                msg = f"{EMOJI_RED_NO}, {ctx.channel.mention} is the bot channel here!"
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
-                return
+                bot_chan = self.bot.get_channel(int(serverinfo['botchan']))
+                if bot_chan:
+                    msg = f"{EMOJI_RED_NO}, {bot_chan.mention} is the bot channel here!"
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.reply(msg)
+                    return
         except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
             return
         except Exception as e:
@@ -2582,12 +2592,14 @@ class Games(commands.Cog):
                     return
             # If there is a bot channel
             elif serverinfo and serverinfo['botchan'] and serverinfo[index_game] is None and ctx.channel.id != int(serverinfo['botchan']):
-                msg = f"{EMOJI_RED_NO}, {ctx.channel.mention} is the bot channel here!"
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
-                return
+                bot_chan = self.bot.get_channel(int(serverinfo['botchan']))
+                if bot_chan:
+                    msg = f"{EMOJI_RED_NO}, {bot_chan.mention} is the bot channel here!"
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.reply(msg)
+                    return
         except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
             return
         except Exception as e:
@@ -2616,7 +2628,7 @@ class Games(commands.Cog):
         if ctx.author.id in self.bot.GAME_INTERACTIVE_PRGORESS:
             return {"error": f"{ctx.author.mention} You are ongoing with one **game** play."}
 
-        view = g2048_Buttons(ctx, bot, free_game, timeout=15.0)
+        view = g2048_Buttons(ctx, self.bot, free_game, timeout=15.0)
         try:
             await ctx.response.send_message("New 2048 Game! tap button...", ephemeral=True)                
             view.message = await ctx.channel.send(content=f'{ctx.author.mention}```GAME 2048\n{view.board}```Your score: **{0}**', view=view)
@@ -2657,12 +2669,14 @@ class Games(commands.Cog):
                     return
             # If there is a bot channel
             elif serverinfo and serverinfo['botchan'] and serverinfo[index_game] is None and ctx.channel.id != int(serverinfo['botchan']):
-                msg = f"{EMOJI_RED_NO}, {ctx.channel.mention} is the bot channel here!"
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
-                return
+                bot_chan = self.bot.get_channel(int(serverinfo['botchan']))
+                if bot_chan:
+                    msg = f"{EMOJI_RED_NO}, {bot_chan.mention} is the bot channel here!"
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.reply(msg)
+                    return
         except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
             return
         except Exception as e:

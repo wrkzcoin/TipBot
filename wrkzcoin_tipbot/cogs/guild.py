@@ -31,7 +31,7 @@ class Guild(commands.Cog):
         self.bot = bot
         redis_utils.openRedis()
         self.botLogChan = None
-        self.enable_logchan = False
+        self.enable_logchan = True
 
         # Tasks
         self.monitor_guild_reward_amount.start()

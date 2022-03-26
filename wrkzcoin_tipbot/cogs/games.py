@@ -1839,7 +1839,7 @@ class Games(commands.Cog):
         self.db = database_games()
         self.bot = bot
         self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
-        self.enable_logchan = False
+        self.enable_logchan = True
 
 
     async def bot_log(self):
@@ -1886,7 +1886,7 @@ class Games(commands.Cog):
                         await ctx.reply(msg)
                     return
             # If there is a bot channel
-            elif serverinfo and serverinfo['botchan'] and ctx.channel.id != int(serverinfo['botchan']):
+            elif serverinfo and serverinfo['botchan'] and serverinfo[index_game] is None and ctx.channel.id != int(serverinfo['botchan']):
                 msg = f"{EMOJI_RED_NO}, {ctx.channel.mention} is the bot channel here!"
                 if type(ctx) == disnake.ApplicationCommandInteraction:
                     await ctx.response.send_message(msg)
@@ -1968,7 +1968,7 @@ class Games(commands.Cog):
                         await ctx.reply(msg)
                     return
             # If there is a bot channel
-            elif serverinfo and serverinfo['botchan'] and ctx.channel.id != int(serverinfo['botchan']):
+            elif serverinfo and serverinfo['botchan'] and serverinfo[index_game] is None and ctx.channel.id != int(serverinfo['botchan']):
                 msg = f"{EMOJI_RED_NO}, {ctx.channel.mention} is the bot channel here!"
                 if type(ctx) == disnake.ApplicationCommandInteraction:
                     await ctx.response.send_message(msg)
@@ -2099,7 +2099,7 @@ class Games(commands.Cog):
                         await ctx.reply(msg)
                     return
             # If there is a bot channel
-            elif serverinfo and serverinfo['botchan'] and ctx.channel.id != int(serverinfo['botchan']):
+            elif serverinfo and serverinfo['botchan'] and serverinfo[index_game] is None and ctx.channel.id != int(serverinfo['botchan']):
                 msg = f"{EMOJI_RED_NO}, {ctx.channel.mention} is the bot channel here!"
                 if type(ctx) == disnake.ApplicationCommandInteraction:
                     await ctx.response.send_message(msg)
@@ -2170,7 +2170,7 @@ class Games(commands.Cog):
                         await ctx.reply(msg)
                     return
             # If there is a bot channel
-            elif serverinfo and serverinfo['botchan'] and ctx.channel.id != int(serverinfo['botchan']):
+            elif serverinfo and serverinfo['botchan'] and serverinfo[index_game] is None and ctx.channel.id != int(serverinfo['botchan']):
                 msg = f"{EMOJI_RED_NO}, {ctx.channel.mention} is the bot channel here!"
                 if type(ctx) == disnake.ApplicationCommandInteraction:
                     await ctx.response.send_message(msg)
@@ -2352,7 +2352,7 @@ class Games(commands.Cog):
                         await ctx.reply(msg)
                     return
             # If there is a bot channel
-            elif serverinfo and serverinfo['botchan'] and ctx.channel.id != int(serverinfo['botchan']):
+            elif serverinfo and serverinfo['botchan'] and serverinfo[index_game] is None and ctx.channel.id != int(serverinfo['botchan']):
                 msg = f"{EMOJI_RED_NO}, {ctx.channel.mention} is the bot channel here!"
                 if type(ctx) == disnake.ApplicationCommandInteraction:
                     await ctx.response.send_message(msg)
@@ -2581,7 +2581,7 @@ class Games(commands.Cog):
                         await ctx.reply(msg)
                     return
             # If there is a bot channel
-            elif serverinfo and serverinfo['botchan'] and ctx.channel.id != int(serverinfo['botchan']):
+            elif serverinfo and serverinfo['botchan'] and serverinfo[index_game] is None and ctx.channel.id != int(serverinfo['botchan']):
                 msg = f"{EMOJI_RED_NO}, {ctx.channel.mention} is the bot channel here!"
                 if type(ctx) == disnake.ApplicationCommandInteraction:
                     await ctx.response.send_message(msg)
@@ -2656,7 +2656,7 @@ class Games(commands.Cog):
                         await ctx.reply(msg)
                     return
             # If there is a bot channel
-            elif serverinfo and serverinfo['botchan'] and ctx.channel.id != int(serverinfo['botchan']):
+            elif serverinfo and serverinfo['botchan'] and serverinfo[index_game] is None and ctx.channel.id != int(serverinfo['botchan']):
                 msg = f"{EMOJI_RED_NO}, {ctx.channel.mention} is the bot channel here!"
                 if type(ctx) == disnake.ApplicationCommandInteraction:
                     await ctx.response.send_message(msg)

@@ -25,7 +25,7 @@ class Trade(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.botLogChan = None
-        self.enable_logchan = False
+        self.enable_logchan = True
         redis_utils.openRedis()
 
 

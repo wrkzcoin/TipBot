@@ -1214,6 +1214,7 @@ class Tips(commands.Cog):
             list_user_not_mention = []
             list_user_not_mention_str = ""
             random.shuffle(listMembers)
+            failed_interact = False
             for member in listMembers:
                 if send_tipped_ping >= config.discord.maxTipAllMessage:
                     total_found += 1
@@ -1237,7 +1238,14 @@ class Tips(commands.Cog):
                             if len(list_user_mention_str) > 5 or len(list_user_not_mention_str) > 5:
                                 msg = f'{EMOJI_MONEYFACE} {list_user_mention_str} {list_user_not_mention_str}, you got a tip of **{amountDiv_str} {token_display}** {equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator}{NOTIFICATION_OFF_CMD}'
                                 if type(ctx) == disnake.ApplicationCommandInteraction:
-                                    await ctx.response.send_message(msg)
+                                    if failed_interact == True:
+                                        await ctx.followup.send(msg)
+                                    else:
+                                        try:
+                                            await ctx.response.send_message(msg)
+                                        except Exception as e:
+                                            failed_interact = True
+                                            await ctx.followup.send(msg)
                                 else:
                                     await ctx.reply(msg)
                                 send_tipped_ping += 1
@@ -1261,7 +1269,14 @@ class Tips(commands.Cog):
                         remaining_str = " and other {} members".format(total_found-numb_mention)
                     msg = f'{EMOJI_MONEYFACE} {list_user_mention_str} {list_user_not_mention_str} {remaining_str}, you got a tip of **{amountDiv_str} {token_display}** {equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator}{NOTIFICATION_OFF_CMD}'
                     if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
+                        if failed_interact == True:
+                            await ctx.followup.send(msg)
+                        else:
+                            try:
+                                await ctx.response.send_message(msg)
+                            except Exception as e:
+                                failed_interact = True
+                                await ctx.followup.send(msg)
                     else:
                         await ctx.reply(msg)
                 except Exception as e:
@@ -2200,6 +2215,7 @@ class Tips(commands.Cog):
             list_user_not_mention = []
             list_user_not_mention_str = ""
             random.shuffle(list_talker)
+            failed_interact = False
             for member_id in list_talker:
                 member = self.bot.get_user(int(member_id))
                 if not member:
@@ -2227,7 +2243,14 @@ class Tips(commands.Cog):
                             if len(list_user_mention_str) > 5 or len(list_user_not_mention_str) > 5:
                                 msg = f'{EMOJI_MONEYFACE} {list_user_mention_str} {list_user_not_mention_str}, you got a tip of **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display} {equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator}{NOTIFICATION_OFF_CMD}'
                                 if type(ctx) == disnake.ApplicationCommandInteraction:
-                                    await ctx.response.send_message(msg)
+                                    if failed_interact == True:
+                                        await ctx.followup.send(msg)
+                                    else:
+                                        try:
+                                            await ctx.response.send_message(msg)
+                                        except Exception as e:
+                                            failed_interact = True
+                                            await ctx.followup.send(msg)
                                 else:
                                     await ctx.reply(msg)
                                 send_tipped_ping += 1
@@ -2251,7 +2274,14 @@ class Tips(commands.Cog):
                         remaining_str = " and other {} members".format(total_found-numb_mention)
                     msg = f'{EMOJI_MONEYFACE} {list_user_mention_str} {list_user_not_mention_str} {remaining_str}, you got a tip of **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}** {equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator}{NOTIFICATION_OFF_CMD}'
                     if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
+                        if failed_interact == True:
+                            await ctx.followup.send(msg)
+                        else:
+                            try:
+                                await ctx.response.send_message(msg)
+                            except Exception as e:
+                                failed_interact = True
+                                await ctx.followup.send(msg)
                     else:
                         await ctx.reply(msg)
                 except Exception as e:

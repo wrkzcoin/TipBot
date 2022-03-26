@@ -99,7 +99,6 @@ class Faucet(commands.Cog):
                     await cur.execute(sql, ( userId, user_server.upper() ))
                     result = await cur.fetchone()
                     if result: return result
-                    return True
         except Exception as e:
             await logchanbot(traceback.format_exc())
         return None
@@ -920,7 +919,7 @@ class WalletAPI(commands.Cog):
 class Wallet(commands.Cog):
 
     def __init__(self, bot):
-        self.enable_logchan = False
+        self.enable_logchan = True
         self.bot = bot
         self.WalletAPI = WalletAPI(self.bot)
         
@@ -1145,7 +1144,7 @@ class Wallet(commands.Cog):
 
     @tasks.loop(seconds=20.0)
     async def update_balance_trtl_api(self):
-        await asyncio.sleep(5.0)
+        await self.bot.wait_until_ready()
         try:
             # async def trtl_api_get_transfers(self, url: str, key: str, coin: str, height_start: int = None, height_end: int = None):
             list_trtl_api = await store.get_coin_settings("TRTL-API")
@@ -1231,7 +1230,7 @@ class Wallet(commands.Cog):
 
     @tasks.loop(seconds=20.0)
     async def update_balance_trtl_service(self):
-        await asyncio.sleep(5.0)
+        await self.bot.wait_until_ready()
         try:
             list_trtl_service = await store.get_coin_settings("TRTL-SERVICE")
             list_bcn_service = await store.get_coin_settings("BCN")
@@ -1316,7 +1315,7 @@ class Wallet(commands.Cog):
 
     @tasks.loop(seconds=20.0)
     async def update_balance_xmr(self):
-        await asyncio.sleep(5.0)
+        await self.bot.wait_until_ready()
         try:
             list_xmr_api = await store.get_coin_settings("XMR")
             if len(list_xmr_api) > 0:
@@ -1406,7 +1405,7 @@ class Wallet(commands.Cog):
 
     @tasks.loop(seconds=10.0)
     async def update_balance_btc(self):
-        await asyncio.sleep(5.0)
+        await self.bot.wait_until_ready()
         try:
             # async def trtl_api_get_transfers(self, url: str, key: str, coin: str, height_start: int = None, height_end: int = None):
             list_btc_api = await store.get_coin_settings("BTC")
@@ -1493,7 +1492,7 @@ class Wallet(commands.Cog):
 
     @tasks.loop(seconds=20.0)
     async def update_balance_chia(self):
-        await asyncio.sleep(5.0)
+        await self.bot.wait_until_ready()
         try:
             list_chia_api = await store.get_coin_settings("CHIA")
             if len(list_chia_api) > 0:
@@ -1578,7 +1577,7 @@ class Wallet(commands.Cog):
 
     @tasks.loop(seconds=20.0)
     async def update_balance_nano(self):
-        await asyncio.sleep(5.0)
+        await self.bot.wait_until_ready()
         try:
             updated = 0
             list_nano = await store.get_coin_settings("NANO")
@@ -1651,7 +1650,7 @@ class Wallet(commands.Cog):
 
     @tasks.loop(seconds=20.0)
     async def update_balance_erc20(self):
-        await asyncio.sleep(5.0)
+        await self.bot.wait_until_ready()
         erc_contracts = await self.get_all_contracts("ERC-20", False)
         if len(erc_contracts) > 0:
             for each_c in erc_contracts:
@@ -1670,7 +1669,7 @@ class Wallet(commands.Cog):
 
     @tasks.loop(seconds=20.0)
     async def update_balance_trc20(self):
-        await asyncio.sleep(5.0)
+        await self.bot.wait_until_ready()
         erc_contracts = await self.get_all_contracts("TRC-20", False)
         if len(erc_contracts) > 0:
             for each_c in erc_contracts:
@@ -2397,9 +2396,9 @@ class Wallet(commands.Cog):
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
             if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(embed=embed)
+                await ctx.response.send_message(embed=embed, ephemeral=True)
             else:
-                await ctx.reply(embed=embed)
+                await ctx.reply(embed=embed, view=RowButton_row_close_any_message())
             # Add update for future call
             try:
                 if type_coin == "ERC-20":
@@ -2474,9 +2473,9 @@ class Wallet(commands.Cog):
             num_coins = 0
             per_page = 8
             if type(ctx) != disnake.ApplicationCommandInteraction:
-                tmp_msg = await ctx.reply("Loading...")
+                tmp_msg = await ctx.reply(f"{ctx.author.mention} balance loading...")
             else:
-                tmp_msg = await ctx.response.send_message("Loading...") # delete_after=3600.0
+                tmp_msg = await ctx.response.send_message(f"{ctx.author.mention} balance loading...", delete_after=60.0) # delete_after=3600.0
             for each_token in mytokens:
                 COIN_NAME = each_token['coin_name']
                 type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
@@ -2600,7 +2599,7 @@ class Wallet(commands.Cog):
 
                 view = MenuPage(ctx, all_pages, timeout=30)
                 if type(ctx) == disnake.ApplicationCommandInteraction:
-                    view.message = await ctx.edit_original_message(embed=all_pages[0], view=view)
+                    view.message = await ctx.followup.send(embed=all_pages[0], view=view, ephemeral=True)
                 else:
                     await tmp_msg.delete()
                     view.message = await ctx.reply(content=None, embed=all_pages[0], view=view)
@@ -3028,10 +3027,10 @@ class Wallet(commands.Cog):
         get_user_coin = await faucet.get_user_faucet_coin(str(ctx.author.id), SERVER_BOT)
         list_coins = await faucet.get_faucet_coin_list()
         list_coin_names = list(set([each['coin_name'] for each in list_coins]))
-        title_text = ""
+        title_text = " [You haven't set any preferred reward!]"
         if get_user_coin is None:
             title_text = " [You haven't set any preferred reward!]"
-        else:
+        elif get_user_coin and get_user_coin['coin_name']:
             title_text = " [Preferred {}]".format(get_user_coin['coin_name'])
         list_coin_sets = {}
         for each in list_coins:
@@ -3164,7 +3163,6 @@ class Wallet(commands.Cog):
                 table_data.append([COIN_NAME, balance_actual, sub_claim])
             else:
                 table_data.append([COIN_NAME, '0', sub_claim])
-        print(table_data)
         table = AsciiTable(table_data)
         table.padding_left = 0
         table.padding_right = 0

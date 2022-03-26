@@ -6,6 +6,7 @@ from datetime import datetime
 from disnake import ActionRow, Button, ButtonStyle
 from disnake.enums import OptionType
 from disnake.app_commands import Option, OptionChoice
+from decimal import Decimal
 
 import random
 import asyncio
@@ -926,7 +927,7 @@ class Economy(commands.Cog):
         redis_utils.openRedis()
         self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
         self.db = database_economy()
-        self.enable_logchan = False
+        self.enable_logchan = True
 
     async def check_guild(self, ctx):
         if self.botLogChan is None:
@@ -2192,6 +2193,7 @@ class Economy(commands.Cog):
                                     COIN_NAME = get_last_act['reward_coin_name']
                                     coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
                                     contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
+                                    usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
                                     if get_last_act['reward_amount'] and get_last_act['reward_amount'] > 0:
                                         completed_task += 'Reward Coin: {}{}\n'.format(num_format_coin(get_last_act['reward_amount'], COIN_NAME, coin_decimal, False), get_last_act['reward_coin_name'])
                                     if get_last_act['health'] and get_last_act['health'] > 0:
@@ -2200,7 +2202,22 @@ class Economy(commands.Cog):
                                         completed_task += 'Gained energy: {}\n'.format(get_last_act['energy'])
                                     if get_last_act['energy'] and get_last_act['energy'] < 0:
                                         completed_task += 'Spent of energy: {}'.format(get_last_act['energy'])
-                                    reward = await store.sql_user_balance_mv_single(get_last_act['guild_id'], str(ctx.author.id), str(ctx.guild.id), str(ctx.channel.id), get_last_act['reward_amount'], COIN_NAME, 'ECONOMY', coin_decimal, SERVER_BOT, contract)
+
+                                    amount_in_usd = 0.0
+                                    if usd_equivalent_enable == 1:
+                                        native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
+                                        COIN_NAME_FOR_PRICE = COIN_NAME
+                                        if native_token_name:
+                                            COIN_NAME_FOR_PRICE = native_token_name
+                                        if COIN_NAME_FOR_PRICE in self.bot.token_hints:
+                                            id = self.bot.token_hints[COIN_NAME_FOR_PRICE]['ticker_name']
+                                            per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+                                        else:
+                                            per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
+                                        if per_unit and per_unit > 0:
+                                            amount_in_usd = float(Decimal(per_unit) * Decimal(get_last_act['reward_amount']))
+
+                                    reward = await store.sql_user_balance_mv_single(get_last_act['guild_id'], str(ctx.author.id), str(ctx.guild.id), str(ctx.channel.id), get_last_act['reward_amount'], COIN_NAME, 'ECONOMY', coin_decimal, SERVER_BOT, contract, amount_in_usd)
                                     await ctx.response.send_message(f'{EMOJI_INFORMATION} {ctx.author.mention} ```{completed_task}```')
                                 else:
                                     return {"error": f"{EMOJI_ERROR} {ctx.author.mention}, Internal error."}
@@ -2246,6 +2263,7 @@ class Economy(commands.Cog):
                 await ctx.reply(msg)
             return
         elif serverinfo and 'enable_economy' in serverinfo and serverinfo['enable_economy'] == "YES" and serverinfo['economy_channel'] and int(serverinfo['economy_channel']) != ctx.channel.id:
+            EcoChan = self.bot.get_channel(int(serverinfo['economy_channel']))
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, {EcoChan.mention} is the economy channel!!!"
             if type(ctx) == disnake.ApplicationCommandInteraction:
                 await ctx.response.send_message(msg)

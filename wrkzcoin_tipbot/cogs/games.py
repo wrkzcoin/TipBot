@@ -2204,7 +2204,12 @@ class Games(commands.Cog):
         won = False
 
         if ctx.author.id in self.bot.GAME_INTERACTIVE_PRGORESS:
-            return {"error": f"{ctx.author.mention} You are ongoing with one **game** play."}
+            msg = f"{ctx.author.mention} You are ongoing with one **game** play."
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
+            return
 
         count_played = await self.db.sql_game_count_user(str(ctx.author.id), config.game.duration_24h, SERVER_BOT, False)
         if count_played and count_played >= config.game.max_daily_play:
@@ -2229,7 +2234,12 @@ class Games(commands.Cog):
         if ctx.author.id not in self.bot.GAME_DICE_IN_PRGORESS:
             self.bot.GAME_DICE_IN_PRGORESS.append(ctx.author.id)
         else:
-            return {"error": f"{ctx.author.mention} You are ongoing with one **game dice** play."}
+            msg = f"{ctx.author.mention} You are ongoing with one **game dice** play."
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
+            return
 
         await asyncio.sleep(2)
 
@@ -2816,8 +2826,6 @@ class Games(commands.Cog):
         await self.bot_log()
         try:
             game_dice = await self.game_dice(ctx)
-            if game_dice and "error" in game_dice:
-                await ctx.response.send_message(game_dice['error'])
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 

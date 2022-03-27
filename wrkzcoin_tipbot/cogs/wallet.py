@@ -2566,7 +2566,9 @@ class Wallet(commands.Cog):
                 elif num_coins == total_coins:
                     all_pages.append(page)
                     break
-
+            # remaining
+            if (total_coins - len(zero_tokens)) % per_page > 0:
+                all_pages.append(page)
             # Replace first page
             if total_all_balance_usd > 0.01:
                 total_all_balance_usd = "Having ~ {:,.2f}$".format(total_all_balance_usd)

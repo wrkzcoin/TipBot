@@ -10,6 +10,7 @@ from attrdict import AttrDict
 # For eval
 import contextlib
 import io
+from decimal import Decimal
 
 from web3 import Web3
 from web3.middleware import geth_poa_middleware
@@ -29,6 +30,9 @@ import functools
 import store
 from Bot import get_token_list, num_format_coin, EMOJI_ERROR, SERVER_BOT, logchanbot, encrypt_string, decrypt_string, RowButton_row_close_any_message
 from config import config
+import redis_utils
+from utils import MenuPage
+from cogs.wallet import WalletAPI
 
 Account.enable_unaudited_hdwallet_features()
 
@@ -116,6 +120,159 @@ class Admin(commands.Cog):
     async def admin(self, ctx):
         if ctx.invoked_subcommand is None: await ctx.reply(f'{ctx.author.mention} Invalid admin command')
         return
+
+    @commands.is_owner()
+    @admin.command(hidden=True, usage='baluser', description='Check user balances')
+    async def baluser(self, ctx, member_id: str):
+        try:
+            zero_tokens = []
+            has_none_balance = True
+            mytokens = await store.get_coin_settings(coin_type=None)
+            total_all_balance_usd = 0.0
+            all_pages = []
+            all_names = [each['coin_name'] for each in mytokens]
+            total_coins = len(mytokens)
+            page = disnake.Embed(title=f'[ BALANCE LIST {member_id} ]',
+                                  color=disnake.Color.blue(),
+                                  timestamp=datetime.utcnow(), )
+            page.add_field(name="Coin/Tokens: [{}]".format(len(all_names)), 
+                           value="```"+", ".join(all_names)+"```", inline=False)
+            page.set_thumbnail(url=ctx.author.display_avatar)
+            page.set_footer(text="Use the reactions to flip pages.")
+            all_pages.append(page)
+            num_coins = 0
+            per_page = 8
+            if type(ctx) != disnake.ApplicationCommandInteraction:
+                tmp_msg = await ctx.reply(f"{ctx.author.mention} balance loading...")
+            else:
+                tmp_msg = await ctx.response.send_message(f"{ctx.author.mention} balance loading...", delete_after=60.0) # delete_after=3600.0
+            for each_token in mytokens:
+                COIN_NAME = each_token['coin_name']
+                type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
+                net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
+                deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
+                coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+                token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
+                usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
+                User_WalletAPI = WalletAPI(self.bot)
+                get_deposit = await User_WalletAPI.sql_get_userwallet(member_id, COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                if get_deposit is None:
+                    get_deposit = await User_WalletAPI.sql_register_user(member_id, COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
+                wallet_address = get_deposit['balance_wallet_address']
+                if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                    wallet_address = get_deposit['paymentid']
+
+                height = None
+                try:
+                    if type_coin in ["ERC-20", "TRC-20"]:
+                        # Add update for future call
+                        try:
+                            if type_coin == "ERC-20":
+                                update_call = await store.sql_update_erc20_user_update_call(member_id)
+                            elif type_coin == "TRC-10" or type_coin == "TRC-20":
+                                update_call = await store.sql_update_trc20_user_update_call(member_id)
+                        except Exception as e:
+                            traceback.print_exc(file=sys.stdout)
+                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
+                    else:
+                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+
+                if num_coins == 0 or num_coins % per_page == 0:
+                    page = disnake.Embed(title=f'[ BALANCE LIST {member_id} ]',
+                                         description="Thank you for using TipBot!",
+                                         color=disnake.Color.blue(),
+                                         timestamp=datetime.utcnow(), )
+                    page.set_thumbnail(url=ctx.author.display_avatar)
+                    page.set_footer(text="Use the reactions to flip pages.")
+                # height can be None
+                userdata_balance = await store.sql_user_balance_single(member_id, COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+                total_balance = userdata_balance['adjust']
+                if total_balance == 0:
+                    zero_tokens.append(COIN_NAME)
+                    continue
+                elif total_balance > 0:
+                    has_none_balance = False
+                equivalent_usd = ""
+                if usd_equivalent_enable == 1:
+                    native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
+                    COIN_NAME_FOR_PRICE = COIN_NAME
+                    if native_token_name:
+                        COIN_NAME_FOR_PRICE = native_token_name
+                    per_unit = None
+                    if COIN_NAME_FOR_PRICE in self.bot.token_hints:
+                        id = self.bot.token_hints[COIN_NAME_FOR_PRICE]['ticker_name']
+                        per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+                    else:
+                        per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
+                    if per_unit and per_unit > 0:
+                        total_in_usd = float(Decimal(total_balance) * Decimal(per_unit))
+                        total_all_balance_usd += total_in_usd
+                        if total_in_usd >= 0.01:
+                            equivalent_usd = " ~ {:,.2f}$".format(total_in_usd)
+                        elif total_in_usd >= 0.0001:
+                            equivalent_usd = " ~ {:,.4f}$".format(total_in_usd)
+                         
+                page.add_field(name="{}{}".format(token_display, equivalent_usd) , value="```{}```".format(num_format_coin(total_balance, COIN_NAME, coin_decimal, False)), inline=True)
+                num_coins += 1
+                if num_coins > 0 and num_coins % per_page == 0:
+                    all_pages.append(page)
+                    if num_coins < total_coins - len(zero_tokens):
+                        page = disnake.Embed(title=f'[ BALANCE LIST {member_id} ]',
+                                             description="Thank you for using TipBot!",
+                                             color=disnake.Color.blue(),
+                                             timestamp=datetime.utcnow(), )
+                        page.set_thumbnail(url=ctx.author.display_avatar)
+                        page.set_footer(text="Use the reactions to flip pages.")
+                    else:
+                        all_pages.append(page)
+                        break
+                elif num_coins == total_coins:
+                    all_pages.append(page)
+                    break
+            # remaining
+            if (total_coins - len(zero_tokens)) % per_page > 0:
+                all_pages.append(page)
+            # Replace first page
+            if total_all_balance_usd > 0.01:
+                total_all_balance_usd = "Having ~ {:,.2f}$".format(total_all_balance_usd)
+            elif total_all_balance_usd > 0.0001:
+                total_all_balance_usd = "Having ~ {:,.4f}$".format(total_all_balance_usd)
+            else:
+                total_all_balance_usd = "Thank you for using TipBot!"
+            page = disnake.Embed(title=f'[ BALANCE LIST {member_id} ]',
+                                  description=f"`{total_all_balance_usd}`",
+                                  color=disnake.Color.blue(),
+                                  timestamp=datetime.utcnow(), )
+            # Remove zero from all_names
+            if has_none_balance == True:
+                msg = f'{member_id} does not have any balance.'
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(msg)
+                else:
+                    await ctx.reply(msg)
+                return
+            else:
+                all_names = [each for each in all_names if each not in zero_tokens]
+                page.add_field(name="Coin/Tokens: [{}]".format(len(all_names)), 
+                               value="```"+", ".join(all_names)+"```", inline=False)
+                if len(zero_tokens) > 0:
+                    zero_tokens = list(set(zero_tokens))
+                    page.add_field(name="Zero Balances: [{}]".format(len(zero_tokens)), 
+                                   value="```"+", ".join(zero_tokens)+"```", inline=False)
+                page.set_thumbnail(url=ctx.author.display_avatar)
+                page.set_footer(text="Use the reactions to flip pages.")
+                all_pages[0] = page
+
+                view = MenuPage(ctx, all_pages, timeout=30)
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    view.message = await ctx.followup.send(embed=all_pages[0], view=view, ephemeral=True)
+                else:
+                    await tmp_msg.delete()
+                    view.message = await ctx.reply(content=None, embed=all_pages[0], view=view)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
 
 
     @commands.is_owner()

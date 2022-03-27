@@ -3473,7 +3473,7 @@ class Wallet(commands.Cog):
                 tip = await store.sql_user_balance_mv_single(str(self.bot.user.id), str(ctx.author.id), str(ctx.guild.id), str(ctx.channel.id), amount, COIN_NAME, "FAUCET", coin_decimal, SERVER_BOT, contract, amount_in_usd)
                 try:
                     faucet_add = await store.sql_faucet_add(str(ctx.author.id), str(ctx.guild.id), COIN_NAME, amount, coin_decimal, SERVER_BOT)
-                    msg = f'{EMOJI_MONEYFACE} {ctx.author.mention} You got a random faucet {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}'
+                    msg = f'{EMOJI_MONEYFACE} {ctx.author.mention} You got a random faucet {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}. Use /claim to vote TipBot and get reward.'
                     if type(ctx) == disnake.ApplicationCommandInteraction:
                         await ctx.followup.send(msg)
                     else:
@@ -3484,7 +3484,7 @@ class Wallet(commands.Cog):
                     await logchanbot(traceback.format_exc())
             else:
                 try:
-                    msg = f"Simulated faucet {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}. This is a test only. Use without **ticker** to do real faucet claim."
+                    msg = f"Simulated faucet {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}. This is a test only. Use without **ticker** to do real faucet claim. Use /claim to vote TipBot and get reward."
                     if type(ctx) == disnake.ApplicationCommandInteraction:
                         await ctx.followup.send(msg)
                     else:

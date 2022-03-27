@@ -105,8 +105,10 @@ class MenuPage(disnake.ui.View):
         if interaction.author != self.inter.author:
             return
         #await interaction.response.edit_message(view=None)
-        await interaction.message.delete()
-
+        try:
+            await interaction.message.delete()
+        except Exception as e:
+            pass
 
     # @disnake.ui.button(label="", emoji="▶️", style=disnake.ButtonStyle.green)
     @disnake.ui.button(label="▶️", style=disnake.ButtonStyle.green)

@@ -84,6 +84,13 @@ class FreeTip_Button(disnake.ui.View):
                     change_status = await store.discord_freetip_update(str(self.message.id), "NOCOLLECT")
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
+                link_to_msg = "https://discord.com/channels/{}/{}/{}".format(get_freetip['guild_id'], get_freetip['channel_id'], str(self.message.id))
+                # free tip shall always get DM. Ignore notifyList
+                try:
+                    if get_owner is not None:
+                        await get_owner.send(f'Free tip of {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display} {equivalent_usd} expired and no one collected.\n{link_to_msg}')
+                except (disnake.Forbidden, disnake.errors.Forbidden) as e:
+                    pass
             elif len(attend_list) > 0:
                 # re-check balance
                 User_WalletAPI = WalletAPI(self.bot)
@@ -161,7 +168,7 @@ class FreeTip_Button(disnake.ui.View):
                         link_to_msg = "https://discord.com/channels/{}/{}/{}".format(get_freetip['guild_id'], get_freetip['channel_id'], str(self.message.id))
                         # free tip shall always get DM. Ignore notifyList
                         try:
-                            if get_owner:
+                            if get_owner is not None:
                                 await get_owner.send(
                                     f'{EMOJI_ARROW_RIGHTHOOK} Free tip of {tipAmount} {token_display} '
                                     f'was sent to ({len(attend_list_id)}) members in server `{guild.name}`.\n'
@@ -1144,6 +1151,19 @@ class Tips(commands.Cog):
             return
 
         print("Number of tip-all in {}: {}".format(ctx.guild.name, len(listMembers)))
+        max_allowed = 400
+        if len(listMembers) > max_allowed:
+            # Check if premium guild
+            if serverinfo and serverinfo['is_premium'] == 0:
+                msg = f'{ctx.author.mention}, there are more than maximum allowed `{str(max_allowed)}`. You can request pluton#8888 to allow this for your guild.'
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(msg)
+                else:
+                    await ctx.reply(msg)
+                await logchanbot(f"{ctx.guild.id} / {ctx.guild.name} reaches number of recievers: `{str(len(listMembers))}` issued by {ctx.author.id} / {ctx.author.name}#{ctx.author.discriminator}.")
+                return
+            else:
+                await logchanbot(f"{ctx.guild.id} / {ctx.guild.name} reaches number of recievers: `{str(len(listMembers))}` issued by {ctx.author.id} / {ctx.author.name}#{ctx.author.discriminator}.")
         memids = []  # list of member ID
         for member in listMembers:
             if ctx.author.id != member.id:
@@ -1186,6 +1206,14 @@ class Tips(commands.Cog):
             else:
                 await ctx.reply(msg)
             return
+
+        failed_interact = False
+        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, tipping {str(len(memids))} users...'
+        if type(ctx) == disnake.ApplicationCommandInteraction:
+            await ctx.response.send_message(msg, delete_after=20.0)
+            failed_interact == True
+        else:
+            await ctx.reply(msg)
         if ctx.author.id not in self.bot.TX_IN_PROCESS:
             self.bot.TX_IN_PROCESS.append(ctx.author.id)
             try:
@@ -1201,6 +1229,7 @@ class Tips(commands.Cog):
             else:
                 await ctx.reply(msg)
             return
+
         if tips:
             # Message mention all in public
             total_found = 0
@@ -1214,7 +1243,7 @@ class Tips(commands.Cog):
             list_user_not_mention = []
             list_user_not_mention_str = ""
             random.shuffle(listMembers)
-            failed_interact = False
+            
             for member in listMembers:
                 if send_tipped_ping >= config.discord.maxTipAllMessage:
                     total_found += 1
@@ -1243,6 +1272,8 @@ class Tips(commands.Cog):
                                     else:
                                         try:
                                             await ctx.response.send_message(msg)
+                                        except disnake.errors.InteractionTimedOut:
+                                            pass
                                         except Exception as e:
                                             failed_interact = True
                                             await ctx.followup.send(msg)
@@ -1274,6 +1305,8 @@ class Tips(commands.Cog):
                         else:
                             try:
                                 await ctx.response.send_message(msg)
+                            except disnake.errors.InteractionTimedOut:
+                                pass
                             except Exception as e:
                                 failed_interact = True
                                 await ctx.followup.send(msg)
@@ -1828,7 +1861,6 @@ class Tips(commands.Cog):
                 await ctx.reply(msg)
             return
 
-
         if amount < MinTip or amount > MaxTip:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than **{num_format_coin(MinTip, COIN_NAME, coin_decimal, False)} {token_display}** or bigger than **{num_format_coin(MaxTip, COIN_NAME, coin_decimal, False)} {token_display}**.'
             if type(ctx) == disnake.ApplicationCommandInteraction:
@@ -1869,7 +1901,11 @@ class Tips(commands.Cog):
                 await ctx.reply(msg)
             return
         elif actual_balance < TotalAmount:
-            msg = await ctx.reply(f'{EMOJI_RED_NO} {ctx.author.mention}, not sufficient balance.')
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, not sufficient balance.'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
             return
 
         tipAmount = num_format_coin(TotalAmount, COIN_NAME, coin_decimal, False)
@@ -1896,6 +1932,24 @@ class Tips(commands.Cog):
                 total_amount_in_usd = float(amount_in_usd * len(memids))
                 if total_amount_in_usd > 0.0001:
                     total_equivalent_usd = " ~ {:,.4f} USD".format(total_amount_in_usd)
+
+        max_allowed = 400
+        try:
+            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            if len(memids) > max_allowed:
+                # Check if premium guild
+                if serverinfo and serverinfo['is_premium'] == 0:
+                    msg = f'{ctx.author.mention}, there are more than maximum allowed `{str(max_allowed)}`. You can request pluton#8888 to allow this for your guild.'
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.reply(msg)
+                    await logchanbot(f"{ctx.guild.id} / {ctx.guild.name} reaches number of recievers: `{str(len(memids))}` issued by {ctx.author.id} / {ctx.author.name}#{ctx.author.discriminator}.")
+                    return
+                else:
+                    await logchanbot(f"{ctx.guild.id} / {ctx.guild.name} reaches number of recievers: `{str(len(memids))}` issued by {ctx.author.id} / {ctx.author.name}#{ctx.author.discriminator}.")
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
 
         notifyList = await store.sql_get_tipnotify()
         try:
@@ -2098,18 +2152,23 @@ class Tips(commands.Cog):
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot(traceback.format_exc())
 
-        # Check number of receivers.
-        if len(list_receivers) > config.discord.tiptalkMax:
-            try:
-                msg = f'{EMOJI_RED_NO} {ctx.author.mention} The number of receivers are too many.'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
+        max_allowed = 400
+        try:
+            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            if len(list_receivers) > max_allowed:
+                # Check if premium guild
+                if serverinfo and serverinfo['is_premium'] == 0:
+                    msg = f'{ctx.author.mention}, there are more than maximum allowed `{str(max_allowed)}`. You can request pluton#8888 to allow this for your guild.'
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.reply(msg)
+                    await logchanbot(f"{ctx.guild.id} / {ctx.guild.name} reaches number of recievers: `{str(len(list_receivers))}` issued by {ctx.author.id} / {ctx.author.name}#{ctx.author.discriminator}.")
+                    return
                 else:
-                    await ctx.reply(msg)
-            except Exception as e:
-                traceback.print_exc(file=sys.stdout)
-            return
-        # End of checking receivers numbers.
+                    await logchanbot(f"{ctx.guild.id} / {ctx.guild.name} reaches number of recievers: `{str(len(list_receivers))}` issued by {ctx.author.id} / {ctx.author.name}#{ctx.author.discriminator}.")
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
 
         TotalAmount = amount * len(list_receivers)
 

@@ -50,12 +50,20 @@ class Price(commands.Cog):
                 amount_tmp = amount_tmp[0]
                 token_tmp = amount.replace(amount_tmp, "")
                 if token_tmp.upper().strip() not in coin_paprika_symbol_list:
-                    msg = f"I can not find price of `{token_tmp.upper()}`."
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
+                    if hasattr(self.bot.coin_list, token_tmp.upper()):
+                        native_token_name = getattr(getattr(self.bot.coin_list, token_tmp.upper()), "native_token_name")
+                        if native_token_name:
+                            COIN_NAME = native_token_name
+                            token_list = [native_token_name]
+                            amount_old = amount
+                            amount = amount_tmp[0]
                     else:
-                        await ctx.reply(msg)
-                    return
+                        msg = f"I can not find price of `{token_tmp.upper()}`."
+                        if type(ctx) == disnake.ApplicationCommandInteraction:
+                            await ctx.response.send_message(msg)
+                        else:
+                            await ctx.reply(msg)
+                        return
                 else:
                     amount_old = amount
                     token_list = [token_tmp.upper().strip()]

@@ -953,6 +953,11 @@ class Wallet(commands.Cog):
         self.notify_new_confirmed_spendable_trc20.start()
 
 
+    def check_address_erc20(self, address: str):
+        if is_hex_address(address):
+            return address
+        return False
+
     async def bot_log(self):
         if self.botLogChan is None:
             self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)

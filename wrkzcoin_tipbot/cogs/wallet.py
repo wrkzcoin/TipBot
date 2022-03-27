@@ -951,7 +951,60 @@ class Wallet(commands.Cog):
         self.update_balance_trc20.start()
         self.unlocked_move_pending_trc20.start()
         self.notify_new_confirmed_spendable_trc20.start()
+        
+        # Swap
+        self.swap_pair = {"WRKZ-BWRKZ": 1, "BWRKZ-WRKZ": 1, "WRKZ-XWRKZ": 1, "XWRKZ-WRKZ": 1}
 
+
+    async def swap_coin(self, userId: str, from_coin: str, from_amount: float, from_contract: str, from_decimal: int, to_coin: str, to_amount: float, to_contract: str, to_decimal: int, user_server: str):
+        global pool
+        # 1] move to_amount to_coin from "SWAP" to userId
+        # 2] move from_amount from_coin from userId to "SWAP"
+        currentTs = int(time.time())
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ INSERT INTO user_balance_mv 
+                              (`token_name`, `contract`, `from_userid`, `to_userid`, `guild_id`, `channel_id`, `real_amount`, `real_amount_usd`, `token_decimal`, `type`, `date`, `user_server`) 
+                              VALUES (%s, %s, %s, %s, %s, %s, CAST(%s AS DECIMAL(32,8)), CAST(%s AS DECIMAL(32,8)), %s, %s, %s, %s);
+
+                              INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, `balance`, `update_date`) 
+                              VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
+                              UPDATE 
+                              `balance`=`balance`+VALUES(`balance`), 
+                              `update_date`=VALUES(`update_date`);
+
+                              INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, `balance`, `update_date`) 
+                              VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
+                              UPDATE 
+                              `balance`=`balance`+VALUES(`balance`), 
+                              `update_date`=VALUES(`update_date`);
+
+
+                              INSERT INTO user_balance_mv 
+                              (`token_name`, `contract`, `from_userid`, `to_userid`, `guild_id`, `channel_id`, `real_amount`, `real_amount_usd`, `token_decimal`, `type`, `date`, `user_server`) 
+                              VALUES (%s, %s, %s, %s, %s, %s, CAST(%s AS DECIMAL(32,8)), CAST(%s AS DECIMAL(32,8)), %s, %s, %s, %s);
+
+                              INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, `balance`, `update_date`) 
+                              VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
+                              UPDATE 
+                              `balance`=`balance`+VALUES(`balance`), 
+                              `update_date`=VALUES(`update_date`);
+
+                              INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, `balance`, `update_date`) 
+                              VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
+                              UPDATE 
+                              `balance`=`balance`+VALUES(`balance`), 
+                              `update_date`=VALUES(`update_date`);
+                              """
+                    await cur.execute(sql, ( to_coin.upper(), to_contract, "SWAP", userId, "SWAP", "SWAP", to_amount, 0.0, to_decimal, "SWAP", currentTs, user_server, "SWAP", to_coin.upper(), user_server, -to_amount, currentTs, userId, to_coin.upper(), user_server, to_amount, currentTs, from_coin.upper(), from_contract, userId, "SWAP", "SWAP", "SWAP", from_amount, 0.0, from_decimal, "SWAP", currentTs, user_server, userId, from_coin.upper(), user_server, -from_amount, currentTs, "SWAP", from_coin.upper(), user_server, from_amount, currentTs ))
+                    await conn.commit()
+                    return True
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return None
 
     def check_address_erc20(self, address: str):
         if is_hex_address(address):
@@ -3529,6 +3582,132 @@ class Wallet(commands.Cog):
     ):
         take_action = await self.take_action(ctx, info)
     # End of Faucet
+
+    # Swap
+    @commands.slash_command(
+        usage='swap', 
+        options=[
+            Option('from_amount', 'from_amount', OptionType.string, required=True),
+            Option('from_token', 'from_token', OptionType.string, required=True),
+            Option('to_token', 'to_token', OptionType.string, required=True)
+        ],
+        description="Swap between supported token/coin."
+    )
+    async def swap(
+        self, 
+        ctx,
+        from_amount: str,
+        from_token: str,
+        to_token: str
+        
+    ):
+        FROM_COIN = from_token.upper()
+        TO_COIN = to_token.upper()
+        PAIR_NAME = FROM_COIN + "-" + TO_COIN
+        if PAIR_NAME not in self.swap_pair:
+            msg = f'{EMOJI_RED_NO}, {ctx.author.mention} `{PAIR_NAME}` is not available.'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.followup.send(msg)
+            else:
+                await ctx.reply(msg)
+            return
+        else:
+            amount = from_amount.replace(",", "")
+            amount = text_to_num(amount)
+            if amount is None:
+                msg = f'{EMOJI_RED_NO} {ctx.author.mention} Invalid given amount.'
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(msg)
+                else:
+                    await ctx.reply(msg)
+                return
+            else:
+                if amount <= 0:
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please get more {token_display}.'
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.reply(msg)
+                    return
+                to_amount = amount * self.swap_pair[PAIR_NAME]
+                net_name = getattr(getattr(self.bot.coin_list, FROM_COIN), "net_name")
+                type_coin = getattr(getattr(self.bot.coin_list, FROM_COIN), "type")
+                deposit_confirm_depth = getattr(getattr(self.bot.coin_list, FROM_COIN), "deposit_confirm_depth")
+                coin_decimal = getattr(getattr(self.bot.coin_list, FROM_COIN), "decimal")
+                MinTip = getattr(getattr(self.bot.coin_list, FROM_COIN), "real_min_tip")
+                MaxTip = getattr(getattr(self.bot.coin_list, FROM_COIN), "real_max_tip")
+                token_display = getattr(getattr(self.bot.coin_list, FROM_COIN), "display_name")
+                contract = getattr(getattr(self.bot.coin_list, FROM_COIN), "contract")
+                to_contract = getattr(getattr(self.bot.coin_list, TO_COIN), "contract")
+                to_coin_decimal = getattr(getattr(self.bot.coin_list, TO_COIN), "decimal")
+                User_WalletAPI = WalletAPI(self.bot)
+                get_deposit = await User_WalletAPI.sql_get_userwallet(str(ctx.author.id), FROM_COIN, net_name, type_coin, SERVER_BOT, 0)
+                if get_deposit is None:
+                    get_deposit = await User_WalletAPI.sql_register_user(str(ctx.author.id), FROM_COIN, net_name, type_coin, SERVER_BOT, 0, 0)
+
+                wallet_address = get_deposit['balance_wallet_address']
+                if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                    wallet_address = get_deposit['paymentid']
+
+                # Check if tx in progress
+                if ctx.author.id in self.bot.TX_IN_PROCESS:
+                    msg = f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.'
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+                        await ctx.reply(msg)
+                    return
+
+                height = None
+                try:
+                    if type_coin in ["ERC-20", "TRC-20"]:
+                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
+                    else:
+                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{FROM_COIN}').decode())
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), FROM_COIN, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+                actual_balance = float(userdata_balance['adjust'])
+
+                if amount > MaxTip or amount < MinTip:
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, swap cannot be bigger than **{num_format_coin(MaxTip, FROM_COIN, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(MinTip, FROM_COIN, coin_decimal, False)} {token_display}**.'
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.reply(msg)
+                    return
+                elif amount > actual_balance:
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to swap **{num_format_coin(amount, FROM_COIN, coin_decimal, False)} {token_display}**.'
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.reply(msg)
+                    return
+                if ctx.author.id not in self.bot.TX_IN_PROCESS:
+                    self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                    try:
+                        swap = await self.swap_coin(str(ctx.author.id), FROM_COIN, amount, contract, coin_decimal, TO_COIN, to_amount, to_contract, to_coin_decimal, SERVER_BOT)
+                        if swap:
+                            msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, swapped from `{num_format_coin(amount, FROM_COIN, coin_decimal, False)} {FROM_COIN} to {num_format_coin(to_amount, TO_COIN, to_coin_decimal, False)} {TO_COIN}`.'
+                            if type(ctx) == disnake.ApplicationCommandInteraction:
+                                await ctx.response.send_message(msg)
+                            else:
+                                await ctx.reply(msg)
+                            await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} swapped from `{num_format_coin(amount, FROM_COIN, coin_decimal, False)} {FROM_COIN} to {num_format_coin(to_amount, TO_COIN, to_coin_decimal, False)} {TO_COIN}`.')
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
+                    self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+                else:
+                    msg = f'{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress.'
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+                        msg = await ctx.reply(msg)
+                    return
+    # End of Swap
 
 
 def setup(bot):

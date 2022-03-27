@@ -123,7 +123,12 @@ class Admin(commands.Cog):
 
     @commands.is_owner()
     @admin.command(hidden=True, usage='baluser', description='Check user balances')
-    async def baluser(self, ctx, member_id: str):
+    async def baluser(self, ctx, member_id: str, user_server: str="DISCORD"):
+        if member_id.upper() == "SWAP":
+            member_id = member_id.upper()
+            user_server = "SYSTEM"
+        else:
+            user_server = user_server.upper()
         try:
             zero_tokens = []
             has_none_balance = True
@@ -155,9 +160,9 @@ class Admin(commands.Cog):
                 token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
                 usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
                 User_WalletAPI = WalletAPI(self.bot)
-                get_deposit = await User_WalletAPI.sql_get_userwallet(member_id, COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                get_deposit = await User_WalletAPI.sql_get_userwallet(member_id, COIN_NAME, net_name, type_coin, user_server, 0)
                 if get_deposit is None:
-                    get_deposit = await User_WalletAPI.sql_register_user(member_id, COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
+                    get_deposit = await User_WalletAPI.sql_register_user(member_id, COIN_NAME, net_name, type_coin, user_server, 0, 0)
                 wallet_address = get_deposit['balance_wallet_address']
                 if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                     wallet_address = get_deposit['paymentid']
@@ -187,7 +192,7 @@ class Admin(commands.Cog):
                     page.set_thumbnail(url=ctx.author.display_avatar)
                     page.set_footer(text="Use the reactions to flip pages.")
                 # height can be None
-                userdata_balance = await store.sql_user_balance_single(member_id, COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+                userdata_balance = await store.sql_user_balance_single(member_id, COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, user_server)
                 total_balance = userdata_balance['adjust']
                 if total_balance == 0:
                     zero_tokens.append(COIN_NAME)

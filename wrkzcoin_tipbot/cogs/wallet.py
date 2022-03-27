@@ -953,7 +953,9 @@ class Wallet(commands.Cog):
         self.notify_new_confirmed_spendable_trc20.start()
         
         # Swap
-        self.swap_pair = {"WRKZ-BWRKZ": 1, "BWRKZ-WRKZ": 1, "WRKZ-XWRKZ": 1, "XWRKZ-WRKZ": 1}
+        self.swap_pair = {"WRKZ-BWRKZ": 1, "BWRKZ-WRKZ": 1, "WRKZ-XWRKZ": 1, "XWRKZ-WRKZ": 1, "DEGO-WDEGO": 0.001, "WDEGO-DEGO": 1000, "PGO-WPGO": 1, "WPGO-PGO": 1}
+        # Donate
+        self.donate_to = 386761001808166912 #pluton#8888
 
 
     async def swap_coin(self, userId: str, from_coin: str, from_amount: float, from_contract: str, from_decimal: int, to_coin: str, to_amount: float, to_contract: str, to_decimal: int, user_server: str):
@@ -2803,7 +2805,7 @@ class Wallet(commands.Cog):
                 all_amount = False
                 if not amount.isdigit() and amount.upper() == "ALL":
                     all_amount = True
-                    userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), TOKEN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+                    userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
                     amount = float(userdata_balance['adjust']) - NetFee
                 # If $ is in amount, let's convert to coin/token
                 elif "$" in amount[-1] or "$" in amount[0]: # last is $
@@ -3583,6 +3585,200 @@ class Wallet(commands.Cog):
         take_action = await self.take_action(ctx, info)
     # End of Faucet
 
+    # Donate
+    @commands.slash_command(
+        usage='donate', 
+        options=[
+            Option('amount', 'amount', OptionType.string, required=True),
+            Option('token', 'token', OptionType.string, required=True)
+        ],
+        description="Donate to TipBot's dev team"
+    )
+    async def donate(
+        self, 
+        ctx,
+        amount: str,
+        token: str
+        
+    ):
+        COIN_NAME = token.upper()
+        # Token name check
+        if not hasattr(self.bot.coin_list, COIN_NAME):
+            msg = f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
+            return
+        else:
+            if getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_tip") != 1:
+                msg = f'{ctx.author.mention}, **{COIN_NAME}** tipping is disable.'
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(msg)
+                else:
+                    await ctx.reply(msg)
+                return
+        # End token name check
+        net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
+        type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
+        deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
+        coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+        contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
+        token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
+
+        MinTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_min_tip")
+        MaxTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_max_tip")
+        usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
+
+        User_WalletAPI = WalletAPI(self.bot)
+
+        get_deposit = await User_WalletAPI.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+        if get_deposit is None:
+            get_deposit = await User_WalletAPI.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
+
+        wallet_address = get_deposit['balance_wallet_address']
+        if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+            wallet_address = get_deposit['paymentid']
+
+        # Check if tx in progress
+        if ctx.author.id in self.bot.TX_IN_PROCESS:
+            msg = f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
+                await ctx.reply(msg)
+            return
+
+        height = None
+        try:
+            if type_coin in ["ERC-20", "TRC-20"]:
+                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
+            else:
+                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+
+        # check if amount is all
+        all_amount = False
+        if not amount.isdigit() and amount.upper() == "ALL":
+            all_amount = True
+            userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+            amount = float(userdata_balance['adjust'])
+        # If $ is in amount, let's convert to coin/token
+        elif "$" in amount[-1] or "$" in amount[0]: # last is $
+            # Check if conversion is allowed for this coin.
+            amount = amount.replace(",", "").replace("$", "")
+            if usd_equivalent_enable == 0:
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{COIN_NAME}`."
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(msg)
+                else:
+                    await ctx.reply(msg)
+                return
+            else:
+                native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
+                COIN_NAME_FOR_PRICE = COIN_NAME
+                if native_token_name:
+                    COIN_NAME_FOR_PRICE = native_token_name
+                per_unit = None
+                if COIN_NAME_FOR_PRICE in self.bot.token_hints:
+                    id = self.bot.token_hints[COIN_NAME_FOR_PRICE]['ticker_name']
+                    per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+                else:
+                    per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
+                if per_unit and per_unit > 0:
+                    amount = float(Decimal(amount) / Decimal(per_unit))
+                else:
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, I cannot fetch equivalent price. Try with different method.'
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.reply(msg)
+                    return
+        else:
+            amount = amount.replace(",", "")
+            amount = text_to_num(amount)
+            if amount is None:
+                msg = f'{EMOJI_RED_NO} {ctx.author.mention} Invalid given amount.'
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(msg)
+                else:
+                    await ctx.reply(msg)
+                return
+        # end of check if amount is all
+        userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+        actual_balance = float(userdata_balance['adjust'])
+        if amount <= 0:
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please get more {token_display}.'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
+            return
+        elif amount > MaxTip or amount < MinTip:
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than **{num_format_coin(MaxTip, COIN_NAME, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(MinTip, COIN_NAME, coin_decimal, False)} {token_display}**.'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
+            return
+        elif amount > actual_balance:
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to donate **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}**.'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
+            return
+
+        # check queue
+        if ctx.author.id in self.bot.TX_IN_PROCESS:
+            msg = f'{EMOJI_ERROR} {ctx.author.mention} {EMOJI_HOURGLASS_NOT_DONE} You have another tx in progress.'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
+            return
+
+        equivalent_usd = ""
+        amount_in_usd = 0.0
+        if usd_equivalent_enable == 1:
+            native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
+            COIN_NAME_FOR_PRICE = COIN_NAME
+            if native_token_name:
+                COIN_NAME_FOR_PRICE = native_token_name
+            if COIN_NAME_FOR_PRICE in self.bot.token_hints:
+                id = self.bot.token_hints[COIN_NAME_FOR_PRICE]['ticker_name']
+                per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+            else:
+                per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
+            if per_unit and per_unit > 0:
+                amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
+                if amount_in_usd > 0.0001:
+                    equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
+        if ctx.author.id not in self.bot.TX_IN_PROCESS:
+            self.bot.TX_IN_PROCESS.append(ctx.author.id)
+            try:
+                donate = await store.sql_user_balance_mv_single(str(ctx.author.id), str(self.donate_to), "DONATE", "DONATE", amount, COIN_NAME, "DONATE", coin_decimal, SERVER_BOT, contract, amount_in_usd)
+                if donate:
+                    msg = f'{ctx.author.mention}, thank you for donate {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.'
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.reply(msg)
+                    await logchanbot(f'[DONATE] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} donated {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
+            self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+        else:
+            msg = f'{EMOJI_ERROR} {ctx.author.mention} {EMOJI_HOURGLASS_NOT_DONE}, you have another tx in progress.'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
+    # End of Donate
+
     # Swap
     @commands.slash_command(
         usage='swap', 
@@ -3607,7 +3803,7 @@ class Wallet(commands.Cog):
         if PAIR_NAME not in self.swap_pair:
             msg = f'{EMOJI_RED_NO}, {ctx.author.mention} `{PAIR_NAME}` is not available.'
             if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.followup.send(msg)
+                await ctx.response.send_message(msg)
             else:
                 await ctx.reply(msg)
             return
@@ -3629,6 +3825,7 @@ class Wallet(commands.Cog):
                     else:
                         await ctx.reply(msg)
                     return
+                amount = float(amount)
                 to_amount = amount * self.swap_pair[PAIR_NAME]
                 net_name = getattr(getattr(self.bot.coin_list, FROM_COIN), "net_name")
                 type_coin = getattr(getattr(self.bot.coin_list, FROM_COIN), "type")
@@ -3655,7 +3852,6 @@ class Wallet(commands.Cog):
                     if type(ctx) == disnake.ApplicationCommandInteraction:
                         await ctx.response.send_message(msg)
                     else:
-                        await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
                         await ctx.reply(msg)
                     return
 

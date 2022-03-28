@@ -168,6 +168,7 @@ class FreeTip_Button(disnake.ui.View):
                         link_to_msg = "https://discord.com/channels/{}/{}/{}".format(get_freetip['guild_id'], get_freetip['channel_id'], str(self.message.id))
                         # free tip shall always get DM. Ignore notifyList
                         try:
+                            guild = self.bot.get_guild(int(get_freetip['guild_id']))
                             if get_owner is not None:
                                 await get_owner.send(
                                     f'{EMOJI_ARROW_RIGHTHOOK} Free tip of {tipAmount} {token_display} '
@@ -835,7 +836,6 @@ class Tips(commands.Cog):
                 time_string = time_string.replace("mns", "mn")
                 time_string = time_string.replace("mins", "mn")
                 time_string = time_string.replace("min", "mn")
-                time_string = time_string.replace("mn", "mn")
                 mult = {'h': 60*60, 'mn': 60, 's': 1}
                 duration_in_second = sum(int(num) * mult.get(val, 1) for num, val in re.findall('(\d+)(\w+)', time_string))
             except Exception as e:
@@ -1168,6 +1168,15 @@ class Tips(commands.Cog):
         for member in listMembers:
             if ctx.author.id != member.id:
                 memids.append(str(member.id))
+
+        if len(memids) == 0:
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, no users...'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
+            return
+
         amountDiv = truncate(amount / len(memids), 4)
 
         tipAmount = num_format_coin(amount, COIN_NAME, coin_decimal, False)
@@ -1404,7 +1413,7 @@ class Tips(commands.Cog):
                     m = self.bot.get_user(int(each_m))
                     list_member_ids.append(m.id)
                 except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
+                    pass
             if len(get_list_member_n_role) > 0:
                 for each_r in get_list_member_n_role:
                     try:
@@ -1414,7 +1423,7 @@ class Tips(commands.Cog):
                         if len(role_listMember) > 0:
                             list_member_ids += role_listMember
                     except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                        pass
             list_member_ids = list(set(list_member_ids))
             if len(list_member_ids) > 0:
                 try:
@@ -1549,7 +1558,7 @@ class Tips(commands.Cog):
 
                             time_string = time_string.replace("day", "d").replace("days", "d").replace("hours", "h").replace("hour", "h").replace("hrs", "h").replace("hr", "h")
 
-                            time_string = time_string.replace("minutes", "mn").replace("mns", "mn").replace("mins", "mn").replace("min", "mn").replace("m", "mn")
+                            time_string = time_string.replace("minutes", "mn").replace("mns", "mn").replace("mins", "mn").replace("min", "mn")
 
                             mult = {'y': 12 * 30 * 24 * 60 * 60, 'mon': 30 * 24 * 60 * 60, 'w': 7 * 24 * 60 * 60, 'd': 24 * 60 * 60, 'h': 60 * 60, 'mn': 60}
                             time_second = sum(int(num) * mult.get(val, 1) for num, val in re.findall('(\d+)(\w+)', time_string))
@@ -1893,6 +1902,14 @@ class Tips(commands.Cog):
                 list_mentions.append(member)
         TotalAmount = amount * len(memids)
 
+        if len(memids) == 0:
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, no users...'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
+            return
+
         if TotalAmount > MaxTip:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention} Total transaction cannot be bigger than **{num_format_coin(MaxTip, COIN_NAME, coin_decimal, False)} {token_display}**.'
             if type(ctx) == disnake.ApplicationCommandInteraction:
@@ -2169,6 +2186,14 @@ class Tips(commands.Cog):
                     await logchanbot(f"{ctx.guild.id} / {ctx.guild.name} reaches number of recievers: `{str(len(list_receivers))}` issued by {ctx.author.id} / {ctx.author.name}#{ctx.author.discriminator}.")
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
+
+        if len(list_receivers) == 0:
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, no users...'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
+            return
 
         TotalAmount = amount * len(list_receivers)
 

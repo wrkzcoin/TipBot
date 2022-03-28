@@ -29,9 +29,8 @@ class Events(commands.Cog):
         self.bot = bot
         self.ttlcache = TTLCache(maxsize=500, ttl=60.0)
         redis_utils.openRedis()
-        self.saving_message = False
         self.process_saving_message.start()
-        self.max_saving_message = 200
+        self.max_saving_message = 50
         
         self.reload_coin_paprika.start()
         self.reload_coingecko.start()
@@ -55,17 +54,14 @@ class Events(commands.Cog):
             self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
 
     async def insert_discord_message(self, list_message):
-        if self.saving_message == True:
-            return 0
         try:
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ INSERT INTO discord_messages (`serverid`, `server_name`, `channel_id`, `channel_name`, `user_id`, 
                                `message_author`, `message_id`, `message_time`) 
-                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s) ON DUPLICATE KEY 
-                              UPDATE 
-                              `message_time`=UNIX_TIMESTAMP()
+                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE 
+                              `message_time`=VALUES(`message_time`)
                               """
                     await cur.executemany(sql, list_message)
                     return cur.rowcount
@@ -74,19 +70,17 @@ class Events(commands.Cog):
         return 0
 
 
-    @tasks.loop(seconds=30.0)
+    @tasks.loop(seconds=10.0)
     async def process_saving_message(self):
         await self.bot.wait_until_ready()
-        if self.saving_message == False and len(self.bot.message_list) > 0:
+        if len(self.bot.message_list) > 0:
             # saving_message
-            self.saving_message = True
             try:
-                msgs = self.bot.message_list.copy()
-                self.bot.message_list = []
-                saving = await self.insert_discord_message(list(set(msgs)))
+                saving = await self.insert_discord_message(list(set(self.bot.message_list)))
+                if saving > 0:
+                    self.bot.message_list = []
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
-            self.saving_message = False
 
 
     @tasks.loop(seconds=120.0)
@@ -290,16 +284,14 @@ class Events(commands.Cog):
             if message.id not in self.message_id_list:
                 self.bot.message_list.append((str(message.guild.id), message.guild.name, str(message.channel.id), message.channel.name, str(message.author.id), "{}#{}".format(message.author.name, message.author.discriminator), str(message.id), int(time.time())))
                 self.message_id_list.append(message.id)
-            if self.saving_message == False and len(self.bot.message_list) >= self.max_saving_message:
+            if len(self.bot.message_list) >= self.max_saving_message:
                 # saving_message
-                self.saving_message = True
                 try:
-                    msgs = self.bot.message_list.copy()
-                    self.bot.message_list = []
-                    saving = await self.insert_discord_message(list(set(msgs)))
+                    saving = await self.insert_discord_message(list(set(self.bot.message_list)))
+                    if saving > 0:
+                        self.bot.message_list = []
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
-                self.saving_message = False
 
 
     @commands.Cog.listener()

@@ -2907,7 +2907,7 @@ class Wallet(commands.Cog):
 
                 view = MenuPage(ctx, all_pages, timeout=30)
                 if type(ctx) == disnake.ApplicationCommandInteraction:
-                    view.message = await ctx.followup.send(embed=all_pages[0], view=view, ephemeral=True)
+                    view.message = await ctx.followup.send(content=None, embed=all_pages[0], view=view, ephemeral=True)
                 else:
                     await tmp_msg.delete()
                     view.message = await ctx.reply(content=None, embed=all_pages[0], view=view)

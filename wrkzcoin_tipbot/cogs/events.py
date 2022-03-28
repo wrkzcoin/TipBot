@@ -30,7 +30,8 @@ class Events(commands.Cog):
         self.ttlcache = TTLCache(maxsize=500, ttl=60.0)
         redis_utils.openRedis()
         self.process_saving_message.start()
-        self.max_saving_message = 50
+        self.max_saving_message = 100
+        self.is_saving_message = False
         
         self.reload_coin_paprika.start()
         self.reload_coingecko.start()
@@ -70,7 +71,7 @@ class Events(commands.Cog):
         return 0
 
 
-    @tasks.loop(seconds=10.0)
+    @tasks.loop(seconds=20.0)
     async def process_saving_message(self):
         await self.bot.wait_until_ready()
         if len(self.bot.message_list) > 0:

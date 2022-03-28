@@ -77,6 +77,40 @@ class Userinfo(commands.Cog):
             await ctx.reply(embed=embed)
 
 
+    @commands.user_command(name="Userinfo")  # optional
+    async def userinfo(ctx: disnake.ApplicationCommandInteraction, user: disnake.User):
+        tip_text = "N/A"
+        tipstat = await self.sql_user_get_tipstat(str(user.id), SERVER_BOT)
+        if tipstat['tx_in'] > 0 and tipstat['tx_out'] > 0:
+            ratio_tip = float("%.3f" % float(tipstat['tx_out'] / tipstat['tx_in']))
+            if tipstat['tx_in'] + tipstat['tx_out'] < 50:
+                tip_text = "CryptoTip Beginner"
+            else:
+                if ratio_tip < 0.1:
+                    tip_text = "CryptoTip Rig"
+                elif 0.5 > ratio_tip >= 0.1:
+                    tip_text = "CryptoTip Excavator"
+                elif 1 > ratio_tip >= 0.5:
+                    tip_text = "CryptoTip Farmer"
+                elif 5 > ratio_tip >= 1:
+                    tip_text = "CryptoTip Seeder"
+                elif ratio_tip >= 5:
+                    tip_text = "CryptoTip AirDropper"
+
+        embed = disnake.Embed(title="{}'s info".format(user.name), description="Total faucet claim {}".format(tipstat['faucet_claimed']), timestamp=datetime.utcnow())
+        embed.add_field(name="Name", value="{}#{}".format(user.name, user.discriminator), inline=True)
+        embed.add_field(name="Display Name", value=user.display_name, inline=True)
+        embed.add_field(name="ID", value=user.id, inline=True)
+        embed.add_field(name="Status", value=user.status, inline=True)
+        embed.add_field(name="Tip In/Out", value="{}/{} - {}".format('{:,}'.format(tipstat['tx_in']), '{:,}'.format(tipstat['tx_out']), tip_text), inline=False)
+        embed.add_field(name="$ In/Out", value="{}/{}".format('{:,.2f}'.format(tipstat['in_tip_usd']), '{:,.2f}'.format(tipstat['ex_tip_usd']), tip_text), inline=False)
+        embed.add_field(name="Joined", value=str(user.joined_at.strftime("%d-%b-%Y") + ': ' + timeago.format(user.joined_at, datetime.utcnow().astimezone())))
+        embed.add_field(name="Created", value=str(user.created_at.strftime("%d-%b-%Y") + ': ' + timeago.format(user.created_at, datetime.utcnow().astimezone())))
+        embed.set_thumbnail(url=user.display_avatar)
+        embed.set_footer(text="Requested by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
+        await ctx.response.send_message(embed=embed)
+
+
     @commands.guild_only()
     @commands.slash_command(usage="userinfo <member>",
                             options=[

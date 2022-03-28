@@ -16,6 +16,11 @@ class Core(commands.Cog):
         self.bot = bot
 
 
+    @commands.user_command()
+    async def ping(self, ctx):
+        await ctx.response.send_message(f"Pong! ({self.bot.latency*1000}ms)", ephemeral=True)
+
+
     async def async_uptime(self, ctx):
         uptime_seconds = round((datetime.now() - self.bot.start_time).total_seconds())
         msg = f"Current Uptime: {'{:0>8}'.format(str(timedelta(seconds=uptime_seconds)))}"
@@ -23,11 +28,6 @@ class Core(commands.Cog):
             await ctx.response.send_message(content=msg)
         else:
             await ctx.reply(content=msg)
-
-
-    @commands.command(usage="uptime", aliases=["uptime"], description="Tells how long the bot has been running.")
-    async def _uptime(self, ctx):
-        return await self.async_uptime(ctx)
 
 
     @commands.slash_command(

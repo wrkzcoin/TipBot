@@ -272,8 +272,8 @@ class Guild(commands.Cog):
     async def monitor_guild_reward_amount(self):
         await self.bot.wait_until_ready()
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM `discord_server` WHERE `vote_reward_amount`>0 """
                     await cur.execute(sql, )
@@ -338,8 +338,8 @@ class Guild(commands.Cog):
 
     async def guild_find_by_key(self, guild_id: str, secret: str):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT `"""+secret+"""` FROM `discord_server` WHERE `serverid`=%s """
                     await cur.execute(sql, ( guild_id ))
@@ -351,8 +351,8 @@ class Guild(commands.Cog):
 
     async def guild_insert_key(self, guild_id: str, key: str, secret: str, update: bool=False):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ UPDATE discord_server SET `"""+secret+"""`=%s WHERE `serverid`=%s LIMIT 1 """
                     await cur.execute(sql, (key, guild_id))
@@ -364,8 +364,8 @@ class Guild(commands.Cog):
 
     async def update_reward(self, guild_id: str, amount: float, coin_name: str, disable: bool=False):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     if disable == True:
                         sql = """ UPDATE discord_server SET `vote_reward_amount`=%s, `vote_reward_coin`=%s WHERE `serverid`=%s LIMIT 1 """

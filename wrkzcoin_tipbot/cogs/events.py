@@ -476,6 +476,7 @@ class Events(commands.Cog):
                     total_energy = get_userinfo['energy_current'] + add_energy
                     COIN_NAME = get_food_id['cost_coin_name']
                     coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+                    contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
                     # Not to duplicate
                     key = inter.component.custom_id + str(int(time.time()))
                     try:
@@ -488,7 +489,7 @@ class Events(commands.Cog):
                     # Not to duplicate
                     insert_eating = await db.economy_insert_eating(str(inter.author.id), str(inter.guild.id), get_food_id['cost_coin_name'], 
                                                                    get_food_id['cost_expense_amount'], get_food_id['fee_ratio']*get_food_id['cost_expense_amount'], 
-                                                                   coin_decimal, add_energy)
+                                                                   coin_decimal, contract, add_energy)
 
                     paid_money = '{} {}'.format(num_format_coin(get_food_id['cost_expense_amount'], get_food_id['cost_coin_name'], coin_decimal, False), COIN_NAME)
                     if insert_eating:

@@ -208,8 +208,13 @@ class database_economy():
             await logchanbot(traceback.format_exc())
         return None
 
-    async def economy_insert_eating(self, user_id: str, guild_id: str, cost_coin_name: str, cost_expense_amount: float, fee_amount: float, cost_decimal: int, gained_energy: float):
+    async def economy_insert_eating(self, user_id: str, guild_id: str, cost_coin_name: str, cost_expense_amount: float, fee_amount: float, cost_decimal: int, contract: str, gained_energy: float):
         try:
+            cost_expense_amount_after_fee = cost_expense_amount - fee_amount
+            currentTs = int(time.time())
+            channel_id = "ECONOMY"
+            user_server = "DISCORD"
+            real_amount_usd = 0.0
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
@@ -220,6 +225,45 @@ class database_economy():
                     # 2nd query
                     sql = """ UPDATE discord_economy_userinfo SET `energy_current`=`energy_current`+%s WHERE `user_id`=%s """
                     await cur.execute(sql, (gained_energy, user_id,))
+
+                    # Update balance user_id -> guild_id
+                    sql = """ INSERT INTO user_balance_mv 
+                              (`token_name`, `contract`, `from_userid`, `to_userid`, `guild_id`, `channel_id`, `real_amount`, `real_amount_usd`, `token_decimal`, `type`, `date`, `user_server`) 
+                              VALUES (%s, %s, %s, %s, %s, %s, CAST(%s AS DECIMAL(32,8)), CAST(%s AS DECIMAL(32,8)), %s, %s, %s, %s);
+
+                              INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, `balance`, `update_date`) 
+                              VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
+                              UPDATE 
+                              `balance`=`balance`+VALUES(`balance`), 
+                              `update_date`=VALUES(`update_date`);
+
+                              INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, `balance`, `update_date`) 
+                              VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
+                              UPDATE 
+                              `balance`=`balance`+VALUES(`balance`), 
+                              `update_date`=VALUES(`update_date`);
+
+                              """
+                    await cur.execute(sql, ( cost_coin_name, contract, user_id, guild_id, guild_id, channel_id, cost_expense_amount_after_fee, real_amount_usd, cost_decimal, "ECONOMY", currentTs, user_server, user_id, cost_coin_name, user_server, -cost_expense_amount_after_fee, currentTs, guild_id, cost_coin_name, user_server, cost_expense_amount_after_fee, currentTs ))
+
+                    # Update balance user_id -> "ECONOMY" [system]
+                    sql = """ INSERT INTO user_balance_mv 
+                              (`token_name`, `contract`, `from_userid`, `to_userid`, `guild_id`, `channel_id`, `real_amount`, `real_amount_usd`, `token_decimal`, `type`, `date`, `user_server`) 
+                              VALUES (%s, %s, %s, %s, %s, %s, CAST(%s AS DECIMAL(32,8)), CAST(%s AS DECIMAL(32,8)), %s, %s, %s, %s);
+
+                              INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, `balance`, `update_date`) 
+                              VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
+                              UPDATE 
+                              `balance`=`balance`+VALUES(`balance`), 
+                              `update_date`=VALUES(`update_date`);
+
+                              INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, `balance`, `update_date`) 
+                              VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
+                              UPDATE 
+                              `balance`=`balance`+VALUES(`balance`), 
+                              `update_date`=VALUES(`update_date`);
+                              """
+                    await cur.execute(sql, ( cost_coin_name, contract, user_id, "ECONOMY", guild_id, channel_id, fee_amount, real_amount_usd, cost_decimal, "ECONOMY", currentTs, user_server, user_id, cost_coin_name, user_server, -fee_amount, currentTs, "ECONOMY", cost_coin_name, user_server, fee_amount, currentTs ))
                     await conn.commit()
                     return True
         except Exception as e:

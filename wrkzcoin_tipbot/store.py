@@ -309,8 +309,8 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
                         tx_expense = 0
 
                     sql = """ SELECT SUM(amount) AS incoming_tx FROM `nano_move_deposit` WHERE `user_id`=%s AND `coin_name` = %s 
-                              AND `amount`>0 AND `time_insert`< %s """
-                    await cur.execute(sql, (userID, TOKEN_NAME, int(time.time())-confirmed_inserted))
+                              AND `amount`>0 AND `time_insert`< %s AND `user_server`=%s """
+                    await cur.execute(sql, ( userID, TOKEN_NAME, int(time.time())-confirmed_inserted, user_server ))
                     result = await cur.fetchone()
                     if result and result['incoming_tx']:
                         incoming_tx = result['incoming_tx']

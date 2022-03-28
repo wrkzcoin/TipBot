@@ -9,6 +9,8 @@ import disnake
 from disnake.ext import commands, tasks
 from attrdict import AttrDict
 import asyncio
+import aiomysql
+from aiomysql.cursors import DictCursor
 
 import Bot
 from Bot import SERVER_BOT, num_format_coin, EMOJI_INFORMATION, seconds_str
@@ -36,7 +38,17 @@ class Events(commands.Cog):
         
         self.botLogChan = None
         self.message_id_list = []
+        # DB
+        self.pool = None
 
+    async def openConnection(self):
+        try:
+            if self.pool is None:
+                self.pool = await aiomysql.create_pool(host=config.mysql.host, port=3306, minsize=2, maxsize=4, 
+                                                       user=config.mysql.user, password=config.mysql.password,
+                                                       db=config.mysql.db, cursorclass=DictCursor, autocommit=True)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
 
     async def bot_log(self):
         if self.botLogChan is None:
@@ -46,8 +58,8 @@ class Events(commands.Cog):
         if self.saving_message == True:
             return 0
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ INSERT INTO discord_messages (`serverid`, `server_name`, `channel_id`, `channel_name`, `user_id`, 
                                `message_author`, `message_id`, `message_time`) 
@@ -95,8 +107,8 @@ class Events(commands.Cog):
 
     async def get_coin_setting(self):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     coin_list = {}
                     coin_list_name = []
@@ -116,8 +128,8 @@ class Events(commands.Cog):
 
     async def get_coin_list_name(self):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     coin_list_name = []
                     sql = """ SELECT `coin_name` FROM `coin_settings` """
@@ -136,8 +148,8 @@ class Events(commands.Cog):
     # This token hints is priority
     async def get_token_hints(self):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM `coin_alias_price` """
                     await cur.execute(sql, ())
@@ -160,8 +172,8 @@ class Events(commands.Cog):
     # coin_paprika_list
     async def get_coin_paprika_list(self):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM `coin_paprika_list` """
                     await cur.execute(sql, ())
@@ -183,8 +195,8 @@ class Events(commands.Cog):
     # get_coingecko_list
     async def get_coingecko_list(self):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM `coin_coingecko_list` """
                     await cur.execute(sql, ())
@@ -206,8 +218,8 @@ class Events(commands.Cog):
 
     async def get_faucet_coin_list(self):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT `coin_name` FROM `coin_settings` WHERE `enable_faucet`=%s """
                     await cur.execute(sql, (1))
@@ -418,7 +430,7 @@ class Events(commands.Cog):
                 # Not to duplicate
                 # Eat
                 name = inter.component.custom_id.replace("economy_{}_eat_".format(inter.author.id), "")
-                db = database_economy()
+                db = database_economy(self.bot)
                 get_foodlist_guild = await db.economy_get_guild_foodlist(str(inter.guild.id), False)
                 all_food_in_guild = {}
                 if get_foodlist_guild and len(get_foodlist_guild) > 0:
@@ -507,7 +519,7 @@ class Events(commands.Cog):
                 # Not to duplicate
                 # Work
                 name = inter.component.custom_id.replace("economy_{}_work_".format(inter.author.id), "")
-                db = database_economy()
+                db = database_economy(self.bot)
                 all_work_in_guild = {}
                 get_worklist_guild = await db.economy_get_guild_worklist(str(inter.guild.id), False)
                 if get_worklist_guild and len(get_worklist_guild) > 0:
@@ -547,7 +559,7 @@ class Events(commands.Cog):
                 # Backpack
                 name = inter.component.custom_id.replace("economy_{}_item_".format(inter.author.id), "")
                 all_item_backpack = {}
-                db = database_economy()
+                db = database_economy(self.bot)
                 get_user_inventory = await db.economy_get_user_inventory(str(inter.author.id))
                 nos_items = sum(each_item['numbers'] for each_item in get_user_inventory if each_item['item_name'] != "Gem")
                 if get_user_inventory and nos_items == 0:

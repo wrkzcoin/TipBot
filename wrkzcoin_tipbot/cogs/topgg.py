@@ -63,6 +63,19 @@ class TopGGVote(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return False
 
+    async def check_last_guild_vote(self, user_id: str, directory: str, guild_id: str):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    date_vote = int(time.time())
+                    sql = """ SELECT * FROM `guild_vote` WHERE `user_id`=%s AND `directory`=%s AND `guild_id`=%s ORDER BY `date_voted` DESC LIMIT 1 """
+                    await cur.execute(sql, ( user_id, directory, guild_id ))
+                    result = await cur.fetchone()
+                    if result: return result
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return None
 
     async def insert_bot_vote(self, user_id: str, directory: str, bot_id: str, type_vote: str):
         try:
@@ -77,6 +90,20 @@ class TopGGVote(commands.Cog):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         return False
+
+    async def check_last_bot_vote(self, user_id: str, directory: str):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    date_vote = int(time.time())
+                    sql = """ SELECT * FROM `bot_vote` WHERE `user_id`=%s AND `directory`=%s ORDER BY `date_voted` DESC LIMIT 1 """
+                    await cur.execute(sql, ( user_id, directory ))
+                    result = await cur.fetchone()
+                    if result: return result
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return None
 
     async def vote_logchan(self, content: str):
         try:
@@ -106,6 +133,16 @@ class TopGGVote(commands.Cog):
                             key = request.headers['Authorization']
                             guild_id = full_payload['guild']
                             get_guild_by_key = await self.guild_find_by_key(guild_id)
+                            # Check vote
+                            try:
+                                # Check if user just vote less than 1h. Sometimes top.gg just push too fast multiple times.
+                                check_last_vote = await self.check_last_guild_vote(user_vote, "topgg", guild_id)
+                                if check_last_vote is not None and int(time.time()) - check_last_vote['date_voted'] < 3600:
+                                    await self.vote_logchan(f'[{SERVER_BOT}] A user <@{user_vote}> voted for guild `{guild_id}` type `{type_vote}` but less than 1h.')
+                                    return web.Response(text="Thank you!")
+                            except Exception as e:
+                                traceback.print_exc(file=sys.stdout)
+
                             # Insert in DB no matter what
                             try:
                                 insert_vote = await self.insert_guild_vote(full_payload['user'], "topgg", full_payload['guild'], full_payload['type'])
@@ -207,8 +244,17 @@ class TopGGVote(commands.Cog):
                     elif str(request.rel_url).startswith("/topgg_bot_vote/"):
                         # Bot: {'user': '386761001808166912', 'type': 'test', 'query': '', 'bot': '474841349968101386'}
                         if 'Authorization' in request.headers and request.headers['Authorization'] == config.topgg.auth:
-                            insert_vote = await self.insert_bot_vote(full_payload['user'], "topgg", full_payload['bot'], full_payload['type'])
                             vote_to = full_payload['bot']
+                            try:
+                                # Check if user just vote less than 1h. Sometimes top.gg just push too fast multiple times.
+                                check_last_vote = await self.check_last_bot_vote(user_vote, "topgg")
+                                if check_last_vote is not None and int(time.time()) - check_last_vote['date_voted'] < 3600:
+                                    await self.vote_logchan(f'[{SERVER_BOT}] A user <@{user_vote}> voted for bot <@{vote_to}> type `{type_vote}` but less than 1h.')
+                                    return web.Response(text="Thank you!")
+                            except Exception as e:
+                                traceback.print_exc(file=sys.stdout)
+                            insert_vote = await self.insert_bot_vote(full_payload['user'], "topgg", full_payload['bot'], full_payload['type'])
+                            
                             if insert_vote:
                                 try:
                                     await self.vote_logchan(f'[{SERVER_BOT}] A user <@{user_vote}> voted a bot <@{vote_to}> type `{type_vote}` in top.gg.')

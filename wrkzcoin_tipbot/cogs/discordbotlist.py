@@ -34,6 +34,19 @@ class DiscordBotList(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return False
 
+    async def check_last_bot_vote(self, user_id: str, directory: str, bot_id: str):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    date_vote = int(time.time())
+                    sql = """ SELECT * FROM `bot_vote` WHERE `user_id`=%s AND `directory`=%s AND `bot_id`=%s ORDER BY `date_voted` DESC LIMIT 1 """
+                    await cur.execute(sql, ( user_id, directory, bot_id ))
+                    result = await cur.fetchone()
+                    if result: return result
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return None
 
     async def vote_logchan(self, content: str):
         try:
@@ -62,6 +75,14 @@ class DiscordBotList(commands.Cog):
                     if str(request.rel_url).startswith("/bot_vote/"):
                         bot_id = str(config.discord.bot_id)
                         if 'Authorization' in request.headers and request.headers['Authorization'] == config.discordbotlist.auth:
+                            try:
+                                # Check if user just vote less than 1h. Sometimes top.gg just push too fast multiple times.
+                                check_last_vote = await self.check_last_bot_vote(user_vote, "discordbotlist", bot_id)
+                                if check_last_vote is not None and int(time.time()) - check_last_vote['date_voted'] < 3600:
+                                    await self.vote_logchan(f'[{SERVER_BOT}] A user <@{user_vote}> voted for bot <@{bot_id}> type `{type_vote}` but less than 1h.')
+                                    return web.Response(text="Thank you!")
+                            except Exception as e:
+                                traceback.print_exc(file=sys.stdout)
                             insert_vote = await self.insert_bot_vote(user_vote, "discordbotlist", bot_id, type_vote, voter)
                             if insert_vote:
                                 try:

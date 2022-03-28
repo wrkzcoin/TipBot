@@ -11,6 +11,8 @@ from decimal import Decimal
 import random
 import asyncio
 import math
+import aiomysql
+from aiomysql.cursors import DictCursor
 
 from config import config
 from Bot import logchanbot, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_INFORMATION, num_format_coin, seconds_str, RowButton_row_close_any_message, SERVER_BOT, createBox
@@ -42,10 +44,25 @@ class EconomyButton(disnake.ui.View):
 
 class database_economy():
 
+    def __init__(self, bot):
+        self.bot = bot
+        # DB
+        self.pool = None
+
+    async def openConnection(self):
+        try:
+            if self.pool is None:
+                self.pool = await aiomysql.create_pool(host=config.mysql.host, port=3306, minsize=8, maxsize=16, 
+                                                       user=config.mysql.user, password=config.mysql.password,
+                                                       db=config.mysql.db, cursorclass=DictCursor, autocommit=True)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+
+
     async def economy_get_user(self, user_id: str, user_name: str):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM discord_economy_userinfo WHERE `user_id` = %s LIMIT 1 """
                     await cur.execute(sql, (user_id,))
@@ -69,8 +86,8 @@ class database_economy():
 
     async def economy_get_last_activities(self, user_id: str, all_activities: bool=False):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     if all_activities:
                         sql = """ SELECT * FROM discord_economy_activities WHERE `user_id` = %s ORDER BY `id` DESC """
@@ -90,8 +107,8 @@ class database_economy():
     async def economy_get_user_activities_duration(self, user_id: str, duration: int=3600):
         lapDuration = int(time.time()) - duration
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM discord_economy_activities WHERE `user_id` = %s AND `status`=%s AND `started`>%s ORDER BY `started` DESC """
                     await cur.execute(sql, (user_id, 'COMPLETED', lapDuration,))
@@ -104,8 +121,8 @@ class database_economy():
 
     async def economy_get_guild_worklist(self, guild_id: str, get_all: bool=True):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     if get_all:
                         sql = """ SELECT * FROM discord_economy_work_reward WHERE `status`=%s ORDER BY `work_id` ASC """
@@ -124,8 +141,8 @@ class database_economy():
 
     async def economy_get_workd_id(self, work_id: int):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM discord_economy_work_reward WHERE `work_id`=%s LIMIT 1 """
                     await cur.execute(sql, (work_id))
@@ -138,8 +155,8 @@ class database_economy():
 
     async def economy_insert_activity(self, user_id: str, guild_id: str, work_id: int, duration_in_second: int, reward_coin_name: str, reward_amount: float, fee_amount: float, reward_decimal: int, exp: float, health: float, energy: float):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ INSERT INTO discord_economy_activities (`user_id`, `guild_id`, `work_id`, `started`, `duration_in_second`, `reward_coin_name`, 
                               `reward_amount`, `fee_amount`, `reward_decimal`, `exp`, `health`, `energy`) 
@@ -154,8 +171,8 @@ class database_economy():
 
     async def economy_update_activity(self, act_id: int, user_id: str, exp: int, health: float, energy: float):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ UPDATE discord_economy_activities SET `completed`=%s, `status`=%s 
                               WHERE `id`=%s AND `user_id`=%s """
@@ -173,8 +190,8 @@ class database_economy():
 
     async def economy_get_guild_foodlist(self, guild_id: str, get_all: bool=True):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     if get_all:
                         sql = """ SELECT * FROM discord_economy_food ORDER BY `food_id` ASC """
@@ -193,8 +210,8 @@ class database_economy():
 
     async def economy_insert_eating(self, user_id: str, guild_id: str, cost_coin_name: str, cost_expense_amount: float, fee_amount: float, cost_decimal: int, gained_energy: float):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ INSERT INTO discord_economy_eating (`user_id`, `guild_id`, `date`, `cost_coin_name`, `cost_expense_amount`, 
                               `fee_amount`, `cost_decimal`, `gained_energy`) 
@@ -213,8 +230,8 @@ class database_economy():
 
     async def economy_get_food_id(self, food_id: int):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM discord_economy_food WHERE `food_id`=%s LIMIT 1 """
                     await cur.execute(sql, (food_id))
@@ -228,8 +245,8 @@ class database_economy():
     async def economy_get_guild_eating_list_record(self, guild_id: str, duration: int=3600):
         lapDuration = int(time.time()) - duration
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM discord_economy_eating WHERE `guild_id` = %s AND `date`>%s ORDER BY `date` DESC """
                     await cur.execute(sql, (guild_id, lapDuration,))
@@ -243,8 +260,8 @@ class database_economy():
     async def economy_get_user_eating_list_record(self, user_id: str, duration: int=3600):
         lapDuration = int(time.time()) - duration
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM discord_economy_eating WHERE `user_id` = %s AND `date`>%s ORDER BY `date` DESC """
                     await cur.execute(sql, (user_id, lapDuration,))
@@ -257,8 +274,8 @@ class database_economy():
 
     async def economy_get_list_secret_items(self):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM discord_economy_secret_items WHERE `usable`=%s """
                     await cur.execute(sql, ('YES'))
@@ -274,8 +291,8 @@ class database_economy():
         if can_use:
             usable = "YES"
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ INSERT INTO discord_economy_secret_findings (`item_id`, `user_id`, `guild_id`, `date`, 
                               `item_health`, `item_energy`, `item_gem`, `can_use`) 
@@ -297,8 +314,8 @@ class database_economy():
     async def economy_get_user_searched_item_list_record(self, user_id: str, duration: int=3600):
         lapDuration = int(time.time()) - duration
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM discord_economy_secret_findings WHERE `user_id` = %s AND `date`>%s ORDER BY `date` DESC """
                     await cur.execute(sql, (user_id, lapDuration,))
@@ -311,8 +328,8 @@ class database_economy():
 
     async def economy_get_user_inventory(self, user_id: str, count_what: str='ALL'):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     if count_what == "ALL":
                         sql = """ SELECT A.item_id, B.item_name, B.item_emoji, A.user_id, A.item_health, A.item_energy, A.item_gem, COUNT(*) AS numbers 
@@ -336,8 +353,8 @@ class database_economy():
 
     async def economy_get_item_id(self, item_id: int):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM discord_economy_secret_items WHERE `id`=%s LIMIT 1 """
                     await cur.execute(sql, (item_id))
@@ -349,8 +366,8 @@ class database_economy():
 
     async def economy_item_update_used(self, user_id: str, item_id: str, gained_energy: float=0.0, gained_health: float=0.0):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ UPDATE discord_economy_secret_findings SET `used_date`=%s, `used`=%s WHERE `used`=%s AND `item_id`=%s AND `user_id`=%s LIMIT 1 """
                     await cur.execute(sql, (int(time.time()), 'YES', 'NO', item_id, user_id,))
@@ -371,8 +388,8 @@ class database_economy():
 
     async def economy_shop_get_item(self, item_name: str):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM discord_economy_shopbot WHERE `item_name`=%s OR `item_emoji`=%s LIMIT 1 """
                     await cur.execute(sql, (item_name, item_name))
@@ -385,8 +402,8 @@ class database_economy():
 
     async def economy_shop_get_item_list(self):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM discord_economy_shopbot ORDER BY `credit_cost` DESC """
                     await cur.execute(sql,)
@@ -400,8 +417,8 @@ class database_economy():
 
     async def discord_economy_userinfo_what(self, guild_id: str, user_id: str, item_id: int, what: str, item_nos: int, credit: int):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ UPDATE discord_economy_shopbot SET `numb_bought`=`numb_bought`+1 WHERE `id`=%s """
                     await cur.execute(sql, (item_id,))
@@ -461,8 +478,8 @@ class database_economy():
 
     async def economy_get_list_fish_items(self):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM discord_economy_fish_items """
                     await cur.execute(sql,)
@@ -477,8 +494,8 @@ class database_economy():
     # TODO: remove
     async def economy_insert_fishing(self, fish_id: int, user_id: str, guild_id: str, fish_strength: float, fish_weight: float, exp_gained: float, energy_loss: float, caught: str, sellable: str="YES"):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ INSERT INTO discord_economy_fishing (`fish_id`, `user_id`, `guild_id`, `fish_strength`, `fish_weight`, 
                                `exp_gained`, `energy_loss`, `caught`, `date`, `sellable`) 
@@ -500,8 +517,8 @@ class database_economy():
 
     async def economy_insert_fishing_multiple(self, list_fishes, total_energy_loss: float, total_exp: float, user_id: str):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ INSERT INTO discord_economy_fishing (`fish_id`, `user_id`, `guild_id`, `fish_strength`, `fish_weight`, 
                                `exp_gained`, `energy_loss`, `caught`, `date`, `sellable`) 
@@ -529,8 +546,8 @@ class database_economy():
 
     async def economy_get_list_fish_caught(self, user_id: str, sold: str='NO', caught: str='YES'):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT A.fish_id, B.fish_name, B.fish_emoji, B.minimum_sell_kg, B.credit_per_kg, A.user_id, A.sold, 
                               COUNT(*) AS numbers, SUM(fish_weight) AS Weights 
@@ -547,8 +564,8 @@ class database_economy():
 
     async def economy_sell_fishes(self, fish_id: int, user_id: str, guild_id: str, total_weight: float, total_credit: float):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ INSERT INTO discord_economy_fish_sold (`fish_id`, `user_id`, `guild_id`, `total_weight`, `total_credit`, `date`) 
                               VALUES (%s, %s, %s, %s, %s, %s) """
@@ -569,8 +586,8 @@ class database_economy():
 
     async def economy_insert_planting(self, user_id: str, guild_id: str, exp_gained: float, energy_loss: float):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ INSERT INTO discord_economy_planting (`user_id`, `guild_id`, `exp_gained`, `energy_loss`, `date`) 
                               VALUES (%s, %s, %s, %s, %s) """
@@ -588,8 +605,8 @@ class database_economy():
 
     async def economy_insert_woodcutting(self, user_id: str, guild_id: str, timber_volume: float, leaf_kg: float, energy_loss: float):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ INSERT INTO discord_economy_woodcutting (`user_id`, `guild_id`, `timber_volume`, `leaf_kg`, `energy_loss`, `date`) 
                               VALUES (%s, %s, %s, %s, %s, %s) """
@@ -606,8 +623,8 @@ class database_economy():
 
     async def economy_get_timber_user(self, user_id: str, sold_timber: str='NO', sold_leaf='NO'):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT COUNT(*) AS tree_numbers, SUM(timber_volume) AS timbers 
                               FROM discord_economy_woodcutting WHERE `user_id`=%s AND `timber_sold`=%s """
@@ -625,8 +642,8 @@ class database_economy():
 
     async def economy_farm_get_list_plants(self):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM discord_economy_farm_plantlist """
                     await cur.execute(sql,)
@@ -638,8 +655,8 @@ class database_economy():
 
     async def economy_farm_user_planting_check_max(self, user_id: str):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT COUNT(*) FROM discord_economy_farm_planting 
                               WHERE `user_id`=%s and `harvested`=%s """
@@ -654,8 +671,8 @@ class database_economy():
 
     async def economy_farm_user_planting_group_harvested(self, user_id: str):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT A.id, A.plant_id, B.plant_name, B.growing_emoji, B.plant_emoji, B.duration_harvest, A.user_id, A.date, 
                               A.harvest_date, A.can_harvest_date, A.harvested, A.number_of_item, A.credit_per_item, A.sold, 
@@ -673,8 +690,8 @@ class database_economy():
 
     async def economy_farm_user_planting_nogroup(self, user_id: str):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT A.id, A.plant_id, B.plant_name, B.growing_emoji, B.plant_emoji, B.duration_harvest, A.user_id, A.date, 
                               A.harvest_date, A.can_harvest_date, A.harvested, A.number_of_item, A.credit_per_item 
@@ -690,8 +707,8 @@ class database_economy():
 
     async def economy_farm_insert_crop(self, plant_id: int, user_id: str, guild_id: str, can_harvest_date: int, number_of_item: int, credit_per_item: float, exp_gained: float, energy_loss: float, numb_planting: int=1):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     if numb_planting > 1:
                         sql = """ INSERT INTO discord_economy_farm_planting (`plant_id`, `user_id`, `guild_id`, `date`, `can_harvest_date`, 
@@ -731,8 +748,8 @@ class database_economy():
 
     async def economy_farm_harvesting(self, user_id: str, plantlist):        
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ UPDATE discord_economy_farm_planting SET `harvest_date`=%s, `harvested`=%s WHERE `user_id`=%s AND `id`=%s AND `harvested`=%s """
                     list_update = []
@@ -748,8 +765,8 @@ class database_economy():
 
     async def economy_farm_sell_item(self, plant_id: int, user_id: str, guild_id: str, total_credit: float, farm_item_sold: int):        
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     ## add user credit
                     sql = """ UPDATE discord_economy_userinfo SET `credit`=`credit`+%s, `farm_item_sold`=`farm_item_sold`+%s WHERE `user_id`=%s LIMIT 1 """
@@ -766,8 +783,8 @@ class database_economy():
 
     async def economy_dairy_cow_ownership(self, user_id: str):        
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM discord_economy_dairy_cattle_ownership WHERE `user_id`=%s """
                     await cur.execute(sql, (user_id))
@@ -780,8 +797,8 @@ class database_economy():
 
     async def economy_dairy_collecting(self, user_id: str, cowlist, qty_collect: float, credit_raw_milk_liter: float):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ INSERT INTO discord_economy_dairy_collected (`user_id`, `collected_date`, `collected_qty`, `credit_per_item`) 
                               VALUES (%s, %s, %s, %s) """
@@ -807,8 +824,8 @@ class database_economy():
 
     async def economy_dairy_collected(self, user_id: str):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM discord_economy_dairy_collected WHERE `user_id`=%s AND `sold`=%s """
                     await cur.execute(sql, (user_id, 'NO'))
@@ -821,8 +838,8 @@ class database_economy():
 
     async def economy_dairy_sell_milk(self, user_id: str, ids, credit: float, qty_sell: float):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     ## update raw_milk_qty
                     sql = """ UPDATE discord_economy_userinfo SET `raw_milk_qty`=`raw_milk_qty`-%s, `raw_milk_qty_sold`=`raw_milk_qty_sold`+%s, `credit`=`credit`+%s 
@@ -843,8 +860,8 @@ class database_economy():
 
     async def economy_chicken_farm_ownership(self, user_id: str):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM discord_economy_chickenfarm_ownership WHERE `user_id`=%s """
                     await cur.execute(sql, (user_id))
@@ -857,8 +874,8 @@ class database_economy():
 
     async def economy_egg_collecting(self, user_id: str, chickenlist, qty_collect: float, credit_egg: float):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ INSERT INTO discord_economy_egg_collected (`user_id`, `collected_date`, `collected_qty`, `credit_per_item`) 
                               VALUES (%s, %s, %s, %s) """
@@ -884,8 +901,8 @@ class database_economy():
 
     async def economy_egg_collected(self, user_id: str):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM discord_economy_egg_collected WHERE `user_id`=%s AND `sold`=%s """
                     await cur.execute(sql, (user_id, 'NO'))
@@ -898,8 +915,8 @@ class database_economy():
 
     async def economy_chickenfarm_sell_egg(self, user_id: str, ids, credit: float, qty_sell: float):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     ## update egg
                     sql = """ UPDATE discord_economy_userinfo SET `egg_qty`=`egg_qty`-%s, `egg_qty_sold`=`egg_qty_sold`+%s, `credit`=`credit`+%s 
@@ -926,7 +943,7 @@ class Economy(commands.Cog):
         self.bot = bot
         redis_utils.openRedis()
         self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
-        self.db = database_economy()
+        self.db = database_economy(bot)
         self.enable_logchan = True
 
     async def check_guild(self, ctx):
@@ -1423,7 +1440,7 @@ class Economy(commands.Cog):
                     self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                 return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} You planted maximum number of crops already."}
             elif plant_name == "TREE":
-                await asyncio.sleep(1.0)
+                await asyncio.sleep(0.1)
                 exp_gained = config.economy.plant_exp_gained
                 energy_loss = exp_gained * 2
                 insert_item = await self.db.economy_insert_planting(str(ctx.author.id), str(ctx.guild.id), exp_gained, energy_loss)
@@ -1432,7 +1449,7 @@ class Economy(commands.Cog):
             else:
                 # Not tree and not max, let's plant
                 # Using tractor, loss same energy but gain more experience
-                await asyncio.sleep(1.0)
+                await asyncio.sleep(0.1)
                 exp_gained = config.economy.plant_exp_gained
                 energy_loss = exp_gained * 2
                 selected_crop = None
@@ -1911,7 +1928,7 @@ class Economy(commands.Cog):
             total_energy_loss = round(total_energy_loss, 2)
             total_exp = round(total_exp, 2)
             if will_fishing > 0: 
-                await asyncio.sleep(1.0)
+                await asyncio.sleep(0.1)
                 insert_item = await self.db.economy_insert_fishing_multiple(selected_item_list, total_energy_loss, total_exp, str(ctx.author.id))
                 if numb_caught > 0:
                     item_info_list = []
@@ -1964,7 +1981,7 @@ class Economy(commands.Cog):
 
         try:
             # Get list of items:
-            await asyncio.sleep(1.0)
+            await asyncio.sleep(0.1)
             timber_volume = math.floor(random.uniform(config.economy.plant_volume_rand_min, config.economy.plant_volume_rand_max)) + 1
             leaf_kg = math.floor(config.economy.leaf_per_volume * timber_volume) + 1
             energy_loss = int(timber_volume/5) + 10
@@ -2010,7 +2027,7 @@ class Economy(commands.Cog):
 
         try:
             # Get list of items:
-            await asyncio.sleep(1.0)
+            await asyncio.sleep(0.1)
             if random.randint(1,100) < config.economy.luck_search:
                 # You get luck
                 try:
@@ -2104,7 +2121,7 @@ class Economy(commands.Cog):
         if get_userinfo:
             # If health less than 50%, stop
             if get_userinfo['health_current']/get_userinfo['health_total'] < 0.5:
-                await asyncio.sleep(0.5)
+                await asyncio.sleep(0.1)
                 return {"error": f"{EMOJI_INFORMATION} {ctx.author.mention}, Your health is having issue. Do some heatlh check."}
                 
             elif get_userinfo['health_current']/get_userinfo['health_total'] < 0.3:
@@ -2114,6 +2131,9 @@ class Economy(commands.Cog):
                 return {"error": f"{EMOJI_INFORMATION} {ctx.author.mention}, You have very small energy. Eat to powerup."}
             try:
                 get_last_act = await self.db.economy_get_last_activities(str(ctx.author.id), False)
+                remaining = get_last_act['started'] + get_last_act['duration_in_second'] - int(time.time())
+                if remaining < 0:
+                    claim = "CLAIM" # claim automatically
                 if get_last_act and get_last_act['status'] == 'COMPLETED' or get_last_act is None:
                     # Add work if he needs to do
                     e = disnake.Embed(title="{}#{} Work list in guild: {}".format(ctx.author.name, ctx.author.discriminator, ctx.guild.name), description="Economy [Testing]", timestamp=datetime.utcnow())
@@ -2225,7 +2245,6 @@ class Economy(commands.Cog):
                                 traceback.print_exc(file=sys.stdout)
                                 return {"error": f"{EMOJI_ERROR} {ctx.author.mention}, Internal error."}
                         else:
-                            remaining = get_last_act['started'] + get_last_act['duration_in_second'] - int(time.time())
                             additional_claim_msg = ""
                             if remaining < 0:
                                 remaining = 0

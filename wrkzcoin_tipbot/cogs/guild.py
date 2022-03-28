@@ -218,8 +218,8 @@ class Guild(commands.Cog):
                     elif coin_family == "TRC-20":
                         # When sending tx out, (negative)
                         sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense FROM `trc20_external_tx` 
-                                  WHERE `user_id`=%s AND `token_name` = %s AND `crediting`=%s """
-                        await cur.execute(sql, ( userID, TOKEN_NAME, "YES" ))
+                                  WHERE `user_id`=%s AND `token_name` = %s AND `crediting`=%s AND `sucess`=%s """
+                        await cur.execute(sql, ( userID, TOKEN_NAME, "YES", 1 ))
                         result = await cur.fetchone()
                         if result:
                             tx_expense = result['tx_expense']

@@ -1161,8 +1161,8 @@ class Wallet(commands.Cog):
                     elif coin_family == "TRC-20":
                         # When sending tx out, (negative)
                         sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense FROM `trc20_external_tx` 
-                                  WHERE `user_id`=%s AND `token_name` = %s AND `crediting`=%s """
-                        await cur.execute(sql, ( userID, TOKEN_NAME, "YES" ))
+                                  WHERE `user_id`=%s AND `token_name` = %s AND `crediting`=%s AND `sucess`=%s """
+                        await cur.execute(sql, ( userID, TOKEN_NAME, "YES", 1 ))
                         result = await cur.fetchone()
                         if result:
                             tx_expense = result['tx_expense']
@@ -2146,9 +2146,9 @@ class Wallet(commands.Cog):
             TronClient = AsyncTron(provider=AsyncHTTPProvider(config.Tron_Node.fullnode, client=_http_client))
             if TOKEN_NAME == "TRX":
                 txb = (
-                    TronClient.trx.transfer(config.trc.MainAddress, to_address, int(amount*10**coin_decimal))
+                    TronClient.trx.transfer(config.trc.MainAddress, to_address, int(amount*10**6))
                     #.memo("test memo")
-                    .fee_limit(int(fee_limit*10**coin_decimal))
+                    .fee_limit(int(fee_limit*10**6))
                 )
                 txn = await txb.build()
                 priv_key = PrivateKey(bytes.fromhex(config.trc.MainAddress_key))
@@ -2182,8 +2182,8 @@ class Wallet(commands.Cog):
                         precision = await cntr.functions.decimals()
                         ## TODO: alert if balance below threshold
                         ## balance = await cntr.functions.balanceOf(config.trc.MainAddress) / 10**precision
-                        txb = await cntr.functions.transfer(to_address, int(amount*10**6))
-                        txb = txb.with_owner(config.trc.MainAddress).fee_limit(int(fee_limit*10**coin_decimal))
+                        txb = await cntr.functions.transfer(to_address, int(amount*10**coin_decimal))
+                        txb = txb.with_owner(config.trc.MainAddress).fee_limit(int(fee_limit*10**6))
                         txn = await txb.build()
                         priv_key = PrivateKey(bytes.fromhex(config.trc.MainAddress_key))
                         txn_ret = await txn.sign(priv_key).broadcast()
@@ -2219,7 +2219,7 @@ class Wallet(commands.Cog):
                             TronClient.trx.asset_transfer(
                                 config.trc.MainAddress, to_address, int(precision*amount), token_id=int(contract)
                             )
-                            .fee_limit(int(fee_limit*10**coin_decimal))
+                            .fee_limit(int(fee_limit*10**6))
                         )
                         txn = await txb.build()
                         priv_key = PrivateKey(bytes.fromhex(config.trc.MainAddress_key))

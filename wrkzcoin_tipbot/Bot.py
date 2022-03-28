@@ -168,7 +168,7 @@ async def get_prefix(bot, message):
 intents = disnake.Intents.default()
 intents.members = True
 intents.presences = True
-bot = commands.Bot(command_prefix=get_prefix, owner_id=config.discord.ownerID, intents=intents, sync_commands=True, sync_commands_debug=True)
+bot = commands.Bot(command_prefix=get_prefix, owner_id=config.discord.ownerID, intents=intents, sync_commands=True)
 
 bot.remove_command('help')
 bot.owner_id = config.discord.ownerID

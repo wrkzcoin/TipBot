@@ -125,7 +125,11 @@ class Tb(commands.Cog):
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
             else:
-                await ctx.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Internal error.')
+                msg = f'{EMOJI_RED_NO} {ctx.author.mention} Internal error.'
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    msg = await ctx.response.send_message(msg)
+                else:
+                    msg = await ctx.reply(msg)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
@@ -439,10 +443,11 @@ class Tb(commands.Cog):
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
             if emoji_url is None:
+                msg = f'{ctx.author.mention} I could not get that emoji image or it is a unicode text and not supported.'
                 if type(ctx) == disnake.ApplicationCommandInteraction:
-                    msg = await ctx.response.send_message(f'{ctx.author.mention} I could not get that emoji image or it is a unicode text and not supported.')
+                    await ctx.response.send_message(msg)
                 else:
-                    msg = await ctx.reply(f'{ctx.author.mention} I could not get that emoji image or it is a unicode text and not supported.')
+                    await ctx.reply(msg)
             else:
                 try:
                     if type(ctx) == disnake.ApplicationCommandInteraction:
@@ -453,7 +458,11 @@ class Tb(commands.Cog):
                     traceback.print_exc(file=sys.stdout)
             return
         except Exception as e:
-            await ctx.reply(f'{ctx.author.mention} Internal error for getting emoji.')
+            msg = f'{ctx.author.mention} Internal error for getting emoji.'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
             traceback.print_exc(file=sys.stdout)
 
 
@@ -699,224 +708,6 @@ class Tb(commands.Cog):
         emoji: str
     ):
         await self.tb_getemoji(ctx, emoji)
-
-
-
-    # Message command
-    @commands.guild_only()
-    @commands.group(
-        usage='tb <subcommand>', 
-        aliases=['tb', 'tipbot'], 
-        description="Some fun commands."
-    )
-    async def _tb(self, ctx):
-        prefix = await get_guild_prefix(ctx)
-        if ctx.invoked_subcommand is None:
-            await ctx.reply(f'{ctx.author.mention} Invalid {prefix}tb command.\n Please use {prefix}help tb')
-            return
-
-
-    @_tb.command(
-        usage="draw <member>", 
-        aliases=["draw"],  
-        description="Use TipBot to draw someone's avatar."
-    )
-    async def _draw(
-        self, 
-        ctx, 
-        member: disnake.Member = None
-    ):
-        user_avatar = str(ctx.author.display_avatar)
-        if member:
-            user_avatar = str(member.display_avatar)
-        await self.tb_draw(ctx, user_avatar)
-
-
-    @_tb.command(
-        usage="sketchme <member>", 
-        aliases=["sketchme"],  
-        description="Use TipBot to sketch someone's avatar."
-    )
-    async def _sketchme(
-        self, 
-        ctx, 
-        member: disnake.Member = None
-    ):
-        user_avatar = str(ctx.author.display_avatar)
-        if member:
-            user_avatar = str(member.display_avatar)
-        await self.tb_sketchme(ctx, user_avatar)
-
-
-    @_tb.command(
-        usage="spank <member>", 
-        aliases=["spank"],  
-        description="Use TipBot to spank someone."
-    )
-    async def _spank(
-        self, 
-        ctx, 
-        member: disnake.Member = None
-    ):
-        if member is None:
-            user1 = str(self.bot.user.display_avatar)
-            user2 = str(ctx.author.display_avatar)
-        else:
-            user1 = str(ctx.author.display_avatar)
-            user2 = str(member.display_avatar)
-            if member == ctx.author: user1 = str(self.bot.user.display_avatar)
-        await self.tb_spank(ctx, user1, user2)
-
-
-    @_tb.command(
-        usage="punch <member>", 
-        aliases=["punch"],  
-        description="Use TipBot to punch someone."
-    )
-    async def _punch(
-        self, 
-        ctx, 
-        member: disnake.Member = None
-    ):
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
-        if serverinfo and 'enable_nsfw' in serverinfo and serverinfo['enable_nsfw'] == "NO":
-            prefix = serverinfo['prefix']
-            return
-
-        if member is None:
-            user1 = str(self.bot.user.display_avatar)
-            user2 = str(ctx.author.display_avatar)
-        else:
-            user1 = str(ctx.author.display_avatar)
-            user2 = str(member.display_avatar)
-            if member == ctx.author: user1 = str(self.bot.user.display_avatar)
-        await self.tb_punch(ctx, user1, user2)
-
-
-    @_tb.command(
-        usage="slap <member>", 
-        aliases=["slap"],  
-        description="Use TipBot to slap someone."
-    )
-    async def _slap(
-        self, 
-        ctx, 
-        member: disnake.Member = None
-    ):
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
-        if serverinfo and 'enable_nsfw' in serverinfo and serverinfo['enable_nsfw'] == "NO":
-            prefix = serverinfo['prefix']
-            return
-
-        if member is None:
-            user1 = str(self.bot.user.display_avatar)
-            user2 = str(ctx.author.display_avatar)
-        else:
-            user1 = str(ctx.author.display_avatar)
-            user2 = str(member.display_avatar)
-            if member == ctx.author: user1 = str(self.bot.user.display_avatar)
-        await self.tb_slap(ctx, user1, user2)
-
-
-    @_tb.command(
-        usage="praise <member>",
-        aliases=["praise"],        
-        description="Use TipBot to praise someone."
-    )
-    async def _praise(
-        self, 
-        ctx, 
-        member: disnake.Member = None
-    ):
-        if member is None:
-            user1 = str(self.bot.user.display_avatar)
-            user2 = str(ctx.author.display_avatar)
-        else:
-            user1 = str(ctx.author.display_avatar)
-            user2 = str(member.display_avatar)
-            if member == ctx.author: user1 = str(self.bot.user.display_avatar)
-        await self.tb_praise(ctx, user1, user2)
-
-
-    @_tb.command(
-        usage="shoot <member>", 
-        aliases=["shoot"],
-        description="Use TipBot to shoot someone."
-    )
-    async def _shoot(
-        self, 
-        ctx, 
-        member: disnake.Member = None
-    ):
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
-        if serverinfo and 'enable_nsfw' in serverinfo and serverinfo['enable_nsfw'] == "NO":
-            prefix = serverinfo['prefix']
-            return
-
-        if member is None:
-            user1 = str(self.bot.user.display_avatar)
-            user2 = str(ctx.author.display_avatar)
-        else:
-            user1 = str(ctx.author.display_avatar)
-            user2 = str(member.display_avatar)
-            if member == ctx.author: user1 = str(self.bot.user.display_avatar)
-        await self.tb_shoot(ctx, user1, user2)
-
-
-    @_tb.command(
-        usage="kick <member>", 
-        aliases=["kick"],
-        description="Use TipBot to fun kick someone (not real kick)."
-    )
-    async def _kick(
-        self, 
-        ctx, 
-        member: disnake.Member = None
-    ):
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
-        if serverinfo and 'enable_nsfw' in serverinfo and serverinfo['enable_nsfw'] == "NO":
-            prefix = serverinfo['prefix']
-            return
-
-        if member is None:
-            user1 = str(self.bot.user.display_avatar)
-            user2 = str(ctx.author.display_avatar)
-        else:
-            user1 = str(ctx.author.display_avatar)
-            user2 = str(member.display_avatar)
-            if member == ctx.author: user1 = str(self.bot.user.display_avatar)
-        await self.tb_kick(ctx, user1, user2)
-
-
-    @_tb.command(
-        usage="fistbump <member>", 
-        aliases=['fistbump', 'fb'], 
-        description="Use TipBot to fistbump someone."
-    )
-    async def _fistbump(
-        self, 
-        ctx, 
-        member: disnake.Member = None
-    ):
-        if member is None:
-            user1 = str(self.bot.user.display_avatar)
-            user2 = str(ctx.author.display_avatar)
-        else:
-            user1 = str(ctx.author.display_avatar)
-            user2 = str(member.display_avatar)
-            if member == ctx.author: user1 = str(self.bot.user.display_avatar)
-        await self.tb_fistbump(ctx, user1, user2)
-
-
-    @_tb.command(
-        usage="dance", 
-        aliases=["dance"],
-        description="Bean dance's style."
-    )
-    async def _dance(self, ctx):
-        user1 = str(ctx.author.display_avatar)
-        user2 = str(self.bot.user.display_avatar)
-        await self.tb_dance(ctx, user1, user2)
 
 
 def setup(bot):

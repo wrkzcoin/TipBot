@@ -196,6 +196,7 @@ bot.GAME_INTERACTIVE_PRGORESS = []
 bot.GAME_SLOT_IN_PRGORESS = []
 bot.GAME_MAZE_IN_PROCESS = []
 bot.GAME_DICE_IN_PRGORESS = []
+bot.GAME_RAFFLE_QUEUE = []
 
 
 bot.erc_node_list = {

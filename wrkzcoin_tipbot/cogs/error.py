@@ -18,22 +18,22 @@ class Error(commands.Cog):
 
         error = getattr(error, "original", error)  # get original error
 
-        if isinstance(error, commands.NoPrivateMessage):
-            await ctx.response.send_message(f'{ctx.author.mention} This command cannot be used in private messages.')
-
-        elif isinstance(error, commands.DisabledCommand):
+        if isinstance(error, commands.DisabledCommand):
             await ctx.response.send_message(f'{ctx.author.mention} Sorry. This command is disabled and cannot be used.')
 
         if isinstance(error, commands.MissingPermissions):
+            await logchanbot(f"{ctx.author.mention} / {ctx.author.name}#{ctx.author.discriminator} tried {ctx.data.name} but lack of permission [MissingPermissions].")
             return await ctx.response.send_message(f'{ctx.author.mention} Does not have the perms to use this: `{ctx.data.name}` command.')
 
         if isinstance(error, commands.MissingRole):
             return await ctx.response.send_message(f'{ctx.author.mention}: ' + str(error), view=RowButton_row_close_any_message())
 
         if isinstance(error, commands.NoPrivateMessage):
+            await logchanbot(f"{ctx.author.mention} / {ctx.author.name}#{ctx.author.discriminator} tried {ctx.data.name} in DM.")
             return await ctx.response.send_message(f"{ctx.author.mention} This command cannot be used in a DM.", view=RowButton_row_close_any_message())
 
         if isinstance(error, commands.CheckFailure) or isinstance(error, commands.CheckAnyFailure):
+            await logchanbot(f"{ctx.author.mention} / {ctx.author.name}#{ctx.author.discriminator} tried {ctx.data.name} but lack of permission [CheckAnyFailure].")
             await ctx.response.send_message(f"{ctx.author.mention} You do not have permission to use this command (`{ctx.prefix}{ctx.data.name}`).", view=RowButton_row_close_any_message())  # \nCheck(s) failed: {failed}")
             return
 

@@ -259,6 +259,16 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
                 else:
                     open_order = 0
 
+                # guild_raffle_entries fee entry
+                sql = """ SELECT SUM(amount) AS raffle_fee FROM guild_raffle_entries WHERE `coin_name`=%s AND `user_id`=%s  
+                          AND `user_server`=%s AND `status`=%s
+                      """
+                await cur.execute(sql, (TOKEN_NAME, userID, user_server, 'REGISTERED'))
+                result = await cur.fetchone()
+                raffle_fee = 0.0
+                if result and ('raffle_fee' in result) and result['raffle_fee']:
+                    raffle_fee = result['raffle_fee']
+
                 # Each coin
                 if coin_family in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                     sql = """ SELECT SUM(amount+withdraw_fee) AS tx_expense FROM `cn_external_tx` WHERE `user_id`=%s AND `coin_name` = %s AND `user_server` = %s AND `crediting`=%s """
@@ -383,18 +393,19 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
             balance = {}
             balance['adjust'] = 0
 
-            balance['mv_balance'] = float("%.4f" % mv_balance) if mv_balance else 0
+            balance['mv_balance'] = float("%.6f" % mv_balance) if mv_balance else 0
 
-            balance['airdropping'] = float("%.4f" % airdropping) if airdropping else 0
-            balance['mathtip'] = float("%.4f" % mathtip) if mathtip else 0
-            balance['triviatip'] = float("%.4f" % triviatip) if triviatip else 0
+            balance['airdropping'] = float("%.6f" % airdropping) if airdropping else 0
+            balance['mathtip'] = float("%.6f" % mathtip) if mathtip else 0
+            balance['triviatip'] = float("%.6f" % triviatip) if triviatip else 0
 
-            balance['tx_expense'] = float("%.4f" % tx_expense) if tx_expense else 0
-            balance['incoming_tx'] = float("%.4f" % incoming_tx) if incoming_tx else 0
+            balance['tx_expense'] = float("%.6f" % tx_expense) if tx_expense else 0
+            balance['incoming_tx'] = float("%.6f" % incoming_tx) if incoming_tx else 0
             
-            balance['open_order'] = float("%.4f" % open_order) if open_order else 0
+            balance['open_order'] = float("%.6f" % open_order) if open_order else 0
+            balance['raffle_fee'] = float("%.6f" % raffle_fee) if raffle_fee else 0
 
-            balance['adjust'] = float("%.4f" % ( balance['mv_balance']+balance['incoming_tx']-balance['airdropping']-balance['mathtip']-balance['triviatip']-balance['tx_expense']-balance['open_order'] ))
+            balance['adjust'] = float("%.6f" % ( balance['mv_balance']+balance['incoming_tx']-balance['airdropping']-balance['mathtip']-balance['triviatip']-balance['tx_expense']-balance['open_order']-balance['raffle_fee'] ))
             # Negative check
             try:
                 if balance['adjust'] < 0:

@@ -35,10 +35,7 @@ class About(commands.Cog):
 
     async def async_about(self, ctx):
         try:
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(embed=await self.about_embed(), view=RowButton_row_close_any_message())
-            else:
-                await ctx.reply(embed=await self.about_embed(), view=RowButton_row_close_any_message())
+            await ctx.response.send_message(embed=await self.about_embed(), view=RowButton_row_close_any_message())
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
@@ -76,8 +73,8 @@ class About(commands.Cog):
         await self.async_about(ctx)
 
 
-    @commands.command(usage="about", aliases=["about"], description="Get information about me.")
-    async def _about(self, ctx):
+    @commands.user_command(name="About")
+    async def about_me(self, ctx):
         await self.async_about(ctx)
 
 

@@ -2276,12 +2276,16 @@ class Tips(commands.Cog):
         if int(id_tipper) in self.bot.TX_IN_PROCESS:
             self.bot.TX_IN_PROCESS.remove(int(id_tipper))
 
+        failed_interact = False
         if tiptalk:
             # tipper shall always get DM. Ignore notifyList
             try:
                 msg = f'{EMOJI_ARROW_RIGHTHOOK} {tip_type_text} of **{num_format_coin(TotalAmount, COIN_NAME, coin_decimal, False)} {token_display}** {total_equivalent_usd} was sent to ({len(list_receivers)}) members in server `{ctx.guild.name}` for active talking.\nEach member got: **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}** {equivalent_usd}\n'
                 if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
+                    try:
+                        await ctx.author.send(msg)
+                    except Exception as e:
+                        pass
                 else:
                     await ctx.author.send(msg)
             except (disnake.Forbidden, disnake.errors.Forbidden) as e:
@@ -2299,7 +2303,6 @@ class Tips(commands.Cog):
             list_user_not_mention = []
             list_user_not_mention_str = ""
             random.shuffle(list_talker)
-            failed_interact = False
             for member_id in list_talker:
                 member = self.bot.get_user(int(member_id))
                 if not member:

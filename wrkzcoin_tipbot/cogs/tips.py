@@ -1129,7 +1129,7 @@ class Tips(commands.Cog):
                 await ctx.reply(msg)
             return
         elif amount > actual_balance:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to do a free tip of **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}**.'
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to tip of **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}**.'
             if type(ctx) == disnake.ApplicationCommandInteraction:
                 await ctx.response.send_message(msg)
             else:

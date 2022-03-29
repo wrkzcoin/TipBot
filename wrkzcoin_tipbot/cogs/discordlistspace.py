@@ -39,7 +39,10 @@ class DiscordListVote(commands.Cog):
                                 if int(each['user']) not in get_last_votes:
                                     try:
                                         date_voted = int(each['timestamp'] / 1000)
-                                        vote_data.append((each['user'], None, "discordlistspace", str(config.discordlist.bot_id), type_vote, date_voted, "{}-{}".format(each['user'], date_voted) ))
+                                        # longer than a day, skip
+                                        if int(time.time()) - date_voted > 24*3600:
+                                            continue
+                                        vote_data.append((each['user'], None, "discordlistspace", str(config.discordlist.bot_id), type_vote, date_voted ))
                                         new_votes.append(int(each['user']))
                                     except Exception as e:
                                         traceback.print_exc(file=sys.stdout)
@@ -48,12 +51,13 @@ class DiscordListVote(commands.Cog):
                         if len(vote_data) > 0:
                             print("discordlistspace: has {} votes to insert.".format(len(vote_data)))
                             insert_votes = await self.insert_bot_vote_many(vote_data)
-                            for each_user in new_votes:
-                                try:
-                                    await self.vote_logchan(f'[{SERVER_BOT}] A user <@{str(each_user)}> voted a bot <@{str(config.discordlist.bot_id)}> type `{type_vote}` in discordlist.space.')
-                                except Exception as e:
-                                    traceback.print_exc(file=sys.stdout)
-                                await asyncio.sleep(2.0)
+                            if insert_votes > 0:
+                                for each_user in new_votes:
+                                    try:
+                                        await self.vote_logchan(f'[{SERVER_BOT}] A user <@{str(each_user)}> voted a bot <@{str(config.discordlist.bot_id)}> type `{type_vote}` in discordlist.space.')
+                                    except Exception as e:
+                                        traceback.print_exc(file=sys.stdout)
+                                    await asyncio.sleep(2.0)
                     else:
                         await self.vote_logchan(f"discordlistspace: failed to fetch votes.")
         except Exception as e:
@@ -82,8 +86,8 @@ class DiscordListVote(commands.Cog):
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     date_vote = int(time.time())
-                    sql = """ INSERT IGNORE INTO guild_vote (`user_id`, `name`, `directory`, `guild_id`, `type`, `date_voted`, `uniq_user_id_date`) VALUES (%s, %s, %s, %s, %s, %s, %s) """
-                    await cur.execute(sql, ( user_id, voter, directory, guild_id, type_vote, date_vote, "{}-{}".format(user_id, date_vote) ))
+                    sql = """ INSERT IGNORE INTO guild_vote (`user_id`, `name`, `directory`, `guild_id`, `type`, `date_voted`) VALUES (%s, %s, %s, %s, %s, %s) """
+                    await cur.execute(sql, ( user_id, voter, directory, guild_id, type_vote, date_vote ))
                     await conn.commit()
                     return True
         except Exception as e:
@@ -97,26 +101,26 @@ class DiscordListVote(commands.Cog):
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     date_vote = int(time.time())
-                    sql = """ INSERT IGNORE INTO bot_vote (`user_id`, `name`, `directory`, `bot_id`, `type`, `date_voted`, `uniq_user_id_date`) VALUES (%s, %s, %s, %s, %s, %s, %s) """
-                    await cur.execute(sql, ( user_id, voter, directory, bot_id, type_vote, date_vote, "{}-{}".format(user_id, date_vote) ))
+                    sql = """ INSERT IGNORE INTO bot_vote (`user_id`, `name`, `directory`, `bot_id`, `type`, `date_voted`) VALUES (%s, %s, %s, %s, %s, %s) """
+                    await cur.execute(sql, ( user_id, voter, directory, bot_id, type_vote, date_vote ))
                     await conn.commit()
-                    return True
+                    return cur.rowcount
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-        return False
+        return 0
 
     async def insert_bot_vote_many(self, data):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT IGNORE INTO bot_vote (`user_id`, `name`, `directory`, `bot_id`, `type`, `date_voted`, `uniq_user_id_date`) VALUES (%s, %s, %s, %s, %s, %s, %s) """
+                    sql = """ INSERT IGNORE INTO bot_vote (`user_id`, `name`, `directory`, `bot_id`, `type`, `date_voted`) VALUES (%s, %s, %s, %s, %s, %s) """
                     await cur.executemany(sql, data)
                     await conn.commit()
-                    return True
+                    return cur.rowcount
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-        return False
+        return 0
 
 
     async def select_last_bot_votes(self, bot_id: str):
@@ -149,13 +153,10 @@ class DiscordListVote(commands.Cog):
 
         async def handler_post(request):
             try:
-                print(request)
                 if request.body_exists:
                     payload = await request.read()
                     headers = request.headers
-                    print(request.headers)
                     full_payload = json.loads(payload)
-                    print(full_payload)
                     user_vote = full_payload['user']['id']
                     type_vote = full_payload['trigger']
                     voter = "{}#{}".format(full_payload['user']['username'], full_payload['user']['discriminator'])
@@ -199,7 +200,7 @@ class DiscordListVote(commands.Cog):
                         bot_id = full_payload['bot']['id']
                         if 'Authorization' in request.headers and request.headers['Authorization'] == config.discordlist.auth:
                             insert_vote = await self.insert_bot_vote(user_vote, "discordlistspace", bot_id, type_vote, voter)
-                            if insert_vote:
+                            if insert_vote > 0:
                                 try:
                                     await self.vote_logchan(f'[{SERVER_BOT}] A user <@{user_vote}> voted a bot <@{bot_id}> type `{type_vote}` in discordlist.space.')
                                 except Exception as e:

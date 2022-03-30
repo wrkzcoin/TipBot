@@ -2249,7 +2249,20 @@ async def sql_match_order_by_sellerid(userid_get: str, ref_numb: str, buy_user_s
                     await cur.execute(sql, ( ref_numb ))
                     result = await cur.fetchone()
                     if result is not None:
+                        fee_user = "TRADE"
+                        fee_sell = result['amount_sell'] - result['amount_sell_after_fee']
+                        fee_get = result['amount_get'] - result['amount_get_after_fee']
                         # credit + / - to balance and add data to it.
+                        list_tx = []
+                        # from seller to buyer
+                        list_tx.append(( result['coin_sell'], None, result['userid_sell'], result['userid_get'], "TRADE", "TRADE", result['amount_sell_after_fee'], 0.0, result['coin_sell_decimal'], "TRADE", currentTs, sell_user_server, result['userid_sell'], result['coin_sell'], sell_user_server, -result['amount_sell_after_fee'], currentTs, result['userid_get'], result['coin_sell'], sell_user_server, result['amount_sell_after_fee'], currentTs ))
+                        # from buyer to seller
+                        list_tx.append(( result['coin_get'], None, result['userid_get'], result['userid_sell'], "TRADE", "TRADE", result['amount_get_after_fee'], 0.0, result['coin_get_decimal'], "TRADE", currentTs, sell_user_server, result['userid_get'], result['coin_get'], sell_user_server, -result['amount_get_after_fee'], currentTs, result['userid_sell'], result['coin_get'], sell_user_server, result['amount_get_after_fee'], currentTs ))
+                        # fee from seller
+                        list_tx.append(( result['coin_sell'], None, result['userid_sell'], fee_user, "TRADE", "TRADE", fee_sell, 0.0, result['coin_sell_decimal'], "TRADE", currentTs, sell_user_server, result['userid_sell'], result['coin_sell'], sell_user_server, -fee_sell, currentTs, fee_user, result['coin_sell'], sell_user_server, fee_sell, currentTs ))
+                        # fee from buyer
+                        list_tx.append(( result['coin_get'], None, result['userid_get'], fee_user, "TRADE", "TRADE", fee_get, 0.0, result['coin_get_decimal'], "TRADE", currentTs, sell_user_server, result['userid_get'], result['coin_get'], sell_user_server, -fee_get, currentTs, fee_user, result['coin_get'], sell_user_server, fee_get, currentTs ))
+                        
                         sql = """ INSERT INTO user_balance_mv 
                                   (`token_name`, `contract`, `from_userid`, `to_userid`, `guild_id`, `channel_id`, `real_amount`, `real_amount_usd`, `token_decimal`, `type`, `date`, `user_server`) 
                                   VALUES (%s, %s, %s, %s, %s, %s, CAST(%s AS DECIMAL(32,8)), CAST(%s AS DECIMAL(32,8)), %s, %s, %s, %s);
@@ -2267,27 +2280,7 @@ async def sql_match_order_by_sellerid(userid_get: str, ref_numb: str, buy_user_s
                                   `update_date`=VALUES(`update_date`);
 
                                   """
-                        await cur.execute(sql, ( result['coin_sell'], None, result['userid_sell'], result['userid_get'], "TRADE", "TRADE", result['amount_sell_after_fee'], 0.0, result['coin_sell_decimal'], "TRADE", currentTs, sell_user_server, result['userid_sell'], result['coin_sell'], sell_user_server, -result['amount_sell_after_fee'], currentTs, result['userid_get'], result['coin_sell'], sell_user_server, result['amount_sell_after_fee'], currentTs ))
-                        await conn.commit()
-
-                        sql = """ INSERT INTO user_balance_mv 
-                                  (`token_name`, `contract`, `from_userid`, `to_userid`, `guild_id`, `channel_id`, `real_amount`, `real_amount_usd`, `token_decimal`, `type`, `date`, `user_server`) 
-                                  VALUES (%s, %s, %s, %s, %s, %s, CAST(%s AS DECIMAL(32,8)), CAST(%s AS DECIMAL(32,8)), %s, %s, %s, %s);
-
-                                  INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, `balance`, `update_date`) 
-                                  VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
-                                  UPDATE 
-                                  `balance`=`balance`+VALUES(`balance`), 
-                                  `update_date`=VALUES(`update_date`);
-
-                                  INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, `balance`, `update_date`) 
-                                  VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
-                                  UPDATE 
-                                  `balance`=`balance`+VALUES(`balance`), 
-                                  `update_date`=VALUES(`update_date`);
-
-                                  """
-                        await cur.execute(sql, ( result['coin_get'], None, result['userid_get'], result['userid_sell'], "TRADE", "TRADE", result['amount_get_after_fee'], 0.0, result['coin_get_decimal'], "TRADE", currentTs, sell_user_server, result['userid_get'], result['coin_get'], sell_user_server, -result['amount_get_after_fee'], currentTs, result['userid_sell'], result['coin_get'], sell_user_server, result['amount_get_after_fee'], currentTs ))
+                        await cur.executemany(sql, list_tx)
                         await conn.commit()
                     # Insert into open_order_notify_complete table
                     try:
@@ -2312,7 +2305,7 @@ async def sql_match_order_by_sellerid(userid_get: str, ref_numb: str, buy_user_s
     return False
 
 
-async def sql_get_open_order_by_alluser(coin: str, status: str, need_to_buy: bool, limit: int=50):
+async def sql_get_open_order_by_alluser(coin: str, status: str, option: str, limit: int=50):
     global pool
     COIN_NAME = coin.upper()
     limit_str = ""
@@ -2322,8 +2315,8 @@ async def sql_get_open_order_by_alluser(coin: str, status: str, need_to_buy: boo
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                if need_to_buy: 
-                    sql = """ SELECT * FROM `open_order` WHERE `status`=%s AND `coin_get`=%s ORDER BY sell_div_get ASC """+limit_str
+                if COIN_NAME != 'ALL' and option.upper() in ["DESC", "ASC"]: 
+                    sql = """ SELECT * FROM `open_order` WHERE `status`=%s AND `coin_get`=%s ORDER BY sell_div_get """+option.upper()+" "+limit_str
                     await cur.execute(sql, (status, COIN_NAME))
                 elif COIN_NAME == 'ALL':
                     sql = """ SELECT * FROM `open_order` WHERE `status`=%s ORDER BY order_created_date DESC """+limit_str

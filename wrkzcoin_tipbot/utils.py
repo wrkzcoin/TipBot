@@ -36,6 +36,9 @@ class MenuPage(disnake.ui.View):
         
         self.first_page.disabled = True
 
+        if isinstance(self.inter.channel, disnake.DMChannel):
+            self.remove.disabled = True
+
         # Sets the footer of the embeds with their respective page numbers.
         for i, embed in enumerate(self.embeds):
             embed.set_footer(text=f"Page {i + 1} of {len(self.embeds)}")

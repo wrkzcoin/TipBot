@@ -49,7 +49,7 @@ class Trade(commands.Cog):
         title = "**MARKET**"
         no_trading_msg = "Currently, no opening selling or buying market."
         if coin2 is None:
-            get_markets = await store.sql_get_open_order_by_alluser(coin1.upper(), 'OPEN', False, 200)
+            get_markets = await store.sql_get_open_order_by_alluser(coin1.upper(), 'OPEN', option.upper(), 200)
             title = "**MARKET {}**".format(coin1.upper())
             no_trading_msg = f"Currently, no opening selling or buying market for {coin1.upper()}. Please make some open order for others."
         else:
@@ -119,6 +119,8 @@ class Trade(commands.Cog):
         sell_amount = str(sell_amount).replace(",", "")
         buy_amount = str(buy_amount).replace(",", "")
         try:
+            sell_amount = text_to_num(sell_amount)
+            buy_amount = text_to_num(buy_amount)
             sell_amount = Decimal(sell_amount)
             buy_amount = Decimal(buy_amount)
         except Exception as e:
@@ -278,9 +280,9 @@ class Trade(commands.Cog):
 
     @commands.slash_command(usage="sell <sell_amount> <sell_ticker> <buy_amount> <buy_ticker>",
                             options=[
-                                Option('sell_amount', 'Enter amount of coin to sell', OptionType.number, required=True),
+                                Option('sell_amount', 'Enter amount of coin to sell', OptionType.string, required=True),
                                 Option('sell_ticker', 'Enter coin ticker/name to sell', OptionType.string, required=True),
-                                Option('buy_amount', 'Enter amount of coin to buy', OptionType.number, required=True),
+                                Option('buy_amount', 'Enter amount of coin to buy', OptionType.string, required=True),
                                 Option('buy_ticker', 'Enter coin ticker/name to buy', OptionType.string, required=True)
                             ],
                             description="Make an opened sell of a coin for another coin.")
@@ -298,7 +300,7 @@ class Trade(commands.Cog):
                 serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
                 if isinstance(ctx.channel, disnake.DMChannel) == False and serverinfo \
                 and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention} Trade Command is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING TRADE`'
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade function is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING TRADE`'
                     if type(ctx) == disnake.ApplicationCommandInteraction:
                         await ctx.response.send_message(msg)
                     else:
@@ -330,7 +332,7 @@ class Trade(commands.Cog):
                 serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
                 if isinstance(ctx.channel, disnake.DMChannel) == False and serverinfo \
                 and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention} Trade Command is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING TRADE`'
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade function is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING TRADE`'
                     if type(ctx) == disnake.ApplicationCommandInteraction:
                         await ctx.response.send_message(msg)
                     else:
@@ -347,6 +349,14 @@ class Trade(commands.Cog):
             # assume it is ticker
             # ,buy trtl (example)
             COIN_NAME = ref_number.upper()
+            # Check if coin with TipBot
+            if not hasattr(self.bot.coin_list, COIN_NAME):
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    msg = f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.'
+                    await ctx.response.send_message(msg)
+                else:
+                    await ctx.reply(msg)
+                return
             if COIN_NAME not in self.bot.coin_name_list:
                 msg = f'{EMOJI_ERROR}, {ctx.author.mention}, **{COIN_NAME}** is not in our supported list.'
                 if type(ctx) == disnake.ApplicationCommandInteraction:
@@ -507,7 +517,7 @@ class Trade(commands.Cog):
                 serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
                 if isinstance(ctx.channel, disnake.DMChannel) == False and serverinfo \
                 and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention} Trade Command is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING TRADE`'
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade function is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING TRADE`'
                     if type(ctx) == disnake.ApplicationCommandInteraction:
                         await ctx.response.send_message(msg)
                     else:
@@ -540,6 +550,14 @@ class Trade(commands.Cog):
             if len(order_num) < 6:
                 # use coin name
                 COIN_NAME = order_num.upper()
+                # Check if coin with TipBot
+                if not hasattr(self.bot.coin_list, COIN_NAME):
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        msg = f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.'
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.reply(msg)
+                    return
                 if COIN_NAME not in self.bot.coin_name_list:
                     msg = f'{EMOJI_ERROR}, {ctx.author.mention}, **{COIN_NAME}** is not in our supported list.'
                     if type(ctx) == disnake.ApplicationCommandInteraction:
@@ -619,7 +637,7 @@ class Trade(commands.Cog):
                 serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
                 if isinstance(ctx.channel, disnake.DMChannel) == False and serverinfo \
                 and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention} Trade Command is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING TRADE`'
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade function is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING TRADE`'
                     if type(ctx) == disnake.ApplicationCommandInteraction:
                         await ctx.response.send_message(msg)
                     else:
@@ -635,6 +653,14 @@ class Trade(commands.Cog):
             if len(ticker) < 6:
                 # assume it is a coin
                 COIN_NAME = ticker.upper()
+                # Check if coin with TipBot
+                if not hasattr(self.bot.coin_list, COIN_NAME):
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        msg = f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.'
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.reply(msg)
+                    return
                 if COIN_NAME not in self.bot.coin_name_list:
                     msg = f'{EMOJI_ERROR}, {ctx.author.mention}, **{COIN_NAME}** is not in our supported list.'
                     if type(ctx) == disnake.ApplicationCommandInteraction:
@@ -773,7 +799,7 @@ class Trade(commands.Cog):
                 serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
                 if isinstance(ctx.channel, disnake.DMChannel) == False and serverinfo \
                 and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention} Trade Command is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING TRADE`'
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade function is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING TRADE`'
                     if type(ctx) == disnake.ApplicationCommandInteraction:
                         await ctx.response.send_message(msg)
                     else:
@@ -786,9 +812,9 @@ class Trade(commands.Cog):
                 return
 
         if option_order is None:
-            option_order = "ASC" # ascending
+            option_order = "DESC" # ascending
         elif option_order and (option_order.upper() not in ["DESC", "ASC"]):
-            option_order = "asc" # ascending
+            option_order = "DESC" # ascending
         elif option_order:
             option_order = option_order.upper()
 
@@ -806,6 +832,15 @@ class Trade(commands.Cog):
         get_list_orders = None
         if coin_pair is None:
             COIN_NAME = coin.upper()
+            # Check if coin with TipBot
+            if not hasattr(self.bot.coin_list, COIN_NAME):
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    msg = f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.'
+                    await ctx.response.send_message(msg)
+                else:
+                    await ctx.reply(msg)
+                return
+            
             if getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_trade") != 1:
                 msg = f'{EMOJI_RED_NO} {ctx.author.mention}, {COIN_NAME} in not in our list of trade.'
                 if type(ctx) == disnake.ApplicationCommandInteraction:
@@ -853,9 +888,16 @@ class Trade(commands.Cog):
                 item_nos += 1
             if empty_page == False:
                 all_pages.append(page)
-            await ctx.send(embed=all_pages[0], view=MenuPage(ctx, all_pages, timeout=30))
+            if len(all_pages) == 1:
+                all_pages[0].set_footer(text="Please create more opened orders with /sell")
+                await ctx.response.send_message(embed=all_pages[0], view=RowButton_row_close_any_message())
+            elif len(all_pages) > 1:
+                await ctx.response.send_message(embed=all_pages[0], view=MenuPage(ctx, all_pages, timeout=30))
         else:
-            msg = f'{ctx.author.mention}, there is no result.'
+            no_open = ""
+            if coin_pair and len(coin_pair) == 2:
+                no_open = " for {}/{}".format(coin_pair[0], coin_pair[1])
+            msg = f'{ctx.author.mention}, there is no result{no_open}. Please create opened order with /sell command.'
             if type(ctx) == disnake.ApplicationCommandInteraction:
                 await ctx.response.send_message(msg)
             else:

@@ -1147,10 +1147,14 @@ class Economy(commands.Cog):
                             selected_fishes = each_item
                             break
                     if selected_fishes is None:
+                        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                            self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                         return  {"error": f"{ctx.author.mention} You do not have `{item_name}` to sell."}
                     else:
                         # Have that item to sell
                         if selected_fishes['Weights'] < selected_fishes['minimum_sell_kg']:
+                            if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                                self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                             return  {"error": "{} You do not have sufficient {} to sell. Minimum {:,.2f}kg, having {:,.2f}kg.".format(ctx.author.mention, item_name, selected_fishes['minimum_sell_kg'], selected_fishes['Weights'])}
                         else:
                             # Enough to sell. Update credit, and mark fish as sold
@@ -1162,10 +1166,16 @@ class Economy(commands.Cog):
                             get_userinfo['credit'] += total_earn
                             selling_fishes = await self.db.economy_sell_fishes(selected_fishes['fish_id'], str(ctx.author.id), str(ctx.guild.id), total_weight, total_earn)
                             if selling_fishes:
+                                if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                                    self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                                 return  {"result": "You sold {:,.2f}kg of {} for `{}` Credit(s) (`{:,.2f} Credit per kg`). Your credit now is: `{:,.2f}`.".format(total_weight, item_name, total_earn, float(selected_fishes['credit_per_kg']) * market_factored, get_userinfo['credit']), "market_factored": market_factored}
                             else:
+                                if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                                    self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                                 return {"error": f"{ctx.author.mention} Internal error."}
                 else:
+                    if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                        self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                     return {"error": f"{ctx.author.name}#{ctx.author.discriminator}, You do not have any fish to sell. Do fishing!"}
             elif item_name.strip().upper() in get_user_harvested_crops_arr:
                 # Selling vegetable in farm
@@ -1176,6 +1186,8 @@ class Economy(commands.Cog):
                             selected_item = each_item
                             break
                     if selected_item is None:
+                        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                            self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                         return {"error": f"{ctx.author.mention} You do not have `{item_name}` to sell."}
                     else:
                         # No minimum to sell
@@ -1188,10 +1200,16 @@ class Economy(commands.Cog):
                         get_userinfo['credit'] += total_earn
                         selling_item = await self.db.economy_farm_sell_item(selected_item['plant_id'], str(ctx.author.id), str(ctx.guild.id), total_earn, selected_item['total_products'])
                         if selling_item:
+                            if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                                self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                             return  {"result": "You sold {:,.0f} of {} for `{}` Credit(s) (`{:,.2f} Credit per one`). Your credit now is: `{:,.2f}`.".format(selected_item['total_products'], item_name, total_earn, float(selected_item['credit_per_item']) * market_factored, get_userinfo['credit']), "market_factored": market_factored}
                         else:
+                            if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                                self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                             return {"error": f"{ctx.author.mention} Internal error."}
                 else:
+                    if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                        self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                     return {"error": f"{ctx.author.name}#{ctx.author.discriminator}, You do not have any vegetable or fruit to sell. Plant and harvest!"}
             elif item_name.strip().upper() == "MILK":
                 # Selling milk
@@ -1210,10 +1228,16 @@ class Economy(commands.Cog):
                             sell_milk = await self.db.economy_dairy_sell_milk(str(ctx.author.id), ids, credit_sell, qty_raw_milk)
                             if sell_milk:
                                 get_userinfo['credit'] = float(get_userinfo['credit']) + float(credit_sell)
+                                if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                                    self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                                 return {"result": "You sold {:,.2f} liter(s) of milk for `{:,.2f}` Credit(s). Your credit now is: `{:,.2f}`.".format(qty_raw_milk, credit_sell, get_userinfo['credit']), "market_factored": market_factored}
                         else:
+                            if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                                self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                             return {"error": f"{ctx.author.name}#{ctx.author.discriminator}, You do not have milk to sell!!"}
                     else:
+                        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                            self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                         return {"error": f"{ctx.author.name}#{ctx.author.discriminator}, You do not have milk to sell!"}
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
@@ -1235,10 +1259,16 @@ class Economy(commands.Cog):
                             sell_milk = await self.db.economy_chickenfarm_sell_egg(str(ctx.author.id), ids, credit_sell, qty_eggs)
                             if sell_milk:
                                 get_userinfo['credit'] = float(get_userinfo['credit']) + float(credit_sell)
+                                if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                                    self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                                 return {"result": "You sold {:,.0f} chicken egg(s) for `{:,.2f}` Credit(s). Your credit now is: `{:,.2f}`.".format(qty_eggs, credit_sell, get_userinfo['credit']), "market_factored": market_factored}
                         else:
+                            if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                                self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                             return {"error": f"{ctx.author.name}#{ctx.author.discriminator}, You do not have chicken egg(s) to sell!!"}
                     else:
+                        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                            self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                         return {"error": f"{ctx.author.name}#{ctx.author.discriminator}, You do not have chicken egg(s) to sell!"}
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)

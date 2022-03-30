@@ -801,7 +801,7 @@ class Admin(commands.Cog):
     @commands.command(hidden=True, usage='cleartx', description='Clear TX_IN_PROCESS')
     async def cleartx(self, ctx):
         if len(self.bot.TX_IN_PROCESS) == 0:
-            await ctx.reply(f'{ctx.author.mention} Nothing in tx pending to clear.')
+            await ctx.reply(f'{ctx.author.mention} TX_IN_PROCESS, nothing in tx pending to clear.')
         else:
             try:
                 string_ints = [str(num) for num in self.bot.TX_IN_PROCESS]
@@ -810,6 +810,28 @@ class Admin(commands.Cog):
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
             self.bot.TX_IN_PROCESS = []
+        # GAME_INTERACTIVE_ECO
+        if len(self.bot.GAME_INTERACTIVE_ECO) == 0:
+            await ctx.reply(f'{ctx.author.mention}, GAME_INTERACTIVE_ECO nothing in tx pending to clear.')
+        else:
+            try:
+                string_ints = [str(num) for num in self.bot.GAME_INTERACTIVE_ECO]
+                list_pending = '{' + ', '.join(string_ints) + '}'
+                await ctx.reply(f'Clearing {str(len(self.bot.GAME_INTERACTIVE_ECO))} {list_pending} in pending...')
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            self.bot.GAME_INTERACTIVE_ECO = []
+        # GAME_INTERACTIVE_PRGORESS
+        if len(self.bot.GAME_INTERACTIVE_PRGORESS) == 0:
+            await ctx.reply(f'{ctx.author.mention}, GAME_INTERACTIVE_PRGORESS nothing in tx pending to clear.')
+        else:
+            try:
+                string_ints = [str(num) for num in self.bot.GAME_INTERACTIVE_PRGORESS]
+                list_pending = '{' + ', '.join(string_ints) + '}'
+                await ctx.reply(f'Clearing {str(len(self.bot.GAME_INTERACTIVE_PRGORESS))} {list_pending} in pending...')
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            self.bot.GAME_INTERACTIVE_PRGORESS = []
         return
 
 

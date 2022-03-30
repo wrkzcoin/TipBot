@@ -3458,19 +3458,6 @@ class Wallet(commands.Cog):
                 return
 
 
-    @commands.command(
-        usage='claim <token>', 
-        aliases=['claim'],
-        description="Faucet claim."
-    )
-    async def _claim(
-        self, 
-        ctx,
-        token: str=None
-    ):
-        await self.async_claim(ctx, token)
-
-
     @commands.slash_command(
         usage='claim', 
         options=[

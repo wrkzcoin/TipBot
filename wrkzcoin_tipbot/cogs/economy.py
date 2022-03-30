@@ -986,9 +986,13 @@ class Economy(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         redis_utils.openRedis()
-        self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
+        self.botLogChan = None
         self.db = database_economy(bot)
         self.enable_logchan = True
+
+    async def bot_log(self):
+        if self.botLogChan is None:
+            self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
 
     async def check_guild(self, ctx):
         if self.botLogChan is None:
@@ -2344,6 +2348,7 @@ class Economy(commands.Cog):
         description="Economy game commands."
     )
     async def eco(self, ctx):
+        await bot_log()
         # Check if there is economy channel
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo and 'enable_economy' in serverinfo and serverinfo['enable_economy'] == "NO":

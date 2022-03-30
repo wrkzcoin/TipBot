@@ -2061,7 +2061,6 @@ class Games(commands.Cog):
                 self.bot.GAME_SLOT_IN_PRGORESS.remove(ctx.author.id)
             await ctx.response.send_message(embed=embed)
             await ctx.response.defer()
-            await asyncio.sleep(config.game.game_slot_sleeping) # sleep 5s
         except (disnake.errors.NotFound, disnake.errors.Forbidden, disnake.errors.NotFound) as e:
             pass
         except Exception as e:

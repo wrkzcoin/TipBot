@@ -1,11 +1,14 @@
 from aiohttp import web
 import asyncio
 import traceback, sys
+
+import disnake
 from disnake.ext import commands
 from discord_webhook import DiscordWebhook
 import json, time
 from decimal import Decimal
 import time
+from datetime import datetime
 
 import store
 from config import config
@@ -19,6 +22,7 @@ class TopGGVote(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        self.reward_channel = 522190259333890058
 
 
     async def guild_find_by_key(self, guild_id: str):
@@ -127,7 +131,6 @@ class TopGGVote(commands.Cog):
                     user_vote = full_payload['user']
                     type_vote = full_payload['type']
                     if str(request.rel_url).startswith("/topgg_server_vote/"):
-                        # Example: {'user': '386761001808166912', 'type': 'test', 'query': '', 'guild': '460755304863498250'} ## type = upvote or test
                         if 'Authorization' in request.headers:
                             # Find Authorization correspond to server ID
                             key = request.headers['Authorization']
@@ -215,7 +218,25 @@ class TopGGVote(commands.Cog):
                                                 try:
                                                     await member.send(msg)
                                                     guild_owner = self.bot.get_user(guild.owner.id)
-                                                    await guild_owner.send(f'User `{user_vote}` voted your guild {guild.name} at top.gg. He/she just got a reward of {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}.')
+                                                    try:
+                                                        await guild_owner.send(f'User `{user_vote}` voted your guild {guild.name} at top.gg. He/she just got a reward of {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}.')
+                                                    except Exception as e:
+                                                        pass
+                                                    # Log channel if there is
+                                                    try:
+                                                        serverinfo = await store.sql_info_by_server(guild_id)
+                                                        if serverinfo and serverinfo['vote_reward_channel']:
+                                                            # msg = f'User <@{user_vote}> voted for guild {guild.name} at https://top.gg/servers/'+guild_id+f' . He/she just got a reward of {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}. Thank you!'
+                                                            channel = self.bot.get_channel(int(serverinfo['vote_reward_channel']))
+                                                            embed = disnake.Embed(title = "NEW GUILD VOTE!", timestamp=datetime.utcnow())
+                                                            embed.add_field(name="User", value="<@{}>".format(user_vote), inline=True)
+                                                            embed.add_field(name="Reward", value="{} {}".format(num_format_coin(amount, COIN_NAME, coin_decimal, False), COIN_NAME), inline=True)
+                                                            embed.add_field(name="Link", value="https://top.gg/servers/{}".format(guild_id), inline=False)
+                                                            embed.set_author(name=self.bot.user.name, icon_url=self.bot.user.display_avatar)
+                                                            await channel.send(embed=embed)
+                                                    except Exception as e:
+                                                        traceback.print_exc(file=sys.stdout)
+                                                        await self.vote_logchan(f'[{SERVER_BOT}] Failed to send message to reward channel in guild: `{guild_id}` / {guild.name}.')
                                                 except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
                                                     await self.vote_logchan(f'[{SERVER_BOT}] Failed to thank message to <@{user_vote}>.')
                                         except Exception as e:
@@ -334,6 +355,16 @@ class TopGGVote(commands.Cog):
                                                                     await member.send(msg)
                                                                 except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
                                                                     await self.vote_logchan(f'[{SERVER_BOT}] Failed to thank message to <@{user_vote}>.')
+                                                                try:
+                                                                    channel = self.bot.get_channel(self.reward_channel)
+                                                                    embed = disnake.Embed(title = "NEW BOT VOTE!", timestamp=datetime.utcnow())
+                                                                    embed.add_field(name="User", value="<@{}>".format(user_vote), inline=True)
+                                                                    embed.add_field(name="Reward", value="{} {}".format(num_format_coin(amount, COIN_NAME, coin_decimal, False), COIN_NAME), inline=True)
+                                                                    embed.add_field(name="Link", value=config.bot_vote_link.topgg, inline=False)
+                                                                    embed.set_author(name=self.bot.user.name, icon_url=self.bot.user.display_avatar)
+                                                                    await channel.send(embed=embed)
+                                                                except Exception as e:
+                                                                    traceback.print_exc(file=sys.stdout)
                                                         except Exception as e:
                                                             traceback.print_exc(file=sys.stdout)
                                             else:

@@ -2348,7 +2348,7 @@ class Economy(commands.Cog):
         description="Economy game commands."
     )
     async def eco(self, ctx):
-        await bot_log()
+        await self.bot_log()
         # Check if there is economy channel
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo and 'enable_economy' in serverinfo and serverinfo['enable_economy'] == "NO":

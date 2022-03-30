@@ -694,8 +694,8 @@ class Guild(commands.Cog):
                                 amount = 10*float(each_guild['vote_reward_amount'])
                                 # Disable it
                                 # Process, only guild owner can process
-                                update_reward = await self.update_reward(each_guild['serverid'], actual_balance, COIN_NAME, True)
-                                if update_reward is not None:
+                                update_reward = await self.update_reward(each_guild['serverid'], actual_balance, COIN_NAME, True, None)
+                                if update_reward > 0:
                                     try:
                                         guild_found = self.bot.get_guild(int(each_guild['serverid']))
                                         user_found = self.bot.get_user(guild_found.owner.id)
@@ -742,24 +742,24 @@ class Guild(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return None
 
-    async def update_reward(self, guild_id: str, amount: float, coin_name: str, disable: bool=False):
+    async def update_reward(self, guild_id: str, amount: float, coin_name: str, disable: bool=False, channel: str=None):
         try:
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     if disable == True:
-                        sql = """ UPDATE discord_server SET `vote_reward_amount`=%s, `vote_reward_coin`=%s WHERE `serverid`=%s LIMIT 1 """
-                        await cur.execute(sql, ( None, None, guild_id ))
+                        sql = """ UPDATE discord_server SET `vote_reward_amount`=%s, `vote_reward_coin`=%s, `vote_reward_channel`=%s WHERE `serverid`=%s LIMIT 1 """
+                        await cur.execute(sql, ( None, None, guild_id, None ))
                         await conn.commit()
                         return cur.rowcount
                     else:
-                        sql = """ UPDATE discord_server SET `vote_reward_amount`=%s, `vote_reward_coin`=%s WHERE `serverid`=%s LIMIT 1 """
-                        await cur.execute(sql, ( amount, coin_name.upper(), guild_id ))
+                        sql = """ UPDATE discord_server SET `vote_reward_amount`=%s, `vote_reward_coin`=%s, `vote_reward_channel`=%s WHERE `serverid`=%s LIMIT 1 """
+                        await cur.execute(sql, ( amount, coin_name.upper(), channel, guild_id  ))
                         await conn.commit()
                         return cur.rowcount
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-        return None
+        return 0
 
 
     @commands.guild_only()
@@ -1233,10 +1233,11 @@ class Guild(commands.Cog):
 
     @commands.has_permissions(administrator=True)
     @guild.sub_command(
-        usage="guild votereward <amount> <coin/token>", 
+        usage="guild votereward <amount> <coin/token> [channel]", 
         options=[
             Option('amount', 'amount', OptionType.string, required=True), 
-            Option('coin', 'coin', OptionType.string, required=True) 
+            Option('coin', 'coin', OptionType.string, required=True),
+            Option('channel', 'channel', OptionType.channel, required=True)
         ],
         description="Set a reward when a user vote to your guild (topgg, ...)."
     )
@@ -1244,7 +1245,8 @@ class Guild(commands.Cog):
         self,
         ctx,
         amount: str, 
-        coin: str
+        coin: str,
+        channel: disnake.TextChannel
     ):
         COIN_NAME = coin.upper()
         if not hasattr(self.bot.coin_list, COIN_NAME):
@@ -1319,9 +1321,37 @@ class Guild(commands.Cog):
                 await ctx.reply(msg)
             return
         else:
+            # Check channel
+            get_channel = self.bot.get_channel(int(channel.id))
+            channel_str = str(channel.id)
+            # Test message
+            msg = f"New vote reward set to {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display} by {ctx.author.name}#{ctx.author.discriminator} and message here."
+            try:
+                await get_channel.send(msg)
+            except Exception as e:
+                msg = f'{ctx.author.mention}, failed to message channel {channel.mention}. Set reward denied!'
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(msg, ephemeral=True)
+                else:
+                    await ctx.reply(msg)
+                traceback.print_exc(file=sys.stdout)
+                return
+            
             # Process, only guild owner can process
-            update_reward = await self.update_reward(str(ctx.guild.id), float(amount), COIN_NAME)
-            if update_reward is not None:
+            try:
+                serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                if serverinfo is None:
+                    # Let's add some info if server return None
+                    add_server_info = await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
+            except Exception as e:
+                msg = f'{ctx.author.mention}, internal error. Please report.'
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(msg, ephemeral=True)
+                else:
+                    await ctx.reply(msg)
+                traceback.print_exc(file=sys.stdout)
+            update_reward = await self.update_reward(str(ctx.guild.id), float(amount), COIN_NAME, False, channel_str)
+            if update_reward > 0:
                 msg = f'{ctx.author.mention} Successfully set reward for voting in guild {ctx.guild.name} to {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}.'
                 if type(ctx) == disnake.ApplicationCommandInteraction:
                     await ctx.response.send_message(msg, ephemeral=True)
@@ -1332,7 +1362,7 @@ class Guild(commands.Cog):
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
             else:
-                msg = f'{EMOJI_RED_NO} {ctx.author.mention} internal error.'
+                msg = f'{ctx.author.mention} internal error or nothing updated.'
                 if type(ctx) == disnake.ApplicationCommandInteraction:
                     await ctx.response.send_message(msg, ephemeral=True)
                 else:

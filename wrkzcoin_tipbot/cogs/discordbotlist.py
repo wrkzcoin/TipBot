@@ -1,10 +1,13 @@
 from aiohttp import web
 import asyncio
 import traceback, sys
+
+import disnake
 from disnake.ext import commands
 from discord_webhook import DiscordWebhook
 import json, time
 from decimal import Decimal
+from datetime import datetime
 
 import store
 from config import config
@@ -18,6 +21,7 @@ class DiscordBotList(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        self.reward_channel = 522190259333890058
 
 
     async def insert_bot_vote(self, user_id: str, directory: str, bot_id: str, type_vote: str, voter: str):
@@ -164,6 +168,16 @@ class DiscordBotList(commands.Cog):
                                                             await member.send(msg)
                                                         except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
                                                             await self.vote_logchan(f'[{SERVER_BOT}] Failed to thank message to <@{user_vote}>.')
+                                                        try:
+                                                            channel = self.bot.get_channel(self.reward_channel)
+                                                            embed = disnake.Embed(title = "NEW BOT VOTE!", timestamp=datetime.utcnow())
+                                                            embed.add_field(name="User", value="<@{}>".format(user_vote), inline=True)
+                                                            embed.add_field(name="Reward", value="{} {}".format(num_format_coin(amount, COIN_NAME, coin_decimal, False), COIN_NAME), inline=True)
+                                                            embed.add_field(name="Link", value=config.bot_vote_link.discordbotlist, inline=False)
+                                                            embed.set_author(name=self.bot.user.name, icon_url=self.bot.user.display_avatar)
+                                                            await channel.send(embed=embed)
+                                                        except Exception as e:
+                                                            traceback.print_exc(file=sys.stdout)
                                                 except Exception as e:
                                                     traceback.print_exc(file=sys.stdout)
                                     else:

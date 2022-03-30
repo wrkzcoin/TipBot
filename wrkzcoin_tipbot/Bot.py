@@ -97,7 +97,6 @@ redis_expired = 120
 logging.basicConfig(level=logging.INFO)
 
 SERVER_BOT = "DISCORD"
-GUILD_ID_SLASH = [int(each) for each in config.discord.guild_id.split(",")]
 
 EMOJI_ERROR = "\u274C"
 EMOJI_RED_NO = "\u26D4"
@@ -168,9 +167,9 @@ async def get_prefix(bot, message):
 intents = disnake.Intents.default()
 intents.members = True
 intents.presences = True
-bot = commands.Bot(command_prefix=get_prefix, owner_id=config.discord.ownerID, intents=intents, sync_commands=True)
-
+bot = AutoShardedBot(command_prefix=get_prefix, owner_id=config.discord.ownerID, intents=intents, sync_commands=True)
 bot.remove_command('help')
+
 bot.owner_id = config.discord.ownerID
 bot.coin_list = None
 bot.token_hints = None

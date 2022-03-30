@@ -650,6 +650,7 @@ class Guild(commands.Cog):
     @tasks.loop(seconds=30.0)
     async def monitor_guild_reward_amount(self):
         await self.bot.wait_until_ready()
+        await asyncio.sleep(3.0)
         try:
             await self.openConnection()
             async with self.pool.acquire() as conn:

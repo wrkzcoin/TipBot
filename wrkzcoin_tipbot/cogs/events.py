@@ -226,6 +226,12 @@ class Events(commands.Cog):
             await logchanbot(traceback.format_exc())
         return None
 
+
+    @commands.Cog.listener()
+    async def on_shard_ready(shard_id):
+        print(f'Shard {shard_id} connected')
+
+
     @commands.Cog.listener()
     async def on_ready(self):
         print('Logged in as')
@@ -273,6 +279,8 @@ class Events(commands.Cog):
             print("get_coingecko_list loaded...")
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
+        botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
+        await botLogChan.send(f'I am back :)')
 
 
     @commands.Cog.listener()

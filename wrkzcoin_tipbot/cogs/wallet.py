@@ -1323,8 +1323,8 @@ class Wallet(commands.Cog):
     # Notify user
     @tasks.loop(seconds=15.0)
     async def notify_new_tx_user(self):
-        await asyncio.sleep(5.0)
         await self.bot.wait_until_ready()
+        await asyncio.sleep(3.0)
 
         pending_tx = await store.sql_get_new_tx_table('NO', 'NO')
         if len(pending_tx) > 0:
@@ -1386,8 +1386,8 @@ class Wallet(commands.Cog):
 
     @tasks.loop(seconds=10.0)
     async def notify_new_tx_user_noconfirmation(self):
-        await asyncio.sleep(5.0)
         await self.bot.wait_until_ready()
+        await asyncio.sleep(3.0)
 
         if config.notify_new_tx.enable_new_no_confirm == 1:
             key_tx_new = config.redis.prefix_new_tx + 'NOCONFIRM'
@@ -1464,6 +1464,7 @@ class Wallet(commands.Cog):
     @tasks.loop(seconds=20.0)
     async def update_balance_trtl_api(self):
         await self.bot.wait_until_ready()
+        await asyncio.sleep(3.0)
         try:
             # async def trtl_api_get_transfers(self, url: str, key: str, coin: str, height_start: int = None, height_end: int = None):
             list_trtl_api = await store.get_coin_settings("TRTL-API")
@@ -1550,6 +1551,7 @@ class Wallet(commands.Cog):
     @tasks.loop(seconds=20.0)
     async def update_balance_trtl_service(self):
         await self.bot.wait_until_ready()
+        await asyncio.sleep(3.0)
         try:
             list_trtl_service = await store.get_coin_settings("TRTL-SERVICE")
             list_bcn_service = await store.get_coin_settings("BCN")
@@ -1635,6 +1637,7 @@ class Wallet(commands.Cog):
     @tasks.loop(seconds=20.0)
     async def update_balance_xmr(self):
         await self.bot.wait_until_ready()
+        await asyncio.sleep(3.0)
         try:
             list_xmr_api = await store.get_coin_settings("XMR")
             if len(list_xmr_api) > 0:
@@ -1725,6 +1728,7 @@ class Wallet(commands.Cog):
     @tasks.loop(seconds=10.0)
     async def update_balance_btc(self):
         await self.bot.wait_until_ready()
+        await asyncio.sleep(3.0)
         try:
             # async def trtl_api_get_transfers(self, url: str, key: str, coin: str, height_start: int = None, height_end: int = None):
             list_btc_api = await store.get_coin_settings("BTC")
@@ -1812,6 +1816,7 @@ class Wallet(commands.Cog):
     @tasks.loop(seconds=20.0)
     async def update_balance_chia(self):
         await self.bot.wait_until_ready()
+        await asyncio.sleep(3.0)
         try:
             list_chia_api = await store.get_coin_settings("CHIA")
             if len(list_chia_api) > 0:
@@ -1897,6 +1902,7 @@ class Wallet(commands.Cog):
     @tasks.loop(seconds=20.0)
     async def update_balance_nano(self):
         await self.bot.wait_until_ready()
+        await asyncio.sleep(3.0)
         try:
             updated = 0
             list_nano = await store.get_coin_settings("NANO")
@@ -1970,6 +1976,7 @@ class Wallet(commands.Cog):
     @tasks.loop(seconds=20.0)
     async def update_balance_erc20(self):
         await self.bot.wait_until_ready()
+        await asyncio.sleep(3.0)
         erc_contracts = await self.get_all_contracts("ERC-20", False)
         if len(erc_contracts) > 0:
             for each_c in erc_contracts:
@@ -1989,6 +1996,7 @@ class Wallet(commands.Cog):
     @tasks.loop(seconds=20.0)
     async def update_balance_trc20(self):
         await self.bot.wait_until_ready()
+        await asyncio.sleep(3.0)
         erc_contracts = await self.get_all_contracts("TRC-20", False)
         if len(erc_contracts) > 0:
             for each_c in erc_contracts:

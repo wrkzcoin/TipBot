@@ -1,6 +1,6 @@
 web-deposit/
 config.yml
-
+.vscode/
 redeem.bot.tips/config.php
 deposit.bot.tips/config.php
 wrkzcoin_tipbot/tb/test.py

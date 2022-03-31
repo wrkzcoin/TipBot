@@ -19,9 +19,6 @@ from disnake.app_commands import Option
 from disnake.enums import ButtonStyle
 import copy
 
-# numexpr
-import numexpr
-
 import store
 from Bot import num_format_coin, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_ARROW_RIGHTHOOK, EMOJI_MONEYFACE, NOTIFICATION_OFF_CMD, EMOJI_SPEAK, EMOJI_BELL, EMOJI_BELL_SLASH, EMOJI_HOURGLASS_NOT_DONE, EMOJI_INFORMATION, EMOJI_PARTY, SERVER_BOT, seconds_str, RowButton_close_message, RowButton_row_close_any_message, text_to_num, truncate
 from config import config

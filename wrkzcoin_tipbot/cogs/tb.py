@@ -6,6 +6,7 @@ import traceback
 from datetime import datetime
 import random
 import functools
+import cv2
 
 import disnake
 from disnake.ext import commands

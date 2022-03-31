@@ -847,7 +847,7 @@ class WalletAPI(commands.Cog):
                         }],
                         'fee': int(tx_fee*10**coin_decimal),
                         'anonymity': get_mixin,
-                        'paymentId': paymentid,
+                        'paymentId': paymentId,
                         'changeAddress': from_address
                     }
                 else:
@@ -858,11 +858,11 @@ class WalletAPI(commands.Cog):
                             "address": to_address
                         }],
                         'anonymity': get_mixin,
-                        'paymentId': paymentid,
+                        'paymentId': paymentId,
                         'changeAddress': from_address
                     }
                 result = None
-                result = await rpc_client.call_aiohttp_wallet_xmr_bcn('sendTransaction', COIN_NAME, time_out=time_out, payload=payload)
+                result = await self.call_aiohttp_wallet_xmr_bcn('sendTransaction', COIN_NAME, time_out=time_out, payload=payload)
                 if result and 'transactionHash' in result:
                     if is_fee_per_byte != 1:
                         tx_hash = {"transactionHash": result['transactionHash'], "fee": tx_fee}
@@ -875,7 +875,7 @@ class WalletAPI(commands.Cog):
                             async with conn.cursor() as cur:
                                 sql = """ INSERT INTO cn_external_tx (`coin_name`, `user_id`, `amount`, `tx_fee`, `withdraw_fee`, `decimal`, `to_address`, `paymentid`, `date`, `tx_hash`, `user_server`) 
                                           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                                await cur.execute(sql, (COIN_NAME, user_from, amount, tx_fee, withdraw_fee, coin_decimal, to_address, paymentid, int(time.time()), tx_hash['transactionHash'], user_server))
+                                await cur.execute(sql, (COIN_NAME, user_from, amount, tx_fee, withdraw_fee, coin_decimal, to_address, paymentId, int(time.time()), tx_hash['transactionHash'], user_server))
                                 await conn.commit()
                                 return tx_hash['transactionHash']
                     except Exception as e:
@@ -890,7 +890,7 @@ class WalletAPI(commands.Cog):
                         }],
                         'fee': int(tx_fee*10**coin_decimal),
                         'mixin': get_mixin,
-                        'paymentID': paymentid,
+                        'paymentID': paymentId,
                         'changeAddress': from_address
                     }
                 else:
@@ -901,7 +901,7 @@ class WalletAPI(commands.Cog):
                             "address": to_address
                         }],
                         'mixin': get_mixin,
-                        'paymentID': paymentid,
+                        'paymentID': paymentId,
                         'changeAddress': from_address
                     }
                 method = "/transactions/send/advanced"
@@ -925,7 +925,7 @@ class WalletAPI(commands.Cog):
                                         async with conn.cursor() as cur:
                                             sql = """ INSERT INTO cn_external_tx (`coin_name`, `user_id`, `amount`, `tx_fee`, `withdraw_fee`, `decimal`, `to_address`, `paymentid`, `date`, `tx_hash`, `user_server`) 
                                                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                                            await cur.execute(sql, (COIN_NAME, user_from, amount, tx_fee, withdraw_fee, coin_decimal, to_address, paymentid, int(time.time()), tx_hash['transactionHash'], user_server))
+                                            await cur.execute(sql, (COIN_NAME, user_from, amount, tx_fee, withdraw_fee, coin_decimal, to_address, paymentId, int(time.time()), tx_hash['transactionHash'], user_server))
                                             await conn.commit()
                                             return tx_hash['transactionHash']
                                 except Exception as e:
@@ -1349,7 +1349,7 @@ class Wallet(commands.Cog):
                                     else:
                                         msg = "You got a new deposit confirmed: ```" + "Coin: {}\nTx: {}\nAmount: {}\nBlock Hash: {}".format(eachTx['coin_name'], eachTx['txid'], num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False), eachTx['blockhash']) + "```"
                                     await user_found.send(msg)
-                                except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
+                                except (disnake.Forbidden, disnake.errors.Forbidden, disnake.errors.HTTPException) as e:
                                     is_notify_failed = True
                                     pass
                                 except Exception as e:
@@ -1370,7 +1370,7 @@ class Wallet(commands.Cog):
                                         else:
                                             msg = "Your guild `{}` got a new deposit confirmed: ```" + "Coin: {}\nTx: {}\nAmount: {}\nBlock Hash: {}".format(guild_found.name, eachTx['coin_name'], eachTx['txid'], num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False), eachTx['blockhash']) + "```"
                                         await user_found.send(msg)
-                                    except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
+                                    except (disnake.Forbidden, disnake.errors.Forbidden, disnake.errors.HTTPException) as e:
                                         is_notify_failed = True
                                         pass
                                     except Exception as e:
@@ -1428,7 +1428,7 @@ class Wallet(commands.Cog):
                                                 else:
                                                     msg = "You got a new **pending** deposit: ```" + "Coin: {}\nTx: {}\nAmount: {}\nBlock Hash: {}\n{}".format(eachTx['coin_name'], eachTx['txid'], num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False), eachTx['blockhash'], confirmation_number_txt) + "```"
                                                 await user_found.send(msg)
-                                            except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
+                                            except (disnake.Forbidden, disnake.errors.Forbidden, disnake.errors.HTTPException) as e:
                                                 pass
                                             # TODO:
                                             redis_utils.redis_conn.lpush(key_tx_no_confirmed_sent, tx)
@@ -1445,7 +1445,7 @@ class Wallet(commands.Cog):
                                                     else:
                                                         msg = "Your guild got a new **pending** deposit: ```" + "Coin: {}\nTx: {}\nAmount: {}\nBlock Hash: {}\n{}".format(eachTx['coin_name'], eachTx['txid'], num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False), eachTx['blockhash'], confirmation_number_txt) + "```"
                                                     await user_found.send(msg)
-                                                except (discord.Forbidden, discord.errors.Forbidden, discord.errors.HTTPException) as e:
+                                                except (disnake.Forbidden, disnake.errors.Forbidden, disnake.errors.HTTPException) as e:
                                                     pass
                                                 except Exception as e:
                                                     traceback.print_exc(file=sys.stdout)

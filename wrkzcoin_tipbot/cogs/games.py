@@ -16,7 +16,7 @@ from disnake import ActionRow, Button, ButtonStyle
 import json
 
 import store
-from Bot import logchanbot, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_INFORMATION, num_format_coin, seconds_str, RowButton_row_close_any_message, SERVER_BOT, EMOJI_HOURGLASS_NOT_DONE, remap_keys
+from Bot import logchanbot, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_INFORMATION, num_format_coin, seconds_str, RowButton_row_close_any_message, SERVER_BOT, EMOJI_HOURGLASS_NOT_DONE, remap_keys, DEFAULT_TICKER
 
 # games.bagels
 from games.bagels import getSecretNum as bagels_getSecretNum

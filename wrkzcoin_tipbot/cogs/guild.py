@@ -1515,11 +1515,7 @@ class Guild(commands.Cog):
 
             # OK, move fund
             if ctx.author.id in self.bot.TX_IN_PROCESS:
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
-                else:
-                    await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
-                    msg = await ctx.reply(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+                await ctx.response.send_message(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
                 return
             else:
                 self.bot.TX_IN_PROCESS.append(ctx.author.id)

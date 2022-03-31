@@ -13,7 +13,7 @@ import aiomysql
 from aiomysql.cursors import DictCursor
 
 import Bot
-from Bot import SERVER_BOT, num_format_coin, EMOJI_INFORMATION, seconds_str
+from Bot import SERVER_BOT, num_format_coin, EMOJI_INFORMATION, EMOJI_RED_NO, seconds_str
 
 import store
 from config import config

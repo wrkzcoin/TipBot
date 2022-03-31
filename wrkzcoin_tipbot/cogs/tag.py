@@ -139,7 +139,7 @@ class ModTagGuildAdd(disnake.ui.Modal):
             else:
                 await inter.response.send_message(f"{inter.author.mention}, failed to add tag `{tag_name}`.")
         else:
-            await ctx.response.send_message(f"{ctx.author.mention}, tag `{tag_name}` is not valid.")
+            await inter.response.send_message(f"{inter.author.mention}, tag `{tag_name}` is not valid.")
 
 
 class Tag(commands.Cog):

@@ -319,6 +319,7 @@ class Tips(commands.Cog):
         # End token name check
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo and serverinfo['tiponly'] and serverinfo['tiponly'] != "ALLCOIN" and COIN_NAME not in serverinfo['tiponly'].split(","):
+            allowed_coins = serverinfo['tiponly']
             msg = f'{ctx.author.mention}, **{COIN_NAME}** is not allowed here. Currently, allowed `{allowed_coins}`. You can ask guild owner to allow. `/SETTING TIPONLY coin1,coin2,...`'
             if type(ctx) == disnake.ApplicationCommandInteraction:
                 await ctx.response.send_message(msg)
@@ -708,6 +709,7 @@ class Tips(commands.Cog):
         # End token name check
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo and serverinfo['tiponly'] and serverinfo['tiponly'] != "ALLCOIN" and COIN_NAME not in serverinfo['tiponly'].split(","):
+            allowed_coins = serverinfo['tiponly']
             msg = f'{ctx.author.mention}, **{COIN_NAME}** is not allowed here. Currently, allowed `{allowed_coins}`. You can ask guild owner to allow. `/SETTING TIPONLY coin1,coin2,...`'
             if type(ctx) == disnake.ApplicationCommandInteraction:
                 await ctx.response.send_message(msg)
@@ -973,6 +975,7 @@ class Tips(commands.Cog):
         # End token name check
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo and serverinfo['tiponly'] and serverinfo['tiponly'] != "ALLCOIN" and COIN_NAME not in serverinfo['tiponly'].split(","):
+            allowed_coins = serverinfo['tiponly']
             msg = f'{ctx.author.mention}, **{COIN_NAME}** is not allowed here. Currently, allowed `{allowed_coins}`. You can ask guild owner to allow. `/SETTING TIPONLY coin1,coin2,...`'
             if type(ctx) == disnake.ApplicationCommandInteraction:
                 await ctx.response.send_message(msg)
@@ -1350,6 +1353,7 @@ class Tips(commands.Cog):
         # End token name check
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo and serverinfo['tiponly'] and serverinfo['tiponly'] != "ALLCOIN" and COIN_NAME not in serverinfo['tiponly'].split(","):
+            allowed_coins = serverinfo['tiponly']
             msg = f'{ctx.author.mention}, **{COIN_NAME}** is not allowed here. Currently, allowed `{allowed_coins}`. You can ask guild owner to allow. `/SETTING TIPONLY coin1,coin2,...`'
             if type(ctx) == disnake.ApplicationCommandInteraction:
                 await ctx.response.send_message(msg)

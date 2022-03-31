@@ -1,6 +1,6 @@
 import sys, traceback
-import time, timeago
-import disnake
+import time
+
 from disnake.ext import commands
 
 from config import config

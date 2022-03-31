@@ -11,7 +11,7 @@ import datetime
 from disnake.enums import OptionType
 from disnake.app_commands import Option, OptionChoice
 
-from Bot import EMOJI_CHART_DOWN, EMOJI_ERROR, EMOJI_RED_NO, logchanbot
+from Bot import EMOJI_CHART_DOWN, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_FLOPPY, logchanbot
 import redis_utils
 import store
 
@@ -69,7 +69,6 @@ class Paprika(commands.Cog):
                                 insert_list.append((each_coin['id'], each_coin['rank'], each_coin['circulating_supply'], each_coin['total_supply'], each_coin['max_supply'], quote_usd['price'], update_time, last_updated, quote_usd['price'], quote_usd['volume_24h'], quote_usd['volume_24h_change_24h'], quote_usd['market_cap'], quote_usd['market_cap_change_24h'], quote_usd['percent_change_15m'], quote_usd['percent_change_30m'], quote_usd['percent_change_1h'], quote_usd['percent_change_6h'], quote_usd['percent_change_12h'], quote_usd['percent_change_24h'], quote_usd['percent_change_7d'], quote_usd['percent_change_30d'], quote_usd['percent_change_1y'], quote_usd['ath_price'], ath_date, quote_usd['percent_from_price_ath'],  update_time))
                             except Exception as e:
                                 traceback.print_exc(file=sys.stdout)
-                                print(each_coin)
                         if len(update_list) or len(insert_list) > 0:
                             try:
                                 await store.openConnection()

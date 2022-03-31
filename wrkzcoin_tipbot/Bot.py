@@ -27,11 +27,7 @@ from disnake.enums import ButtonStyle
 from linedraw.linedraw import *
 from cairosvg import svg2png
 
-# byte-oriented StringIO was moved to io.BytesIO in py3k
-try:
-    from io import BytesIO
-except ImportError:
-    from StringIO import StringIO as BytesIO
+from io import BytesIO
 
 ###
 import os.path
@@ -44,7 +40,6 @@ import io
 # For hash file in case already have
 import hashlib
 
-import cv2
 import numpy as np
 # ascii table
 from terminaltables import AsciiTable
@@ -110,6 +105,8 @@ EMOJI_HOURGLASS_NOT_DONE = "\u23F3"
 EMOJI_PARTY = "\U0001F389"
 EMOJI_SPEAK = "\U0001F4AC"
 EMOJI_INFORMATION = "\u2139"
+EMOJI_FLOPPY = "\U0001F4BE"
+EMOJI_CHECKMARK = "\u2714"
 
 EMOJI_UP_RIGHT = "\u2197"
 EMOJI_DOWN_RIGHT = "\u2198"

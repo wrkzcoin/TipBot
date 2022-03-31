@@ -68,7 +68,6 @@ class DiscordBotList(commands.Cog):
         async def handler_post(request):
             try:
                 if request.body_exists:
-                    # {"id":"386761001808166912","username":"pluton","discriminator":"8888","avatar":"6024b9b750f4d02737193463dba0b4eb","admin":false}
                     payload = await request.read()
                     headers = request.headers
                     full_payload = json.loads(payload)

@@ -294,16 +294,6 @@ class Tips(commands.Cog):
         onoff: str
     ):
         await self.async_notifytip(ctx, onoff)
-
-
-    @commands.bot_has_permissions(send_messages=True)
-    @commands.command(usage='notifytip <on/off>', aliases=['notifytip'], description='Toggle notify tip notification from bot ON|OFF')
-    async def _notifytip(
-        self, 
-        ctx, 
-        onoff: str
-    ):
-        await self.async_notifytip(ctx, onoff)
     # End notifytip
 
 
@@ -692,16 +682,6 @@ class Tips(commands.Cog):
             await self.async_randtip(ctx, amount, token, rand_option)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-
-
-    @commands.guild_only()
-    @commands.bot_has_permissions(send_messages=True)
-    @commands.command(usage='randtip <amount> <token> [all/online/last]', aliases=['randomtip', 'randtip'], description='Tip to random user in the guild')
-    async def _randtip(self, ctx, amount: str, token: str, *, rand_option: str = None):
-        try:
-            await self.async_randtip(ctx, amount, token, rand_option)
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
     # End of RandomTip
 
 
@@ -964,16 +944,6 @@ class Tips(commands.Cog):
         duration: str, 
         comment: str=None
     ):
-        try:
-            await self.async_freetip(ctx, amount, token, duration, comment)
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-
-
-    @commands.guild_only()
-    @commands.bot_has_permissions(send_messages=True)
-    @commands.command(usage='freetip <amount> <token> <duration> [comment]', aliases=['freetip', 'airdrop', 'airdrops'], description="Spread free tip by user reacting with emoji")
-    async def _freetip(self, ctx, amount: str, token: str, duration: str=None, *, comment: str = None):
         try:
             await self.async_freetip(ctx, amount, token, duration, comment)
         except Exception as e:
@@ -1356,16 +1326,6 @@ class Tips(commands.Cog):
             await self.async_tipall(ctx, amount, token, user)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-
-
-    @commands.guild_only()
-    @commands.bot_has_permissions(send_messages=True)
-    @commands.command(usage='tipall <amount> <coin> <any/online>', aliases=['tipall'], description='Tip all online user')
-    async def _tipall(self, ctx, amount: str, token: str, user: str = 'ONLINE'):
-        try:
-            await self.async_tipall(ctx, amount, token, user)
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
     # End of TipAll
 
     # Tip Normal
@@ -1740,15 +1700,6 @@ class Tips(commands.Cog):
     ):
         try:
             await self.async_gtip(ctx, amount, token, args)
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-
-    @commands.guild_only()
-    @commands.bot_has_permissions(send_messages=True)
-    @commands.command(usage='tip <amount> <token> <*args>', aliases=['tip'], description='Tip other people')
-    async def _tip(self, ctx, amount: str, token: str, *, args):
-        try:
-            await self.async_tip(ctx, amount, token, args)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 

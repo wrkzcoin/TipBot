@@ -137,21 +137,5 @@ class BotBalance(commands.Cog):
         await self.bot_bal(ctx, botname, coin)
 
 
-    @commands.bot_has_permissions(send_messages=True)
-    @commands.guild_only()
-    @commands.command(
-        usage="botbalance <bot> <coin>", 
-        aliases=['botbal', 'botbalance'], 
-        description="Get Bot's balance by mention it."
-    )
-    async def _botbalance(
-        self, 
-        ctx, 
-        botname: disnake.Member, 
-        coin: str
-    ):
-        await self.bot_bal(ctx, botname, coin)
-
-
 def setup(bot):
     bot.add_cog(BotBalance(bot))

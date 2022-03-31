@@ -2612,20 +2612,6 @@ class Wallet(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
 
-    @commands.command(
-        usage='deposit <token> [plain/embed]', 
-        aliases=['deposit'],
-        description="Get your wallet deposit address."
-    )
-    async def _deposit(
-        self, 
-        ctx, 
-        token: str,
-        plain: str = 'embed'
-    ):
-        await self.async_deposit(ctx, token, plain)
-
-
     @commands.slash_command(
         usage='deposit <token> [plain/embed]', 
         options=[
@@ -2932,19 +2918,6 @@ class Wallet(commands.Cog):
                     view.message = await ctx.reply(content=None, embed=all_pages[0], view=view)
 
 
-    @commands.command(
-        usage='balance <token>', 
-        aliases=['balance', 'bal'],
-        description="Get your token's balance."
-    )
-    async def _balance(
-        self, 
-        ctx, 
-        token: str
-    ):
-        await self.async_balance(ctx, token)
-
-
     @commands.slash_command(
         usage='balance <token>', 
         options=[
@@ -2958,20 +2931,6 @@ class Wallet(commands.Cog):
         token: str
     ):
         await self.async_balance(ctx, token)
-
-
-    @commands.command(
-        usage='balances', 
-        aliases=['balances', 'bals'],
-        description="Get all your token's balance."
-    )
-    async def _balances(
-        self, 
-        ctx, 
-        *, 
-        tokens: str=None
-    ):
-        await self.async_balances(ctx, tokens)
 
 
     @commands.slash_command(
@@ -3361,21 +3320,6 @@ class Wallet(commands.Cog):
                         return
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-
-
-    @commands.command(
-        usage='withdraw <amount> <coin/token> <address>', 
-        aliases=['withdraw', 'send'],
-        description="withdraw to your external address."
-    )
-    async def _withdraw(
-        self, 
-        ctx,
-        amount: str,
-        token: str,
-        address: str
-    ):
-        await self.async_withdraw(ctx, amount, token, address)
 
 
     @commands.slash_command(
@@ -3821,20 +3765,6 @@ class Wallet(commands.Cog):
         info: str=None
     ):
         await self.take_action(ctx, info)
-
-
-    @commands.guild_only()
-    @commands.command(
-        usage="take <info>", 
-        aliases=["take"],
-        description="Claim a random coin faucet."
-    )
-    async def _take(
-        self, 
-        ctx, 
-        info: str=None
-    ):
-        take_action = await self.take_action(ctx, info)
     # End of Faucet
 
     # Donate

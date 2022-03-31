@@ -115,23 +115,6 @@ class MathTips(commands.Cog):
         self.bot = bot
 
 
-    @commands.guild_only()
-    @commands.command(usage='mathtips', aliases=['mathtips'], description="List ongoing math tips")
-    async def _mathtips(self, ctx):
-        get_mathtips = await store.get_discord_mathtip_by_chanid(str(ctx.channel.id))
-        if len(get_mathtips) > 0:
-            is_are = "is" if len(get_mathtips) == 1 else "are"
-            tip_tips = "tip" if len(get_mathtips) == 1 else "tips"
-            embed = disnake.Embed(title=f"🧮 Math Tip", description=f"There {is_are} math {tip_tips} in {ctx.channel.mention}")
-            for each_q in get_mathtips:
-                embed.add_field(name="By: {} / Left: {}s".format(each_q['from_username'], each_q['math_endtime'] - int(time.time()) if each_q['math_endtime'] - int(time.time()) > 0 else 0), value="```Exp: {}\nAmount: {} {}```".format(each_q['eval_content'], each_q['real_amount'], each_q['token_name']), inline=False)
-            embed.set_footer(text=f"🧮 Use .mathtip (without s) with parameters to create math quiz.")
-            msg = await ctx.reply(embed=embed)
-        else:
-            await ctx.reply(f'{EMOJI_INFORMATION} {ctx.author.mention} There is no ongoing math tip(s) in {ctx.channel.mention}.')
-        return
-
-
     async def async_mathtip(self, ctx, amount: str, token: str, duration: str, math_exp: str=None):
         COIN_NAME = token.upper()
 

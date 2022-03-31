@@ -1,10 +1,10 @@
 import sys, traceback
-import time, timeago
+
 from disnake.ext import commands
 import disnake
 from coin360 import get_coin360
 from config import config
-from Bot import *
+from Bot import logchanbot, EMOJI_RED_NO
 
 class CoinMap(commands.Cog):
 

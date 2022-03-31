@@ -1,8 +1,8 @@
 import sys, traceback
-import time, timeago
+
 import disnake
 from disnake.ext import commands
-from decimal import getcontext, Decimal
+from decimal import Decimal
 from datetime import datetime
 
 from disnake.enums import OptionType

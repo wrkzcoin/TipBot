@@ -1,16 +1,15 @@
 import sys, traceback
-import time, timeago
+import time
 import disnake
 from disnake.ext import commands
 from disnake.enums import OptionType
 from disnake.app_commands import Option, OptionChoice
 from disnake import TextInputStyle
 
-import os
-
+import re
 import store
 from config import config
-from Bot import *
+from Bot import logchanbot
 
 # TODO: add back itag for media
 

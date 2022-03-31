@@ -1,3 +1,4 @@
+import sys, os
 import asyncio, aiohttp
 import re
 import sys
@@ -7,16 +8,26 @@ from datetime import datetime
 import random
 import functools
 import cv2
+from PIL import Image
+from io import BytesIO
+import os.path
+import uuid
 
 import disnake
 from disnake.ext import commands
 
 from disnake.enums import OptionType
 from disnake.app_commands import Option, OptionChoice
-
+import numpy as np
+# For hash file in case already have
+import hashlib
 
 import store
-from Bot import *
+from Bot import logchanbot, SERVER_BOT, EMOJI_RED_NO, RowButton_row_close_any_message
+# linedraw
+from linedraw.linedraw import *
+from cairosvg import svg2png
+
 # tb
 from tb.tbfun import action as tb_action
 import store

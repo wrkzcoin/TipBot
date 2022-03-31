@@ -1,7 +1,5 @@
 import sys
 import traceback
-from datetime import datetime
-import time
 
 import aiohttp, asyncio
 from aiohttp import TCPConnector
@@ -11,7 +9,6 @@ from disnake.ext import tasks, commands
 import functools
 import redis_utils
 
-import Bot
 from config import config
 import store
 from Bot import get_token_list, logchanbot, hex_to_base58, base58_to_hex

@@ -31,7 +31,7 @@ from pywallet import wallet as ethwallet
 
 import functools
 import store
-from Bot import get_token_list, num_format_coin, EMOJI_ERROR, SERVER_BOT, logchanbot, encrypt_string, decrypt_string, RowButton_row_close_any_message, EMOJI_INFORMATION
+from Bot import num_format_coin, SERVER_BOT, logchanbot, encrypt_string, decrypt_string, RowButton_row_close_any_message, EMOJI_INFORMATION
 from config import config
 import redis_utils
 from utils import MenuPage

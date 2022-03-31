@@ -1,4 +1,3 @@
-import asyncio
 import sys
 import time
 import traceback
@@ -17,7 +16,6 @@ from disnake.enums import ButtonStyle
 from cachetools import TTLCache
 
 import store
-import utils
 from Bot import num_format_coin, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_ARROW_RIGHTHOOK, EMOJI_MONEYFACE, NOTIFICATION_OFF_CMD, EMOJI_SPEAK, EMOJI_BELL, EMOJI_BELL_SLASH, EMOJI_HOURGLASS_NOT_DONE, EMOJI_INFORMATION, EMOJI_PARTY, SERVER_BOT, seconds_str, text_to_num, truncate
 from config import config
 import redis_utils

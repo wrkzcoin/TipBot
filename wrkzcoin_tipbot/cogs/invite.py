@@ -1,8 +1,4 @@
-import sys, traceback
-import time
-
 from disnake.ext import commands
-
 from config import config
 
 class Invite(commands.Cog):

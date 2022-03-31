@@ -1,5 +1,5 @@
 import sys, traceback
-import time, timeago
+import timeago
 import disnake
 from disnake.ext import commands
 

@@ -8,7 +8,7 @@ from disnake.enums import OptionType
 from disnake.app_commands import Option
 
 from config import config
-from Bot import *
+from Bot import EMOJI_RED_NO
 
 
 class RandomNumber(commands.Cog):

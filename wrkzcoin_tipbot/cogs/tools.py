@@ -1,10 +1,4 @@
-import asyncio
-import re
-import sys
-import time
 import traceback
-from datetime import datetime
-import random
 
 import disnake
 from disnake.ext import commands
@@ -12,8 +6,7 @@ from disnake.ext import commands
 from disnake.enums import OptionType
 from disnake.app_commands import Option, OptionChoice
 
-import store
-from Bot import *
+from Bot import logchanbot, EMOJI_ERROR, EMOJI_CHECKMARK
 
 from config import config
 

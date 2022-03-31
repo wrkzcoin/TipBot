@@ -12,7 +12,6 @@ import time
 import datetime
 
 from Bot import EMOJI_CHART_DOWN, EMOJI_ERROR, EMOJI_RED_NO, logchanbot
-import redis_utils
 import store
 
 from config import config

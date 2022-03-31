@@ -1,4 +1,3 @@
-import json
 import sys
 import time
 import traceback
@@ -8,7 +7,6 @@ from cachetools import TTLCache
 import disnake
 from disnake.ext import commands, tasks
 from attrdict import AttrDict
-import asyncio
 import aiomysql
 from aiomysql.cursors import DictCursor
 

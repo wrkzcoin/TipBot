@@ -7,7 +7,7 @@ from disnake.app_commands import Option, OptionChoice
 import numexpr
 
 from config import config
-from Bot import *
+from Bot import EMOJI_INFORMATION, EMOJI_ERROR
 
 
 class Calculator(commands.Cog):

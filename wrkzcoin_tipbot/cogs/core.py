@@ -1,5 +1,4 @@
-import sys
-import traceback
+import sys, traceback
 from datetime import datetime, timedelta
 
 import disnake

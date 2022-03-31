@@ -1,7 +1,6 @@
 import sys
 import traceback
-from datetime import datetime
-from decimal import Decimal
+
 from attrdict import AttrDict
 
 import disnake

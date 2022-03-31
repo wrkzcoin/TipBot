@@ -4,7 +4,7 @@ import traceback
 import disnake
 from disnake.ext import commands
 
-from Bot import logchanbot, RowButton_close_message, RowButton_row_close_any_message
+from Bot import logchanbot, RowButton_row_close_any_message
 
 
 class Error(commands.Cog):

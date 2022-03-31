@@ -1,5 +1,5 @@
 import asyncio
-import re
+
 import sys
 import time
 import traceback
@@ -37,8 +37,6 @@ from games.twentyfortyeight import getScore as g2048_getScore
 from games.twentyfortyeight import addTwoToBoard as g2048_addTwoToBoard
 from games.twentyfortyeight import isFull as g2048_isFull
 from games.twentyfortyeight import makeMove as g2048_makeMove
-
-
 from config import config
 
 

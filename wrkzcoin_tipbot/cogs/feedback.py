@@ -1,7 +1,6 @@
 import disnake
 from disnake import TextInputStyle
-import sys, traceback
-import os
+import traceback
 import uuid
 import time
 

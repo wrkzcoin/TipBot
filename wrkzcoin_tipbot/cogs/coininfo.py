@@ -5,7 +5,6 @@ from disnake.ext import commands
 from disnake.enums import OptionType
 from disnake.app_commands import Option, OptionChoice
 import redis_utils
-import store
 
 from config import config
 from Bot import num_format_coin

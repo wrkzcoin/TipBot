@@ -2,7 +2,6 @@ import sys
 import traceback
 import datetime
 
-import asyncio
 from decimal import Decimal
 
 import disnake
@@ -11,8 +10,6 @@ from disnake.enums import OptionType
 from disnake.app_commands import Option, OptionChoice
 import re
 
-import store
-import utils
 from Bot import num_format_coin, logchanbot, EMOJI_ERROR, EMOJI_RED_NO, SERVER_BOT, RowButton_close_message, RowButton_row_close_any_message, human_format, text_to_num
 from config import config
 

@@ -1,5 +1,8 @@
 import sys, traceback
-import time, timeago
+import time
+import asyncio
+from datetime import datetime
+
 import disnake
 from disnake.ext import tasks, commands
 from disnake.enums import OptionType
@@ -8,7 +11,7 @@ import aiohttp
 import json
 
 from config import config
-from Bot import *
+from Bot import logchanbot, openRedis, RowButton_row_close_any_message, SERVER_BOT
 import store
 import redis_utils
 from utils import MenuPage

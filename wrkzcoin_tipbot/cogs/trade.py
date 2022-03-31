@@ -679,7 +679,7 @@ class Trade(commands.Cog):
                             ['PAIR', 'Selling', 'For', 'Order #']
                             ]
                         for order_item in get_open_order:
-                            table_data.append([order_item['pair_name'], num_format_coin(order_item['amount_sell'], order_item['coin_sell'], getattr(getattr(self.bot.coin_list, order_item['coin_sell']), "decimal"), False)+order_item['coin_sell'], num_format_coin(order_item['amount_get_after_fee'], order_item['coin_get'], getattr(getattr(self.bot.coin_list, order_item['coin_get']), "decimal"), False)+order_item['coin_get'], rder_item['order_id']])
+                            table_data.append([order_item['pair_name'], num_format_coin(order_item['amount_sell'], order_item['coin_sell'], getattr(getattr(self.bot.coin_list, order_item['coin_sell']), "decimal"), False)+order_item['coin_sell'], num_format_coin(order_item['amount_get_after_fee'], order_item['coin_get'], getattr(getattr(self.bot.coin_list, order_item['coin_get']), "decimal"), False)+order_item['coin_get'], order_item['order_id']])
                         table = AsciiTable(table_data)
                         # table.inner_column_border = False
                         # table.outer_border = False

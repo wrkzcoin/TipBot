@@ -138,10 +138,7 @@ class MathTips(commands.Cog):
         # Token name check
         if not hasattr(self.bot.coin_list, COIN_NAME):
             msg = f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.'
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.response.send_message(msg)
             return
         # End token name check
 
@@ -390,17 +387,11 @@ class MathTips(commands.Cog):
 
         if amount > MaxTip or amount < MinTip:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than **{num_format_coin(MaxTip, COIN_NAME, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(MinTip, COIN_NAME, coin_decimal, False)} {token_display}**.'
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.response.send_message(msg)
             return
         elif amount > actual_balance:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to do a math tip of **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}**.'
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.response.send_message(msg)
             return
 
         ## add to DB
@@ -435,13 +426,9 @@ class MathTips(commands.Cog):
         index_answer = answers.index(str(result_float))
         
         view = MathButton(answers, index_answer, duration_s, self.bot.coin_list)
-        await asyncio.sleep(0.2)
 
-        if type(ctx) == disnake.ApplicationCommandInteraction:
-            view.message = await ctx.channel.send(embed=embed, view=view)
-            await ctx.response.send_message("Math Tip ID: {} created!".format(view.message.id), ephemeral=True)
-        else:
-            view.message = await ctx.reply(embed=embed, view=view)
+        view.message = await ctx.channel.send(embed=embed, view=view)
+        await ctx.response.send_message("Math Tip ID: {} created!".format(view.message.id), ephemeral=True)
 
         insert_mathtip = await store.insert_discord_mathtip(COIN_NAME, contract, str(ctx.author.id), owner_displayname, str(view.message.id), eval_string_original, result_float, wrong_answer_1, wrong_answer_2, wrong_answer_3, str(ctx.guild.id), str(ctx.channel.id), amount, total_in_usd, equivalent_usd, per_unit, coin_decimal, int(time.time())+duration_s, net_name)
         if insert_mathtip and type(ctx) != disnake.ApplicationCommandInteraction:
@@ -451,6 +438,7 @@ class MathTips(commands.Cog):
 
 
     @commands.guild_only()
+    @commands.bot_has_permissions(send_messages=True)
     @commands.slash_command(
         usage='mathtip <amount> <token> <duration> <math expression>', 
         options=[
@@ -470,22 +458,6 @@ class MathTips(commands.Cog):
         math_exp: str
     ):
         await self.async_mathtip(ctx, amount, token, duration, math_exp)
-
-
-    @commands.guild_only()
-    @commands.command(usage='mathtip <amount> <token> <duration> <math expression>', aliases=['tipmath', 'mathtip'], description="Spread math tip by user's answer")
-    async def _mathtip(self, ctx, amount: str, token: str, duration: str, *, math_exp: str = None):
-        await self.async_mathtip(ctx, amount, token, duration, math_exp)
-
-
-    @mathtip.error
-    async def mathtip_error(self, ctx, error):
-        if isinstance(error, commands.MissingRequiredArgument):
-            await ctx.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Missing arguments. You need to tell me **amount** **token** and **duration** in seconds (with s).\nExample: {config.discord.prefixCmd}{ctx.command} **1000 token 300s** or {config.discord.prefixCmd}{ctx.command} **10 token 300s 2+3-1**')
-        elif isinstance(error, commands.errors.CommandInvokeError):
-            await ctx.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Error arguments. '
-                            f'You need to tell me **amount** **token** and **duration** in seconds (with s).\nExample: {config.discord.prefixCmd}{ctx.command} **100 token 300s** or {config.discord.prefixCmd}{ctx.command} **10 token 300s 2+3-1**')
-        return
 
 
 def setup(bot):

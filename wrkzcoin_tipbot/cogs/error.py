@@ -30,11 +30,11 @@ class Error(commands.Cog):
 
         if isinstance(error, commands.NoPrivateMessage):
             await logchanbot(f"{ctx.author.mention} / {ctx.author.name}#{ctx.author.discriminator} tried {ctx.data.name} in DM.")
-            return await ctx.response.send_message(f"{ctx.author.mention} This command cannot be used in a DM.", view=RowButton_row_close_any_message())
+            return await ctx.response.send_message(f"{ctx.author.mention} This command cannot be used in a DM.")
 
         if isinstance(error, commands.CheckFailure) or isinstance(error, commands.CheckAnyFailure):
             await logchanbot(f"{ctx.author.mention} / {ctx.author.name}#{ctx.author.discriminator} tried {ctx.data.name} but lack of permission [CheckAnyFailure].")
-            await ctx.response.send_message(f"{ctx.author.mention} You do not have permission to use this command (`{ctx.prefix}{ctx.data.name}`).", view=RowButton_row_close_any_message())  # \nCheck(s) failed: {failed}")
+            await ctx.response.send_message(f"{ctx.author.mention} No permission to use this command (`/{ctx.data.name}`). Or I do not have permission to do.", ephemeral=True)  # \nCheck(s) failed: {failed}")
             return
 
         if isinstance(error, commands.CommandOnCooldown):
@@ -44,7 +44,7 @@ class Error(commands.Cog):
             return
 
         if isinstance(error, commands.MaxConcurrencyReached):
-            return await ctx.response.send_message(f"The maximum number of concurrent usages of this command has been reached ({error.number}/{error.number})! Please wait until the previous execution of the command `{ctx.prefix}{ctx.data.name}` is completed!")
+            return await ctx.response.send_message(f"The maximum number of concurrent usages of this command has been reached ({error.number}/{error.number})! Please wait until the previous execution of the command `/{ctx.data.name}` is completed!")
 
         if isinstance(error, commands.MissingRequiredArgument):
             embed = disnake.Embed(title="Error!", description="You appear to be missing a required argument!", color=disnake.Color.red())

@@ -1133,8 +1133,10 @@ class Economy(commands.Cog):
 
         # Getting list of work in the guild and re-act
         market_factored = 1.0
+        extra_bonus = ""
         get_userinfo = await self.db.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
         if get_userinfo and get_userinfo['numb_market'] >= 1:
+            extra_bonus = "🛒 "
             market_factored = config.economy.market_price_factor
 
         try:
@@ -1172,7 +1174,7 @@ class Economy(commands.Cog):
                             if selling_fishes:
                                 if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
                                     self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-                                return  {"result": "You sold {:,.2f}kg of {} for `{}` Credit(s) (`{:,.2f} Credit per kg`). Your credit now is: `{:,.2f}`.".format(total_weight, item_name, total_earn, float(selected_fishes['credit_per_kg']) * market_factored, get_userinfo['credit']), "market_factored": market_factored}
+                                return  {"result": "{}You sold {:,.2f}kg of {} for `{}` Credit(s) (`{:,.2f} Credit per kg`). Your credit now is: `{:,.2f}`.".format(extra_bonus, total_weight, item_name, total_earn, float(selected_fishes['credit_per_kg']) * market_factored, get_userinfo['credit']), "market_factored": market_factored}
                             else:
                                 if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
                                     self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
@@ -1206,7 +1208,7 @@ class Economy(commands.Cog):
                         if selling_item:
                             if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
                                 self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-                            return  {"result": "You sold {:,.0f} of {} for `{}` Credit(s) (`{:,.2f} Credit per one`). Your credit now is: `{:,.2f}`.".format(selected_item['total_products'], item_name, total_earn, float(selected_item['credit_per_item']) * market_factored, get_userinfo['credit']), "market_factored": market_factored}
+                            return  {"result": "{}You sold {:,.0f} of {} for `{}` Credit(s) (`{:,.2f} Credit per one`). Your credit now is: `{:,.2f}`.".format(extra_bonus, selected_item['total_products'], item_name, total_earn, float(selected_item['credit_per_item']) * market_factored, get_userinfo['credit']), "market_factored": market_factored}
                         else:
                             if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
                                 self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
@@ -1234,7 +1236,7 @@ class Economy(commands.Cog):
                                 get_userinfo['credit'] = float(get_userinfo['credit']) + float(credit_sell)
                                 if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
                                     self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-                                return {"result": "You sold {:,.2f} liter(s) of milk for `{:,.2f}` Credit(s). Your credit now is: `{:,.2f}`.".format(qty_raw_milk, credit_sell, get_userinfo['credit']), "market_factored": market_factored}
+                                return {"result": "{}You sold {:,.2f} liter(s) of milk for `{:,.2f}` Credit(s). Your credit now is: `{:,.2f}`.".format(extra_bonus, qty_raw_milk, credit_sell, get_userinfo['credit']), "market_factored": market_factored}
                         else:
                             if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
                                 self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
@@ -1265,7 +1267,7 @@ class Economy(commands.Cog):
                                 get_userinfo['credit'] = float(get_userinfo['credit']) + float(credit_sell)
                                 if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
                                     self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-                                return {"result": "You sold {:,.0f} chicken egg(s) for `{:,.2f}` Credit(s). Your credit now is: `{:,.2f}`.".format(qty_eggs, credit_sell, get_userinfo['credit']), "market_factored": market_factored}
+                                return {"result": "{}You sold {:,.0f} chicken egg(s) for `{:,.2f}` Credit(s). Your credit now is: `{:,.2f}`.".format(extra_bonus, qty_eggs, credit_sell, get_userinfo['credit']), "market_factored": market_factored}
                         else:
                             if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
                                 self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
@@ -1479,11 +1481,13 @@ class Economy(commands.Cog):
         if get_userinfo['numb_farm'] == 0 and plant_name != "TREE":
             return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} You do not have any farm."}
         
+        with_tractor = ""
         try:
             has_tractor = False
             will_plant = 1
             if get_userinfo['numb_tractor'] >= 1:
                 has_tractor = True
+                with_tractor = "🚜 "
                 will_plant = config.economy.max_tractor_can_plant
                 if get_userinfo['tree_seed'] < will_plant:
                     will_plant = get_userinfo['tree_seed']
@@ -1494,15 +1498,15 @@ class Economy(commands.Cog):
             if get_userinfo['health_current']/get_userinfo['health_total'] < 0.5:
                 if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
                     self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-                return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} Your health is having issue. Do some heatlh check."}
+                return {"error": f"{EMOJI_RED_NO} {ctx.author.mention}, your health is having issue. Do some heatlh check."}
             # If energy less than 20%, stop
             if get_userinfo['energy_current']/get_userinfo['energy_total'] < 0.2:
                 if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
                     self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-                return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} You have very small energy. Eat to powerup."}
+                return {"error": f"{EMOJI_RED_NO} {ctx.author.mention}, you have very small energy. Eat to powerup."}
 
             if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-                return {"error": f"{ctx.author.mention} You are ongoing with one **game economy** play."}
+                return {"error": f"{ctx.author.mention}, you are ongoing with one **game economy** play."}
             else:
                 self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
 
@@ -1510,13 +1514,13 @@ class Economy(commands.Cog):
                 plant_name_str = ", ".join(plant_list_names)
                 if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
                     self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-                return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} They are not available. Please use any of this `{plant_name_str}`."}
+                return {"error": f"{EMOJI_RED_NO} {ctx.author.mention}, they are not available. Please use any of this `{plant_name_str}`."}
             # TODO: check if user already has max planted
             
             if check_planting_nos >= config.economy.max_farm_plant_per_user and plant_name != "TREE":
                 if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
                     self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-                return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} You planted maximum number of crops already."}
+                return {"error": f"{EMOJI_RED_NO} {ctx.author.mention}, you planted maximum number of crops already."}
             elif plant_name == "TREE":
                 await asyncio.sleep(0.1)
                 exp_gained = config.economy.plant_exp_gained
@@ -1540,9 +1544,7 @@ class Economy(commands.Cog):
                                                                    selected_crop['duration_harvest']+int(time.time()), selected_crop['number_of_item'],
                                                                    selected_crop['credit_per_item'], exp_gained, energy_loss, will_plant)
                 if insert_item:
-                    msg = await ctx.response.send_message(f'{EMOJI_INFORMATION} {ctx.author.mention} Nice! You have planted `{will_plant}` {crop_name} in your farm. '
-                                          f'You gained `{str(exp_gained*will_plant)}` planting experience and spent `{str(energy_loss)}` energy. '
-                                          f'You have {str(check_planting_nos+will_plant)} crop(s) in your farm now.')
+                    msg = await ctx.response.send_message(f'{with_tractor}{EMOJI_INFORMATION} {ctx.author.mention} Nice! You have planted `{will_plant}` {crop_name} in your farm. You gained `{str(exp_gained*will_plant)}` planting experience and spent `{str(energy_loss)}` energy. You have {str(check_planting_nos+will_plant)} crop(s) in your farm now.')
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
@@ -1581,12 +1583,14 @@ class Economy(commands.Cog):
                     if total_can_collect > 0:
                         insert_collecting = await self.db.economy_dairy_collecting(str(ctx.author.id), id_collecting, qty_collect, config.economy.credit_raw_milk_liter)
                         if insert_collecting:
-                            msg = await ctx.response.send_message(f'{EMOJI_INFORMATION} {ctx.author.mention} Nice! You have collected `{qty_collect}` '
-                                                  f'liters of milk from `{total_can_collect}` cow(s).')
+                            msg = await ctx.response.send_message(f'{EMOJI_INFORMATION} {ctx.author.mention} Nice! You have collected `{qty_collect}` liters of milk from `{total_can_collect}` cow(s).')
+                            await ctx.response.send_message(msg)
                     else:
-                        return {"error": f"{ctx.author.mention}, You need to wait a bit longer. It\'s not time yet."}
+                        msg = f"{ctx.author.mention}, You need to wait a bit longer. It\'s not time yet."
+                        await ctx.response.send_message(msg)
                 else:
-                    return {"error": f"{ctx.author.mention}, You do not have any cow."}
+                    msg = f"{ctx.author.mention}, you do not have any cow."
+                    await ctx.response.send_message(msg)
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot(traceback.format_exc())
@@ -1607,17 +1611,20 @@ class Economy(commands.Cog):
                     if total_can_collect > 0:
                         insert_collecting = await self.db.economy_egg_collecting(str(ctx.author.id), id_collecting, qty_collect, config.economy.credit_egg)
                         if insert_collecting:
-                            msg = await ctx.response.send_message(f'{EMOJI_INFORMATION} {ctx.author.mention} Nice! You have collected `{qty_collect}` '
-                                                  f'egg(s) from `{total_can_collect}` chicken(s).')
+                            msg = await ctx.response.send_message(f'{EMOJI_INFORMATION} {ctx.author.mention} Nice! You have collected `{qty_collect}` egg(s) from `{total_can_collect}` chicken(s).')
+                            await ctx.response.send_message(msg)
                     else:
-                        return {"error": f"{ctx.author.mention},You need to wait a bit longer. It\'s not time yet."}
+                        msg = f"{ctx.author.mention}, you need to wait a bit longer. It\'s not time yet."
+                        await ctx.response.send_message(msg)
                 else:
-                    return {"error": f"{ctx.author.mention}, You do not have any chicken."}
+                    msg = f"{ctx.author.mention}, you do not have any chicken."
+                    await ctx.response.send_message(msg)
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot(traceback.format_exc())
         else:
-            return {"error": f"{ctx.author.mention}, Sorry `{what}` is not available."}
+            msg = f"{ctx.author.mention}, Sorry `{what}` is not available."
+            await ctx.response.send_message(msg)
         if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
             self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
 
@@ -1630,7 +1637,9 @@ class Economy(commands.Cog):
         # Getting list of work in the guild and re-act
         get_userinfo = await self.db.economy_get_user(str(member.id), '{}#{}'.format(member.name, member.discriminator))
         if get_userinfo and get_userinfo['numb_dairy_cattle'] == 0:
-            return {"error": f"{EMOJI_RED_NO} {ctx.author.mention}, {member.name}#{member.discriminator} Not having any dairy cattle."}
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, {member.name}#{member.discriminator}, not having any dairy cattle."
+            await ctx.response.send_message(msg)
+            return
         else:
             try:
                 # Farm list
@@ -1714,7 +1723,9 @@ class Economy(commands.Cog):
         # Getting list of work in the guild and re-act
         get_userinfo = await self.db.economy_get_user(str(member.id), '{}#{}'.format(member.name, member.discriminator))
         if get_userinfo and get_userinfo['numb_chicken_farm'] == 0:
-            return {"error": f"{EMOJI_RED_NO} {ctx.author.mention}, {member.name}#{member.discriminator} Not having a chicken farm."}
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, {member.name}#{member.discriminator}, not having a chicken farm."
+            await ctx.response.send_message(msg)
+            return
         else:
             try:
                 # Farm list
@@ -1797,7 +1808,9 @@ class Economy(commands.Cog):
         # Getting list of work in the guild and re-act
         get_userinfo = await self.db.economy_get_user(str(member.id), '{}#{}'.format(member.name, member.discriminator))
         if get_userinfo and get_userinfo['numb_farm'] == 0:
-             return {"error": f"{EMOJI_RED_NO} {ctx.author.mention}, {member.name}#{member.discriminator} not having any farm."}
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, {member.name}#{member.discriminator} not having any farm."
+            await ctx.response.send_message(msg)
+            return
         else:
             try:
                 # Farm list
@@ -1879,11 +1892,15 @@ class Economy(commands.Cog):
             return check_this_ctx
 
         if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-            return {"error": f"{EMOJI_RED_NO} {ctx.author.mention}, You are ongoing with one **game economy** play."}        
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you are ongoing with one **game economy** play."
+            await ctx.response.send_message(msg)
+            return
 
         get_userinfo = await self.db.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
         if get_userinfo and get_userinfo['numb_farm'] == 0:
-            return {"error": f"{EMOJI_RED_NO} {ctx.author.mention}, You do not have any farm."}
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you do not have any farm."
+            await ctx.response.send_message(msg)
+            return
         try:
             if ctx.author.id not in self.bot.GAME_INTERACTIVE_ECO:
                 self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
@@ -1899,14 +1916,18 @@ class Economy(commands.Cog):
                         havested_crops += each_crop['plant_name'] + each_crop['plant_emoji'] + " "
                         total_can_harvest += 1
                 if total_can_harvest == 0:
-                    return {"error": f"{EMOJI_RED_NO} {ctx.author.mention}, All your crops are not able to harvest yet!"}
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, All your crops are not able to harvest yet!"
+                    await ctx.response.send_message(msg)
+                    return
                 else:
                     # Let's update farming
                     harvesting = await self.db.economy_farm_harvesting(str(ctx.author.id), can_harvest)
                     if harvesting:
                         await ctx.response.send_message('You harvested {} crop(s) {}.'.format(total_can_harvest, havested_crops))
             else:
-                return {"error": f"{EMOJI_RED_NO} {ctx.author.mention}, You do not have any plant for harvesting yet. Please plant them!"}
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you do not have any plant for harvesting yet. Please plant them!"
+                await ctx.response.send_message(msg)
+                return
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
@@ -1923,7 +1944,9 @@ class Economy(commands.Cog):
         # Getting list of work in the guild and re-act
         get_userinfo = await self.db.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
         if get_userinfo and get_userinfo['fishing_bait'] <= 0:
-            return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} You do not have any bait. Please buy `{prefix}eco buy bait`."}
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention} You do not have any bait. Please buy `/eco buy bait`."
+            await ctx.response.send_message(msg)
+            return
 
         # If he has to much fishes
         try:
@@ -1931,13 +1954,17 @@ class Economy(commands.Cog):
             if len(get_fish_inventory_list) > 0:
                 total_weight = sum(each_item['Weights'] for each_item in get_fish_inventory_list)
                 if float(total_weight) >= float(config.economy.fishing_max_store):
-                    return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} You too much in storage (max. {config.economy.fishing_max_store}kg). Please sell some of them!"}
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention} You too much in storage (max. {config.economy.fishing_max_store}kg). Please sell some of them!"
+                    await ctx.response.send_message(msg)
+                    return
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
 
         if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-            return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} You are ongoing with one **game economy** play."}
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you are ongoing with one **game economy** play."
+            await ctx.response.send_message(msg)
+            return
         else:
             self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
 
@@ -1946,17 +1973,23 @@ class Economy(commands.Cog):
             if get_userinfo['health_current']/get_userinfo['health_total'] < 0.5:
                 if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
                     self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-                return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} Your health is having issue. Do some heatlh check."}
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, your health is having issue. Do some heatlh check."
+                await ctx.response.send_message(msg)
+                return
             # If energy less than 20%, stop
             if get_userinfo['energy_current']/get_userinfo['energy_total'] < 0.2:
                 if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
                     self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-                return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} You have very small energy. Eat to powerup."}
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you have very small energy. Eat to powerup."
+                await ctx.response.send_message(msg)
+                return
 
             has_boat = False
             will_fishing = 1
+            with_boat = ""
             if get_userinfo['numb_boat'] >= 1:
                 has_boat = True
+                with_boat = "🚣 "
                 will_fishing = config.economy.max_boat_can_fishing
                 if get_userinfo['fishing_bait'] < will_fishing:
                     will_fishing = get_userinfo['fishing_bait']
@@ -2017,12 +2050,14 @@ class Economy(commands.Cog):
                             total_weight += each_fish['fish_weight']
                     item_info = "\n".join(item_info_list)
                     item_info_with_weight = item_info + "\nTotal: {:.2f}kg".format(total_weight)
-                    await ctx.response.send_message(f'{EMOJI_INFORMATION} {ctx.author.mention} Nice! You have caught `{numb_caught}` fish(es): ```{item_info_with_weight}```You spent `{will_fishing}` bait(s). You gained `{str(total_exp)}` fishing experience and spent `{str(total_energy_loss)}` energy.')
+                    await ctx.response.send_message(f'{with_boat}{EMOJI_INFORMATION} {ctx.author.mention} Nice! You have caught `{numb_caught}` fish(es): ```{item_info_with_weight}```You spent `{will_fishing}` bait(s). You gained `{str(total_exp)}` fishing experience and spent `{str(total_energy_loss)}` energy.')
                 else:
                     # Not caught
                     await ctx.response.send_message(f'{EMOJI_INFORMATION} {ctx.author.mention} Too bad! You lose {will_fishing} fish(es) and spent `{str(total_energy_loss)}` energy!')
             else:
-                return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} There is no fish."}
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, there is no fish."
+                await ctx.response.send_message(msg)
+                return
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
@@ -2039,21 +2074,29 @@ class Economy(commands.Cog):
         get_userinfo = await self.db.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
         if get_userinfo and get_userinfo['tree_cut'] > 10:
             if get_userinfo['tree_planted'] / get_userinfo['tree_cut'] < config.economy.ratio_plant_cut:
-                return {"error": f"{EMOJI_RED_NO} {ctx.author.mention}, You have cut many trees than planting. Please plant some trees."}
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you have cut many trees than planting. Please plant some trees."
+                await ctx.response.send_message(msg)
+                return
 
         # If health less than 50%, stop
         if get_userinfo['health_current']/get_userinfo['health_total'] < 0.5:
             if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
                 self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-            return {"error": f"{EMOJI_RED_NO} {ctx.author.mention}, Your health is having issue. Do some heatlh check."}
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, your health is having issue. Do some heatlh check."
+            await ctx.response.send_message(msg)
+            return
         # If energy less than 20%, stop
         if get_userinfo['energy_current']/get_userinfo['energy_total'] < 0.5:
             if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
                 self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-            return {"error": f"{EMOJI_RED_NO} {ctx.author.mention}, You have very small energy. Eat to powerup."}
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you have very small energy. Eat to powerup."
+            await ctx.response.send_message(msg)
+            return
 
         if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-            return {"error": f"{EMOJI_RED_NO} {ctx.author.mention}, You are ongoing with one **game economy** play."}
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you are ongoing with one **game economy** play."
+            await ctx.response.send_message(msg)
+            return
         else:
             self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
 
@@ -2090,16 +2133,22 @@ class Economy(commands.Cog):
         get_user_inventory = await self.db.economy_get_user_inventory(str(ctx.author.id))
         nos_items = sum(each_item['numbers'] for each_item in get_user_inventory if each_item['item_name'] != "Gem")
         if get_userinfo and nos_items >= config.economy.max_backpack_items:
-            return {"error": f"{EMOJI_RED_NO} {ctx.author.mention}, There are many items in your backpack. Please use them first."}
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, there are many items in your backpack. Please use them first."
+            await ctx.response.send_message(msg)
+            return
 
         # If user just searched recently;
         get_last_searching = await self.db.economy_get_user_searched_item_list_record(str(ctx.author.id), config.economy.search_duration_lap)
         if get_last_searching and len(get_last_searching) >= config.economy.search_duration_lap_nos_item:
             remaining = config.economy.search_duration_lap - int(time.time()) + get_last_searching[0]['date']
-            return {"error": f"{EMOJI_RED_NO} {ctx.author.mention}, You just searched recently. Try again in `{seconds_str(remaining)}`."}
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you just searched recently. Try again in `{seconds_str(remaining)}`."
+            await ctx.response.send_message(msg)
+            return
 
         if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-            return {"error": f"{EMOJI_RED_NO} {ctx.author.mention}, You are ongoing with one **game economy** play."}
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you are ongoing with one **game economy** play."
+            await ctx.response.send_message(msg)
+            return
         else:
             self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
 
@@ -2141,18 +2190,24 @@ class Economy(commands.Cog):
             return check_this_ctx
 
         if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-            return {"error": f"{EMOJI_RED_NO} {ctx.author.mention}, You are ongoing with one **game economy** play."}
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you are ongoing with one **game economy** play."
+            await ctx.response.send_message(msg)
+            return
 
         # If a user ate a lot already for the last 12h
         user_eat_record = await self.db.economy_get_user_eating_list_record(str(ctx.author.id), 12*3600)
         if user_eat_record and len(user_eat_record) > config.economy.max_user_eat:
-            return {"error": f"{EMOJI_RED_NO} {ctx.author.mention}, You have eaten a lot already for the last 12h."}
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you have eaten a lot already for the last 12h."
+            await ctx.response.send_message(msg)
+            return
         
         # If guild already has many food ordered last 12h
         count_eating_record = await self.db.economy_get_guild_eating_list_record(str(ctx.guild.id), 12*3600)
         allowed_eating_session = int(config.economy.max_guild_food*len(ctx.guild.members))
         if count_eating_record and len(count_eating_record) > allowed_eating_session:
-            return {"error": f"{EMOJI_RED_NO} {ctx.author.mention}, Restaurant out of food. There were allowed only **{str(allowed_eating_session)}** orders for the last 12h."}
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, restaurant out of food. There were allowed only **{str(allowed_eating_session)}** orders for the last 12h."
+            await ctx.response.send_message(msg)
+            return
         # Get all available work in the guild
         get_foodlist = await self.db.economy_get_guild_foodlist(str(ctx.guild.id), True)
         # Getting list of work in the guild and re-act
@@ -2160,7 +2215,9 @@ class Economy(commands.Cog):
         if get_userinfo:
             # If energy less than 20%, stop
             if get_userinfo['energy_current']/get_userinfo['energy_total'] > 0.95:
-                return {"error": f"{EMOJI_RED_NO} {ctx.author.mention}, You still have much energy."}
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you still have much energy."
+                await ctx.response.send_message(msg)
+                return
             if ctx.author.id not in self.bot.GAME_INTERACTIVE_ECO:
                 self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
                     # Add work if he needs to do
@@ -2180,9 +2237,13 @@ class Economy(commands.Cog):
                 else:
                     if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
                         self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-                    return {"error": f"{EMOJI_RED_NO} {ctx.author.mention}, Sorry, there is no available work yet."}
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, sorry, there is no available work yet."
+                    await ctx.response.send_message(msg)
+                    return
         else:
-            return {"error": f"{EMOJI_RED_NO} {ctx.author.mention}, Internal error."}
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, internal error."
+            await ctx.response.send_message(msg)
+            return
 
 
     async def eco_work(self, ctx, claim: str=None):        
@@ -2199,14 +2260,19 @@ class Economy(commands.Cog):
         if get_userinfo:
             # If health less than 50%, stop
             if get_userinfo['health_current']/get_userinfo['health_total'] < 0.5:
-                await asyncio.sleep(0.1)
-                return {"error": f"{EMOJI_INFORMATION} {ctx.author.mention}, Your health is having issue. Do some heatlh check."}
+                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, your health is having issue. Do some heatlh check."
+                await ctx.response.send_message(msg)
+                return
                 
             elif get_userinfo['health_current']/get_userinfo['health_total'] < 0.3:
-                return {"error": f"{EMOJI_INFORMATION} {ctx.author.mention}, Your health is having issue."}
+                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, your health is having issue."
+                await ctx.response.send_message(msg)
+                return
             # If energy less than 20%, stop
             if get_userinfo['energy_current']/get_userinfo['energy_total'] < 0.2:
-                return {"error": f"{EMOJI_INFORMATION} {ctx.author.mention}, You have very small energy. Eat to powerup."}
+                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you have very small energy. Eat to powerup."
+                await ctx.response.send_message(msg)
+                return
             try:
                 get_last_act = await self.db.economy_get_last_activities(str(ctx.author.id), False)
                 remaining = get_last_act['started'] + get_last_act['duration_in_second'] - int(time.time())
@@ -2230,7 +2296,9 @@ class Economy(commands.Cog):
                         view = EconomyButton([each_work['work_emoji'] for each_work in get_worklist_guild], str(ctx.author.id), "work", 10)
                         await ctx.response.send_message(embed=e, view=view)
                     else:
-                        return {"error": f"{EMOJI_ERROR} {ctx.author.mention}, Sorry, there is no available work yet."}
+                        msg = f"{EMOJI_ERROR} {ctx.author.mention}, sorry, there is no available work yet."
+                        await ctx.response.send_message(msg)
+                        return
                 else:
                     # He is not free
                     if claim and claim.upper() == 'CLAIM':
@@ -2275,7 +2343,9 @@ class Economy(commands.Cog):
                             # End negative check
                             if get_last_act['reward_amount'] > total_balance:
                                 await logchanbot(str(get_last_act['guild_id']) + f' runs out of balance for coin {COIN_NAME}. Stop rewarding.')
-                                return {"error": f"{EMOJI_ERROR} {ctx.author.mention}, This guild runs out of balance to give reward."}
+                                msg = f"{EMOJI_ERROR} {ctx.author.mention}, this guild runs out of balance to give reward."
+                                await ctx.response.send_message(msg)
+                                return
                             # OK, let him claim
                             try:
                                 add_energy = get_last_act['energy']
@@ -2318,29 +2388,39 @@ class Economy(commands.Cog):
                                     reward = await store.sql_user_balance_mv_single(get_last_act['guild_id'], str(ctx.author.id), str(ctx.guild.id), str(ctx.channel.id), get_last_act['reward_amount'], COIN_NAME, 'ECONOMY', coin_decimal, SERVER_BOT, contract, amount_in_usd)
                                     await ctx.response.send_message(f'{EMOJI_INFORMATION} {ctx.author.mention} ```{completed_task}```')
                                 else:
-                                    return {"error": f"{EMOJI_ERROR} {ctx.author.mention}, Internal error."}
+                                    msg = f"{EMOJI_ERROR} {ctx.author.mention}, internal error."
+                                    await ctx.response.send_message(msg)
+                                    return
                             except:
                                 traceback.print_exc(file=sys.stdout)
-                                return {"error": f"{EMOJI_ERROR} {ctx.author.mention}, Internal error."}
+                                msg = f"{EMOJI_ERROR} {ctx.author.mention}, internal error."
+                                await ctx.response.send_message(msg)
+                                return
                         else:
                             additional_claim_msg = ""
                             if remaining < 0:
                                 remaining = 0
                                 additional_claim_msg = "You shall claim it now!"
-                            return {"error": f"{EMOJI_ERROR} {ctx.author.mention}, Sorry, you can not claim it now. Remaining time `{seconds_str(remaining)}`. {additional_claim_msg}"}
+                            msg = f"{EMOJI_ERROR} {ctx.author.mention}, sorry, you can not claim it now. Remaining time `{seconds_str(remaining)}`. {additional_claim_msg}"
+                            await ctx.response.send_message(msg)
+                            return
                     else:
                         remaining = get_last_act['started'] + get_last_act['duration_in_second'] - int(time.time())
                         additional_claim_msg = ""
                         if remaining < 0:
                             remaining = 0
                             additional_claim_msg = "You shall claim it now!"
-                        return {"error": f"{EMOJI_ERROR} {ctx.author.mention}, Sorry, you are still busy with other activity. Remaining time `{seconds_str(remaining)}`. {additional_claim_msg}"}
+                        msg =  f"{EMOJI_ERROR} {ctx.author.mention}, sorry, you are still busy with other activity. Remaining time `{seconds_str(remaining)}`. {additional_claim_msg}"
+                        await ctx.response.send_message(msg)
+                        return
             except:
                 traceback.print_exc(file=sys.stdout)
                 error = disnake.Embed(title=":exclamation: Error", description=" :warning: internal error!")
                 await ctx.response.send_message(embed=error)
         else:
-            return {"error": f"{EMOJI_ERROR} {ctx.author.mention}, Internal error."}
+            msg = f"{EMOJI_ERROR} {ctx.author.mention}, internal error."
+            await ctx.response.send_message(msg)
+            return
 
 
     @commands.guild_only()
@@ -2560,7 +2640,7 @@ class Economy(commands.Cog):
     @eco.sub_command(
         usage="eco chicken <member>", 
         options=[
-            Option('member', 'member', OptionType.user, required=True)
+            Option('member', 'member', OptionType.user, required=False)
         ],
         description="Show chicken farm of a member."
     )

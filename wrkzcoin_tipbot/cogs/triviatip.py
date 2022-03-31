@@ -354,13 +354,8 @@ class TriviaTips(commands.Cog):
             index_answer = answers.index(rand_q['correct_answer'])
             
             view = TriviaButton(answers, index_answer, duration_s, self.bot.coin_list)
-            await asyncio.sleep(0.2)
-
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                view.message = await ctx.channel.send(embed=embed, view=view)
-                await ctx.response.send_message("Trivia Tip ID: {} created!".format(view.message.id), ephemeral=True)
-            else:
-                view.message = await ctx.reply(embed=embed, view=view)
+            view.message = await ctx.channel.send(embed=embed, view=view)
+            await ctx.response.send_message("Trivia Tip ID: {} created!".format(view.message.id), ephemeral=True)
 
             # Insert to trivia ongoing list
             insert_trivia = await store.insert_discord_triviatip(COIN_NAME, contract, str(ctx.author.id), owner_displayname, str(view.message.id), rand_q['question'], rand_q['id'], rand_q['correct_answer'], str(ctx.guild.id), str(ctx.channel.id), amount, total_in_usd, equivalent_usd, per_unit, coin_decimal, trivia_end, net_name, "ONGOING")
@@ -369,19 +364,16 @@ class TriviaTips(commands.Cog):
             random.shuffle(answers)
             index_answer = answers.index(rand_q['correct_answer'])
             view = TriviaButton(answers, index_answer, duration_s, self.bot.coin_list)
-            await asyncio.sleep(0.2)
 
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                view.message = await ctx.channel.send(embed=embed, view=view)
-                await ctx.response.send_message("Trivia Tip ID: {} created!".format(view.message.id), ephemeral=True)
-            else:
-                view.message = await ctx.reply(embed=embed, view=view)
+            view.message = await ctx.channel.send(embed=embed, view=view)
+            await ctx.response.send_message("Trivia Tip ID: {} created!".format(view.message.id), ephemeral=True)
 
             # Insert to trivia ongoing list
             insert_trivia = await store.insert_discord_triviatip(COIN_NAME, contract, str(ctx.author.id), owner_displayname, str(view.message.id), rand_q['question'], rand_q['id'], rand_q['correct_answer'], str(ctx.guild.id), str(ctx.channel.id), amount, total_in_usd, equivalent_usd, per_unit, coin_decimal, trivia_end, net_name, "ONGOING")
 
 
     @commands.guild_only()
+    @commands.bot_has_permissions(send_messages=True)
     @commands.slash_command(
         usage='triviatip <amount> <token> <duration>', 
         options=[
@@ -399,24 +391,6 @@ class TriviaTips(commands.Cog):
         duration: str
     ):
         await self.async_triviatip(ctx, amount, token, duration)
-
-
-    @commands.guild_only()
-    @commands.command(usage='triviatip <amount> <token> <duration>', aliases=['tiptrivia', 'triviatip'], description="Spread trivia tip")
-    async def _triviatip(self, ctx, amount: str, token: str, duration: str):
-        await self.async_triviatip(ctx, amount, token, duration)
-
-
-
-    @triviatip.error
-    async def triviatip_error(self, ctx, error):
-        if isinstance(error, commands.MissingRequiredArgument):
-            await ctx.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Missing arguments. You need to tell me **amount** **token** and **duration** in seconds (with s).\nExample: {config.discord.prefixCmd}{ctx.command} **1000 token 300s** or {config.discord.prefixCmd}{ctx.command} **10 token 300s**')
-        elif isinstance(error, commands.errors.CommandInvokeError):
-            await ctx.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Error arguments. '
-                            f'You need to tell me **amount** **token** and **duration** in seconds (with s).\nExample: {config.discord.prefixCmd}{ctx.command} **100 token 300s** or {config.discord.prefixCmd}{ctx.command} **10 token 300s**')
-        print(error)
-        return
 
 
 def setup(bot):

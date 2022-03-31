@@ -296,10 +296,9 @@ class Trade(commands.Cog):
     ):
         await self.bot_log()
         try:
-            if isinstance(ctx.channel, disnake.DMChannel) != True:
+            if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
                 serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
-                if isinstance(ctx.channel, disnake.DMChannel) == False and serverinfo \
-                and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
+                if serverinfo and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
                     msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade function is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING TRADE`'
                     if type(ctx) == disnake.ApplicationCommandInteraction:
                         await ctx.response.send_message(msg)
@@ -309,7 +308,7 @@ class Trade(commands.Cog):
                         await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried **trade/market command** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
                     return
         except Exception as e:
-            if isinstance(ctx.channel, disnake.DMChannel) == False:
+            if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
                 return
 
         create_order = await self.make_open_order(ctx, sell_amount, sell_ticker, buy_amount, buy_ticker)
@@ -328,10 +327,9 @@ class Trade(commands.Cog):
     ):
         await self.bot_log()
         try:
-            if isinstance(ctx.channel, disnake.DMChannel) != True:
+            if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
                 serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
-                if isinstance(ctx.channel, disnake.DMChannel) == False and serverinfo \
-                and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
+                if serverinfo and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
                     msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade function is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING TRADE`'
                     if type(ctx) == disnake.ApplicationCommandInteraction:
                         await ctx.response.send_message(msg)
@@ -341,7 +339,7 @@ class Trade(commands.Cog):
                         await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried **trade/market command** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
                     return
         except Exception as e:
-            if isinstance(ctx.channel, disnake.DMChannel) == False:
+            if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
                 return
 
         # check if the argument is ref or ticker by length
@@ -513,10 +511,9 @@ class Trade(commands.Cog):
     ):
         await self.bot_log()
         try:
-            if isinstance(ctx.channel, disnake.DMChannel) != True:
+            if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
                 serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
-                if isinstance(ctx.channel, disnake.DMChannel) == False and serverinfo \
-                and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
+                if serverinfo and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
                     msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade function is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING TRADE`'
                     if type(ctx) == disnake.ApplicationCommandInteraction:
                         await ctx.response.send_message(msg)
@@ -526,7 +523,7 @@ class Trade(commands.Cog):
                         await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried **trade/market command** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
                     return
         except Exception as e:
-            if isinstance(ctx.channel, disnake.DMChannel) == False:
+            if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
                 return
 
         if order_num.upper() == 'ALL':
@@ -633,10 +630,9 @@ class Trade(commands.Cog):
     ):
         await self.bot_log()
         try:
-            if isinstance(ctx.channel, disnake.DMChannel) != True:
+            if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
                 serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
-                if isinstance(ctx.channel, disnake.DMChannel) == False and serverinfo \
-                and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
+                if serverinfo and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
                     msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade function is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING TRADE`'
                     if type(ctx) == disnake.ApplicationCommandInteraction:
                         await ctx.response.send_message(msg)
@@ -646,7 +642,8 @@ class Trade(commands.Cog):
                         await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried **trade/market command** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
                     return
         except Exception as e:
-            if isinstance(ctx.channel, disnake.DMChannel) == False:
+            traceback.print_exc(file=sys.stdout)
+            if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
                 return
 
         if ticker:
@@ -765,7 +762,7 @@ class Trade(commands.Cog):
                 table.padding_right = 0
                 msg = f'**[ OPEN SELLING LIST ]**\n```{table.table}```'
                 if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
+                    await ctx.response.send_message(msg, view=RowButton_row_close_any_message())
                 else:
                     await ctx.reply(msg)
             else:
@@ -795,10 +792,9 @@ class Trade(commands.Cog):
     ):
         await self.bot_log()
         try:
-            if isinstance(ctx.channel, disnake.DMChannel) != True:
+            if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
                 serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
-                if isinstance(ctx.channel, disnake.DMChannel) == False and serverinfo \
-                and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
+                if serverinfo and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
                     msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade function is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING TRADE`'
                     if type(ctx) == disnake.ApplicationCommandInteraction:
                         await ctx.response.send_message(msg)
@@ -808,7 +804,7 @@ class Trade(commands.Cog):
                         await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried **trade/market command** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
                     return
         except Exception as e:
-            if isinstance(ctx.channel, disnake.DMChannel) == False:
+            if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
                 return
 
         if option_order is None:

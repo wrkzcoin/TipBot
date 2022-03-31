@@ -2602,10 +2602,10 @@ class Wallet(commands.Cog):
                 else:
                     if plain and plain.lower() == 'plain' or plain.lower() == 'text':
                         msg = await ctx.reply(plain_msg, view=RowButton_close_message())
-                        await store.add_discord_bot_message(str(msg.id), "DM" if isinstance(ctx.channel, disnake.DMChannel) else str(ctx.guild.id), str(ctx.author.id))
+                        await store.add_discord_bot_message(str(msg.id), str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM", str(ctx.author.id))
                     else:
                         msg = await ctx.reply(embed=embed, view=RowButton_close_message())
-                        await store.add_discord_bot_message(str(msg.id), "DM" if isinstance(ctx.channel, disnake.DMChannel) else str(ctx.guild.id), str(ctx.author.id))
+                        await store.add_discord_bot_message(str(msg.id), str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM", str(ctx.author.id))
             except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                 traceback.print_exc(file=sys.stdout)
         except Exception as e:

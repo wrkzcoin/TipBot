@@ -286,13 +286,19 @@ class Events(commands.Cog):
     @commands.Cog.listener()
     async def on_message(self, message):
         # should ignore webhook message
-        if isinstance(message.channel, disnake.DMChannel) == False and message.webhook_id:
+        if message is None:
             return
 
-        if isinstance(message.channel, disnake.DMChannel) == False and message.author.bot == False and message.author != self.bot.user:
+        if hasattr(message, "channel") and hasattr(message.channel, "id") and message.webhook_id:
+            return
+
+        if hasattr(message, "channel") and hasattr(message.channel, "id") and message.author.bot == False and message.author != self.bot.user:
             if message.id not in self.message_id_list:
-                self.bot.message_list.append((str(message.guild.id), message.guild.name, str(message.channel.id), message.channel.name, str(message.author.id), "{}#{}".format(message.author.name, message.author.discriminator), str(message.id), int(time.time())))
-                self.message_id_list.append(message.id)
+                try:
+                    self.bot.message_list.append((str(message.guild.id), message.guild.name, str(message.channel.id), message.channel.name, str(message.author.id), "{}#{}".format(message.author.name, message.author.discriminator), str(message.id), int(time.time())))
+                    self.message_id_list.append(message.id)
+                except Exception as e:
+                    pass
             if len(self.bot.message_list) >= self.max_saving_message:
                 # saving_message
                 try:

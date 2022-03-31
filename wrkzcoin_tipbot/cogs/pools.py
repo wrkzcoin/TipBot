@@ -224,8 +224,8 @@ class Pools(commands.Cog):
                             respond_date = int(time.time())
                             await self.sql_miningpoolstat_fetch(COIN_NAME, str(ctx.author.id), 
                                                                 '{}#{}'.format(ctx.author.name, ctx.author.discriminator), 
-                                                                requested_date, respond_date, json.dumps(get_pool_data), str(ctx.guild.id) if isinstance(ctx.channel, disnake.DMChannel) == False else 'DM', 
-                                                                ctx.guild.name if isinstance(ctx.channel, disnake.DMChannel) == False else 'DM', 
+                                                                requested_date, respond_date, json.dumps(get_pool_data), str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM", 
+                                                                ctx.guild.name if hasattr(ctx, "guild") and hasattr(ctx.guild, "name") else "DM", 
                                                                 str(ctx.channel.id), is_cache, SERVER_BOT, 'NO')
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
@@ -303,8 +303,8 @@ class Pools(commands.Cog):
                                     view.message = await ctx.reply(content=None, embed=all_pages[0], view=view)
                                 await self.sql_miningpoolstat_fetch(COIN_NAME, str(ctx.author.id), 
                                                                     '{}#{}'.format(ctx.author.name, ctx.author.discriminator), 
-                                                                    requested_date, int(time.time()), json.dumps(get_pool_data), str(ctx.guild.id) if isinstance(ctx.channel, disnake.DMChannel) == False else 'DM', 
-                                                                    ctx.guild.name if isinstance(ctx.channel, disnake.DMChannel) == False else 'DM', 
+                                                                    requested_date, int(time.time()), json.dumps(get_pool_data), str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM", 
+                                                                    ctx.guild.name if hasattr(ctx, "guild") and hasattr(ctx.guild, "name") else "DM", 
                                                                     str(ctx.channel.id), is_cache, SERVER_BOT, 'NO')
                             except Exception as e:
                                 traceback.print_exc(file=sys.stdout)
@@ -372,8 +372,8 @@ class Pools(commands.Cog):
                                     respond_date = int(time.time())
                                     await self.sql_miningpoolstat_fetch(COIN_NAME, str(ctx.author.id), 
                                                                         '{}#{}'.format(ctx.author.name, ctx.author.discriminator), 
-                                                                        requested_date, respond_date, json.dumps(result), str(ctx.guild.id) if isinstance(ctx.channel, disnake.DMChannel) == False else 'DM', 
-                                                                        ctx.guild.name if isinstance(ctx.channel, disnake.DMChannel) == False else 'DM', 
+                                                                        requested_date, respond_date, json.dumps(result), str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM", 
+                                                                        ctx.guild.name if hasattr(ctx, "guild") and hasattr(ctx.guild, "name") else "DM", 
                                                                         str(ctx.channel.id), is_cache, SERVER_BOT, 'YES')
                                     break
                                     if ctx.author.id in self.bot.MINGPOOLSTAT_IN_PROCESS:

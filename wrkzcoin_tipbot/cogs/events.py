@@ -52,6 +52,124 @@ class Events(commands.Cog):
         if self.botLogChan is None:
             self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
 
+
+    # Trivia / Math
+    async def insert_mathtip_responder(self, message_id: str, guild_id: str, from_userid: str, responder_id: str, responder_name: str, result: str):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ INSERT IGNORE INTO discord_mathtip_responder (`message_id`, `guild_id`, `from_userid`, `responder_id`, `responder_name`, `from_and_responder_uniq`, `result`, `inserted_time`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                    await cur.execute(sql, (message_id, guild_id, from_userid, responder_id, responder_name, "{}-{}-{}".format(message_id, from_userid, responder_id), result, int(time.time())))
+                    await conn.commit()
+                    return True
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return False
+
+    async def check_if_mathtip_responder_in(self, message_id: str, from_userid: str, responder_id: str):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    swap_in = 0.0
+                    sql = """ SELECT * FROM `discord_mathtip_responder` WHERE `message_id`=%s AND `from_userid`=%s AND `responder_id`=%s LIMIT 1 """
+                    await cur.execute(sql, (message_id, from_userid, responder_id))
+                    result = await cur.fetchone()
+                    if result and len(result) > 0: return True
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return False
+
+    async def get_discord_mathtip_by_msgid(self, msg_id: str):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `discord_mathtip_tmp` WHERE `message_id`=%s """
+                    await cur.execute(sql, (msg_id))
+                    result = await cur.fetchone()
+                    if result: return result
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return None
+
+    async def get_discord_triviatip_by_msgid(self, message_id: str):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    swap_in = 0.0
+                    sql = """ SELECT * FROM `discord_triviatip_tmp` WHERE `message_id`=%s LIMIT 1 """
+                    await cur.execute(sql, (message_id))
+                    result = await cur.fetchone()
+                    if result: return result
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return None
+
+    async def insert_trivia_responder(self, message_id: str, guild_id: str, question_id: str, from_userid: str, responder_id: str, responder_name: str, result: str):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ INSERT IGNORE INTO discord_triviatip_responder (`message_id`, `guild_id`, `question_id`, `from_userid`, `responder_id`, `responder_name`, `from_and_responder_uniq`, `result`, `inserted_time`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                    await cur.execute(sql, (message_id, guild_id, question_id, from_userid, responder_id, responder_name, "{}-{}-{}".format(message_id, from_userid, responder_id), result, int(time.time())))
+                    await conn.commit()
+                    return True
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return False
+
+    async def check_if_trivia_responder_in(self, message_id: str, from_userid: str, responder_id: str):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    swap_in = 0.0
+                    sql = """ SELECT * FROM `discord_triviatip_responder` WHERE `message_id`=%s AND `from_userid`=%s AND `responder_id`=%s LIMIT 1 """
+                    await cur.execute(sql, (message_id, from_userid, responder_id))
+                    result = await cur.fetchone()
+                    if result and len(result) > 0: return True
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return False
+    # End Trivia / Math
+
+    async def get_discord_bot_message(self, message_id: str, is_deleted: str="NO"):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `discord_bot_message_owner` WHERE `message_id`=%s AND `is_deleted`=%s LIMIT 1 """
+                    await cur.execute(sql, (message_id, is_deleted))
+                    result = await cur.fetchone()
+                    if result: return result
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return None
+
+    async def delete_discord_bot_message(self, message_id: str, owner_id: str):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ UPDATE `discord_bot_message_owner` SET `is_deleted`=%s, `date_deleted`=%s WHERE `message_id`=%s AND `owner_id`=%s LIMIT 1 """
+                    await cur.execute(sql, ("YES", int(time.time()), message_id, owner_id))
+                    await conn.commit()
+                    return True
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return None
+
     async def insert_discord_message(self, list_message):
         try:
             await self.openConnection()
@@ -321,11 +439,11 @@ class Events(commands.Cog):
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
         elif inter.message.author == self.bot.user and inter.component.custom_id == "close_message":
-            get_message = await store.get_discord_bot_message(str(inter.message.id), "NO")
+            get_message = await self.get_discord_bot_message(str(inter.message.id), "NO")
             if get_message and get_message['owner_id'] == str(inter.author.id):
                 try:
                     await inter.message.delete()
-                    await store.delete_discord_bot_message(str(inter.message.id), str(inter.author.id))
+                    await self.delete_discord_bot_message(str(inter.message.id), str(inter.author.id))
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
             elif get_message and get_message['owner_id'] != str(inter.author.id):
@@ -340,12 +458,12 @@ class Events(commands.Cog):
         elif hasattr(inter, "message") and inter.message.author == self.bot.user and inter.component.custom_id.startswith("trivia_answers_"):
             try:
                 msg = "Nothing to do!"
-                get_message = await store.get_discord_triviatip_by_msgid(str(inter.message.id))
+                get_message = await self.get_discord_triviatip_by_msgid(str(inter.message.id))
                 if get_message and int(get_message['from_userid']) == inter.author.id:
                     ## await inter.response.send_message(content="You are the owner of trivia id: {}".format(str(inter.message.id)), ephemeral=True)
                     return
                 # Check if user in
-                check_if_in = await store.check_if_trivia_responder_in(str(inter.message.id), get_message['from_userid'], str(inter.author.id))
+                check_if_in = await self.check_if_trivia_responder_in(str(inter.message.id), get_message['from_userid'], str(inter.author.id))
                 if check_if_in:
                     # await inter.response.send_message(content="You already answer of trivia id: {}".format(str(inter.message.id)), ephemeral=True)
                     await inter.response.defer()
@@ -367,7 +485,7 @@ class Events(commands.Cog):
                         result = "WRONG"
                         if inter.component.label == get_message['button_correct_answer']:
                             result = "RIGHT"
-                        insert_triviatip = await store.insert_trivia_responder(str(inter.message.id), get_message['guild_id'], get_message['question_id'], get_message['from_userid'], str(inter.author.id), "{}#{}".format(inter.author.name, inter.author.discriminator), result)
+                        insert_triviatip = await self.insert_trivia_responder(str(inter.message.id), get_message['guild_id'], get_message['question_id'], get_message['from_userid'], str(inter.author.id), "{}#{}".format(inter.author.name, inter.author.discriminator), result)
                         msg = "You answered to trivia id: {}".format(str(inter.message.id))
                         await inter.response.defer()
                         await inter.response.send_message(content=msg, ephemeral=True)
@@ -382,12 +500,12 @@ class Events(commands.Cog):
         elif hasattr(inter, "message") and inter.message.author == self.bot.user and inter.component.custom_id.startswith("mathtip_answers_"):
             try:
                 msg = "Nothing to do!"
-                get_message = await store.get_discord_mathtip_by_msgid(str(inter.message.id))
+                get_message = await self.get_discord_mathtip_by_msgid(str(inter.message.id))
                 if get_message and int(get_message['from_userid']) == inter.author.id:
                     ## await inter.response.send_message(content="You are the owner of trivia id: {}".format(str(inter.message.id)), ephemeral=True)
                     return
                 # Check if user in
-                check_if_in = await store.check_if_mathtip_responder_in(str(inter.message.id), get_message['from_userid'], str(inter.author.id))
+                check_if_in = await self.check_if_mathtip_responder_in(str(inter.message.id), get_message['from_userid'], str(inter.author.id))
                 if check_if_in:
                     # await inter.response.send_message(content="You already answer of trivia id: {}".format(str(inter.message.id)), ephemeral=True)
                     await inter.response.defer()
@@ -409,7 +527,7 @@ class Events(commands.Cog):
                         result = "WRONG"
                         if float(inter.component.label) == float(get_message['eval_answer']):
                             result = "RIGHT"
-                        insert_triviatip = await store.insert_mathtip_responder(str(inter.message.id), get_message['guild_id'], get_message['from_userid'], str(inter.author.id), "{}#{}".format(inter.author.name, inter.author.discriminator), result)
+                        insert_triviatip = await self.insert_mathtip_responder(str(inter.message.id), get_message['guild_id'], get_message['from_userid'], str(inter.author.id), "{}#{}".format(inter.author.name, inter.author.discriminator), result)
                         msg = "You answered to trivia id: {}".format(str(inter.message.id))
                         await inter.response.defer()
                         await inter.response.send_message(content=msg, ephemeral=True)

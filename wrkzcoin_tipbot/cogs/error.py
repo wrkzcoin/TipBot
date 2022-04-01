@@ -102,7 +102,7 @@ class Error(commands.Cog):
             return await ctx.reply(f"{ctx.author.mention} This command cannot be used in a DM.", view=RowButton_row_close_any_message())
 
         if isinstance(error, commands.CheckFailure) or isinstance(error, commands.CheckAnyFailure):
-            await ctx.reply(f"{ctx.author.mention} You do not have permission to use this command (`{ctx.prefix}{ctx.command.name}`).", view=RowButton_row_close_any_message())  # \nCheck(s) failed: {failed}")
+            await ctx.reply(f"{ctx.author.mention} You do not have permission to use this command (`{ctx.prefix}{ctx.command.name}`).")  # \nCheck(s) failed: {failed}")
             return
 
         if isinstance(error, commands.CommandOnCooldown):

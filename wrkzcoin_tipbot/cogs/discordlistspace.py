@@ -46,8 +46,6 @@ class DiscordListVote(commands.Cog):
                                         new_votes.append(int(each['user']))
                                     except Exception as e:
                                         traceback.print_exc(file=sys.stdout)
-                        else:
-                            print("discordlistspace: No latest vote from discordlistspace.")
                         if len(vote_data) > 0:
                             print("discordlistspace: has {} votes to insert.".format(len(vote_data)))
                             insert_votes = await self.insert_bot_vote_many(vote_data)

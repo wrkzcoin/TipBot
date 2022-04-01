@@ -2191,7 +2191,6 @@ class Tips(commands.Cog):
                 await ctx.reply(msg)
             return
 
-        await ctx.response.defer()
         tip = None
 
         equivalent_usd = ""

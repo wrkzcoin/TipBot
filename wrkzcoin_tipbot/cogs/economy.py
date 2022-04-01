@@ -1476,7 +1476,7 @@ class Economy(commands.Cog):
         # Getting list of work in the guild and re-act
         get_userinfo = await self.db.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
         if get_userinfo and get_userinfo['tree_seed'] <= 0:
-            return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} You do not have any seed. Please buy eco buy seed`."}
+            return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} You do not have any seed. Please buy `/eco buy seed`."}
 
         if get_userinfo['numb_farm'] == 0 and plant_name != "TREE":
             return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} You do not have any farm."}

@@ -407,9 +407,31 @@ class Admin(commands.Cog):
         if ctx.invoked_subcommand is None: await ctx.reply(f'{ctx.author.mention} Invalid admin command')
         return
 
+    @commands.is_owner()
+    @admin.command(hidden=True, usage='admin leave <guild id>', description='Bot to leave a server by ID.')
+    async def leave(self, ctx, guild_id: str):
+        try:
+            guild = self.bot.get_guild(int(guild_id))
+            if guild is not None:
+                await logchanbot(f"[LEAVING] {ctx.author.name}#{ctx.author.discriminator} / {str(ctx.author.id)} commanding to leave guild `{guild.name} / {guild_id}`.")
+                msg = f'{ctx.author.mention}, OK leaving guild `{guild.name} / {guild_id}`.'
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(msg)
+                else:
+                    await ctx.reply(msg)
+                await guild.leave()
+            else:
+                msg = f'{ctx.author.mention}, I can not find guild id `{guild_id}`.'
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(msg)
+                else:
+                    await ctx.reply(msg)
+            return
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
 
     @commands.is_owner()
-    @admin.command(hidden=True, usage='auditcoin', description='Audit coin\'s balance')
+    @admin.command(hidden=True, usage='auditcoin <coin name>', description='Audit coin\'s balance')
     async def auditcoin(self, ctx, coin: str):
         COIN_NAME = coin.upper()
         if not hasattr(self.bot.coin_list, COIN_NAME):
@@ -498,7 +520,7 @@ class Admin(commands.Cog):
 
 
     @commands.is_owner()
-    @admin.command(hidden=True, usage='baluser', description='Check user balances')
+    @admin.command(hidden=True, usage='baluser <user>', description='Check user balances')
     async def baluser(self, ctx, member_id: str, user_server: str="DISCORD"):
         if member_id.upper() == "SWAP":
             member_id = member_id.upper()
@@ -681,7 +703,7 @@ class Admin(commands.Cog):
 
 
     @commands.is_owner()
-    @admin.command(hidden=True, usage='withdraw', description='Enable/Disable withdraw for a coin')
+    @admin.command(hidden=True, usage='withdraw <coin>', description='Enable/Disable withdraw for a coin')
     async def withdraw(self, ctx, coin: str):
         COIN_NAME = coin.upper()
         command = "withdraw"
@@ -720,7 +742,7 @@ class Admin(commands.Cog):
                 self.bot.coin_name_list = coin_list_name
 
     @commands.is_owner()
-    @admin.command(hidden=True, usage='tip', description='Enable/Disable tip for a coin')
+    @admin.command(hidden=True, usage='tip  <coin>', description='Enable/Disable tip for a coin')
     async def tip(self, ctx, coin: str):
         COIN_NAME = coin.upper()
         command = "tip"
@@ -759,7 +781,7 @@ class Admin(commands.Cog):
                 self.bot.coin_name_list = coin_list_name
 
     @commands.is_owner()
-    @admin.command(hidden=True, usage='deposit', description='Enable/Disable deposit for a coin')
+    @admin.command(hidden=True, usage='deposit  <coin>', description='Enable/Disable deposit for a coin')
     async def deposit(self, ctx, coin: str):
         COIN_NAME = coin.upper()
         command = "deposit"

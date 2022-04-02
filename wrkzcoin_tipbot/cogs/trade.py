@@ -828,24 +828,24 @@ class Trade(commands.Cog):
         get_list_orders = None
         if coin_pair is None:
             COIN_NAME = coin.upper()
-            # Check if coin with TipBot
-            if not hasattr(self.bot.coin_list, COIN_NAME):
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    msg = f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.'
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
-                return
-            
-            if getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_trade") != 1:
-                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, {COIN_NAME} in not in our list of trade.'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
-                return
-            else:
-                get_list_orders = await self.get_open_orders(ctx, option_order, COIN_NAME, None)
+            if COIN_NAME != "ALL":
+                # Check if coin with TipBot
+                if not hasattr(self.bot.coin_list, COIN_NAME):
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        msg = f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.'
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.reply(msg)
+                    return
+                
+                if getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_trade") != 1:
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, {COIN_NAME} in not in our list of trade.'
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.reply(msg)
+                    return
+            get_list_orders = await self.get_open_orders(ctx, option_order, COIN_NAME, None)
         elif coin_pair and len(coin_pair) == 2:
             if getattr(getattr(self.bot.coin_list, coin_pair[0]), "enable_trade") != 1:
                 msg = f'{EMOJI_ERROR} {ctx.author.mention}, **{coin_pair[0]}** is not in our list of trade.'

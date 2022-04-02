@@ -968,6 +968,20 @@ class database_economy():
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return None
+
+    async def economy_leaderboard(self, option: str="exp", number: int=20):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM discord_economy_userinfo ORDER BY `"""+option+"""` DESC LIMIT """+str(number)
+                    await cur.execute(sql,)
+                    result = await cur.fetchall()
+                    if result: return result
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return []
     ## end of economy
 
 
@@ -992,10 +1006,17 @@ class Economy(commands.Cog):
         self.base_boat_cost = 5000000 # 5 millions credit, increased by existing level*base_boat_cost
         self.eco_fishing_storage = {"1": 1000, "2": 2000, "3": 3000, "4": 4000, "5": 5000} # number of storage in kg
 
+        # dairy
+        self.eco_max_dairy_farm_level = 3
+        self.base_dairy_cost = 10000000 # 5 millions credit, increased by existing level*base_dairy_cost
+        self.eco_max_cow_level = {"1": 36, "2": 42, "3": 49, "4": 56, "5": 64} # 1: 6x6, 2: 6x7, 3: 7x7, 4: 7x8, 5: 8x8
+
         # max bait by boat level
         self.eco_max_bait = {"1": 100, "2": 200, "3": 300, "4": 400, "5": 500} # maximum bait based on boat level
         # tractor
         self.max_tractor_can_plant = 9
+        # eat
+        self.max_user_eat = 50
 
     async def bot_log(self):
         if self.botLogChan is None:
@@ -1037,7 +1058,7 @@ class Economy(commands.Cog):
                 return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} You do not have a `farm`."}
             elif get_userinfo['numb_boat'] >= config.economy.max_boat_per_user and (item_name.upper() == "BOAT" or item_name == "🚣"):
                 return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} You have a `boat` already."}
-            elif get_userinfo['numb_cow'] >= config.economy.max_cow_per_user and (item_name.upper() == "COW" or item_name == "🐄"):
+            elif get_userinfo['numb_cow'] >= self.eco_max_cow_level[str(get_userinfo['dairy_farm_level'])] and (item_name.upper() == "COW" or item_name == "🐄"):
                 return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} You have maximum of cows already."}
             elif get_userinfo['numb_market'] >= config.economy.max_market_per_user and (item_name.upper() == "MARKET" or item_name == "🛒"):
                 return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} You have a `market` already."}
@@ -1047,7 +1068,7 @@ class Economy(commands.Cog):
                         # List item
                         get_shop_itemlist = await self.db.economy_shop_get_item_list()
                         if get_shop_itemlist and len(get_shop_itemlist) > 0:
-                            e = disnake.Embed(title="Shop Bot".format(ctx.author.name, ctx.author.discriminator), description="Economy", timestamp=datetime.utcnow())
+                            e = disnake.Embed(title="Shop Bot".format(ctx.author.name, ctx.author.discriminator), description="Economy game in TipBot", timestamp=datetime.utcnow())
                             for each_item in get_shop_itemlist:
                                 remark_text = ""
                                 if each_item['remark'] and len(each_item['remark']) > 0:
@@ -1323,7 +1344,7 @@ class Economy(commands.Cog):
                 get_inventory_from_backpack = await self.db.economy_get_user_inventory(str(member.id), 'Gem')
                 if get_inventory_from_backpack and 'numbers' in get_inventory_from_backpack:
                     get_userinfo['gem_credit'] += get_inventory_from_backpack['numbers']
-                embed = disnake.Embed(title="{}#{} - Credit {:,.2f}{}/ Gem: {:,.0f}{}".format(member.name, member.discriminator, get_userinfo['credit'], '💵', get_userinfo['gem_credit'], '💎'), description="Economy")
+                embed = disnake.Embed(title="{}#{} - Credit {:,.2f}{}/ Gem: {:,.0f}{}".format(member.name, member.discriminator, get_userinfo['credit'], '💵', get_userinfo['gem_credit'], '💎'), description="Economy game in TipBot")
                 embed.add_field(name="Health: {0:.2f}%".format(get_userinfo['health_current']/get_userinfo['health_total']*100), value='```{}```'.format(createBox(get_userinfo['health_current'], get_userinfo['health_total'], 20)), inline=False)
                 embed.add_field(name="Energy: {0:.2f}%".format(get_userinfo['energy_current']/get_userinfo['energy_total']*100), value='```{}```'.format(createBox(get_userinfo['energy_current'], get_userinfo['energy_total'], 20)), inline=False)
                 if get_userinfo['exp'] > 0:
@@ -1397,7 +1418,7 @@ class Economy(commands.Cog):
                 if ctx.author.id not in self.bot.GAME_INTERACTIVE_ECO:
                     self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
                     # Add work if he needs to do
-                    e = disnake.Embed(title="{}#{} Item in backpack".format(ctx.author.name, ctx.author.discriminator), description="Economy", timestamp=datetime.utcnow())
+                    e = disnake.Embed(title="{}#{} Item in backpack".format(ctx.author.name, ctx.author.discriminator), description="Economy game in TipBot", timestamp=datetime.utcnow())
                     all_item_backpack = {}
                     if get_user_inventory and len(get_user_inventory) > 0:
                         for each_item in get_user_inventory:
@@ -1434,7 +1455,7 @@ class Economy(commands.Cog):
         try:
             get_lumber_inventory = await self.db.economy_get_timber_user(str(member.id), sold_timber='NO', sold_leaf='NO')
             if len(get_lumber_inventory) > 0:
-                e = disnake.Embed(title="{}#{} Lumber/Leaf".format(member.name, member.discriminator), description="Economy", timestamp=datetime.utcnow())
+                e = disnake.Embed(title="{}#{} Lumber/Leaf".format(member.name, member.discriminator), description="Economy game in TipBot", timestamp=datetime.utcnow())
                 e.add_field(name="Timber / Leaf", value="{:,.2f}m3 / {:,.2f}kg".format(get_lumber_inventory['timber_vol'], get_lumber_inventory['leaf_kg']), inline=False)
                 e.set_footer(text=f"Requested by {ctx.author.name}#{ctx.author.discriminator}")
                 e.set_thumbnail(url=member.display_avatar)
@@ -1455,7 +1476,7 @@ class Economy(commands.Cog):
             get_userinfo = await self.db.economy_get_user(str(member.id), '{}#{}'.format(member.name, member.discriminator))
             get_fish_inventory_list = await self.db.economy_get_list_fish_caught(str(member.id), sold='NO', caught='YES')
             if len(get_fish_inventory_list) > 0:
-                e = disnake.Embed(title="{}#{} Fishes".format(member.name, member.discriminator), description="Economy", timestamp=datetime.utcnow())
+                e = disnake.Embed(title="{}#{} Fishes".format(member.name, member.discriminator), description="Economy game in TipBot", timestamp=datetime.utcnow())
                 fishes_lists = ""
                 for each_item in get_fish_inventory_list:
                     fishes_lists += each_item['fish_name'] + " " + each_item['fish_emoji'] + " x" +str(each_item['numbers']) + "={:,.2f}kg".format(each_item['Weights']) + "\n"
@@ -1481,7 +1502,7 @@ class Economy(commands.Cog):
         plant_list_names = [name['plant_name'].lower() for name in plant_list_arr]
 
         if plant_name and plant_name.upper() == "LIST":
-            e = disnake.Embed(title="Plant List", description="Economy", timestamp=datetime.utcnow())
+            e = disnake.Embed(title="Plant List", description="Economy game in TipBot", timestamp=datetime.utcnow())
             for each_crop in plant_list_arr:
                 e.add_field(name=each_crop['plant_name'] + " " + each_crop['plant_emoji'] + " Dur. : {}".format(seconds_str(each_crop['duration_harvest'])), value="Harvested: {} | Credit: {}".format(each_crop['number_of_item'], each_crop['credit_per_item']*each_crop['number_of_item']), inline=False)
             e.set_footer(text=f"Requested by {ctx.author.name}#{ctx.author.discriminator}")
@@ -1670,23 +1691,32 @@ class Economy(commands.Cog):
                 cow_emoji = "🐄"
                 # Get all item in farms
                 get_cows = await self.db.economy_dairy_cow_ownership(str(member.id))
+                cols = 6
+                # # 1: 6x6, 2: 6x7, 3: 7x7, 4: 7x8, 5: 8x8
+                if get_userinfo['dairy_farm_level'] in [5, 6]:
+                    cols = 8
+                elif get_userinfo['dairy_farm_level'] in [3, 4]:
+                    cols = 7
+                elif get_userinfo['dairy_farm_level'] in [1, 2]:
+                    cols = 6
+                fence_hs = "".join([fence_h]*cols)
                 if get_cows and len(get_cows) > 0:
                     cows_array_emoji = [cow_emoji]*len(get_cows)
-                    if len(cows_array_emoji) < config.economy.max_cow_per_user:
-                        cows_array_emoji = cows_array_emoji + [soil]*(config.economy.max_cow_per_user - len(cows_array_emoji))
+                    if len(cows_array_emoji) < self.eco_max_cow_level[str(get_userinfo['dairy_farm_level'])]:
+                        cows_array_emoji = cows_array_emoji + [soil]*(self.eco_max_cow_level[str(get_userinfo['dairy_farm_level'])] - len(cows_array_emoji))
                     i=1
                     for each_cow in cows_array_emoji:
-                        if (i-1) % 6 == 0:
+                        if (i-1) % cols == 0:
                             cattle += f"{fence_left}"
                             cattle += f"{each_cow}"
-                        elif i > 0 and i % 6 == 0:
+                        elif i > 0 and i % cols == 0:
                             cattle += f"{each_cow}"
                             cattle += f"{fence_right}\n"
                         else:
                             cattle += f"{each_cow}"
                         i += 1
-                    cattle = f"{fence_left}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_right}\n" + cattle
-                    cattle += f"{fence_left}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_right}\n"
+                    cattle = f"{fence_left}{fence_hs}{fence_right}\n" + cattle
+                    cattle += f"{fence_left}{fence_hs}{fence_right}\n"
                     for each_cow in get_cows:
                         if each_cow['possible_collect_date'] < int(time.time()):
                             if "{}".format(cow_emoji) not in can_collect:
@@ -1696,23 +1726,23 @@ class Economy(commands.Cog):
                         can_harvest_string = "\n".join(can_collect)
                 else:
                     # Empty cattle
-                    cows_array_emoji = [soil]*(config.economy.max_cow_per_user)
+                    cows_array_emoji = [soil]*self.eco_max_cow_level[str(get_userinfo['dairy_farm_level'])]
                     i=1
                     for each_cow in cows_array_emoji:
-                        if (i-1) % 6 == 0:
+                        if (i-1) % cols == 0:
                             cattle += f"{fence_left}"
                             cattle += f"{each_cow}"
-                        elif i > 0 and i % 6 == 0:
+                        elif i > 0 and i % cols == 0:
                             cattle += f"{each_cow}"
                             cattle += f"{fence_right}\n"
                         else:
                             cattle += f"{each_cow}"
                         i += 1
-                    cattle = f"{fence_left}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_right}\n" + cattle
-                    cattle += f"{fence_left}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_right}\n"
+                    cattle = f"{fence_left}{fence_hs}{fence_right}\n" + cattle
+                    cattle += f"{fence_left}{fence_hs}{fence_right}\n"
 
-                e = disnake.Embed(title="{}#{} Dairy Cattle".format(member.name, member.discriminator), description="Economy", timestamp=datetime.utcnow())
-                e.add_field(name="Dairy Cattle View", value=cattle, inline=False)
+                e = disnake.Embed(title="{}#{} Dairy Cattle".format(member.name, member.discriminator), description="Economy game in TipBot", timestamp=datetime.utcnow())
+                e.add_field(name="Dairy Farm View Level {}".format(get_userinfo['dairy_farm_level']), value=cattle, inline=False)
                 if total_can_collect > 0:
                     e.add_field(name="Can Collect: {}".format(total_can_collect), value=can_harvest_string, inline=False)
                 try:
@@ -1797,7 +1827,7 @@ class Economy(commands.Cog):
                     cattle = f"{fence_left}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_right}\n" + cattle
                     cattle += f"{fence_left}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_right}\n"
 
-                e = disnake.Embed(title="{}#{} Chicken Farm".format(member.name, member.discriminator), description="Economy", timestamp=datetime.utcnow())
+                e = disnake.Embed(title="{}#{} Chicken Farm".format(member.name, member.discriminator), description="Economy game in TipBot", timestamp=datetime.utcnow())
                 e.add_field(name="Chicken Farm View", value=cattle, inline=False)
                 if total_can_collect > 0:
                     e.add_field(name="Chicken Can Collect: {}".format(total_can_collect), value=can_harvest_string, inline=False)
@@ -1886,7 +1916,7 @@ class Economy(commands.Cog):
                     farm = f"{fence_left}{fence_hs}{fence_right}\n" + farm
                     farm += f"{fence_left}{fence_hs}{fence_right}\n"
 
-                e = disnake.Embed(title="{}#{} Farm".format(member.name, member.discriminator), description="Economy", timestamp=datetime.utcnow())
+                e = disnake.Embed(title="{}#{} Farm".format(member.name, member.discriminator), description="Economy game in TipBot", timestamp=datetime.utcnow())
                 e.add_field(name="Farm View Level {}".format(get_userinfo['farm_level']), value=farm, inline=False)
                 if total_can_harvest > 0:
                     e.add_field(name="Can Harvest: {}".format(total_can_harvest), value=can_harvest_string, inline=False)
@@ -2218,7 +2248,7 @@ class Economy(commands.Cog):
 
         # If a user ate a lot already for the last 12h
         user_eat_record = await self.db.economy_get_user_eating_list_record(str(ctx.author.id), 12*3600)
-        if user_eat_record and len(user_eat_record) > config.economy.max_user_eat:
+        if user_eat_record and len(user_eat_record) > self.max_user_eat:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you have eaten a lot already for the last 12h."
             await ctx.response.send_message(msg)
             return
@@ -2243,7 +2273,7 @@ class Economy(commands.Cog):
             if ctx.author.id not in self.bot.GAME_INTERACTIVE_ECO:
                 self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
                     # Add work if he needs to do
-                e = disnake.Embed(title="{}#{} Food list in guild: {}".format(ctx.author.name, ctx.author.discriminator, ctx.guild.name), description="Economy", timestamp=datetime.utcnow())
+                e = disnake.Embed(title="{}#{} Food list in guild: {}".format(ctx.author.name, ctx.author.discriminator, ctx.guild.name), description="Economy game in TipBot", timestamp=datetime.utcnow())
                 get_foodlist_guild = await self.db.economy_get_guild_foodlist(str(ctx.guild.id), False)
                 all_food_in_guild = {}
                 if get_foodlist_guild and len(get_foodlist_guild) > 0:
@@ -2304,7 +2334,7 @@ class Economy(commands.Cog):
                         claim = "CLAIM" # claim automatically
                 if get_last_act and get_last_act['status'] == 'COMPLETED' or get_last_act is None:
                     # Add work if he needs to do
-                    e = disnake.Embed(title="{}#{} Work list in guild: {}".format(ctx.author.name, ctx.author.discriminator, ctx.guild.name), description="Economy", timestamp=datetime.utcnow())
+                    e = disnake.Embed(title="{}#{} Work list in guild: {}".format(ctx.author.name, ctx.author.discriminator, ctx.guild.name), description="Economy game in TipBot", timestamp=datetime.utcnow())
                     get_worklist_guild = await self.db.economy_get_guild_worklist(str(ctx.guild.id), False)
                     all_work_in_guild = {}
                     if get_worklist_guild and len(get_worklist_guild) > 0:
@@ -2780,13 +2810,40 @@ class Economy(commands.Cog):
         if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
             self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
 
+    # Leaderboard
+    @eco.sub_command(
+        usage="eco leaderboard", 
+        description="Check players in leaderboard globally"
+    )
+    async def leaderboard(
+        self, 
+        ctx
+    ):
+        get_lb = await self.db.economy_leaderboard("exp", 20)
+        if len(get_lb) > 0:
+            embed = disnake.Embed(title="ECONOMY LEADERBOARD", description="Economy game in TipBot")
+            players = []
+            i = 0
+            for each_u in get_lb:
+                i += 1
+                players.append("{}] <@{}> Exp: {:,.0f}".format( i, each_u['user_id'], each_u['exp'] ))
+            embed.add_field(name="Top Players", value='{}'.format("\n".join(players)), inline=False)
+            embed.set_footer(text=f"Requested by {ctx.author.name}#{ctx.author.discriminator}")
+            await ctx.response.send_message(embed=embed)
+        else:
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, no record yet."
+            await ctx.response.send_message(msg)
+            return
+
+
     # Upgrade
     @eco.sub_command(
         usage="eco upgrade <farm|boat|..>", 
         options=[
             Option('item', 'item', OptionType.string, required=True, choices=[
                 OptionChoice("👨‍🌾 farm", "farm"),
-                OptionChoice("🚣 boat", "boat")
+                OptionChoice("🚣 boat", "boat"),
+                OptionChoice("🐮 dairy farm", "dairy_farm")
             ])
         ],
         description="Upgrade your existing asset."
@@ -2797,7 +2854,7 @@ class Economy(commands.Cog):
         item: str
     ):
         # Getting list
-        if item.lower() not in ["farm", "boat"]:
+        if item.lower() not in ["farm", "boat", "dairy_farm"]:
             return
         get_userinfo = await self.db.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
         cost = None
@@ -2814,12 +2871,23 @@ class Economy(commands.Cog):
                 await ctx.response.send_message(msg)
                 return
             cost = self.base_boat_cost*get_userinfo['boat_level']
+        elif item == "dairy_farm":
+            if get_userinfo['numb_dairy_cattle'] == 0:
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you do not have any dairy farm."
+                await ctx.response.send_message(msg)
+                return
+            cost = self.base_dairy_cost*get_userinfo['dairy_farm_level']
+
         if item == "farm" and get_userinfo['farm_level'] >= self.eco_max_farm_level:
             msg = f"{ctx.author.mention}, you already have maximum level of farm."
             await ctx.response.send_message(msg)
             return
         elif item == "boat" and get_userinfo['boat_level'] >= self.eco_max_boat_level:
             msg = f"{ctx.author.mention}, you already have maximum level of boat."
+            await ctx.response.send_message(msg)
+            return
+        elif item == "dairy_farm" and get_userinfo['dairy_farm_level'] >= self.eco_max_dairy_farm_level:
+            msg = f"{ctx.author.mention}, you already have maximum level of dairy farm."
             await ctx.response.send_message(msg)
             return
         # Check credit

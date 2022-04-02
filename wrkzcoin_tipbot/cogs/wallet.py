@@ -981,6 +981,10 @@ class Wallet(commands.Cog):
         # Donate
         self.donate_to = 386761001808166912 #pluton#8888
         
+        # avoid duplicated tx
+        self.notified_pending_tx = []
+        self.notified_tx = []
+
         # DB
         self.pool = None
 
@@ -1280,7 +1284,7 @@ class Wallet(commands.Cog):
     # Notify user
     @tasks.loop(seconds=15.0)
     async def notify_new_confirmed_spendable_erc20(self):
-        await asyncio.sleep(3.0)
+        await self.bot.wait_until_ready()
         try:
             notify_list = await store.sql_get_pending_notification_users_erc20(SERVER_BOT)
             if len(notify_list) > 0:
@@ -1302,7 +1306,7 @@ class Wallet(commands.Cog):
 
     @tasks.loop(seconds=15.0)
     async def notify_new_confirmed_spendable_trc20(self):
-        await asyncio.sleep(3.0)
+        await self.bot.wait_until_ready()
         try:
             notify_list = await store.sql_get_pending_notification_users_trc20(SERVER_BOT)
             if notify_list and len(notify_list) > 0:
@@ -1325,8 +1329,6 @@ class Wallet(commands.Cog):
     @tasks.loop(seconds=15.0)
     async def notify_new_tx_user(self):
         await self.bot.wait_until_ready()
-        await asyncio.sleep(3.0)
-
         pending_tx = await store.sql_get_new_tx_table('NO', 'NO')
         if len(pending_tx) > 0:
             # let's notify_new_tx_user
@@ -1346,9 +1348,13 @@ class Wallet(commands.Cog):
                                     if coin_family == "NANO":
                                         msg = "You got a new deposit: ```" + "Coin: {}\nAmount: {}".format(eachTx['coin_name'], num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False)) + "```"   
                                     elif coin_family != "BTC":
-                                        msg = "You got a new deposit confirmed: ```" + "Coin: {}\nTx: {}\nAmount: {}\nHeight: {:,.0f}".format(eachTx['coin_name'], eachTx['txid'], num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False), eachTx['height']) + "```"                         
+                                        if eachTx['txid'] in self.notified_tx: continue
+                                        msg = "You got a new deposit confirmed: ```" + "Coin: {}\nTx: {}\nAmount: {}\nHeight: {:,.0f}".format(eachTx['coin_name'], eachTx['txid'], num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False), eachTx['height']) + "```"
+                                        self.notified_tx.append(eachTx['txid'])
                                     else:
+                                        if eachTx['txid'] in self.notified_tx: continue
                                         msg = "You got a new deposit confirmed: ```" + "Coin: {}\nTx: {}\nAmount: {}\nBlock Hash: {}".format(eachTx['coin_name'], eachTx['txid'], num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False), eachTx['blockhash']) + "```"
+                                        self.notified_tx.append(eachTx['txid'])
                                     await user_found.send(msg)
                                 except (disnake.Forbidden, disnake.errors.Forbidden, disnake.errors.HTTPException) as e:
                                     is_notify_failed = True
@@ -1388,8 +1394,6 @@ class Wallet(commands.Cog):
     @tasks.loop(seconds=10.0)
     async def notify_new_tx_user_noconfirmation(self):
         await self.bot.wait_until_ready()
-        await asyncio.sleep(3.0)
-
         if config.notify_new_tx.enable_new_no_confirm == 1:
             key_tx_new = config.redis.prefix_new_tx + 'NOCONFIRM'
             key_tx_no_confirmed_sent = config.redis.prefix_new_tx + 'NOCONFIRM:SENT'
@@ -1412,6 +1416,7 @@ class Wallet(commands.Cog):
                                     traceback.print_exc(file=sys.stdout)
                                 if eachTx is None: continue
 
+                                if eachTx['txid'] in self.notified_pending_tx: continue
                                 COIN_NAME = eachTx['coin_name']
                                 coin_family = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
                                 if eachTx and coin_family in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR", "BTC", "CHIA"]:
@@ -1429,6 +1434,7 @@ class Wallet(commands.Cog):
                                                 else:
                                                     msg = "You got a new **pending** deposit: ```" + "Coin: {}\nTx: {}\nAmount: {}\nBlock Hash: {}\n{}".format(eachTx['coin_name'], eachTx['txid'], num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False), eachTx['blockhash'], confirmation_number_txt) + "```"
                                                 await user_found.send(msg)
+                                                self.notified_pending_tx.append(eachTx['txid'])
                                             except (disnake.Forbidden, disnake.errors.Forbidden, disnake.errors.HTTPException) as e:
                                                 pass
                                             # TODO:
@@ -1436,7 +1442,7 @@ class Wallet(commands.Cog):
                                         else:
                                             # try to find if it is guild
                                             guild_found = self.bot.get_guild(int(user_tx['user_id']))
-                                            if guild_found: user_found =self.bot.get_user(guild_found.owner.id)
+                                            if guild_found: user_found = self.bot.get_user(guild_found.owner.id)
                                             if guild_found and user_found:
                                                 try:
                                                     msg = None

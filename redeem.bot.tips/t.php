@@ -37,9 +37,9 @@ function post_discord ($titlename, $message) {
 
 
 function checkSecret_if_pending ($sec) {
-   //Connecting to Redis server on localhost 
-   $redis = new Redis(); 
-   $redis->connect('127.0.0.1', 6379); 
+   //Connecting to Redis server on localhost
+   $redis = new Redis();
+   $redis->connect('127.0.0.1', 6379);
 
    $get_pending = $redis->get($sec);
    if ($get_pending == "PENDING")
@@ -48,8 +48,8 @@ function checkSecret_if_pending ($sec) {
    }
    else
    {
-       //set the data in redis string 
-       $redis->set($sec, "PENDING", 120); // 120s to expire 
+       //set the data in redis string
+       $redis->set($sec, "PENDING", 120); // 120s to expire
        return FALSE;
    }
 }
@@ -66,13 +66,13 @@ function updateStatusClaim ($claimed_address, $tx_hash, $sec) {
     }
 }
 
-// Function to check string starting 
-// with given substring 
-function startsWith ($string, $startString) 
-{ 
-    $len = strlen($startString); 
-    return (substr($string, 0, $len) === $startString); 
-} 
+// Function to check string starting
+// with given substring
+function startsWith ($string, $startString)
+{
+    $len = strlen($startString);
+    return (substr($string, 0, $len) === $startString);
+}
 
 
 function validate_doge($address, $coin_name) {
@@ -213,7 +213,7 @@ function validate_address($address, $coin_name) {
         die("Internal error. Please report to us. Error code 1005. Failed validate address.");
     }
     curl_close ($ch);
-            
+
     if ($httpcode == 200) {
         return TRUE;
     } else {
@@ -223,7 +223,7 @@ function validate_address($address, $coin_name) {
 
 
 // Function for sending Coin
-function send_coin_xmr_fam($toAddr, $amount, $coin_name) {
+function send_coin_xmr_fam($toAddr, $amount, $coin_name, $coin_decimal) {
     global $configs;
     $ch = curl_init();
     if ($coin_name == 'GNTL' || $coin_name == 'WOW' || $coin_name == 'LTHN')
@@ -231,10 +231,11 @@ function send_coin_xmr_fam($toAddr, $amount, $coin_name) {
         $url =  $configs['walletrpc_'.strtolower($coin_name)];
     }
 
+    $atomic_amount = $amount*pow(10, $coin_decimal);
     curl_setopt($ch, CURLOPT_URL, $url);
     curl_setopt($ch, CURLOPT_TIMEOUT, 180); //timeout in seconds
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, "{\"jsonrpc\":\"2.0\",\"id\":\"0\",\"method\":\"transfer\",\"params\":{\"destinations\":[{\"amount\":".$amount.",\"address\":\"".$toAddr."\"}],\"account_index\":0,\"subaddr_indices\":[],\"priority\":1,\"unlock_time\":0,\"get_tx_key\": true}}");
+    curl_setopt($ch, CURLOPT_POSTFIELDS, "{\"jsonrpc\":\"2.0\",\"id\":\"0\",\"method\":\"transfer\",\"params\":{\"destinations\":[{\"amount\":".$atomic_amount.",\"address\":\"".$toAddr."\"}],\"account_index\":0,\"subaddr_indices\":[],\"priority\":1,\"unlock_time\":0,\"get_tx_key\": true}}");
     curl_setopt($ch, CURLOPT_POST, 1);
 
     $headers = array();
@@ -261,7 +262,7 @@ function send_coin_xmr_fam($toAddr, $amount, $coin_name) {
 }
 
 // Function for sending Coin
-function send_coin($toAddr, $amount, $coin_name) {
+function send_coin($toAddr, $amount, $coin_name, $coin_decimal) {
     global $configs;
     $ch = curl_init();
     $send_basic = '/transactions/send/basic';
@@ -271,10 +272,11 @@ function send_coin($toAddr, $amount, $coin_name) {
         $url =  $configs['walletrpc_'.strtolower($coin_name)];
     }
 
+    $atomic_amount = $amount*pow(10, $coin_decimal);
     curl_setopt($ch, CURLOPT_URL, $url . $send_basic);
     curl_setopt($ch, CURLOPT_TIMEOUT, 180); //timeout in seconds
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, "{\"destination\": \"".$toAddr."\", \"amount\":".$amount."}");
+    curl_setopt($ch, CURLOPT_POSTFIELDS, "{\"destination\": \"".$toAddr."\", \"amount\":".$atomic_amount."}");
     curl_setopt($ch, CURLOPT_POST, 1);
 
     $headers = array();
@@ -332,7 +334,7 @@ if (isset($sec)) {
         $already_claimed = 'YES';
         $coin_name = $voucher_data['coin_name'];
         $coin_pref = $coin_name;
-        $amount = $voucher_data['amount'] / $voucher_data['decimal'];
+        $amount = $voucher_data['amount'];
         $amount_str = number_format($amount, 4, '.', ',') . $voucher_data['coin_name'];
         $comment = $voucher_data['comment'];
     }
@@ -344,7 +346,7 @@ if (isset($sec)) {
     else
     {
         // Not yet claimed
-        $amount = $voucher_data['amount'] / $voucher_data['decimal'];
+        $amount = $voucher_data['amount'];
         $amount_str = number_format($amount, 4, '.', ',') . $voucher_data['coin_name'];
         $comment = $voucher_data['comment'];
         $coin_name = $voucher_data['coin_name'];
@@ -540,7 +542,7 @@ if (isset($_POST["submit"])) {
                             $post_to_discord = post_discord("TipBot-Voucher-".$coin_name, "A user has failed to claim ".$amount_str);
                         }
                     } elseif (strcmp($coin_name, 'GNTL') === 0 || strcmp($coin_name, 'WOW') === 0 || strcmp($coin_name, 'LTHN') === 0) {
-                        $sendPayment = send_coin_xmr_fam($address, $voucher_data['amount'], $coin_name);
+                        $sendPayment = send_coin_xmr_fam($address, $voucher_data['amount'], $coin_name, $voucher_data['decimal']);
                         if ($sendPayment) {
                             // Update to MySQL
                             try {
@@ -558,7 +560,7 @@ if (isset($_POST["submit"])) {
                             $post_to_discord = post_discord("TipBot-Voucher-".$coin_name, "A user has failed to claim ".$amount_str);
                         }
                     } else {
-                        $sendPayment = send_coin($address, $voucher_data['amount'], $coin_name);
+                        $sendPayment = send_coin($address, $voucher_data['amount'], $coin_name, $voucher_data['decimal']);
                         if ($sendPayment) {
                             // Update to MySQL
                             try {
@@ -585,7 +587,7 @@ if (isset($_POST["submit"])) {
 
 <?php
     $actual_link = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
-	$image_png = $voucher_data['voucher_image_name'];
+        $image_png = $voucher_data['voucher_image_name'];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -612,7 +614,7 @@ if (isset($_POST["submit"])) {
  .social {
      -webkit-transform: scale(0.8);
      /* Browser Variations: */
-     
+
      -moz-transform: scale(0.8);
      -o-transform: scale(0.8);
      -webkit-transition-duration: 0.5s;
@@ -623,7 +625,7 @@ if (isset($_POST["submit"])) {
 /*
     Multicoloured Hover Variations
 */
- 
+
  #social-fb:hover {
      color: #3B5998;
  }
@@ -675,7 +677,7 @@ if (isset($_POST["submit"])) {
                        <?php echo $result; ?>
                     </div>
                     <?php } ?>
-                </form> 
+                </form>
             </div>
         </div>
 <!-- Include Font Awesome Stylesheet in Header -->
@@ -684,7 +686,7 @@ if (isset($_POST["submit"])) {
         <div class="row">
             <div class="text-center center-block">
                <a href="https://chat.wrkz.work" target="_blank"><i class="fa fa-wechat -square fa-3x social"></i></a>
-               <a href="https://t.me/wrkzcoinchat" target="_blank"><i class="fa fa-telegram -square fa-3x social"></i></a> 
+               <a href="https://t.me/wrkzcoinchat" target="_blank"><i class="fa fa-telegram -square fa-3x social"></i></a>
                <a href="https://twitter.com/wrkzdev" target="_blank"><i class="fa fa-twitter-square fa-3x social"></i></a>
                <a href="https://github.com/wrkzcoin/TipBot" target="_blank"><i class="fa fa-github-square fa-3x social"></i></a>
         </div>
@@ -695,4 +697,3 @@ if (isset($_POST["submit"])) {
     <script src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.1/js/bootstrap.min.js"></script>
   </body>
 </html>
-

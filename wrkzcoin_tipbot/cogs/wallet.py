@@ -525,14 +525,15 @@ class WalletAPI(commands.Cog):
             if COIN_NAME in ["PGO"]:
                 payload = f'"{to_address}", {amount}, "{comment}", "{comment_to}"'
             txHash = await self.call_doge('sendtoaddress', COIN_NAME, payload=payload)
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
-                async with conn.cursor() as cur:
-                    sql = """ INSERT INTO doge_external_tx (`coin_name`, `user_id`, `amount`, `tx_fee`, `withdraw_fee`, `to_address`, `date`, `tx_hash`, `user_server`) 
-                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                    await cur.execute(sql, (COIN_NAME, user_from, amount, tx_fee, withdraw_fee, to_address, int(time.time()), txHash, user_server))
-                    await conn.commit()
-                    return txHash
+            if txHash is not None:
+                await self.openConnection()
+                async with self.pool.acquire() as conn:
+                    async with conn.cursor() as cur:
+                        sql = """ INSERT INTO doge_external_tx (`coin_name`, `user_id`, `amount`, `tx_fee`, `withdraw_fee`, `to_address`, `date`, `tx_hash`, `user_server`) 
+                                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                        await cur.execute(sql, (COIN_NAME, user_from, amount, tx_fee, withdraw_fee, to_address, int(time.time()), txHash, user_server))
+                        await conn.commit()
+                        return txHash
         except Exception as e:
             await logchanbot(traceback.format_exc())
         return False

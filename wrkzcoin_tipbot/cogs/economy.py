@@ -2274,10 +2274,12 @@ class Economy(commands.Cog):
                 await ctx.response.send_message(msg)
                 return
             try:
+                claim = None
                 get_last_act = await self.db.economy_get_last_activities(str(ctx.author.id), False)
-                remaining = get_last_act['started'] + get_last_act['duration_in_second'] - int(time.time())
-                if remaining < 0:
-                    claim = "CLAIM" # claim automatically
+                if get_last_act is not None:
+                    remaining = get_last_act['started'] + get_last_act['duration_in_second'] - int(time.time())
+                    if remaining < 0:
+                        claim = "CLAIM" # claim automatically
                 if get_last_act and get_last_act['status'] == 'COMPLETED' or get_last_act is None:
                     # Add work if he needs to do
                     e = disnake.Embed(title="{}#{} Work list in guild: {}".format(ctx.author.name, ctx.author.discriminator, ctx.guild.name), description="Economy [Testing]", timestamp=datetime.utcnow())
@@ -2406,11 +2408,7 @@ class Economy(commands.Cog):
                             return
                     else:
                         remaining = get_last_act['started'] + get_last_act['duration_in_second'] - int(time.time())
-                        additional_claim_msg = ""
-                        if remaining < 0:
-                            remaining = 0
-                            additional_claim_msg = "You shall claim it now!"
-                        msg =  f"{EMOJI_ERROR} {ctx.author.mention}, sorry, you are still busy with other activity. Remaining time `{seconds_str(remaining)}`. {additional_claim_msg}"
+                        msg =  f"{EMOJI_ERROR} {ctx.author.mention}, sorry, you are still busy with other activity. Remaining time `{seconds_str(remaining)}`."
                         await ctx.response.send_message(msg)
                         return
             except:
@@ -2741,24 +2739,17 @@ class Economy(commands.Cog):
 
 
     @eco.sub_command(
-        usage="eco work [claim]", 
-        options=[
-            Option('claim', 'claim', OptionType.string, required=False, choices=[
-                OptionChoice("CLAIM", "CLAIM")
-            ]
-            )
-        ],
+        usage="eco work", 
         description="Work for more experience and thing."
     )
     async def work(
         self, 
-        ctx,
-        claim: str=None
+        ctx
     ):
         if ctx.author.id not in self.bot.GAME_INTERACTIVE_ECO:
             self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
         try:
-            eco_work = await self.eco_work(ctx, claim)
+            eco_work = await self.eco_work(ctx)
             if eco_work and "error" in eco_work:
                 await ctx.response.send_message(eco_work['error'], ephemeral=False)
         except Exception as e:

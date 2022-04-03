@@ -534,7 +534,7 @@ class database_economy():
             await logchanbot(traceback.format_exc())
         return []
 
-    async def economy_insert_fishing_multiple(self, list_fishes, total_energy_loss: float, total_exp: float, user_id: str):
+    async def economy_insert_fishing_multiple(self, list_fish, total_energy_loss: float, total_exp: float, user_id: str):
         try:
             await self.openConnection()
             async with self.pool.acquire() as conn:
@@ -543,17 +543,17 @@ class database_economy():
                                `exp_gained`, `energy_loss`, `caught`, `date`, `sellable`) 
                               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
                     fishing_arr = []
-                    for each_fish in list_fishes:
+                    for each_fish in list_fish:
                         fishing_arr.append((each_fish['id'], each_fish['user_id'], each_fish['guild_id'], each_fish['fish_strength'], each_fish['fish_weight'], each_fish['exp_gained'], each_fish['energy_loss'], each_fish['caught'], int(time.time()), 'YES'))
                     await cur.executemany(sql, fishing_arr)
 
                     ## add experience and engery loss
                     sql = """ UPDATE discord_economy_userinfo SET `energy_current`=`energy_current`-%s, `fishing_exp`=`fishing_exp`+%s,`fishing_bait`=`fishing_bait`-%s WHERE `user_id`=%s LIMIT 1 """
-                    await cur.execute(sql, (total_energy_loss, total_exp, len(list_fishes), user_id,))
+                    await cur.execute(sql, (total_energy_loss, total_exp, len(list_fish), user_id,))
                     # add fish found
                     sql = """ UPDATE discord_economy_fish_items SET `found_times`=`found_times`+1 WHERE `id`=%s LIMIT 1 """
                     fishing_id_arr = []
-                    for each_fish in list_fishes:
+                    for each_fish in list_fish:
                         fishing_id_arr.append((each_fish['id']))
                     await cur.executemany(sql, fishing_id_arr)
                     await conn.commit()
@@ -581,7 +581,7 @@ class database_economy():
         return []
 
 
-    async def economy_sell_fishes(self, fish_id: int, user_id: str, guild_id: str, total_weight: float, total_credit: float):
+    async def economy_sell_fish(self, fish_id: int, user_id: str, guild_id: str, total_weight: float, total_credit: float):
         try:
             await self.openConnection()
             async with self.pool.acquire() as conn:
@@ -592,7 +592,7 @@ class database_economy():
                     ## add user credit
                     sql = """ UPDATE discord_economy_userinfo SET `credit`=`credit`+%s WHERE `user_id`=%s LIMIT 1 """
                     await cur.execute(sql, (total_credit, user_id,))
-                    # update selected fishes to sold
+                    # update selected fish to sold
                     sql = """ UPDATE discord_economy_fishing SET `sold`=%s, `sold_date`=%s WHERE `fish_id`=%s AND `user_id`=%s AND `sold`=%s AND `sellable`=%s """
                     await cur.execute(sql, ('YES', int(time.time()), fish_id, user_id, 'NO', 'YES'))
                     await conn.commit()
@@ -602,6 +602,34 @@ class database_economy():
             await logchanbot(traceback.format_exc())
         return None
 
+    async def economy_sell_fish_mutiple(self, fish_ids, user_id: str, guild_id: str):
+        try:
+            timestamp = int(time.time())
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ INSERT INTO discord_economy_fish_sold (`fish_id`, `user_id`, `guild_id`, `total_weight`, `total_credit`, `date`) 
+                              VALUES (%s, %s, %s, %s, %s, %s) """
+                    fish_sold = []
+                    fishing_sold = []
+                    total_credit = 0.0
+                    for each_fish in fish_ids:
+                        fish_sold.append(( each_fish['fish_id'], user_id, guild_id, each_fish['total_weight'], each_fish['total_credit'], timestamp ))
+                        fishing_sold.append(( 'YES', timestamp, each_fish['fish_id'], user_id, 'NO', 'YES' ))
+                        total_credit += each_fish['total_credit']
+                    await cur.executemany(sql, fish_sold)
+                    ## add user credit
+                    sql = """ UPDATE discord_economy_userinfo SET `credit`=`credit`+%s WHERE `user_id`=%s LIMIT 1 """
+                    await cur.execute(sql, ( total_credit, user_id ))
+                    # update selected fish to sold
+                    sql = """ UPDATE discord_economy_fishing SET `sold`=%s, `sold_date`=%s WHERE `fish_id`=%s AND `user_id`=%s AND `sold`=%s AND `sellable`=%s """
+                    await cur.executemany(sql, fishing_sold)
+                    await conn.commit()
+                    return True
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return None
 
     async def economy_insert_planting(self, user_id: str, guild_id: str, exp_gained: float, energy_loss: float):
         try:
@@ -1181,45 +1209,86 @@ class Economy(commands.Cog):
             get_user_harvested_crops = await self.db.economy_farm_user_planting_group_harvested(str(ctx.author.id))
             get_fish_inventory_list_arr = [each_item['fish_name'].upper() for each_item in get_fish_inventory_list]
             get_user_harvested_crops_arr = [each_item['plant_name'].upper() for each_item in get_user_harvested_crops]
-            if item_name.strip().upper() in get_fish_inventory_list_arr:
-                # Selling Fishes
+            if item_name.strip().upper() == "ALL FISH" and len(get_fish_inventory_list) > 0:
+                await ctx.response.send_message(f"{ctx.author.mention}, checking your fish...")
+                selected_fish = []
+                sold_list = []
+                weight = 0.0
+                credit = 0.0
+                for each_item in get_fish_inventory_list:
+                    total_earn = int(float(each_item['Weights']) * float(each_item['credit_per_kg']) * market_factored)
+                    get_userinfo['credit'] += total_earn
+                    selected_fish.append({'fish_id': each_item['fish_id'], 'total_weight': float(each_item['Weights']), 'total_credit': total_earn})
+                    sold_list.append("{:,.2f}kg of {} for {} Credit(s) ({:,.2f} Credit per kg)".format( float(each_item['Weights']), each_item['fish_name'], total_earn, float(each_item['credit_per_kg']) * market_factored ))
+                    weight += float(each_item['Weights'])
+                    credit += total_earn
+                selling_fish = await self.db.economy_sell_fish_mutiple(selected_fish, str(ctx.author.id), str(ctx.guild.id))
+                if selling_fish:
+                    if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                        self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+                    msg = "{}You sold\n```{}\nTotal: {:,.2f}kg and Credit: {:,.2f}```Your credit now is: `{:,.2f}`.".format(extra_bonus, "\n".join(sold_list), weight, credit, get_userinfo['credit'])
+                    await ctx.followup.send(msg)
+                    return
+                else:
+                    if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                        self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+                    msg = f"{ctx.author.mention}, internal error."
+                    await ctx.response.send_message(msg)
+                    return
+            elif item_name.strip().upper() == "ALL FISH" and len(get_fish_inventory_list) == 0:
+                msg = f"{ctx.author.mention}, you do not have any fish to sell."
+                await ctx.response.send_message(msg)
+                return
+            elif item_name.strip().upper() in get_fish_inventory_list_arr:
+                # Selling Fish
                 if len(get_fish_inventory_list) > 0:
-                    selected_fishes = None
+                    selected_fish = None
                     for each_item in get_fish_inventory_list:
                         if item_name.strip().upper() == each_item['fish_name'].upper() or item_name.strip() == each_item['fish_emoji']:
-                            selected_fishes = each_item
+                            selected_fish = each_item
                             break
-                    if selected_fishes is None:
+                    if selected_fish is None:
                         if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
                             self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-                        return  {"error": f"{ctx.author.mention} You do not have `{item_name}` to sell."}
+                        msg = f"{ctx.author.mention}, you do not have `{item_name}` to sell."
+                        await ctx.response.send_message(msg)
+                        return
                     else:
                         # Have that item to sell
-                        if selected_fishes['Weights'] < selected_fishes['minimum_sell_kg']:
+                        if selected_fish['Weights'] < selected_fish['minimum_sell_kg']:
                             if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
                                 self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-                            return  {"error": "{} You do not have sufficient {} to sell. Minimum {:,.2f}kg, having {:,.2f}kg.".format(ctx.author.mention, item_name, selected_fishes['minimum_sell_kg'], selected_fishes['Weights'])}
+                            msg = "{} You do not have sufficient {} to sell. Minimum {:,.2f}kg, having {:,.2f}kg.".format(ctx.author.mention, item_name, selected_fish['minimum_sell_kg'], selected_fish['Weights'])
+                            await ctx.response.send_message(msg)
+                            return
                         else:
                             # Enough to sell. Update credit, and mark fish as sold
                             # We round credit earning
                             if ctx.author.id not in self.bot.GAME_INTERACTIVE_ECO:
                                 self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
-                            total_earn = int(float(selected_fishes['Weights']) * float(selected_fishes['credit_per_kg']) * market_factored)
-                            total_weight = float(selected_fishes['Weights'])
+                            total_earn = int(float(selected_fish['Weights']) * float(selected_fish['credit_per_kg']) * market_factored)
+                            total_weight = float(selected_fish['Weights'])
                             get_userinfo['credit'] += total_earn
-                            selling_fishes = await self.db.economy_sell_fishes(selected_fishes['fish_id'], str(ctx.author.id), str(ctx.guild.id), total_weight, total_earn)
-                            if selling_fishes:
+                            
+                            selling_fish = await self.db.economy_sell_fish(selected_fish['fish_id'], str(ctx.author.id), str(ctx.guild.id), total_weight, total_earn)
+                            if selling_fish:
                                 if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
                                     self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-                                return  {"result": "{}You sold {:,.2f}kg of {} for `{}` Credit(s) (`{:,.2f} Credit per kg`). Your credit now is: `{:,.2f}`.".format(extra_bonus, total_weight, item_name, total_earn, float(selected_fishes['credit_per_kg']) * market_factored, get_userinfo['credit']), "market_factored": market_factored}
+                                msg = "{}You sold {:,.2f}kg of {} for `{}` Credit(s) (`{:,.2f} Credit per kg`). Your credit now is: `{:,.2f}`.".format(extra_bonus, total_weight, item_name, total_earn, float(selected_fish['credit_per_kg']) * market_factored, get_userinfo['credit'])
+                                await ctx.response.send_message(msg)
+                                return
                             else:
                                 if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
                                     self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-                                return {"error": f"{ctx.author.mention} Internal error."}
+                                msg = f"{ctx.author.mention}, internal error."
+                                await ctx.response.send_message(msg)
+                                return
                 else:
                     if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
                         self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-                    return {"error": f"{ctx.author.name}#{ctx.author.discriminator}, You do not have any fish to sell. Do fishing!"}
+                    msg = f"{ctx.author.name}#{ctx.author.discriminator}, You do not have any fish to sell. Do fishing!"
+                    await ctx.response.send_message(msg)
+                    return
             elif item_name.strip().upper() in get_user_harvested_crops_arr:
                 # Selling vegetable in farm
                 if len(get_user_harvested_crops) > 0:
@@ -1231,7 +1300,8 @@ class Economy(commands.Cog):
                     if selected_item is None:
                         if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
                             self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-                        return {"error": f"{ctx.author.mention} You do not have `{item_name}` to sell."}
+                        msg = f"{ctx.author.mention}, you do not have `{item_name}` to sell."
+                        await ctx.response.send_message(msg)
                     else:
                         # No minimum to sell
                         # Enough to sell. Update credit, and mark fish as sold
@@ -1245,15 +1315,19 @@ class Economy(commands.Cog):
                         if selling_item:
                             if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
                                 self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-                            return  {"result": "{}You sold {:,.0f} of {} for `{}` Credit(s) (`{:,.2f} Credit per one`). Your credit now is: `{:,.2f}`.".format(extra_bonus, selected_item['total_products'], item_name, total_earn, float(selected_item['credit_per_item']) * market_factored, get_userinfo['credit']), "market_factored": market_factored}
+                            msg = "{}You sold {:,.0f} of {} for `{}` Credit(s) (`{:,.2f} Credit per one`). Your credit now is: `{:,.2f}`.".format(extra_bonus, selected_item['total_products'], item_name, total_earn, float(selected_item['credit_per_item']) * market_factored, get_userinfo['credit'])
+                            await ctx.response.send_message(msg)
                         else:
                             if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
                                 self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-                            return {"error": f"{ctx.author.mention} Internal error."}
+                            msg = f"{ctx.author.mention} Internal error."
+                            await ctx.response.send_message(msg)
                 else:
                     if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
                         self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-                    return {"error": f"{ctx.author.name}#{ctx.author.discriminator}, You do not have any vegetable or fruit to sell. Plant and harvest!"}
+                    msg = f"{ctx.author.name}#{ctx.author.discriminator}, You do not have any vegetable or fruit to sell. Plant and harvest!"
+                    await ctx.response.send_message(msg)
+                return
             elif item_name.strip().upper() == "MILK":
                 # Selling milk
                 try:
@@ -1273,15 +1347,21 @@ class Economy(commands.Cog):
                                 get_userinfo['credit'] = float(get_userinfo['credit']) + float(credit_sell)
                                 if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
                                     self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-                                return {"result": "{}You sold {:,.2f} liter(s) of milk for `{:,.2f}` Credit(s). Your credit now is: `{:,.2f}`.".format(extra_bonus, qty_raw_milk, credit_sell, get_userinfo['credit']), "market_factored": market_factored}
+                                msg = "{}You sold {:,.2f} liter(s) of milk for `{:,.2f}` Credit(s). Your credit now is: `{:,.2f}`.".format(extra_bonus, qty_raw_milk, credit_sell, get_userinfo['credit'])
+                                await ctx.response.send_message(msg)
+                                return
                         else:
                             if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
                                 self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-                            return {"error": f"{ctx.author.name}#{ctx.author.discriminator}, You do not have milk to sell!!"}
+                            msg = f"{ctx.author.name}#{ctx.author.discriminator}, You do not have milk to sell!!"
+                            await ctx.response.send_message(msg)
+                            return
                     else:
                         if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
                             self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-                        return {"error": f"{ctx.author.name}#{ctx.author.discriminator}, You do not have milk to sell!"}
+                        msg = f"{ctx.author.name}#{ctx.author.discriminator}, You do not have milk to sell!"
+                        await ctx.response.send_message(msg)
+                        return
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
@@ -1304,26 +1384,33 @@ class Economy(commands.Cog):
                                 get_userinfo['credit'] = float(get_userinfo['credit']) + float(credit_sell)
                                 if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
                                     self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-                                return {"result": "{}You sold {:,.0f} chicken egg(s) for `{:,.2f}` Credit(s). Your credit now is: `{:,.2f}`.".format(extra_bonus, qty_eggs, credit_sell, get_userinfo['credit']), "market_factored": market_factored}
+                                msg = "{}You sold {:,.0f} chicken egg(s) for `{:,.2f}` Credit(s). Your credit now is: `{:,.2f}`.".format(extra_bonus, qty_eggs, credit_sell, get_userinfo['credit'])
+                                await ctx.response.send_message(msg)
+                                return
                         else:
                             if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
                                 self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-                            return {"error": f"{ctx.author.name}#{ctx.author.discriminator}, You do not have chicken egg(s) to sell!!"}
+                            msg = f"{ctx.author.name}#{ctx.author.discriminator}, You do not have chicken egg(s) to sell!!"
+                            await ctx.response.send_message(msg)
+                            return
                     else:
                         if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
                             self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-                        return {"error": f"{ctx.author.name}#{ctx.author.discriminator}, You do not have chicken egg(s) to sell!"}
+                        msg = f"{ctx.author.name}#{ctx.author.discriminator}, You do not have chicken egg(s) to sell!"
+                        await ctx.response.send_message(msg)
+                        return
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
             else:
-                return {"error": f"{ctx.author.name}#{ctx.author.discriminator}, not valid to sell `{item_name}` or you do not have it!"}
+                msg = f"{ctx.author.name}#{ctx.author.discriminator}, not valid to sell `{item_name}` or you do not have it!"
+                await ctx.response.send_message(msg)
+                return
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
             self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-        return
 
 
     async def eco_info(self, ctx, member):
@@ -1476,12 +1563,12 @@ class Economy(commands.Cog):
             get_userinfo = await self.db.economy_get_user(str(member.id), '{}#{}'.format(member.name, member.discriminator))
             get_fish_inventory_list = await self.db.economy_get_list_fish_caught(str(member.id), sold='NO', caught='YES')
             if len(get_fish_inventory_list) > 0:
-                e = disnake.Embed(title="{}#{} Fishes".format(member.name, member.discriminator), description="Economy game in TipBot", timestamp=datetime.utcnow())
-                fishes_lists = ""
+                e = disnake.Embed(title="{}#{} Fish".format(member.name, member.discriminator), description="Economy game in TipBot", timestamp=datetime.utcnow())
+                fish_lists = ""
                 for each_item in get_fish_inventory_list:
-                    fishes_lists += each_item['fish_name'] + " " + each_item['fish_emoji'] + " x" +str(each_item['numbers']) + "={:,.2f}kg".format(each_item['Weights']) + "\n"
+                    fish_lists += each_item['fish_name'] + " " + each_item['fish_emoji'] + " x" +str(each_item['numbers']) + "={:,.2f}kg".format(each_item['Weights']) + "\n"
                 total_weight = sum(each_item['Weights'] for each_item in get_fish_inventory_list)
-                e.add_field(name="Fishes {:,.2f}kg / {:,.2f}kg".format(total_weight, self.eco_fishing_storage[str(get_userinfo['boat_level'])]), value=fishes_lists, inline=False)
+                e.add_field(name="Fish {:,.2f}kg / {:,.2f}kg".format(total_weight, self.eco_fishing_storage[str(get_userinfo['boat_level'])]), value=fish_lists, inline=False)
                 e.set_footer(text=f"Requested by {ctx.author.name}#{ctx.author.discriminator}")
                 e.set_thumbnail(url=member.display_avatar)
                 msg = await ctx.response.send_message(embed=e)
@@ -1564,7 +1651,7 @@ class Economy(commands.Cog):
                 energy_loss = exp_gained * 2
                 insert_item = await self.db.economy_insert_planting(str(ctx.author.id), str(ctx.guild.id), exp_gained, energy_loss)
                 if insert_item:
-                    msg = await ctx.response.send_message(f'{EMOJI_INFORMATION} {ctx.author.mention} Nice! You have planted a tree. You gained `{str(exp_gained)}` planting experience and spent `{str(energy_loss)}` energy.')
+                    msg = await ctx.response.send_message(f'{EMOJI_INFORMATION} {ctx.author.mention} Nice! You have planted a tree. You gained `{str(exp_gained)}` planting experience and used `{str(energy_loss)}` energy.')
             else:
                 # Not tree and not max, let's plant
                 # Using tractor, loss same energy but gain more experience
@@ -1581,7 +1668,7 @@ class Economy(commands.Cog):
                                                                    selected_crop['duration_harvest']+int(time.time()), selected_crop['number_of_item'],
                                                                    selected_crop['credit_per_item'], exp_gained, energy_loss, will_plant)
                 if insert_item:
-                    msg = await ctx.response.send_message(f'{with_tractor}{EMOJI_INFORMATION} {ctx.author.mention} Nice! You have planted `{will_plant}` {crop_name} in your farm. You gained `{str(exp_gained*will_plant)}` planting experience and spent `{str(energy_loss)}` energy. You have {str(check_planting_nos+will_plant)} crop(s) in your farm now.')
+                    msg = await ctx.response.send_message(f'{with_tractor}{EMOJI_INFORMATION} {ctx.author.mention} Nice! You have planted `{will_plant}` {crop_name} in your farm. You gained `{str(exp_gained*will_plant)}` planting experience and used `{str(energy_loss)}` energy. You have {str(check_planting_nos+will_plant)} crop(s) in your farm now.')
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
@@ -1999,7 +2086,7 @@ class Economy(commands.Cog):
             await ctx.response.send_message(msg)
             return
 
-        # If he has to much fishes
+        # If he has to much fish
         try:
             get_fish_inventory_list = await self.db.economy_get_list_fish_caught(str(ctx.author.id), sold='NO', caught='YES')
             if len(get_fish_inventory_list) > 0:
@@ -2102,10 +2189,10 @@ class Economy(commands.Cog):
                             total_weight += each_fish['fish_weight']
                     item_info = "\n".join(item_info_list)
                     item_info_with_weight = item_info + "\nTotal: {:.2f}kg".format(total_weight)
-                    await ctx.response.send_message(f'{with_boat}{EMOJI_INFORMATION} {ctx.author.mention} Nice! You have caught `{numb_caught}` fish(es): ```{item_info_with_weight}```You spent `{will_fishing}` bait(s). You gained `{str(total_exp)}` fishing experience and spent `{str(total_energy_loss)}` energy.')
+                    await ctx.response.send_message(f'{with_boat}{EMOJI_INFORMATION} {ctx.author.mention} Nice! You have caught `{numb_caught}` fish: ```{item_info_with_weight}```You used `{will_fishing}` bait(s). You gained `{str(total_exp)}` fishing experience and used `{str(total_energy_loss)}` energy.')
                 else:
                     # Not caught
-                    await ctx.response.send_message(f'{EMOJI_INFORMATION} {ctx.author.mention}, you didn’t catch anything. Better luck next time! You spent `{str(total_energy_loss)}` energy!')
+                    await ctx.response.send_message(f'{EMOJI_INFORMATION} {ctx.author.mention}, you didn’t catch anything. Better luck next time! You used `{str(total_energy_loss)}` energy!')
             else:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, there is no fish."
                 await ctx.response.send_message(msg)
@@ -2162,7 +2249,7 @@ class Economy(commands.Cog):
                 insert_woodcut = await self.db.economy_insert_woodcutting(str(ctx.author.id), str(ctx.guild.id), timber_volume, leaf_kg, energy_loss)
                 if insert_woodcut:
                     await ctx.response.send_message(f'{EMOJI_INFORMATION} {ctx.author.mention} You cut a tree. You got `{timber_volume}m3` of timber, '
-                                    f'`{leaf_kg}kg` of leaves. You spent `{energy_loss}` energy.')
+                                    f'`{leaf_kg}kg` of leaves. You used `{energy_loss}` energy.')
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot(traceback.format_exc())
@@ -2206,7 +2293,6 @@ class Economy(commands.Cog):
 
         try:
             # Get list of items:
-            await asyncio.sleep(0.1)
             if random.randint(1,100) < config.economy.luck_search:
                 # You get luck
                 try:
@@ -2546,11 +2632,7 @@ class Economy(commands.Cog):
         ctx, 
         item_name: str
     ):
-        eco_sell = await self.eco_sell(ctx, item_name)
-        if eco_sell and "error" in eco_sell:
-            await ctx.response.send_message(eco_sell['error'], ephemeral=False)
-        elif eco_sell and "result" in eco_sell:
-            await ctx.response.send_message(eco_sell['result'], ephemeral=False)
+        await self.eco_sell(ctx, item_name)
 
 
     @eco.sub_command(
@@ -2603,7 +2685,7 @@ class Economy(commands.Cog):
         options=[
             Option('member', 'member', OptionType.user, required=False)
         ],
-        description="Show fishes of a member."
+        description="Show fish of a member."
     )
     async def fish(
         self, 

@@ -1974,7 +1974,8 @@ class Guild(commands.Cog):
             get_last_claim = await self.get_faucet_claim_user_guild( str(ctx.author.id), str(ctx.guild.id), SERVER_BOT )
             if get_last_claim is not None and int(time.time()) - get_last_claim['date'] < duration:
                 last_duration = seconds_str( int(time.time()) - get_last_claim['date'] )
-                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you just claimed in this guild `{ctx.guild.name}` last {last_duration} ago."
+                waiting_time = seconds_str( duration - int(time.time()) + get_last_claim['date'] )
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you just claimed in this guild `{ctx.guild.name}` last {last_duration} ago. Waiting time {waiting_time}."
                 await ctx.response.send_message(msg)
                 return
             else:

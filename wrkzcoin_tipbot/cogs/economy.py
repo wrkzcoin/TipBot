@@ -997,6 +997,22 @@ class database_economy():
             await logchanbot(traceback.format_exc())
         return None
 
+
+    async def economy_upgrade_worker(self, what, level_inc: int, credit_cost: float, add_energy: int, user_id: str):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ UPDATE discord_economy_userinfo SET `"""+what+"""`=`"""+what+"""`+%s, `credit`=`credit`-%s, `energy_total`=`energy_total`+%s WHERE `user_id`=%s LIMIT 1 """
+                    await cur.execute(sql, ( level_inc, credit_cost, add_energy, user_id ))
+                    await conn.commit()
+                    return True
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return None
+
+
     async def economy_leaderboard(self, option: str="exp", number: int=20):
         try:
             await self.openConnection()
@@ -1045,6 +1061,12 @@ class Economy(commands.Cog):
         self.max_tractor_can_plant = 9
         # eat
         self.max_user_eat = 50
+        
+        # energy based on worker's level, need to have farm, boat, chicken farm and dairy to upgrade
+        self.eco_engery_cap = {"1": 100, "2": 250, "3": 500, "4": 750, "5": 1000} # maximum engery based on worker level
+        self.eco_max_worker_level = 2
+        self.base_worker_cost = 2000000
+
 
     async def bot_log(self):
         if self.botLogChan is None:
@@ -1432,8 +1454,8 @@ class Economy(commands.Cog):
                 if get_inventory_from_backpack and 'numbers' in get_inventory_from_backpack:
                     get_userinfo['gem_credit'] += get_inventory_from_backpack['numbers']
                 embed = disnake.Embed(title="{}#{} - Credit {:,.2f}{}/ Gem: {:,.0f}{}".format(member.name, member.discriminator, get_userinfo['credit'], '💵', get_userinfo['gem_credit'], '💎'), description="Economy game in TipBot")
-                embed.add_field(name="Health: {0:.2f}%".format(get_userinfo['health_current']/get_userinfo['health_total']*100), value='```{}```'.format(createBox(get_userinfo['health_current'], get_userinfo['health_total'], 20)), inline=False)
-                embed.add_field(name="Energy: {0:.2f}%".format(get_userinfo['energy_current']/get_userinfo['energy_total']*100), value='```{}```'.format(createBox(get_userinfo['energy_current'], get_userinfo['energy_total'], 20)), inline=False)
+                embed.add_field(name="Health: {}{}".format("{0:.2f}".format(float(get_userinfo['health_current'])/float(get_userinfo['health_total'])*100), "%"), value='```{}```'.format(createBox(get_userinfo['health_current'], get_userinfo['health_total'], 20)), inline=False)
+                embed.add_field(name="Energy: {}{} [Max. {}]".format("{0:.2f}".format(float(get_userinfo['energy_current'])/float(get_userinfo['energy_total'])*100), "%", get_userinfo['energy_total']), value='```{}```'.format(createBox(get_userinfo['energy_current'], get_userinfo['energy_total'], 20)), inline=False)
                 if get_userinfo['exp'] > 0:
                     level = int((get_userinfo['exp']-10)**0.5) + 1
                     next_level_exp = level**2 + 10
@@ -2925,7 +2947,8 @@ class Economy(commands.Cog):
             Option('item', 'item', OptionType.string, required=True, choices=[
                 OptionChoice("👨‍🌾 farm", "farm"),
                 OptionChoice("🚣 boat", "boat"),
-                OptionChoice("🐮 dairy farm", "dairy_farm")
+                OptionChoice("🐮 dairy farm", "dairy_farm"),
+                OptionChoice("👷🏿 worker", "worker")
             ])
         ],
         description="Upgrade your existing asset."
@@ -2936,7 +2959,7 @@ class Economy(commands.Cog):
         item: str
     ):
         # Getting list
-        if item.lower() not in ["farm", "boat", "dairy_farm"]:
+        if item.lower() not in ["farm", "boat", "dairy_farm", "worker"]:
             return
         get_userinfo = await self.db.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
         cost = None
@@ -2959,6 +2982,12 @@ class Economy(commands.Cog):
                 await ctx.response.send_message(msg)
                 return
             cost = self.base_dairy_cost*get_userinfo['dairy_farm_level']
+        elif item == "worker":
+            if get_userinfo['numb_farm'] == 0 or get_userinfo['numb_dairy_cattle'] == 0 or get_userinfo['numb_boat'] == 0 or get_userinfo['numb_chicken_farm'] == 0:
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you need to own a farm, a dairy cattle, a boat and a chicken farm."
+                await ctx.response.send_message(msg)
+                return
+            cost = self.base_worker_cost*get_userinfo['worker_level']
 
         if item == "farm" and get_userinfo['farm_level'] >= self.eco_max_farm_level:
             msg = f"{ctx.author.mention}, you already have maximum level of farm."
@@ -2972,6 +3001,11 @@ class Economy(commands.Cog):
             msg = f"{ctx.author.mention}, you already have maximum level of dairy farm."
             await ctx.response.send_message(msg)
             return
+        elif item == "worker" and get_userinfo['worker_level'] >= self.eco_max_worker_level:
+            msg = f"{ctx.author.mention}, you already have maximum level of worker."
+            await ctx.response.send_message(msg)
+            return
+
         # Check credit
         if get_userinfo['credit'] < cost:
             user_credit = "{:,.2f}".format(get_userinfo['credit'])
@@ -2980,8 +3014,15 @@ class Economy(commands.Cog):
             await ctx.response.send_message(msg)
             return
         else:
+            # async def economy_upgrade_worker(self, what, level_inc: int, credit_cost: float, add_energy: int, user_id: str):
             # let him upgrade
-            upgrade = await self.db.economy_upgrade(field, 1, cost, str(ctx.author.id))
+            upgrade = None
+            if item == "worker":
+                current_level = get_userinfo['worker_level']
+                add_energy = self.eco_engery_cap[str(current_level+1)] - get_userinfo['energy_total']
+                upgrade = await self.db.economy_upgrade_worker(field, 1, cost, add_energy, str(ctx.author.id))
+            else:
+                upgrade = await self.db.economy_upgrade(field, 1, cost, str(ctx.author.id))
             if upgrade:
                 msg = f"{ctx.author.mention}, sucessfully upgrade `{item}`."
                 await ctx.response.send_message(msg)

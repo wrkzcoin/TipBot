@@ -5,6 +5,9 @@ from disnake.ext import commands
 from decimal import Decimal
 from datetime import datetime
 
+import aiomysql
+from aiomysql.cursors import DictCursor
+
 from disnake.enums import OptionType
 from disnake.app_commands import Option, OptionChoice
 
@@ -27,12 +30,34 @@ class Trade(commands.Cog):
         self.botLogChan = None
         self.enable_logchan = True
         redis_utils.openRedis()
+        # DB
+        self.pool = None
 
+    async def openConnection(self):
+        try:
+            if self.pool is None:
+                self.pool = await aiomysql.create_pool(host=config.mysql.host, port=3306, minsize=2, maxsize=4, 
+                                                       user=config.mysql.user, password=config.mysql.password,
+                                                       db=config.mysql.db, cursorclass=DictCursor, autocommit=True)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
 
     async def bot_log(self):
         if self.botLogChan is None:
             self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
 
+    async def sql_get_markets_by_coin(self, status: str):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT DISTINCT `coin_sell`, `coin_get` FROM `open_order` WHERE `status`=%s """
+                    await cur.execute(sql, ( status ))
+                    result = await cur.fetchall()
+                    return result
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return []
 
     async def get_open_orders(
         self,
@@ -942,6 +967,29 @@ class Trade(commands.Cog):
         else:
             await ctx.response.send_message(f'{ctx.author.mention}, please check again later. I got none now.')
 
+
+    @market.sub_command(
+        usage="market listpairs", 
+        description="List opened or traded pairs"
+    )
+    async def listpairs(
+        self, 
+        ctx
+    ):
+        await self.bot_log()
+        get_pairs = await self.sql_get_markets_by_coin('OPEN')
+        
+        if len(get_pairs) > 0:
+            trade_pairs = []
+            for each in get_pairs:
+                trade_pairs.append("{}-{}".format(each['coin_sell'], each['coin_get']))
+            coin_pairs = ", ".join(trade_pairs)
+            if len(trade_pairs) > 0:
+                await ctx.response.send_message(f'{ctx.author.mention}, list of available opened pairs:```{coin_pairs}```')
+            else:
+                await ctx.response.send_message(f'{ctx.author.mention}, please check again later. I got none now.')
+        else:
+            await ctx.response.send_message(f'{ctx.author.mention}, please check again later. I got none now.')
 
 def setup(bot):
     bot.add_cog(Trade(bot))

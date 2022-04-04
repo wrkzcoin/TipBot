@@ -2052,7 +2052,7 @@ class Guild(commands.Cog):
                     try:
                         tip = await store.sql_user_balance_mv_single(str(ctx.guild.id), str(ctx.author.id), str(ctx.guild.id), str(ctx.channel.id), amount, COIN_NAME, 'GUILDFAUCET', coin_decimal, SERVER_BOT, contract, amount_in_usd)
                         if tip:
-                            msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention} got a faucet of **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}**{equivalent_usd} from `{ctx.guild.name}`.'
+                            msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention} got a faucet of **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}**{equivalent_usd} from `{ctx.guild.name}`. Other reward command `/take` and `/claim`. Invite me to your guild? Click on my name and "Add to Server".'
                             await ctx.response.send_message(msg)
                             await logchanbot(f'[Discord] User {ctx.author.name}#{ctx.author.discriminator} claimed guild /faucet {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME} in guild {ctx.guild.name}/{ctx.guild.id}.')
                     except Exception as e:

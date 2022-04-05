@@ -3574,6 +3574,37 @@ class Wallet(commands.Cog):
         claim_interval = config.faucet.interval
         half_claim_interval = int(config.faucet.interval / 2)
 
+        serverinfo = None
+        extra_take_text = ""
+        try: 
+            # check if bot channel is set:
+            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            if serverinfo and serverinfo['botchan'] and ctx.channel.id != int(serverinfo['botchan']):
+                try:
+                    botChan = self.bot.get_channel(int(serverinfo['botchan']))
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} is the bot channel!!!'
+                    await ctx.followup.send(msg)
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                # add penalty:
+                try:
+                    faucet_penalty = await store.sql_faucet_penalty_checkuser(str(ctx.author.id), True, SERVER_BOT)
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                return
+            if serverinfo and serverinfo['enable_faucet'] == "NO":
+                if self.enable_logchan:
+                    await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried **take** in {ctx.guild.name} / {ctx.guild.id} which is disable.')
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, **Faucet** in this guild is disable."
+                await ctx.followup.send(msg)
+                return
+            elif serverinfo and serverinfo['enable_faucet'] == "YES" and serverinfo['faucet_channel'] is not None and serverinfo['faucet_coin'] is not None:
+                extra_take_text = " Additional reward, you can also do /faucet in <#{}> which funded by the guild.".format(serverinfo['faucet_channel'])
+                
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        # end of bot channel check
+
         # check user claim:
         try:
             if info is None:
@@ -3583,7 +3614,7 @@ class Wallet(commands.Cog):
                         time_waiting = seconds_str(claim_interval*3600 - int(time.time()) + check_claimed['claimed_at'])
                         user_claims = await store.sql_faucet_count_user(str(ctx.author.id))
                         number_user_claimed = '{:,.0f}'.format(user_claims)
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention} You just claimed within last {claim_interval}h. Waiting time {time_waiting} for next **take**. Total user claims: **{total_claimed}** times. You have claimed: **{number_user_claimed}** time(s). Tip me if you want to feed these faucets. Use /claim to vote TipBot and get reward.'
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention} You just claimed within last {claim_interval}h. Waiting time {time_waiting} for next **take**. Total user claims: **{total_claimed}** times. You have claimed: **{number_user_claimed}** time(s). Tip me if you want to feed these faucets. Use /claim to vote TipBot and get reward.{extra_take_text}'
                         if type(ctx) == disnake.ApplicationCommandInteraction:
                             await ctx.followup.send(msg)
                         else:
@@ -3616,7 +3647,7 @@ class Wallet(commands.Cog):
         try:
             account_created = ctx.author.created_at
             if (datetime.utcnow().astimezone() - account_created).total_seconds() <= config.faucet.account_age_to_claim:
-                msg = f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using /take. Alternatively, vote for TipBot to get reward `/claim`."
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using /take. Alternatively, vote for TipBot to get reward `/claim`.{extra_take_text}"
                 if type(ctx) == disnake.ApplicationCommandInteraction:
                     await ctx.followup.send(msg)
                 else:
@@ -3624,38 +3655,6 @@ class Wallet(commands.Cog):
                 return
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-
-        try: 
-            # check if bot channel is set:
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
-            if serverinfo and serverinfo['botchan'] and ctx.channel.id != int(serverinfo['botchan']):
-                try:
-                    botChan = self.bot.get_channel(int(serverinfo['botchan']))
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} is the bot channel!!!'
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.followup.send(msg)
-                    else:
-                        await ctx.reply(msg)
-                except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
-                # add penalty:
-                try:
-                    faucet_penalty = await store.sql_faucet_penalty_checkuser(str(ctx.author.id), True, SERVER_BOT)
-                except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
-                return
-            if serverinfo and serverinfo['enable_faucet'] == "NO":
-                if self.enable_logchan:
-                    await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried **take** in {ctx.guild.name} / {ctx.guild.id} which is disable.')
-                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, **Faucet** in this guild is disable."
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.followup.send(msg)
-                else:
-                    await ctx.reply(msg)
-                return
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-        # end of bot channel check
 
         try:
             # check penalty:
@@ -3664,7 +3663,7 @@ class Wallet(commands.Cog):
                 if faucet_penalty and not info:
                     if half_claim_interval*3600 - int(time.time()) + int(faucet_penalty['penalty_at']) > 0:
                         time_waiting = seconds_str(half_claim_interval*3600 - int(time.time()) + int(faucet_penalty['penalty_at']))
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention} You claimed in a wrong channel within last {str(half_claim_interval)}h. Waiting time {time_waiting} for next **take** and be sure to be the right channel set by the guild. Use /claim to vote TipBot and get reward.'
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention} You claimed in a wrong channel within last {str(half_claim_interval)}h. Waiting time {time_waiting} for next **take** and be sure to be the right channel set by the guild. Use /claim to vote TipBot and get reward.{extra_take_text}'
                         if type(ctx) == disnake.ApplicationCommandInteraction:
                             await ctx.followup.send(msg)
                         else:
@@ -3756,7 +3755,7 @@ class Wallet(commands.Cog):
                 tip = await store.sql_user_balance_mv_single(str(self.bot.user.id), str(ctx.author.id), str(ctx.guild.id), str(ctx.channel.id), amount, COIN_NAME, "FAUCET", coin_decimal, SERVER_BOT, contract, amount_in_usd)
                 try:
                     faucet_add = await store.sql_faucet_add(str(ctx.author.id), str(ctx.guild.id), COIN_NAME, amount, coin_decimal, SERVER_BOT)
-                    msg = f'{EMOJI_MONEYFACE} {ctx.author.mention} You got a random faucet {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}. Use /claim to vote TipBot and get reward.'
+                    msg = f'{EMOJI_MONEYFACE} {ctx.author.mention} You got a random faucet {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}. Use /claim to vote TipBot and get reward.{extra_take_text}'
                     if type(ctx) == disnake.ApplicationCommandInteraction:
                         await ctx.followup.send(msg)
                     else:

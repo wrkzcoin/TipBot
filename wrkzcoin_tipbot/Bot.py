@@ -350,40 +350,50 @@ def num_format_coin(amount, coin: str, coin_decimal: int, atomic: bool=False):
         return "0.0"
 
     if atomic == True:
-        coin_decimal = int(10**coin_decimal)
-        amount = amount / coin_decimal
-    amount_str = 'Invalid.'
-    if coin_decimal == 0:
-        amount_test = '{:,f}'.format(float(('%f' % amount).rstrip('0').rstrip('.')))
-        if '.' in amount_test and len(amount_test.split('.')[1]) > 6:
-            amount_str = '{:,.6f}'.format(amount)
+        amount = amount / int(10**coin_decimal)
+        amount_str = 'Invalid.'
+        if coin_decimal == 0:
+            amount_test = '{:,f}'.format(float(('%f' % amount).rstrip('0').rstrip('.')))
+            if '.' in amount_test and len(amount_test.split('.')[1]) > 6:
+                amount_str = '{:,.6f}'.format(amount)
+            else:
+                amount_str = amount_test
+        elif coin_decimal < 4:
+            amount = truncate(amount, 2)
+            amount_str = '{:,.2f}'.format(amount)
+        elif coin_decimal < 6:
+            amount = truncate(amount, 6)
+            amount_test = '{:,f}'.format(float(('%f' % amount).rstrip('0').rstrip('.')))
+            if '.' in amount_test and len(amount_test.split('.')[1]) > 5:
+                amount_str = '{:,.6f}'.format(amount)
+            else:
+                amount_str = amount_test
+        elif coin_decimal < 18:
+            amount = truncate(amount, 8)
+            amount_test = '{:,f}'.format(float(('%f' % (amount)).rstrip('0').rstrip('.')))
+            if '.' in amount_test and len(amount_test.split('.')[1]) > 5:
+                amount_str = '{:,.8f}'.format(amount)
+            else:
+                amount_str = amount_test
         else:
-            amount_str = amount_test
-    elif coin_decimal < 4:
-        amount = truncate(amount, 2)
-        amount_str = '{:,.2f}'.format(amount)
-    elif coin_decimal < 6:
-        amount = truncate(amount, 6)
-        amount_test = '{:,f}'.format(float(('%f' % amount).rstrip('0').rstrip('.')))
-        if '.' in amount_test and len(amount_test.split('.')[1]) > 5:
-            amount_str = '{:,.6f}'.format(amount)
-        else:
-            amount_str = amount_test
-    elif coin_decimal < 18:
-        amount = truncate(amount, 8)
-        amount_test = '{:,f}'.format(float(('%f' % (amount)).rstrip('0').rstrip('.')))
-        if '.' in amount_test and len(amount_test.split('.')[1]) > 5:
-            amount_str = '{:,.8f}'.format(amount)
-        else:
-            amount_str = amount_test
+            # > 10**18
+            amount = truncate(amount, 8)
+            amount_test = '{:,f}'.format(float(('%f' % (amount)).rstrip('0').rstrip('.')))
+            if '.' in amount_test and len(amount_test.split('.')[1]) > 8:
+                amount_str = '{:,.8f}'.format(amount)
+            else:
+                amount_str =  amount_test
     else:
-        # > 10**18
-        amount = truncate(amount, 8)
-        amount_test = '{:,f}'.format(float(('%f' % (amount)).rstrip('0').rstrip('.')))
-        if '.' in amount_test and len(amount_test.split('.')[1]) > 8:
+        if amount < 0.00000001:
+            amount_str = '{:,.10f}'.format(amount)
+        elif amount < 0.000001:
             amount_str = '{:,.8f}'.format(amount)
+        elif amount < 0.0001:
+            amount_str = '{:,.6f}'.format(amount)
+        elif amount < 0.01:
+            amount_str = '{:,.4f}'.format(amount)
         else:
-            amount_str =  amount_test
+            amount_str = '{:,.2f}'.format(amount)
     return amount_str.rstrip('0').rstrip('.') if '.' in amount_str else amount_str 
 
 

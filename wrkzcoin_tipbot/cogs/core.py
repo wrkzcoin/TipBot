@@ -209,6 +209,10 @@ class Core(commands.Cog):
             "guildtip": {
                 "usage": "/guildtip <amount> <coin> @mention @role | last 10u | last 10mn",
                 "desc": "Tip discord users from guild's balance."
+            },
+            "coinlist": {
+                "usage": "/coinlist",
+                "desc": "List all coins/tokens within TipBot."
             }
         }
         if cmd is None:

@@ -1757,8 +1757,7 @@ class Wallet(commands.Cog):
                         redis_utils.redis_conn.set(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}', str(height))
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
-                        print("sleep 5s")
-                        await asyncio.sleep(5.0)
+                        await asyncio.sleep(1.0)
                         continue
 
                     get_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
@@ -1766,6 +1765,8 @@ class Wallet(commands.Cog):
                     get_min_deposit_amount = int(getattr(getattr(self.bot.coin_list, COIN_NAME), "real_min_deposit") * 10**coin_decimal)
 
                     payload = '"*", 100, 0'
+                    if COIN_NAME in ["PGO"]:
+                        payload = '"*", 200, 0'
                     get_transfers = await self.WalletAPI.call_doge('listtransactions', COIN_NAME, payload=payload)
                     if get_transfers and len(get_transfers) >= 1:
                         try:
@@ -1791,13 +1792,13 @@ class Wallet(commands.Cog):
                                                 if tx['txid'] not in d:
                                                     if COIN_NAME in ["PGO"]:
                                                         # generate from mining
-                                                        if tx['category'] == 'receive' and 'generated' in tx and tx['generated'] == False:
+                                                        if tx['category'] == 'receive' and 'generated' not in tx:
                                                             sql = """ INSERT IGNORE INTO `doge_get_transfers` (`coin_name`, `txid`, `blockhash`, `address`, `blocktime`, `amount`, `fee`, `confirmations`, `category`, `time_insert`) 
                                                                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
                                                             await cur.execute(sql, (COIN_NAME, tx['txid'], tx['blockhash'], tx['address'], tx['blocktime'], float(tx['amount']), float(tx['fee']) if 'fee' in tx else None, tx['confirmations'], tx['category'], int(time.time())))
                                                             await conn.commit()
                                                             # Notify Tx
-                                                        if (tx['amount'] > 0) and tx['category'] == 'receive' and 'generated' in tx and tx['generated'] == False:
+                                                        if (tx['amount'] > 0) and tx['category'] == 'receive' and 'generated' not in tx:
                                                             sql = """ INSERT IGNORE INTO `discord_notify_new_tx` (`coin_name`, `txid`, `payment_id`, `blockhash`, `amount`, `fee`, `decimal`) 
                                                                       VALUES (%s, %s, %s, %s, %s, %s, %s) """
                                                             await cur.execute(sql, (COIN_NAME, tx['txid'], tx['address'], tx['blockhash'], float(tx['amount']), float(tx['fee']) if 'fee' in tx else None, coin_decimal))

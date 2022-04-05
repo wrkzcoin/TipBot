@@ -1916,17 +1916,8 @@ class Guild(commands.Cog):
                     await ctx.reply(msg)
             return
 
-    @commands.bot_has_permissions(send_messages=True)
-    @commands.guild_only()
-    @guild.sub_command(
-        usage="guild info", 
-        description="Get information about a guild."
-    )
-    async def info(
-        self,
-        ctx
-    ):
-        await self.bot_log()
+
+    async def async_guild_info(self, ctx):
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo is None:
             # Let's add some info if server return None
@@ -1949,14 +1940,31 @@ class Guild(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         if serverinfo['tiponly'] is not None:
             embed.add_field(name="Allowed Coins (Tip)", value="{}".format(serverinfo['tiponly']), inline=True)
-        if serverinfo['faucet_channel'] == "YES" and serverinfo['faucet_channel']:
+        if serverinfo['enable_faucet'] == "YES" and serverinfo['faucet_channel']:
             embed.add_field(name="Faucet Channel", value="<#{}>".format(serverinfo['faucet_channel']), inline=True)
         if serverinfo['botchan']:
             embed.add_field(name="Bot Channel", value="<#{}>".format(serverinfo['botchan']), inline=True)
-        if serverinfo['economy_channel']:
+        if serverinfo['economy_channel'] and serverinfo['enable_economy'] == "YES":
             embed.add_field(name="Economy Channel", value="<#{}>".format(serverinfo['economy_channel']), inline=True)
         embed.set_footer(text=f"Requested by {ctx.author.name}#{ctx.author.discriminator}")
         await ctx.response.send_message(embed=embed)
+
+    @commands.bot_has_permissions(send_messages=True)
+    @commands.guild_only()
+    @guild.sub_command(
+        usage="guild info", 
+        description="Get information about a guild."
+    )
+    async def info(
+        self,
+        ctx
+    ):
+        await self.async_guild_info(ctx)
+
+    @commands.guild_only()
+    @commands.user_command(name="GuildInfo")  # optional
+    async def guild_info(self, ctx: disnake.ApplicationCommandInteraction):
+        await self.async_guild_info(ctx)
 
 
     @commands.bot_has_permissions(send_messages=True)

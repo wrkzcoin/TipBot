@@ -192,7 +192,7 @@ class Price(commands.Cog):
                 else:
                     per_unit_str = "{:.8f}".format(per_unit)
                 coin_price.append("{} {} = {} {}".format(1, each_coin, per_unit_str, "USD"))
-            embed = disnake.Embed(title="PRICE CHECK", description='```{}```'.format(", ".join(token_list)), timestamp=datetime.datetime.utcnow())
+            embed = disnake.Embed(title="PRICE CHECK", description='```{}```'.format(", ".join(token_list)), timestamp=datetime.datetime.now())
             embed.add_field(name="Price List", value="```{}```".format("\n".join(coin_price)), inline=False)
             if len(invalid_token_list) > 0:
                 invalid_token_list = list(set(invalid_token_list))

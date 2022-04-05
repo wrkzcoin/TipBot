@@ -2587,7 +2587,7 @@ class Wallet(commands.Cog):
                 description = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_note")
             if getattr(getattr(self.bot.coin_list, COIN_NAME), "real_deposit_fee") and getattr(getattr(self.bot.coin_list, COIN_NAME), "real_deposit_fee") > 0:
                 fee_txt = " **{} {}** will be deducted from your deposit when it reaches minimum.".format(getattr(getattr(self.bot.coin_list, COIN_NAME), "real_deposit_fee"), token_display)
-            embed = disnake.Embed(title=f'Deposit for {ctx.author.name}#{ctx.author.discriminator}', description=description + fee_txt, timestamp=datetime.utcnow())
+            embed = disnake.Embed(title=f'Deposit for {ctx.author.name}#{ctx.author.discriminator}', description=description + fee_txt, timestamp=datetime.fromtimestamp(int(time.time())))
             embed.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
             try:
                 gen_qr_address = await self.generate_qr_address(wallet_address)
@@ -2688,7 +2688,7 @@ class Wallet(commands.Cog):
 
             description = ""
             token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
-            embed = disnake.Embed(title=f'Balance for {ctx.author.name}#{ctx.author.discriminator}', timestamp=datetime.utcnow())
+            embed = disnake.Embed(title=f'Balance for {ctx.author.name}#{ctx.author.discriminator}', timestamp=datetime.fromtimestamp(int(time.time())))
             embed.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
             try:
                 # height can be None
@@ -2780,7 +2780,7 @@ class Wallet(commands.Cog):
             page = disnake.Embed(title='[ YOUR BALANCE LIST ]',
                                   description="Thank you for using TipBot!",
                                   color=disnake.Color.blue(),
-                                  timestamp=datetime.utcnow(), )
+                                  timestamp=datetime.fromtimestamp(int(time.time())), )
             page.add_field(name="Coin/Tokens: [{}]".format(len(all_names)), 
                            value="```"+", ".join(all_names)+"```", inline=False)
             if len(unknown_tokens) > 0:
@@ -2831,7 +2831,7 @@ class Wallet(commands.Cog):
                     page = disnake.Embed(title='[ YOUR BALANCE LIST ]',
                                          description="Thank you for using TipBot!",
                                          color=disnake.Color.blue(),
-                                         timestamp=datetime.utcnow(), )
+                                         timestamp=datetime.fromtimestamp(int(time.time())), )
                     page.set_thumbnail(url=ctx.author.display_avatar)
                     page.set_footer(text="Use the reactions to flip pages.")
                 # height can be None
@@ -2870,7 +2870,7 @@ class Wallet(commands.Cog):
                         page = disnake.Embed(title='[ YOUR BALANCE LIST ]',
                                              description="Thank you for using TipBot!",
                                              color=disnake.Color.blue(),
-                                             timestamp=datetime.utcnow(), )
+                                             timestamp=datetime.fromtimestamp(int(time.time())), )
                         page.set_thumbnail(url=ctx.author.display_avatar)
                         page.set_footer(text="Use the reactions to flip pages.")
                     else:
@@ -2892,7 +2892,7 @@ class Wallet(commands.Cog):
             page = disnake.Embed(title='[ YOUR BALANCE LIST ]',
                                   description=f"`{total_all_balance_usd}`",
                                   color=disnake.Color.blue(),
-                                  timestamp=datetime.utcnow(), )
+                                  timestamp=datetime.fromtimestamp(int(time.time())), )
             # Remove zero from all_names
             if has_none_balance == True:
                 msg = f'{ctx.author.mention}, you do not have any balance.'
@@ -3369,7 +3369,7 @@ class Wallet(commands.Cog):
                 list_coin_sets[each['reward_for']].append({each['coin_name']: each['reward_amount']})
         list_coins_str = ", ".join(list_coin_names)
         if token is None:
-            embed = disnake.Embed(title=f'Faucet Claim{title_text}', description=f"```1] Set your reward coin claim with any of this {list_coins_str} with command /claim token_name\n\n2] Vote for TipBot in below links.\n\n```", timestamp=datetime.utcnow())
+            embed = disnake.Embed(title=f'Faucet Claim{title_text}', description=f"```1] Set your reward coin claim with any of this {list_coins_str} with command /claim token_name\n\n2] Vote for TipBot in below links.\n\n```", timestamp=datetime.fromtimestamp(int(time.time())))
             
             for key in ["topgg", "discordbotlist"]:
                 reward_list = []

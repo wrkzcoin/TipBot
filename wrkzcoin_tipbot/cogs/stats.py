@@ -21,7 +21,7 @@ class Stats(commands.Cog):
 
 
     async def async_stats(self, ctx, coin: str=None):
-        embed = disnake.Embed(title='STATS', description='Nothing much', timestamp=datetime.utcnow())
+        embed = disnake.Embed(title='STATS', description='Nothing much', timestamp=datetime.now())
         embed.add_field(name='Bot ID:', value=str(self.bot.user.id), inline=False)
         if coin:
             COIN_NAME = coin.upper()

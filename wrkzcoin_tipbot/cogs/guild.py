@@ -428,7 +428,7 @@ class Guild(commands.Cog):
                                     won_amounts.append(float(total_reward) * self.raffle_pot_fee)
                                     # channel_id = RAFFLE
                                     update_status = await self.raffle_update_id(each_raffle['id'], 'COMPLETED', COIN_NAME, list_winners, won_amounts, list_losers, float(each_raffle['amount']), coin_decimal, unit_price_usd, contract, each_raffle['guild_id'], "RAFFLE")
-                                    embed = disnake.Embed(title = "RAFFLE #{} / {}".format(each_raffle['id'], each_raffle['guild_name']), timestamp=datetime.utcnow())
+                                    embed = disnake.Embed(title = "RAFFLE #{} / {}".format(each_raffle['id'], each_raffle['guild_name']), timestamp=datetime.fromtimestamp(int(time.time())))
                                     embed.add_field(name="ENTRY FEE", value="{} {}".format(num_format_coin(each_raffle['amount'], COIN_NAME, coin_decimal, False), COIN_NAME), inline=True)
                                     embed.add_field(name="1st WINNER: {}".format(winner_1_name), value="{} {}".format(num_format_coin(won_amounts[0], COIN_NAME, coin_decimal, False), COIN_NAME), inline=False)
                                     embed.add_field(name="2nd WINNER: {}".format(winner_2_name), value="{} {}".format(num_format_coin(won_amounts[1], COIN_NAME, coin_decimal, False), COIN_NAME), inline=False)
@@ -994,7 +994,7 @@ class Guild(commands.Cog):
                 embed = disnake.Embed(title = "RAFFLE #{} / {}".format(get_raffle['id'], ctx.guild.name), timestamp=ending_ts)
                 embed.add_field(name="ENTRY FEE", value="{} {}".format(num_format_coin(get_raffle['amount'], COIN_NAME, coin_decimal, False), COIN_NAME), inline=True)
                 create_ts = datetime.utcfromtimestamp(int(get_raffle['created_ts'])).strftime("%Y-%m-%d %H:%M:%S")
-                create_ts_ago = str(timeago.format(create_ts, datetime.utcnow()))
+                create_ts_ago = str(timeago.format(create_ts, datetime.fromtimestamp(int(time.time()))))
                 embed.add_field(name="CREATED", value=create_ts_ago, inline=True)
                 if list_raffle_id and list_raffle_id['entries']:
                     embed.add_field(name="PARTICIPANTS", value=len(list_raffle_id['entries']), inline=True)
@@ -1231,7 +1231,7 @@ class Guild(commands.Cog):
                     page = disnake.Embed(title=f'[ GUILD **{ctx.guild.name.upper()}** BALANCE LIST ]',
                                          description=f"`{total_all_balance_usd}`",
                                          color=disnake.Color.red(),
-                                         timestamp=datetime.utcnow(), )
+                                         timestamp=datetime.fromtimestamp(int(time.time())), )
                     page.set_thumbnail(url=ctx.author.display_avatar)
                     page.set_footer(text="Use the reactions to flip pages.")
                 page.add_field(name="{}{}".format(k, coin_balance_equivalent_usd[k]), value="```{}```".format(v), inline=True)
@@ -1242,7 +1242,7 @@ class Guild(commands.Cog):
                         page = disnake.Embed(title=f'[ GUILD **{ctx.guild.name.upper()}** BALANCE LIST ]',
                                              description=f"`{total_all_balance_usd}`",
                                              color=disnake.Color.red(),
-                                             timestamp=datetime.utcnow(), )
+                                             timestamp=datetime.fromtimestamp(int(time.time())), )
                         page.set_thumbnail(url=ctx.author.display_avatar)
                         page.set_footer(text="Use the reactions to flip pages.")
                     else:
@@ -1737,7 +1737,7 @@ class Guild(commands.Cog):
                 description = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_note")
             if getattr(getattr(self.bot.coin_list, COIN_NAME), "real_deposit_fee") and getattr(getattr(self.bot.coin_list, COIN_NAME), "real_deposit_fee") > 0:
                 fee_txt = " **{} {}** will be deducted from your deposit when it reaches minimum. ".format(getattr(getattr(self.bot.coin_list, COIN_NAME), "real_deposit_fee"), token_display)
-            embed = disnake.Embed(title=f'Deposit for guild {ctx.guild.name}', description=description + fee_txt + guild_note, timestamp=datetime.utcnow())
+            embed = disnake.Embed(title=f'Deposit for guild {ctx.guild.name}', description=description + fee_txt + guild_note, timestamp=datetime.fromtimestamp(int(time.time())))
             embed.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
             try:
                 gen_qr_address = await Guild_WalletAPI.generate_qr_address(wallet_address)
@@ -1915,6 +1915,48 @@ class Guild(commands.Cog):
                 else:
                     await ctx.reply(msg)
             return
+
+    @commands.bot_has_permissions(send_messages=True)
+    @commands.guild_only()
+    @guild.sub_command(
+        usage="guild info", 
+        description="Get information about a guild."
+    )
+    async def info(
+        self,
+        ctx
+    ):
+        await self.bot_log()
+        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        if serverinfo is None:
+            # Let's add some info if server return None
+            add_server_info = await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
+            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+
+        embed = disnake.Embed(title = "Guild {} / {}".format(ctx.guild.name, ctx.guild.id), timestamp=datetime.now())
+        try:
+            owner_id = ctx.guild.owner.id
+            total_number = ctx.guild.member_count
+            total_roles = len(ctx.guild.roles)
+            nos_text_channel = len(ctx.guild.text_channels)
+            nos_categories = len(ctx.guild.categories)
+            num_online = len([member for member in ctx.guild.members if member.bot == False and member.status != disnake.Status.offline])
+            num_bot = len([member for member in ctx.guild.members if member.bot == True])
+            m_statistics = "Owner: <@{}>\n```Total Members: {}\nOnline: {}\nBots: {}\nRoles: {}\nCategories: {}\nText Channels: {}```".format(owner_id, total_number, num_online, num_bot, total_roles, nos_categories, nos_text_channel)
+            embed.add_field(name="Statistics", value=m_statistics, inline=False)
+            embed.set_thumbnail(url=str(ctx.guild.icon))
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        if serverinfo['tiponly'] is not None:
+            embed.add_field(name="Allowed Coins (Tip)", value="{}".format(serverinfo['tiponly']), inline=True)
+        if serverinfo['faucet_channel'] == "YES" and serverinfo['faucet_channel']:
+            embed.add_field(name="Faucet Channel", value="<#{}>".format(serverinfo['faucet_channel']), inline=True)
+        if serverinfo['botchan']:
+            embed.add_field(name="Bot Channel", value="<#{}>".format(serverinfo['botchan']), inline=True)
+        if serverinfo['economy_channel']:
+            embed.add_field(name="Economy Channel", value="<#{}>".format(serverinfo['economy_channel']), inline=True)
+        embed.set_footer(text=f"Requested by {ctx.author.name}#{ctx.author.discriminator}")
+        await ctx.response.send_message(embed=embed)
 
 
     @commands.bot_has_permissions(send_messages=True)

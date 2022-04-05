@@ -1412,7 +1412,7 @@ class Sokoban_Buttons(disnake.ui.View):
 
             if levelIsSolved == True:
                 display_level = self.displayLevel(self.currentLevel)
-                embed = disnake.Embed(title=f'SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}', description=f'{display_level}', timestamp=datetime.utcnow())
+                embed = disnake.Embed(title=f'SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}', description=f'{display_level}', timestamp=datetime.now())
                 embed.add_field(name="LEVEL", value=f'{self.level}')
                 embed.add_field(name="OTHER LINKS", value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(config.discord.invite_link, config.discord.support_server_link, config.discord.github_link), inline=False)
                 
@@ -1443,7 +1443,7 @@ class Sokoban_Buttons(disnake.ui.View):
                 await self.message.reply(content=f'**Level {self.level} completed. You have spent time: **{duration}**\n{result}', view=None)
             else:
                 display_level = self.displayLevel(self.currentLevel)
-                embed = disnake.Embed(title=f'SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}', description=f'{display_level}', timestamp=datetime.utcnow())
+                embed = disnake.Embed(title=f'SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}', description=f'{display_level}', timestamp=datetime.now())
                 embed.add_field(name="LEVEL", value=f'{self.level}')
                 embed.add_field(name="OTHER LINKS", value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(config.discord.invite_link, config.discord.support_server_link, config.discord.github_link), inline=False)
                 await interaction.response.defer()
@@ -1532,7 +1532,7 @@ class Sokoban_Buttons(disnake.ui.View):
 
             if levelIsSolved == True:
                 display_level = self.displayLevel(self.currentLevel)
-                embed = disnake.Embed(title=f'SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}', description=f'{display_level}', timestamp=datetime.utcnow())
+                embed = disnake.Embed(title=f'SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}', description=f'{display_level}', timestamp=datetime.now())
                 embed.add_field(name="LEVEL", value=f'{self.level}')
                 embed.add_field(name="OTHER LINKS", value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(config.discord.invite_link, config.discord.support_server_link, config.discord.github_link), inline=False)
                 
@@ -1562,7 +1562,7 @@ class Sokoban_Buttons(disnake.ui.View):
                 await self.message.reply(content=f'**Level {self.level} completed. You have spent time: **{duration}**\n{result}', view=None)
             else:
                 display_level = self.displayLevel(self.currentLevel)
-                embed = disnake.Embed(title=f'SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}', description=f'{display_level}', timestamp=datetime.utcnow())
+                embed = disnake.Embed(title=f'SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}', description=f'{display_level}', timestamp=datetime.now())
                 embed.add_field(name="LEVEL", value=f'{self.level}')
                 embed.add_field(name="OTHER LINKS", value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(config.discord.invite_link, config.discord.support_server_link, config.discord.github_link), inline=False)
                 await interaction.response.defer()
@@ -1651,7 +1651,7 @@ class Sokoban_Buttons(disnake.ui.View):
 
             if levelIsSolved == True:
                 display_level = self.displayLevel(self.currentLevel)
-                embed = disnake.Embed(title=f'SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}', description=f'{display_level}', timestamp=datetime.utcnow())
+                embed = disnake.Embed(title=f'SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}', description=f'{display_level}', timestamp=datetime.now())
                 embed.add_field(name="LEVEL", value=f'{self.level}')
                 embed.add_field(name="OTHER LINKS", value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(config.discord.invite_link, config.discord.support_server_link, config.discord.github_link), inline=False)
                 
@@ -1681,7 +1681,7 @@ class Sokoban_Buttons(disnake.ui.View):
                 await self.message.reply(content=f'**Level {self.level} completed. You have spent time: **{duration}**\n{result}', view=None)
             else:
                 display_level = self.displayLevel(self.currentLevel)
-                embed = disnake.Embed(title=f'SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}', description=f'{display_level}', timestamp=datetime.utcnow())
+                embed = disnake.Embed(title=f'SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}', description=f'{display_level}', timestamp=datetime.now())
                 embed.add_field(name="LEVEL", value=f'{self.level}')
                 embed.add_field(name="OTHER LINKS", value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(config.discord.invite_link, config.discord.support_server_link, config.discord.github_link), inline=False)
                 await interaction.response.defer()
@@ -1769,7 +1769,7 @@ class Sokoban_Buttons(disnake.ui.View):
 
             if levelIsSolved == True:
                 display_level = self.displayLevel(self.currentLevel)
-                embed = disnake.Embed(title=f'SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}', description=f'{display_level}', timestamp=datetime.utcnow())
+                embed = disnake.Embed(title=f'SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}', description=f'{display_level}', timestamp=datetime.now())
                 embed.add_field(name="LEVEL", value=f'{self.level}')
                 embed.add_field(name="OTHER LINKS", value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(config.discord.invite_link, config.discord.support_server_link, config.discord.github_link), inline=False)
                 
@@ -1799,7 +1799,7 @@ class Sokoban_Buttons(disnake.ui.View):
                 await self.message.reply(content=f'**Level {self.level} completed. You have spent time: **{duration}**\n{result}', view=None)
             else:
                 display_level = self.displayLevel(self.currentLevel)
-                embed = disnake.Embed(title=f'SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}', description=f'{display_level}', timestamp=datetime.utcnow())
+                embed = disnake.Embed(title=f'SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}', description=f'{display_level}', timestamp=datetime.now())
                 embed.add_field(name="LEVEL", value=f'{self.level}')
                 embed.add_field(name="OTHER LINKS", value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(config.discord.invite_link, config.discord.support_server_link, config.discord.github_link), inline=False)
                 await interaction.response.defer()
@@ -2740,7 +2740,7 @@ class Games(commands.Cog):
                 await ctx.response.send_message("New Sokoban Game! tap button...", ephemeral=True)
                 view.currentLevel = view.loadLevel(get_level['template_str'])
                 display_level = view.displayLevel(view.currentLevel)
-                embed = disnake.Embed(title=f'SOKOBAN GAME {ctx.author.name}#{ctx.author.discriminator}', description=f'{display_level}', timestamp=datetime.utcnow())
+                embed = disnake.Embed(title=f'SOKOBAN GAME {ctx.author.name}#{ctx.author.discriminator}', description=f'{display_level}', timestamp=datetime.now())
                 embed.add_field(name="LEVEL", value=f'{level}')
                 embed.add_field(name="OTHER LINKS", value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(config.discord.invite_link, config.discord.support_server_link, config.discord.github_link), inline=False)
                 view.message = await ctx.channel.send(embed=embed, view=view)

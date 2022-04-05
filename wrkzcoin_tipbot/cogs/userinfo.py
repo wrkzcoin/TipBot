@@ -59,7 +59,7 @@ class Userinfo(commands.Cog):
                 elif ratio_tip >= 5:
                     tip_text = "CryptoTip AirDropper"
 
-        embed = disnake.Embed(title="{}'s info".format(member.name), description="Total faucet claim {}".format(tipstat['faucet_claimed']), timestamp=datetime.utcnow())
+        embed = disnake.Embed(title="{}'s info".format(member.name), description="Total faucet claim {}".format(tipstat['faucet_claimed']), timestamp=datetime.now())
         embed.add_field(name="Name", value="{}#{}".format(member.name, member.discriminator), inline=True)
         embed.add_field(name="Display Name", value=member.display_name, inline=True)
         embed.add_field(name="ID", value=member.id, inline=True)
@@ -97,7 +97,7 @@ class Userinfo(commands.Cog):
                 elif ratio_tip >= 5:
                     tip_text = "CryptoTip AirDropper"
 
-        embed = disnake.Embed(title="{}'s info".format(user.name), description="Total faucet claim {}".format(tipstat['faucet_claimed']), timestamp=datetime.utcnow())
+        embed = disnake.Embed(title="{}'s info".format(user.name), description="Total faucet claim {}".format(tipstat['faucet_claimed']), timestamp=datetime.now())
         embed.add_field(name="Name", value="{}#{}".format(user.name, user.discriminator), inline=True)
         embed.add_field(name="Display Name", value=user.display_name, inline=True)
         embed.add_field(name="ID", value=user.id, inline=True)

@@ -537,7 +537,7 @@ class Admin(commands.Cog):
             total_coins = len(mytokens)
             page = disnake.Embed(title=f'[ BALANCE LIST {member_id} ]',
                                   color=disnake.Color.blue(),
-                                  timestamp=datetime.utcnow(), )
+                                  timestamp=datetime.now(), )
             page.add_field(name="Coin/Tokens: [{}]".format(len(all_names)), 
                            value="```"+", ".join(all_names)+"```", inline=False)
             page.set_thumbnail(url=ctx.author.display_avatar)
@@ -586,7 +586,7 @@ class Admin(commands.Cog):
                     page = disnake.Embed(title=f'[ BALANCE LIST {member_id} ]',
                                          description="Thank you for using TipBot!",
                                          color=disnake.Color.blue(),
-                                         timestamp=datetime.utcnow(), )
+                                         timestamp=datetime.now(), )
                     page.set_thumbnail(url=ctx.author.display_avatar)
                     page.set_footer(text="Use the reactions to flip pages.")
                 # height can be None
@@ -625,7 +625,7 @@ class Admin(commands.Cog):
                         page = disnake.Embed(title=f'[ BALANCE LIST {member_id} ]',
                                              description="Thank you for using TipBot!",
                                              color=disnake.Color.blue(),
-                                             timestamp=datetime.utcnow(), )
+                                             timestamp=datetime.now(), )
                         page.set_thumbnail(url=ctx.author.display_avatar)
                         page.set_footer(text="Use the reactions to flip pages.")
                     else:
@@ -647,7 +647,7 @@ class Admin(commands.Cog):
             page = disnake.Embed(title=f'[ BALANCE LIST {member_id} ]',
                                   description=f"`{total_all_balance_usd}`",
                                   color=disnake.Color.blue(),
-                                  timestamp=datetime.utcnow(), )
+                                  timestamp=datetime.now(), )
             # Remove zero from all_names
             if has_none_balance == True:
                 msg = f'{member_id} does not have any balance.'

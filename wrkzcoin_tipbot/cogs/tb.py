@@ -90,7 +90,7 @@ class Tb(commands.Cog):
                 if os.path.exists(random_img_name_png):
                     # send the made file, no need to create new
                     try:
-                        e = disnake.Embed(timestamp=datetime.utcnow())
+                        e = disnake.Embed(timestamp=datetime.now())
                         e.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
                         e.set_image(url=draw_link)
                         e.set_footer(text=f"Draw requested by {ctx.author.name}#{ctx.author.discriminator}")
@@ -125,7 +125,7 @@ class Tb(commands.Cog):
                 partial_img = functools.partial(async_sketch_image, img, random_img_name_svg, random_img_name_png)
                 lines = await self.bot.loop.run_in_executor(None, partial_img)
                 try:
-                    e = disnake.Embed(timestamp=datetime.utcnow())
+                    e = disnake.Embed(timestamp=datetime.now())
                     e.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
                     e.set_image(url=draw_link)
                     e.set_footer(text=f"Draw requested by {ctx.author.name}#{ctx.author.discriminator}")
@@ -185,7 +185,7 @@ class Tb(commands.Cog):
                 if os.path.exists(random_img_name_png):
                     # send the made file, no need to create new
                     try:
-                        e = disnake.Embed(timestamp=datetime.utcnow())
+                        e = disnake.Embed(timestamp=datetime.now())
                         e.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
                         e.set_image(url=draw_link)
                         e.set_footer(text=f"Sketchme requested by {ctx.author.name}#{ctx.author.discriminator}")
@@ -213,7 +213,7 @@ class Tb(commands.Cog):
                     cv2.imwrite(random_img_name_png, img_contour)
 
                     try:
-                        e = disnake.Embed(timestamp=datetime.utcnow())
+                        e = disnake.Embed(timestamp=datetime.now())
                         e.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
                         e.set_image(url=draw_link)
                         e.set_footer(text=f"Sketchme requested by {ctx.author.name}#{ctx.author.discriminator}")
@@ -241,7 +241,7 @@ class Tb(commands.Cog):
             random_gif_name = config.fun.fun_img_path + str(uuid.uuid4()) + ".gif"
             fun_image = await tb_action(user1, user2, random_gif_name, action, config.tbfun_image.punch_gif)
             if fun_image:
-                e = disnake.Embed(timestamp=datetime.utcnow())
+                e = disnake.Embed(timestamp=datetime.now())
                 e.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
                 e.set_image(url=config.fun.fun_img_www + os.path.basename(fun_image))
                 e.set_footer(text=f"{action} requested by {ctx.author.name}#{ctx.author.discriminator}")
@@ -265,7 +265,7 @@ class Tb(commands.Cog):
             random_gif_name = config.fun.fun_img_path + str(uuid.uuid4()) + ".gif"
             fun_image = await tb_action(user1, user2, random_gif_name, action, config.tbfun_image.spank_gif)
             if fun_image:
-                e = disnake.Embed(timestamp=datetime.utcnow())
+                e = disnake.Embed(timestamp=datetime.now())
                 e.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
                 e.set_image(url=config.fun.fun_img_www + os.path.basename(fun_image))
                 e.set_footer(text=f"{action} requested by {ctx.author.name}#{ctx.author.discriminator}")
@@ -289,7 +289,7 @@ class Tb(commands.Cog):
             random_gif_name = config.fun.fun_img_path + str(uuid.uuid4()) + ".gif"
             fun_image = await tb_action(user1, user2, random_gif_name, action, config.tbfun_image.slap_gif)
             if fun_image:
-                e = disnake.Embed(timestamp=datetime.utcnow())
+                e = disnake.Embed(timestamp=datetime.now())
                 e.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
                 e.set_image(url=config.fun.fun_img_www + os.path.basename(fun_image))
                 e.set_footer(text=f"{action} requested by {ctx.author.name}#{ctx.author.discriminator}")
@@ -313,7 +313,7 @@ class Tb(commands.Cog):
             random_gif_name = config.fun.fun_img_path + str(uuid.uuid4()) + ".gif"
             fun_image = await tb_action(user1, user2, random_gif_name, action, config.tbfun_image.praise_gif)
             if fun_image:
-                e = disnake.Embed(timestamp=datetime.utcnow())
+                e = disnake.Embed(timestamp=datetime.now())
                 e.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
                 e.set_image(url=config.fun.fun_img_www + os.path.basename(fun_image))
                 e.set_footer(text=f"{action} requested by {ctx.author.name}#{ctx.author.discriminator}")
@@ -337,7 +337,7 @@ class Tb(commands.Cog):
             random_gif_name = config.fun.fun_img_path + str(uuid.uuid4()) + ".gif"
             fun_image = await tb_action(user1, user2, random_gif_name, action, config.tbfun_image.shoot_gif)
             if fun_image:
-                e = disnake.Embed(timestamp=datetime.utcnow())
+                e = disnake.Embed(timestamp=datetime.now())
                 e.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
                 e.set_image(url=config.fun.fun_img_www + os.path.basename(fun_image))
                 e.set_footer(text=f"{action} requested by {ctx.author.name}#{ctx.author.discriminator}")
@@ -361,7 +361,7 @@ class Tb(commands.Cog):
             random_gif_name = config.fun.fun_img_path + str(uuid.uuid4()) + ".gif"
             fun_image = await tb_action(user1, user2, random_gif_name, action, config.tbfun_image.kick_gif)
             if fun_image:
-                e = disnake.Embed(timestamp=datetime.utcnow())
+                e = disnake.Embed(timestamp=datetime.now())
                 e.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
                 e.set_image(url=config.fun.fun_img_www + os.path.basename(fun_image))
                 e.set_footer(text=f"{action} requested by {ctx.author.name}#{ctx.author.discriminator}")
@@ -385,7 +385,7 @@ class Tb(commands.Cog):
             random_gif_name = config.fun.fun_img_path + str(uuid.uuid4()) + ".gif"
             fun_image = await tb_action(user1, user2, random_gif_name, action, config.tbfun_image.fistbump_gif)
             if fun_image:
-                e = disnake.Embed(timestamp=datetime.utcnow())
+                e = disnake.Embed(timestamp=datetime.now())
                 e.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
                 e.set_image(url=config.fun.fun_img_www + os.path.basename(fun_image))
                 e.set_footer(text=f"{action} requested by {ctx.author.name}#{ctx.author.discriminator}")
@@ -409,7 +409,7 @@ class Tb(commands.Cog):
             random_gif_name = config.fun.fun_img_path + str(uuid.uuid4()) + ".gif"
             fun_image = await tb_action(user1, user2, random_gif_name, action, config.tbfun_image.single_dance_gif)
             if fun_image:
-                e = disnake.Embed(timestamp=datetime.utcnow())
+                e = disnake.Embed(timestamp=datetime.now())
                 e.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
                 e.set_image(url=config.fun.fun_img_www + os.path.basename(fun_image))
                 e.set_footer(text=f"{action} requested by {ctx.author.name}#{ctx.author.discriminator}")

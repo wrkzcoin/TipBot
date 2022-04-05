@@ -77,7 +77,7 @@ class BotBalance(commands.Cog):
 
             description = ""
             token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
-            embed = disnake.Embed(title=f'Balance for Bot {member.name}#{member.discriminator}', description="This is for Bot's! Not yours!", timestamp=datetime.utcnow())
+            embed = disnake.Embed(title=f'Balance for Bot {member.name}#{member.discriminator}', description="This is for Bot's! Not yours!", timestamp=datetime.now())
             embed.set_author(name=member.name, icon_url=member.display_avatar)
             try:
                 # height can be None

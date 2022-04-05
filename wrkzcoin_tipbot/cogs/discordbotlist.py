@@ -169,7 +169,7 @@ class DiscordBotList(commands.Cog):
                                                             await self.vote_logchan(f'[{SERVER_BOT}] Failed to thank message to <@{user_vote}>.')
                                                         try:
                                                             channel = self.bot.get_channel(self.reward_channel)
-                                                            embed = disnake.Embed(title = "NEW BOT VOTE!", timestamp=datetime.utcnow())
+                                                            embed = disnake.Embed(title = "NEW BOT VOTE!", timestamp=datetime.now())
                                                             embed.add_field(name="User", value="<@{}>".format(user_vote), inline=True)
                                                             embed.add_field(name="Reward", value="{} {}".format(num_format_coin(amount, COIN_NAME, coin_decimal, False), COIN_NAME), inline=True)
                                                             embed.add_field(name="Link", value=config.bot_vote_link.discordbotlist, inline=False)

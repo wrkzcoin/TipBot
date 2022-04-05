@@ -228,7 +228,7 @@ class TopGGVote(commands.Cog):
                                                         if serverinfo and serverinfo['vote_reward_channel']:
                                                             # msg = f'User <@{user_vote}> voted for guild {guild.name} at https://top.gg/servers/'+guild_id+f' . He/she just got a reward of {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}. Thank you!'
                                                             channel = self.bot.get_channel(int(serverinfo['vote_reward_channel']))
-                                                            embed = disnake.Embed(title = "NEW GUILD VOTE!", timestamp=datetime.utcnow())
+                                                            embed = disnake.Embed(title = "NEW GUILD VOTE!", timestamp=datetime.now())
                                                             embed.add_field(name="User", value="<@{}>".format(user_vote), inline=True)
                                                             embed.add_field(name="Reward", value="{} {}".format(num_format_coin(amount, COIN_NAME, coin_decimal, False), COIN_NAME), inline=True)
                                                             embed.add_field(name="Link", value="https://top.gg/servers/{}".format(guild_id), inline=False)
@@ -357,7 +357,7 @@ class TopGGVote(commands.Cog):
                                                                     await self.vote_logchan(f'[{SERVER_BOT}] Failed to thank message to <@{user_vote}>.')
                                                                 try:
                                                                     channel = self.bot.get_channel(self.reward_channel)
-                                                                    embed = disnake.Embed(title = "NEW BOT VOTE!", timestamp=datetime.utcnow())
+                                                                    embed = disnake.Embed(title = "NEW BOT VOTE!", timestamp=datetime.now())
                                                                     embed.add_field(name="User", value="<@{}>".format(user_vote), inline=True)
                                                                     embed.add_field(name="Reward", value="{} {}".format(num_format_coin(amount, COIN_NAME, coin_decimal, False), COIN_NAME), inline=True)
                                                                     embed.add_field(name="Link", value=config.bot_vote_link.topgg, inline=False)

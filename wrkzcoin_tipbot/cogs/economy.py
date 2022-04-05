@@ -1118,7 +1118,7 @@ class Economy(commands.Cog):
                         # List item
                         get_shop_itemlist = await self.db.economy_shop_get_item_list()
                         if get_shop_itemlist and len(get_shop_itemlist) > 0:
-                            e = disnake.Embed(title="Shop Bot".format(ctx.author.name, ctx.author.discriminator), description="Economy game in TipBot", timestamp=datetime.utcnow())
+                            e = disnake.Embed(title="Shop Bot".format(ctx.author.name, ctx.author.discriminator), description="Economy game in TipBot", timestamp=datetime.now())
                             for each_item in get_shop_itemlist:
                                 remark_text = ""
                                 if each_item['remark'] and len(each_item['remark']) > 0:
@@ -1527,7 +1527,7 @@ class Economy(commands.Cog):
                 if ctx.author.id not in self.bot.GAME_INTERACTIVE_ECO:
                     self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
                     # Add work if he needs to do
-                    e = disnake.Embed(title="{}#{} Item in backpack".format(ctx.author.name, ctx.author.discriminator), description="Economy game in TipBot", timestamp=datetime.utcnow())
+                    e = disnake.Embed(title="{}#{} Item in backpack".format(ctx.author.name, ctx.author.discriminator), description="Economy game in TipBot", timestamp=datetime.now())
                     all_item_backpack = {}
                     if get_user_inventory and len(get_user_inventory) > 0:
                         for each_item in get_user_inventory:
@@ -1564,7 +1564,7 @@ class Economy(commands.Cog):
         try:
             get_lumber_inventory = await self.db.economy_get_timber_user(str(member.id), sold_timber='NO', sold_leaf='NO')
             if len(get_lumber_inventory) > 0:
-                e = disnake.Embed(title="{}#{} Lumber/Leaf".format(member.name, member.discriminator), description="Economy game in TipBot", timestamp=datetime.utcnow())
+                e = disnake.Embed(title="{}#{} Lumber/Leaf".format(member.name, member.discriminator), description="Economy game in TipBot", timestamp=datetime.now())
                 e.add_field(name="Timber / Leaf", value="{:,.2f}m3 / {:,.2f}kg".format(get_lumber_inventory['timber_vol'], get_lumber_inventory['leaf_kg']), inline=False)
                 e.set_footer(text=f"Requested by {ctx.author.name}#{ctx.author.discriminator}")
                 e.set_thumbnail(url=member.display_avatar)
@@ -1585,7 +1585,7 @@ class Economy(commands.Cog):
             get_userinfo = await self.db.economy_get_user(str(member.id), '{}#{}'.format(member.name, member.discriminator))
             get_fish_inventory_list = await self.db.economy_get_list_fish_caught(str(member.id), sold='NO', caught='YES')
             if len(get_fish_inventory_list) > 0:
-                e = disnake.Embed(title="{}#{} Fish".format(member.name, member.discriminator), description="Economy game in TipBot", timestamp=datetime.utcnow())
+                e = disnake.Embed(title="{}#{} Fish".format(member.name, member.discriminator), description="Economy game in TipBot", timestamp=datetime.now())
                 fish_lists = ""
                 for each_item in get_fish_inventory_list:
                     fish_lists += each_item['fish_name'] + " " + each_item['fish_emoji'] + " x" +str(each_item['numbers']) + "={:,.2f}kg".format(each_item['Weights']) + "\n"
@@ -1611,7 +1611,7 @@ class Economy(commands.Cog):
         plant_list_names = [name['plant_name'].lower() for name in plant_list_arr]
 
         if plant_name and plant_name.upper() == "LIST":
-            e = disnake.Embed(title="Plant List", description="Economy game in TipBot", timestamp=datetime.utcnow())
+            e = disnake.Embed(title="Plant List", description="Economy game in TipBot", timestamp=datetime.now())
             for each_crop in plant_list_arr:
                 e.add_field(name=each_crop['plant_name'] + " " + each_crop['plant_emoji'] + " Dur. : {}".format(seconds_str(each_crop['duration_harvest'])), value="Harvested: {} | Credit: {}".format(each_crop['number_of_item'], each_crop['credit_per_item']*each_crop['number_of_item']), inline=False)
             e.set_footer(text=f"Requested by {ctx.author.name}#{ctx.author.discriminator}")
@@ -1850,7 +1850,7 @@ class Economy(commands.Cog):
                     cattle = f"{fence_left}{fence_hs}{fence_right}\n" + cattle
                     cattle += f"{fence_left}{fence_hs}{fence_right}\n"
 
-                e = disnake.Embed(title="{}#{} Dairy Cattle".format(member.name, member.discriminator), description="Economy game in TipBot", timestamp=datetime.utcnow())
+                e = disnake.Embed(title="{}#{} Dairy Cattle".format(member.name, member.discriminator), description="Economy game in TipBot", timestamp=datetime.now())
                 e.add_field(name="Dairy Farm View Level {}".format(get_userinfo['dairy_farm_level']), value=cattle, inline=False)
                 if total_can_collect > 0:
                     e.add_field(name="Can Collect: {}".format(total_can_collect), value=can_harvest_string, inline=False)
@@ -1936,7 +1936,7 @@ class Economy(commands.Cog):
                     cattle = f"{fence_left}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_right}\n" + cattle
                     cattle += f"{fence_left}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_h}{fence_right}\n"
 
-                e = disnake.Embed(title="{}#{} Chicken Farm".format(member.name, member.discriminator), description="Economy game in TipBot", timestamp=datetime.utcnow())
+                e = disnake.Embed(title="{}#{} Chicken Farm".format(member.name, member.discriminator), description="Economy game in TipBot", timestamp=datetime.now())
                 e.add_field(name="Chicken Farm View", value=cattle, inline=False)
                 if total_can_collect > 0:
                     e.add_field(name="Chicken Can Collect: {}".format(total_can_collect), value=can_harvest_string, inline=False)
@@ -2025,7 +2025,7 @@ class Economy(commands.Cog):
                     farm = f"{fence_left}{fence_hs}{fence_right}\n" + farm
                     farm += f"{fence_left}{fence_hs}{fence_right}\n"
 
-                e = disnake.Embed(title="{}#{} Farm".format(member.name, member.discriminator), description="Economy game in TipBot", timestamp=datetime.utcnow())
+                e = disnake.Embed(title="{}#{} Farm".format(member.name, member.discriminator), description="Economy game in TipBot", timestamp=datetime.now())
                 e.add_field(name="Farm View Level {}".format(get_userinfo['farm_level']), value=farm, inline=False)
                 if total_can_harvest > 0:
                     e.add_field(name="Can Harvest: {}".format(total_can_harvest), value=can_harvest_string, inline=False)
@@ -2381,7 +2381,7 @@ class Economy(commands.Cog):
             if ctx.author.id not in self.bot.GAME_INTERACTIVE_ECO:
                 self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
                     # Add work if he needs to do
-                e = disnake.Embed(title="{}#{} Food list in guild: {}".format(ctx.author.name, ctx.author.discriminator, ctx.guild.name), description="Economy game in TipBot", timestamp=datetime.utcnow())
+                e = disnake.Embed(title="{}#{} Food list in guild: {}".format(ctx.author.name, ctx.author.discriminator, ctx.guild.name), description="Economy game in TipBot", timestamp=datetime.now())
                 get_foodlist_guild = await self.db.economy_get_guild_foodlist(str(ctx.guild.id), False)
                 all_food_in_guild = {}
                 if get_foodlist_guild and len(get_foodlist_guild) > 0:
@@ -2442,7 +2442,7 @@ class Economy(commands.Cog):
                         claim = "CLAIM" # claim automatically
                 if get_last_act and get_last_act['status'] == 'COMPLETED' or get_last_act is None:
                     # Add work if he needs to do
-                    e = disnake.Embed(title="{}#{} Work list in guild: {}".format(ctx.author.name, ctx.author.discriminator, ctx.guild.name), description="Economy game in TipBot", timestamp=datetime.utcnow())
+                    e = disnake.Embed(title="{}#{} Work list in guild: {}".format(ctx.author.name, ctx.author.discriminator, ctx.guild.name), description="Economy game in TipBot", timestamp=datetime.now())
                     get_worklist_guild = await self.db.economy_get_guild_worklist(str(ctx.guild.id), False)
                     all_work_in_guild = {}
                     if get_worklist_guild and len(get_worklist_guild) > 0:

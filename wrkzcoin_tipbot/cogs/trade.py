@@ -920,7 +920,7 @@ class Trade(commands.Cog):
                     page = disnake.Embed(title=get_list_orders['title'],
                                          description="Thank you for trading with TipBot!",
                                          color=disnake.Color.blue(),
-                                         timestamp=datetime.utcnow(), )
+                                         timestamp=datetime.now(), )
                     page.set_thumbnail(url=ctx.author.display_avatar)
                     page.set_footer(text="Use the reactions to flip pages.")
                     empty_page = True

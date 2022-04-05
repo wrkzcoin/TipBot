@@ -181,7 +181,7 @@ class Pools(commands.Cog):
                             await ctx.reply(f"{ctx.author.name}#{ctx.author.discriminator}, Received 0 length of data for **{COIN_NAME}**.")
                         return
                     elif len(get_pool_data['data']) <= pool_nos_per_page:
-                        embed = disnake.Embed(title='Mining Pools for {}'.format(COIN_NAME), description='', timestamp=datetime.utcnow(), colour=7047495)
+                        embed = disnake.Embed(title='Mining Pools for {}'.format(COIN_NAME), description='', timestamp=datetime.now(), colour=7047495)
                         if 'symbol' in get_pool_data:
                             embed.add_field(name="Ticker", value=get_pool_data['symbol'], inline=True)
                         if 'algo' in get_pool_data:
@@ -246,7 +246,7 @@ class Pools(commands.Cog):
                             for each_pool in pool_list:
                                 if num_pool == 0 or num_pool % pool_nos_per_page == 0:
                                     pool_links = ''
-                                    page = disnake.Embed(title='Mining Pools for {}'.format(COIN_NAME), description='', timestamp=datetime.utcnow(), colour=7047495)
+                                    page = disnake.Embed(title='Mining Pools for {}'.format(COIN_NAME), description='', timestamp=datetime.now(), colour=7047495)
                                     if 'symbol' in get_pool_data:
                                         page.add_field(name="Ticker", value=get_pool_data['symbol'], inline=True)
                                     if 'algo' in get_pool_data:
@@ -278,7 +278,7 @@ class Pools(commands.Cog):
                                     all_pages.append(page)
                                     if num_pool < len(pool_list):
                                         pool_links = ''
-                                        page = disnake.Embed(title='Mining Pools for {}'.format(COIN_NAME), description='', timestamp=datetime.utcnow(), colour=7047495)
+                                        page = disnake.Embed(title='Mining Pools for {}'.format(COIN_NAME), description='', timestamp=datetime.now(), colour=7047495)
                                         if 'symbol' in get_pool_data:
                                             page.add_field(name="Ticker", value=get_pool_data['symbol'], inline=True)
                                         if 'algo' in get_pool_data:
@@ -336,7 +336,7 @@ class Pools(commands.Cog):
                                 result = json.loads(redis_utils.redis_conn.get(key_p).decode())
                                 is_cache = 'NO'
                                 try:
-                                    embed = disnake.Embed(title='Mining Pools for {}'.format(COIN_NAME), description='', timestamp=datetime.utcnow(), colour=7047495)
+                                    embed = disnake.Embed(title='Mining Pools for {}'.format(COIN_NAME), description='', timestamp=datetime.now(), colour=7047495)
                                     i = 0
                                     if result and len(result) > 0:
                                         pool_links = ''

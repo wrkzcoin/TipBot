@@ -4,6 +4,9 @@ from datetime import datetime, timedelta
 import disnake
 from disnake.ext import commands
 
+from disnake.enums import OptionType
+from disnake.app_commands import Option
+
 from Bot import logchanbot
 from utils import MenuPage
 
@@ -40,99 +43,223 @@ class Core(commands.Cog):
         return await self.async_uptime(ctx)
 
 
-    @commands.bot_has_permissions(send_messages=True)
-    @commands.command(usage="help [command/cog]",
-                      aliases=["h"], description="Shows the help menu or information for a specific command or cog when specified.")
-    async def help(self, ctx, *, opt: str = None):
-        if opt:
-            cog = self.bot.get_cog(opt.capitalize())
-            if not cog:
-                command = self.bot.get_command(opt.lower())
-                if not command:
-                    return await ctx.reply(
-                        embed=disnake.Embed(description=f"That command/cog does not exist. Use `{ctx.prefix}help` to see all the commands.",
-                                            color=disnake.Color.red(), ))
-
-                embed = disnake.Embed(title=command.name, description=command.description, colour=disnake.Color.blue())
-                usage = "\n".join([ctx.prefix + x.strip() for x in command.usage.split("\n")])
-                embed.add_field(name="Usage", value=f"```{usage}```", inline=False)
-                if len(command.aliases) > 1:
-                    embed.add_field(name="Aliases", value=f"`{'`, `'.join(command.aliases)}`")
-                elif len(command.aliases) > 0:
-                    embed.add_field(name="Alias", value=f"`{command.aliases[0]}`")
-                return await ctx.reply(embed=embed)
-            cog_commands = cog.get_commands()
-            embed = disnake.Embed(title=opt.capitalize(), description=f"{cog.description}\n\n`<>` Indicates a required argument.\n"
-                                                                      "`[]` Indicates an optional argument.\n", color=disnake.Color.blue(), )
-            embed.set_author(name=f"{self.bot.user.name} Help Menu", icon_url=self.bot.user.display_avatar)
-            embed.set_thumbnail(url=self.bot.user.display_avatar)
-            embed.set_footer(
-                text=f"Use {ctx.prefix}help <command> for more information on a command.")
-            for cmd in cog_commands:
-                if cmd.hidden is False:
-                    name = ctx.prefix + cmd.usage
-                    if len(cmd.aliases) > 1:
-                        name += f" | Aliases – `{'`, `'.join([ctx.prefix + a for a in cmd.aliases])}`"
-                    elif len(cmd.aliases) > 0:
-                        name += f" | Alias – {ctx.prefix + cmd.aliases[0]}"
-                    embed.add_field(name=name, value=cmd.description, inline=False)
-            return await ctx.reply(embed=embed)
-
-        all_pages = []
-        page = disnake.Embed(title=f"{self.bot.user.name} Help Menu",
-                             description="Thank you for using This TipBot!",
-                             color=disnake.Color.blue(), )
-        page.add_field(name="About the bot",
-                       value="This bot was built to enable convenient tipping within discord!", inline=False, )
-        page.add_field(name="Getting Started",
-                       value=f"For a full list of commands, see `{ctx.prefix}help`. Browse through the various commands to get comfortable with using "
-                             f"them, and do `{ctx.prefix}help <command>` for more info on specific commands!", inline=False, )
-        page.set_thumbnail(url=self.bot.user.display_avatar)
-        page.set_footer(text="Use the reactions to flip pages.")
-        all_pages.append(page)
-        for _, cog_name in enumerate(sorted(self.bot.cogs)):
-            if cog_name in ["Owner", "Admin"]:
-                continue
-            cog = self.bot.get_cog(cog_name)
-            cog_commands = cog.get_commands()
-            if len(cog_commands) == 0:
-                continue
-            page = disnake.Embed(title=cog_name, description=f"{cog.description}\n\n`<>` Indicates a required argument.\n"
-                                                             "`[]` Indicates an optional argument.\n",
+    async def async_help(self, ctx, cmd):
+        all_slash_cmds = [cmd for cmd in self.bot.all_slash_commands]
+        slash_help = {
+            "about": {
+                "usage": "/about",
+                "desc": "Check information about TipBot."
+            },
+            "cal": {
+                "usage": "/cal <math expression>",
+                "desc": "Use TipBot's built-in calculator."
+            },
+            "stats": {
+                "usage": "/stats <coin_name>",
+                "desc": "Show statistic about coin."
+            },
+            "notifytip": {
+                "usage": "/notifytip ON|OFF",
+                "desc": "Turn tip notification or ping ON or OFF."
+            },
+            "randtip": {
+                "usage": "/randtip <amount> <coin>",
+                "desc": "Tip to a ranndom discord users from your balance."
+            },
+            "freetip": {
+                "usage": "/freetip <amount> <coin> <duration> [comment]",
+                "desc": "Do airdrop with clickable buttom and every can collect."
+            },
+            "tipall": {
+                "usage": "/tipall <amount> <coin> [online|all]",
+                "desc": "Tip all online users or every users in the guild from your balance."
+            },
+            "feedback": {
+                "usage": "/feedback",
+                "desc": "Give us your feedback and other comment, suggestion for TipBot."
+            },
+            "triviatip": {
+                "usage": "/triviatip <amount> <coin> <duration>",
+                "desc": "Drop a Trivia Tip to discord users in the guild."
+            },
+            "deposit": {
+                "usage": "/deposit <coin> [plain]",
+                "desc": "Get your deposit address."
+            },
+            "balance": {
+                "usage": "/balance <coin>",
+                "desc": "Show a coin's balance."
+            },
+            "balances": {
+                "usage": "/balances [coin1, coin2]",
+                "desc": "Show your coins' balances. Without coin names, it will show you all balances."
+            },
+            "withdraw": {
+                "usage": "/withdraw <amount> <coin> <address>",
+                "desc": "Withdraw to an address."
+            },
+            "claim": {
+                "usage": "/claim [coin]",
+                "desc": "Show reward amount for TipBpt's voting. Or set <coin> as your preferred reward."
+            },
+            "take": {
+                "usage": "/take [info]",
+                "desc": "Get a random faucet from TipBot's faucet."
+            },
+            "donate": {
+                "usage": "/donate <amount> <coin>",
+                "desc": "Donate from your balance to TipBpt's dev."
+            },
+            "swap": {
+                "usage": "/swap <amount> <coin> <to coin>",
+                "desc": "Swap from a coin/token to another coin. Only few supported."
+            },
+            "coininfo": {
+                "usage": "/coininfo <coin>",
+                "desc": "Show information about a coin setting within TipBot."
+            },
+            "tb": {
+                "usage": "/tb <action> [member]",
+                "desc": "Some images or gif command with other discord member."
+            },
+            "paprika": {
+                "usage": "/paprika <coin>",
+                "desc": "Show a summary of a coin from coinpaprika API."
+            },
+            "invite": {
+                "usage": "/invite",
+                "desc": "Show TipBot's invitation link."
+            },
+            "tool": {
+                "usage": "/tool [option]",
+                "desc": "Some basic tool which rarely used."
+            },
+            "tag": {
+                "usage": "/tag show|add|delete",
+                "desc": "Tag tool for your discord."
+            },
+            "coinmap": {
+                "usage": "/coinmap",
+                "desc": "Fetch screen from coin360"
+            },
+            "guild": {
+                "usage": "/guild <commands>",
+                "desc": "Various guild's command. Type to show them all."
+            },
+            "mdeposit": {
+                "usage": "/mdeposit <coin>",
+                "desc": "Get guild's deposit address."
+            },
+            "faucet": {
+                "usage": "/faucet",
+                "desc": "Claim guild's faucet. Only if guild's owner enable this."
+            },
+            "setting": {
+                "usage": "/setting <commands>",
+                "desc": "Various guild's setting command. Type to show them all."
+            },
+            "voucher": {
+                "usage": "/voucher <commands>",
+                "desc": "Various voucher's command including create, list, etc. Type to show them all."
+            },
+            "market": {
+                "usage": "/market <commands>",
+                "desc": "Various market's command including sell, buy, etc. Type to show them all."
+            },
+            "botbalance": {
+                "usage": "/botbalance <bot name> <coin>",
+                "desc": "Get a bot's deposit address."
+            },
+            "mathtip": {
+                "usage": "/mathtip <amount> <coin> <duration> <math expression>",
+                "desc": "Similiar to Trivia Tip, create a math expression to discord users in the guild."
+            },
+            "eco": {
+                "usage": "/eco <commands>",
+                "desc": "Various economy game's command. Type to show them all. Require TipBot's dev to enable based on guild."
+            },
+            "game": {
+                "usage": "/game <game name>",
+                "desc": "Various game's command. Type to show them all."
+            },
+            "price": {
+                "usage": "/price <amount> <coin name>",
+                "desc": "Get a price of a coin from coinpaprika API."
+            },
+            "pools": {
+                "usage": "/pools <coin name>",
+                "desc": "Get miningpoolstats of a mineable coin."
+            },
+            "userinfo": {
+                "usage": "/userinfo [@user]",
+                "desc": "Get some basic information of a user."
+            },
+            "uptime": {
+                "usage": "/uptime",
+                "desc": "Show bot's uptime."
+            },
+            "help": {
+                "usage": "/help",
+                "desc": "This command."
+            },
+            "tip": {
+                "usage": "/tip <amount> <coin> @mention @role | last 10u | last 10mn",
+                "desc": "Tip discord users from your balance."
+            },
+            "guildtip": {
+                "usage": "/guildtip <amount> <coin> @mention @role | last 10u | last 10mn",
+                "desc": "Tip discord users from guild's balance."
+            }
+        }
+        if cmd is None:
+            page = disnake.Embed(title=f"{self.bot.user.name} Help Menu",
+                                 description="Thank you for using This TipBot!",
                                  color=disnake.Color.blue(), )
-            page.set_author(name=f"{self.bot.user.name} Help Menu", icon_url=self.bot.user.display_avatar)
+            page.add_field(name="Getting Started",
+                           value="For each commands, see `/help command`", inline=False )
+            page.add_field(name="All command", value="```{}```".format(", ".join(all_slash_cmds)), inline=False, )
             page.set_thumbnail(url=self.bot.user.display_avatar)
-            page.set_footer(text=f"Use the reactions to flip pages | Use {ctx.prefix}help <command> for more information on a command.")
-            for cmd in cog_commands:
-                if cmd.hidden is False:
-                    name = ctx.prefix + cmd.usage
-                    if len(cmd.aliases) > 1:
-                        name += f" | Aliases – `{'`, `'.join([ctx.prefix + a for a in cmd.aliases])}`"
-                    elif len(cmd.aliases) > 0:
-                        name += f" | Alias – `{ctx.prefix + cmd.aliases[0]}`"
-                    page.add_field(name=name, value=cmd.description, inline=False)
-            all_pages.append(page)
-        view = MenuPage(ctx, all_pages, timeout=30)
-        if type(ctx) == disnake.ApplicationCommandInteraction:
-            view.message = await ctx.response.send_message(embed=all_pages[0], view=view)
-        else:
-            view.message = await ctx.reply(content=None, embed=all_pages[0], view=view)
+            page.set_footer(text=f"Requested by {ctx.author.name}#{ctx.author.discriminator}")
+            await ctx.response.send_message(embed=page)
+        elif cmd and cmd not in all_slash_cmds:
+            msg = f"{ctx.author.mention}, command `{cmd}` is not available in TipBot."
+            await ctx.response.send_message(msg)
+        elif cmd and cmd in all_slash_cmds:
+            command_usage = slash_help[cmd]['usage']
+            command_desc = slash_help[cmd]['desc']
+            embed = disnake.Embed(
+                colour=disnake.Colour.random(),
+                title=f"Help for {cmd}",
+                timestamp=disnake.utils.utcnow(),
+            ).set_footer(
+                text=f"Requested by {ctx.author.display_name}",
+                icon_url=ctx.author.display_avatar.url,
+            )
+            embed.add_field(
+                name="Usage",
+                value="```{}```".format(command_usage),
+            )
+            embed.add_field(
+                name="Description",
+                value="```{}```".format(command_desc),
+                inline=False,
+            )
+            await ctx.response.send_message(embed=embed)
+            
 
-
-    @commands.command(name='commands', usage="commands", description="View a full list of all available commands.",
-                      aliases=["cmd"])
-    async def commandlist(self, ctx):
-        embed = disnake.Embed(title="Command List", description="A full list of all available commands.\n", color=disnake.Color.teal())
-        for _, cog_name in enumerate(sorted(self.bot.cogs)):
-            if cog_name in ["Owner", "Admin"]:
-                continue
-            cog = self.bot.get_cog(cog_name)
-            cog_commands = cog.get_commands()
-            if len(cog_commands) == 0:
-                continue
-            cmds = "```yml\n" + ", ".join([ctx.prefix + cmd.name for cmd in cog_commands]) + "```"
-            embed.add_field(name=cog.qualified_name + " Commands", value=cmds, inline=False)
-        await ctx.reply(embed=embed)
+    @commands.slash_command(
+        usage="help [command]",
+        options=[
+            Option('command', 'command', OptionType.string, required=False)
+        ],
+        description="Help with TipBot various commands."
+    )
+    async def help(
+        self, 
+        ctx, 
+        command: str=None
+    ):
+        return await self.async_help(ctx, command)
 
 
 def setup(bot):

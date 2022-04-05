@@ -1106,14 +1106,22 @@ class Wallet(commands.Cog):
                         else:
                             tx_expense = 0
 
-                        sql = """ SELECT SUM(amount) AS incoming_tx FROM `doge_get_transfers` WHERE `address`=%s AND `coin_name` = %s AND (`category` = %s or `category` = %s) 
-                                  AND `confirmations`>=%s AND `amount`>0 """
-                        await cur.execute(sql, (address, TOKEN_NAME, 'receive', 'generate', confirmed_depth))
-                        result = await cur.fetchone()
-                        if result and result['incoming_tx']:
-                            incoming_tx = result['incoming_tx']
+                        if TOKEN_NAME not in ["PGO"]:
+                            sql = """ SELECT SUM(amount) AS incoming_tx FROM `doge_get_transfers` WHERE `address`=%s AND `coin_name` = %s AND (`category` = %s or `category` = %s) AND `confirmations`>=%s AND `amount`>0 """
+                            await cur.execute(sql, (address, TOKEN_NAME, 'receive', 'generate', confirmed_depth))
+                            result = await cur.fetchone()
+                            if result and result['incoming_tx']:
+                                incoming_tx = result['incoming_tx']
+                            else:
+                                incoming_tx = 0
                         else:
-                            incoming_tx = 0
+                            sql = """ SELECT SUM(amount) AS incoming_tx FROM `doge_get_transfers` WHERE `address`=%s AND `coin_name` = %s AND `category` = %s AND `confirmations`>=%s AND `amount`>0 """
+                            await cur.execute(sql, (address, TOKEN_NAME, 'receive', confirmed_depth))
+                            result = await cur.fetchone()
+                            if result and result['incoming_tx']:
+                                incoming_tx = result['incoming_tx']
+                            else:
+                                incoming_tx = 0
                     elif coin_family == "NANO":
                         sql = """ SELECT SUM(amount) AS tx_expense FROM `nano_external_tx` WHERE `user_id`=%s AND `coin_name` = %s AND `user_server`=%s AND `crediting`=%s """
                         await cur.execute(sql, ( userID, TOKEN_NAME, user_server, "YES" ))
@@ -1781,18 +1789,32 @@ class Wallet(commands.Cog):
                                                 list_balance_user[tx['address']] = tx['amount']
                                             try:
                                                 if tx['txid'] not in d:
-                                                    # generate from mining
-                                                    if tx['category'] == "receive" or tx['category'] == "generate":
-                                                        sql = """ INSERT IGNORE INTO `doge_get_transfers` (`coin_name`, `txid`, `blockhash`, `address`, `blocktime`, `amount`, `fee`, `confirmations`, `category`, `time_insert`) 
-                                                                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                                                        await cur.execute(sql, (COIN_NAME, tx['txid'], tx['blockhash'], tx['address'], tx['blocktime'], float(tx['amount']), float(tx['fee']) if 'fee' in tx else None, tx['confirmations'], tx['category'], int(time.time())))
-                                                        await conn.commit()
-                                                    # add to notification list also, doge payment_id = address
-                                                    if (tx['amount'] > 0) and tx['category'] == 'receive':
-                                                        sql = """ INSERT IGNORE INTO `discord_notify_new_tx` (`coin_name`, `txid`, `payment_id`, `blockhash`, `amount`, `fee`, `decimal`) 
-                                                                  VALUES (%s, %s, %s, %s, %s, %s, %s) """
-                                                        await cur.execute(sql, (COIN_NAME, tx['txid'], tx['address'], tx['blockhash'], float(tx['amount']), float(tx['fee']) if 'fee' in tx else None, coin_decimal))
-                                                        await conn.commit()
+                                                    if COIN_NAME in ["PGO"]:
+                                                        # generate from mining
+                                                        if tx['category'] == 'receive' and 'generated' in tx and tx['generated'] == False:
+                                                            sql = """ INSERT IGNORE INTO `doge_get_transfers` (`coin_name`, `txid`, `blockhash`, `address`, `blocktime`, `amount`, `fee`, `confirmations`, `category`, `time_insert`) 
+                                                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                                            await cur.execute(sql, (COIN_NAME, tx['txid'], tx['blockhash'], tx['address'], tx['blocktime'], float(tx['amount']), float(tx['fee']) if 'fee' in tx else None, tx['confirmations'], tx['category'], int(time.time())))
+                                                            await conn.commit()
+                                                            # Notify Tx
+                                                        if (tx['amount'] > 0) and tx['category'] == 'receive' and 'generated' in tx and tx['generated'] == False:
+                                                            sql = """ INSERT IGNORE INTO `discord_notify_new_tx` (`coin_name`, `txid`, `payment_id`, `blockhash`, `amount`, `fee`, `decimal`) 
+                                                                      VALUES (%s, %s, %s, %s, %s, %s, %s) """
+                                                            await cur.execute(sql, (COIN_NAME, tx['txid'], tx['address'], tx['blockhash'], float(tx['amount']), float(tx['fee']) if 'fee' in tx else None, coin_decimal))
+                                                            await conn.commit()
+                                                    else:
+                                                        # generate from mining
+                                                        if tx['category'] == "receive" or tx['category'] == "generate":
+                                                            sql = """ INSERT IGNORE INTO `doge_get_transfers` (`coin_name`, `txid`, `blockhash`, `address`, `blocktime`, `amount`, `fee`, `confirmations`, `category`, `time_insert`) 
+                                                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                                            await cur.execute(sql, (COIN_NAME, tx['txid'], tx['blockhash'], tx['address'], tx['blocktime'], float(tx['amount']), float(tx['fee']) if 'fee' in tx else None, tx['confirmations'], tx['category'], int(time.time())))
+                                                            await conn.commit()
+                                                        # add to notification list also, doge payment_id = address
+                                                        if (tx['amount'] > 0) and tx['category'] == 'receive':
+                                                            sql = """ INSERT IGNORE INTO `discord_notify_new_tx` (`coin_name`, `txid`, `payment_id`, `blockhash`, `amount`, `fee`, `decimal`) 
+                                                                      VALUES (%s, %s, %s, %s, %s, %s, %s) """
+                                                            await cur.execute(sql, (COIN_NAME, tx['txid'], tx['address'], tx['blockhash'], float(tx['amount']), float(tx['fee']) if 'fee' in tx else None, coin_decimal))
+                                                            await conn.commit()
                                             except Exception as e:
                                                 traceback.print_exc(file=sys.stdout)
                                         if get_confirm_depth > int(tx['confirmations']) > 0 and tx['amount'] >= get_min_deposit_amount:

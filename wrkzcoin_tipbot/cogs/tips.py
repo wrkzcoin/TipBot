@@ -2391,9 +2391,11 @@ class Tips(commands.Cog):
                     total_equivalent_usd = " ~ {:,.4f} USD".format(total_amount_in_usd)
 
         failed_interact = False
-        if if_guild:
-            await ctx.response.send_message(f"{ctx.author.mention} is using guild tip talk...", delete_after=5.0)
+        try:
+            await ctx.response.send_message(f"{ctx.author.mention} is using {tip_type_text} talk...", delete_after=5.0)
             failed_interact = True
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
         try:
             if int(id_tipper) not in self.bot.TX_IN_PROCESS:
                 self.bot.TX_IN_PROCESS.append(int(id_tipper))

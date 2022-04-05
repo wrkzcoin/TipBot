@@ -3403,7 +3403,7 @@ class Wallet(commands.Cog):
                 # Update user setting faucet
                 update = await faucet.update_faucet_user(str(ctx.author.id), COIN_NAME, SERVER_BOT)
                 if update:
-                    msg = f'{ctx.author.mention}, you updated your preferred faucet to `{COIN_NAME}`.'
+                    msg = f'{ctx.author.mention}, you updated your preferred claimed reward to `{COIN_NAME}`. This preference applies only for TipBot\'s voting reward.'
                     if type(ctx) == disnake.ApplicationCommandInteraction:
                         await ctx.response.send_message(msg)
                     else:

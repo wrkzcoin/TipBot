@@ -2523,32 +2523,6 @@ class Guild(commands.Cog):
                         await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} set game **{game}** channel in {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.')
                     return
 
-    @commands.has_permissions(manage_channels=True)
-    @guild.sub_command(
-        usage="guild gamechan <game>", 
-        options=[
-            Option('game', 'game', OptionType.string, required=True, choices=[
-                OptionChoice("2048", "2048"),
-                OptionChoice("BLACKJACK", "BLACKJACK"),
-                OptionChoice("DICE", "DICE"),
-                OptionChoice("MAZE", "MAZE"),
-                OptionChoice("SLOT", "SLOT"),
-                OptionChoice("SNAIL", "SNAIL"),
-                OptionChoice("SOKOBAN", "SOKOBAN")
-            ]
-            )
-        ],
-        description="Set guild's specific game channel."
-    )
-    @commands.has_permissions(manage_channels=True)
-    async def gamechan(
-        self, 
-        ctx,
-        game: str
-    ):
-        await self.bot_log()
-        await self.async_set_gamechan(ctx, game)
-
 
     @commands.has_permissions(manage_channels=True)
     @setting.sub_command(
@@ -2567,14 +2541,11 @@ class Guild(commands.Cog):
         ],
         description="Set guild's specific game channel."
     )
-    
-    @commands.has_permissions(manage_channels=True)
     async def gamechan(
         self, 
         ctx,
         game: str
     ):
-        await self.bot_log()
         await self.async_set_gamechan(ctx, game)
 
     # End of setting

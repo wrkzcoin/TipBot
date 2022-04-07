@@ -46,6 +46,8 @@ class Guild(commands.Cog):
         self.raffle_pot_fee = 0.01 # Total 100%
         
         self.check_raffle_status.start()
+        self.raffle_ongoing = []
+        self.raffle_to_win = []
 
         # DB
         self.pool = None
@@ -306,7 +308,7 @@ class Guild(commands.Cog):
             await logchanbot(traceback.format_exc())
 
 
-    @tasks.loop(seconds=10.0)
+    @tasks.loop(seconds=15.0)
     async def check_raffle_status(self):
         time_lap = 10 # seconds
         to_close_fromopen = 300 # second
@@ -334,6 +336,10 @@ class Guild(commands.Cog):
                                             await raffle_chan.send(msg_raffle)
                                     await logchanbot(msg_raffle)                                
                                 else:
+                                    if each_raffle['id'] in self.raffle_ongoing:
+                                        continue
+                                    else:
+                                        self.raffle_ongoing.append(each_raffle['id'])
                                     # change status from Open to ongoing
                                     update_status = await self.raffle_update_id(each_raffle['id'], 'ONGOING', None, None, None, None, None, None, None, None, None, None)
                                     if update_status:
@@ -376,6 +382,10 @@ class Guild(commands.Cog):
                                     per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
                                     if per_unit > 0: unit_price_usd = per_unit
                             if each_raffle['ending_ts'] < int(time.time()):
+                                if each_raffle['id'] in self.raffle_to_win:
+                                    continue
+                                else:
+                                    self.raffle_to_win.append(each_raffle['id'])
                                 # Let's random and update
                                 list_raffle_id = await self.raffle_get_from_by_id(each_raffle['id'], SERVER_BOT, None)
                                 # This is redundant with above!

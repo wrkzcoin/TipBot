@@ -1819,7 +1819,7 @@ class Wallet(commands.Cog):
                                             except Exception as e:
                                                 traceback.print_exc(file=sys.stdout)
                                         if get_confirm_depth > int(tx['confirmations']) > 0 and tx['amount'] >= get_min_deposit_amount:
-                                            if COIN_NAME in ["PGO"] and tx['category'] == 'receive' and 'generated' in tx:
+                                            if COIN_NAME in ["PGO"] and tx['category'] == 'receive' and 'generated' in tx and tx['amount'] > 0:
                                                 continue
                                             # add notify to redis and alert deposit. Can be clean later?
                                             if config.notify_new_tx.enable_new_no_confirm == 1:

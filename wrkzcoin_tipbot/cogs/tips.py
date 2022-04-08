@@ -1148,11 +1148,19 @@ class Tips(commands.Cog):
                 await ctx.reply(msg)
             return
 
-        amountDiv = truncate(amount / len(memids), 4)
+        amountDiv = truncate(amount / len(memids), 8)
 
         tipAmount = num_format_coin(amount, COIN_NAME, coin_decimal, False)
         ActualSpend_str = num_format_coin(amountDiv * len(memids), COIN_NAME, coin_decimal, False)
         amountDiv_str = num_format_coin(amountDiv, COIN_NAME, coin_decimal, False)
+
+        if amountDiv <= 0:
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, amount truncated to `0 {COIN_NAME}`. Try bigger one.'
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(msg)
+            else:
+                await ctx.reply(msg)
+            return
 
         equivalent_usd = ""
         total_equivalent_usd = ""

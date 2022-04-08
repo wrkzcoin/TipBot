@@ -1,6 +1,8 @@
 import sys
 import traceback
 from datetime import datetime
+import aiohttp
+import json
 
 import disnake
 from disnake.ext import commands
@@ -72,6 +74,34 @@ class Stats(commands.Cog):
                     print("TODO")
                 elif type_coin == "NANO":
                     print("TODO")
+                elif type_coin == "HNT":
+                    try:
+                        main_address = getattr(getattr(self.bot.coin_list, COIN_NAME), "MainAddress")
+                        wallet_host = getattr(getattr(self.bot.coin_list, COIN_NAME), "wallet_address")
+                        coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+                        explorer_link = getattr(getattr(self.bot.coin_list, COIN_NAME), "explorer_link")
+                        headers = {
+                            'Content-Type': 'application/json'
+                        }
+                        json_data = {
+                            "jsonrpc": "2.0",
+                            "id": "1",
+                            "method": "account_get",
+                            "params": {
+                                "address": main_address
+                            }
+                        }
+                        async with aiohttp.ClientSession() as session:
+                            async with session.post(wallet_host, headers=headers, json=json_data, timeout=32) as response:
+                                if response.status == 200:
+                                    res_data = await response.read()
+                                    res_data = res_data.decode('utf-8')
+                                    decoded_data = json.loads(res_data)
+                                    json_resp = decoded_data
+                                    if 'result' in json_resp:
+                                        embed.add_field(name="Main Balance", value="`{:,.4f}`".format(json_resp['result']['balance']/10**coin_decimal, explorer_link), inline=False)
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
                 try:
                     height = None
                     if net_name is None:

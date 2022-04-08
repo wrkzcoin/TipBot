@@ -33,6 +33,7 @@ from tronpy.keys import PrivateKey
 from httpx import AsyncClient, Timeout, Limits
 
 from eth_account import Account
+import base64
 
 from pywallet import wallet as ethwallet
 import ssl
@@ -154,7 +155,8 @@ class WalletAPI(commands.Cog):
         # return path to image
         # address = wallet['balance_wallet_address']
         # return address if success, else None
-        if not os.path.exists(config.storage.path_deposit_qr_create + address + ".png"):
+        address_path = address.replace('{', '_').replace('}', '_').replace(':', '_').replace('"', "_").replace(',', "_").replace(' ', "_")
+        if not os.path.exists(config.storage.path_deposit_qr_create + address_path + ".png"):
             try:
                 # do some QR code
                 qr = qrcode.QRCode(
@@ -167,7 +169,7 @@ class WalletAPI(commands.Cog):
                 qr.make(fit=True)
                 img = qr.make_image(fill_color="black", back_color="white")
                 img = img.resize((256, 256))
-                img.save(config.storage.path_deposit_qr_create + address + ".png")
+                img.save(config.storage.path_deposit_qr_create + address_path + ".png")
                 return address
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
@@ -244,7 +246,16 @@ class WalletAPI(commands.Cog):
                         balance_address = address_call
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
-
+            elif type_coin.upper() == "HNT":
+                # generate random memo
+                from string import ascii_uppercase
+                main_address = getattr(getattr(self.bot.coin_list, COIN_NAME), "MainAddress")
+                memo = ''.join(random.choice(ascii_uppercase) for i in range(8))
+                balance_address = {}
+                balance_address['balance_wallet_address'] = "{} MEMO: {}".format(main_address, memo)
+                balance_address['address'] = main_address
+                balance_address['memo'] = memo
+                print(balance_address)
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
@@ -294,6 +305,12 @@ class WalletAPI(commands.Cog):
                             await cur.execute(sql, (COIN_NAME, str(userID), "{}_{}".format(userID, COIN_NAME), balance_address['address'], int(time.time()), user_server, is_discord_guild))
                             await conn.commit()
                             return {'balance_wallet_address': balance_address['address']}
+                        elif type_coin.upper() == "HNT":
+                            sql = """ INSERT INTO `hnt_user` (`coin_name`, `user_id`, `main_address`, `balance_wallet_address`, `memo`, `address_ts`, `user_server`, `is_discord_guild`) 
+                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                            await cur.execute(sql, (COIN_NAME, str(userID), main_address, balance_address['balance_wallet_address'], memo, int(time.time()), user_server, is_discord_guild))
+                            await conn.commit()
+                            return balance_address
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
         except Exception as e:
@@ -349,6 +366,12 @@ class WalletAPI(commands.Cog):
                         if result: return result
                     elif type_coin.upper() == "CHIA":
                         sql = """ SELECT * FROM `xch_user` WHERE `user_id`=%s 
+                                  AND `coin_name`=%s AND `user_server` = %s LIMIT 1 """
+                        await cur.execute(sql, (str(userID), COIN_NAME, user_server))
+                        result = await cur.fetchone()
+                        if result: return result
+                    elif type_coin.upper() == "HNT":
+                        sql = """ SELECT * FROM `hnt_user` WHERE `user_id`=%s 
                                   AND `coin_name`=%s AND `user_server` = %s LIMIT 1 """
                         await cur.execute(sql, (str(userID), COIN_NAME, user_server))
                         result = await cur.fetchone()
@@ -940,6 +963,91 @@ class WalletAPI(commands.Cog):
         return None
 
 
+    async def send_external_hnt(self, user_id: str, wallet_host: str, password: str, from_address: str, payee: str, amount: float, coin_decimal: int, user_server: str, coin: str, withdraw_fee: float, time_out=32):
+        COIN_NAME = coin.upper()
+        if from_address == payee: return None
+        try:
+            headers = {
+                'Content-Type': 'application/json'
+            }
+            json_send = {
+                "jsonrpc": "2.0",
+                "id": "1",
+                "method": "wallet_pay",
+                "params": {
+                    "address": from_address,
+                    "payee": payee,
+                    "bones": int(amount*10**coin_decimal)
+                    #"nonce": 422
+                }
+            }
+            json_unlock = {
+                "jsonrpc": "2.0",
+                "id": "1",
+                "method": "wallet_unlock",
+                "params": {
+                    "address": from_address,
+                    "password": password
+                }
+            }
+            json_check_lock = {
+                "jsonrpc": "2.0",
+                "id": "1",
+                "method": "wallet_is_locked",
+                "params": {
+                    "address": from_address
+                }
+            }
+            async def call_hnt_wallet(url, headers, json_data, time_out):
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(url, headers=headers, json=json_data, timeout=time_out) as response:
+                        if response.status == 200:
+                            res_data = await response.read()
+                            res_data = res_data.decode('utf-8')
+                            decoded_data = json.loads(res_data)
+                            json_resp = decoded_data
+                            return json_resp
+            # 1] Check if lock
+            # 3] Unlock
+            try:
+                unlock = None
+                check_locked = await call_hnt_wallet(wallet_host, headers=headers, json_data=json_check_lock, time_out=time_out)
+                print(check_locked)
+                if 'result' in check_locked and check_locked['result'] == True:
+                    await logchanbot(f'[UNLOCKED] {COIN_NAME}...')
+                    unlock = await call_hnt_wallet(wallet_host, headers=headers, json_data=json_unlock, time_out=time_out)
+                    print(unlock)
+                if unlock is None or (unlock is not None and 'result' in unlock and unlock['result'] == True):
+                    sendTx = await call_hnt_wallet(wallet_host, headers=headers, json_data=json_send, time_out=time_out)
+                    fee = 0.0
+                    if 'result' in sendTx:
+                        if 'implicit_burn' in sendTx['result'] and 'fee' in sendTx['result']['implicit_burn']:
+                            fee = sendTx['result']['implicit_burn']['fee']/10**coin_decimal
+                        elif 'fee' in sendTx['result']:
+                            fee = sendTx['result']['fee']/10**coin_decimal
+                        try:
+                            await self.openConnection()
+                            async with self.pool.acquire() as conn:
+                                async with conn.cursor() as cur:
+                                    sql = """ INSERT INTO hnt_external_tx (`coin_name`, `user_id`, `amount`, `tx_fee`, `withdraw_fee`, `decimal`, `to_address`, `date`, `tx_hash`, `user_server`) 
+                                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                    await cur.execute(sql, (COIN_NAME, user_id, amount, fee, withdraw_fee, coin_decimal, payee, int(time.time()), sendTx['result']['hash'], user_server))
+                                    await conn.commit()
+                                    return sendTx['result']['hash']
+                        except Exception as e:
+                            await logchanbot(traceback.format_exc())
+                        # return tx_hash
+                else:
+                    await logchanbot('[FAILED] send_external_hnt: Failed to unlock wallet...')
+                    return None
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return None
+
+
 class Wallet(commands.Cog):
 
     def __init__(self, bot):
@@ -975,6 +1083,10 @@ class Wallet(commands.Cog):
         self.update_balance_trc20.start()
         self.unlocked_move_pending_trc20.start()
         self.notify_new_confirmed_spendable_trc20.start()
+        
+        # HNT
+        self.update_balance_hnt.start()
+        self.notify_new_confirmed_hnt.start()
         
         # Swap
         self.swap_pair = {"WRKZ-BWRKZ": 1, "BWRKZ-WRKZ": 1, "WRKZ-XWRKZ": 1, "XWRKZ-WRKZ": 1, "DEGO-WDEGO": 0.001, "WDEGO-DEGO": 1000, "PGO-WPGO": 1, "WPGO-PGO": 1}
@@ -1201,7 +1313,30 @@ class Wallet(commands.Cog):
                             incoming_tx = result['incoming_tx']
                         else:
                             incoming_tx = 0
+                    elif coin_family == "HNT":
+                        sql = """ SELECT SUM(amount+withdraw_fee) AS tx_expense FROM `hnt_external_tx` WHERE `user_id`=%s AND `coin_name` = %s AND `user_server` = %s AND `crediting`=%s """
+                        await cur.execute(sql, ( userID, TOKEN_NAME, user_server, "YES" ))
+                        result = await cur.fetchone()
+                        if result:
+                            tx_expense = result['tx_expense']
+                        else:
+                            tx_expense = 0
 
+                        # split address, memo
+                        address_memo = address.split()
+                        if top_block is None:
+                            sql = """ SELECT SUM(amount) AS incoming_tx FROM `hnt_get_transfers` WHERE `address`=%s AND `memo`=%s AND `coin_name` = %s 
+                                      AND `amount`>0 AND `time_insert`< %s """
+                            await cur.execute(sql, (address_memo[0], address_memo[2], TOKEN_NAME, nos_block)) # TODO: split to address, memo
+                        else:
+                            sql = """ SELECT SUM(amount) AS incoming_tx FROM `hnt_get_transfers` WHERE `address`=%s AND `memo`=%s AND `coin_name` = %s 
+                                      AND `amount`>0 AND `height`<%s """
+                            await cur.execute(sql, (address_memo[0], address_memo[2], TOKEN_NAME, nos_block)) # TODO: split to address, memo
+                        result = await cur.fetchone()
+                        if result and result['incoming_tx']:
+                            incoming_tx = result['incoming_tx']
+                        else:
+                            incoming_tx = 0
                 balance = {}
                 balance['adjust'] = 0
 
@@ -1218,6 +1353,7 @@ class Wallet(commands.Cog):
                 balance['raffle_fee'] = float("%.6f" % raffle_fee) if raffle_fee else 0
 
                 balance['adjust'] = float("%.6f" % ( balance['mv_balance']+balance['incoming_tx']-balance['airdropping']-balance['mathtip']-balance['triviatip']-balance['tx_expense']-balance['open_order']-balance['raffle_fee'] ))
+
                 # Negative check
                 try:
                     if balance['adjust'] < 0:
@@ -1474,6 +1610,178 @@ class Wallet(commands.Cog):
                             traceback.print_exc(file=sys.stdout)
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
+
+    @tasks.loop(seconds=60.0)
+    async def notify_new_confirmed_hnt(self):
+        await self.bot.wait_until_ready()
+        await asyncio.sleep(3.0)
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `hnt_get_transfers` WHERE `notified_confirmation`=%s AND `failed_notification`=%s AND `user_server`=%s """
+                    await cur.execute(sql, ( "NO", "NO", SERVER_BOT ))
+                    result = await cur.fetchall()
+                    if result and len(result) > 0:
+                        for eachTx in result:
+                            if eachTx['user_id']:
+                                if not eachTx['user_id'].isdigit():
+                                    continue
+                                member = self.bot.get_user(int(eachTx['user_id']))
+                                if member is not None:
+                                    coin_decimal = getattr(getattr(self.bot.coin_list, eachTx['coin_name']), "decimal")
+                                    msg = "You got a new deposit (it could take a few minutes to credit): ```" + "Coin: {}\nTx: {}\nAmount: {}".format(eachTx['coin_name'], eachTx['txid'], num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False)) + "```"
+                                    try:
+                                        await member.send(msg)
+                                        sql = """ UPDATE `hnt_get_transfers` SET `notified_confirmation`=%s, `time_notified`=%s WHERE `txid`=%s LIMIT 1 """
+                                        await cur.execute(sql, ( "YES", int(time.time()), eachTx['txid'] ))
+                                        await conn.commit()
+                                    except Exception as e:
+                                        traceback.print_exc(file=sys.stdout)
+                                        sql = """ UPDATE `hnt_get_transfers` SET `notified_confirmation`=%s, `failed_notification`=%s WHERE `txid`=%s LIMIT 1 """
+                                        await cur.execute(sql, ( "NO", "YES", eachTx['txid'] ))
+                                        await conn.commit()
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+
+
+    @tasks.loop(seconds=120.0)
+    async def update_balance_hnt(self):
+        await self.bot.wait_until_ready()
+        await asyncio.sleep(3.0)
+        timeout = 30
+        COIN_NAME = "HNT"
+        coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+        try:
+            # get height
+            try:
+                headers = {
+                    'Content-Type': 'application/json',
+                }
+                json_data = {
+                    "jsonrpc": "2.0",
+                    "id": "1",
+                    "method": "block_height"
+                }
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(getattr(getattr(self.bot.coin_list, COIN_NAME), "wallet_address"), headers=headers, json=json_data, timeout=timeout) as response:
+                        if response.status == 200:
+                            res_data = await response.read()
+                            res_data = res_data.decode('utf-8')
+                            decoded_data = json.loads(res_data)
+                            if 'result' in decoded_data:
+                                height = int(decoded_data['result'])
+                                try:
+                                    redis_utils.redis_conn.set(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}', str(height))
+                                except Exception as e:
+                                    traceback.print_exc(file=sys.stdout)
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            async def fetch_api(url, timeout):
+                try:
+                    headers = {
+                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36'
+                    }
+                    async with aiohttp.ClientSession() as session:
+                        async with session.get(url, headers=headers, timeout=timeout) as response:
+                            if response.status == 200:
+                                res_data = await response.read()
+                                res_data = res_data.decode('utf-8')
+                                decoded_data = json.loads(res_data)
+                                return decoded_data
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                return None
+
+            async def get_tx_incoming():
+                try:
+                    await self.openConnection()
+                    async with self.pool.acquire() as conn:
+                        async with conn.cursor() as cur:
+                            sql = """ SELECT * FROM `hnt_get_transfers` """
+                            await cur.execute(sql,)
+                            result = await cur.fetchall()
+                            if result: return result
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                return []
+            # Get list of tx from API:
+            main_address = getattr(getattr(self.bot.coin_list, COIN_NAME), "MainAddress")
+            url = getattr(getattr(self.bot.coin_list, COIN_NAME), "rpchost") + "accounts/"+main_address+"/roles"
+            fetch_data = await fetch_api(url, timeout)
+            incoming = [] ##payments
+            if fetch_data is not None and 'data' in fetch_data:
+                # Check if len data is 0
+                if len(fetch_data['data']) == 0 and 'cursor' in fetch_data:
+                    url2 = getattr(getattr(self.bot.coin_list, COIN_NAME), "rpchost") + "accounts/"+main_address+"/roles/?cursor="+fetch_data['cursor']
+                    # get with cursor
+                    fetch_data_2 = await fetch_api(url2, timeout)
+                    if fetch_data_2 is not None and 'data' in fetch_data_2:
+                        if len(fetch_data_2['data']) > 0:
+                            for each_item in fetch_data_2['data']:
+                                incoming.append(each_item)
+                elif len(fetch_data['data']) > 0 and 'cursor' in fetch_data:
+                    for each_item in fetch_data['data']:
+                        incoming.append(each_item)
+                    url2 = getattr(getattr(self.bot.coin_list, COIN_NAME), "rpchost") + "accounts/"+main_address+"/roles/?cursor="+fetch_data['cursor']
+                    # get with cursor
+                    fetch_data_2 = await fetch_api(url2, timeout)
+                    if fetch_data_2 is not None and 'data' in fetch_data_2:
+                        if len(fetch_data_2['data']) > 0:
+                            for each_item in fetch_data_2['data']:
+                                incoming.append(each_item)
+                elif len(fetch_data['data']) > 0:
+                    for each_item in fetch_data['data']:
+                        incoming.append(each_item)
+            if len(incoming) > 0:
+                get_incoming_tx = await get_tx_incoming()
+                list_existing_tx = []
+                if len(get_incoming_tx) > 0:
+                    list_existing_tx = [each['txid'] for each in get_incoming_tx]
+                for each_tx in incoming:
+                    tx_hash = each_tx['hash']
+                    if tx_hash in list_existing_tx:
+                        # Go to next
+                        continue
+                    amount = 0.0
+                    url_tx = getattr(getattr(self.bot.coin_list, COIN_NAME), "rpchost") + "transactions/" + tx_hash
+                    fetch_tx = await fetch_api(url_tx, timeout)
+                    if 'data' in fetch_tx:
+                        height = fetch_tx['data']['height']
+                        blockTime = fetch_tx['data']['time']
+                        fee = fetch_tx['data']['fee'] / 10**coin_decimal
+                        payer = fetch_tx['data']['payer']
+                        if 'payer' in fetch_tx['data'] and fetch_tx['data'] == main_address:
+                            continue
+                        if 'payments' in fetch_tx['data'] and len(fetch_tx['data']['payments']) > 0:
+                            for each_payment in fetch_tx['data']['payments']:
+                                if each_payment['payee'] == main_address:
+                                    amount = each_payment['amount'] / 10**coin_decimal
+                                    memo = base64.b64decode(each_payment['memo']).decode()
+                                    try:
+                                        coin_family = "HNT"
+                                        user_memo = None
+                                        user_id = None
+                                        if len(memo) == 8:
+                                            user_memo = await store.sql_get_userwallet_by_paymentid("{} MEMO: {}".format(main_address, memo), COIN_NAME, coin_family, SERVER_BOT)
+                                            if user_memo is not None and user_memo['user_id']:
+                                                user_id = user_memo['user_id']
+                                        await self.openConnection()
+                                        async with self.pool.acquire() as conn:
+                                            async with conn.cursor() as cur:
+                                                sql = """ INSERT INTO `hnt_get_transfers` (`coin_name`, `user_id`, `txid`, `height`, `timestamp`, 
+                                                          `amount`, `fee`, `decimal`, `address`, `memo`, 
+                                                          `payer`, `time_insert`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                                await cur.execute(sql, (COIN_NAME, user_id, tx_hash, height, blockTime, amount, fee, 
+                                                                        coin_decimal, each_payment['payee'], memo, payer, int(time.time())))
+                                                await conn.commit()
+                                    except Exception as e:
+                                        traceback.print_exc(file=sys.stdout)
+                                        await logchanbot(traceback.format_exc())
+        except asyncio.TimeoutError:
+            print('TIMEOUT: COIN: {} - timeout {}'.format(COIN_NAME, timeout))
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
 
 
     @tasks.loop(seconds=20.0)
@@ -2598,6 +2906,8 @@ class Wallet(commands.Cog):
                     
         # Do the job
         try:
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(f'{ctx.author.mention}, checking your {COIN_NAME} address...', ephemeral=True)
             net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
             type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
             get_deposit = await self.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
@@ -2614,23 +2924,35 @@ class Wallet(commands.Cog):
                 fee_txt = " **{} {}** will be deducted from your deposit when it reaches minimum.".format(getattr(getattr(self.bot.coin_list, COIN_NAME), "real_deposit_fee"), token_display)
             embed = disnake.Embed(title=f'Deposit for {ctx.author.name}#{ctx.author.discriminator}', description=description + fee_txt, timestamp=datetime.fromtimestamp(int(time.time())))
             embed.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
+            qr_address = wallet_address
+            if COIN_NAME == "HNT":
+                address_memo = wallet_address.split()
+                qr_address = '{"type":"payment","address":"'+address_memo[0]+'","memo":"'+address_memo[2]+'"}'
             try:
-                gen_qr_address = await self.generate_qr_address(wallet_address)
-                embed.set_thumbnail(url=config.storage.deposit_url + wallet_address + ".png")
+                gen_qr_address = await self.generate_qr_address(qr_address)
+                address_path = qr_address.replace('{', '_').replace('}', '_').replace(':', '_').replace('"', "_").replace(',', "_").replace(' ', "_")
+                embed.set_thumbnail(url=config.storage.deposit_url + address_path + ".png")
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
+                
             plain_msg = '{}#{} Your deposit address: ```{}```'.format(ctx.author.name, ctx.author.discriminator, wallet_address)
             embed.add_field(name="Your Deposit Address", value="`{}`".format(wallet_address), inline=False)
             if getattr(getattr(self.bot.coin_list, COIN_NAME), "explorer_link") and len(getattr(getattr(self.bot.coin_list, COIN_NAME), "explorer_link")) > 0:
                 embed.add_field(name="Other links", value="[{}]({})".format("Explorer", getattr(getattr(self.bot.coin_list, COIN_NAME), "explorer_link")), inline=False)
+            
+            if COIN_NAME == "HNT": # put memo and base64
+                try:
+                    address_memo = wallet_address.split()
+                    embed.add_field(name="MEMO", value="```Ascii: {}\nBase64: {}```".format(address_memo[2], base64.b64encode(address_memo[2].encode('ascii')).decode('ascii')), inline=False)
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
             embed.set_footer(text="Use: deposit plain (for plain text)")
             try:
-                # Try DM first
                 if type(ctx) == disnake.ApplicationCommandInteraction:
                     if plain and plain.lower() == 'plain' or plain.lower() == 'text':
-                        await ctx.response.send_message(plain_msg, ephemeral=True)
+                        await ctx.edit_original_message(content=plain_msg)
                     else:
-                        await ctx.response.send_message(embed=embed, ephemeral=True)
+                        await ctx.edit_original_message(embed=embed)
                 else:
                     if plain and plain.lower() == 'plain' or plain.lower() == 'text':
                         msg = await ctx.reply(plain_msg, view=RowButton_close_message())
@@ -2688,6 +3010,8 @@ class Wallet(commands.Cog):
                     return
         # Do the job
         try:
+            if type(ctx) == disnake.ApplicationCommandInteraction:
+                await ctx.response.send_message(f'{ctx.author.mention}, checking your {COIN_NAME} balance...', ephemeral=True)
             net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
             type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
             deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
@@ -2741,7 +3065,7 @@ class Wallet(commands.Cog):
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
             if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(embed=embed, ephemeral=True)
+                await ctx.edit_original_message(embed=embed)
             else:
                 await ctx.reply(embed=embed, view=RowButton_row_close_any_message())
             # Add update for future call
@@ -3040,7 +3364,7 @@ class Wallet(commands.Cog):
                     await ctx.response.send_message(msg)
                 else:
                     await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
-                    msg = await ctx.reply(msg)
+                    await ctx.reply(msg)
                 return
 
             height = None
@@ -3052,11 +3376,15 @@ class Wallet(commands.Cog):
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
             if height is None:
-                await ctx.reply(f'{ctx.author.mention}, **{COIN_NAME}** cannot pull information from network. Try again later.')
+                msg = f'{ctx.author.mention}, **{COIN_NAME}** cannot pull information from network. Try again later.'
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(msg)
+                else:
+                    await ctx.reply(msg)
                 return
             else:
                 if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(f"{EMOJI_HOURGLASS_NOT_DONE} Checking withdraw for {ctx.author.mention}..", delete_after=4.0) # delete_after can not have ephemeral=True 
+                    await ctx.response.send_message(f"{EMOJI_HOURGLASS_NOT_DONE} Checking withdraw for {ctx.author.mention}..", ephemeral=True) # delete_after can not have ephemeral=True 
                 # check if amount is all
                 all_amount = False
                 if not amount.isdigit() and amount.upper() == "ALL":
@@ -3070,7 +3398,7 @@ class Wallet(commands.Cog):
                     if usd_equivalent_enable == 0:
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{COIN_NAME}`."
                         if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.followup.send(msg)
+                            await ctx.edit_original_message(content=msg)
                         else:
                             await ctx.reply(msg)
                         return
@@ -3090,7 +3418,7 @@ class Wallet(commands.Cog):
                         else:
                             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, I cannot fetch equivalent price. Try with different method.'
                             if type(ctx) == disnake.ApplicationCommandInteraction:
-                                await ctx.followup.send(msg)
+                                await ctx.edit_original_message(content=msg)
                             else:
                                 await ctx.reply(msg)
                             return
@@ -3110,14 +3438,14 @@ class Wallet(commands.Cog):
                 if actual_balance <= 0:
                     msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please check your **{token_display}** balance.'
                     if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.followup.send(msg)
+                        await ctx.edit_original_message(content=msg)
                     else:
                         await ctx.reply(msg)
                     return
                 if amount > actual_balance:
                     msg = f'{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to send out {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}.'
                     if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.followup.send(msg)
+                        await ctx.edit_original_message(content=msg)
                     else:
                         await ctx.reply(msg)
                     return
@@ -3125,14 +3453,14 @@ class Wallet(commands.Cog):
                 if amount + NetFee > actual_balance:
                     msg = f'{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to send out {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}. You need to leave at least network fee: {num_format_coin(NetFee, COIN_NAME, coin_decimal, False)} {token_display}.'
                     if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.followup.send(msg)
+                        await ctx.edit_original_message(content=msg)
                     else:
                         await ctx.reply(msg)
                     return
                 elif amount < MinTx or amount > MaxTx:
                     msg = f'{EMOJI_RED_NO} {ctx.author.mention}, transaction cannot be smaller than {num_format_coin(MinTx, COIN_NAME, coin_decimal, False)} {token_display} or bigger than {num_format_coin(MaxTx, COIN_NAME, coin_decimal, False)} {token_display}.'
                     if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.followup.send(msg)
+                        await ctx.edit_original_message(content=msg)
                     else:
                         await ctx.reply(msg)
                     return
@@ -3164,7 +3492,7 @@ class Wallet(commands.Cog):
                     else:
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid address:\n`{address}`'
                         if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.followup.send(msg)
+                            await ctx.edit_original_message(content=msg)
                         else:
                             await ctx.reply(msg)
                         return
@@ -3184,7 +3512,7 @@ class Wallet(commands.Cog):
                         # reject and tell to wait
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
                         if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.followup.send(msg)
+                            await ctx.edit_original_message(content=msg)
                         else:
                             await ctx.reply(msg)
                         return
@@ -3194,7 +3522,7 @@ class Wallet(commands.Cog):
                         try:
                             msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`{fee_txt}'
                             if type(ctx) == disnake.ApplicationCommandInteraction:
-                                await ctx.followup.send(msg, ephemeral=withdraw_tx_ephemeral)
+                                await ctx.edit_original_message(content=msg)
                             else:
                                 await ctx.reply(msg)
                             return
@@ -3219,7 +3547,7 @@ class Wallet(commands.Cog):
                         # reject and tell to wait
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
                         if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.followup.send(msg)
+                            await ctx.ctx.edit_original_message(content=msg)
                         else:
                             await ctx.reply(msg)
                         return
@@ -3229,7 +3557,7 @@ class Wallet(commands.Cog):
                         try:
                             msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`{fee_txt}'
                             if type(ctx) == disnake.ApplicationCommandInteraction:
-                                await ctx.followup.send(msg, ephemeral=withdraw_tx_ephemeral)
+                                await ctx.edit_original_message(content=msg)
                             else:
                                 await ctx.reply(msg)
                             return
@@ -3244,7 +3572,7 @@ class Wallet(commands.Cog):
                     if not valid_address == True:
                         msg = f"{EMOJI_RED_NO} Address: `{address}` is invalid."
                         if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.followup.send(msg)
+                            await ctx.edit_original_message(content=msg)
                         else:
                             await ctx.reply(msg)
                         return
@@ -3259,12 +3587,12 @@ class Wallet(commands.Cog):
                                     SendTx_hash = SendTx['block']
                                     msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx_hash}`{fee_txt}'
                                     if type(ctx) == disnake.ApplicationCommandInteraction:
-                                        await ctx.followup.send(msg, ephemeral=withdraw_tx_ephemeral)
+                                        await ctx.edit_original_message(content=msg)
                                     else:
                                         await ctx.reply(msg)
                                     await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} successfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                                 else:
-                                    await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
+                                    await logchanbot(f'[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                             except Exception as e:
                                 await logchanbot(traceback.format_exc())
                             self.bot.TX_IN_PROCESS.remove(ctx.author.id)
@@ -3272,7 +3600,7 @@ class Wallet(commands.Cog):
                             # reject and tell to wait
                             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
                             if type(ctx) == disnake.ApplicationCommandInteraction:
-                                await ctx.followup.send(msg)
+                                await ctx.edit_original_message(content=msg)
                             else:
                                 await ctx.reply(msg)
                             return
@@ -3285,17 +3613,44 @@ class Wallet(commands.Cog):
                             await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} successfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                             msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`{fee_txt}'
                             if type(ctx) == disnake.ApplicationCommandInteraction:
-                                await ctx.followup.send(msg, ephemeral=withdraw_tx_ephemeral)
+                                await ctx.edit_original_message(content=msg)
                             else:
                                 await ctx.reply(msg)
                         else:
-                            await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
+                            await logchanbot(f'[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                         self.bot.TX_IN_PROCESS.remove(ctx.author.id)
                     else:
                         # reject and tell to wait
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
                         if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.followup.send(msg)
+                            await ctx.edit_original_message(content=msg)
+                        else:
+                            await ctx.reply(msg)
+                        return
+                elif type_coin == "HNT":
+                    if ctx.author.id not in self.bot.TX_IN_PROCESS:
+                        self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                        wallet_host = getattr(getattr(self.bot.coin_list, COIN_NAME), "wallet_address")
+                        main_address = getattr(getattr(self.bot.coin_list, COIN_NAME), "MainAddress")
+                        coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+                        password = decrypt_string(getattr(getattr(self.bot.coin_list, COIN_NAME), "walletkey"))
+                        SendTx = await self.WalletAPI.send_external_hnt(str(ctx.author.id), wallet_host, password, main_address, address, amount, coin_decimal, SERVER_BOT, COIN_NAME, NetFee, 32)
+                        if SendTx:
+                            fee_txt = "\nWithdrew fee/node: `{} {}`.".format(num_format_coin(NetFee, COIN_NAME, coin_decimal, False), COIN_NAME)
+                            await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} successfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
+                            msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`{fee_txt}'
+                            if type(ctx) == disnake.ApplicationCommandInteraction:
+                                await ctx.edit_original_message(content=msg)
+                            else:
+                                await ctx.reply(msg)
+                        else:
+                            await logchanbot(f'[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
+                        self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+                    else:
+                        # reject and tell to wait
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
+                        if type(ctx) == disnake.ApplicationCommandInteraction:
+                            await ctx.edit_original_message(content=msg)
                         else:
                             await ctx.reply(msg)
                         return
@@ -3307,18 +3662,18 @@ class Wallet(commands.Cog):
                             fee_txt = "\nWithdrew fee/node: `{} {}`.".format(num_format_coin(NetFee, COIN_NAME, coin_decimal, False), COIN_NAME)
                             msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`{fee_txt}'
                             if type(ctx) == disnake.ApplicationCommandInteraction:
-                                await ctx.followup.send(msg, ephemeral=withdraw_tx_ephemeral)
+                                await ctx.edit_original_message(content=msg)
                             else:
                                 await ctx.reply(msg)
                             await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} successfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                         else:
-                            await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
+                            await logchanbot(f'[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                         self.bot.TX_IN_PROCESS.remove(ctx.author.id)
                     else:
                         # reject and tell to wait
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
                         if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.followup.send(msg)
+                            await ctx.edit_original_message(content=msg)
                         else:
                             await ctx.reply(msg)
                         return
@@ -3335,7 +3690,7 @@ class Wallet(commands.Cog):
                             fee_txt = "\nWithdrew fee/node: `{} {}`.".format(num_format_coin(NetFee, COIN_NAME, coin_decimal, False), COIN_NAME)
                             msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`{fee_txt}'
                             if type(ctx) == disnake.ApplicationCommandInteraction:
-                                await ctx.followup.send(msg, ephemeral=withdraw_tx_ephemeral)
+                                await ctx.edit_original_message(content=msg)
                             else:
                                 await ctx.reply(msg)
                             await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} successfully executed withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
@@ -3346,7 +3701,7 @@ class Wallet(commands.Cog):
                         # reject and tell to wait
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
                         if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.followup.send(msg)
+                            await ctx.edit_original_message(content=msg)
                         else:
                             await ctx.reply(msg)
                         return

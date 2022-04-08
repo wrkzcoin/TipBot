@@ -389,9 +389,15 @@ def num_format_coin(amount, coin: str, coin_decimal: int, atomic: bool=False):
         elif amount < 0.000001:
             amount_str = '{:,.8f}'.format(amount)
         elif amount < 0.0001:
-            amount_str = '{:,.6f}'.format(amount)
+            amount_str = '{:,.7f}'.format(amount)
         elif amount < 0.01:
+            amount_str = '{:,.6f}'.format(amount)
+        elif amount < 1.0:
+            amount_str = '{:,.5f}'.format(amount)
+        elif amount < 10:
             amount_str = '{:,.4f}'.format(amount)
+        elif amount < 1000.00:
+            amount_str = '{:,.3f}'.format(amount)
         else:
             amount_str = '{:,.2f}'.format(amount)
     return amount_str.rstrip('0').rstrip('.') if '.' in amount_str else amount_str 

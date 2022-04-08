@@ -151,67 +151,46 @@ class Trade(commands.Cog):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
             msg = f"{ctx.author.mention}, invalid sell/buy amount."
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.response.send_message(msg)
             return
 
         if sell_amount <= 0 or buy_amount <= 0:
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                msg = f'{ctx.author.mention}, amount can not be negative.'
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            msg = f'{ctx.author.mention}, amount can not be negative.'
+            await ctx.response.send_message(msg)
             return
 
         # Check if both coin with TipBot
         if not hasattr(self.bot.coin_list, sell_ticker):
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                msg = f'{ctx.author.mention}, **{sell_ticker}** does not exist with us.'
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            msg = f'{ctx.author.mention}, **{sell_ticker}** does not exist with us.'
+            await ctx.response.send_message(msg)
             return
         elif not hasattr(self.bot.coin_list, buy_ticker):
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                msg = f'{ctx.author.mention}, **{buy_ticker}** does not exist with us.'
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            msg = f'{ctx.author.mention}, **{buy_ticker}** does not exist with us.'
+            await ctx.response.send_message(msg)
             return
         # Check if both coin has trade enable
         if getattr(getattr(self.bot.coin_list, sell_ticker), "enable_trade") != 1:
             msg = f"{ctx.author.mention}, invalid trade ticker `{sell_ticker}`. They may not be enable for trade. Check with TipBot dev team."
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.response.send_message(msg)
             return
         if getattr(getattr(self.bot.coin_list, buy_ticker), "enable_trade") != 1:
             msg = f"{ctx.author.mention}, invalid trade ticker `{buy_ticker}`. They may not be enable for trade. Check with TipBot dev team."
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.response.send_message(msg)
             return
 
         if buy_ticker == sell_ticker:
             msg = f"{ctx.author.mention}, **{buy_ticker}** you cannot trade the same coins."
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.response.send_message(msg)
             return
+
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking trading..."
+        await ctx.response.send_message(msg)
 
         # get opened order:
         user_count_order = await store.sql_count_open_order_by_sellerid(str(ctx.author.id), SERVER_BOT)
         if user_count_order >= config.trade.Max_Open_Order:
             msg = f"{ctx.author.mention}, you have maximum opened selling **{config.trade.Max_Open_Order}**. Please cancel some or wait."
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.edit_original_message(content=msg)
             return
 
         sell_amount = float(sell_amount)
@@ -227,10 +206,7 @@ class Trade(commands.Cog):
         token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
         if sell_amount < MinTx or sell_amount >  MaxTx:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade for {COIN_NAME} cannot be smaller than {num_format_coin(MinTx, COIN_NAME, coin_decimal_sell, False)} {token_display} or bigger than {num_format_coin(MaxTx, COIN_NAME, coin_decimal_sell, False)} {token_display}.'
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.edit_original_message(content=msg)
             return
         # Get balance user
         User_WalletAPI = WalletAPI(self.bot)
@@ -254,10 +230,7 @@ class Trade(commands.Cog):
         actual_balance = float(userdata_balance['adjust'])
         if sell_amount > actual_balance:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance of {COIN_NAME} to trade. Having {num_format_coin(actual_balance, COIN_NAME, coin_decimal_sell, False)} {COIN_NAME} and needed {num_format_coin(sell_amount, COIN_NAME, coin_decimal_sell, False)} {COIN_NAME}.'
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.edit_original_message(content=msg)
             return
 
         # buy_ticker
@@ -271,18 +244,12 @@ class Trade(commands.Cog):
         token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
         if buy_amount < MinTx or buy_amount >  MaxTx:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade for {COIN_NAME} cannot be smaller than {num_format_coin(MinTx, COIN_NAME, coin_decimal_buy, False)} {token_display} or bigger than {num_format_coin(MaxTx, COIN_NAME, coin_decimal_buy, False)} {token_display}.'
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.edit_original_message(content=msg)
             return
 
         if sell_amount / buy_amount < config.trade.Min_Ratio or buy_amount / sell_amount < config.trade.Min_Ratio:
             msg = f"{ctx.author.mention}, ratio buy/sell rate is so low."
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.edit_original_message(content=msg)
             return
         else:
             sell_div_get = round(sell_amount / buy_amount, 12)
@@ -296,10 +263,7 @@ class Trade(commands.Cog):
                             num_format_coin(sell_amount, sell_ticker, coin_decimal_sell, False), sell_ticker,
                             num_format_coin(buy_amount, buy_ticker, coin_decimal_buy, False), buy_ticker,
                             num_format_coin(fee_sell, sell_ticker, coin_decimal_sell, False), sell_ticker)
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(get_message)
-            else:
-                await ctx.reply(get_message)
+            await ctx.edit_original_message(content=get_message)
             return
 
 
@@ -876,37 +840,28 @@ class Trade(commands.Cog):
             if COIN_NAME != "ALL":
                 # Check if coin with TipBot
                 if not hasattr(self.bot.coin_list, COIN_NAME):
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        msg = f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.'
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    msg = f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.'
+                    await ctx.response.send_message(msg)
                     return
                 
                 if getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_trade") != 1:
                     msg = f'{EMOJI_RED_NO} {ctx.author.mention}, {COIN_NAME} in not in our list of trade.'
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.response.send_message(msg)
                     return
+
+            await ctx.response.send_message(f"{ctx.author.mention}, Bot's checking trading..")
             get_list_orders = await self.get_open_orders(ctx, option_order, COIN_NAME, None)
         elif coin_pair and len(coin_pair) == 2:
             if getattr(getattr(self.bot.coin_list, coin_pair[0]), "enable_trade") != 1:
                 msg = f'{EMOJI_ERROR} {ctx.author.mention}, **{coin_pair[0]}** is not in our list of trade.'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
+                await ctx.response.send_message(msg)
                 return
             elif getattr(getattr(self.bot.coin_list, coin_pair[1]), "enable_trade") != 1:
                 msg = f'{EMOJI_ERROR} {ctx.author.mention}, **{coin_pair[1]}** is not in our list.'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
+                await ctx.response.send_message(msg)
                 return
             else:
+                await ctx.response.send_message(f"{ctx.author.mention}, Bot's checking trading..")
                 get_list_orders = await self.get_open_orders(ctx, option_order, coin_pair[0], coin_pair[1])
         if 'result' in get_list_orders and len(get_list_orders['result']) > 0:
             all_pages = []
@@ -931,18 +886,15 @@ class Trade(commands.Cog):
                 all_pages.append(page)
             if len(all_pages) == 1:
                 all_pages[0].set_footer(text="Please create more opened orders with /sell")
-                await ctx.response.send_message(embed=all_pages[0], view=RowButton_row_close_any_message())
+                await ctx.edit_original_message(content=None, embed=all_pages[0], view=RowButton_row_close_any_message())
             elif len(all_pages) > 1:
-                await ctx.response.send_message(embed=all_pages[0], view=MenuPage(ctx, all_pages, timeout=30))
+                await ctx.edit_original_message(content=None, embed=all_pages[0], view=MenuPage(ctx, all_pages, timeout=30))
         else:
             no_open = ""
             if coin_pair and len(coin_pair) == 2:
                 no_open = " for {}/{}".format(coin_pair[0], coin_pair[1])
             msg = f'{ctx.author.mention}, there is no result{no_open}. Please create opened order with /sell command.'
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.edit_original_message(content=msg)
             return
 
     @market.sub_command(

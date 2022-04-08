@@ -255,7 +255,7 @@ class WalletAPI(commands.Cog):
                 balance_address['balance_wallet_address'] = "{} MEMO: {}".format(main_address, memo)
                 balance_address['address'] = main_address
                 balance_address['memo'] = memo
-                print(balance_address)
+
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
@@ -3144,7 +3144,7 @@ class Wallet(commands.Cog):
             if type(ctx) != disnake.ApplicationCommandInteraction:
                 tmp_msg = await ctx.reply(f"{ctx.author.mention} balance loading...")
             else:
-                tmp_msg = await ctx.response.send_message(f"{ctx.author.mention} balance loading...", delete_after=60.0) # delete_after=3600.0
+                await ctx.response.send_message(f"{ctx.author.mention} balance loading...", ephemeral=True)
             for each_token in mytokens:
                 COIN_NAME = each_token['coin_name']
                 type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
@@ -3246,7 +3246,7 @@ class Wallet(commands.Cog):
             if has_none_balance == True:
                 msg = f'{ctx.author.mention}, you do not have any balance.'
                 if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
+                    await ctx.edit_original_message(content=msg)
                 else:
                     await ctx.reply(msg)
                 return
@@ -3268,7 +3268,7 @@ class Wallet(commands.Cog):
 
                 view = MenuPage(ctx, all_pages, timeout=30)
                 if type(ctx) == disnake.ApplicationCommandInteraction:
-                    view.message = await ctx.followup.send(content=None, embed=all_pages[0], view=view, ephemeral=True)
+                    view.message = await ctx.edit_original_message(content=None, embed=all_pages[0], view=view)
                 else:
                     await tmp_msg.delete()
                     view.message = await ctx.reply(content=None, embed=all_pages[0], view=view)

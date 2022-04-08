@@ -1178,8 +1178,11 @@ class Guild(commands.Cog):
         has_none_balance = True
         total_all_balance_usd = 0.0
         mytokens = await store.get_coin_settings(coin_type=None)
-        if type(ctx) != disnake.ApplicationCommandInteraction:
+        if type(ctx) == disnake.ApplicationCommandInteraction:
+            await ctx.response.send_message(f"{ctx.author.mention} guild balance loading...", ephemeral=False)
+        else:
             tmp_msg = await ctx.reply("Loading...")
+
         coin_balance_list = {}
         coin_balance = {}
         coin_balance_usd = {}
@@ -1242,7 +1245,7 @@ class Guild(commands.Cog):
         if has_none_balance == True:
             msg = f'{ctx.author.mention}, this guild does not have any balance.'
             if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
+                await ctx.edit_original_message(content=msg)
             else:
                 await ctx.reply(msg)
             return
@@ -1287,14 +1290,14 @@ class Guild(commands.Cog):
 
             if len(all_pages) == 1:
                 if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(embed=all_pages[0], view=RowButton_close_message())
+                    await ctx.edit_original_message(content=None, embed=all_pages[0], view=RowButton_close_message())
                 else:
                     await tmp_msg.delete()
                     await ctx.reply(content=None, embed=all_pages[0], view=RowButton_close_message())
             else:
                 view = MenuPage(ctx, all_pages, timeout=30)
                 if type(ctx) == disnake.ApplicationCommandInteraction:
-                    view.message = await ctx.response.send_message(embed=all_pages[0], view=view)
+                    view.message = await ctx.edit_original_message(content=None, embed=all_pages[0], view=view)
                 else:
                     await tmp_msg.delete()
                     view.message = await ctx.reply(content=None, embed=all_pages[0], view=view)

@@ -969,7 +969,8 @@ class Guild(commands.Cog):
             Option('subc', 'subc', OptionType.string, required=False, choices=[
                 OptionChoice("Get Information", "INFO"),
                 OptionChoice("Join opened raffle", "JOIN"),
-                OptionChoice("Check raffle's status", "CHECK")
+                OptionChoice("Check raffle's status", "CHECK"),
+                OptionChoice("Cancel an opened Raffle", "CANCEL")
             ]
             )
         ],
@@ -1004,7 +1005,7 @@ class Guild(commands.Cog):
         list_raffle_id = None
         if get_raffle:
             list_raffle_id = await self.raffle_get_from_by_id(get_raffle['id'], SERVER_BOT, str(ctx.author.id))
-        subc_list = ["INFO", "LAST", "JOIN", "CHECK"]
+        subc_list = ["INFO", "LAST", "JOIN", "CHECK", "CANCEL"]
         if subc not in subc_list:
             await ctx.response.send_message(f"{EMOJI_RED_NO} {ctx.author.mention} **INVALID SUB COMMAND**!")
             return
@@ -1058,6 +1059,30 @@ class Guild(commands.Cog):
                 await ctx.response.send_message(embed=embed)
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
+        elif subc == "CANCEL":
+            if not ctx.author.guild_permissions.manage_channels:
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you do not have permission to cancel current raffle."
+                await ctx.response.send_message(msg)
+            if get_raffle is None:
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, there is no information of current raffle yet for this guild {ctx.guild.name}!"
+                await ctx.response.send_message(msg)
+            else:
+                if get_raffle['status'] != "OPENED":
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you can only cancel `OPENED` raffle!"
+                    await ctx.response.send_message(msg)
+                else:
+                    # Cancel game
+                    cancelled_status = await self.raffle_cancel_id(get_raffle['id'])
+                    msg_raffle = "Cancelled raffle #{} in guild {}: Requested by {}#{}. User entry fee refund!".format(get_raffle['id'], get_raffle['guild_name'], ctx.author.name, ctx.author.discriminator)
+                    serverinfo = await store.sql_info_by_server(get_raffle['guild_id'])
+                    if serverinfo['raffle_channel']:
+                        raffle_chan = self.bot.get_channel(int(serverinfo['raffle_channel']))
+                        if raffle_chan:
+                            await raffle_chan.send(msg_raffle)
+                    await logchanbot(msg_raffle)
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, cancel raffle done."
+                    await ctx.response.send_message(msg)
+            return
         elif subc == "JOIN":
             if get_raffle is None:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, there is no information of current raffle yet for this guild {ctx.guild.name}!"

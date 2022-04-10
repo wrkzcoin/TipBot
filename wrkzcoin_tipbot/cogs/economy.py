@@ -2093,6 +2093,8 @@ class Economy(commands.Cog):
                 if total_can_harvest == 0:
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, All your crops are not able to harvest yet!"
                     await ctx.edit_original_message(content=msg)
+                    if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                        self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                     return
                 else:
                     # Let's update farming
@@ -2102,7 +2104,6 @@ class Economy(commands.Cog):
             else:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you do not have any plant for harvesting yet. Please plant them!"
                 await ctx.edit_original_message(content=msg)
-                return
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())

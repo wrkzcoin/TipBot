@@ -267,6 +267,7 @@ class Trade(commands.Cog):
             return
 
 
+    @commands.bot_has_permissions(send_messages=True)
     @commands.slash_command(
         description="Various crypto p2p trading commands."
     )
@@ -777,7 +778,7 @@ class Trade(commands.Cog):
             if empty_page == False:
                 all_pages.append(page)
             if len(all_pages) == 1:
-                all_pages[0].set_footer(text="Please create more opened orders with /sell")
+                all_pages[0].set_footer(text="Please create more opened orders with /market sell")
                 await ctx.edit_original_message(content=None, embed=all_pages[0], view=RowButton_row_close_any_message())
             elif len(all_pages) > 1:
                 await ctx.edit_original_message(content=None, embed=all_pages[0], view=MenuPage(ctx, all_pages, timeout=30))
@@ -785,7 +786,7 @@ class Trade(commands.Cog):
             no_open = ""
             if coin_pair and len(coin_pair) == 2:
                 no_open = " for {}/{}".format(coin_pair[0], coin_pair[1])
-            msg = f'{ctx.author.mention}, there is no result{no_open}. Please create opened order with /sell command.'
+            msg = f'{ctx.author.mention}, there is no result{no_open}. Please create opened order with /market sell command.'
             await ctx.edit_original_message(content=msg)
             return
 

@@ -366,6 +366,12 @@ class Admin(commands.Cog):
                         await cur.execute(sql, (COIN_NAME))
                         result = await cur.fetchall()
                         if result: return result
+                    elif type_coin.upper() == "HNT":
+                        sql = """ SELECT * FROM `hnt_user` 
+                                  WHERE `coin_name`=%s """
+                        await cur.execute(sql, (COIN_NAME))
+                        result = await cur.fetchall()
+                        if result: return result
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())

@@ -16,7 +16,7 @@ from terminaltables import AsciiTable
 
 from config import config
 import store
-from Bot import get_token_list, num_format_coin, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_ARROW_RIGHTHOOK, SERVER_BOT, RowButton_close_message, RowButton_row_close_any_message, human_format, text_to_num, truncate, seconds_str, EMOJI_HOURGLASS_NOT_DONE
+from Bot import get_token_list, num_format_coin, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_ARROW_RIGHTHOOK, SERVER_BOT, RowButton_close_message, RowButton_row_close_any_message, human_format, text_to_num, truncate, seconds_str, EMOJI_HOURGLASS_NOT_DONE, EMOJI_INFORMATION
 
 from utils import MenuPage
 import redis_utils
@@ -277,10 +277,7 @@ class Trade(commands.Cog):
                 serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
                 if serverinfo and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
                     msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade function is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING TRADE`'
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.response.send_message(msg)
                     if self.enable_logchan:
                         await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried **trade/market command** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
                     return
@@ -311,10 +308,7 @@ class Trade(commands.Cog):
                 serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
                 if serverinfo and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
                     msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade function is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING TRADE`'
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.response.send_message(msg)
                     if self.enable_logchan:
                         await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried **trade/market command** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
                     return
@@ -341,10 +335,7 @@ class Trade(commands.Cog):
                 serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
                 if serverinfo and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
                     msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade function is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING TRADE`'
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.response.send_message(msg)
                     if self.enable_logchan:
                         await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried **trade/market command** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
                     return
@@ -359,25 +350,16 @@ class Trade(commands.Cog):
                 COIN_NAME = ticker.upper()
                 # Check if coin with TipBot
                 if not hasattr(self.bot.coin_list, COIN_NAME):
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        msg = f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.'
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    msg = f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.'
+                    await ctx.response.send_message(msg)
                     return
                 if COIN_NAME not in self.bot.coin_name_list:
                     msg = f'{EMOJI_ERROR}, {ctx.author.mention}, **{COIN_NAME}** is not in our supported list.'
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.response.send_message(msg)
                     return
                 elif getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_trade") != 1:
                     msg = f'{EMOJI_ERROR}, {ctx.author.mention}, **{COIN_NAME}** is not in our trade list.'
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.response.send_message(msg)
                     return
                 else:
                     get_open_order = await store.sql_get_open_order_by_sellerid(str(ctx.author.id), COIN_NAME, 'OPEN')
@@ -393,17 +375,11 @@ class Trade(commands.Cog):
                         table.padding_left = 0
                         table.padding_right = 0
                         msg = f'**[ OPEN SELLING LIST {COIN_NAME}]**\n```{table.table}```'
-                        if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.response.send_message(msg)
-                        else:
-                            await ctx.reply(msg)
+                        await ctx.response.send_message(msg)
                         return
                     else:
                         msg = f'{ctx.author.mention}, you do not have any active selling of **{COIN_NAME}**.'
-                        if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.response.send_message(msg)
-                        else:
-                            await ctx.reply(msg)
+                        await ctx.response.send_message(msg)
                         return
             else:
                 # assume this is reference number
@@ -412,10 +388,7 @@ class Trade(commands.Cog):
                     ref_number = str(ref_number)
                 except ValueError:
                     msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid # number.'
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.response.send_message(msg)
                     return
                 get_order_num = await store.sql_get_order_numb(ref_number)
                 if get_order_num:
@@ -443,16 +416,10 @@ class Trade(commands.Cog):
                         response_text = response_text.replace("Sold", "You bought: ")
                         response_text = response_text.replace("For (After Fee):", "From selling (After Fee): ")
                     msg = f'{ctx.author.mention} {response_text}'
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.response.send_message(msg)
                 else:
                     msg = f'{EMOJI_RED_NO} {ctx.author.mention}, I could not find #**{ref_number}**.'
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.response.send_message(msg)
                 return
         else:
             get_open_order = await store.sql_get_open_order_by_sellerid_all(str(ctx.author.id), 'OPEN')
@@ -468,16 +435,10 @@ class Trade(commands.Cog):
                 table.padding_left = 0
                 table.padding_right = 0
                 msg = f'**[ OPEN SELLING LIST ]**\n```{table.table}```'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg, view=RowButton_row_close_any_message())
-                else:
-                    await ctx.reply(msg)
+                await ctx.response.send_message(msg, view=RowButton_row_close_any_message())
             else:
                 msg = f'{ctx.author.mention}, you do not have any active selling.'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
+                await ctx.response.send_message(msg)
             return
 
 
@@ -497,10 +458,7 @@ class Trade(commands.Cog):
                 serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
                 if serverinfo and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
                     msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade function is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING TRADE`'
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.response.send_message(msg)
                     if self.enable_logchan:
                         await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried **trade/market command** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
                     return
@@ -512,18 +470,12 @@ class Trade(commands.Cog):
             get_open_order = await store.sql_get_open_order_by_sellerid_all(str(ctx.author.id), 'OPEN')
             if len(get_open_order) == 0:
                 msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you do not have any open order.'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
+                await ctx.response.send_message(msg)
                 return
             else:
                 cancel_order = await store.sql_cancel_open_order_by_sellerid(str(ctx.author.id), 'ALL')
                 msg = f'{ctx.author.mention}, you have cancelled all opened order(s).'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
+                await ctx.response.send_message(msg)
                 return
         else:
             if len(order_num) < 6:
@@ -531,52 +483,34 @@ class Trade(commands.Cog):
                 COIN_NAME = order_num.upper()
                 # Check if coin with TipBot
                 if not hasattr(self.bot.coin_list, COIN_NAME):
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        msg = f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.'
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    msg = f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.'
+                    await ctx.response.send_message(msg)
                     return
                 if COIN_NAME not in self.bot.coin_name_list:
                     msg = f'{EMOJI_ERROR}, {ctx.author.mention}, **{COIN_NAME}** is not in our supported list.'
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.response.send_message(msg)
                     return
                 elif getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_trade") != 1:
                     msg = f'{EMOJI_ERROR}, {ctx.author.mention}, **{COIN_NAME}** is not in our trade list.'
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.response.send_message(msg)
                     return
                 else:
                     get_open_order = await store.sql_get_open_order_by_sellerid(str(ctx.author.id), COIN_NAME, 'OPEN')
                     if len(get_open_order) == 0:
                         msg = f'{ctx.author.mention}, you do not have any open order for **{COIN_NAME}**.'
-                        if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.response.send_message(msg)
-                        else:
-                            await ctx.reply(msg)
+                        await ctx.response.send_message(msg)
                         return
                     else:
                         cancel_order = await store.sql_cancel_open_order_by_sellerid(str(ctx.author.id), COIN_NAME)
                         msg = f'{ctx.author.mention}, you have cancelled all opened sell(s) for **{COIN_NAME}**.'
-                        if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.response.send_message(msg)
-                        else:
-                            await ctx.reply(msg)
+                        await ctx.response.send_message(msg)
                         return
             else:
                 # open order number
                 get_open_order = await store.sql_get_open_order_by_sellerid_all(str(ctx.author.id), 'OPEN')
                 if len(get_open_order) == 0:
                     msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you do not have any open order.'
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.response.send_message(msg)
                     return
                 else:
                     cancelled = False
@@ -586,17 +520,11 @@ class Trade(commands.Cog):
                             if cancel_order: cancelled = True
                     if cancelled == False:
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you do not have sell #**{order_num}**. Please check command `/myorder`.'
-                        if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.response.send_message(msg)
-                        else:
-                            await ctx.reply(msg)
+                        await ctx.response.send_message(msg)
                         return
                     else:
                         msg = f'{ctx.author.mention}, you cancelled #**{order_num}**.'
-                        if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.response.send_message(msg)
-                        else:
-                            await ctx.reply(msg)
+                        await ctx.response.send_message(msg)
                         return
 
     @market.sub_command(usage="market buy <ref_number>", 
@@ -616,10 +544,7 @@ class Trade(commands.Cog):
                 serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
                 if serverinfo and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
                     msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade function is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING TRADE`'
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.response.send_message(msg)
                     if self.enable_logchan:
                         await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried **trade/market command** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
                     return
@@ -634,25 +559,16 @@ class Trade(commands.Cog):
             COIN_NAME = ref_number.upper()
             # Check if coin with TipBot
             if not hasattr(self.bot.coin_list, COIN_NAME):
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    msg = f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.'
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
+                msg = f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.'
+                await ctx.response.send_message(msg)
                 return
             if COIN_NAME not in self.bot.coin_name_list:
                 msg = f'{EMOJI_ERROR}, {ctx.author.mention}, **{COIN_NAME}** is not in our supported list.'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
+                await ctx.response.send_message(msg)
                 return
             if getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_trade") != 1:
                 msg = f'{EMOJI_ERROR}, {ctx.author.mention}, **{COIN_NAME}** is not in our trade list.'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
+                await ctx.response.send_message(msg)
                 return
 
             # get list of all coin where they sell XXX
@@ -681,17 +597,11 @@ class Trade(commands.Cog):
                 table.padding_right = 0
                 title = "MARKET SELLING **{}**".format(COIN_NAME)
                 msg = f'[ {title} ]\n```{table.table}```'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
+                await ctx.response.send_message(msg)
                 return
             else:
                 msg = f'{ctx.author.mention}, no opening selling **{COIN_NAME}**. Please make some open order for others.'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
+                await ctx.response.send_message(msg)
                 return
         else:
             # assume reference number
@@ -700,10 +610,7 @@ class Trade(commands.Cog):
                 # check if own order
                 if get_order_num['sell_user_server'] == SERVER_BOT and ctx.author.id == int(get_order_num['userid_sell']):
                     msg = f'{EMOJI_RED_NO} {ctx.author.mention} #**{ref_number}** is your own selling order.'
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.response.send_message(msg)
                     return
                 else:
                     # check if sufficient balance
@@ -733,10 +640,7 @@ class Trade(commands.Cog):
 
                     if actual_balance < get_order_num['amount_get_after_fee']:
                         msg = '{} {} You do not have sufficient balance. ```Needed: {}{}\nHave:   {}{}```'.format(EMOJI_RED_NO, ctx.author.mention, num_format_coin(get_order_num['amount_get'], get_order_num['coin_get'], getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal"), False), get_order_num['coin_get'], num_format_coin(actual_balance, get_order_num['coin_get'], getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal"), False), get_order_num['coin_get'])
-                        if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.response.send_message(msg)
-                        else:
-                            await ctx.reply(msg)
+                        await ctx.response.send_message(msg)
                         return
                     else:
                         # let's make order update
@@ -744,10 +648,7 @@ class Trade(commands.Cog):
                         if match_order:
                             try:
                                 msg = '{} #**{}** Order completed! ```Get: {}{}\nFrom selling: {}{}\nFee: {}{}\n```'.format(ctx.author.mention, ref_number, num_format_coin(get_order_num['amount_sell_after_fee'], get_order_num['coin_sell'], getattr(getattr(self.bot.coin_list, get_order_num['coin_sell']), "decimal"), False), get_order_num['coin_sell'], num_format_coin(get_order_num['amount_get_after_fee'], get_order_num['coin_get'], getattr(getattr(self.bot.coin_list, get_order_num['coin_get']), "decimal"), False), get_order_num['coin_get'], num_format_coin(get_order_num['amount_get']-get_order_num['amount_get_after_fee'], get_order_num['coin_get'], getattr(getattr(self.bot.coin_list, get_order_num['coin_get']), "decimal"), False), get_order_num['coin_get'])
-                                if type(ctx) == disnake.ApplicationCommandInteraction:
-                                    await ctx.response.send_message(msg)
-                                else:
-                                    await ctx.reply(msg)
+                                await ctx.response.send_message(msg)
                                 try:
                                     sold = num_format_coin(get_order_num['amount_sell'], get_order_num['coin_sell'], getattr(getattr(self.bot.coin_list, get_order_num['coin_sell']), "decimal"), False) + get_order_num['coin_sell']
                                     bought = num_format_coin(get_order_num['amount_get_after_fee'], get_order_num['coin_get'], getattr(getattr(self.bot.coin_list, get_order_num['coin_get']), "decimal"), False) + get_order_num['coin_get']
@@ -770,17 +671,11 @@ class Trade(commands.Cog):
                             return
                         else:
                             msg = f'{EMOJI_RED_NO} {ctx.author.mention} **{ref_number}** internal error, please report.'
-                            if type(ctx) == disnake.ApplicationCommandInteraction:
-                                await ctx.response.send_message(msg)
-                            else:
-                                await ctx.reply(msg)
+                            await ctx.response.send_message(msg)
                             return
             else:
                 msg = f'{EMOJI_RED_NO} {ctx.author.mention} #**{ref_number}** does not exist or already completed.'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
+                await ctx.response.send_message(msg)
                 return
 
     @market.sub_command(usage="market list <coin/pair> <desc|asc>",
@@ -805,10 +700,7 @@ class Trade(commands.Cog):
                 serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
                 if serverinfo and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
                     msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade function is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING TRADE`'
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.response.send_message(msg)
                     if self.enable_logchan:
                         await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried **trade/market command** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
                     return

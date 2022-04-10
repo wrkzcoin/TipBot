@@ -42,7 +42,7 @@ class Events(commands.Cog):
     async def openConnection(self):
         try:
             if self.pool is None:
-                self.pool = await aiomysql.create_pool(host=config.mysql.host, port=3306, minsize=2, maxsize=4, 
+                self.pool = await aiomysql.create_pool(host=config.mysql.host, port=3306, minsize=4, maxsize=6, 
                                                        user=config.mysql.user, password=config.mysql.password,
                                                        db=config.mysql.db, cursorclass=DictCursor, autocommit=True)
         except Exception as e:

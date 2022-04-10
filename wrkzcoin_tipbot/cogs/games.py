@@ -2230,15 +2230,6 @@ class Games(commands.Cog):
 
         if ctx.author.id not in self.bot.GAME_DICE_IN_PRGORESS:
             self.bot.GAME_DICE_IN_PRGORESS.append(ctx.author.id)
-        else:
-            msg = f"{ctx.author.mention} You are ongoing with one **game dice** play."
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
-            return
-
-        await asyncio.sleep(2)
 
         won = False
         game_over = False
@@ -2268,7 +2259,7 @@ class Games(commands.Cog):
                 if game_over == False:
                     msg2 = await msg.reply(f'{ctx.author.mention} re-throwing dices...')
                     await msg2.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
-                    await asyncio.sleep(2)
+                    await asyncio.sleep(0.5)
             # game end, check win or lose
             try:
                 get_random_reward = await self.db.sql_game_reward_random("DICE")

@@ -871,10 +871,10 @@ class Guild(commands.Cog):
         if serverinfo['raffle_channel']:
             raffle_chan = self.bot.get_channel(int(serverinfo['raffle_channel']))
             if not raffle_chan:
-                await ctx.response.send_message(f"{EMOJI_RED_NO} {ctx.author.mention} Can not find raffle channel or invalid.")
+                await ctx.response.send_message(f"{EMOJI_RED_NO} {ctx.author.mention}, can not find raffle channel or invalid.")
                 return
         else:
-            await ctx.response.send_message(f"{EMOJI_RED_NO} {ctx.author.mention} There is no raffle channel yet.")
+            await ctx.response.send_message(f"{EMOJI_RED_NO} {ctx.author.mention}, there is no raffle channel yet.")
             return
 
         try:
@@ -882,6 +882,13 @@ class Guild(commands.Cog):
         except ValueError:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, invalid amount {amount}!"
             ctx.response.send_message(msg)
+            return
+
+        try:
+            await ctx.response.send_message(f"{ctx.author.mention}, execute raffle command... ")
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await ctx.response.send_message(f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute raffle command message...", ephemeral=True)
             return
 
         COIN_NAME = coin.upper()
@@ -898,11 +905,11 @@ class Guild(commands.Cog):
         usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
 
         if not hasattr(self.bot.coin_list, COIN_NAME):
-            await ctx.response.send_message(f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.')
+            await ctx.edit_original_message(content=f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.')
             return
 
         if enable_raffle != 1:
-            await ctx.response.send_message(f'{ctx.author.mention}, **{COIN_NAME}** not available for raffle.')
+            await ctx.edit_original_message(content=f'{ctx.author.mention}, **{COIN_NAME}** not available for raffle.')
             return
 
         duration_accepted = ["1H", "2H", "3H", "4H", "5H", "6H", "12H", "1D", "2D", "3D", "4D", "5D", "6D", "7D"]
@@ -910,27 +917,27 @@ class Guild(commands.Cog):
         duration = duration.upper()
         if duration not in duration_accepted:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention} **INVALID DATE**! Please use {duration_accepted_list}"
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
 
         try:
             num_online = len([member for member in ctx.guild.members if member.bot == False and member.status != disnake.Status.offline])
             if num_online < self.raffle_min_useronline:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, your guild needs to have at least: {str(self.raffle_min_useronline)} users online!"
-                await ctx.response.send_message(msg)
+                await ctx.edit_original_message(content=msg)
                 return
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
         if amount < MinTip or amount > MaxTip:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention} amount has to be between `{num_format_coin(MinTip, COIN_NAME, coin_decimal, False)} {token_display}` and `{num_format_coin(MaxTip, COIN_NAME, coin_decimal, False)} {token_display}`.'
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
 
         get_raffle = await self.raffle_get_from_guild(str(ctx.guild.id), False, SERVER_BOT)
         if get_raffle and get_raffle['status'] not in ["COMPLETED", "CANCELLED"]:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, there is still **ONGOING** or **OPENED** raffle!"
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
         else:
             # Let's insert
@@ -938,7 +945,7 @@ class Guild(commands.Cog):
             try:
                 if "D" in duration and "H" in duration:
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, **INVALID DATE**! Please use {duration_accepted_list}."
-                    await ctx.response.send_message(msg)
+                    await ctx.edit_original_message(content=msg)
                     return
                 elif "D" in duration:
                     duration_in_s = int(duration.replace("D", ""))*3600*24 # convert to second
@@ -946,18 +953,18 @@ class Guild(commands.Cog):
                     duration_in_s = int(duration.replace("H", ""))*3600 # convert to second
             except ValueError:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention} invalid duration!"
-                await ctx.response.send_message(msg)
+                await ctx.edit_original_message(content=msg)
                 return
 
             if duration_in_s <= 0:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention} invalid duration!"
-                await ctx.response.send_message(msg)
+                await ctx.edit_original_message(content=msg)
                 return
             try:
                 start_ts = int(time.time())
                 message_raffle = "{}#{} created a raffle for **{} {}** in guild `{}`. Raffle in **{}**.".format(ctx.author.name, ctx.author.discriminator, num_format_coin(amount, COIN_NAME, coin_decimal, False), COIN_NAME, ctx.guild.name, duration)
                 try:
-                    await ctx.response.send_message(message_raffle)
+                    await ctx.edit_original_message(content=message_raffle)
                     insert_raffle = await self.raffle_insert_new(str(ctx.guild.id), ctx.guild.name, amount, coin_decimal, COIN_NAME, str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator), start_ts, start_ts+duration_in_s, SERVER_BOT)
                     await logchanbot(message_raffle)
                     return
@@ -996,15 +1003,22 @@ class Guild(commands.Cog):
         if serverinfo['raffle_channel']:
             raffle_chan = self.bot.get_channel(int(serverinfo['raffle_channel']))
             if not raffle_chan:
-                await ctx.response.send_message(f"{EMOJI_RED_NO} {ctx.author.mention} Can not find raffle channel or invalid.")
+                await ctx.response.send_message(f"{EMOJI_RED_NO} {ctx.author.mention}, can not find raffle channel or invalid.")
                 return
         else:
-            await ctx.response.send_message(f"{EMOJI_RED_NO} {ctx.author.mention} There is no raffle channel yet.")
+            await ctx.response.send_message(f"{EMOJI_RED_NO} {ctx.author.mention}, there is no raffle channel yet.")
             return
 
         if subc is None:
             subc = "INFO"
         subc = subc.upper()
+
+        try:
+            await ctx.response.send_message(f"{ctx.author.mention}, execute raffle command... ")
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await ctx.response.send_message(f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute raffle command message...", ephemeral=True)
+            return
 
         get_raffle = await self.raffle_get_from_guild(str(ctx.guild.id), False, SERVER_BOT)
         list_raffle_id = None
@@ -1012,15 +1026,15 @@ class Guild(commands.Cog):
             list_raffle_id = await self.raffle_get_from_by_id(get_raffle['id'], SERVER_BOT, str(ctx.author.id))
         subc_list = ["INFO", "LAST", "JOIN", "CHECK", "CANCEL"]
         if subc not in subc_list:
-            await ctx.response.send_message(f"{EMOJI_RED_NO} {ctx.author.mention} **INVALID SUB COMMAND**!")
+            await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, invalid sub-command {subc}!")
             return
         else:
             if get_raffle is None:
-                await ctx.response.send_message(f"{EMOJI_RED_NO} {ctx.author.mention}, there is no information of current raffle yet!")
+                await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, there is no information of current raffle yet!")
                 return
         try:
             if ctx.author.bot == True:
-                await ctx.response.send_message(f"{EMOJI_RED_NO} {ctx.author.mention}, Bot is not allowed!")
+                await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, Bot is not allowed!")
                 return
         except Exception as e:
             pass
@@ -1061,20 +1075,20 @@ class Guild(commands.Cog):
                             return "{:02d} day(s) {:02d}:{:02d}:{:02d}".format(day, hour, minutes, seconds)
                         embed.add_field(name="WHEN", value=seconds_str_days(int(get_raffle['ending_ts'])-int(time.time())), inline=False)
                 embed.set_footer(text="Raffle for {} by {}".format(ctx.guild.name, get_raffle['created_username']))
-                await ctx.response.send_message(embed=embed)
+                await ctx.edit_original_message(content=None, embed=embed)
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
         elif subc == "CANCEL":
             if not ctx.author.guild_permissions.manage_channels:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you do not have permission to cancel current raffle."
-                await ctx.response.send_message(msg)
+                await ctx.edit_original_message(content=msg)
             if get_raffle is None:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, there is no information of current raffle yet for this guild {ctx.guild.name}!"
-                await ctx.response.send_message(msg)
+                await ctx.edit_original_message(content=msg)
             else:
                 if get_raffle['status'] != "OPENED":
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you can only cancel `OPENED` raffle!"
-                    await ctx.response.send_message(msg)
+                    await ctx.edit_original_message(content=msg)
                 else:
                     # Cancel game
                     cancelled_status = await self.raffle_cancel_id(get_raffle['id'])
@@ -1086,12 +1100,12 @@ class Guild(commands.Cog):
                             await raffle_chan.send(msg_raffle)
                     await logchanbot(msg_raffle)
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, cancel raffle done."
-                    await ctx.response.send_message(msg)
+                    await ctx.edit_original_message(content=msg)
             return
         elif subc == "JOIN":
             if get_raffle is None:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, there is no information of current raffle yet for this guild {ctx.guild.name}!"
-                await ctx.response.send_message(msg)
+                await ctx.edit_original_message(content=msg)
                 return
             else:
                 # Check if already in:
@@ -1100,13 +1114,13 @@ class Guild(commands.Cog):
                 try:
                     if get_raffle['status'] != "OPENED":
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, there is no **OPENED** game raffle on this guild {ctx.guild.name}!"
-                        await ctx.response.send_message(msg)
+                        await ctx.edit_original_message(content=msg)
                         return
                     else:
                         raffle_id = get_raffle['id']
                         if list_raffle_id and list_raffle_id['user_joined']:
                             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you already join this raffle #**{str(raffle_id)}** in guild {ctx.guild.name}!"
-                            await ctx.response.send_message(msg)
+                            await ctx.edit_original_message(content=msg)
                             return
                         else:
                             COIN_NAME = get_raffle['coin_name']
@@ -1140,7 +1154,7 @@ class Guild(commands.Cog):
                                 fee_str = num_format_coin(get_raffle['amount'], COIN_NAME, get_raffle['decimal'], False) + " " + COIN_NAME
                                 having_str = num_format_coin(actual_balance, COIN_NAME, get_raffle['decimal'], False) + " " + COIN_NAME
                                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to join raffle entry. Fee: {fee_str}, having: {having_str}."
-                                await ctx.response.send_message(msg)
+                                await ctx.edit_original_message(content=msg)
                                 return
                             # Let's add
                             try:
@@ -1148,13 +1162,13 @@ class Guild(commands.Cog):
                                 if ctx.author.id not in self.bot.GAME_RAFFLE_QUEUE:
                                     self.bot.GAME_RAFFLE_QUEUE.append(ctx.author.id)
                                 else:
-                                    msg = f"{ctx.author.mention} You already on queue of joinining."
-                                    await ctx.response.send_message(msg)
+                                    msg = f"{ctx.author.mention}, you already on queue of joinining."
+                                    await ctx.edit_original_message(content=msg)
                                     return
                                 insert_entry = await self.raffle_insert_new_entry(get_raffle['id'], str(ctx.guild.id), get_raffle['amount'], get_raffle['decimal'], get_raffle['coin_name'], str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator), SERVER_BOT)
                                 note_entry = num_format_coin(get_raffle['amount'], get_raffle['coin_name'], get_raffle['decimal'], False) + " " + get_raffle['coin_name'] + " is deducted from your balance."
                                 msg = f'{ctx.author.mention}, successfully registered your Entry for raffle #**{raffle_id}** in {ctx.guild.name}! {note_entry}'
-                                await ctx.response.send_message(msg)
+                                await ctx.edit_original_message(content=msg)
                             except Exception as e:
                                 traceback.print_exc(file=sys.stdout)
                             ## remove QUEUE: reply
@@ -1166,7 +1180,7 @@ class Guild(commands.Cog):
         elif subc == "CHECK":
             if get_raffle is None:
                 msg = f'{EMOJI_RED_NO} {ctx.author.mention}, there is no information of current raffle yet!'
-                await ctx.response.send_message(msg)
+                await ctx.edit_original_message(content=msg)
                 return
             else:
                 # If current is not opened
@@ -1174,26 +1188,26 @@ class Guild(commands.Cog):
                     raffle_id = get_raffle['id']
                     if get_raffle['status'] == "OPENED":
                         msg = f'{ctx.author.mention}, current raffle #{raffle_id} for guild {ctx.guild.name} is **OPENED**!'
-                        await ctx.response.send_message(msg)
+                        await ctx.edit_original_message(content=msg)
                         return
                     elif get_raffle['status'] == "ONGOING":
                         msg = f'{ctx.author.mention}, current raffle #{raffle_id} for guild {ctx.guild.name} is **ONGOING**!'
-                        await ctx.response.send_message(msg)
+                        await ctx.edit_original_message(content=msg)
                         return
                     elif get_raffle['status'] == "COMPLETED":
                         msg = f'{ctx.author.mention}, current raffle #{raffle_id} for guild {ctx.guild.name} is **COMPLETED**!'
-                        await ctx.response.send_message(msg)
+                        await ctx.edit_original_message(content=msg)
                         return
                     elif get_raffle['status'] == "CANCELLED":
                         msg = f'{ctx.author.mention}, current raffle #{raffle_id} for guild {ctx.guild.name} is **CANCELLED**!'
-                        await ctx.response.send_message(msg)
+                        await ctx.edit_original_message(content=msg)
                         return
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
         elif subc == "LAST":
             if get_raffle is None:
                 msg = f'{EMOJI_RED_NO} {ctx.author.mention}, there is no information of current raffle yet!'
-                await ctx.response.send_message(msg)
+                await ctx.edit_original_message(content=msg)
                 return
 
 
@@ -1271,10 +1285,7 @@ class Guild(commands.Cog):
 
         if has_none_balance == True:
             msg = f'{ctx.author.mention}, this guild does not have any balance.'
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.edit_original_message(content=msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.edit_original_message(content=msg)
             return
         else:
             ## add page
@@ -1316,11 +1327,7 @@ class Guild(commands.Cog):
                     break
 
             if len(all_pages) == 1:
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.edit_original_message(content=None, embed=all_pages[0], view=RowButton_close_message())
-                else:
-                    await tmp_msg.delete()
-                    await ctx.reply(content=None, embed=all_pages[0], view=RowButton_close_message())
+                await ctx.edit_original_message(content=None, embed=all_pages[0], view=RowButton_close_message())
             else:
                 view = None
                 try:
@@ -1352,10 +1359,7 @@ class Guild(commands.Cog):
     ):
         COIN_NAME = coin.upper()
         if not hasattr(self.bot.coin_list, COIN_NAME):
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.')
-            else:
-                await ctx.reply(f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.')
+            await ctx.response.send_message(f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.')
             return
 
         net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
@@ -1392,35 +1396,23 @@ class Guild(commands.Cog):
         amount = amount.replace(",", "")
         amount = text_to_num(amount)
         if amount is None:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention} Invalid given amount.'
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid given amount.'
+            await ctx.response.send_message(msg)
             return
         # We assume max reward by MaxTip / 10
         elif amount < MinTip or amount > MaxTip / 10:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention} Reward cannot be smaller than {num_format_coin(MinTip, COIN_NAME, coin_decimal, False)} {token_display} or bigger than {num_format_coin(MaxTip / 10, COIN_NAME, coin_decimal, False)} {token_display}.'
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg, ephemeral=True)
-            else:
-                await ctx.reply(msg)
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, reward cannot be smaller than {num_format_coin(MinTip, COIN_NAME, coin_decimal, False)} {token_display} or bigger than {num_format_coin(MaxTip / 10, COIN_NAME, coin_decimal, False)} {token_display}.'
+            await ctx.response.send_message(msg, ephemeral=True)
             return
         # We assume at least guild need to have 100x of reward or depends on guild's population
         elif amount*100 > actual_balance:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention} you need to have at least 100x reward balance. 100x rewards = {num_format_coin(amount*100, COIN_NAME, coin_decimal, False)} {token_display}.'
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg, ephemeral=True)
-            else:
-                await ctx.reply(msg)
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you need to have at least 100x reward balance. 100x rewards = {num_format_coin(amount*100, COIN_NAME, coin_decimal, False)} {token_display}.'
+            await ctx.response.send_message(msg, ephemeral=True)
             return
         elif amount*len(ctx.guild.members) > actual_balance:
             population = len(ctx.guild.members)
             msg = f'{EMOJI_RED_NO} {ctx.author.mention} you need to have at least {str(population)}x reward balance. {str(population)}x rewards = {num_format_coin(amount*population, COIN_NAME, coin_decimal, False)} {token_display}.'
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg, ephemeral=True)
-            else:
-                await ctx.reply(msg)
+            await ctx.response.send_message(msg, ephemeral=True)
             return
         else:
             # Check channel
@@ -1432,10 +1424,7 @@ class Guild(commands.Cog):
                 await get_channel.send(msg)
             except Exception as e:
                 msg = f'{ctx.author.mention}, failed to message channel {channel.mention}. Set reward denied!'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg, ephemeral=True)
-                else:
-                    await ctx.reply(msg)
+                await ctx.response.send_message(msg, ephemeral=True)
                 traceback.print_exc(file=sys.stdout)
                 return
             
@@ -1447,28 +1436,19 @@ class Guild(commands.Cog):
                     add_server_info = await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
             except Exception as e:
                 msg = f'{ctx.author.mention}, internal error. Please report.'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg, ephemeral=True)
-                else:
-                    await ctx.reply(msg)
+                await ctx.response.send_message(msg, ephemeral=True)
                 traceback.print_exc(file=sys.stdout)
             update_reward = await self.update_reward(str(ctx.guild.id), float(amount), COIN_NAME, False, channel_str)
             if update_reward > 0:
                 msg = f'{ctx.author.mention} Successfully set reward for voting in guild {ctx.guild.name} to {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}.'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg, ephemeral=True)
-                else:
-                    await ctx.reply(msg)
+                await ctx.response.send_message(msg, ephemeral=True)
                 try:
                     await self.vote_logchan(f'[{SERVER_BOT}] A user {ctx.author.name}#{ctx.author.discriminator} set a vote reward in guild {ctx.guild.name} / {ctx.guild.id} to {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}.')
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
             else:
-                msg = f'{ctx.author.mention} internal error or nothing updated.'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg, ephemeral=True)
-                else:
-                    await ctx.reply(msg)
+                msg = f'{ctx.author.mention}, internal error or nothing updated.'
+                await ctx.response.send_message(msg, ephemeral=True)
             return
 
 
@@ -1488,10 +1468,7 @@ class Guild(commands.Cog):
     ):
         COIN_NAME = coin.upper()
         if not hasattr(self.bot.coin_list, COIN_NAME):
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.')
-            else:
-                await ctx.reply(f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.')
+            await ctx.response.send_message(f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.')
             return
         # Do the job
         try:
@@ -1535,10 +1512,7 @@ class Guild(commands.Cog):
                 amount = amount.replace(",", "").replace("$", "")
                 if usd_equivalent_enable == 0:
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{COIN_NAME}`."
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.response.send_message(msg)
                     return
                 else:
                     native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
@@ -1555,19 +1529,13 @@ class Guild(commands.Cog):
                         amount = float(Decimal(amount) / Decimal(per_unit))
                     else:
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention}, I cannot fetch equivalent price. Try with different method.'
-                        if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.response.send_message(msg)
-                        else:
-                            await ctx.reply(msg)
+                        await ctx.response.send_message(msg)
                         return
             else:
                 amount = amount.replace(",", "")
                 amount = text_to_num(amount)
                 if amount is None:
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid given amount.')
-                    else:
-                        await ctx.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid given amount.')
+                    await ctx.response.send_message(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid given amount.')
                     return
             # end of check if amount is all
             userdata_balance = await self.user_balance(str(ctx.author.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
@@ -1575,26 +1543,17 @@ class Guild(commands.Cog):
             amount = Decimal(amount)
             if amount <= 0:
                 msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please topup more {COIN_NAME}'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
+                await ctx.response.send_message(msg)
                 return
                 
             if amount > actual_balance:
-                msg = f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to deposit {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}.'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg, ephemeral=True)
-                else:
-                    await ctx.reply(msg)
+                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to deposit {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}.'
+                await ctx.response.send_message(msg, ephemeral=True)
                 return
 
             elif amount < MinTip or amount > MaxTip:
-                msg = f'{EMOJI_RED_NO} {ctx.author.mention} Transaction cannot be smaller than {num_format_coin(MinTip, COIN_NAME, coin_decimal, False)} {token_display} or bigger than {num_format_coin(MaxTip, COIN_NAME, coin_decimal, False)} {token_display}.'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg, ephemeral=True)
-                else:
-                    await ctx.reply(msg)
+                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, transaction cannot be smaller than {num_format_coin(MinTip, COIN_NAME, coin_decimal, False)} {token_display} or bigger than {num_format_coin(MaxTip, COIN_NAME, coin_decimal, False)} {token_display}.'
+                await ctx.response.send_message(msg, ephemeral=True)
                 return
 
             equivalent_usd = ""
@@ -1626,10 +1585,7 @@ class Guild(commands.Cog):
                     if tip:
                         try:
                             msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention} **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}**{equivalent_usd} was transferred to {ctx.guild.name}.'
-                            if type(ctx) == disnake.ApplicationCommandInteraction:
-                                await ctx.response.send_message(msg)
-                            else:
-                                await ctx.reply(msg)
+                            await ctx.response.send_message(msg)
                         except (disnake.Forbidden, disnake.errors.Forbidden, disnake.errors.HTTPException) as e:
                             pass
                         guild_found = self.bot.get_guild(ctx.guild.id)
@@ -1763,26 +1719,17 @@ class Guild(commands.Cog):
     async def async_mdeposit(self, ctx, token: str=None, plain: str=None):
         COIN_NAME = None
         if token is None:
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(f'{ctx.author.mention}, token name is missing.')
-            else:
-                await ctx.reply(f'{ctx.author.mention}, token name is missing.')
+            await ctx.response.send_message(f'{ctx.author.mention}, token name is missing.')
             return
         else:
             COIN_NAME = token.upper()
             # print(self.bot.coin_list)
             if not hasattr(self.bot.coin_list, COIN_NAME):
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.')
-                else:
-                    await ctx.reply(f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.')
+                await ctx.response.send_message(f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.')
                 return
             else:
                 if getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_deposit") == 0:
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(f'{ctx.author.mention}, **{COIN_NAME}** deposit disable.')
-                    else:
-                        await ctx.reply(f'{ctx.author.mention}, **{COIN_NAME}** deposit disable.')
+                    await ctx.response.send_message(f'{ctx.author.mention}, **{COIN_NAME}** deposit disable.')
                     return
                     
         # Do the job
@@ -1816,17 +1763,10 @@ class Guild(commands.Cog):
                 embed.add_field(name="Other links", value="[{}]({})".format("Explorer", getattr(getattr(self.bot.coin_list, COIN_NAME), "explorer_link")), inline=False)
             embed.set_footer(text="Use: deposit plain (for plain text)")
             try:
-                # Try DM first
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    if plain and plain.lower() == 'plain' or plain.lower() == 'text':
-                        await ctx.response.send_message(plain_msg, view=RowButton_row_close_any_message())
-                    else:
-                        await ctx.response.send_message(embed=embed, view=RowButton_row_close_any_message())
+                if plain and plain.lower() == 'plain' or plain.lower() == 'text':
+                    await ctx.response.send_message(plain_msg, view=RowButton_row_close_any_message())
                 else:
-                    if plain and plain.lower() == 'plain' or plain.lower() == 'text':
-                        msg = await ctx.reply(plain_msg, view=RowButton_row_close_any_message())
-                    else:
-                        msg = await ctx.reply(embed=embed, view=RowButton_row_close_any_message())
+                    await ctx.response.send_message(embed=embed, view=RowButton_row_close_any_message())
             except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                 traceback.print_exc(file=sys.stdout)
         except Exception as e:
@@ -1976,10 +1916,7 @@ class Guild(commands.Cog):
                     traceback.print_exc(file=sys.stdout)
             else:
                 msg = f'{ctx.author.mention} internal error or nothing updated.'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg, ephemeral=True)
-                else:
-                    await ctx.reply(msg)
+                await ctx.response.send_message(msg, ephemeral=True)
             return
 
 
@@ -2212,10 +2149,7 @@ class Guild(commands.Cog):
             if self.enable_logchan:
                 await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} changed tiponly in {ctx.guild.name} / {ctx.guild.id} to `ALLCOIN`')
             msg = f'{ctx.author.mention}, all coins will be allowed in here.'
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                msg = await ctx.reply(msg)
+            await ctx.response.send_message(msg)
             return
         elif " " in coin_list or "," in coin_list:
             # multiple coins
@@ -2235,35 +2169,23 @@ class Guild(commands.Cog):
                 if self.enable_logchan:
                     await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} changed tiponly in {ctx.guild.name} / {ctx.guild.id} to `{tiponly_value}`')
                 msg = f'{ctx.author.mention} TIPONLY for guild {ctx.guild.name} set to: **{tiponly_value}**.'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    msg = await ctx.reply(msg)
+                await ctx.response.send_message(msg)
                 changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'tiponly', tiponly_value.upper())
             else:
                 msg = f'{ctx.author.mention} No known coin in **{coin_list}**. TIPONLY is remained unchanged in guild `{ctx.guild.name}`.'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    msg = await ctx.reply(msg)
+                await ctx.response.send_message(msg)
         else:
             # Single coin
             if coin_list not in self.bot.coin_name_list:
                 msg = f'{ctx.author.mention} {coin_list} is not in any known coin we set.'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    msg = await ctx.reply(msg)
+                await ctx.response.send_message(msg)
             else:
                 # coin_list is single coin set_coin
                 changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'tiponly', coin_list)
                 if self.enable_logchan:
                     await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} changed tiponly in {ctx.guild.name} / {ctx.guild.id} to `{coin_list}`')
                 msg = f'{ctx.author.mention} {coin_list} will be the only tip here in guild `{ctx.guild.name}`.'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
+                await ctx.response.send_message(msg)
 
 
     @commands.has_permissions(manage_channels=True)
@@ -2287,25 +2209,17 @@ class Guild(commands.Cog):
             if self.enable_logchan:
                 await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} DISABLE trade in their guild {ctx.guild.name} / {ctx.guild.id}')
             msg = f"{ctx.author.mention} DISABLE TRADE feature in this guild {ctx.guild.name}."
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.response.send_message(msg)
         elif serverinfo and serverinfo['enable_trade'] == "NO":
             changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_trade', 'YES')
             if self.enable_logchan:
                 await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} ENABLE trade in their guild {ctx.guild.name} / {ctx.guild.id}')
             msg = f"{ctx.author.mention} ENABLE TRADE feature in this guild {ctx.guild.name}."
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.response.send_message(msg)
         else:
-            msg = f"{ctx.author.mention} Internal error when calling serverinfo function."
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            msg = f"{ctx.author.mention}, internal error when calling serverinfo function."
+            await ctx.response.send_message(msg)
+
 
     @commands.has_permissions(manage_channels=True)
     @setting.sub_command(
@@ -2328,25 +2242,17 @@ class Guild(commands.Cog):
             if self.enable_logchan:
                 await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} DISABLE NSFW in their guild {ctx.guild.name} / {ctx.guild.id}')
             msg = f"{ctx.author.mention} DISABLE NSFW command in this guild {ctx.guild.name}."
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.response.send_message(msg)
         elif serverinfo and serverinfo['enable_nsfw'] == "NO":
             changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_nsfw', 'YES')
             if self.enable_logchan:
                 await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} ENABLE NSFW in their guild {ctx.guild.name} / {ctx.guild.id}')
             msg = f"{ctx.author.mention} ENABLE NSFW command in this guild {ctx.guild.name}."
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.response.send_message(msg)
         else:
             msg = f"{ctx.author.mention} Internal error when calling serverinfo function."
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.response.send_message(msg)
+
 
     @commands.has_permissions(manage_channels=True)
     @setting.sub_command(
@@ -2368,25 +2274,16 @@ class Guild(commands.Cog):
             if self.enable_logchan:
                 await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} DISABLE game in their guild {ctx.guild.name} / {ctx.guild.id}')
             msg = f"{ctx.author.mention} DISABLE GAME feature in this guild {ctx.guild.name}."
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.response.send_message(msg)
         elif serverinfo and serverinfo['enable_game'] == "NO":
             changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_game', 'YES')
             if self.enable_logchan:
                 await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} ENABLE game in their guild {ctx.guild.name} / {ctx.guild.id}')
             msg = f"{ctx.author.mention} ENABLE GAME feature in this guild {ctx.guild.name}."
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.response.send_message(msg)
         else:
-            msg = f"{ctx.author.mention} Internal error when calling serverinfo function."
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            msg = f"{ctx.author.mention}, internal error when calling serverinfo function."
+            await ctx.response.send_message(msg)
 
 
     @commands.has_permissions(manage_channels=True)
@@ -2408,19 +2305,13 @@ class Guild(commands.Cog):
             try: 
                 if ctx.channel.id == int(serverinfo['botchan']):
                     msg = f"{EMOJI_RED_NO} {ctx.channel.mention} is already the bot channel here!"
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.response.send_message(msg)
                     return
                 else:
                     # change channel info
                     changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'botchan', str(ctx.channel.id))
                     msg = f'Bot channel of guild {ctx.guild.name} has set to {ctx.channel.mention}.'
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.response.send_message(msg)
                     if self.enable_logchan:
                         await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} change bot channel {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.')
             except Exception as e:
@@ -2430,10 +2321,7 @@ class Guild(commands.Cog):
             # change channel info
             changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'botchan', str(ctx.channel.id))
             msg = f'Bot channel of guild {ctx.guild.name} has set to {ctx.channel.mention}.'
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.response.send_message(msg)
             if self.enable_logchan:
                 await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} changed bot channel {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.')
 
@@ -2457,19 +2345,13 @@ class Guild(commands.Cog):
             try: 
                 if ctx.channel.id == int(serverinfo['economy_channel']):
                     msg = f"{EMOJI_RED_NO} {ctx.channel.mention} is already the economy game channel here!"
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.response.send_message(msg)
                     return
                 else:
                     # change channel info
                     changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'economy_channel', str(ctx.channel.id))
                     msg = f'Economy game channel of guild {ctx.guild.name} has set to {ctx.channel.mention}.'
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.response.send_message(msg)
                     if self.enable_logchan:
                         await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} change economy game channel {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.')
             except Exception as e:
@@ -2479,10 +2361,7 @@ class Guild(commands.Cog):
             # change channel info
             changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'economy_channel', str(ctx.channel.id))
             msg = f'Economy game channel of guild {ctx.guild.name} has set to {ctx.channel.mention}.'
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.response.send_message(msg)
             if self.enable_logchan:
                 await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} changed economy game channel {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.')
 
@@ -2508,44 +2387,29 @@ class Guild(commands.Cog):
             if self.enable_logchan:
                 await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} DISABLE faucet (take) command in their guild {ctx.guild.name} / {ctx.guild.id}')
             msg = f"{ctx.author.mention} DISABLE faucet (take/claim) command in this guild {ctx.guild.name}."
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.response.send_message(msg)
         elif serverinfo and serverinfo['enable_faucet'] == "NO":
             changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_faucet', 'YES')
             if self.enable_logchan:
                 await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} ENABLE faucet (take) command in their guild {ctx.guild.name} / {ctx.guild.id}')
             msg = f"{ctx.author.mention} ENABLE faucet (take/claim) command in this guild {ctx.guild.name}."
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.response.send_message(msg)
         else:
-            msg = f"{ctx.author.mention} Internal error when calling serverinfo function."
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            msg = f"{ctx.author.mention}, internal error when calling serverinfo function."
+            await ctx.response.send_message(msg)
 
 
     async def async_set_gamechan(self, ctx, game):
         game_list = config.game.game_list.split(",")
         if game is None:
             msg = f"{EMOJI_RED_NO} {ctx.channel.mention} please mention a game name to set game channel for it. Game list: {config.game.game_list}."
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.response.send_message(msg)
             return
         else:
             game = game.lower()
             if game not in game_list:
                 msg = f"{EMOJI_RED_NO} {ctx.channel.mention} please mention a game name within this list: {config.game.game_list}."
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
+                await ctx.response.send_message(msg)
                 return
             else:
                 serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
@@ -2558,19 +2422,13 @@ class Guild(commands.Cog):
                     try: 
                         if ctx.channel.id == int(serverinfo[index_game]):
                             msg = f"{EMOJI_RED_NO} {ctx.channel.mention} is already for game **{game}** channel here!"
-                            if type(ctx) == disnake.ApplicationCommandInteraction:
-                                await ctx.response.send_message(msg)
-                            else:
-                                await ctx.reply(msg)
+                            await ctx.response.send_message(msg)
                             return
                         else:
                             # change channel info
                             changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), index_game, str(ctx.channel.id))
                             msg = f'{ctx.channel.mention} Game **{game}** channel has set to {ctx.channel.mention}.'
-                            if type(ctx) == disnake.ApplicationCommandInteraction:
-                                await ctx.response.send_message(msg)
-                            else:
-                                await ctx.reply(msg)
+                            await ctx.response.send_message(msg)
                             if self.enable_logchan:
                                 await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} changed game **{game}** in channel {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.')
                             return
@@ -2581,10 +2439,7 @@ class Guild(commands.Cog):
                     # change channel info
                     changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), index_game, str(ctx.channel.id))
                     msg = f'{ctx.channel.mention} Game **{game}** channel has set to {ctx.channel.mention}.'
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.response.send_message(msg)
                     if self.enable_logchan:
                         await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} set game **{game}** channel in {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.')
                     return

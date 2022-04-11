@@ -57,7 +57,7 @@ class About(commands.Cog):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
-        botdetails.set_footer(text='Made in Python3.8+', icon_url='http://findicons.com/files/icons/2804/plex/512/python.png')
+        botdetails.set_footer(text='Made in Python', icon_url='http://findicons.com/files/icons/2804/plex/512/python.png')
         botdetails.set_author(name=self.bot.user.name, icon_url=self.bot.user.display_avatar)
         return botdetails
 

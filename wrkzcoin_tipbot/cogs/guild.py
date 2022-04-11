@@ -48,6 +48,7 @@ class Guild(commands.Cog):
         self.check_raffle_status.start()
         self.raffle_ongoing = []
         self.raffle_to_win = []
+        self.raffle_opened_to_ongoing = []
 
         # DB
         self.pool = None
@@ -344,6 +345,10 @@ class Guild(commands.Cog):
                     # loop each raffle
                     try:
                         if each_raffle['status'] == "OPENED":
+                            if each_raffle['id'] in self.raffle_opened_to_ongoing:
+                                continue
+                            else:
+                                self.raffle_opened_to_ongoing.append(each_raffle['id'])
                             if each_raffle['ending_ts'] - to_close_fromopen < int(time.time()):
                                 # less than 3 participants, cancel
                                 list_raffle_id = await self.raffle_get_from_by_id(each_raffle['id'], SERVER_BOT, None)
@@ -1203,10 +1208,7 @@ class Guild(commands.Cog):
         has_none_balance = True
         total_all_balance_usd = 0.0
         mytokens = await store.get_coin_settings(coin_type=None)
-        if type(ctx) == disnake.ApplicationCommandInteraction:
-            await ctx.response.send_message(f"{ctx.author.mention} guild balance loading...", ephemeral=False)
-        else:
-            tmp_msg = await ctx.reply("Loading...")
+        await ctx.response.send_message(f"{ctx.author.mention} guild balance loading...", ephemeral=False)
 
         coin_balance_list = {}
         coin_balance = {}
@@ -1320,12 +1322,15 @@ class Guild(commands.Cog):
                     await tmp_msg.delete()
                     await ctx.reply(content=None, embed=all_pages[0], view=RowButton_close_message())
             else:
-                view = MenuPage(ctx, all_pages, timeout=30)
-                if type(ctx) == disnake.ApplicationCommandInteraction:
+                view = None
+                try:
+                    view = MenuPage(ctx, all_pages, timeout=30)
                     view.message = await ctx.edit_original_message(content=None, embed=all_pages[0], view=view)
-                else:
-                    await tmp_msg.delete()
-                    view.message = await ctx.reply(content=None, embed=all_pages[0], view=view)
+                except Exception as e:
+                    msg = f'{ctx.author.mention}, internal error when checking /guild balance. Try again later. If problem still persists, contact TipBot dev.'
+                    await ctx.edit_original_message(content=msg)
+                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(f"[ERROR] /guild balance with {ctx.guild.name} / {ctx.guild.id}")
 
 
     @commands.has_permissions(administrator=True)

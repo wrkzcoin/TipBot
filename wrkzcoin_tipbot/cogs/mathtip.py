@@ -232,6 +232,8 @@ class MathTips(commands.Cog):
 
         def hms_to_seconds(time_string):
             duration_in_second = 0
+            if time_string.isdigit():
+                return int(time_string)
             try:
                 time_string = time_string.replace("hours", "h")
                 time_string = time_string.replace("hour", "h")

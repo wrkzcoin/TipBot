@@ -188,7 +188,20 @@ class FreeTip_Button(disnake.ui.View):
     ):
         try:
             msg = "Nothing to do!"
-            get_message = await store.get_discord_freetip_by_msgid(str(interaction.message.id))
+            get_message = None
+            try:
+                msg_id = interaction.message.id
+                get_message = await store.get_discord_freetip_by_msgid(str(msg_id))
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+                original_message = await interaction.original_message()
+                get_message = await store.get_discord_freetip_by_msgid(str(original_message.id))
+
+            if get_message is None:
+                await interaction.response.send_message(content="Failed to collect free tip!")
+                await logchanbot(f"[ERROR FREETIP] Failed to join a free tip in guild {interaction.guild.name} / {interaction.guild.id} by {interaction.author.name}#{interaction.author.discriminator}!")
+                return
+
             if get_message and int(get_message['from_userid']) == interaction.author.id:
                 await interaction.response.send_message(content="You are the owner of airdrop id: {}".format(str(interaction.message.id)), ephemeral=True)
                 return
@@ -620,6 +633,13 @@ class Tips(commands.Cog):
             await ctx.response.send_message(msg)
             return
 
+        try:
+            await ctx.response.send_message(f"{ctx.author.mention}, freetip preparation... ")
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await ctx.response.send_message(f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute free tip message...", ephemeral=True)
+            return
+
         net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
         type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
         deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
@@ -644,7 +664,7 @@ class Tips(commands.Cog):
         # Check if tx in progress
         if ctx.author.id in self.bot.TX_IN_PROCESS:
             msg = f'{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress.'
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
 
         height = None
@@ -668,7 +688,7 @@ class Tips(commands.Cog):
             amount = amount.replace(",", "").replace("$", "")
             if usd_equivalent_enable == 0:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{COIN_NAME}`."
-                await ctx.response.send_message(msg)
+                await ctx.edit_original_message(content=msg)
                 return
             else:
                 native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
@@ -685,19 +705,21 @@ class Tips(commands.Cog):
                     amount = float(Decimal(amount) / Decimal(per_unit))
                 else:
                     msg = f'{EMOJI_RED_NO} {ctx.author.mention}, I cannot fetch equivalent price. Try with different method.'
-                    await ctx.response.send_message(msg)
+                    await ctx.edit_original_message(content=msg)
                     return
         else:
             amount = amount.replace(",", "")
             amount = text_to_num(amount)
             if amount is None:
                 msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid given amount.'
-                await ctx.response.send_message(msg)
+                await ctx.edit_original_message(content=msg)
                 return
         # end of check if amount is all
 
         def hms_to_seconds(time_string):
             duration_in_second = 0
+            if time_string.isdigit():
+                return int(time_string)
             try:
                 time_string = time_string.replace("hours", "h")
                 time_string = time_string.replace("hour", "h")
@@ -724,7 +746,7 @@ class Tips(commands.Cog):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid duration.'
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
 
         if duration_s == 0:
@@ -732,12 +754,12 @@ class Tips(commands.Cog):
             # Just info, continue
         elif duration_s < config.freetip.duration_min or duration_s > config.freetip.duration_max:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid duration. Please use between {str(config.freetip.duration_min)}s to {str(config.freetip.duration_max)}s.'
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
 
         if amount <= 0:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please get more {token_display}.'
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
 
         notifyList = await store.sql_get_tipnotify()
@@ -746,11 +768,11 @@ class Tips(commands.Cog):
 
         if amount > MaxTip or amount < MinTip:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than **{num_format_coin(MaxTip, COIN_NAME, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(MinTip, COIN_NAME, coin_decimal, False)} {token_display}**.'
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
         elif amount > actual_balance:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to do a free tip of **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}**.'
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
         
         equivalent_usd = ""
@@ -780,20 +802,18 @@ class Tips(commands.Cog):
             embed.add_field(name="Num. Attendees", value="**0** members", inline=True)
             embed.set_footer(text=f"FreeTip by {ctx.author.name}#{ctx.author.discriminator}, Time Left: {seconds_str(duration_s)}")
             
-            view = FreeTip_Button(self.bot, duration_s)
-            view.message = await ctx.channel.send(embed=embed, view=view)
-            
             comment_str = ""
             if comment and len(comment) > 0:
                 comment_str = comment
             if ctx.author.id not in self.bot.TX_IN_PROCESS:
                 self.bot.TX_IN_PROCESS.append(ctx.author.id)
-            insert_freetip = await store.insert_discord_freetip(COIN_NAME, contract, str(ctx.author.id), "{}#{}".format(ctx.author.name, ctx.author.discriminator), str(view.message.id), comment_str, str(ctx.guild.id), str(ctx.channel.id), amount, total_in_usd, equivalent_usd, per_unit, coin_decimal, int(time.time())+duration_s, "ONGOING")
-            await ctx.response.send_message("FreeTip created!", ephemeral=True)
-            try:
-                await ctx.response.defer()
-            except Exception as e:
-                pass
+                try:
+                    view = FreeTip_Button(self.bot, duration_s)
+                    view.message = await ctx.original_message()
+                    insert_freetip = await store.insert_discord_freetip(COIN_NAME, contract, str(ctx.author.id), "{}#{}".format(ctx.author.name, ctx.author.discriminator), str(view.message.id), comment_str, str(ctx.guild.id), str(ctx.channel.id), amount, total_in_usd, equivalent_usd, per_unit, coin_decimal, int(time.time())+duration_s, "ONGOING")
+                    await ctx.edit_original_message(content=None, embed=embed, view=view)
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         if ctx.author.id in self.bot.TX_IN_PROCESS:

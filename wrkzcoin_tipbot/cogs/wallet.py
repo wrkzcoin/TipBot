@@ -3226,7 +3226,14 @@ class Wallet(commands.Cog):
                 page.set_thumbnail(url=ctx.author.display_avatar)
                 page.set_footer(text="Use the reactions to flip pages.")
                 all_pages[0] = page
-                view.message = await ctx.edit_original_message(content=None, embed=all_pages[0], view=MenuPage(ctx, all_pages, timeout=30))
+                try:
+                    view=MenuPage(ctx, all_pages, timeout=30)
+                    view.message = await ctx.edit_original_message(content=None, embed=all_pages[0], view=view)
+                except Exception as e:
+                    msg = f'{ctx.author.mention}, internal error when checking /balances. Try again later. If problem still persists, contact TipBot dev.'
+                    await ctx.edit_original_message(content=msg)
+                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(f"[ERROR] /balances with {ctx.author.name}#{ctx.author.discriminator}")
 
 
     @commands.slash_command(

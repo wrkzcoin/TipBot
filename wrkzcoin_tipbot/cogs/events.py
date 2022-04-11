@@ -460,16 +460,16 @@ class Events(commands.Cog):
                 msg = "Nothing to do!"
                 get_message = None
                 try:
-                    msg_id = interaction.message.id
+                    msg_id = inter.message.id
                     get_message = await store.get_discord_triviatip_by_msgid(str(msg_id))
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
-                    original_message = await interaction.original_message()
+                    original_message = await inter.original_message()
                     get_message = await store.get_discord_triviatip_by_msgid(str(original_message.id))
 
                 if get_message is None:
-                    await interaction.response.send_message(content="Failed for Trivia Button Click!")
-                    await logchanbot(f"[ERROR TRIVIA] Failed to click Trivia Tip in guild {interaction.guild.name} / {interaction.guild.id} by {interaction.author.name}#{interaction.author.discriminator}!")
+                    await inter.response.send_message(content="Failed for Trivia Button Click!")
+                    await logchanbot(f"[ERROR TRIVIA] Failed to click Trivia Tip in guild {inter.guild.name} / {inter.guild.id} by {inter.author.name}#{inter.author.discriminator}!")
                     return
 
                 if get_message and int(get_message['from_userid']) == inter.author.id:
@@ -514,16 +514,16 @@ class Events(commands.Cog):
             try:
                 msg = "Nothing to do!"
                 try:
-                    msg_id = interaction.message.id
+                    msg_id = inter.message.id
                     get_message = await store.get_discord_mathtip_by_msgid(str(msg_id))
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
-                    original_message = await interaction.original_message()
+                    original_message = await inter.original_message()
                     get_message = await store.get_discord_mathtip_by_msgid(str(original_message.id))
 
                 if get_message is None:
-                    await interaction.response.send_message(content="Failed for Math Tip Button Click!")
-                    await logchanbot(f"[ERROR MATHTIP] Failed to click Math Tip in guild {interaction.guild.name} / {interaction.guild.id} by {interaction.author.name}#{interaction.author.discriminator}!")
+                    await inter.response.send_message(content="Failed for Math Tip Button Click!")
+                    await logchanbot(f"[ERROR MATHTIP] Failed to click Math Tip in guild {inter.guild.name} / {inter.guild.id} by {inter.author.name}#{inter.author.discriminator}!")
                     return
 
                 if get_message and int(get_message['from_userid']) == inter.author.id:

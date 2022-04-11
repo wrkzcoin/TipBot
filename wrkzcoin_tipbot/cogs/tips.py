@@ -26,16 +26,37 @@ from cogs.wallet import WalletAPI
 class FreeTip_Button(disnake.ui.View):
     message: disnake.Message
 
-    def __init__(self, bot, timeout: float):
+    def __init__(self, ctx, bot, timeout: float):
         super().__init__(timeout=timeout)
         self.ttlcache = TTLCache(maxsize=500, ttl=60.0)
         self.bot = bot
+        self.ctx = ctx
 
 
     async def on_timeout(self):
         for child in self.children:
             if isinstance(child, disnake.ui.Button):
                 child.disabled = True
+
+        get_freetip = None
+        _channel = None
+        _msg = None
+        try:
+            original_message = await self.ctx.original_message()
+            get_freetip = await store.get_discord_freetip_by_msgid(str(original_message.id))
+            if int(get_freetip['message_time']) + 10*60 < int(time.time()):
+                _channel: disnake.TextChannel = await self.bot.fetch_channel(int(get_freetip['channel_id']))
+                _msg: disnake.Message = await _channel.fetch_message(int(get_freetip['message_id']))
+                if _msg is not None:
+                    original_message = _msg
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            return
+
+
+        if get_freetip is None:
+            await logchanbot(f"[ERROR FREETIP] Failed timeout in guild {self.ctx.guild.name} / {self.ctx.guild.id}!")
+            return
 
         ## Update content
         get_freetip = await store.get_discord_freetip_by_msgid(str(self.message.id))
@@ -77,7 +98,7 @@ class FreeTip_Button(disnake.ui.View):
                     embed.add_field(name="Comment", value=get_freetip['airdrop_content'], inline=False)
                 embed.set_footer(text=f"FreeTip by {owner_displayname}, and no one collected!")
                 try:
-                    await self.message.edit(embed=embed, view=None)
+                    await original_message.edit(embed=embed, view=None)
                     # update status
                     change_status = await store.discord_freetip_update(str(self.message.id), "NOCOLLECT")
                 except Exception as e:
@@ -113,7 +134,7 @@ class FreeTip_Button(disnake.ui.View):
                 actual_balance = float(userdata_balance['adjust'])
         
                 if actual_balance < 0 and get_owner:
-                    await self.message.reply(f'{EMOJI_RED_NO} {get_owner.mention} Insufficient balance to do a free tip of {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}.')
+                    await self.message.reply(f'{EMOJI_RED_NO} {get_owner.mention}, insufficient balance to do a free tip of {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}.')
                     change_status = await store.discord_freetip_update(str(self.message.id), "FAILED")
                     # end of re-check balance
                 else:
@@ -156,7 +177,7 @@ class FreeTip_Button(disnake.ui.View):
                             except Exception as e:
                                 traceback.print_exc(file=sys.stdout)
                             embed.set_footer(text=f"Completed! Collected by {len(attend_list_id)} member(s)")
-                            await self.message.edit(embed=embed, view=None)
+                            await original_message.edit(embed=embed, view=None)
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
                     except Exception as e:
@@ -179,7 +200,7 @@ class FreeTip_Button(disnake.ui.View):
                         # If tip, update status
                         change_status = await store.discord_freetip_update(str(self.message.id), "FAILED")
         else:
-            await self.message.edit(view=None)
+            await original_message.edit(view=None)
 
 
     @disnake.ui.button(label="🎁 Collect", style=ButtonStyle.green, custom_id="collect_freetip")
@@ -246,6 +267,8 @@ class Tips(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         redis_utils.openRedis()
+        self.freetip_duration_min = 5
+        self.freetip_duration_max = 24*3600
 
 
     # Notifytip
@@ -752,8 +775,8 @@ class Tips(commands.Cog):
         if duration_s == 0:
             duration_s = default_duration
             # Just info, continue
-        elif duration_s < config.freetip.duration_min or duration_s > config.freetip.duration_max:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid duration. Please use between {str(config.freetip.duration_min)}s to {str(config.freetip.duration_max)}s.'
+        elif duration_s < self.freetip_duration_min or duration_s > self.freetip_duration_max:
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid duration. Please use between {str(self.freetip_duration_min)}s to {str(self.freetip_duration_max)}s.'
             await ctx.edit_original_message(content=msg)
             return
 
@@ -774,7 +797,7 @@ class Tips(commands.Cog):
             msg = f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to do a free tip of **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}**.'
             await ctx.edit_original_message(content=msg)
             return
-        
+
         equivalent_usd = ""
         total_in_usd = 0.0
         per_unit = None
@@ -808,7 +831,7 @@ class Tips(commands.Cog):
             if ctx.author.id not in self.bot.TX_IN_PROCESS:
                 self.bot.TX_IN_PROCESS.append(ctx.author.id)
                 try:
-                    view = FreeTip_Button(self.bot, duration_s)
+                    view = FreeTip_Button(ctx, self.bot, duration_s)
                     view.message = await ctx.original_message()
                     insert_freetip = await store.insert_discord_freetip(COIN_NAME, contract, str(ctx.author.id), "{}#{}".format(ctx.author.name, ctx.author.discriminator), str(view.message.id), comment_str, str(ctx.guild.id), str(ctx.channel.id), amount, total_in_usd, equivalent_usd, per_unit, coin_decimal, int(time.time())+duration_s, "ONGOING")
                     await ctx.edit_original_message(content=None, embed=embed, view=view)

@@ -436,6 +436,37 @@ class Admin(commands.Cog):
         if ctx.invoked_subcommand is None: await ctx.reply(f'{ctx.author.mention} Invalid admin command')
         return
 
+
+    @commands.is_owner()
+    @admin.command(hidden=True, usage='admin clearbutton <channel id> <msg id>', description='Clear all buttons of a message ID.')
+    async def clearbutton(self, ctx, channel_id: str, msg_id: str):
+        try:
+            _channel: disnake.TextChannel = await self.bot.fetch_channel(int(channel_id))
+            _msg: disnake.Message = await _channel.fetch_message(int(msg_id))
+            if _msg is not None:
+                if _msg.author != self.bot.user:
+                    msg = f'{ctx.author.mention}, that message `{msg_id}` was not belong to me.'
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.reply(msg)
+                else:
+                    await _msg.edit(view=None)
+                    msg = f'{ctx.author.mention}, removed all view from `{msg_id}`.'
+                    if type(ctx) == disnake.ApplicationCommandInteraction:
+                        await ctx.response.send_message(msg)
+                    else:
+                        await ctx.reply(msg)
+            else:
+                msg = f'{ctx.author.mention}, I can not find message `{msg_id}`.'
+                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    await ctx.response.send_message(msg)
+                else:
+                    await ctx.reply(msg)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+
+
     @commands.is_owner()
     @admin.command(hidden=True, usage='admin leave <guild id>', description='Bot to leave a server by ID.')
     async def leave(self, ctx, guild_id: str):

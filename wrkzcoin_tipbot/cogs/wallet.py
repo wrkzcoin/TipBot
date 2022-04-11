@@ -3248,7 +3248,10 @@ class Wallet(commands.Cog):
         ctx, 
         token: str
     ):
-        await self.async_balance(ctx, token)
+        if token.upper() == "ALL":
+            await self.async_balances(ctx, None)
+        else:
+            await self.async_balance(ctx, token)
 
 
     @commands.slash_command(

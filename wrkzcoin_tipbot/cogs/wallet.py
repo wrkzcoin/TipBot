@@ -43,7 +43,7 @@ from terminaltables import AsciiTable
 import store
 import cn_addressvalidation
 
-from Bot import get_token_list, num_format_coin, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_ARROW_RIGHTHOOK, SERVER_BOT, RowButton_close_message, RowButton_row_close_any_message, human_format, text_to_num, truncate, seconds_str, encrypt_string, decrypt_string, EMOJI_HOURGLASS_NOT_DONE, alert_if_userlock, MSG_LOCKED_ACCOUNT, EMOJI_MONEYFACE
+from Bot import get_token_list, num_format_coin, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_ARROW_RIGHTHOOK, SERVER_BOT, RowButton_close_message, RowButton_row_close_any_message, human_format, text_to_num, truncate, seconds_str, encrypt_string, decrypt_string, EMOJI_HOURGLASS_NOT_DONE, alert_if_userlock, MSG_LOCKED_ACCOUNT, EMOJI_MONEYFACE, EMOJI_INFORMATION
 from config import config
 import redis_utils
 from utils import MenuPage
@@ -2882,32 +2882,22 @@ class Wallet(commands.Cog):
     async def async_deposit(self, ctx, token: str=None, plain: str=None):
         COIN_NAME = None
         if token is None:
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(f'{ctx.author.mention}, token name is missing.')
-            else:
-                await ctx.reply(f'{ctx.author.mention}, token name is missing.')
+            await ctx.response.send_message(f'{ctx.author.mention}, token name is missing.')
             return
         else:
             COIN_NAME = token.upper()
             # print(self.bot.coin_list)
             if not hasattr(self.bot.coin_list, COIN_NAME):
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.')
-                else:
-                    await ctx.reply(f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.')
+                await ctx.response.send_message(f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.')
                 return
             else:
                 if getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_deposit") == 0:
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(f'{ctx.author.mention}, **{COIN_NAME}** deposit disable.')
-                    else:
-                        await ctx.reply(f'{ctx.author.mention}, **{COIN_NAME}** deposit disable.')
+                    await ctx.response.send_message(f'{ctx.author.mention}, **{COIN_NAME}** deposit disable.')
                     return
                     
         # Do the job
         try:
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(f'{ctx.author.mention}, checking your {COIN_NAME} address...', ephemeral=True)
+            await ctx.response.send_message(f'{ctx.author.mention}, checking your {COIN_NAME} address...', ephemeral=True)
             net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
             type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
             get_deposit = await self.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
@@ -2948,18 +2938,10 @@ class Wallet(commands.Cog):
                     traceback.print_exc(file=sys.stdout)
             embed.set_footer(text="Use: deposit plain (for plain text)")
             try:
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    if plain and plain.lower() == 'plain' or plain.lower() == 'text':
-                        await ctx.edit_original_message(content=plain_msg)
-                    else:
-                        await ctx.edit_original_message(embed=embed)
+                if plain and plain.lower() == 'plain' or plain.lower() == 'text':
+                    await ctx.edit_original_message(content=plain_msg)
                 else:
-                    if plain and plain.lower() == 'plain' or plain.lower() == 'text':
-                        msg = await ctx.reply(plain_msg, view=RowButton_close_message())
-                        await store.add_discord_bot_message(str(msg.id), str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM", str(ctx.author.id))
-                    else:
-                        msg = await ctx.reply(embed=embed, view=RowButton_close_message())
-                        await store.add_discord_bot_message(str(msg.id), str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM", str(ctx.author.id))
+                    await ctx.edit_original_message(embed=embed)
             except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                 traceback.print_exc(file=sys.stdout)
         except Exception as e:
@@ -2988,30 +2970,20 @@ class Wallet(commands.Cog):
     async def async_balance(self, ctx, token: str=None):
         COIN_NAME = None
         if token is None:
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(f'{ctx.author.mention}, token name is missing.')
-            else:
-                await ctx.reply(f'{ctx.author.mention}, token name is missing.')
+            await ctx.response.send_message(f'{ctx.author.mention}, token name is missing.')
             return
         else:
             COIN_NAME = token.upper()
             if not hasattr(self.bot.coin_list, COIN_NAME):
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.')
-                else:
-                    await ctx.reply(f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.')
+                await ctx.response.send_message(f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.')
                 return
             else:
                 if getattr(getattr(self.bot.coin_list, COIN_NAME), "is_maintenance") == 1:
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(f'{ctx.author.mention}, **{COIN_NAME}** is currently under maintenance.')
-                    else:
-                        await ctx.reply(f'{ctx.author.mention}, **{COIN_NAME}** is currently under maintenance.')
+                    await ctx.response.send_message(f'{ctx.author.mention}, **{COIN_NAME}** is currently under maintenance.')
                     return
         # Do the job
         try:
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(f'{ctx.author.mention}, checking your {COIN_NAME} balance...', ephemeral=True)
+            await ctx.response.send_message(f'{ctx.author.mention}, checking your {COIN_NAME} balance...', ephemeral=True)
             net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
             type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
             deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
@@ -3064,10 +3036,8 @@ class Wallet(commands.Cog):
                 embed.add_field(name="Token/Coin {}{}".format(token_display, equivalent_usd), value="```Available: {} {}```".format(num_format_coin(total_balance, COIN_NAME, coin_decimal, False), token_display), inline=False)
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.edit_original_message(embed=embed)
-            else:
-                await ctx.reply(embed=embed, view=RowButton_row_close_any_message())
+
+            await ctx.edit_original_message(embed=embed)
             # Add update for future call
             try:
                 if type_coin == "ERC-20":
@@ -3116,10 +3086,7 @@ class Wallet(commands.Cog):
 
         if len(mytokens) == 0:
             msg = f'{ctx.author.mention}, no token or not exist.'
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.response.send_message(msg)
             return
         else:
             total_all_balance_usd = 0.0
@@ -3141,10 +3108,7 @@ class Wallet(commands.Cog):
             all_pages.append(page)
             num_coins = 0
             per_page = 8
-            if type(ctx) != disnake.ApplicationCommandInteraction:
-                tmp_msg = await ctx.reply(f"{ctx.author.mention} balance loading...")
-            else:
-                await ctx.response.send_message(f"{ctx.author.mention} balance loading...", ephemeral=True)
+            await ctx.response.send_message(f"{ctx.author.mention} balance loading...", ephemeral=True)
             for each_token in mytokens:
                 COIN_NAME = each_token['coin_name']
                 type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
@@ -3245,10 +3209,7 @@ class Wallet(commands.Cog):
             # Remove zero from all_names
             if has_none_balance == True:
                 msg = f'{ctx.author.mention}, you do not have any balance.'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.edit_original_message(content=msg)
-                else:
-                    await ctx.reply(msg)
+                await ctx.edit_original_message(content=msg)
                 return
             else:
                 all_names = [each for each in all_names if each not in zero_tokens]
@@ -3265,13 +3226,7 @@ class Wallet(commands.Cog):
                 page.set_thumbnail(url=ctx.author.display_avatar)
                 page.set_footer(text="Use the reactions to flip pages.")
                 all_pages[0] = page
-
-                view = MenuPage(ctx, all_pages, timeout=30)
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    view.message = await ctx.edit_original_message(content=None, embed=all_pages[0], view=view)
-                else:
-                    await tmp_msg.delete()
-                    view.message = await ctx.reply(content=None, embed=all_pages[0], view=view)
+                view.message = await ctx.edit_original_message(content=None, embed=all_pages[0], view=MenuPage(ctx, all_pages, timeout=30))
 
 
     @commands.slash_command(
@@ -3311,26 +3266,17 @@ class Wallet(commands.Cog):
 
         COIN_NAME = token.upper()
         if not hasattr(self.bot.coin_list, COIN_NAME):
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                msg = f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.'
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            msg = f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.'
+            await ctx.response.send_message(msg)
             return
         else:
             if getattr(getattr(self.bot.coin_list, COIN_NAME), "is_maintenance") == 1:
                 msg = f'{ctx.author.mention}, **{COIN_NAME}** is currently under maintenance.'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
+                await ctx.response.send_message(msg)
                 return
             if getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_withdraw") != 1:
                 msg = f'{ctx.author.mention}, **{COIN_NAME}** withdraw is currently disable.'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
+                await ctx.response.send_message(msg)
                 return
         # Do the job
         try:
@@ -3360,11 +3306,7 @@ class Wallet(commands.Cog):
             # Check if tx in progress
             if ctx.author.id in self.bot.TX_IN_PROCESS:
                 msg = f'{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress.'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
-                    await ctx.reply(msg)
+                await ctx.response.send_message(msg)
                 return
 
             height = None
@@ -3377,14 +3319,15 @@ class Wallet(commands.Cog):
                 traceback.print_exc(file=sys.stdout)
             if height is None:
                 msg = f'{ctx.author.mention}, **{COIN_NAME}** cannot pull information from network. Try again later.'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
+                await ctx.response.send_message(msg)
                 return
             else:
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(f"{EMOJI_HOURGLASS_NOT_DONE} Checking withdraw for {ctx.author.mention}..", ephemeral=True) # delete_after can not have ephemeral=True 
+                try:
+                    await ctx.response.send_message(f"{EMOJI_HOURGLASS_NOT_DONE}, checking withdraw for {ctx.author.mention}..", ephemeral=True)
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                    return
+
                 # check if amount is all
                 all_amount = False
                 if not amount.isdigit() and amount.upper() == "ALL":
@@ -3397,10 +3340,7 @@ class Wallet(commands.Cog):
                     amount = amount.replace(",", "").replace("$", "")
                     if usd_equivalent_enable == 0:
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{COIN_NAME}`."
-                        if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.edit_original_message(content=msg)
-                        else:
-                            await ctx.reply(msg)
+                        await ctx.edit_original_message(content=msg)
                         return
                     else:
                         native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
@@ -3417,16 +3357,13 @@ class Wallet(commands.Cog):
                             amount = float(Decimal(amount) / Decimal(per_unit))
                         else:
                             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, I cannot fetch equivalent price. Try with different method.'
-                            if type(ctx) == disnake.ApplicationCommandInteraction:
-                                await ctx.edit_original_message(content=msg)
-                            else:
-                                await ctx.reply(msg)
+                            await ctx.edit_original_message(content=msg)
                             return
                 else:
                     amount = amount.replace(",", "")
                     amount = text_to_num(amount)
                     if amount is None:
-                        await ctx.reply(f'{EMOJI_RED_NO} {ctx.author.mention}, invalid given amount.')
+                        await ctx.edit_original_message(content=f'{EMOJI_RED_NO} {ctx.author.mention}, invalid given amount.')
                         return
 
                 # end of check if amount is all
@@ -3437,32 +3374,20 @@ class Wallet(commands.Cog):
                 # If balance 0, no need to check anything
                 if actual_balance <= 0:
                     msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please check your **{token_display}** balance.'
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.edit_original_message(content=msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.edit_original_message(content=msg)
                     return
                 if amount > actual_balance:
                     msg = f'{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to send out {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}.'
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.edit_original_message(content=msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.edit_original_message(content=msg)
                     return
 
                 if amount + NetFee > actual_balance:
                     msg = f'{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to send out {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}. You need to leave at least network fee: {num_format_coin(NetFee, COIN_NAME, coin_decimal, False)} {token_display}.'
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.edit_original_message(content=msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.edit_original_message(content=msg)
                     return
                 elif amount < MinTx or amount > MaxTx:
                     msg = f'{EMOJI_RED_NO} {ctx.author.mention}, transaction cannot be smaller than {num_format_coin(MinTx, COIN_NAME, coin_decimal, False)} {token_display} or bigger than {num_format_coin(MaxTx, COIN_NAME, coin_decimal, False)} {token_display}.'
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.edit_original_message(content=msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.edit_original_message(content=msg)
                     return
 
                 equivalent_usd = ""
@@ -3491,10 +3416,7 @@ class Wallet(commands.Cog):
                         valid = True
                     else:
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid address:\n`{address}`'
-                        if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.edit_original_message(content=msg)
-                        else:
-                            await ctx.reply(msg)
+                        await ctx.edit_original_message(content=msg)
                         return
 
                     SendTx = None
@@ -3511,20 +3433,14 @@ class Wallet(commands.Cog):
                     else:
                         # reject and tell to wait
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
-                        if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.edit_original_message(content=msg)
-                        else:
-                            await ctx.reply(msg)
+                        await ctx.edit_original_message(content=msg)
                         return
 
                     if SendTx:
                         fee_txt = "\nWithdrew fee/node: `{} {}`.".format(num_format_coin(NetFee, COIN_NAME, coin_decimal, False), COIN_NAME)
                         try:
                             msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`{fee_txt}'
-                            if type(ctx) == disnake.ApplicationCommandInteraction:
-                                await ctx.edit_original_message(content=msg)
-                            else:
-                                await ctx.reply(msg)
+                            await ctx.edit_original_message(content=msg)
                             return
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
@@ -3546,20 +3462,14 @@ class Wallet(commands.Cog):
                     else:
                         # reject and tell to wait
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
-                        if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.ctx.edit_original_message(content=msg)
-                        else:
-                            await ctx.reply(msg)
+                        await ctx.ctx.edit_original_message(content=msg)
                         return
 
                     if SendTx:
                         fee_txt = "\nWithdrew fee/node: `{} {}`.".format(num_format_coin(NetFee, COIN_NAME, coin_decimal, False), COIN_NAME)
                         try:
                             msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`{fee_txt}'
-                            if type(ctx) == disnake.ApplicationCommandInteraction:
-                                await ctx.edit_original_message(content=msg)
-                            else:
-                                await ctx.reply(msg)
+                            await ctx.edit_original_message(content=msg)
                             return
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
@@ -3571,10 +3481,7 @@ class Wallet(commands.Cog):
                     valid_address = await self.WalletAPI.nano_validate_address(COIN_NAME, address)
                     if not valid_address == True:
                         msg = f"{EMOJI_RED_NO} Address: `{address}` is invalid."
-                        if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.edit_original_message(content=msg)
-                        else:
-                            await ctx.reply(msg)
+                        await ctx.edit_original_message(content=msg)
                         return
                     else:
                         if ctx.author.id not in self.bot.TX_IN_PROCESS:
@@ -3586,10 +3493,7 @@ class Wallet(commands.Cog):
                                     fee_txt = "\nWithdrew fee/node: `0.00 {}`.".format(COIN_NAME)
                                     SendTx_hash = SendTx['block']
                                     msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx_hash}`{fee_txt}'
-                                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                                        await ctx.edit_original_message(content=msg)
-                                    else:
-                                        await ctx.reply(msg)
+                                    await ctx.edit_original_message(content=msg)
                                     await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} successfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                                 else:
                                     await logchanbot(f'[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
@@ -3599,10 +3503,7 @@ class Wallet(commands.Cog):
                         else:
                             # reject and tell to wait
                             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
-                            if type(ctx) == disnake.ApplicationCommandInteraction:
-                                await ctx.edit_original_message(content=msg)
-                            else:
-                                await ctx.reply(msg)
+                            await ctx.edit_original_message(content=msg)
                             return
                 elif type_coin == "CHIA":
                     if ctx.author.id not in self.bot.TX_IN_PROCESS:
@@ -3612,20 +3513,14 @@ class Wallet(commands.Cog):
                             fee_txt = "\nWithdrew fee/node: `{} {}`.".format(num_format_coin(NetFee, COIN_NAME, coin_decimal, False), COIN_NAME)
                             await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} successfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                             msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`{fee_txt}'
-                            if type(ctx) == disnake.ApplicationCommandInteraction:
-                                await ctx.edit_original_message(content=msg)
-                            else:
-                                await ctx.reply(msg)
+                            await ctx.edit_original_message(content=msg)
                         else:
                             await logchanbot(f'[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                         self.bot.TX_IN_PROCESS.remove(ctx.author.id)
                     else:
                         # reject and tell to wait
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
-                        if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.edit_original_message(content=msg)
-                        else:
-                            await ctx.reply(msg)
+                        await ctx.edit_original_message(content=msg)
                         return
                 elif type_coin == "HNT":
                     if ctx.author.id not in self.bot.TX_IN_PROCESS:
@@ -3639,20 +3534,14 @@ class Wallet(commands.Cog):
                             fee_txt = "\nWithdrew fee/node: `{} {}`.".format(num_format_coin(NetFee, COIN_NAME, coin_decimal, False), COIN_NAME)
                             await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} successfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                             msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`{fee_txt}'
-                            if type(ctx) == disnake.ApplicationCommandInteraction:
-                                await ctx.edit_original_message(content=msg)
-                            else:
-                                await ctx.reply(msg)
+                            await ctx.edit_original_message(content=msg)
                         else:
                             await logchanbot(f'[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                         self.bot.TX_IN_PROCESS.remove(ctx.author.id)
                     else:
                         # reject and tell to wait
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
-                        if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.edit_original_message(content=msg)
-                        else:
-                            await ctx.reply(msg)
+                        await ctx.edit_original_message(content=msg)
                         return
                 elif type_coin == "BTC":
                     if ctx.author.id not in self.bot.TX_IN_PROCESS:
@@ -3661,10 +3550,7 @@ class Wallet(commands.Cog):
                         if SendTx:
                             fee_txt = "\nWithdrew fee/node: `{} {}`.".format(num_format_coin(NetFee, COIN_NAME, coin_decimal, False), COIN_NAME)
                             msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`{fee_txt}'
-                            if type(ctx) == disnake.ApplicationCommandInteraction:
-                                await ctx.edit_original_message(content=msg)
-                            else:
-                                await ctx.reply(msg)
+                            await ctx.edit_original_message(content=msg)
                             await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} successfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                         else:
                             await logchanbot(f'[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
@@ -3672,10 +3558,7 @@ class Wallet(commands.Cog):
                     else:
                         # reject and tell to wait
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
-                        if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.edit_original_message(content=msg)
-                        else:
-                            await ctx.reply(msg)
+                        await ctx.edit_original_message(content=msg)
                         return
                 elif type_coin == "XMR" or type_coin == "TRTL-API" or type_coin == "TRTL-SERVICE" or type_coin == "BCN":
                     if ctx.author.id not in self.bot.TX_IN_PROCESS:
@@ -3689,10 +3572,7 @@ class Wallet(commands.Cog):
                         if SendTx:
                             fee_txt = "\nWithdrew fee/node: `{} {}`.".format(num_format_coin(NetFee, COIN_NAME, coin_decimal, False), COIN_NAME)
                             msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`{fee_txt}'
-                            if type(ctx) == disnake.ApplicationCommandInteraction:
-                                await ctx.edit_original_message(content=msg)
-                            else:
-                                await ctx.reply(msg)
+                            await ctx.edit_original_message(content=msg)
                             await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} successfully executed withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                         else:
                             await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} failed to execute to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
@@ -3700,10 +3580,7 @@ class Wallet(commands.Cog):
                     else:
                         # reject and tell to wait
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
-                        if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.edit_original_message(content=msg)
-                        else:
-                            await ctx.reply(msg)
+                        await ctx.edit_original_message(content=msg)
                         return
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
@@ -3765,35 +3642,23 @@ class Wallet(commands.Cog):
                     embed.set_footer(text="Requested by: {}#{} | preferred: {}".format(ctx.author.name, ctx.author.discriminator, get_user_coin['coin_name']))
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(embed=embed, view=RowButton_row_close_any_message())
-            else:
-                await ctx.reply(embed=embed, view=RowButton_row_close_any_message())
+            await ctx.response.send_message(embed=embed, view=RowButton_row_close_any_message())
             return
         else:
             COIN_NAME = token.upper()
             if COIN_NAME not in list_coin_names:
                 msg = f'{ctx.author.mention}, `{COIN_NAME}` is invalid or does not existed in faucet list!'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
+                await ctx.response.send_message(msg)
                 return
             else:
                 # Update user setting faucet
                 update = await faucet.update_faucet_user(str(ctx.author.id), COIN_NAME, SERVER_BOT)
                 if update:
                     msg = f'{ctx.author.mention}, you updated your preferred claimed reward to `{COIN_NAME}`. This preference applies only for TipBot\'s voting reward.'
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.response.send_message(msg)
                 else:
                     msg = f'{ctx.author.mention}, internal error!'
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.response.send_message(msg)
                 return
 
 
@@ -3876,18 +3741,20 @@ class Wallet(commands.Cog):
             if self.enable_logchan:
                 await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} (Bot) using **take** {ctx.guild.name} / {ctx.guild.id}')
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, Bot is not allowed using this."
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.response.send_message(msg)
             return
 
         if ctx.author.id in self.bot.TX_IN_PROCESS:
             msg = f'{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress.'
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.response.send_message(msg)
+            return
+
+        try:
+            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing /take ...'
+            await ctx.response.send_message(msg)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await ctx.response.send_message(f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to message /take ...", ephemeral=True)
             return
 
         COIN_NAME = random.choice(self.bot.faucet_coins)
@@ -3895,37 +3762,18 @@ class Wallet(commands.Cog):
             COIN_NAME = info.upper()
             if not hasattr(self.bot.coin_list, COIN_NAME):
                 msg = f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.followup.send(msg)
-                else:
-                    await ctx.reply(msg)
+                await ctx.edit_original_message(content=msg)
                 return
             elif COIN_NAME  not in self.bot.faucet_coins:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, {COIN_NAME} not available for faucet."
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.followup.send(msg)
-                else:
-                    await ctx.reply(msg)
+                await ctx.edit_original_message(content=msg)
                 return
-
-        try:
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                tmp_msg = await ctx.response.send_message(f"{ctx.author.mention}, loading faucet...", delete_after=30.0)
-            else:
-                tmp_msg = await ctx.send(f"{ctx.author.mention}, loading faucet...")
-            if type(ctx) != disnake.ApplicationCommandInteraction:
-                await tmp_msg.delete()
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
 
         total_claimed = '{:,.0f}'.format(await store.sql_faucet_count_all())
         if info and info.upper() == "INFO":
             remaining = await self.bot_faucet(ctx, self.bot.faucet_coins) or ''
             msg = f'{ctx.author.mention} Faucet balance:\n```{remaining}```Total user claims: **{total_claimed}** times. Tip me if you want to feed these faucets. Use /claim to vote TipBot and get reward.'
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.followup.send(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.edit_original_message(content=msg)
             return
 
         claim_interval = config.faucet.interval
@@ -3940,7 +3788,7 @@ class Wallet(commands.Cog):
                 try:
                     botChan = self.bot.get_channel(int(serverinfo['botchan']))
                     msg = f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} is the bot channel!!!'
-                    await ctx.followup.send(msg)
+                    await ctx.edit_original_message(content=msg)
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
                 # add penalty:
@@ -3953,7 +3801,7 @@ class Wallet(commands.Cog):
                 if self.enable_logchan:
                     await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried **take** in {ctx.guild.name} / {ctx.guild.id} which is disable.')
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, **Faucet** in this guild is disable."
-                await ctx.followup.send(msg)
+                await ctx.edit_original_message(content=msg)
                 return
             elif serverinfo and serverinfo['enable_faucet'] == "YES" and serverinfo['faucet_channel'] is not None and serverinfo['faucet_coin'] is not None:
                 extra_take_text = " Additional reward, you can also do /faucet in <#{}> which funded by the guild.".format(serverinfo['faucet_channel'])
@@ -3972,10 +3820,7 @@ class Wallet(commands.Cog):
                         user_claims = await store.sql_faucet_count_user(str(ctx.author.id))
                         number_user_claimed = '{:,.0f}'.format(user_claims)
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention} You just claimed within last {claim_interval}h. Waiting time {time_waiting} for next **take**. Total user claims: **{total_claimed}** times. You have claimed: **{number_user_claimed}** time(s). Tip me if you want to feed these faucets. Use /claim to vote TipBot and get reward.{extra_take_text}'
-                        if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.followup.send(msg)
-                        else:
-                            await ctx.reply(msg)
+                        await ctx.edit_original_message(content=msg)
                         return
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
@@ -3983,20 +3828,14 @@ class Wallet(commands.Cog):
         # offline can not take
         if ctx.author.status == disnake.Status.offline:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention} Offline status cannot claim faucet."
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.followup.send(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.edit_original_message(content=msg)
             return
 
         # check if account locked
         account_lock = await alert_if_userlock(ctx, 'take')
         if account_lock:
             msg = f"{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}"
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.followup.send(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.edit_original_message(content=msg)
             return
         # end of check if account locked
 
@@ -4005,10 +3844,7 @@ class Wallet(commands.Cog):
             account_created = ctx.author.created_at
             if (datetime.utcnow().astimezone() - account_created).total_seconds() <= config.faucet.account_age_to_claim:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using /take. Alternatively, vote for TipBot to get reward `/claim`.{extra_take_text}"
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.followup.send(msg)
-                else:
-                    await ctx.reply(msg)
+                await ctx.edit_original_message(content=msg)
                 return
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
@@ -4021,10 +3857,7 @@ class Wallet(commands.Cog):
                     if half_claim_interval*3600 - int(time.time()) + int(faucet_penalty['penalty_at']) > 0:
                         time_waiting = seconds_str(half_claim_interval*3600 - int(time.time()) + int(faucet_penalty['penalty_at']))
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention} You claimed in a wrong channel within last {str(half_claim_interval)}h. Waiting time {time_waiting} for next **take** and be sure to be the right channel set by the guild. Use /claim to vote TipBot and get reward.{extra_take_text}'
-                        if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.followup.send(msg)
-                        else:
-                            await ctx.reply(msg)
+                        await ctx.edit_original_message(content=msg)
                         return
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
@@ -4078,10 +3911,7 @@ class Wallet(commands.Cog):
 
         if amount > actual_balance and not info:
             msg = f'{ctx.author.mention} Please try again later. Bot runs out of **{COIN_NAME}**'
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.followup.send(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.edit_original_message(content=msg)
             return
 
         tip = None
@@ -4089,10 +3919,7 @@ class Wallet(commands.Cog):
             self.bot.TX_IN_PROCESS.append(ctx.author.id)
         else:
             msg = f'{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress.'
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.followup.send(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.edit_original_message(content=msg)
             return
         try:
             if not info:
@@ -4112,11 +3939,8 @@ class Wallet(commands.Cog):
                 tip = await store.sql_user_balance_mv_single(str(self.bot.user.id), str(ctx.author.id), str(ctx.guild.id), str(ctx.channel.id), amount, COIN_NAME, "FAUCET", coin_decimal, SERVER_BOT, contract, amount_in_usd)
                 try:
                     faucet_add = await store.sql_faucet_add(str(ctx.author.id), str(ctx.guild.id), COIN_NAME, amount, coin_decimal, SERVER_BOT)
-                    msg = f'{EMOJI_MONEYFACE} {ctx.author.mention} You got a random faucet {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}. Use /claim to vote TipBot and get reward.{extra_take_text}'
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.followup.send(msg)
-                    else:
-                        await ctx.reply(msg)
+                    msg = f'{EMOJI_MONEYFACE} {ctx.author.mention}, you got a random faucet {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}. Use /claim to vote TipBot and get reward.{extra_take_text}'
+                    await ctx.edit_original_message(content=msg)
                     await logchanbot(f'[Discord] User {ctx.author.name}#{ctx.author.discriminator} claimed faucet {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME} in guild {ctx.guild.name}/{ctx.guild.id}')
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
@@ -4124,10 +3948,7 @@ class Wallet(commands.Cog):
             else:
                 try:
                     msg = f"Simulated faucet {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}. This is a test only. Use without **ticker** to do real faucet claim. Use /claim to vote TipBot and get reward."
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.followup.send(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.edit_original_message(content=msg)
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
@@ -4173,18 +3994,12 @@ class Wallet(commands.Cog):
         # Token name check
         if not hasattr(self.bot.coin_list, COIN_NAME):
             msg = f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.'
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.response.send_message(msg)
             return
         else:
             if getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_tip") != 1:
                 msg = f'{ctx.author.mention}, **{COIN_NAME}** tipping is disable.'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
+                await ctx.response.send_message(msg)
                 return
         # End token name check
         net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
@@ -4198,6 +4013,14 @@ class Wallet(commands.Cog):
         MaxTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_max_tip")
         usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
 
+        try:
+            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing donation check...'
+            await ctx.response.send_message(msg)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await ctx.response.send_message(f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to send a donation message...", ephemeral=True)
+            return
+
         User_WalletAPI = WalletAPI(self.bot)
 
         get_deposit = await User_WalletAPI.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
@@ -4210,12 +4033,8 @@ class Wallet(commands.Cog):
 
         # Check if tx in progress
         if ctx.author.id in self.bot.TX_IN_PROCESS:
-            msg = f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.'
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
-                await ctx.reply(msg)
+            msg = f'{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress.'
+            await ctx.edit_original_message(content=msg)
             return
 
         height = None
@@ -4239,10 +4058,7 @@ class Wallet(commands.Cog):
             amount = amount.replace(",", "").replace("$", "")
             if usd_equivalent_enable == 0:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{COIN_NAME}`."
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
+                await ctx.edit_original_message(content=msg)
                 return
             else:
                 native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
@@ -4259,53 +4075,35 @@ class Wallet(commands.Cog):
                     amount = float(Decimal(amount) / Decimal(per_unit))
                 else:
                     msg = f'{EMOJI_RED_NO} {ctx.author.mention}, I cannot fetch equivalent price. Try with different method.'
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.edit_original_message(content=msg)
                     return
         else:
             amount = amount.replace(",", "")
             amount = text_to_num(amount)
             if amount is None:
                 msg = f'{EMOJI_RED_NO} {ctx.author.mention} Invalid given amount.'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
+                await ctx.edit_original_message(content=msg)
                 return
         # end of check if amount is all
         userdata_balance = await self.user_balance(str(ctx.author.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
         actual_balance = float(userdata_balance['adjust'])
         if amount <= 0:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please get more {token_display}.'
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.edit_original_message(content=msg)
             return
         elif amount > MaxTip or amount < MinTip:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than **{num_format_coin(MaxTip, COIN_NAME, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(MinTip, COIN_NAME, coin_decimal, False)} {token_display}**.'
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, transactions cannot be bigger than **{num_format_coin(MaxTip, COIN_NAME, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(MinTip, COIN_NAME, coin_decimal, False)} {token_display}**.'
+            await ctx.edit_original_message(content=msg)
             return
         elif amount > actual_balance:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to donate **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}**.'
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to donate **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}**.'
+            await ctx.edit_original_message(content=msg)
             return
 
         # check queue
         if ctx.author.id in self.bot.TX_IN_PROCESS:
             msg = f'{EMOJI_ERROR} {ctx.author.mention} {EMOJI_HOURGLASS_NOT_DONE} You have another tx in progress.'
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.edit_original_message(content=msg)
             return
 
         equivalent_usd = ""
@@ -4330,10 +4128,7 @@ class Wallet(commands.Cog):
                 donate = await store.sql_user_balance_mv_single(str(ctx.author.id), str(self.donate_to), "DONATE", "DONATE", amount, COIN_NAME, "DONATE", coin_decimal, SERVER_BOT, contract, amount_in_usd)
                 if donate:
                     msg = f'{ctx.author.mention}, thank you for donate {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.'
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.edit_original_message(content=msg)
                     await logchanbot(f'[DONATE] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} donated {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
@@ -4341,10 +4136,7 @@ class Wallet(commands.Cog):
             self.bot.TX_IN_PROCESS.remove(ctx.author.id)
         else:
             msg = f'{EMOJI_ERROR} {ctx.author.mention} {EMOJI_HOURGLASS_NOT_DONE}, you have another tx in progress.'
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.edit_original_message(content=msg)
     # End of Donate
 
     # Swap
@@ -4370,29 +4162,28 @@ class Wallet(commands.Cog):
         PAIR_NAME = FROM_COIN + "-" + TO_COIN
         if PAIR_NAME not in self.swap_pair:
             msg = f'{EMOJI_RED_NO}, {ctx.author.mention} `{PAIR_NAME}` is not available.'
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.response.send_message(msg)
             return
         else:
             amount = from_amount.replace(",", "")
             amount = text_to_num(amount)
             if amount is None:
                 msg = f'{EMOJI_RED_NO} {ctx.author.mention} Invalid given amount.'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
-                return
+                await ctx.response.send_message(msg)
             else:
                 if amount <= 0:
                     msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please get more {token_display}.'
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.response.send_message(msg)
                     return
+
+                try:
+                    msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing swap check...'
+                    await ctx.response.send_message(msg)
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                    await ctx.response.send_message(f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to swap check message...", ephemeral=True)
+                    return
+
                 amount = float(amount)
                 to_amount = amount * self.swap_pair[PAIR_NAME]
                 net_name = getattr(getattr(self.bot.coin_list, FROM_COIN), "net_name")
@@ -4416,11 +4207,8 @@ class Wallet(commands.Cog):
 
                 # Check if tx in progress
                 if ctx.author.id in self.bot.TX_IN_PROCESS:
-                    msg = f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.'
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    msg = f'{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress.'
+                    await ctx.edit_original_message(content=msg)
                     return
 
                 height = None
@@ -4436,17 +4224,11 @@ class Wallet(commands.Cog):
 
                 if amount > MaxTip or amount < MinTip:
                     msg = f'{EMOJI_RED_NO} {ctx.author.mention}, swap cannot be bigger than **{num_format_coin(MaxTip, FROM_COIN, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(MinTip, FROM_COIN, coin_decimal, False)} {token_display}**.'
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.edit_original_message(content=msg)
                     return
                 elif amount > actual_balance:
                     msg = f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to swap **{num_format_coin(amount, FROM_COIN, coin_decimal, False)} {token_display}**.'
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.redit_original_message(content=msg)
                     return
                 if ctx.author.id not in self.bot.TX_IN_PROCESS:
                     self.bot.TX_IN_PROCESS.append(ctx.author.id)
@@ -4454,10 +4236,7 @@ class Wallet(commands.Cog):
                         swap = await self.swap_coin(str(ctx.author.id), FROM_COIN, amount, contract, coin_decimal, TO_COIN, to_amount, to_contract, to_coin_decimal, SERVER_BOT)
                         if swap:
                             msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, swapped from `{num_format_coin(amount, FROM_COIN, coin_decimal, False)} {FROM_COIN} to {num_format_coin(to_amount, TO_COIN, to_coin_decimal, False)} {TO_COIN}`.'
-                            if type(ctx) == disnake.ApplicationCommandInteraction:
-                                await ctx.response.send_message(msg)
-                            else:
-                                await ctx.reply(msg)
+                            await ctx.edit_original_message(content=msg)
                             await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} swapped from `{num_format_coin(amount, FROM_COIN, coin_decimal, False)} {FROM_COIN} to {num_format_coin(to_amount, TO_COIN, to_coin_decimal, False)} {TO_COIN}`.')
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
@@ -4465,11 +4244,7 @@ class Wallet(commands.Cog):
                     self.bot.TX_IN_PROCESS.remove(ctx.author.id)
                 else:
                     msg = f'{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress.'
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.message.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
-                        msg = await ctx.reply(msg)
+                    await ctx.edit_original_message(content=msg)
                     return
     # End of Swap
 

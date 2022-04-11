@@ -1234,7 +1234,7 @@ class Economy(commands.Cog):
             get_user_harvested_crops = await self.db.economy_farm_user_planting_group_harvested(str(ctx.author.id))
             get_fish_inventory_list_arr = [each_item['fish_name'].upper() for each_item in get_fish_inventory_list]
             get_user_harvested_crops_arr = [each_item['plant_name'].upper() for each_item in get_user_harvested_crops]
-            if item_name.strip().upper() == "ALL FISH" and len(get_fish_inventory_list) > 0:
+            if item_name.strip().upper().replace(" ", "") == "ALLFISH" and len(get_fish_inventory_list) > 0:
                 await ctx.edit_original_message(content=f"{ctx.author.mention}, checking your fish...")
                 selected_fish = []
                 sold_list = []
@@ -1260,7 +1260,7 @@ class Economy(commands.Cog):
                     msg = f"{ctx.author.mention}, internal error."
                     await ctx.edit_original_message(content=msg)
                     return
-            elif item_name.strip().upper() == "ALL FISH" and len(get_fish_inventory_list) == 0:
+            elif item_name.strip().upper().replace(" ", "") == "ALLFISH" and len(get_fish_inventory_list) == 0:
                 msg = f"{ctx.author.mention}, you do not have any fish to sell."
                 await ctx.edit_original_message(content=msg)
                 return
@@ -1283,7 +1283,7 @@ class Economy(commands.Cog):
                         if selected_fish['Weights'] < selected_fish['minimum_sell_kg']:
                             if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
                                 self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-                            msg = "{} You do not have sufficient {} to sell. Minimum {:,.2f}kg, having {:,.2f}kg.".format(ctx.author.mention, item_name, selected_fish['minimum_sell_kg'], selected_fish['Weights'])
+                            msg = "{} You do not have sufficient {} to sell. Minimum {:,.2f}kg, having {:,.2f}kg. Alternatively, use `/eco sell all fish`.".format(ctx.author.mention, item_name, selected_fish['minimum_sell_kg'], selected_fish['Weights'])
                             await ctx.edit_original_message(content=msg)
                             return
                         else:
@@ -2047,7 +2047,7 @@ class Economy(commands.Cog):
                         harvested_lists = ""
                         for each_item in get_user_harvested_crops:
                             harvested_lists += each_item['plant_name'] + " " + each_item['plant_emoji'] + " x" +str(each_item['numbers']) + "={:,.0f}".format(each_item['total_products']) + "\n"
-                        e.add_field(name="Harvested Available", value=harvested_lists, inline=False)
+                        e.add_field(name="Harvest Available", value=harvested_lists, inline=False)
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
                 e.set_footer(text=f"Requested by {ctx.author.name}#{ctx.author.discriminator}")

@@ -1865,10 +1865,7 @@ class Games(commands.Cog):
             if self.enable_logchan:
                 await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried **/game** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
             msg = f"{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING GAME`"
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.response.send_message(msg)
             return
         try:
             name = "blackjack"
@@ -1878,20 +1875,14 @@ class Games(commands.Cog):
                 gameChan = self.bot.get_channel(int(serverinfo[index_game]))
                 if gameChan:
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, {gameChan.mention} is for game **{name}** channel!!!"
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.response.send_message(msg)
                     return
             # If there is a bot channel
             elif serverinfo and serverinfo['botchan'] and serverinfo[index_game] is None and ctx.channel.id != int(serverinfo['botchan']):
                 bot_chan = self.bot.get_channel(int(serverinfo['botchan']))
                 if bot_chan:
                     msg = f"{EMOJI_RED_NO}, {bot_chan.mention} is the bot channel here!"
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.response.send_message(msg)
                     return
         except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
             return
@@ -1903,14 +1894,19 @@ class Games(commands.Cog):
         try:
             account_created = ctx.author.created_at
             if (datetime.now().astimezone() - account_created).total_seconds() <= config.game.account_age_to_play:
-                msg = f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using this."
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, your account is very new. Wait a few days before using this."
+                await ctx.response.send_message(msg)
                 return
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
+
+        try:
+            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing game ...'
+            await ctx.response.send_message(msg)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await ctx.response.send_message(f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute game message...", ephemeral=True)
+            return
 
         free_game = False
         won = False
@@ -1931,7 +1927,7 @@ class Games(commands.Cog):
         
         view = BlackJack_Buttons(ctx, self.bot, free_game, timeout=10.0)
         try:
-            await ctx.response.send_message("New Blackjack! tap button...", ephemeral=True)
+            await ctx.edit_original_message(content=f"{ctx.author.mention}, new Blackjack! tap button...")
             view.message = await ctx.channel.send(content=f'{ctx.author.mention} ```{game_text}```', view=view)
         except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
             pass
@@ -1949,10 +1945,7 @@ class Games(commands.Cog):
             if self.enable_logchan:
                 await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried **/game** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
             msg = f"{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING GAME`"
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.response.send_message(msg)
             return
         try:
             name = "slot"
@@ -1962,20 +1955,14 @@ class Games(commands.Cog):
                 gameChan = self.bot.get_channel(int(serverinfo[index_game]))
                 if gameChan:
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, {gameChan.mention} is for game **{name}** channel!!!"
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.response.send_message(msg)
                     return
             # If there is a bot channel
             elif serverinfo and serverinfo['botchan'] and serverinfo[index_game] is None and ctx.channel.id != int(serverinfo['botchan']):
                 bot_chan = self.bot.get_channel(int(serverinfo['botchan']))
                 if bot_chan:
                     msg = f"{EMOJI_RED_NO}, {bot_chan.mention} is the bot channel here!"
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.response.send_message(msg)
                     return
         except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
             return
@@ -1991,6 +1978,14 @@ class Games(commands.Cog):
                 return
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
+
+        try:
+            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing game ...'
+            await ctx.response.send_message(msg)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await ctx.response.send_message(f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute game message...", ephemeral=True)
+            return
 
         free_game = False
         won = False
@@ -2017,7 +2012,8 @@ class Games(commands.Cog):
         if ctx.author.id not in self.bot.GAME_SLOT_IN_PRGORESS:
             self.bot.GAME_SLOT_IN_PRGORESS.append(ctx.author.id)
         else:
-            return {"error": f"{ctx.author.mention} You are ongoing with one **game** play."}
+            await ctx.edit_original_message(content=f"{ctx.author.mention} You are ongoing with one **game** play.")
+            return
         won = False
         slotOutput_2 = '$ TRY AGAIN! $'
 
@@ -2057,16 +2053,13 @@ class Games(commands.Cog):
         try:
             if ctx.author.id in self.bot.GAME_SLOT_IN_PRGORESS:
                 self.bot.GAME_SLOT_IN_PRGORESS.remove(ctx.author.id)
-            await ctx.response.send_message(embed=embed)
-            await ctx.response.defer()
+            await ctx.edit_original_message(content=None, embed=embed)
         except (disnake.errors.NotFound, disnake.errors.Forbidden, disnake.errors.NotFound) as e:
             pass
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         if ctx.author.id in self.bot.GAME_SLOT_IN_PRGORESS:
             self.bot.GAME_SLOT_IN_PRGORESS.remove(ctx.author.id)
-
-        return {"result": True}
 
 
     async def game_maze(
@@ -2081,10 +2074,7 @@ class Games(commands.Cog):
             if self.enable_logchan:
                 await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried **/game** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
             msg = f"{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING GAME`"
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.response.send_message(msg)
             return
         try:
             name = "maze"
@@ -2094,20 +2084,14 @@ class Games(commands.Cog):
                 gameChan = self.bot.get_channel(int(serverinfo[index_game]))
                 if gameChan:
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, {gameChan.mention} is for game **{name}** channel!!!"
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.response.send_message(msg)
                     return
             # If there is a bot channel
             elif serverinfo and serverinfo['botchan'] and serverinfo[index_game] is None and ctx.channel.id != int(serverinfo['botchan']):
                 bot_chan = self.bot.get_channel(int(serverinfo['botchan']))
                 if bot_chan:
                     msg = f"{EMOJI_RED_NO}, {bot_chan.mention} is the bot channel here!"
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.response.send_message(msg)
                     return
         except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
             return
@@ -2124,11 +2108,20 @@ class Games(commands.Cog):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
+        try:
+            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing game ...'
+            await ctx.response.send_message(msg)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await ctx.response.send_message(f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute game message...", ephemeral=True)
+            return
+
         free_game = False
         won = False
 
         if ctx.author.id in self.bot.GAME_INTERACTIVE_PRGORESS:
-            return {"error": f"{ctx.author.mention} You are ongoing with one **game** play."}
+            await ctx.edit_original_message(content=f"{ctx.author.mention}, you are ongoing with one **game** play.")
+            return
 
         count_played = await self.db.sql_game_count_user(str(ctx.author.id), config.game.duration_24h, SERVER_BOT, False)
         if count_played and count_played >= config.game.max_daily_play:
@@ -2136,7 +2129,7 @@ class Games(commands.Cog):
 
         view = Maze_Buttons(ctx, self.bot, free_game, timeout=15.0)
         try:
-            await ctx.response.send_message("New Maze Game! tap button...", ephemeral=True)
+            await ctx.edit_original_message(content=f"{ctx.author.mention}, New Maze Game! tap button...")
             view.message = await ctx.channel.send(content=f'{ctx.author.mention} New Maze:\n```{view.maze_created}```', view=view)
         except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
             pass
@@ -2154,10 +2147,7 @@ class Games(commands.Cog):
             if self.enable_logchan:
                 await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried **/game** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
             msg = f"{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING GAME`"
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.response.send_message(msg)
             return
         try:
             name = "dice"
@@ -2167,20 +2157,14 @@ class Games(commands.Cog):
                 gameChan = self.bot.get_channel(int(serverinfo[index_game]))
                 if gameChan:
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, {gameChan.mention} is for game **{name}** channel!!!"
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.response.send_message(msg)
                     return
             # If there is a bot channel
             elif serverinfo and serverinfo['botchan'] and serverinfo[index_game] is None and ctx.channel.id != int(serverinfo['botchan']):
                 bot_chan = self.bot.get_channel(int(serverinfo['botchan']))
                 if bot_chan:
                     msg = f"{EMOJI_RED_NO}, {bot_chan.mention} is the bot channel here!"
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.response.send_message(msg)
                     return
         except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
             return
@@ -2202,10 +2186,7 @@ class Games(commands.Cog):
 
         if ctx.author.id in self.bot.GAME_INTERACTIVE_PRGORESS:
             msg = f"{ctx.author.mention} You are ongoing with one **game** play."
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.response.send_message(msg)
             return
 
         count_played = await self.db.sql_game_count_user(str(ctx.author.id), config.game.duration_24h, SERVER_BOT, False)
@@ -2339,10 +2320,7 @@ class Games(commands.Cog):
             if self.enable_logchan:
                 await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried **/game** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
             msg = f"{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING GAME`"
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.response.send_message(msg)
             return
         try:
             name = "snail"
@@ -2352,20 +2330,14 @@ class Games(commands.Cog):
                 gameChan = self.bot.get_channel(int(serverinfo[index_game]))
                 if gameChan:
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, {gameChan.mention} is for game **{name}** channel!!!"
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.response.send_message(msg)
                     return
             # If there is a bot channel
             elif serverinfo and serverinfo['botchan'] and serverinfo[index_game] is None and ctx.channel.id != int(serverinfo['botchan']):
                 bot_chan = self.bot.get_channel(int(serverinfo['botchan']))
                 if bot_chan:
                     msg = f"{EMOJI_RED_NO}, {bot_chan.mention} is the bot channel here!"
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.response.send_message(msg)
                     return
         except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
             return
@@ -2382,25 +2354,31 @@ class Games(commands.Cog):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
+        try:
+            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing game ...'
+            await ctx.response.send_message(msg)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await ctx.response.send_message(f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute game message...", ephemeral=True)
+            return
+
         free_game = False
         won = False
 
         if ctx.author.id in self.bot.GAME_INTERACTIVE_PRGORESS:
-            return {"error": f"{ctx.author.mention} You are ongoing with one **game** play."}
+            await ctx.edit_original_message(content=f"{ctx.author.mention}, you are ongoing with one **game** play.")
+            return
 
         count_played = await self.db.sql_game_count_user(str(ctx.author.id), config.game.duration_24h, SERVER_BOT, False)
         if count_played and count_played >= config.game.max_daily_play:
             free_game = True
-
-        if ctx.author.id in self.bot.GAME_INTERACTIVE_PRGORESS:
-            return {"error": f"{ctx.author.mention} You are ongoing with one **game** play."}
 
         time_start = int(time.time())
         won = False
         game_text = '''Snail Race, Fast-paced snail racing action!'''
         # We do not always show credit
         try:
-            await ctx.response.send_message(f'{ctx.author.mention},```{game_text}```')
+            await ctx.edit_original_message(content=f'{ctx.author.mention},```{game_text}```')
         except Exception as e:
             return
 
@@ -2408,7 +2386,9 @@ class Games(commands.Cog):
         try:
             your_snail = int(bet_numb)
         except ValueError:
-            return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} Please put a valid snail number **(1 to 8)**"}
+            await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention} Please put a valid snail number **(1 to 8)**")
+            return
+
         if ctx.author.id not in self.bot.GAME_INTERACTIVE_PRGORESS:
             self.bot.GAME_INTERACTIVE_PRGORESS.append(ctx.author.id)
 
@@ -2451,7 +2431,8 @@ class Games(commands.Cog):
                 except Exception as e:
                     if ctx.author.id in self.bot.GAME_INTERACTIVE_PRGORESS:
                         self.bot.GAME_INTERACTIVE_PRGORESS.remove(ctx.author.id)
-                    return {"error": f"{EMOJI_INFORMATION} {ctx.author.mention} Failed to start snail game, please try again."}
+                    await ctx.edit_original_message(content=f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to start snail game, please try again.")
+                    return
 
                 while not game_over:
                     # Pick random snails to move forward:
@@ -2555,7 +2536,8 @@ class Games(commands.Cog):
             # invalid betting
             if ctx.author.id in self.bot.GAME_INTERACTIVE_PRGORESS:
                 self.bot.GAME_INTERACTIVE_PRGORESS.remove(ctx.author.id)
-            return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} Please put a valid snail number **(1 to 8)**"}
+            await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention} Please put a valid snail number **(1 to 8)**")
+            return
 
 
     async def game_2048(
@@ -2570,10 +2552,7 @@ class Games(commands.Cog):
             if self.enable_logchan:
                 await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried **/game** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
             msg = f"{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING GAME`"
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.response.send_message(msg)
             return
         try:
             name = "2048"
@@ -2583,20 +2562,14 @@ class Games(commands.Cog):
                 gameChan = self.bot.get_channel(int(serverinfo[index_game]))
                 if gameChan:
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, {gameChan.mention} is for game **{name}** channel!!!"
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.response.send_message(msg)
                     return
             # If there is a bot channel
             elif serverinfo and serverinfo['botchan'] and serverinfo[index_game] is None and ctx.channel.id != int(serverinfo['botchan']):
                 bot_chan = self.bot.get_channel(int(serverinfo['botchan']))
                 if bot_chan:
                     msg = f"{EMOJI_RED_NO}, {bot_chan.mention} is the bot channel here!"
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.response.send_message(msg)
                     return
         except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
             return
@@ -2608,7 +2581,7 @@ class Games(commands.Cog):
         try:
             account_created = ctx.author.created_at
             if (datetime.now().astimezone() - account_created).total_seconds() <= config.game.account_age_to_play:
-                await ctx.response.send_message(f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using this.")
+                await ctx.response.send_message(f"{EMOJI_RED_NO} {ctx.author.mention}, your account is very new. Wait a few days before using this.")
                 return
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
@@ -2616,19 +2589,25 @@ class Games(commands.Cog):
         free_game = False
         won = False
 
+        try:
+            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing game ...'
+            await ctx.response.send_message(msg)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await ctx.response.send_message(f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute game message...", ephemeral=True)
+            return
+
         if ctx.author.id in self.bot.GAME_INTERACTIVE_PRGORESS:
-            return {"error": f"{ctx.author.mention} You are ongoing with one **game** play."}
+            await ctx.edit_original_message(content=f"{ctx.author.mention}, you are ongoing with one **game** play.")
+            return
 
         count_played = await self.db.sql_game_count_user(str(ctx.author.id), config.game.duration_24h, SERVER_BOT, False)
         if count_played and count_played >= config.game.max_daily_play:
             free_game = True
 
-        if ctx.author.id in self.bot.GAME_INTERACTIVE_PRGORESS:
-            return {"error": f"{ctx.author.mention} You are ongoing with one **game** play."}
-
         view = g2048_Buttons(ctx, self.bot, free_game, timeout=15.0)
         try:
-            await ctx.response.send_message("New 2048 Game! tap button...", ephemeral=True)                
+            await ctx.edit_original_message(content=f"{ctx.author.mention}, new 2048 Game! tap button...")                
             view.message = await ctx.channel.send(content=f'{ctx.author.mention}```GAME 2048\n{view.board}```Your score: **{0}**', view=view)
         except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
             return
@@ -2647,10 +2626,7 @@ class Games(commands.Cog):
             if self.enable_logchan:
                 await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried **/game** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
             msg = f"{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING GAME`"
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.response.send_message(msg)
             return
         try:
             name = "sokoban"
@@ -2660,20 +2636,14 @@ class Games(commands.Cog):
                 gameChan = self.bot.get_channel(int(serverinfo[index_game]))
                 if gameChan:
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, {gameChan.mention} is for game **{name}** channel!!!"
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.response.send_message(msg)
                     return
             # If there is a bot channel
             elif serverinfo and serverinfo['botchan'] and serverinfo[index_game] is None and ctx.channel.id != int(serverinfo['botchan']):
                 bot_chan = self.bot.get_channel(int(serverinfo['botchan']))
                 if bot_chan:
                     msg = f"{EMOJI_RED_NO}, {bot_chan.mention} is the bot channel here!"
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.response.send_message(msg)
                     return
         except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
             return
@@ -2685,23 +2655,29 @@ class Games(commands.Cog):
         try:
             account_created = ctx.author.created_at
             if (datetime.now().astimezone() - account_created).total_seconds() <= config.game.account_age_to_play:
-                await ctx.response.send_message(f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using this.")
+                await ctx.response.send_message(f"{EMOJI_RED_NO} {ctx.author.mention}, your account is very new. Wait a few days before using this.")
                 return
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
+
+        try:
+            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing game ...'
+            await ctx.response.send_message(msg)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await ctx.response.send_message(f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute game message...", ephemeral=True)
+            return
 
         free_game = False
         won = False
 
         if ctx.author.id in self.bot.GAME_INTERACTIVE_PRGORESS:
-            return {"error": f"{ctx.author.mention} You are ongoing with one **game** play."}
+            await ctx.edit_original_message(content=f"{ctx.author.mention}, you are ongoing with one **game** play.")
+            return
 
         count_played = await self.db.sql_game_count_user(str(ctx.author.id), config.game.duration_24h, SERVER_BOT, False)
         if count_played and count_played >= config.game.max_daily_play:
             free_game = True
-
-        if ctx.author.id in self.bot.GAME_INTERACTIVE_PRGORESS:
-            return {"error": f"{ctx.author.mention} You are ongoing with one **game** play."}
 
         view = Sokoban_Buttons(ctx, free_game, timeout=15.0)
         try:
@@ -2724,11 +2700,12 @@ class Games(commands.Cog):
             if get_level is None:
                 if ctx.author.id in self.bot.GAME_INTERACTIVE_PRGORESS:
                     self.bot.GAME_INTERACTIVE_PRGORESS.remove(ctx.author.id)
-                return {"error": f"{ctx.author.mention} Game sokban loading failed. Check back later."}
+                await ctx.edit_original_message(content=f"{ctx.author.mention}, game sokban loading failed. Check back later.")
+                return
 
             view = Sokoban_Buttons(ctx, self.bot, free_game, timeout=15.0)
             try:
-                await ctx.response.send_message("New Sokoban Game! tap button...", ephemeral=True)
+                await ctx.edit_original_message(content=f"{ctx.author.mention}, new Sokoban Game! tap button...")
                 view.currentLevel = view.loadLevel(get_level['template_str'])
                 display_level = view.displayLevel(view.currentLevel)
                 embed = disnake.Embed(title=f'SOKOBAN GAME {ctx.author.name}#{ctx.author.discriminator}', description=f'{display_level}', timestamp=datetime.now())
@@ -2778,8 +2755,6 @@ class Games(commands.Cog):
         await self.bot_log()
         try:
             game_slot = await self.game_slot(ctx)
-            if game_slot and "error" in game_slot:
-                await ctx.response.send_message(game_slot['error'])
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
@@ -2796,8 +2771,6 @@ class Games(commands.Cog):
         await self.bot_log()
         try:
             game_maze = await self.game_maze(ctx)
-            if game_maze and "error" in game_maze:
-                await ctx.response.send_message(game_maze['error'])
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
@@ -2834,8 +2807,6 @@ class Games(commands.Cog):
         await self.bot_log()
         try:
             game_snail = await self.game_snail(ctx, bet_numb)
-            if game_snail and "error" in game_snail:
-                await ctx.response.send_message(game_snail['error'])
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
@@ -2852,8 +2823,6 @@ class Games(commands.Cog):
         await self.bot_log()
         try:
             game_2048 = await self.game_2048(ctx)
-            if game_2048 and "error" in game_2048:
-                await ctx.response.send_message(game_2048['error'])
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
@@ -2870,9 +2839,6 @@ class Games(commands.Cog):
         await self.bot_log()
         try:
             game_sokoban = await self.game_sokoban(ctx)
-            if game_sokoban and "error" in game_sokoban:
-                print(game_sokoban['error'])
-                await ctx.response.send_message(game_sokoban['error'])
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 

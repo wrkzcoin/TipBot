@@ -5,6 +5,7 @@ from datetime import datetime
 import random
 import re
 from decimal import Decimal
+from typing import Union, Optional
 
 import disnake
 from disnake.ext import commands, tasks
@@ -268,7 +269,7 @@ class Tips(commands.Cog):
         self.bot = bot
         redis_utils.openRedis()
         self.freetip_duration_min = 5
-        self.freetip_duration_max = 24*3600
+        self.freetip_duration_max = 600
 
 
     # Notifytip
@@ -1644,7 +1645,7 @@ class Tips(commands.Cog):
         args: str
     ):
         try:
-            await self.async_gtip(ctx, amount, token, args)
+            await self.async_gtip(ctx, amount, token.strip(), args.strip())
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
@@ -1779,7 +1780,7 @@ class Tips(commands.Cog):
             return
 
         if TotalAmount > MaxTip:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention} Total transaction cannot be bigger than **{num_format_coin(MaxTip, COIN_NAME, coin_decimal, False)} {token_display}**.'
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, total transaction cannot be bigger than **{num_format_coin(MaxTip, COIN_NAME, coin_decimal, False)} {token_display}**.'
             await ctx.edit_original_message(content=msg)
             return
         elif actual_balance < TotalAmount:
@@ -1861,6 +1862,10 @@ class Tips(commands.Cog):
                     await ctx.author.send(msg)
                 except Exception as e:
                     pass
+                try:
+                    await ctx.edit_original_message(content=msg)
+                except Exception as e:
+                    pass
             except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                 pass
             if len(list_mentions) >= 1:
@@ -1868,7 +1873,7 @@ class Tips(commands.Cog):
                     # print(member.name) # you'll just print out Member objects your way.
                     if ctx.author.id != member.id and member.id != self.bot.user.id and member.bot == False and str(member.id) not in notifyList:
                         try:
-                            msg = f'{EMOJI_MONEYFACE} You got a {tip_type_text} of **{amountDiv_str} {token_display}** {equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator} in server `{ctx.guild.name}`\n{NOTIFICATION_OFF_CMD}'
+                            msg = f'{EMOJI_MONEYFACE}, you got a {tip_type_text} of **{amountDiv_str} {token_display}** {equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator} in server `{ctx.guild.name}`\n{NOTIFICATION_OFF_CMD}'
                             await member.send(msg)
                         except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                             pass

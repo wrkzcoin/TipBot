@@ -3,13 +3,18 @@ import traceback
 from datetime import datetime
 import aiohttp
 import json
+import ssl
+import uuid
+import aiomysql
+from aiomysql.cursors import DictCursor
 
+from decimal import Decimal
 import disnake
 from disnake.ext import commands
 from disnake.enums import OptionType
 from disnake.app_commands import Option, OptionChoice
 
-from Bot import num_format_coin
+from Bot import num_format_coin, EMOJI_INFORMATION
 import store
 from config import config
 import redis_utils
@@ -20,18 +25,52 @@ class Stats(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         redis_utils.openRedis()
+        # DB
+        self.pool = None
 
+    async def openConnection(self):
+        try:
+            if self.pool is None:
+                self.pool = await aiomysql.create_pool(host=config.mysql.host, port=3306, minsize=2, maxsize=4, 
+                                                       user=config.mysql.user, password=config.mysql.password,
+                                                       db=config.mysql.db, cursorclass=DictCursor, autocommit=True)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+
+    async def get_coin_tipping_stats(self, coin: str):
+        COIN_NAME = coin.upper()
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT COUNT(*) AS numb_tip, SUM(real_amount) AS amount_tip FROM `user_balance_mv` WHERE token_name=%s """
+                    await cur.execute(sql, (COIN_NAME))
+                    result = await cur.fetchone()
+                    if result: return result
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
+        return None
 
     async def async_stats(self, ctx, coin: str=None):
-        embed = disnake.Embed(title='STATS', description='Nothing much', timestamp=datetime.now())
-        embed.add_field(name='Bot ID:', value=str(self.bot.user.id), inline=False)
+        def simple_number(amount):
+            amount_test = '{:,f}'.format(float(('%f' % (amount)).rstrip('0').rstrip('.')))
+            if '.' in amount_test and len(amount_test.split('.')[1]) > 8:
+                amount_str = '{:,.8f}'.format(amount)
+            else:
+                amount_str =  amount_test
+            return amount_str.rstrip('0').rstrip('.') if '.' in amount_str else amount_str
+        embed = disnake.Embed(title='STATS', description='Servers: {:,.0f}'.format(len(self.bot.guilds)), timestamp=datetime.now())
+        try:
+            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, checking `/stats`...'
+            await ctx.response.send_message(msg)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await ctx.response.send_message(f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute /stats message...", ephemeral=True)
+            return
         if coin:
             COIN_NAME = coin.upper()
             if not hasattr(self.bot.coin_list, COIN_NAME):
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.')
-                else:
-                    await ctx.reply(f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.')
+                await ctx.edit_original_message(content=f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.')
                 return
             else:
                 type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
@@ -47,7 +86,7 @@ class Stats(commands.Cog):
                     main_balance = await store.http_wallet_getbalance(self.bot.erc_node_list[net_name], config.eth.MainAddress, COIN_NAME, contract)
                     if main_balance:
                         main_balance_balance = num_format_coin(float(main_balance / 10** coin_decimal), COIN_NAME, coin_decimal, False)
-                        embed.add_field(name="WALLET **{}**".format(display_name), value=main_balance_balance, inline=False)
+                        embed.add_field(name="WALLET **{}**".format(display_name), value="`{} {}`".format(main_balance_balance, COIN_NAME), inline=False)
                 elif type_coin in ["TRC-20", "TRC-10"]:
                     type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
                     explorer_link = getattr(getattr(self.bot.coin_list, COIN_NAME), "explorer_link")
@@ -61,19 +100,129 @@ class Stats(commands.Cog):
                     if main_balance:
                         # already divided decimal
                         main_balance_balance = num_format_coin(float(main_balance), COIN_NAME, coin_decimal, False)
-                        embed.add_field(name="WALLET **{}**".format(display_name), value=main_balance_balance, inline=False)
+                        embed.add_field(name="WALLET **{}**".format(display_name), value="`{} {}`".format(main_balance_balance, COIN_NAME), inline=False)
                 elif type_coin == "TRTL-API":
-                    print("TODO")
+                    key = getattr(getattr(self.bot.coin_list, COIN_NAME), "header")
+                    method = "/balance"
+                    headers = {
+                        'X-API-KEY': key,
+                        'Content-Type': 'application/json'
+                    }
+                    url = getattr(getattr(self.bot.coin_list, COIN_NAME), "wallet_address")
+                    explorer_link = getattr(getattr(self.bot.coin_list, COIN_NAME), "explorer_link")
+                    coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+                    try:
+                        async with aiohttp.ClientSession() as session:
+                            async with session.get(url + method, headers=headers, timeout=32) as response:
+                                json_resp = await response.json()
+                                if response.status == 200 or response.status == 201:
+                                    balance_decimal = simple_number(float(Decimal(json_resp['unlocked'])/Decimal(10**coin_decimal)))
+                                    embed.add_field(name="Main Balance", value="`{} {}`".format(balance_decimal, COIN_NAME), inline=False)
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
                 elif type_coin == "TRTL-SERVICE":
-                    print("TODO")
+                    url = getattr(getattr(self.bot.coin_list, COIN_NAME), "wallet_address")
+                    explorer_link = getattr(getattr(self.bot.coin_list, COIN_NAME), "explorer_link")
+                    coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+                    json_data = {"jsonrpc":"2.0", "id":1, "password":"passw0rd", "method":"getBalance", "params":{}}
+                    headers = {
+                        'Content-Type': 'application/json'
+                    }
+                    try:
+                        async with aiohttp.ClientSession() as session:
+                            async with session.post(url, json=json_data, headers=headers, timeout=32) as response:
+                                if response.status == 200:
+                                    res_data = await response.read()
+                                    res_data = res_data.decode('utf-8')
+                                    decoded_data = json.loads(res_data)
+                                    json_resp = decoded_data
+                                    balance_decimal = simple_number(float(Decimal(json_resp['result']['availableBalance'])/Decimal(10**coin_decimal)))
+                                    embed.add_field(name="Main Balance", value="`{} {}`".format(balance_decimal, COIN_NAME), inline=False)
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
                 elif type_coin == "XMR":
-                    print("TODO")
+                    url = getattr(getattr(self.bot.coin_list, COIN_NAME), "wallet_address")
+                    explorer_link = getattr(getattr(self.bot.coin_list, COIN_NAME), "explorer_link")
+                    coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+                    json_data = {"jsonrpc":"2.0", "id":"0", "method":"get_balance", "params":{"account_index": 0,"address_indices":[]}}
+                    headers = {
+                        'Content-Type': 'application/json'
+                    }
+                    try:
+                        async with aiohttp.ClientSession() as session:
+                            async with session.post(url, json=json_data, headers=headers, timeout=32) as response:
+                                if response.status == 200:
+                                    res_data = await response.read()
+                                    res_data = res_data.decode('utf-8')
+                                    decoded_data = json.loads(res_data)
+                                    json_resp = decoded_data
+                                    balance_decimal = simple_number(float(Decimal(json_resp['result']['balance'])/Decimal(10**coin_decimal)))
+                                    embed.add_field(name="Main Balance", value="`{} {}`".format(balance_decimal, COIN_NAME), inline=False)
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
                 elif type_coin == "BTC":
-                    print("TODO")
+                    url = getattr(getattr(self.bot.coin_list, COIN_NAME), "daemon_address")
+                    explorer_link = getattr(getattr(self.bot.coin_list, COIN_NAME), "explorer_link")
+                    coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+                    try:
+                        async with aiohttp.ClientSession() as session:
+                            async with session.post(url, data='{"jsonrpc": "1.0", "id":"'+str(uuid.uuid4())+'", "method": "getbalance", "params": [] }', timeout=32) as response:
+                                if response.status == 200:
+                                    res_data = await response.read()
+                                    res_data = res_data.decode('utf-8')
+                                    decoded_data = json.loads(res_data)
+                                    json_resp = decoded_data
+                                    balance_decimal = simple_number(float(Decimal(json_resp['result'])))
+                                    embed.add_field(name="Main Balance", value="`{} {}`".format(balance_decimal, COIN_NAME), inline=False)
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
                 elif type_coin == "CHIA":
-                    print("TODO")
+                    explorer_link = getattr(getattr(self.bot.coin_list, COIN_NAME), "explorer_link")
+                    coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+                    headers = {
+                        'Content-Type': 'application/json'
+                    }
+                    json_data = {
+                        "wallet_id": 1
+                    }
+                    try:
+                        url = getattr(getattr(self.bot.coin_list, COIN_NAME), "rpchost") + '/' + "get_wallet_balance"
+                        ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+                        ssl_context.load_cert_chain(getattr(getattr(self.bot.coin_list, COIN_NAME), "cert_path"), getattr(getattr(self.bot.coin_list, COIN_NAME), "key_path"))
+                        async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
+                            async with session.post(url, json=json_data, headers=headers, timeout=32, ssl=ssl_context) as response:
+                                if response.status == 200:
+                                    res_data = await response.read()
+                                    res_data = res_data.decode('utf-8')
+                                    decoded_data = json.loads(res_data)['wallet_balance']
+                                    balance_decimal = simple_number(float(Decimal(decoded_data['spendable_balance'])/Decimal(10**coin_decimal)))
+                                    embed.add_field(name="Main Balance", value="`{} {}`".format(balance_decimal, COIN_NAME), inline=False)
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
                 elif type_coin == "NANO":
-                    print("TODO")
+                    url = getattr(getattr(self.bot.coin_list, COIN_NAME), "rpchost")
+                    main_address = getattr(getattr(self.bot.coin_list, COIN_NAME), "MainAddress")
+                    explorer_link = getattr(getattr(self.bot.coin_list, COIN_NAME), "explorer_link")
+                    coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+                    headers = {
+                        'Content-Type': 'application/json'
+                    }
+                    json_data = {
+                        "action": "account_balance",
+                        "account": main_address
+                    }
+                    try:
+                        async with aiohttp.ClientSession() as session:
+                            async with session.post(url, headers=headers, json=json_data, timeout=32) as response:
+                                if response.status == 200:
+                                    res_data = await response.read()
+                                    res_data = res_data.decode('utf-8')
+                                    decoded_data = json.loads(res_data)
+                                    json_resp = decoded_data
+                                    balance_decimal = simple_number(float(Decimal(json_resp['balance'])/Decimal(10**coin_decimal)))
+                                    embed.add_field(name="Main Balance", value="`{} {}`".format(balance_decimal, COIN_NAME), inline=False)
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
                 elif type_coin == "HNT":
                     try:
                         main_address = getattr(getattr(self.bot.coin_list, COIN_NAME), "MainAddress")
@@ -99,9 +248,15 @@ class Stats(commands.Cog):
                                     decoded_data = json.loads(res_data)
                                     json_resp = decoded_data
                                     if 'result' in json_resp:
-                                        embed.add_field(name="Main Balance", value="`{:,.4f}`".format(json_resp['result']['balance']/10**coin_decimal, explorer_link), inline=False)
+                                        embed.add_field(name="Main Balance", value="`{} {}`".format(simple_number(json_resp['result']['balance']/10**coin_decimal), COIN_NAME), inline=False)
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
+                try:
+                    get_tip_stats = await self.get_coin_tipping_stats(COIN_NAME)
+                    if get_tip_stats:
+                        embed.add_field(name="Tip/DB Records: {:,.0f}".format(get_tip_stats['numb_tip']), value="`{}`".format(simple_number(get_tip_stats['amount_tip'])), inline=False)
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
                 try:
                     height = None
                     if net_name is None:
@@ -113,17 +268,15 @@ class Stats(commands.Cog):
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
         else:
-            embed.add_field(name='Creator\'s Discord Name:', value='pluton#8888', inline=True)
-            embed.set_footer(text='Made in Python3.8+!', icon_url='http://findicons.com/files/icons/2804/plex/512/python.png')
+            embed.add_field(name='Creator\'s Discord Name:', value='pluton#8888', inline=False)
+            embed.add_field(name="Online", value='{:,.0f}'.format(sum(1 for m in self.bot.get_all_members() if m.status == disnake.Status.online)), inline=True)
+            embed.add_field(name="Users", value='{:,.0f}'.format(sum(1 for m in self.bot.get_all_members() if m.bot == False)), inline=True)
+            embed.add_field(name="Bots", value='{:,.0f}'.format(sum(1 for m in self.bot.get_all_members() if m.bot == True)), inline=True)
+            embed.add_field(name='Note:', value='Use `/stats coin` to check each coin\'s stats.', inline=False)
+            embed.set_footer(text='Made in Python!', icon_url='http://findicons.com/files/icons/2804/plex/512/python.png')
             embed.set_author(name=self.bot.user.name, icon_url=self.bot.user.display_avatar)
             embed.set_thumbnail(url=self.bot.user.display_avatar)
-
-        if type(ctx) == disnake.ApplicationCommandInteraction:
-            await ctx.response.send_message(embed=embed)
-        else:
-            await ctx.reply(embed=embed)
-        return
-
+        await ctx.edit_original_message(content=None, embed=embed)
 
 
     @commands.slash_command(
@@ -140,22 +293,6 @@ class Stats(commands.Cog):
     ) -> None:
         try:
             await self.async_stats(inter, token)
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-
-
-    @commands.command(
-        usage="stats [token]",
-        aliases=["stats"],
-        description="Get some statistic and information."
-    )
-    async def _stats(
-        self, 
-        ctx,
-        token: str=None
-    ):
-        try:
-            await self.async_stats(ctx, token)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 

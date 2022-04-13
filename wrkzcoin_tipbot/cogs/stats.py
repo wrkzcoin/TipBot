@@ -53,12 +53,14 @@ class Stats(commands.Cog):
 
     async def async_stats(self, ctx, coin: str=None):
         def simple_number(amount):
+            if amount is None: return "0.0"
             amount_test = '{:,f}'.format(float(('%f' % (amount)).rstrip('0').rstrip('.')))
             if '.' in amount_test and len(amount_test.split('.')[1]) > 8:
                 amount_str = '{:,.8f}'.format(amount)
             else:
                 amount_str =  amount_test
             return amount_str.rstrip('0').rstrip('.') if '.' in amount_str else amount_str
+
         embed = disnake.Embed(title='STATS', description='Servers: {:,.0f}'.format(len(self.bot.guilds)), timestamp=datetime.now())
         try:
             msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, checking `/stats`...'

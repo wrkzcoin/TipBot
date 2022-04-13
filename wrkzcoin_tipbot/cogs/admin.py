@@ -6,6 +6,7 @@ import disnake
 from disnake.ext import commands
 import time
 from attrdict import AttrDict
+from io import BytesIO
 
 import aiomysql
 from aiomysql.cursors import DictCursor
@@ -433,9 +434,21 @@ class Admin(commands.Cog):
         description="Various admin commands."
     )
     async def admin(self, ctx):
-        if ctx.invoked_subcommand is None: await ctx.reply(f'{ctx.author.mention} Invalid admin command')
+        if ctx.invoked_subcommand is None: await ctx.reply(f'{ctx.author.mention}, invalid admin command')
         return
 
+    @commands.is_owner()
+    @admin.command(hidden=True, usage='admin guildlist', description='Dump guild list, name, number of users.')
+    async def guildlist(self, ctx):
+        try:
+            list_g = []
+            for g in self.bot.guilds:
+                list_g.append("{}, {}, {}".format(str(g.id), len(g.members), g.name))
+            list_g_str = "ID, Numbers, Name\n" + "\n".join(list_g)
+            data_file = disnake.File(BytesIO(list_g_str.encode()), filename=f"list_bot_guilds_{str(int(time.time()))}.csv")
+            await ctx.author.send(file=data_file)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
 
     @commands.is_owner()
     @admin.command(hidden=True, usage='admin clearbutton <channel id> <msg id>', description='Clear all buttons of a message ID.')

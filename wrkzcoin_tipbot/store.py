@@ -848,12 +848,12 @@ async def sql_check_minimum_deposit_erc20(url: str, net_name: str, coin: str, co
         balance_above_min = 0
         msg_deposit = ""
         if len(list_user_addresses) > 0:
-            # OK check them one by one
+            # OK check them one by one, gas token is **18
             for each_address in list_user_addresses:
                 deposited_balance = await http_wallet_getbalance(url, each_address['balance_wallet_address'], TOKEN_NAME, None, 64)
                 if deposited_balance is None:
                     continue
-                real_deposited_balance = float("%.6f" % (int(deposited_balance) / 10**coin_decimal))
+                real_deposited_balance = float("%.6f" % (int(deposited_balance) / 10**18))
                 if real_deposited_balance < min_move_deposit:
                     balance_below_min += 1
                     # skip balance move below this
@@ -877,7 +877,13 @@ async def sql_check_minimum_deposit_erc20(url: str, net_name: str, coin: str, co
                         gasPrice = int(w3.eth.gasPrice * 1.0)
 
                         estimateGas = w3.eth.estimateGas({'to': w3.toChecksumAddress(config.eth.MainAddress), 'from': w3.toChecksumAddress(each_address['balance_wallet_address']), 'value':  deposited_balance})
-                        print("TX {} deposited_balance: {}, gasPrice*estimateGas: {}*{}={}, ".format(TOKEN_NAME, deposited_balance/10**coin_decimal, gasPrice, estimateGas, gasPrice*estimateGas/10**coin_decimal))
+                        est_gas_amount = float(gasPrice*estimateGas/10**18)
+                        if est_gas_amount > min_gas_tx:
+                            await logchanbot("[ERROR GAS {}]: Est. {} > minimum gas {}".format(TOKEN_NAME, est_gas_amount, min_gas_tx))
+                            await asyncio.sleep(5.0)
+                            continue
+                        
+                        print("TX {} deposited_balance: {}, gasPrice*estimateGas: {}*{}={}, ".format(TOKEN_NAME, deposited_balance/10**18, gasPrice, estimateGas, gasPrice*estimateGas/10**18))
                         transaction = {
                                 'from': w3.toChecksumAddress(each_address['balance_wallet_address']),
                                 'to': w3.toChecksumAddress(config.eth.MainAddress),
@@ -896,6 +902,7 @@ async def sql_check_minimum_deposit_erc20(url: str, net_name: str, coin: str, co
                             # Add to SQL
                             try:
                                 inserted = await sql_move_deposit_for_spendable(TOKEN_NAME, None, each_address['user_id'], each_address['balance_wallet_address'], config.eth.MainAddress, real_deposited_balance, real_deposit_fee,  coin_decimal, sent_tx.hex(), each_address['user_server'], net_name)
+                                await asyncio.sleep(15.0)
                             except Exception as e:
                                 traceback.print_exc(file=sys.stdout)
                                 #await logchanbot(traceback.format_exc())
@@ -964,6 +971,7 @@ async def sql_check_minimum_deposit_erc20(url: str, net_name: str, coin: str, co
                             # Add to SQL
                             try:
                                 inserted = await sql_move_deposit_for_spendable(TOKEN_NAME, contract, each_address['user_id'], each_address['balance_wallet_address'], config.eth.MainAddress, real_deposited_balance, real_deposit_fee,  coin_decimal, sent_tx.hex(), each_address['user_server'], net_name)
+                                await asyncio.sleep(15.0)
                             except Exception as e:
                                 traceback.print_exc(file=sys.stdout)
                                 await logchanbot(traceback.format_exc())
@@ -981,6 +989,12 @@ async def sql_check_minimum_deposit_erc20(url: str, net_name: str, coin: str, co
 
                         estimateGas = w3.eth.estimateGas({'to': w3.toChecksumAddress(each_address['balance_wallet_address']), 'from': w3.toChecksumAddress(config.eth.MainAddress), 'value':  int(move_gas_amount * 10**18)})
 
+                        est_gas_amount = float(gasPrice*estimateGas/10**18)
+                        if est_gas_amount > min_gas_tx:
+                            await logchanbot("[ERROR GAS {}]: Est. {} > minimum gas {}".format(TOKEN_NAME, est_gas_amount, min_gas_tx))
+                            await asyncio.sleep(5.0)
+                            continue
+
                         amount_gas_move = int(move_gas_amount * 10**18)
                         if amount_gas_move < move_gas_amount * 10**18: amount_gas_move = int(move_gas_amount * 10**18)
                         transaction = {
@@ -997,6 +1011,7 @@ async def sql_check_minimum_deposit_erc20(url: str, net_name: str, coin: str, co
                         signed = w3.eth.account.sign_transaction(transaction, private_key=acct.key)
                         # send Transaction for gas:
                         send_gas_tx = w3.eth.sendRawTransaction(signed.rawTransaction)
+                        await asyncio.sleep(15.0)
                     elif gas_of_address / 10**18 < min_gas_tx and main_balance_gas_sufficient == False and config.eth.enable_zero_gas != 1:
                         print('Main address has no sufficient balance to supply gas {}'.format(each_address['balance_wallet_address']))
                     elif config.eth.enable_zero_gas != 1:

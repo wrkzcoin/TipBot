@@ -345,10 +345,6 @@ class Guild(commands.Cog):
                     # loop each raffle
                     try:
                         if each_raffle['status'] == "OPENED":
-                            if each_raffle['id'] in self.raffle_opened_to_ongoing:
-                                continue
-                            else:
-                                self.raffle_opened_to_ongoing.append(each_raffle['id'])
                             if each_raffle['ending_ts'] - to_close_fromopen < int(time.time()):
                                 # less than 3 participants, cancel
                                 list_raffle_id = await self.raffle_get_from_by_id(each_raffle['id'], SERVER_BOT, None)
@@ -362,7 +358,11 @@ class Guild(commands.Cog):
                                         raffle_chan = self.bot.get_channel(int(serverinfo['raffle_channel']))
                                         if raffle_chan:
                                             await raffle_chan.send(msg_raffle)
-                                    await logchanbot(msg_raffle)                                
+                                    await logchanbot(msg_raffle)  
+                                    if each_raffle['id'] in self.raffle_opened_to_ongoing:
+                                        continue
+                                    else:
+                                        self.raffle_opened_to_ongoing.append(each_raffle['id'])
                                 else:
                                     if each_raffle['id'] in self.raffle_ongoing:
                                         continue
@@ -388,6 +388,10 @@ class Guild(commands.Cog):
                                                     traceback.print_exc(file=sys.stdout)
                                                     await logchanbot(traceback.format_exc()) 
                                         await logchanbot(msg_raffle)
+                                        if each_raffle['id'] in self.raffle_opened_to_ongoing:
+                                            continue
+                                        else:
+                                            self.raffle_opened_to_ongoing.append(each_raffle['id'])
                                     else:
                                         await logchanbot(f"Internal error to {msg_raffle}")
                         elif each_raffle['status'] == "ONGOING":

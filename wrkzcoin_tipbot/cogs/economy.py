@@ -2292,7 +2292,7 @@ class Economy(commands.Cog):
             try:
                 insert_woodcut = await self.db.economy_insert_woodcutting(str(ctx.author.id), str(ctx.guild.id), timber_volume, leaf_kg, energy_loss)
                 if insert_woodcut:
-                    await ctx.response.edit_original_message(content=f'{EMOJI_INFORMATION} {ctx.author.mention} You cut a tree. You got `{timber_volume}m3` of timber, `{leaf_kg}kg` of leaves. You used `{energy_loss}` energy.')
+                    await ctx.edit_original_message(content=f'{EMOJI_INFORMATION} {ctx.author.mention} You cut a tree. You got `{timber_volume}m3` of timber, `{leaf_kg}kg` of leaves. You used `{energy_loss}` energy.')
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot(traceback.format_exc())

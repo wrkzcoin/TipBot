@@ -139,6 +139,14 @@ class Trade(commands.Cog):
         buy_ticker: str
     ):
         await self.bot_log()
+        try:
+            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking trading..."
+            await ctx.response.send_message(msg)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await ctx.response.send_message(f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute a trade message...", ephemeral=True)
+            return
+
         sell_ticker = sell_ticker.upper()
         buy_ticker = buy_ticker.upper()
         sell_amount = str(sell_amount).replace(",", "")
@@ -151,40 +159,37 @@ class Trade(commands.Cog):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
             msg = f"{ctx.author.mention}, invalid sell/buy amount."
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
 
         if sell_amount <= 0 or buy_amount <= 0:
             msg = f'{ctx.author.mention}, amount can not be negative.'
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
 
         # Check if both coin with TipBot
         if not hasattr(self.bot.coin_list, sell_ticker):
             msg = f'{ctx.author.mention}, **{sell_ticker}** does not exist with us.'
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
         elif not hasattr(self.bot.coin_list, buy_ticker):
             msg = f'{ctx.author.mention}, **{buy_ticker}** does not exist with us.'
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
         # Check if both coin has trade enable
         if getattr(getattr(self.bot.coin_list, sell_ticker), "enable_trade") != 1:
             msg = f"{ctx.author.mention}, invalid trade ticker `{sell_ticker}`. They may not be enable for trade. Check with TipBot dev team."
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
         if getattr(getattr(self.bot.coin_list, buy_ticker), "enable_trade") != 1:
             msg = f"{ctx.author.mention}, invalid trade ticker `{buy_ticker}`. They may not be enable for trade. Check with TipBot dev team."
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
 
         if buy_ticker == sell_ticker:
             msg = f"{ctx.author.mention}, **{buy_ticker}** you cannot trade the same coins."
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
-
-        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking trading..."
-        await ctx.response.send_message(msg)
 
         # get opened order:
         user_count_order = await store.sql_count_open_order_by_sellerid(str(ctx.author.id), SERVER_BOT)
@@ -267,7 +272,6 @@ class Trade(commands.Cog):
             return
 
 
-    @commands.bot_has_permissions(send_messages=True)
     @commands.slash_command(
         description="Various crypto p2p trading commands."
     )

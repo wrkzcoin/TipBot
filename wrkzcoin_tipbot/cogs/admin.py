@@ -26,6 +26,8 @@ from tronpy.providers.async_http import AsyncHTTPProvider
 from tronpy.exceptions import AddressNotFound
 from tronpy.keys import PrivateKey
 
+import json
+
 from httpx import AsyncClient, Timeout, Limits
 from eth_account import Account
 from pywallet import wallet as ethwallet
@@ -590,6 +592,56 @@ class Admin(commands.Cog):
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
         
+
+    @commands.is_owner()
+    @admin.command(hidden=True, usage='printbal <user> <coin>', description='print user\'s balance.')
+    async def printbal(self, ctx, member_id: str, coin: str, user_server: str="DISCORD"):
+        COIN_NAME = coin.upper()
+        if member_id.upper() == "SWAP":
+            member_id = member_id.upper()
+            user_server = "SYSTEM"
+        else:
+            user_server = user_server.upper()
+        try:
+            if not hasattr(self.bot.coin_list, COIN_NAME):
+                await ctx.reply(f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.')
+                return
+            type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
+            net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
+            deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
+            coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+            token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
+            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
+            User_WalletAPI = WalletAPI(self.bot)
+            get_deposit = await User_WalletAPI.sql_get_userwallet(member_id, COIN_NAME, net_name, type_coin, user_server, 0)
+            if get_deposit is None:
+                get_deposit = await User_WalletAPI.sql_register_user(member_id, COIN_NAME, net_name, type_coin, user_server, 0, 0)
+            wallet_address = get_deposit['balance_wallet_address']
+            if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                wallet_address = get_deposit['paymentid']
+
+            height = None
+            try:
+                if type_coin in ["ERC-20", "TRC-20"]:
+                    # Add update for future call
+                    try:
+                        if type_coin == "ERC-20":
+                            update_call = await store.sql_update_erc20_user_update_call(member_id)
+                        elif type_coin == "TRC-10" or type_coin == "TRC-20":
+                            update_call = await store.sql_update_trc20_user_update_call(member_id)
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                    height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
+                else:
+                    height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
+                userdata_balance = await self.user_balance(member_id, COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, user_server)
+                total_balance = userdata_balance['adjust']
+                balance_str = "UserId: {}\n{}{} Details:\n{}".format(member_id, total_balance, COIN_NAME, json.dumps(userdata_balance))
+                await ctx.reply(balance_str)
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
 
 
     @commands.is_owner()

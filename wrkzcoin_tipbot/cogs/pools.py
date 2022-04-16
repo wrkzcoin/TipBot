@@ -11,7 +11,7 @@ import aiohttp
 import json
 
 from config import config
-from Bot import logchanbot, openRedis, RowButton_row_close_any_message, SERVER_BOT
+from Bot import logchanbot, RowButton_row_close_any_message, SERVER_BOT
 import store
 import redis_utils
 from utils import MenuPage
@@ -51,40 +51,36 @@ class Pools(commands.Cog):
         return "%3.1f%s" % (num, 'TH/s')
 
 
-    @tasks.loop(seconds=30.0)
+    @tasks.loop(seconds=60.0)
     async def get_miningpool_coinlist(self):
-        while True:
-            interval_msg_list = 1800 # in second
+        try:
             try:
-                openRedis()
-                try:
-                    async with aiohttp.ClientSession() as cs:
-                        async with cs.get(config.miningpoolstat.coinlist_link, timeout=config.miningpoolstat.timeout) as r:
-                            if r.status == 200:
-                                res_data = await r.read()
-                                res_data = res_data.decode('utf-8')
-                                res_data = res_data.replace("var coin_list = ", "").replace(";", "")
-                                decoded_data = json.loads(res_data)
-                                await cs.close()
-                                key = config.redis.prefix + ":MININGPOOL:"
-                                key_hint = config.redis.prefix + ":MININGPOOL:SHORTNAME:"
-                                if decoded_data and len(decoded_data) > 0:
-                                    # print(decoded_data)
-                                    for kc, cat in decoded_data.items():
-                                        if not isinstance(cat, int) and not isinstance(cat, str):
-                                            for k, v in cat.items():
-                                                # Should have no expire.
-                                                redis_utils.redis_conn.set((key+k).upper(), json.dumps(v))
-                                                redis_utils.redis_conn.set((key_hint+v['s']).upper(), k.upper())
-                except asyncio.TimeoutError:
-                    print('TIMEOUT: Fetching from miningpoolstats')
-                except Exception:
-                    traceback.print_exc(file=sys.stdout)
-                    await logchanbot(traceback.format_exc())
-            except Exception as e:
+                async with aiohttp.ClientSession() as cs:
+                    async with cs.get(config.miningpoolstat.coinlist_link+"??timestamp="+str(int(time.time())), timeout=config.miningpoolstat.timeout) as r:
+                        if r.status == 200:
+                            res_data = await r.read()
+                            res_data = res_data.decode('utf-8')
+                            res_data = res_data.replace("var coin_list = ", "").replace(";", "")
+                            decoded_data = json.loads(res_data)
+                            key = config.redis.prefix + ":MININGPOOL:"
+                            key_hint = config.redis.prefix + ":MININGPOOL:SHORTNAME:"
+                            if decoded_data and len(decoded_data) > 0:
+                                # print(decoded_data)
+                                redis_utils.openRedis()
+                                for kc, cat in decoded_data.items():
+                                    if not isinstance(cat, int) and not isinstance(cat, str):
+                                        for k, v in cat.items():
+                                            # Should have no expire.
+                                            redis_utils.redis_conn.set((key+k).upper(), json.dumps(v))
+                                            redis_utils.redis_conn.set((key_hint+v['s']).upper(), k.upper())
+            except asyncio.TimeoutError:
+                print('TIMEOUT: Fetching from miningpoolstats')
+            except Exception:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot(traceback.format_exc())
-            await asyncio.sleep(interval_msg_list)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
 
 
     async def get_miningpoolstat_coin(
@@ -93,11 +89,11 @@ class Pools(commands.Cog):
     ):
         COIN_NAME = coin.upper()
         key = config.redis.prefix + ":MININGPOOLDATA:" + COIN_NAME
-        if redis_utils.redis_conn and redis_utils.redis_conn.exists(key):
+        if redis_utils.redis_conn.exists(key):
             return json.loads(redis_utils.redis_conn.get(key).decode())
         else:
             try:
-                openRedis()
+                redis_utils.openRedis()
                 try:
                     link = config.miningpoolstat.coinapi.replace("COIN_NAME", coin.lower())
                     print(f"Fetching {link}")
@@ -132,40 +128,31 @@ class Pools(commands.Cog):
         try:
             requested_date = int(time.time())
             if config.miningpoolstat.enable != 1:
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(f'{ctx.author.mention} Command temporarily disable.')
-                else:
-                    await ctx.reply(f'{ctx.author.mention} Command temporarily disable.')
+                await ctx.response.send_message(f'{ctx.author.mention}, command temporarily disable.')
                 return
             key = config.redis.prefix + ":MININGPOOL:" + COIN_NAME
             key_hint = config.redis.prefix + ":MININGPOOL:SHORTNAME:" + COIN_NAME
-            if redis_utils.redis_conn and not redis_utils.redis_conn.exists(key):
+            if not redis_utils.redis_conn.exists(key):
                 if redis_utils.redis_conn.exists(key_hint):
                     COIN_NAME = redis_utils.redis_conn.get(key_hint).decode().upper()
                     key = config.redis.prefix + ":MININGPOOL:" + COIN_NAME
                 else:
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(f'{ctx.author.mention} Unknown coin **{COIN_NAME}**.')
-                    else:
-                        await ctx.reply(f'{ctx.author.mention} Unknown coin **{COIN_NAME}**.')
+                    await ctx.response.send_message(f'{ctx.author.mention}, unknown coin **{COIN_NAME}**.')
                     return
-            if redis_utils.redis_conn and redis_utils.redis_conn.exists(key):
+            if redis_utils.redis_conn.exists(key):
                 # check if already in redis
                 key_p = key + ":POOLS" # config.redis.prefix + :MININGPOOL:COIN_NAME:POOLS
                 key_data = config.redis.prefix + ":MININGPOOLDATA:" + COIN_NAME
                 get_pool_data = None
                 is_cache = 'NO'
-                if redis_utils.redis_conn and redis_utils.redis_conn.exists(key_data):
+                if redis_utils.redis_conn.exists(key_data):
                     get_pool_data = json.loads(redis_utils.redis_conn.get(key_data).decode())
                     is_cache = 'YES'
                 else:
                     if ctx.author.id not in self.bot.MINGPOOLSTAT_IN_PROCESS:
                         self.bot.MINGPOOLSTAT_IN_PROCESS.append(ctx.author.id)
                     else:
-                        if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.response.send_message(f'{ctx.author.mention} You have another check of pools stats in progress.')
-                        else:
-                            await ctx.reply(f'{ctx.author.mention} You have another check of pools stats in progress.')
+                        await ctx.response.send_message(f'{ctx.author.mention} You have another check of pools stats in progress.')
                         return
                     try:
                         get_pool_data = await self.get_miningpoolstat_coin(COIN_NAME)
@@ -175,10 +162,7 @@ class Pools(commands.Cog):
                 pool_nos_per_page = 8
                 if get_pool_data and 'data' in get_pool_data:
                     if len(get_pool_data['data']) == 0:
-                        if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.response.send_message(f"{ctx.author.name}#{ctx.author.discriminator}, Received 0 length of data for **{COIN_NAME}**.")
-                        else:
-                            await ctx.reply(f"{ctx.author.name}#{ctx.author.discriminator}, Received 0 length of data for **{COIN_NAME}**.")
+                        await ctx.response.send_message(f"{ctx.author.name}#{ctx.author.discriminator}, Received 0 length of data for **{COIN_NAME}**.")
                         return
                     elif len(get_pool_data['data']) <= pool_nos_per_page:
                         embed = disnake.Embed(title='Mining Pools for {}'.format(COIN_NAME), description='', timestamp=datetime.now(), colour=7047495)
@@ -220,10 +204,7 @@ class Pools(commands.Cog):
                         embed.add_field(name="OTHER LINKS", value="{} / [Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format("[More pools](https://miningpoolstats.stream/{})".format(COIN_NAME.lower()), config.discord.invite_link, config.discord.support_server_link, config.discord.github_link), inline=False)
                         embed.set_footer(text="Data from https://miningpoolstats.stream")
                         try:
-                            if type(ctx) == disnake.ApplicationCommandInteraction:
-                                await ctx.response.send_message(embed=embed, view=RowButton_row_close_any_message())
-                            else:
-                                msg = await ctx.reply(embed=embed, view=RowButton_row_close_any_message())
+                            await ctx.response.send_message(embed=embed, view=RowButton_row_close_any_message())
                             respond_date = int(time.time())
                             await self.sql_miningpoolstat_fetch(COIN_NAME, str(ctx.author.id), 
                                                                 '{}#{}'.format(ctx.author.name, ctx.author.discriminator), 
@@ -300,10 +281,7 @@ class Pools(commands.Cog):
                                     break
                             try:
                                 view = MenuPage(ctx, all_pages, timeout=30)
-                                if type(ctx) == disnake.ApplicationCommandInteraction:
-                                    view.message = await ctx.response.send_message(embed=all_pages[0], view=view)
-                                else:
-                                    view.message = await ctx.reply(content=None, embed=all_pages[0], view=view)
+                                view.message = await ctx.response.send_message(embed=all_pages[0], view=view)
                                 await self.sql_miningpoolstat_fetch(COIN_NAME, str(ctx.author.id), 
                                                                     '{}#{}'.format(ctx.author.name, ctx.author.discriminator), 
                                                                     requested_date, int(time.time()), json.dumps(get_pool_data), str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM", 
@@ -319,11 +297,11 @@ class Pools(commands.Cog):
                     # Try old way
                     # if not exist, add to queue in redis
                     key_queue = config.redis.prefix + ":MININGPOOL2:QUEUE"
-                    if redis_utils.redis_conn and redis_utils.redis_conn.llen(key_queue) > 0:
+                    if redis_utils.redis_conn.llen(key_queue) > 0:
                         list_coin_queue = redis_utils.redis_conn.lrange(key_queue, 0, -1)
                         if COIN_NAME not in list_coin_queue:
                             redis_utils.redis_conn.lpush(key_queue, COIN_NAME)
-                    elif redis_utils.redis_conn and redis_utils.redis_conn.llen(key_queue) == 0:
+                    elif redis_utils.redis_conn.llen(key_queue) == 0:
                         redis_utils.redis_conn.lpush(key_queue, COIN_NAME)
                     try:
                         # loop and waiting for another fetch
@@ -332,7 +310,7 @@ class Pools(commands.Cog):
                             key = config.redis.prefix + ":MININGPOOL2:" + COIN_NAME
                             key_p = key + ":POOLS" # config.redis.prefix + :MININGPOOL2:COIN_NAME:POOLS
                             await asyncio.sleep(5)
-                            if redis_utils.redis_conn and redis_utils.redis_conn.exists(key_p):
+                            if redis_utils.redis_conn.exists(key_p):
                                 result = json.loads(redis_utils.redis_conn.get(key_p).decode())
                                 is_cache = 'NO'
                                 try:
@@ -367,11 +345,8 @@ class Pools(commands.Cog):
                                             traceback.print_exc(file=sys.stdout)
                                     embed.add_field(name="OTHER LINKS", value="{} / [Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format("[More pools](https://miningpoolstats.stream/{})".format(COIN_NAME.lower()), config.discord.invite_link, config.discord.support_server_link, config.discord.github_link), inline=False)
                                     embed.set_footer(text="Data from https://miningpoolstats.stream")
-                                    
-                                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                                        await ctx.response.send_message(embed=embed)
-                                    else:
-                                        msg = await ctx.reply(embed=embed, view=RowButton_row_close_any_message())
+
+                                    await ctx.response.send_message(embed=embed)
                                     respond_date = int(time.time())
                                     await self.sql_miningpoolstat_fetch(COIN_NAME, str(ctx.author.id), 
                                                                         '{}#{}'.format(ctx.author.name, ctx.author.discriminator), 
@@ -387,14 +362,11 @@ class Pools(commands.Cog):
                                     if ctx.author.id in self.bot.MINGPOOLSTAT_IN_PROCESS:
                                         self.bot.MINGPOOLSTAT_IN_PROCESS.remove(ctx.author.id)
                                     return
-                            elif redis_utils.redis_conn and not redis_utils.redis_conn.exists(key_p):
+                            elif not redis_utils.redis_conn.exists(key_p):
                                 retry += 1
                             if retry >= 5:
                                 redis_utils.redis_conn.lrem(key_queue, 0, COIN_NAME)
-                                if type(ctx) == disnake.ApplicationCommandInteraction:
-                                    await ctx.response.send_message(f'{ctx.author.mention} We can not fetch data for **{COIN_NAME}**.')
-                                else:
-                                    await ctx.reply(f'{ctx.author.mention} We can not fetch data for **{COIN_NAME}**.')
+                                await ctx.response.send_message(f'{ctx.author.mention} We can not fetch data for **{COIN_NAME}**.')
                                 break
                                 if ctx.author.id in self.bot.MINGPOOLSTAT_IN_PROCESS:
                                     self.bot.MINGPOOLSTAT_IN_PROCESS.remove(ctx.author.id)
@@ -423,21 +395,6 @@ class Pools(commands.Cog):
     ):
         COIN_NAME = coin.upper()
         await self.get_pools(ctx, COIN_NAME)
-
-
-    @commands.command(
-        usage="pools <coin>", 
-        aliases=['pool', 'pools'], 
-        description="Check hashrate of a coin."
-    )
-    async def _pools(
-        self, 
-        ctx, 
-        coin: str
-    ):
-        COIN_NAME = coin.upper()
-        await self.get_pools(ctx, COIN_NAME)
-
 
 
 def setup(bot):

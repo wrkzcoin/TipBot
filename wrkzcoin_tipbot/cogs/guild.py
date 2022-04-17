@@ -1233,59 +1233,61 @@ class Guild(commands.Cog):
         coin_balance_usd = {}
         coin_balance_equivalent_usd = {}
         for each_token in mytokens:
-            COIN_NAME = each_token['coin_name']
-            type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
-            net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
-            deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
-            coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
-            token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
-
-            Guild_WalletAPI = WalletAPI(self.bot)
-            get_deposit = await Guild_WalletAPI.sql_get_userwallet(str(ctx.guild.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
-            if get_deposit is None:
-                get_deposit = await Guild_WalletAPI.sql_register_user(str(ctx.guild.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 1)
-            wallet_address = get_deposit['balance_wallet_address']
-            if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
-                wallet_address = get_deposit['paymentid']
-
-            height = None
             try:
-                if type_coin in ["ERC-20", "TRC-20"]:
-                    height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
-                else:
-                    height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
+                COIN_NAME = each_token['coin_name']
+                type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
+                net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
+                deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
+                coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+                token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
+
+                Guild_WalletAPI = WalletAPI(self.bot)
+                get_deposit = await Guild_WalletAPI.sql_get_userwallet(str(ctx.guild.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                if get_deposit is None:
+                    get_deposit = await Guild_WalletAPI.sql_register_user(str(ctx.guild.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 1)
+                wallet_address = get_deposit['balance_wallet_address']
+                if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                    wallet_address = get_deposit['paymentid']
+
+                height = None
+                try:
+                    if type_coin in ["ERC-20", "TRC-20"]:
+                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
+                    else:
+                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+
+                # height can be None
+                userdata_balance = await self.user_balance(str(ctx.guild.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+                total_balance = userdata_balance['adjust']
+                if total_balance > 0:
+                    has_none_balance = False
+                    coin_balance_list[COIN_NAME] = "{} {}".format(num_format_coin(total_balance, COIN_NAME, coin_decimal, False), token_display)
+                    coin_balance[COIN_NAME] = total_balance
+                    usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
+                    coin_balance_usd[COIN_NAME] = 0.0
+                    coin_balance_equivalent_usd[COIN_NAME] = ""
+                    if usd_equivalent_enable == 1:
+                        native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
+                        COIN_NAME_FOR_PRICE = COIN_NAME
+                        if native_token_name:
+                            COIN_NAME_FOR_PRICE = native_token_name
+                        per_unit = None
+                        if COIN_NAME_FOR_PRICE in self.bot.token_hints:
+                            id = self.bot.token_hints[COIN_NAME_FOR_PRICE]['ticker_name']
+                            per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+                        else:
+                            per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
+                        if per_unit and per_unit > 0:
+                            coin_balance_usd[COIN_NAME] = float(Decimal(total_balance) * Decimal(per_unit))
+                            total_all_balance_usd += coin_balance_usd[COIN_NAME]
+                            if coin_balance_usd[COIN_NAME] >= 0.01:
+                                coin_balance_equivalent_usd[COIN_NAME] = " ~ {:,.2f}$".format(coin_balance_usd[COIN_NAME])
+                            elif coin_balance_usd[COIN_NAME] >= 0.0001:
+                                coin_balance_equivalent_usd[COIN_NAME] = " ~ {:,.4f}$".format(coin_balance_usd[COIN_NAME])
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
-
-            # height can be None
-            userdata_balance = await self.user_balance(str(ctx.guild.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
-            total_balance = userdata_balance['adjust']
-            if total_balance > 0:
-                has_none_balance = False
-                coin_balance_list[COIN_NAME] = "{} {}".format(num_format_coin(total_balance, COIN_NAME, coin_decimal, False), token_display)
-                coin_balance[COIN_NAME] = total_balance
-                usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
-                coin_balance_usd[COIN_NAME] = 0.0
-                coin_balance_equivalent_usd[COIN_NAME] = ""
-                if usd_equivalent_enable == 1:
-                    native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
-                    COIN_NAME_FOR_PRICE = COIN_NAME
-                    if native_token_name:
-                        COIN_NAME_FOR_PRICE = native_token_name
-                    per_unit = None
-                    if COIN_NAME_FOR_PRICE in self.bot.token_hints:
-                        id = self.bot.token_hints[COIN_NAME_FOR_PRICE]['ticker_name']
-                        per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                    else:
-                        per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
-                    if per_unit and per_unit > 0:
-                        coin_balance_usd[COIN_NAME] = float(Decimal(total_balance) * Decimal(per_unit))
-                        total_all_balance_usd += coin_balance_usd[COIN_NAME]
-                        if coin_balance_usd[COIN_NAME] >= 0.01:
-                            coin_balance_equivalent_usd[COIN_NAME] = " ~ {:,.2f}$".format(coin_balance_usd[COIN_NAME])
-                        elif coin_balance_usd[COIN_NAME] >= 0.0001:
-                            coin_balance_equivalent_usd[COIN_NAME] = " ~ {:,.4f}$".format(coin_balance_usd[COIN_NAME])
-                            
 
         if has_none_balance == True:
             msg = f'{ctx.author.mention}, this guild does not have any balance.'
@@ -1942,17 +1944,20 @@ class Guild(commands.Cog):
             num_bot = len([member for member in ctx.guild.members if member.bot == True])
             m_statistics = "Owner: <@{}>\n```Total Members: {}\nOnline: {}\nBots: {}\nRoles: {}\nCategories: {}\nText Channels: {}```".format(owner_id, total_number, num_online, num_bot, total_roles, nos_categories, nos_text_channel)
             embed.add_field(name="Statistics", value=m_statistics, inline=False)
-            embed.set_thumbnail(url=str(ctx.guild.icon))
+            if ctx.guild.icon:
+                embed.set_thumbnail(url=str(ctx.guild.icon))
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         if serverinfo['tiponly'] is not None:
             embed.add_field(name="Allowed Coins (Tip)", value="{}".format(serverinfo['tiponly']), inline=True)
         if serverinfo['enable_faucet'] == "YES" and serverinfo['faucet_channel']:
-            embed.add_field(name="Faucet Channel", value="<#{}>".format(serverinfo['faucet_channel']), inline=True)
+            embed.add_field(name="Faucet {} {}".format(serverinfo['faucet_amount'], serverinfo['faucet_coin']), value="<#{}>".format(serverinfo['faucet_channel']), inline=True)
         if serverinfo['botchan']:
             embed.add_field(name="Bot Channel", value="<#{}>".format(serverinfo['botchan']), inline=True)
         if serverinfo['economy_channel'] and serverinfo['enable_economy'] == "YES":
             embed.add_field(name="Economy Channel", value="<#{}>".format(serverinfo['economy_channel']), inline=True)
+        if serverinfo['vote_reward_amount'] and serverinfo['vote_reward_coin'] and serverinfo['vote_reward_channel']:
+            embed.add_field(name="Vote Reward {} {}".format(serverinfo['vote_reward_amount'], serverinfo['vote_reward_coin']), value="<#{}> | https://top.gg/servers/{}/vote".format(serverinfo['vote_reward_channel'], ctx.guild.id), inline=False)
         embed.set_footer(text=f"Requested by {ctx.author.name}#{ctx.author.discriminator}")
         await ctx.response.send_message(embed=embed)
 

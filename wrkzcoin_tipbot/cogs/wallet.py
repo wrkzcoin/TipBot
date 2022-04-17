@@ -3110,88 +3110,91 @@ class Wallet(commands.Cog):
             per_page = 8
             await ctx.response.send_message(f"{ctx.author.mention} balance loading...", ephemeral=True)
             for each_token in mytokens:
-                COIN_NAME = each_token['coin_name']
-                type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
-                net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
-                deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
-                coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
-                token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
-                usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
-
-                get_deposit = await self.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
-                if get_deposit is None:
-                    get_deposit = await self.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
-                wallet_address = get_deposit['balance_wallet_address']
-                if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
-                    wallet_address = get_deposit['paymentid']
-                height = None
                 try:
-                    if type_coin in ["ERC-20", "TRC-20"]:
-                        # Add update for future call
-                        try:
-                            if type_coin == "ERC-20":
-                                update_call = await store.sql_update_erc20_user_update_call(str(ctx.author.id))
-                            elif type_coin == "TRC-10" or type_coin == "TRC-20":
-                                update_call = await store.sql_update_trc20_user_update_call(str(ctx.author.id))
-                        except Exception as e:
-                            traceback.print_exc(file=sys.stdout)
-                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
-                    else:
-                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
-                except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
-                if num_coins == 0 or num_coins % per_page == 0:
-                    page = disnake.Embed(title='[ YOUR BALANCE LIST ]',
-                                         description="Thank you for using TipBot!",
-                                         color=disnake.Color.blue(),
-                                         timestamp=datetime.fromtimestamp(int(time.time())), )
-                    page.set_thumbnail(url=ctx.author.display_avatar)
-                    page.set_footer(text="Use the reactions to flip pages.")
-                # height can be None
-                userdata_balance = await self.user_balance(str(ctx.author.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
-                total_balance = userdata_balance['adjust']
-                if total_balance == 0:
-                    zero_tokens.append(COIN_NAME)
-                    continue
-                elif total_balance > 0:
-                    has_none_balance = False
-                equivalent_usd = ""
-                if usd_equivalent_enable == 1:
-                    native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
-                    COIN_NAME_FOR_PRICE = COIN_NAME
-                    if native_token_name:
-                        COIN_NAME_FOR_PRICE = native_token_name
-                    per_unit = None
-                    if COIN_NAME_FOR_PRICE in self.bot.token_hints:
-                        id = self.bot.token_hints[COIN_NAME_FOR_PRICE]['ticker_name']
-                        per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                    else:
-                        per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
-                    if per_unit and per_unit > 0:
-                        total_in_usd = float(Decimal(total_balance) * Decimal(per_unit))
-                        total_all_balance_usd += total_in_usd
-                        if total_in_usd >= 0.01:
-                            equivalent_usd = " ~ {:,.2f}$".format(total_in_usd)
-                        elif total_in_usd >= 0.0001:
-                            equivalent_usd = " ~ {:,.4f}$".format(total_in_usd)
+                    COIN_NAME = each_token['coin_name']
+                    type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
+                    net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
+                    deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
+                    coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+                    token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
+                    usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
 
-                page.add_field(name="{}{}".format(token_display, equivalent_usd) , value="```{}```".format(num_format_coin(total_balance, COIN_NAME, coin_decimal, False)), inline=True)
-                num_coins += 1
-                if num_coins > 0 and num_coins % per_page == 0:
-                    all_pages.append(page)
-                    if num_coins < total_coins:
+                    get_deposit = await self.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                    if get_deposit is None:
+                        get_deposit = await self.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
+                    wallet_address = get_deposit['balance_wallet_address']
+                    if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                        wallet_address = get_deposit['paymentid']
+                    height = None
+                    try:
+                        if type_coin in ["ERC-20", "TRC-20"]:
+                            # Add update for future call
+                            try:
+                                if type_coin == "ERC-20":
+                                    update_call = await store.sql_update_erc20_user_update_call(str(ctx.author.id))
+                                elif type_coin == "TRC-10" or type_coin == "TRC-20":
+                                    update_call = await store.sql_update_trc20_user_update_call(str(ctx.author.id))
+                            except Exception as e:
+                                traceback.print_exc(file=sys.stdout)
+                            height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
+                        else:
+                            height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                    if num_coins == 0 or num_coins % per_page == 0:
                         page = disnake.Embed(title='[ YOUR BALANCE LIST ]',
                                              description="Thank you for using TipBot!",
                                              color=disnake.Color.blue(),
                                              timestamp=datetime.fromtimestamp(int(time.time())), )
                         page.set_thumbnail(url=ctx.author.display_avatar)
                         page.set_footer(text="Use the reactions to flip pages.")
-                    else:
+                    # height can be None
+                    userdata_balance = await self.user_balance(str(ctx.author.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+                    total_balance = userdata_balance['adjust']
+                    if total_balance == 0:
+                        zero_tokens.append(COIN_NAME)
+                        continue
+                    elif total_balance > 0:
+                        has_none_balance = False
+                    equivalent_usd = ""
+                    if usd_equivalent_enable == 1:
+                        native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
+                        COIN_NAME_FOR_PRICE = COIN_NAME
+                        if native_token_name:
+                            COIN_NAME_FOR_PRICE = native_token_name
+                        per_unit = None
+                        if COIN_NAME_FOR_PRICE in self.bot.token_hints:
+                            id = self.bot.token_hints[COIN_NAME_FOR_PRICE]['ticker_name']
+                            per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+                        else:
+                            per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
+                        if per_unit and per_unit > 0:
+                            total_in_usd = float(Decimal(total_balance) * Decimal(per_unit))
+                            total_all_balance_usd += total_in_usd
+                            if total_in_usd >= 0.01:
+                                equivalent_usd = " ~ {:,.2f}$".format(total_in_usd)
+                            elif total_in_usd >= 0.0001:
+                                equivalent_usd = " ~ {:,.4f}$".format(total_in_usd)
+
+                    page.add_field(name="{}{}".format(token_display, equivalent_usd) , value="```{}```".format(num_format_coin(total_balance, COIN_NAME, coin_decimal, False)), inline=True)
+                    num_coins += 1
+                    if num_coins > 0 and num_coins % per_page == 0:
+                        all_pages.append(page)
+                        if num_coins < total_coins:
+                            page = disnake.Embed(title='[ YOUR BALANCE LIST ]',
+                                                 description="Thank you for using TipBot!",
+                                                 color=disnake.Color.blue(),
+                                                 timestamp=datetime.fromtimestamp(int(time.time())), )
+                            page.set_thumbnail(url=ctx.author.display_avatar)
+                            page.set_footer(text="Use the reactions to flip pages.")
+                        else:
+                            all_pages.append(page)
+                            break
+                    elif num_coins == total_coins:
                         all_pages.append(page)
                         break
-                elif num_coins == total_coins:
-                    all_pages.append(page)
-                    break
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
             # remaining
             if (total_coins - len(zero_tokens)) % per_page > 0:
                 all_pages.append(page)

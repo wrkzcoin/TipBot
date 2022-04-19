@@ -49,217 +49,260 @@ class Core(commands.Cog):
             "about": {
                 "usage": "/about",
                 "desc": "Check information about TipBot.", 
-                "related": ["invite", "feedback", "uptime"]
+                "related": ["invite", "feedback", "uptime"],
+                "subcmd": []
             },
             "rand": {
                 "usage": "/rand <min>-<max>",
                 "desc": "Generate a random number between two numbers.", 
-                "related": ["cal"]
+                "related": ["cal"],
+                "subcmd": []
             },
             "cal": {
                 "usage": "/cal <math expression>",
                 "desc": "Use TipBot's built-in calculator.", 
-                "related": ["rand"]
+                "related": ["rand"],
+                "subcmd": []
             },
             "stats": {
                 "usage": "/stats <coin_name>",
                 "desc": "Show statistic about coin.", 
-                "related": ["coininfo"]
+                "related": ["coininfo"],
+                "subcmd": []
             },
             "notifytip": {
                 "usage": "/notifytip ON|OFF",
                 "desc": "Turn tip notification or ping ON or OFF.", 
-                "related": []
+                "related": [],
+                "subcmd": []
             },
             "randtip": {
                 "usage": "/randtip <amount> <coin>",
                 "desc": "Tip to a ranndom discord users from your balance.", 
-                "related": ["tip", "tipall"]
+                "related": ["tip", "tipall"],
+                "subcmd": []
             },
             "freetip": {
                 "usage": "/freetip <amount> <coin> <duration> [comment]",
                 "desc": "Do airdrop with clickable buttom and every can collect.", 
-                "related": ["tip", "tipall", "mathtip", "triviatip"]
+                "related": ["tip", "tipall", "mathtip", "triviatip"],
+                "subcmd": []
             },
             "tipall": {
                 "usage": "/tipall <amount> <coin> [online|all]",
                 "desc": "Tip all online users or every users in the guild from your balance.", 
-                "related": ["tip", "randtip", "randtip"]
+                "related": ["tip", "randtip", "randtip"],
+                "subcmd": []
             },
             "feedback": {
                 "usage": "/feedback",
                 "desc": "Give us your feedback and other comment, suggestion for TipBot.", 
-                "related": ["about", "invite", "uptime"]
+                "related": ["about", "invite", "uptime"],
+                "subcmd": []
             },
             "triviatip": {
                 "usage": "/triviatip <amount> <coin> <duration>",
                 "desc": "Drop a Trivia Tip to discord users in the guild.", 
-                "related": ["mathtip", "freetip"]
+                "related": ["mathtip", "freetip"],
+                "subcmd": []
             },
             "deposit": {
                 "usage": "/deposit <coin> [plain]",
                 "desc": "Get your deposit address.", 
-                "related": ["withdraw", "coininfo"]
+                "related": ["withdraw", "coininfo"],
+                "subcmd": []
             },
             "balance": {
                 "usage": "/balance <coin>",
                 "desc": "Show a coin's balance.", 
-                "related": ["balances", "coininfo"]
+                "related": ["balances", "coininfo"],
+                "subcmd": []
             },
             "balances": {
                 "usage": "/balances [coin1, coin2]",
                 "desc": "Show your coins' balances. Without coin names, it will show you all balances.", 
-                "related": ["balance", "deposit", "coininfo"]
+                "related": ["balance", "deposit", "coininfo"],
+                "subcmd": []
             },
             "withdraw": {
                 "usage": "/withdraw <amount> <coin> <address>",
                 "desc": "Withdraw to an address.", 
-                "related": ["deposit", "coininfo"]
+                "related": ["deposit", "coininfo"],
+                "subcmd": []
             },
             "claim": {
                 "usage": "/claim [coin]",
                 "desc": "Show reward amount for TipBpt's voting. Or set <coin> as your preferred reward.", 
-                "related": ["take", "faucet"]
+                "related": ["take", "faucet"],
+                "subcmd": []
             },
             "take": {
                 "usage": "/take [info]",
                 "desc": "Get a random faucet from TipBot's faucet.", 
-                "related": ["claim", "faucet"]
+                "related": ["claim", "faucet"],
+                "subcmd": []
             },
             "donate": {
                 "usage": "/donate <amount> <coin>",
                 "desc": "Donate from your balance to TipBpt's dev.", 
-                "related": ["deposit", "withdraw"]
+                "related": ["deposit", "withdraw"],
+                "subcmd": []
             },
             "swap": {
                 "usage": "/swap <amount> <coin> <to coin>",
                 "desc": "Swap from a coin/token to another coin. Only few supported.", 
-                "related": ["deposit", "withdraw", "coininfo"]
+                "related": ["deposit", "withdraw", "coininfo"],
+                "subcmd": []
             },
             "coininfo": {
                 "usage": "/coininfo <coin>",
                 "desc": "Show information about a coin setting within TipBot.", 
-                "related": ["tip", "deposit", "withdraw"]
+                "related": ["tip", "deposit", "withdraw"],
+                "subcmd": []
             },
             "tb": {
                 "usage": "/tb <action> [member]",
                 "desc": "Some images or gif command with other discord member.", 
-                "related": []
+                "related": [],
+                "subcmd": ["draw", "sketchme", "punch", "spank", "slap", "praise", "shoot", "kick", "dance", "fistbump", "getemoji"]
             },
             "paprika": {
                 "usage": "/paprika <coin>",
                 "desc": "Show a summary of a coin from coinpaprika API.", 
-                "related": ["price", "market"]
+                "related": ["price", "market"],
+                "subcmd": []
             },
             "invite": {
                 "usage": "/invite",
                 "desc": "Show TipBot's invitation link.", 
-                "related": ["about", "feedback"]
+                "related": ["about", "feedback"],
+                "subcmd": []
             },
             "tool": {
                 "usage": "/tool [option]",
                 "desc": "Some basic tool which rarely used.", 
-                "related": ["cal", "rand"]
+                "related": ["cal", "rand"],
+                "subcmd": []
             },
             "tag": {
                 "usage": "/tag show|add|delete",
                 "desc": "Tag tool for your discord.", 
-                "related": ["guild info"]
+                "related": ["guild info"],
+                "subcmd": ["avatar", "prime"]
             },
             "coinmap": {
                 "usage": "/coinmap",
                 "desc": "Fetch screen from coin360", 
-                "related": ["price", "paprika"]
+                "related": ["price", "paprika"],
+                "subcmd": []
             },
             "guild": {
                 "usage": "/guild <commands>",
                 "desc": "Various guild's command. Type to show them all.", 
-                "related": ["guildtip"]
+                "related": ["guildtip"],
+                "subcmd": ["createraffle", "raffle", "balance", "votereward", "deposit", "topgg", "mdeposit", "faucetclaim", "info"]
             },
             "mdeposit": {
                 "usage": "/mdeposit <coin>",
                 "desc": "Get guild's deposit address.", 
-                "related": ["guildtip", "guild balance", "guild info", "guild deposit"]
+                "related": ["guildtip", "guild balance", "guild info", "guild deposit"],
+                "subcmd": []
             },
             "faucet": {
                 "usage": "/faucet",
                 "desc": "Claim guild's faucet. Only if guild's owner enable this.", 
-                "related": ["take", "claim"]
+                "related": ["take", "claim"],
+                "subcmd": []
             },
             "setting": {
                 "usage": "/setting <commands>",
                 "desc": "Various guild's setting command. Type to show them all. For Moderator & Guild owner.", 
-                "related": ["guild info", "mdeposit", "guild balance", "guild deposit"]
+                "related": ["guild info", "mdeposit", "guild balance", "guild deposit"],
+                "subcmd": ["tiponly", "trade", "nsfw", "game", "botchan", "economychan", "setfaucet", "gamechan"]
             },
             "voucher": {
                 "usage": "/voucher <commands>",
                 "desc": "Various voucher's command including create, list, etc. Type to show them all.", 
-                "related": ["deposit", "balances"]
+                "related": ["deposit", "balances"],
+                "subcmd": ["make", "unclaim", "getunclaim", "claim", "getclaim", "listcoins"]
             },
             "market": {
                 "usage": "/market <commands>",
                 "desc": "Various market's command including sell, buy, etc. Type to show them all.", 
-                "related": ["price", "paprika"]
+                "related": ["price", "paprika"],
+                "subcmd": ["sell", "myorder", "cancel", "buy", "list", "listcoins", "listpairs"]
             },
             "botbalance": {
                 "usage": "/botbalance <bot name> <coin>",
                 "desc": "Get a bot's deposit address.", 
-                "related": ["balance", "balances"]
+                "related": ["balance", "balances"],
+                "subcmd": []
             },
             "mathtip": {
                 "usage": "/mathtip <amount> <coin> <duration> <math expression>",
                 "desc": "Similiar to Trivia Tip, create a math expression to discord users in the guild.", 
-                "related": ["triviatip", "freetip"]
+                "related": ["triviatip", "freetip"],
+                "subcmd": []
             },
             "eco": {
                 "usage": "/eco <commands>",
                 "desc": "Various economy game's command. Type to show them all. Require TipBot's dev to enable based on guild.", 
-                "related": ["guild info"]
+                "related": ["guild info"],
+                "subcmd": ["info", "items", "sell", "buy", "lumber", "fish", "plant", "collect", "dairy", "chicken", "farm", "harvest", "fish", "fishing", "woodcutting", "search", "eat", "work", "leaderboard", "upgrade"]
             },
             "game": {
                 "usage": "/game <game name>",
                 "desc": "Various game's command. Type to show them all.", 
-                "related": ["tb"]
+                "related": ["tb"],
+                "subcmd": ["blackjack", "slot", "maze", "dice", "snail", "g2048", "sokoban"]
             },
             "price": {
                 "usage": "/price <amount> <coin name>",
                 "desc": "Get a price of a coin from coinpaprika API.", 
-                "related": ["paprika", "market"]
+                "related": ["paprika", "market"],
+                "subcmd": []
             },
             "pools": {
                 "usage": "/pools <coin name>",
                 "desc": "Get miningpoolstats of a mineable coin.", 
-                "related": ["coininfo"]
+                "related": ["coininfo"],
+                "subcmd": []
             },
             "userinfo": {
                 "usage": "/userinfo [@user]",
                 "desc": "Get some basic information of a user.", 
-                "related": []
+                "related": [],
+                "subcmd": []
             },
             "uptime": {
                 "usage": "/uptime",
                 "desc": "Show bot's uptime.", 
-                "related": ["about", "help"]
+                "related": ["about", "help"],
+                "subcmd": []
             },
             "help": {
                 "usage": "/help",
                 "desc": "This command.", 
-                "related": ["about"]
+                "related": ["about"],
+                "subcmd": []
             },
             "tip": {
                 "usage": "/tip <amount> <coin> @mention @role | last 10u | last 10mn",
                 "desc": "Tip discord users from your balance.", 
-                "related": ["tipall", "randtip", "freetip", "mathtip", "triviatip"]
+                "related": ["tipall", "randtip", "freetip", "mathtip", "triviatip"],
+                "subcmd": []
             },
             "guildtip": {
                 "usage": "/guildtip <amount> <coin> @mention @role | last 10u | last 10mn",
                 "desc": "Tip discord users from guild's balance.", 
-                "related": ["tip", "mdeposit", "guild info", "guild deposit"]
+                "related": ["tip", "mdeposit", "guild info", "guild deposit"],
+                "subcmd": []
             },
             "coinlist": {
                 "usage": "/coinlist",
                 "desc": "List all coins/tokens within TipBot.", 
-                "related": ["coininfo"]
+                "related": ["coininfo"],
+                "subcmd": []
             }
         }
         if cmd is None:
@@ -279,6 +322,14 @@ class Core(commands.Cog):
             command_usage = slash_help[cmd]['usage']
             command_desc = slash_help[cmd]['desc']
             command_related = None
+            sub_command = None
+            # sub
+            try:
+                if len(slash_help[cmd]['subcmd']) > 0:
+                    sub_command = ", ".join(slash_help[cmd]['subcmd'])
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            # related
             try:
                 if len(slash_help[cmd]['related']) > 0:
                     command_related = ", ".join(slash_help[cmd]['related'])
@@ -305,6 +356,12 @@ class Core(commands.Cog):
                 embed.add_field(
                     name="Related cmd(s)",
                     value="```{}```".format(command_related),
+                    inline=False,
+                )
+            if sub_command:
+                embed.add_field(
+                    name="Sub cmd(s)",
+                    value="```{}```".format(sub_command),
                     inline=False,
                 )
             await ctx.response.send_message(embed=embed)

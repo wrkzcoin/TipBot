@@ -2232,6 +2232,38 @@ class Guild(commands.Cog):
 
     @commands.has_permissions(manage_channels=True)
     @setting.sub_command(
+        usage="setting memepls", 
+        description="Toggle memepls enable ON/OFF in your guild"
+    )
+    async def memepls(
+        self, 
+        ctx,
+    ):
+        await self.bot_log()
+        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        if serverinfo is None:
+            # Let's add some info if server return None
+            add_server_info = await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
+            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                                                                
+        if serverinfo and serverinfo['enable_memepls'] == "YES":
+            changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_memepls', 'NO')
+            if self.enable_logchan:
+                await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} DISABLE /memepls in their guild {ctx.guild.name} / {ctx.guild.id}')
+            msg = f"{ctx.author.mention} DISABLE /memepls feature in this guild {ctx.guild.name}."
+            await ctx.response.send_message(msg)
+        elif serverinfo and serverinfo['enable_memepls'] == "NO":
+            changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_memepls', 'YES')
+            if self.enable_logchan:
+                await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} ENABLE /memepls in their guild {ctx.guild.name} / {ctx.guild.id}')
+            msg = f"{ctx.author.mention} ENABLE /memepls feature in this guild {ctx.guild.name}."
+            await ctx.response.send_message(msg)
+        else:
+            msg = f"{ctx.author.mention}, internal error when calling serverinfo function."
+            await ctx.response.send_message(msg)
+
+    @commands.has_permissions(manage_channels=True)
+    @setting.sub_command(
         usage="setting nsfw", 
         description="Toggle nsfw ON/OFF in your guild"
     )

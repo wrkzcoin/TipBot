@@ -1599,7 +1599,7 @@ class Economy(commands.Cog):
                 msg = await ctx.response.send_message(embed=e)
                 
             else:
-                return  {"error": f"{member.name}#{member.discriminator}, not having fish!"}
+                return  {"error": f"{member.name}#{member.discriminator}, not having fish! Please do `/eco fishing`."}
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 

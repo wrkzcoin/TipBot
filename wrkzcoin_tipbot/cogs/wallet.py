@@ -1436,7 +1436,9 @@ class Wallet(commands.Cog):
                     is_notify_failed = False
                     member = self.bot.get_user(int(each_notify['user_id']))
                     if member:
+                        if each_notify['txn'] in self.notified_tx: continue
                         msg = "You got a new deposit confirmed: ```" + "Amount: {} {}".format(num_format_coin(each_notify['real_amount'], each_notify['token_name'], each_notify['token_decimal'], False), each_notify['token_name']) + "```"
+                        self.notified_tx.append(each_notify['txn'])
                         try:
                             await member.send(msg)
                         except (disnake.Forbidden, disnake.errors.Forbidden) as e:
@@ -1458,7 +1460,9 @@ class Wallet(commands.Cog):
                     is_notify_failed = False
                     member = self.bot.get_user(int(each_notify['user_id']))
                     if member:
+                        if each_notify['txn'] in self.notified_tx: continue
                         msg = "You got a new deposit confirmed: ```" + "Amount: {} {}".format(num_format_coin(each_notify['real_amount'], each_notify['token_name'], each_notify['token_decimal'], False), each_notify['token_name']) + "```"
+                        self.notified_tx.append(each_notify['txn'])
                         try:
                             await member.send(msg)
                         except (disnake.Forbidden, disnake.errors.Forbidden) as e:

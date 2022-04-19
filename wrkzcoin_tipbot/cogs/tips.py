@@ -821,7 +821,7 @@ class Tips(commands.Cog):
         try:
             if comment and len(comment) > 0:
                 embed.add_field(name="Comment", value=comment, inline=True)
-            embed.add_field(name="Attendees", value="React below to join!", inline=False)
+            embed.add_field(name="Attendees", value="Click to collect!", inline=False)
             embed.add_field(name="Individual Tip Amount", value=f"{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}", inline=True)
             embed.add_field(name="Num. Attendees", value="**0** members", inline=True)
             embed.set_footer(text=f"FreeTip by {ctx.author.name}#{ctx.author.discriminator}, Time Left: {seconds_str(duration_s)}")

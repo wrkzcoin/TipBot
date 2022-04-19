@@ -75,6 +75,87 @@ async def add_memetip(meme_id: str, owner_userid: str, from_userid: str, guild_i
     return 0
 
 
+class MemeTipReport(disnake.ui.Modal):
+    def __init__(self, ctx, bot, meme_id: str, owner_userid: str, get_meme) -> None:
+        redis_utils.openRedis()
+        self.meme_web_path = "https://tipbot-static.wrkz.work/discordtip_v2_meme/"
+        self.ctx = ctx
+        self.bot = bot
+        self.meme_id = meme_id
+        self.owner_userid = owner_userid
+        self.get_meme = get_meme
+        self.meme_channel_upload = 965814338294267925
+        components = [
+            disnake.ui.TextInput(
+                label="Your contact",
+                placeholder="How we contact you",
+                custom_id="contact_id",
+                style=TextInputStyle.short,
+                max_length=64
+            ),
+            disnake.ui.TextInput(
+                label="Description",
+                placeholder="Describe about it.",
+                custom_id="desc_id",
+                style=TextInputStyle.paragraph
+            )
+        ]
+        super().__init__(title="Report about meme", custom_id="modal_meme_report", components=components)
+
+
+    # meme_report
+    async def meme_report(self, report_id: str, meme_id: str, owner_userid: str, reported_by_uid: str, reported_by_name: str, contact_id: str, desc_id: str):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ INSERT INTO `meme_reported` (`report_id`, `meme_id`, `owner_userid`, `reported_by_uid`, `reported_by_name`, `contact_id`, `desc_id`, `submitted_date`)
+                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                    await cur.execute(sql, ( report_id, meme_id, owner_userid, reported_by_uid, reported_by_name, contact_id, desc_id, int(time.time()) ))
+                    await conn.commit()
+                    return cur.rowcount
+        except Exception as e:
+            await logchanbot(traceback.format_exc())
+        return 0
+
+    async def callback(self, interaction: disnake.ModalInteraction) -> None:
+        # Check if type of question is bool or multipe
+        try:
+            await interaction.response.send_message(content=f"{interaction.author.mention}, checking meme reporting...")
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await interaction.response.send_message(content=f"{interaction.author.mention}, failed to execute meme reporting. Try again later!", ephemeral=True)
+            return
+        contact_id = interaction.text_values['contact_id'].strip()
+        if contact_id == "" or len(contact_id) < 4:
+            await interaction.edit_original_message(content=f"{interaction.author.mention}, contact is too short!")
+            return
+
+        desc_id = interaction.text_values['desc_id'].strip()
+        if desc_id == "" or len(desc_id) < 8:
+            await interaction.edit_original_message(content=f"{interaction.author.mention}, description is too short!")
+            return
+        report_id = str(uuid.uuid4())
+        report = await self.meme_report( report_id, self.meme_id, self.owner_userid, interaction.author.id, "{}#{}".format(interaction.author.name, interaction.author.discriminator), contact_id, desc_id)
+        if report > 0:
+            await interaction.edit_original_message(content=f'{interaction.author.mention}, thank you for your report! ID: `{report_id}`.')
+            try:
+                msg = f'[MEME REPORT] A user {interaction.author.mention} / {interaction.author.name}#{interaction.author.discriminator} has submitted a report `{report_id}` about meme `{self.meme_id}` uploaded by <@{self.owner_userid}>.'
+                embed = disnake.Embed(title="MEME REPORT!", description="Caption: {}".format(self.get_meme['caption']), timestamp=datetime.now())
+                embed.add_field(name="Uploader", value="<@{}>".format(self.owner_userid), inline=False)
+                embed.add_field(name="Uploaded Guild/Chan", value="`{}/{}`".format(self.get_meme['guild_id'], self.get_meme['channel_id']), inline=False)
+                embed.add_field(name="ID", value="`{}`".format(self.get_meme['key']), inline=False)
+                embed.add_field(name="Hash", value="`{}`".format(self.get_meme['sha256']), inline=False)
+                embed.set_author(name=self.bot.user.name, icon_url=self.bot.user.display_avatar)
+                embed.set_image(url=self.meme_web_path + self.get_meme['saved_name'])
+                channel = self.bot.get_channel(self.meme_channel_upload)
+                await channel.send(content=msg, embed=embed)
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+        else:
+            await inter.response.send_message(f"{inter.author.mention}, internal error, please report!")
+
+
 class TipOtherCoin(disnake.ui.Modal):
     def __init__(self, ctx, bot, meme_id: str, owner_userid: str, get_meme) -> None:
         redis_utils.openRedis()
@@ -752,7 +833,7 @@ class MemeTip_Button(disnake.ui.View):
             if interaction.author.id in self.bot.TX_IN_PROCESS:
                 self.bot.TX_IN_PROCESS.remove(interaction.author.id)
 
-    @disnake.ui.button(label="Tip...", style=ButtonStyle.green, custom_id="memetip_other")
+    @disnake.ui.button(label="Tip other coin", style=ButtonStyle.green, custom_id="memetip_other")
     async def tip_other_coin(
         self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
     ):
@@ -760,6 +841,12 @@ class MemeTip_Button(disnake.ui.View):
             await interaction.response.send_message(content=f"{interaction.author.mention}, you cannot tip your own meme!")
         else:
             await interaction.response.send_modal(modal=TipOtherCoin(interaction, self.bot, self.meme_id, self.owner_userid, self.get_meme ))
+
+    @disnake.ui.button(label="⚠️ Report", style=ButtonStyle.green, custom_id="memetip_report")
+    async def memetip_report(
+        self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
+    ):
+        await interaction.response.send_modal(modal=MemeTipReport(interaction, self.bot, self.meme_id, self.owner_userid, self.get_meme ))
 
 
 # Defines a simple view of row buttons.
@@ -988,7 +1075,7 @@ class MemePls(commands.Cog):
             embed.set_image(url=self.meme_web_path + get_meme['saved_name'])
             embed.set_footer(text="Random by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
             try:
-                view = MemeTip_Button( ctx, self.bot, 60, get_meme['key'], get_meme['owner_userid'], get_meme )
+                view = MemeTip_Button( ctx, self.bot, 120, get_meme['key'], get_meme['owner_userid'], get_meme )
                 view.message = await ctx.original_message()
                 await ctx.edit_original_message(content=None, embed=embed, view=view)
                 await self.meme_update_view( get_meme['key'], 1 )
@@ -1026,7 +1113,7 @@ class MemePls(commands.Cog):
             embed.set_image(url=self.meme_web_path + get_meme['saved_name'])
             embed.set_footer(text="Random requested by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
             try:
-                view = MemeTip_Button( ctx, self.bot, 60, get_meme['key'], get_meme['owner_userid'], get_meme )
+                view = MemeTip_Button( ctx, self.bot, 120, get_meme['key'], get_meme['owner_userid'], get_meme )
                 view.message = await ctx.original_message()
                 await ctx.edit_original_message(content=None, embed=embed, view=view)
                 await self.meme_update_view( get_meme['key'], 1 )

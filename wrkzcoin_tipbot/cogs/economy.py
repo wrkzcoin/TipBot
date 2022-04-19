@@ -2393,7 +2393,7 @@ class Economy(commands.Cog):
         allowed_eating_session = int(config.economy.max_guild_food*len(ctx.guild.members))
         if count_eating_record and len(count_eating_record) > allowed_eating_session:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, restaurant out of food. There were allowed only **{str(allowed_eating_session)}** orders for the last 12h."
-            await ctx.redit_original_message(content=msg)
+            await ctx.edit_original_message(content=msg)
             return
         # Get all available work in the guild
         get_foodlist = await self.db.economy_get_guild_foodlist(str(ctx.guild.id), True)

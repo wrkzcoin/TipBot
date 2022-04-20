@@ -1018,6 +1018,19 @@ class MemePls(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return None
 
+    async def get_random_approved_meme_guild(self, guild_id):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `meme_uploaded` WHERE `enable`=%s AND `guild_id`=%s ORDER BY RAND() LIMIT 1 """
+                    await cur.execute(sql, ( 1, guild_id ))
+                    result = await cur.fetchone()
+                    if result: return result
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
     async def meme_toggle_status(self, meme_id: str, status: int, reviewed_by: str, reviewed_date: int):
         try:
             await self.openConnection()
@@ -1045,6 +1058,50 @@ class MemePls(commands.Cog):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         return 0
+
+    async def meme_view_here(self, ctx):
+        try:
+            await ctx.response.send_message(f"{ctx.author.mention}, checking random meme...")
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await ctx.response.send_message(f"{ctx.author.mention}, error during checking meme...", ephemeral=True)
+            return
+        if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
+            try:
+                serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                if serverinfo and serverinfo['enable_memepls'] == "NO":
+                    if self.enable_logchan:
+                        await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried /memepls in {ctx.guild.name} / {ctx.guild.id} which is disable.')
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, /memepls in this guild is disable. You can enable by `/setting memepls`."
+                    await ctx.edit_original_message(content=msg)
+                    return
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+
+        guild_id = "DM"
+        channel_id = "DM"
+        if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
+            guild_id = ctx.guild.id
+            channel_id = ctx.channel.id
+
+        get_meme = await self.get_random_approved_meme_guild(guild_id)
+        if get_meme is None:
+            await ctx.edit_original_message(content=f"{ctx.author.mention}, cound not get one random meme here yet. No one uploaded? Try again later!")
+            return
+        else:
+            embed = disnake.Embed(title="MEME uploaded by {}".format(get_meme['owner_name']), description=f"You can tip from your balance.", timestamp=datetime.now())
+            embed.add_field(name="View Count", value=get_meme['number_view']+1, inline=False)
+            embed.add_field(name="Tip Count", value=get_meme['number_tipped'], inline=False)
+            embed.set_author(name=self.bot.user.name, icon_url=self.bot.user.display_avatar)
+            embed.set_image(url=self.meme_web_path + get_meme['saved_name'])
+            embed.set_footer(text="Random by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
+            try:
+                view = MemeTip_Button( ctx, self.bot, 120, get_meme['key'], get_meme['owner_userid'], get_meme )
+                view.message = await ctx.original_message()
+                await ctx.edit_original_message(content=None, embed=embed, view=view)
+                await self.meme_update_view( get_meme['key'], get_meme['owner_userid'], str(ctx.author.id), guild_id, channel_id, 1 )
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
 
     async def meme_view(self, ctx):
         try:
@@ -1325,10 +1382,15 @@ class MemePls(commands.Cog):
             user = ctx.author
         await self.meme_user(ctx, user)
 
-    @commands.slash_command(description="View Meme randomly.")
-    async def memenow(self, ctx):
-        await self.meme_view(ctx)
-
+    @memepls.sub_command(
+        usage="memepls here", 
+        description="View Meme randomly uploaded in the guild."
+    )
+    async def here(
+        self, 
+        ctx
+    ):
+        await self.meme_view_here(ctx)
 
 
     @memepls.sub_command(

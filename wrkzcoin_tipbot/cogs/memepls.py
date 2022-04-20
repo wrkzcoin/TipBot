@@ -305,7 +305,7 @@ class TipOtherCoin(disnake.ui.Modal):
                 msg = f'{interaction.author.mention}, you tipped **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}** to meme `{self.meme_id}`.'
                 await interaction.edit_original_message(content=msg)
                 try:
-                    embed = disnake.Embed(title="A meme got tipped!", description=f"Share your meme and got tipped!", timestamp=datetime.now())
+                    embed = disnake.Embed(title="A meme got tipped!", description=f"Share your meme and get tipped!", timestamp=datetime.now())
                     embed.add_field(name="Tipped with", value="{} {}".format(amount, COIN_NAME), inline=False)
                     embed.add_field(name="Uploader", value="<@{}>".format(self.owner_userid), inline=False)
                     embed.add_field(name="ID", value="`{}`".format(self.get_meme['key']), inline=False)
@@ -446,7 +446,7 @@ class MemeTip_Button(disnake.ui.View):
                     msg = f'{interaction.author.mention}, you tipped **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}** to meme `{self.meme_id}`.'
                     await interaction.edit_original_message(content=msg)
                     try:
-                        embed = disnake.Embed(title="A meme got tipped!", description=f"Share your meme and got tipped!", timestamp=datetime.now())
+                        embed = disnake.Embed(title="A meme got tipped!", description=f"Share your meme and get tipped!", timestamp=datetime.now())
                         embed.add_field(name="Tipped with", value="{} {}".format(amount, COIN_NAME), inline=False)
                         embed.add_field(name="Uploader", value="<@{}>".format(self.owner_userid), inline=False)
                         embed.add_field(name="ID", value="`{}`".format(self.get_meme['key']), inline=False)
@@ -464,7 +464,7 @@ class MemeTip_Button(disnake.ui.View):
                 self.bot.TX_IN_PROCESS.remove(interaction.author.id)
 
 
-    @disnake.ui.button(label="+1 WOW", style=ButtonStyle.green, custom_id="memetip_1_WOW")
+    @disnake.ui.button(label="+0.1 WOW", style=ButtonStyle.green, custom_id="memetip_0_1_WOW")
     async def tip_wow(
         self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
     ):
@@ -478,7 +478,7 @@ class MemeTip_Button(disnake.ui.View):
                 await interaction.response.send_message(content=f"{interaction.author.mention}, failed to execute meme tipping. Try again later!", ephemeral=True)
                 return
             # Check enough balance
-            amount = 1
+            amount = 0.1
             COIN_NAME = "WOW"
             net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
             type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
@@ -570,7 +570,7 @@ class MemeTip_Button(disnake.ui.View):
                     msg = f'{interaction.author.mention}, you tipped **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}** to meme `{self.meme_id}`.'
                     await interaction.edit_original_message(content=msg)
                     try:
-                        embed = disnake.Embed(title="A meme got tipped!", description=f"Share your meme and got tipped!", timestamp=datetime.now())
+                        embed = disnake.Embed(title="A meme got tipped!", description=f"Share your meme and get tipped!", timestamp=datetime.now())
                         embed.add_field(name="Tipped with", value="{} {}".format(amount, COIN_NAME), inline=False)
                         embed.add_field(name="Uploader", value="<@{}>".format(self.owner_userid), inline=False)
                         embed.add_field(name="ID", value="`{}`".format(self.get_meme['key']), inline=False)
@@ -587,7 +587,7 @@ class MemeTip_Button(disnake.ui.View):
             if interaction.author.id in self.bot.TX_IN_PROCESS:
                 self.bot.TX_IN_PROCESS.remove(interaction.author.id)
 
-    @disnake.ui.button(label="+1 DOGE", style=ButtonStyle.green, custom_id="memetip_1_DOGE")
+    @disnake.ui.button(label="+0.1 DOGE", style=ButtonStyle.green, custom_id="memetip_0_1_DOGE")
     async def tip_doge(
         self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
     ):
@@ -601,7 +601,7 @@ class MemeTip_Button(disnake.ui.View):
                 await interaction.response.send_message(content=f"{interaction.author.mention}, failed to execute meme tipping. Try again later!", ephemeral=True)
                 return
             # Check enough balance
-            amount = 1
+            amount = 0.1
             COIN_NAME = "DOGE"
             net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
             type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
@@ -693,7 +693,7 @@ class MemeTip_Button(disnake.ui.View):
                     msg = f'{interaction.author.mention}, you tipped **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}** to meme `{self.meme_id}`.'
                     await interaction.edit_original_message(content=msg)
                     try:
-                        embed = disnake.Embed(title="A meme got tipped!", description=f"Share your meme and got tipped!", timestamp=datetime.now())
+                        embed = disnake.Embed(title="A meme got tipped!", description=f"Share your meme and get tipped!", timestamp=datetime.now())
                         embed.add_field(name="Tipped with", value="{} {}".format(amount, COIN_NAME), inline=False)
                         embed.add_field(name="Uploader", value="<@{}>".format(self.owner_userid), inline=False)
                         embed.add_field(name="ID", value="`{}`".format(self.get_meme['key']), inline=False)
@@ -710,7 +710,7 @@ class MemeTip_Button(disnake.ui.View):
             if interaction.author.id in self.bot.TX_IN_PROCESS:
                 self.bot.TX_IN_PROCESS.remove(interaction.author.id)
 
-    @disnake.ui.button(label="+1M DEGO", style=ButtonStyle.green, custom_id="memetip_1000000_DEGO")
+    @disnake.ui.button(label="+10K DEGO", style=ButtonStyle.green, custom_id="memetip_10000_DEGO")
     async def tip_dego(
         self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
     ):
@@ -724,7 +724,7 @@ class MemeTip_Button(disnake.ui.View):
                 await interaction.response.send_message(content=f"{interaction.author.mention}, failed to execute meme tipping. Try again later!", ephemeral=True)
                 return
             # Check enough balance
-            amount = 1000000
+            amount = 10000
             COIN_NAME = "DEGO"
             net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
             type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
@@ -816,7 +816,7 @@ class MemeTip_Button(disnake.ui.View):
                     msg = f'{interaction.author.mention}, you tipped **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}** to meme `{self.meme_id}`.'
                     await interaction.edit_original_message(content=msg)
                     try:
-                        embed = disnake.Embed(title="A meme got tipped!", description=f"Share your meme and got tipped!", timestamp=datetime.now())
+                        embed = disnake.Embed(title="A meme got tipped!", description=f"Share your meme and get tipped!", timestamp=datetime.now())
                         embed.add_field(name="Tipped with", value="{} {}".format(amount, COIN_NAME), inline=False)
                         embed.add_field(name="Uploader", value="<@{}>".format(self.owner_userid), inline=False)
                         embed.add_field(name="ID", value="`{}`".format(self.get_meme['key']), inline=False)
@@ -833,7 +833,7 @@ class MemeTip_Button(disnake.ui.View):
             if interaction.author.id in self.bot.TX_IN_PROCESS:
                 self.bot.TX_IN_PROCESS.remove(interaction.author.id)
 
-    @disnake.ui.button(label="Tip other coin", style=ButtonStyle.green, custom_id="memetip_other")
+    @disnake.ui.button(label="Tip other coin", style=ButtonStyle.blurple, custom_id="memetip_other")
     async def tip_other_coin(
         self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
     ):
@@ -842,7 +842,7 @@ class MemeTip_Button(disnake.ui.View):
         else:
             await interaction.response.send_modal(modal=TipOtherCoin(interaction, self.bot, self.meme_id, self.owner_userid, self.get_meme ))
 
-    @disnake.ui.button(label="⚠️ Report", style=ButtonStyle.green, custom_id="memetip_report")
+    @disnake.ui.button(label="⚠️ Report", style=ButtonStyle.red, custom_id="memetip_report")
     async def memetip_report(
         self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
     ):
@@ -1031,13 +1031,15 @@ class MemePls(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return 0
 
-    async def meme_update_view(self, meme_id: str, inc: int=1):
+    async def meme_update_view(self, meme_id: str, owner_userid: str, called_by: str, guild_id: str, channel_id: str, inc: int=1):
         try:
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ UPDATE `meme_uploaded` SET `number_view`=number_view+%s WHERE `key`=%s LIMIT 1 """
-                    await cur.execute(sql, ( inc, meme_id  ))
+                    sql = """ UPDATE `meme_uploaded` SET `number_view`=number_view+%s WHERE `key`=%s LIMIT 1;
+                              INSERT INTO meme_viewed (`meme_id`, `owner_userid`, `called_by`, `guild_id`, `channel_id`, `date`) 
+                              VALUES (%s, %s, %s, %s, %s, %s) """
+                    await cur.execute(sql, ( inc, meme_id, meme_id, owner_userid, called_by, guild_id, channel_id, int(time.time()) ))
                     await conn.commit()
                     return cur.rowcount
         except Exception as e:
@@ -1078,7 +1080,12 @@ class MemePls(commands.Cog):
                 view = MemeTip_Button( ctx, self.bot, 120, get_meme['key'], get_meme['owner_userid'], get_meme )
                 view.message = await ctx.original_message()
                 await ctx.edit_original_message(content=None, embed=embed, view=view)
-                await self.meme_update_view( get_meme['key'], 1 )
+                guild_id = "DM"
+                channel_id = "DM"
+                if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
+                    guild_id = ctx.guild.id
+                    channel_id = ctx.channel.id
+                await self.meme_update_view( get_meme['key'], get_meme['owner_userid'], str(ctx.author.id), guild_id, channel_id, 1 )
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
 
@@ -1116,7 +1123,12 @@ class MemePls(commands.Cog):
                 view = MemeTip_Button( ctx, self.bot, 120, get_meme['key'], get_meme['owner_userid'], get_meme )
                 view.message = await ctx.original_message()
                 await ctx.edit_original_message(content=None, embed=embed, view=view)
-                await self.meme_update_view( get_meme['key'], 1 )
+                guild_id = "DM"
+                channel_id = "DM"
+                if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
+                    guild_id = ctx.guild.id
+                    channel_id = ctx.channel.id
+                await self.meme_update_view( get_meme['key'], get_meme['owner_userid'], str(ctx.author.id), guild_id, channel_id, 1 )
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
 

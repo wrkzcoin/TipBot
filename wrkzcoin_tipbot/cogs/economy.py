@@ -1440,8 +1440,12 @@ class Economy(commands.Cog):
 
     async def eco_info(self, ctx, member):
         check_this_ctx = await self.check_guild(ctx)
-        if "error" in check_this_ctx:
-            return check_this_ctx
+        try:
+            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking info..."
+            await ctx.response.send_message(content=msg)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await ctx.response.send_message(content=f"{EMOJI_INFORMATION} {ctx.author.mention}, error checking info...", ephemeral=True)
 
         # Get all available work in the guild
         get_worklist = await self.db.economy_get_guild_worklist(str(ctx.guild.id), True)
@@ -1500,15 +1504,14 @@ class Economy(commands.Cog):
                 embed.add_field(name="Guild's population", value='{}*'.format(len(ctx.guild.members)), inline=True)
                 embed.set_thumbnail(url=member.display_avatar)
                 embed.set_footer(text=f"Requested by {ctx.author.name}#{ctx.author.discriminator}")
-                await ctx.response.send_message(embed=embed)
+                await ctx.edit_original_message(content=None, embed=embed)
             except:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot(traceback.format_exc())
                 error = disnake.Embed(title=":exclamation: Error", description=" :warning: You need to mention the user you want this info for!", color=0xe51e1e)
-                await ctx.response.send_message(embed=error)
+                await ctx.edit_original_message(content=None, embed=error)
         else:
-            await ctx.response.send_message(f'{EMOJI_RED_NO} {ctx.author.mention} Internal error.')
-        return {"result": True} ## True: No need to reply after call this function
+            await ctx.edit_original_message(content=f'{EMOJI_RED_NO} {ctx.author.mention}, internal error.')
 
 
     async def eco_items(self, ctx):
@@ -2068,8 +2071,12 @@ class Economy(commands.Cog):
             await ctx.response.send_message(msg)
             return
 
-        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your farm..."
-        await ctx.response.send_message(msg)
+        try:
+            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your farm..."
+            await ctx.response.send_message(msg)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await ctx.response.send_message(content=f"{EMOJI_INFORMATION} {ctx.author.mention}, error checking farm...", ephemeral=True)
 
         get_userinfo = await self.db.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
         if get_userinfo and get_userinfo['numb_farm'] == 0:
@@ -2668,10 +2675,7 @@ class Economy(commands.Cog):
     ):
         if member is None:
             member = ctx.author
-
         eco_info = await self.eco_info(ctx, member)
-        if eco_info and "error" in eco_info:
-            await ctx.response.send_message(eco_info['error'])
 
 
     @eco.sub_command(

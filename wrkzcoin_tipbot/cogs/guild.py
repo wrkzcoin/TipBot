@@ -332,178 +332,182 @@ class Guild(commands.Cog):
             await logchanbot(traceback.format_exc())
 
 
-    @tasks.loop(seconds=15.0)
+    @tasks.loop(seconds=60.0)
     async def check_raffle_status(self):
         time_lap = 10 # seconds
         to_close_fromopen = 300 # second
-        while not self.bot.is_closed():
+        await self.bot.wait_until_ready()
+        while True:
             await asyncio.sleep(time_lap)
-            # Try DM user if they are winner, and if they are loser
-            get_all_active_raffle = await self.raffle_get_all(SERVER_BOT)
-            if get_all_active_raffle and len(get_all_active_raffle) > 0:
-                for each_raffle in get_all_active_raffle:
-                    # loop each raffle
-                    try:
-                        if each_raffle['status'] == "OPENED":
-                            if each_raffle['ending_ts'] - to_close_fromopen < int(time.time()):
-                                # less than 3 participants, cancel
-                                list_raffle_id = await self.raffle_get_from_by_id(each_raffle['id'], SERVER_BOT, None)
-                                if (list_raffle_id and list_raffle_id['entries'] and len(list_raffle_id['entries']) < 3) or \
-                                (list_raffle_id and list_raffle_id['entries'] is None):
-                                    # Cancel game
-                                    cancelled_status = await self.raffle_cancel_id(each_raffle['id'])
-                                    msg_raffle = "Cancelled raffle #{} in guild {}: **Shortage of users**. User entry fee refund!".format(each_raffle['id'], each_raffle['guild_name'])
-                                    serverinfo = await store.sql_info_by_server(each_raffle['guild_id'])
-                                    if serverinfo['raffle_channel']:
-                                        raffle_chan = self.bot.get_channel(int(serverinfo['raffle_channel']))
-                                        if raffle_chan:
-                                            await raffle_chan.send(msg_raffle)
-                                    await logchanbot(msg_raffle)  
-                                    if each_raffle['id'] in self.raffle_opened_to_ongoing:
-                                        continue
-                                    else:
-                                        self.raffle_opened_to_ongoing.append(each_raffle['id'])
-                                else:
-                                    if each_raffle['id'] in self.raffle_ongoing:
-                                        continue
-                                    else:
-                                        self.raffle_ongoing.append(each_raffle['id'])
-                                    # change status from Open to ongoing
-                                    update_status = await self.raffle_update_id(each_raffle['id'], 'ONGOING', None, None, None, None, None, None, None, None, None, None)
-                                    if update_status:
-                                        msg_raffle = "Changed raffle #{} status to **ONGOING** in guild {}/{}! ".format(each_raffle['id'], each_raffle['guild_name'], each_raffle['guild_id'])
-                                        msg_raffle += "Raffle will start in **{}**".format(seconds_str(to_close_fromopen))
-                                        serverinfo = await store.sql_info_by_server(each_raffle['guild_id'])                                        
+            try:
+                # Try DM user if they are winner, and if they are loser
+                get_all_active_raffle = await self.raffle_get_all(SERVER_BOT)
+                if get_all_active_raffle and len(get_all_active_raffle) > 0:
+                    for each_raffle in get_all_active_raffle:
+                        # loop each raffle
+                        try:
+                            if each_raffle['status'] == "OPENED":
+                                if each_raffle['ending_ts'] - to_close_fromopen < int(time.time()):
+                                    # less than 3 participants, cancel
+                                    list_raffle_id = await self.raffle_get_from_by_id(each_raffle['id'], SERVER_BOT, None)
+                                    if (list_raffle_id and list_raffle_id['entries'] and len(list_raffle_id['entries']) < 3) or \
+                                    (list_raffle_id and list_raffle_id['entries'] is None):
+                                        # Cancel game
+                                        cancelled_status = await self.raffle_cancel_id(each_raffle['id'])
+                                        msg_raffle = "Cancelled raffle #{} in guild {}: **Shortage of users**. User entry fee refund!".format(each_raffle['id'], each_raffle['guild_name'])
+                                        serverinfo = await store.sql_info_by_server(each_raffle['guild_id'])
                                         if serverinfo['raffle_channel']:
                                             raffle_chan = self.bot.get_channel(int(serverinfo['raffle_channel']))
                                             if raffle_chan:
                                                 await raffle_chan.send(msg_raffle)
-                                                try:
-                                                    # Ping users
-                                                    list_ping = []
-                                                    for each_user in list_raffle_id['entries']:
-                                                        list_ping.append("<@{}>".format(each_user['user_id']))
-                                                    await raffle_chan.send(", ".join(list_ping))
-                                                except Exception as e:
-                                                    traceback.print_exc(file=sys.stdout)
-                                                    await logchanbot(traceback.format_exc()) 
-                                        await logchanbot(msg_raffle)
+                                        await logchanbot(msg_raffle)  
                                         if each_raffle['id'] in self.raffle_opened_to_ongoing:
                                             continue
                                         else:
                                             self.raffle_opened_to_ongoing.append(each_raffle['id'])
                                     else:
-                                        await logchanbot(f"Internal error to {msg_raffle}")
-                        elif each_raffle['status'] == "ONGOING":
-                            COIN_NAME = each_raffle['coin_name']
-                            serverinfo = await store.sql_info_by_server(each_raffle['guild_id'])
-                            coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
-                            contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
-                            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
-                            unit_price_usd = 0.0
-                            if usd_equivalent_enable == 1:
-                                native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
-                                COIN_NAME_FOR_PRICE = COIN_NAME
-                                if native_token_name:
-                                    COIN_NAME_FOR_PRICE = native_token_name
-                                if COIN_NAME_FOR_PRICE in self.bot.token_hints:
-                                    id = self.bot.token_hints[COIN_NAME_FOR_PRICE]['ticker_name']
-                                    per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                                    if per_unit > 0: unit_price_usd = per_unit
-                                else:
-                                    per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
-                                    if per_unit > 0: unit_price_usd = per_unit
-                            if each_raffle['ending_ts'] < int(time.time()):
-                                if each_raffle['id'] in self.raffle_to_win:
-                                    continue
-                                else:
-                                    self.raffle_to_win.append(each_raffle['id'])
-                                # Let's random and update
-                                list_raffle_id = await self.raffle_get_from_by_id(each_raffle['id'], SERVER_BOT, None)
-                                # This is redundant with above!
-                                if list_raffle_id and list_raffle_id['entries'] and len(list_raffle_id['entries']) < 3:
-                                    # Cancel game
-                                    cancelled_status = await self.raffle_cancel_id(each_raffle['id'])
-                                    msg_raffle = "Cancelled raffle #{} in guild {}: shortage of users. User entry fee refund!".format(each_raffle['id'], each_raffle['guild_id'])
-                                    if serverinfo['raffle_channel']:
-                                        raffle_chan = self.bot.get_channel(int(serverinfo['raffle_channel']))
-                                        if raffle_chan:
-                                            await raffle_chan.send(msg_raffle)
-                                    await logchanbot(msg_raffle)
-                                if list_raffle_id and list_raffle_id['entries'] and len(list_raffle_id['entries']) >= 3:
-                                    entries_id = []
-                                    user_entries_id = {}
-                                    user_entries_name = {}
-                                    list_winners = []
-                                    won_amounts = []
-                                    total_reward = 0.0
-                                    list_losers = []
-                                    for each_entry in list_raffle_id['entries']:
-                                        entries_id.append(each_entry['entry_id'])
-                                        user_entries_id[each_entry['entry_id']] = each_entry['user_id']
-                                        user_entries_name[each_entry['entry_id']] = each_entry['user_name']
-                                        total_reward += float(each_entry['amount'])
-                                        list_losers.append(each_entry['user_id'])
-                                    winner_1 = random.choice(entries_id)
-                                    winner_1_user = user_entries_id[winner_1]
-                                    winner_1_name = user_entries_name[winner_1]
-                                    entries_id.remove(winner_1)
-                                    list_winners.append(winner_1_user)
-                                    won_amounts.append(float(total_reward) * self.raffle_1st_winner)
-                                    list_losers.remove(user_entries_id[winner_1])
-
-                                    winner_2 = random.choice(entries_id)
-                                    winner_2_user = user_entries_id[winner_2]
-                                    winner_2_name = user_entries_name[winner_2]
-                                    entries_id.remove(winner_2)
-                                    list_winners.append(winner_2_user)
-                                    won_amounts.append(float(total_reward) * self.raffle_2nd_winner)
-                                    list_losers.remove(user_entries_id[winner_2])
-
-                                    winner_3 = random.choice(entries_id)
-                                    winner_3_user = user_entries_id[winner_3]
-                                    winner_3_name = user_entries_name[winner_3]
-                                    entries_id.remove(winner_3)
-                                    list_winners.append(winner_3_user)
-                                    won_amounts.append(float(total_reward) * self.raffle_3rd_winner)
-                                    list_losers.remove(user_entries_id[winner_3])
-                                    won_amounts.append(float(total_reward) * self.raffle_pot_fee)
-                                    # channel_id = RAFFLE
-                                    update_status = await self.raffle_update_id(each_raffle['id'], 'COMPLETED', COIN_NAME, list_winners, won_amounts, list_losers, float(each_raffle['amount']), coin_decimal, unit_price_usd, contract, each_raffle['guild_id'], "RAFFLE")
-                                    embed = disnake.Embed(title = "RAFFLE #{} / {}".format(each_raffle['id'], each_raffle['guild_name']), timestamp=datetime.fromtimestamp(int(time.time())))
-                                    embed.add_field(name="ENTRY FEE", value="{} {}".format(num_format_coin(each_raffle['amount'], COIN_NAME, coin_decimal, False), COIN_NAME), inline=True)
-                                    embed.add_field(name="1st WINNER: {}".format(winner_1_name), value="{} {}".format(num_format_coin(won_amounts[0], COIN_NAME, coin_decimal, False), COIN_NAME), inline=False)
-                                    embed.add_field(name="2nd WINNER: {}".format(winner_2_name), value="{} {}".format(num_format_coin(won_amounts[1], COIN_NAME, coin_decimal, False), COIN_NAME), inline=False)
-                                    embed.add_field(name="3rd WINNER: {}".format(winner_3_name), value="{} {}".format(num_format_coin(won_amounts[2], COIN_NAME, coin_decimal, False), COIN_NAME), inline=False)
-                                    embed.set_footer(text="Raffle for {} by {}".format(each_raffle['guild_name'], each_raffle['created_username']))
-                                    
-                                    msg_raffle = "**Completed raffle #{} in guild {}! Winner entries: #1: {}, #2: {}, #3: {}**\n".format(each_raffle['id'], each_raffle['guild_name'], winner_1_name, winner_2_name, winner_3_name)
-                                    msg_raffle += "```Three winners get reward of #1: {}{}, #2: {}{}, #3: {}{}```".format(num_format_coin(won_amounts[0], COIN_NAME, coin_decimal, False), COIN_NAME, num_format_coin(won_amounts[1], COIN_NAME, coin_decimal, False), COIN_NAME, num_format_coin(won_amounts[2], COIN_NAME, coin_decimal, False), COIN_NAME)
-                                    if serverinfo['raffle_channel']:
-                                        raffle_chan = self.bot.get_channel(int(serverinfo['raffle_channel']))
-                                        if raffle_chan:
-                                            await raffle_chan.send(embed=embed)
-                                    await logchanbot(msg_raffle)
-                                    for each_entry in list_winners:
-                                        try:
-                                            # Find user
-                                            user_found = self.bot.get_user(int(each_entry))
-                                            if user_found:
-                                                try:
-                                                    await user_found.send(embed=embed)
-                                                except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
-                                                    traceback.print_exc(file=sys.stdout)
-                                                    await logchanbot(f"[Discord]/Raffle can not message to {user_found.name}#{user_found.discriminator} about winning raffle.")
+                                        if each_raffle['id'] in self.raffle_ongoing:
+                                            continue
+                                        else:
+                                            self.raffle_ongoing.append(each_raffle['id'])
+                                        # change status from Open to ongoing
+                                        update_status = await self.raffle_update_id(each_raffle['id'], 'ONGOING', None, None, None, None, None, None, None, None, None, None)
+                                        if update_status:
+                                            msg_raffle = "Changed raffle #{} status to **ONGOING** in guild {}/{}! ".format(each_raffle['id'], each_raffle['guild_name'], each_raffle['guild_id'])
+                                            msg_raffle += "Raffle will start in **{}**".format(seconds_str(to_close_fromopen))
+                                            serverinfo = await store.sql_info_by_server(each_raffle['guild_id'])                                        
+                                            if serverinfo['raffle_channel']:
+                                                raffle_chan = self.bot.get_channel(int(serverinfo['raffle_channel']))
+                                                if raffle_chan:
+                                                    await raffle_chan.send(msg_raffle)
+                                                    try:
+                                                        # Ping users
+                                                        list_ping = []
+                                                        for each_user in list_raffle_id['entries']:
+                                                            list_ping.append("<@{}>".format(each_user['user_id']))
+                                                        await raffle_chan.send(", ".join(list_ping))
+                                                    except Exception as e:
+                                                        traceback.print_exc(file=sys.stdout)
+                                                        await logchanbot(traceback.format_exc()) 
+                                            await logchanbot(msg_raffle)
+                                            if each_raffle['id'] in self.raffle_opened_to_ongoing:
+                                                continue
                                             else:
-                                                await logchanbot('[Discord]/Raffle Can not find entry id: {}'.format(each_entry))
-                                        except Exception as e:
-                                            traceback.print_exc(file=sys.stdout)
-                                            await logchanbot(traceback.format_exc())
-                    except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
-                        await logchanbot(traceback.format_exc())
+                                                self.raffle_opened_to_ongoing.append(each_raffle['id'])
+                                        else:
+                                            await logchanbot(f"Internal error to {msg_raffle}")
+                            elif each_raffle['status'] == "ONGOING":
+                                COIN_NAME = each_raffle['coin_name']
+                                serverinfo = await store.sql_info_by_server(each_raffle['guild_id'])
+                                coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+                                contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
+                                usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
+                                unit_price_usd = 0.0
+                                if usd_equivalent_enable == 1:
+                                    native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
+                                    COIN_NAME_FOR_PRICE = COIN_NAME
+                                    if native_token_name:
+                                        COIN_NAME_FOR_PRICE = native_token_name
+                                    if COIN_NAME_FOR_PRICE in self.bot.token_hints:
+                                        id = self.bot.token_hints[COIN_NAME_FOR_PRICE]['ticker_name']
+                                        per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+                                        if per_unit > 0: unit_price_usd = per_unit
+                                    else:
+                                        per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
+                                        if per_unit > 0: unit_price_usd = per_unit
+                                if each_raffle['ending_ts'] < int(time.time()):
+                                    if each_raffle['id'] in self.raffle_to_win:
+                                        continue
+                                    else:
+                                        self.raffle_to_win.append(each_raffle['id'])
+                                    # Let's random and update
+                                    list_raffle_id = await self.raffle_get_from_by_id(each_raffle['id'], SERVER_BOT, None)
+                                    # This is redundant with above!
+                                    if list_raffle_id and list_raffle_id['entries'] and len(list_raffle_id['entries']) < 3:
+                                        # Cancel game
+                                        cancelled_status = await self.raffle_cancel_id(each_raffle['id'])
+                                        msg_raffle = "Cancelled raffle #{} in guild {}: shortage of users. User entry fee refund!".format(each_raffle['id'], each_raffle['guild_id'])
+                                        if serverinfo['raffle_channel']:
+                                            raffle_chan = self.bot.get_channel(int(serverinfo['raffle_channel']))
+                                            if raffle_chan:
+                                                await raffle_chan.send(msg_raffle)
+                                        await logchanbot(msg_raffle)
+                                    if list_raffle_id and list_raffle_id['entries'] and len(list_raffle_id['entries']) >= 3:
+                                        entries_id = []
+                                        user_entries_id = {}
+                                        user_entries_name = {}
+                                        list_winners = []
+                                        won_amounts = []
+                                        total_reward = 0.0
+                                        list_losers = []
+                                        for each_entry in list_raffle_id['entries']:
+                                            entries_id.append(each_entry['entry_id'])
+                                            user_entries_id[each_entry['entry_id']] = each_entry['user_id']
+                                            user_entries_name[each_entry['entry_id']] = each_entry['user_name']
+                                            total_reward += float(each_entry['amount'])
+                                            list_losers.append(each_entry['user_id'])
+                                        winner_1 = random.choice(entries_id)
+                                        winner_1_user = user_entries_id[winner_1]
+                                        winner_1_name = user_entries_name[winner_1]
+                                        entries_id.remove(winner_1)
+                                        list_winners.append(winner_1_user)
+                                        won_amounts.append(float(total_reward) * self.raffle_1st_winner)
+                                        list_losers.remove(user_entries_id[winner_1])
+
+                                        winner_2 = random.choice(entries_id)
+                                        winner_2_user = user_entries_id[winner_2]
+                                        winner_2_name = user_entries_name[winner_2]
+                                        entries_id.remove(winner_2)
+                                        list_winners.append(winner_2_user)
+                                        won_amounts.append(float(total_reward) * self.raffle_2nd_winner)
+                                        list_losers.remove(user_entries_id[winner_2])
+
+                                        winner_3 = random.choice(entries_id)
+                                        winner_3_user = user_entries_id[winner_3]
+                                        winner_3_name = user_entries_name[winner_3]
+                                        entries_id.remove(winner_3)
+                                        list_winners.append(winner_3_user)
+                                        won_amounts.append(float(total_reward) * self.raffle_3rd_winner)
+                                        list_losers.remove(user_entries_id[winner_3])
+                                        won_amounts.append(float(total_reward) * self.raffle_pot_fee)
+                                        # channel_id = RAFFLE
+                                        update_status = await self.raffle_update_id(each_raffle['id'], 'COMPLETED', COIN_NAME, list_winners, won_amounts, list_losers, float(each_raffle['amount']), coin_decimal, unit_price_usd, contract, each_raffle['guild_id'], "RAFFLE")
+                                        embed = disnake.Embed(title = "RAFFLE #{} / {}".format(each_raffle['id'], each_raffle['guild_name']), timestamp=datetime.fromtimestamp(int(time.time())))
+                                        embed.add_field(name="ENTRY FEE", value="{} {}".format(num_format_coin(each_raffle['amount'], COIN_NAME, coin_decimal, False), COIN_NAME), inline=True)
+                                        embed.add_field(name="1st WINNER: {}".format(winner_1_name), value="{} {}".format(num_format_coin(won_amounts[0], COIN_NAME, coin_decimal, False), COIN_NAME), inline=False)
+                                        embed.add_field(name="2nd WINNER: {}".format(winner_2_name), value="{} {}".format(num_format_coin(won_amounts[1], COIN_NAME, coin_decimal, False), COIN_NAME), inline=False)
+                                        embed.add_field(name="3rd WINNER: {}".format(winner_3_name), value="{} {}".format(num_format_coin(won_amounts[2], COIN_NAME, coin_decimal, False), COIN_NAME), inline=False)
+                                        embed.set_footer(text="Raffle for {} by {}".format(each_raffle['guild_name'], each_raffle['created_username']))
+                                        
+                                        msg_raffle = "**Completed raffle #{} in guild {}! Winner entries: #1: {}, #2: {}, #3: {}**\n".format(each_raffle['id'], each_raffle['guild_name'], winner_1_name, winner_2_name, winner_3_name)
+                                        msg_raffle += "```Three winners get reward of #1: {}{}, #2: {}{}, #3: {}{}```".format(num_format_coin(won_amounts[0], COIN_NAME, coin_decimal, False), COIN_NAME, num_format_coin(won_amounts[1], COIN_NAME, coin_decimal, False), COIN_NAME, num_format_coin(won_amounts[2], COIN_NAME, coin_decimal, False), COIN_NAME)
+                                        if serverinfo['raffle_channel']:
+                                            raffle_chan = self.bot.get_channel(int(serverinfo['raffle_channel']))
+                                            if raffle_chan:
+                                                await raffle_chan.send(embed=embed)
+                                        await logchanbot(msg_raffle)
+                                        for each_entry in list_winners:
+                                            try:
+                                                # Find user
+                                                user_found = self.bot.get_user(int(each_entry))
+                                                if user_found:
+                                                    try:
+                                                        await user_found.send(embed=embed)
+                                                    except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
+                                                        traceback.print_exc(file=sys.stdout)
+                                                        await logchanbot(f"[Discord]/Raffle can not message to {user_found.name}#{user_found.discriminator} about winning raffle.")
+                                                else:
+                                                    await logchanbot('[Discord]/Raffle Can not find entry id: {}'.format(each_entry))
+                                            except Exception as e:
+                                                traceback.print_exc(file=sys.stdout)
+                                                await logchanbot(traceback.format_exc())
+                        except Exception as e:
+                            traceback.print_exc(file=sys.stdout)
+                            await logchanbot(traceback.format_exc())
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
             await asyncio.sleep(time_lap)
-            break
+
 
     async def raffle_update_id(self, raffle_id: int, status: str, coin: str=None, list_winner=None, list_amounts=None, list_entries=None, amount_each: float=None, coin_decimal: int=None, unit_price_usd: float=None, contract: str=None, guild_id: str=None, channel_id: str=None):
         # list_winner = 3
@@ -707,65 +711,68 @@ class Guild(commands.Cog):
         return None
 
     # Check if guild has at least 10x amount of reward or disable
-    @tasks.loop(seconds=30.0)
+    @tasks.loop(seconds=60.0)
     async def monitor_guild_reward_amount(self):
+        time_lap = 10 # seconds
         await self.bot.wait_until_ready()
-        await asyncio.sleep(3.0)
-        try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
-                async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `discord_server` WHERE `vote_reward_amount`>0 """
-                    await cur.execute(sql, )
-                    result = await cur.fetchall()
-                    if result and len(result) > 0:
-                        for each_guild in result:
-                            # Check guild's balance
-                            COIN_NAME = each_guild['vote_reward_coin']
-                            net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
-                            type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
-                            deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
-                            coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
-                            contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
-                            token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
-                            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
-                            
-                            Guild_WalletAPI = WalletAPI(self.bot)
-                            get_deposit = await Guild_WalletAPI.sql_get_userwallet(each_guild['serverid'], COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
-                            if get_deposit is None:
-                                get_deposit = await Guild_WalletAPI.sql_register_user(each_guild['serverid'], COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 1)
+        while True:
+            await asyncio.sleep(time_lap)
+            try:
+                await self.openConnection()
+                async with self.pool.acquire() as conn:
+                    async with conn.cursor() as cur:
+                        sql = """ SELECT * FROM `discord_server` WHERE `vote_reward_amount`>0 """
+                        await cur.execute(sql, )
+                        result = await cur.fetchall()
+                        if result and len(result) > 0:
+                            for each_guild in result:
+                                # Check guild's balance
+                                COIN_NAME = each_guild['vote_reward_coin']
+                                net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
+                                type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
+                                deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
+                                coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+                                contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
+                                token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
+                                usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
+                                
+                                Guild_WalletAPI = WalletAPI(self.bot)
+                                get_deposit = await Guild_WalletAPI.sql_get_userwallet(each_guild['serverid'], COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                                if get_deposit is None:
+                                    get_deposit = await Guild_WalletAPI.sql_register_user(each_guild['serverid'], COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 1)
 
-                            wallet_address = get_deposit['balance_wallet_address']
-                            if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
-                                wallet_address = get_deposit['paymentid']
+                                wallet_address = get_deposit['balance_wallet_address']
+                                if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                                    wallet_address = get_deposit['paymentid']
 
-                            height = None
-                            try:
-                                if type_coin in ["ERC-20", "TRC-20"]:
-                                    height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
-                                else:
-                                    height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
-                            except Exception as e:
-                                traceback.print_exc(file=sys.stdout)
+                                height = None
+                                try:
+                                    if type_coin in ["ERC-20", "TRC-20"]:
+                                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
+                                    else:
+                                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
+                                except Exception as e:
+                                    traceback.print_exc(file=sys.stdout)
 
-                            userdata_balance = await self.user_balance(each_guild['serverid'], COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
-                            actual_balance = float(userdata_balance['adjust'])
-                            if actual_balance < 10*float(each_guild['vote_reward_amount']):
-                                amount = 10*float(each_guild['vote_reward_amount'])
-                                # Disable it
-                                # Process, only guild owner can process
-                                update_reward = await self.update_reward(each_guild['serverid'], actual_balance, COIN_NAME, True, None)
-                                if update_reward > 0:
-                                    try:
-                                        guild_found = self.bot.get_guild(int(each_guild['serverid']))
-                                        user_found = self.bot.get_user(guild_found.owner.id)
-                                        if user_found is not None:
-                                            await user_found.send(f"Currently, your guild's balance of {COIN_NAME} is lower than 10x reward: {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}. Vote reward is disable.")
-                                    except Exception as e:
-                                        traceback.print_exc(file=sys.stdout)
-                                    await self.vote_logchan(f'[{SERVER_BOT}] Disable vote reward for {guild_found.name} / {guild_found.id}. Guild\'s balance below 10x: {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}.')
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+                                userdata_balance = await self.user_balance(each_guild['serverid'], COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+                                actual_balance = float(userdata_balance['adjust'])
+                                if actual_balance < 10*float(each_guild['vote_reward_amount']):
+                                    amount = 10*float(each_guild['vote_reward_amount'])
+                                    # Disable it
+                                    # Process, only guild owner can process
+                                    update_reward = await self.update_reward(each_guild['serverid'], actual_balance, COIN_NAME, True, None)
+                                    if update_reward > 0:
+                                        try:
+                                            guild_found = self.bot.get_guild(int(each_guild['serverid']))
+                                            user_found = self.bot.get_user(guild_found.owner.id)
+                                            if user_found is not None:
+                                                await user_found.send(f"Currently, your guild's balance of {COIN_NAME} is lower than 10x reward: {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}. Vote reward is disable.")
+                                        except Exception as e:
+                                            traceback.print_exc(file=sys.stdout)
+                                        await self.vote_logchan(f'[{SERVER_BOT}] Disable vote reward for {guild_found.name} / {guild_found.id}. Guild\'s balance below 10x: {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}.')
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            await asyncio.sleep(time_lap)
 
 
 

@@ -53,7 +53,10 @@ class Pools(commands.Cog):
 
     @tasks.loop(seconds=60.0)
     async def get_miningpool_coinlist(self):
-        try:
+        time_lap = 5 # seconds
+        await self.bot.wait_until_ready()
+        while True:
+            await asyncio.sleep(time_lap)
             try:
                 async with aiohttp.ClientSession() as cs:
                     async with cs.get(config.miningpoolstat.coinlist_link+"??timestamp="+str(int(time.time())), timeout=config.miningpoolstat.timeout) as r:
@@ -78,10 +81,7 @@ class Pools(commands.Cog):
             except Exception:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot(traceback.format_exc())
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
-
+            await asyncio.sleep(time_lap)
 
     async def get_miningpoolstat_coin(
         self, 

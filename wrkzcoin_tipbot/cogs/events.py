@@ -3,6 +3,7 @@ import time
 import traceback
 import datetime
 from cachetools import TTLCache
+import asyncio
 
 import disnake
 from disnake.ext import commands, tasks
@@ -189,31 +190,45 @@ class Events(commands.Cog):
 
     @tasks.loop(seconds=20.0)
     async def process_saving_message(self):
+        time_lap = 10 # seconds
         await self.bot.wait_until_ready()
-        if len(self.bot.message_list) > 0:
-            # saving_message
+        while True:
+            await asyncio.sleep(time_lap)
+            if len(self.bot.message_list) > 0:
+                # saving_message
+                try:
+                    saving = await self.insert_discord_message(list(set(self.bot.message_list)))
+                    if saving > 0:
+                        self.bot.message_list = []
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+            await asyncio.sleep(time_lap)
+
+
+    @tasks.loop(seconds=60.0)
+    async def reload_coin_paprika(self):
+        time_lap = 60 # seconds
+        await self.bot.wait_until_ready()
+        while True:
+            await asyncio.sleep(time_lap)
             try:
-                saving = await self.insert_discord_message(list(set(self.bot.message_list)))
-                if saving > 0:
-                    self.bot.message_list = []
+                await self.get_coin_paprika_list()
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
+            await asyncio.sleep(time_lap)
 
 
-    @tasks.loop(seconds=120.0)
-    async def reload_coin_paprika(self):
-        try:
-            await self.get_coin_paprika_list()
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-
-
-    @tasks.loop(seconds=120.0)
+    @tasks.loop(seconds=60.0)
     async def reload_coingecko(self):
-        try:
-            await self.get_coingecko_list()
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+        time_lap = 60 # seconds
+        await self.bot.wait_until_ready()
+        while True:
+            await asyncio.sleep(time_lap)
+            try:
+                await self.get_coingecko_list()
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            await asyncio.sleep(time_lap)
 
 
     async def get_coin_setting(self):

@@ -21,46 +21,49 @@ class DiscordListVote(commands.Cog):
 
     @tasks.loop(seconds=60.0)
     async def fetch_bot_vote(self):
-        await asyncio.sleep(5.0)
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(config.discordlist.fetch_vote_api, headers={'Content-Type': 'application/json', 'Authorization': config.discordlist.token}, timeout=5.0) as response:
-                    if response.status == 200:
-                        res_data = await response.read()
-                        res_data = res_data.decode('utf-8')
-                        await session.close()
-                        vote_list = json.loads(res_data)['data']
-                        get_last_votes = await self.select_last_bot_votes(str(config.discordlist.bot_id))
-                        vote_data = []
-                        new_votes = []
-                        type_vote = "upvote"
-                        if len(vote_list) > 0:
-                            for each in vote_list:
-                                if int(each['user']) not in get_last_votes:
-                                    try:
-                                        date_voted = int(each['timestamp'] / 1000)
-                                        # longer than a day, skip
-                                        if int(time.time()) - date_voted > 24*3600:
-                                            continue
-                                        vote_data.append((each['user'], None, "discordlistspace", str(config.discordlist.bot_id), type_vote, date_voted ))
-                                        new_votes.append(int(each['user']))
-                                    except Exception as e:
-                                        traceback.print_exc(file=sys.stdout)
-                        if len(vote_data) > 0:
-                            print("discordlistspace: has {} votes to insert.".format(len(vote_data)))
-                            insert_votes = await self.insert_bot_vote_many(vote_data)
-                            if insert_votes > 0:
-                                for each_user in new_votes:
-                                    try:
-                                        await self.vote_logchan(f'[{SERVER_BOT}] A user <@{str(each_user)}> voted a bot <@{str(config.discordlist.bot_id)}> type `{type_vote}` in discordlist.space.')
-                                    except Exception as e:
-                                        traceback.print_exc(file=sys.stdout)
-                                    await asyncio.sleep(2.0)
-                    else:
-                        await self.vote_logchan(f"discordlistspace: failed to fetch votes.")
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-        await asyncio.sleep(5.0)
+        time_lap = 60 # seconds
+        await self.bot.wait_until_ready()
+        while True:
+            await asyncio.sleep(time_lap)
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(config.discordlist.fetch_vote_api, headers={'Content-Type': 'application/json', 'Authorization': config.discordlist.token}, timeout=5.0) as response:
+                        if response.status == 200:
+                            res_data = await response.read()
+                            res_data = res_data.decode('utf-8')
+                            await session.close()
+                            vote_list = json.loads(res_data)['data']
+                            get_last_votes = await self.select_last_bot_votes(str(config.discordlist.bot_id))
+                            vote_data = []
+                            new_votes = []
+                            type_vote = "upvote"
+                            if len(vote_list) > 0:
+                                for each in vote_list:
+                                    if int(each['user']) not in get_last_votes:
+                                        try:
+                                            date_voted = int(each['timestamp'] / 1000)
+                                            # longer than a day, skip
+                                            if int(time.time()) - date_voted > 24*3600:
+                                                continue
+                                            vote_data.append((each['user'], None, "discordlistspace", str(config.discordlist.bot_id), type_vote, date_voted ))
+                                            new_votes.append(int(each['user']))
+                                        except Exception as e:
+                                            traceback.print_exc(file=sys.stdout)
+                            if len(vote_data) > 0:
+                                print("discordlistspace: has {} votes to insert.".format(len(vote_data)))
+                                insert_votes = await self.insert_bot_vote_many(vote_data)
+                                if insert_votes > 0:
+                                    for each_user in new_votes:
+                                        try:
+                                            await self.vote_logchan(f'[{SERVER_BOT}] A user <@{str(each_user)}> voted a bot <@{str(config.discordlist.bot_id)}> type `{type_vote}` in discordlist.space.')
+                                        except Exception as e:
+                                            traceback.print_exc(file=sys.stdout)
+                                        await asyncio.sleep(2.0)
+                        else:
+                            await self.vote_logchan(f"discordlistspace: failed to fetch votes.")
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            await asyncio.sleep(time_lap)
 
 
     async def guild_find_by_key(self, guild_id: str):

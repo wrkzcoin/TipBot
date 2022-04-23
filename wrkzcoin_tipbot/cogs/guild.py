@@ -303,6 +303,34 @@ class Guild(commands.Cog):
                             incoming_tx = result['incoming_tx']
                         else:
                             incoming_tx = 0
+                    elif coin_family == "ADA":
+                        sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense 
+                                  FROM `ada_external_tx` 
+                                  WHERE `user_id`=%s AND `coin_name` = %s AND `user_server` = %s AND `crediting`=%s """
+                        await cur.execute(sql, ( userID, TOKEN_NAME, user_server, "YES" ))
+                        result = await cur.fetchone()
+                        if result:
+                            tx_expense = result['tx_expense']
+                        else:
+                            tx_expense = 0
+
+                        if top_block is None:
+                            sql = """ SELECT SUM(amount) AS incoming_tx 
+                                      FROM `ada_get_transfers` WHERE `output_address`=%s AND `direction`=%s AND `coin_name`=%s 
+                                      AND `amount`>0 AND `time_insert`< %s """
+                            await cur.execute(sql, ( address, "incoming", TOKEN_NAME, nos_block ))
+                        else:
+                            sql = """ SELECT SUM(amount) AS incoming_tx 
+                                      FROM `ada_get_transfers` 
+                                      WHERE `output_address`=%s AND `direction`=%s AND `coin_name`=%s 
+                                      AND `amount`>0 AND `inserted_at_height`<%s """
+                            await cur.execute(sql, ( address, "incoming", TOKEN_NAME, nos_block ))
+                        result = await cur.fetchone()
+                        if result and result['incoming_tx']:
+                            incoming_tx = result['incoming_tx']
+                        else:
+                            incoming_tx = 0
+
                 balance = {}
                 balance['adjust'] = 0
 

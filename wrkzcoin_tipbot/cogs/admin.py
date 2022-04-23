@@ -7,6 +7,10 @@ from disnake.ext import commands
 import time
 from attrdict import AttrDict
 from io import BytesIO
+import random
+
+import aiohttp, asyncio
+from mnemonic import Mnemonic
 
 import aiomysql
 from aiomysql.cursors import DictCursor
@@ -276,6 +280,34 @@ class Admin(commands.Cog):
                             incoming_tx = result['incoming_tx']
                         else:
                             incoming_tx = 0
+                    elif coin_family == "ADA":
+                        sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense 
+                                  FROM `ada_external_tx` 
+                                  WHERE `user_id`=%s AND `coin_name` = %s AND `user_server` = %s AND `crediting`=%s """
+                        await cur.execute(sql, ( userID, TOKEN_NAME, user_server, "YES" ))
+                        result = await cur.fetchone()
+                        if result:
+                            tx_expense = result['tx_expense']
+                        else:
+                            tx_expense = 0
+
+                        if top_block is None:
+                            sql = """ SELECT SUM(amount) AS incoming_tx 
+                                      FROM `ada_get_transfers` WHERE `output_address`=%s AND `direction`=%s AND `coin_name`=%s 
+                                      AND `amount`>0 AND `time_insert`< %s """
+                            await cur.execute(sql, ( address, "incoming", TOKEN_NAME, nos_block ))
+                        else:
+                            sql = """ SELECT SUM(amount) AS incoming_tx 
+                                      FROM `ada_get_transfers` 
+                                      WHERE `output_address`=%s AND `direction`=%s AND `coin_name`=%s 
+                                      AND `amount`>0 AND `inserted_at_height`<%s """
+                            await cur.execute(sql, ( address, "incoming", TOKEN_NAME, nos_block ))
+                        result = await cur.fetchone()
+                        if result and result['incoming_tx']:
+                            incoming_tx = result['incoming_tx']
+                        else:
+                            incoming_tx = 0
+
                 balance = {}
                 balance['adjust'] = 0
 
@@ -375,6 +407,11 @@ class Admin(commands.Cog):
                         await cur.execute(sql, (COIN_NAME))
                         result = await cur.fetchall()
                         if result: return result
+                    elif type_coin.upper() == "ADA":
+                        sql = """ SELECT * FROM `ada_user` """
+                        await cur.execute(sql,)
+                        result = await cur.fetchall()
+                        if result: return result
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
@@ -440,6 +477,278 @@ class Admin(commands.Cog):
         return
 
     @commands.is_owner()
+    @admin.command(hidden=True, usage='ada <action> [param]', description='ADA\'s action')
+    async def ada(self, ctx, action: str, param: str=None):
+        action = action.upper()
+        if action == "CREATE":
+            async def call_ada_wallet(url: str, wallet_name: str, seeds: str, number: int, timeout=60):
+                try:
+                    headers = {
+                        'Content-Type': 'application/json'
+                    }
+                    data_json = { "mnemonic_sentence": seeds, "passphrase": config.ada.default_passphrase, "name": wallet_name, "address_pool_gap": number }
+                    async with aiohttp.ClientSession() as session:
+                        async with session.post(url, headers=headers, json=data_json, timeout=timeout) as response:
+                            if response.status == 200 or response.status == 201:
+                                res_data = await response.read()
+                                res_data = res_data.decode('utf-8')
+                                decoded_data = json.loads(res_data)
+                                return decoded_data
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                return None
+            
+            if param is None:
+                msg = f'{ctx.author.mention}, this action requires <param> (number)!'
+                await ctx.reply(msg)
+                return
+            else:
+                try:
+                    wallet_name=param.split(".")[0]
+                    number=int(param.split(".")[1])
+                    # Check if wallet_name exist
+                    try:
+                        await store.openConnection()
+                        async with store.pool.acquire() as conn:
+                            async with conn.cursor() as cur:
+                                sql = """ SELECT * FROM `ada_wallets` WHERE `wallet_name`=%s LIMIT 1 """               
+                                await cur.execute(sql, ( wallet_name ))
+                                result = await cur.fetchone()
+                                if result:
+                                    msg = f'{ctx.author.mention}, wallet `{wallet_name}` already exist!'
+                                    await ctx.reply(msg)
+                                    return
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                        return
+
+                    # param "wallet_name.number"
+                    mnemo = Mnemonic("english")
+                    words = str(mnemo.generate(strength=256))
+                    seeds = words.split()
+                    create = await call_ada_wallet(config.ada.default_wallet_url + "v2/wallets", wallet_name, seeds, number, 300)
+                    if create:
+                        try:
+                            await store.openConnection()
+                            async with store.pool.acquire() as conn:
+                                async with conn.cursor() as cur:
+                                    wallet_d = create['id']
+                                    sql = """ INSERT INTO `ada_wallets` (`wallet_rpc`, `passphrase`, `wallet_name`, `wallet_id`, `seed`) VALUES (%s, %s, %s, %s, %s) """               
+                                    await cur.execute(sql, ( config.ada.default_wallet_url, encrypt_string(config.ada.default_passphrase), wallet_name, wallet_d, encrypt_string(words) ))
+                                    await conn.commit()
+                                    msg = f'{ctx.author.mention}, wallet `{wallet_name}` created with number `{number}` and wallet ID: `{wallet_d}`.'
+                                    await ctx.reply(msg)
+                        except Exception as e:
+                            traceback.print_exc(file=sys.stdout)
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                    msg = f'{ctx.author.mention}, invalid <param> (wallet_name.number)!'
+                    await ctx.reply(msg)
+                    return
+        elif action == "MOVE" or action == "MV": # no param, move from all deposit balance to withdraw
+            async def fetch_wallet_status(url, timeout):
+                try:
+                    headers = {
+                        'Content-Type': 'application/json'
+                    }
+                    async with aiohttp.ClientSession() as session:
+                        async with session.get(url, headers=headers, timeout=timeout) as response:
+                            if response.status == 200:
+                                res_data = await response.read()
+                                res_data = res_data.decode('utf-8')
+                                decoded_data = json.loads(res_data)
+                                return decoded_data
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                return None
+
+            async def estimate_fee_with_asset(url: str, to_address: str, assets, amount_atomic: int, timeout: int=90):
+                # assets: list of asset
+                try:
+                    headers = {
+                        'Content-Type': 'application/json'
+                    }
+                    data_json = {"payments": [{"address": to_address, "amount": {"quantity": 0, "unit": "lovelace"}, "assets": assets}], "withdrawal": "self"}
+                    async with aiohttp.ClientSession() as session:
+                        async with session.post(url, headers=headers, json=data_json, timeout=timeout) as response:
+                            if response.status == 202:
+                                res_data = await response.read()
+                                res_data = res_data.decode('utf-8')
+                                decoded_data = json.loads(res_data)
+                                return decoded_data
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                return None
+
+            async def send_tx(url: str, to_address: str, ada_atomic_amount: int, assets, passphrase: str, timeout: int=90):
+                try:
+                    headers = {
+                        'Content-Type': 'application/json'
+                    }
+                    data_json = {"passphrase": decrypt_string(passphrase), "payments": [{"address": to_address, "amount": {"quantity": ada_atomic_amount, "unit": "lovelace"}, "assets": assets}], "withdrawal": "self"}
+                    async with aiohttp.ClientSession() as session:
+                        async with session.post(url, headers=headers, json=data_json, timeout=timeout) as response:
+                            res_data = await response.read()
+                            res_data = res_data.decode('utf-8')
+                            decoded_data = json.loads(res_data)
+                            return decoded_data
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                return None
+            try:
+                await store.openConnection()
+                async with store.pool.acquire() as conn:
+                    async with conn.cursor() as cur:
+                        sql = """ SELECT * FROM `ada_wallets` """               
+                        await cur.execute(sql,)
+                        result = await cur.fetchall()
+                        if result and len(result) > 0:
+                            withdraw_address = None
+                            has_deposit = False
+                            for each_w in result:
+                                if each_w['wallet_name'] == "withdraw_ada" and each_w['is_for_withdraw'] == 1:
+                                    addresses = each_w['addresses'].split("\n")
+                                    random.shuffle(addresses)
+                                    withdraw_address = addresses[0]
+                            for each_w in result:
+                                if each_w['is_for_withdraw'] != 1 and each_w['used_address'] > 0 and withdraw_address is not None:
+                                    # fetch wallet_id only those being used.
+                                    try:
+                                        fetch_wallet = await fetch_wallet_status(each_w['wallet_rpc'] + "v2/wallets/" + each_w['wallet_id'], 60)
+                                        if fetch_wallet and fetch_wallet['state']['status'] == "ready":
+                                            # we will move only those synced
+                                            # minimum ADA: 20
+                                            min_balance = 20*10**6
+                                            reserved_balance = 1*10**6
+                                            amount = fetch_wallet['balance']['available']['quantity']
+                                            if amount < min_balance:
+                                                continue
+                                            else:
+                                                assets = []
+                                                if 'available' in fetch_wallet['assets'] and len(fetch_wallet['assets']['available']) > 0:
+                                                    for each_asset in fetch_wallet['assets']['available']:
+                                                        # Check if they are in TipBot
+                                                        for each_coin in self.bot.coin_name_list:
+                                                            if getattr(getattr(self.bot.coin_list, each_coin), "type") == "ADA" and getattr(getattr(self.bot.coin_list, each_coin), "header") == each_asset['asset_name']:
+                                                                # We have it
+                                                                policy_id = getattr(getattr(self.bot.coin_list, each_coin), "contract")
+                                                                assets.append({"policy_id": policy_id, "asset_name": each_asset['asset_name'], "quantity": each_asset['quantity']})
+                                                # async def estimate_fee_with_asset(url: str, to_address: str, assets, amount_atomic: int, timeout: int=90):
+                                                estimate_tx = await estimate_fee_with_asset(each_w['wallet_rpc']+ "v2/wallets/" + each_w['wallet_id'] + "/payment-fees", withdraw_address, assets, amount, 10)
+                                                if estimate_tx and "minimum_coins" in estimate_tx and "estimated_min" in estimate_tx:
+                                                    sending_tx = await send_tx(each_w['wallet_rpc'] + "v2/wallets/" + each_w['wallet_id'] + "/transactions", withdraw_address, amount-estimate_tx['estimated_min']['quantity']-reserved_balance, assets, each_w['passphrase'], 30)
+                                                    if "code" in sending_tx and "message" in sending_tx:
+                                                        # send error
+                                                        wallet_id = each_w['wallet_id']
+                                                        msg = f'{ctx.author.mention}, error with `{wallet_id}`\n````{str(sending_tx)}``'
+                                                        await ctx.reply(msg)
+                                                        print(msg)
+                                                    elif "status" in sending_tx and sending_tx['status'] == "pending":
+                                                        has_deposit = True
+                                                        # success
+                                                        wallet_id = each_w['wallet_id']
+                                                        tx_hash = sending_tx['id']
+                                                        msg = f'{ctx.author.mention}, successfully transfer `{wallet_id}` to `{withdraw_address}` via `{tx_hash}`.'
+                                                        await ctx.reply(msg)
+                                    except Exception as e:
+                                        traceback.print_exc(file=sys.stdout)
+                            if has_deposit == False:
+                                msg = f'{ctx.author.mention}, there is no any wallet with balance sufficient to transfer.!'
+                                await ctx.reply(msg)
+                                return
+                        else:
+                            msg = f'{ctx.author.mention}, doesnot have any wallet in DB!'
+                            await ctx.reply(msg)
+                            return
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+        elif action == "DELETE" or action == "DEL": # param is name only
+            if param is None:
+                msg = f'{ctx.author.mention}, required param `wallet_name`!'
+                await ctx.reply(msg)
+                return
+            async def call_ada_delete_wallet(url_wallet_id: str, timeout=60):
+                try:
+                    headers = {
+                        'Content-Type': 'application/json'
+                    }
+                    async with aiohttp.ClientSession() as session:
+                        async with session.delete(url_wallet_id, headers=headers, timeout=timeout) as response:
+                            if response.status == 204:
+                                return True
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                return None
+            wallet_name=param.strip()
+            wallet_id=None
+            # Check if wallet_name exist
+            try:
+                await store.openConnection()
+                async with store.pool.acquire() as conn:
+                    async with conn.cursor() as cur:
+                        sql = """ SELECT * FROM `ada_wallets` WHERE `wallet_name`=%s LIMIT 1 """               
+                        await cur.execute(sql, ( wallet_name ))
+                        result = await cur.fetchone()
+                        if result:
+                            wallet_id = result['wallet_id']
+                            delete = await call_ada_delete_wallet(config.ada.default_wallet_url + "v2/wallets/" + wallet_id, 300)
+                            if delete == True:
+                                try:
+                                    await store.openConnection()
+                                    async with store.pool.acquire() as conn:
+                                        async with conn.cursor() as cur:
+                                            sql = """ INSERT INTO `ada_wallets_archive` 
+                                                      SELECT * FROM `ada_wallets` 
+                                                      WHERE `wallet_id`=%s;
+                                                      DELETE FROM `ada_wallets` WHERE `wallet_id`=%s LIMIT 1 """               
+                                            await cur.execute(sql, ( wallet_id, wallet_id ))
+                                            await conn.commit()
+                                            msg = f'{ctx.author.mention}, sucessfully delete wallet `{wallet_name}` | `{wallet_id}`.'
+                                            await ctx.reply(msg)
+                                            return
+                                except Exception as e:
+                                    traceback.print_exc(file=sys.stdout)
+                            else:
+                                msg = f'{ctx.author.mention}, failed to delete `{wallet_name}` | `{wallet_id}` from wallet server!'
+                                await ctx.reply(msg)
+                                return
+                        else:
+                            msg = f'{ctx.author.mention}, wallet `{wallet_name}` not exist in database!'
+                            await ctx.reply(msg)
+                            return
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+                return
+        elif action == "LIST": # no params
+            # List all in DB
+            try:
+                await store.openConnection()
+                async with store.pool.acquire() as conn:
+                    async with conn.cursor() as cur:
+                        sql = """ SELECT * FROM `ada_wallets` """               
+                        await cur.execute(sql,)
+                        result = await cur.fetchall()
+                        if result and len(result) > 0:
+                            list_wallets = []
+                            for each_w in result:
+                                list_wallets.append("Name: {}, ID: {}".format(each_w['wallet_name'], each_w['wallet_id']))
+                            list_wallets_j = "\n".join(list_wallets)
+                            data_file = disnake.File(BytesIO(list_wallets_j.encode()), filename=f"list_ada_wallets_{str(int(time.time()))}.csv")
+                            await ctx.author.send(file=data_file)
+                            return
+                        else:
+                            msg = f'{ctx.author.mention}, nothing in DB!'
+                            await ctx.reply(msg)
+                            return
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+                return
+        else:
+            msg = f'{ctx.author.mention}, action not exist!'
+            await ctx.reply(msg)
+
+
+    @commands.is_owner()
     @admin.command(hidden=True, usage='admin guildlist', description='Dump guild list, name, number of users.')
     async def guildlist(self, ctx):
         try:
@@ -461,23 +770,14 @@ class Admin(commands.Cog):
             if _msg is not None:
                 if _msg.author != self.bot.user:
                     msg = f'{ctx.author.mention}, that message `{msg_id}` was not belong to me.'
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.reply(msg)
                 else:
                     await _msg.edit(view=None)
                     msg = f'{ctx.author.mention}, removed all view from `{msg_id}`.'
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    await ctx.reply(msg)
             else:
                 msg = f'{ctx.author.mention}, I can not find message `{msg_id}`.'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
+                await ctx.reply(msg)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
@@ -490,17 +790,11 @@ class Admin(commands.Cog):
             if guild is not None:
                 await logchanbot(f"[LEAVING] {ctx.author.name}#{ctx.author.discriminator} / {str(ctx.author.id)} commanding to leave guild `{guild.name} / {guild_id}`.")
                 msg = f'{ctx.author.mention}, OK leaving guild `{guild.name} / {guild_id}`.'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
+                await ctx.reply(msg)
                 await guild.leave()
             else:
                 msg = f'{ctx.author.mention}, I can not find guild id `{guild_id}`.'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
+                await ctx.reply(msg)
             return
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
@@ -511,10 +805,7 @@ class Admin(commands.Cog):
         COIN_NAME = coin.upper()
         if not hasattr(self.bot.coin_list, COIN_NAME):
             msg = f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.'
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.reply(msg)
             return
         else:
             try:
@@ -537,11 +828,8 @@ class Admin(commands.Cog):
                 list_users = [m.id for m in self.bot.get_all_members()]
                 list_guilds = [g.id for g in self.bot.guilds]
                 if len(all_user_id) > 0:
-                    msg = f'{EMOJI_INFORMATION} **{COIN_NAME}** there are total {str(len(all_user_id))} user records. Wait a big while...'
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
+                    msg = f'{ctx.author.mention}, {EMOJI_INFORMATION} **{COIN_NAME}** there are total {str(len(all_user_id))} user records. Wait a big while...'
+                    await ctx.reply(msg)
                     sum_balance = 0.0
                     sum_user = 0
                     sum_unfound_balance = 0.0
@@ -571,24 +859,39 @@ class Admin(commands.Cog):
                             pass
 
                     duration = int(time.time()) - time_start
-                    msg_checkcoin = f"COIN **{COIN_NAME}**\n"
+                    msg_checkcoin = f"{ctx.author.mention}, COIN **{COIN_NAME}**\n"
                     msg_checkcoin += "```"
+                    wallet_stat_str = ""
+                    if type_coin == "ADA":
+                        try:
+                            await store.openConnection()
+                            async with store.pool.acquire() as conn:
+                                async with conn.cursor() as cur:
+                                    sql = """ SELECT * FROM `ada_wallets` """               
+                                    await cur.execute(sql,)
+                                    result = await cur.fetchall()
+                                    if result and len(result) > 0:
+                                        wallet_stat = []
+                                        for each_w in result:
+                                            wallet_stat.append("name: {}, syncing: {}, height: {}, addr. used {:,.2f}{}".format(each_w['wallet_name'], each_w['syncing'], each_w['height'], each_w['used_address']/each_w['address_pool_gap']*100, "%"))
+                                        wallet_stat_str = "\n".join(wallet_stat)
+                        except Exception as e:
+                            traceback.print_exc(file=sys.stdout)
+                    msg_checkcoin +=  wallet_stat_str + "\n"     
                     msg_checkcoin += "Total record id in DB: " + str(sum_user) + "\n"
                     msg_checkcoin += "Total balance: " + num_format_coin(sum_balance, COIN_NAME, coin_decimal, False) + " " + COIN_NAME + "\n"
                     msg_checkcoin += "Total user/guild not found (discord): " + str(sum_unfound_user) + "\n"
                     msg_checkcoin += "Total balance not found (discord): " + num_format_coin(sum_unfound_balance, COIN_NAME, coin_decimal, False) + " " + COIN_NAME + "\n"
                     msg_checkcoin += "Time token: {}s".format(duration)
                     msg_checkcoin += "```"
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.followup.send(msg_checkcoin)
+                    if len(msg_checkcoin) > 1000:
+                        data_file = disnake.File(BytesIO(msg_checkcoin.encode()), filename=f"auditcoin_{COIN_NAME}_{str(int(time.time()))}.txt")
+                        await ctx.reply(file=data_file)
                     else:
                         await ctx.reply(msg_checkcoin)
                 else:
-                    msg = f'{COIN_NAME}: There is no users for this.'
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.followup.send(msg)
-                    else:
-                        await ctx.reply(msg)
+                    msg = f'{ctx.author.mention}, {COIN_NAME}: there is no users for this.'
+                    await ctx.reply(msg)
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
         
@@ -670,10 +973,7 @@ class Admin(commands.Cog):
             all_pages.append(page)
             num_coins = 0
             per_page = 8
-            if type(ctx) != disnake.ApplicationCommandInteraction:
-                tmp_msg = await ctx.reply(f"{ctx.author.mention} balance loading...")
-            else:
-                tmp_msg = await ctx.response.send_message(f"{ctx.author.mention} balance loading...", delete_after=60.0) # delete_after=3600.0
+            tmp_msg = await ctx.reply(f"{ctx.author.mention} balance loading...")
             for each_token in mytokens:
                 COIN_NAME = each_token['coin_name']
                 type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
@@ -776,10 +1076,7 @@ class Admin(commands.Cog):
             # Remove zero from all_names
             if has_none_balance == True:
                 msg = f'{member_id} does not have any balance.'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
+                await ctx.reply(msg)
                 return
             else:
                 all_names = [each for each in all_names if each not in zero_tokens]
@@ -794,11 +1091,8 @@ class Admin(commands.Cog):
                 all_pages[0] = page
 
                 view = MenuPage(ctx, all_pages, timeout=30)
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    view.message = await ctx.followup.send(embed=all_pages[0], view=view, ephemeral=True)
-                else:
-                    await tmp_msg.delete()
-                    view.message = await ctx.reply(content=None, embed=all_pages[0], view=view)
+                await tmp_msg.delete()
+                view.message = await ctx.reply(content=None, embed=all_pages[0], view=view)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
@@ -834,10 +1128,7 @@ class Admin(commands.Cog):
         command = "withdraw"
         if not hasattr(self.bot.coin_list, COIN_NAME):
             msg = f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.'
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.reply(msg)
             return
         else:
             enable_withdraw = getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_withdraw")
@@ -849,16 +1140,10 @@ class Admin(commands.Cog):
             toggle = await self.enable_disable_coin(COIN_NAME, command, new_value)
             if toggle > 0:
                 msg = f"{ctx.author.mention}, **{COIN_NAME}** `{command}` is `{new_text}` now."
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
+                await ctx.reply(msg)
             else:
                 msg = f"{ctx.author.mention}, **{COIN_NAME}** `{command}` is `{new_text}` failed to update."
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
+                await ctx.reply(msg)
             coin_list = await self.get_coin_setting()
             if coin_list:
                 self.bot.coin_list = coin_list
@@ -873,10 +1158,7 @@ class Admin(commands.Cog):
         command = "tip"
         if not hasattr(self.bot.coin_list, COIN_NAME):
             msg = f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.'
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.reply(msg)
             return
         else:
             enable_tip = getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_tip")
@@ -888,16 +1170,10 @@ class Admin(commands.Cog):
             toggle = await self.enable_disable_coin(COIN_NAME, command, new_value)
             if toggle > 0:
                 msg = f"{ctx.author.mention}, **{COIN_NAME}** `{command}` is `{new_text}` now."
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
+                await ctx.reply(msg)
             else:
                 msg = f"{ctx.author.mention}, **{COIN_NAME}** `{command}` is `{new_text}` failed to update."
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
+                await ctx.reply(msg)
             coin_list = await self.get_coin_setting()
             if coin_list:
                 self.bot.coin_list = coin_list
@@ -912,10 +1188,7 @@ class Admin(commands.Cog):
         command = "deposit"
         if not hasattr(self.bot.coin_list, COIN_NAME):
             msg = f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.'
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.reply(msg)
             return
         else:
             enable_deposit = getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_deposit")
@@ -927,16 +1200,10 @@ class Admin(commands.Cog):
             toggle = await self.enable_disable_coin(COIN_NAME, command, new_value)
             if toggle > 0:
                 msg = f"{ctx.author.mention}, **{COIN_NAME}** `{command}` is `{new_text}` now."
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
+                await ctx.reply(msg)
             else:
                 msg = f"{ctx.author.mention}, **{COIN_NAME}** `{command}` is `{new_text}` failed to update."
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
+                await ctx.reply(msg)
             coin_list = await self.get_coin_setting()
             if coin_list:
                 self.bot.coin_list = coin_list

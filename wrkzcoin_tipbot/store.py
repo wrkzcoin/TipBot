@@ -412,6 +412,33 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
                             incoming_tx = result['incoming_tx']
                         else:
                             incoming_tx = 0
+                elif coin_family == "ADA":
+                    sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense 
+                              FROM `ada_external_tx` 
+                              WHERE `user_id`=%s AND `coin_name` = %s AND `user_server` = %s AND `crediting`=%s """
+                    await cur.execute(sql, ( userID, TOKEN_NAME, user_server, "YES" ))
+                    result = await cur.fetchone()
+                    if result:
+                        tx_expense = result['tx_expense']
+                    else:
+                        tx_expense = 0
+
+                    if top_block is None:
+                        sql = """ SELECT SUM(amount) AS incoming_tx 
+                                  FROM `ada_get_transfers` WHERE `output_address`=%s AND `direction`=%s AND `coin_name`=%s 
+                                  AND `amount`>0 AND `time_insert`< %s """
+                        await cur.execute(sql, ( address, "incoming", TOKEN_NAME, nos_block ))
+                    else:
+                        sql = """ SELECT SUM(amount) AS incoming_tx 
+                                  FROM `ada_get_transfers` 
+                                  WHERE `output_address`=%s AND `direction`=%s AND `coin_name`=%s 
+                                  AND `amount`>0 AND `inserted_at_height`<%s """
+                        await cur.execute(sql, ( address, "incoming", TOKEN_NAME, nos_block ))
+                    result = await cur.fetchone()
+                    if result and result['incoming_tx']:
+                        incoming_tx = result['incoming_tx']
+                    else:
+                        incoming_tx = 0
 
             balance = {}
             balance['adjust'] = 0
@@ -587,6 +614,11 @@ async def sql_get_userwallet_by_paymentid(paymentid: str, coin: str, coin_family
                     sql = """ SELECT * FROM `hnt_user` WHERE `main_address`=%s AND `memo`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """
                     address_memo = paymentid.split()
                     await cur.execute(sql, (address_memo[0], address_memo[2], COIN_NAME, user_server))
+                    result = await cur.fetchone()
+                elif coin_family == "ADA":
+                    # if ADA family, address is paymentid
+                    sql = """ SELECT * FROM `ada_user` WHERE `balance_wallet_address`=%s AND `user_server`=%s LIMIT 1 """
+                    await cur.execute(sql, (paymentid, user_server))
                     result = await cur.fetchone()
                 return result
     except Exception as e:
@@ -1948,6 +1980,39 @@ real_amount: float, real_deposit_fee: float, token_decimal: int, txn: str, block
         await logchanbot(traceback.format_exc())
     return False
 
+## ADA
+async def ada_get_address_pools(min_remaining: int=20):
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                used_addresses = []
+                sql = """ SELECT `wallet_name`, `wallet_id`, `addresses`, `address_pool_gap` 
+                          FROM `ada_wallets` WHERE `wallet_name`<>%s AND (`address_pool_gap`-`used_address`)>%s AND `addresses` IS NOT NULL 
+                          ORDER BY `id` ASC LIMIT 1 """
+                await cur.execute(sql, ( "withdraw_ada", min_remaining ))
+                result = await cur.fetchone()
+                if result:
+                    wallet_name_address = result['addresses'].split("\n")
+                    sql = """ SELECT `balance_wallet_address`, `wallet_name` FROM `ada_user` 
+                              WHERE `wallet_name`=%s """
+                    await cur.execute(sql, ( result['wallet_name'] ))
+                    res_used_address = await cur.fetchall()
+
+                    if res_used_address and len(res_used_address) > 0:
+                        used_addresses = [each['balance_wallet_address'] for each in res_used_address]
+                    if len(used_addresses) == 0:
+                        return {"wallet_name": result['wallet_name'], "addresses": wallet_name_address, "address_pool_gap": result['address_pool_gap'], "remaining": len(wallet_name_address)}
+                    else:
+                        remaining = []
+                        for each in wallet_name_address:
+                            if each not in used_addresses:
+                                remaining.append(each)
+                        return {"wallet_name": result['wallet_name'], "addresses": remaining, "address_pool_gap": result['address_pool_gap'], "remaining": len(remaining)}
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return None
+ ## END ADA
 
 async def sql_toggle_tipnotify(user_id: str, onoff: str):
     # Bot will add user_id if it failed to DM

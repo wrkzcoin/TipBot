@@ -140,7 +140,8 @@ class CoinGecko(commands.Cog):
                             except asyncio.TimeoutError:
                                 print('TIMEOUT: Fetching from coingecko price')
                             except Exception:
-                                traceback.print_exc(file=sys.stdout)
+                                #traceback.print_exc(file=sys.stdout)
+                                await asyncio.sleep(30.0)
             except Exception:
                 traceback.print_exc(file=sys.stdout)
             await asyncio.sleep(time_lap)

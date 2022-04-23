@@ -1,6 +1,6 @@
 import sys, os
 import traceback
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 import disnake
 from disnake.ext import commands, tasks
@@ -255,7 +255,17 @@ class WalletAPI(commands.Cog):
                 balance_address['balance_wallet_address'] = "{} MEMO: {}".format(main_address, memo)
                 balance_address['address'] = main_address
                 balance_address['memo'] = memo
-
+            elif type_coin.upper() == "ADA":
+                # get address pool
+                address_pools = await store.ada_get_address_pools(50)
+                balance_address = {}
+                if address_pools:
+                    wallet_name = address_pools['wallet_name']
+                    addresses = address_pools['addresses']
+                    random.shuffle(addresses)
+                    balance_address['balance_wallet_address'] = addresses[0]
+                    balance_address['address'] = addresses[0]
+                    balance_address['wallet_name'] = wallet_name
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
@@ -311,6 +321,13 @@ class WalletAPI(commands.Cog):
                             await cur.execute(sql, (COIN_NAME, str(userID), main_address, balance_address['balance_wallet_address'], memo, int(time.time()), user_server, is_discord_guild))
                             await conn.commit()
                             return balance_address
+                        elif type_coin.upper() == "ADA":
+                            sql = """ INSERT INTO `ada_user` (`user_id`, `wallet_name`, `balance_wallet_address`, `address_ts`, `user_server`, `is_discord_guild`) 
+                                      VALUES (%s, %s, %s, %s, %s, %s);
+                                      UPDATE `ada_wallets` SET `used_address`=`used_address`+1 WHERE `wallet_name`=%s LIMIT 1; """
+                            await cur.execute(sql, ( str(userID), balance_address['wallet_name'], balance_address['address'], int(time.time()), user_server, is_discord_guild, balance_address['wallet_name'] ))
+                            await conn.commit()
+                            return {'balance_wallet_address': balance_address['address']}
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
         except Exception as e:
@@ -374,6 +391,11 @@ class WalletAPI(commands.Cog):
                         sql = """ SELECT * FROM `hnt_user` WHERE `user_id`=%s 
                                   AND `coin_name`=%s AND `user_server` = %s LIMIT 1 """
                         await cur.execute(sql, (str(userID), COIN_NAME, user_server))
+                        result = await cur.fetchone()
+                        if result: return result
+                    elif type_coin.upper() == "ADA":
+                        sql = """ SELECT * FROM `ada_user` WHERE `user_id`=%s AND `user_server` = %s LIMIT 1 """
+                        await cur.execute(sql, (str(userID), user_server))
                         result = await cur.fetchone()
                         if result: return result
         except Exception as e:
@@ -1047,6 +1069,175 @@ class WalletAPI(commands.Cog):
             await logchanbot(traceback.format_exc())
         return None
 
+    async def send_external_ada(self, user_id: str, amount: float, coin_decimal: int, user_server: str, coin: str, withdraw_fee: float, to_address: str, time_out=32):
+        COIN_NAME = coin.upper()
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * 
+                              FROM `ada_wallets` 
+                              WHERE `is_for_withdraw`=%s ORDER BY RAND() LIMIT 1 """
+                    await cur.execute(sql, ( 1 ))
+                    result = await cur.fetchone()
+                    if result:
+                        ## got wallet setting
+                        # check if wallet sync
+                        async def fetch_wallet_status(url, timeout):
+                            try:
+                                headers = {
+                                    'Content-Type': 'application/json'
+                                }
+                                async with aiohttp.ClientSession() as session:
+                                    async with session.get(url, headers=headers, timeout=timeout) as response:
+                                        res_data = await response.read()
+                                        res_data = res_data.decode('utf-8')
+                                        decoded_data = json.loads(res_data)
+                                        return decoded_data
+                            except Exception as e:
+                                traceback.print_exc(file=sys.stdout)
+                            return None
+                        fetch_wallet = await fetch_wallet_status(result['wallet_rpc'] + "v2/wallets/" + result['wallet_id'], 8)
+                        if fetch_wallet and fetch_wallet['state']['status'] == "ready":
+                            # wallet is ready, "syncing" if it is syncing
+                            async def send_tx(url: str, to_address: str, amount_atomic: int, timeout: int=90):
+                                try:
+                                    headers = {
+                                        'Content-Type': 'application/json'
+                                    }
+                                    data_json = {"passphrase": decrypt_string(result['passphrase']), "payments": [{"address": to_address, "amount": {"quantity": amount_atomic, "unit": "lovelace"}}], "withdrawal": "self"}
+                                    async with aiohttp.ClientSession() as session:
+                                        async with session.post(url, headers=headers, json=data_json, timeout=timeout) as response:
+                                            if response.status == 202:
+                                                res_data = await response.read()
+                                                res_data = res_data.decode('utf-8')
+                                                decoded_data = json.loads(res_data)
+                                                return decoded_data
+                                except Exception as e:
+                                    traceback.print_exc(file=sys.stdout)
+                                return None
+                            sending_tx = await send_tx(result['wallet_rpc'] + "v2/wallets/" + result['wallet_id'] + "/transactions", to_address, int(amount*10**coin_decimal), 90)
+                            if "code" in sending_tx and "message" in sending_tx:
+                                return sending_tx
+                            elif "status" in sending_tx and sending_tx['status'] == "pending":
+                                # success
+                                network_fee = sending_tx['fee']['quantity']/10**coin_decimal
+                                await self.openConnection()
+                                async with self.pool.acquire() as conn:
+                                    async with conn.cursor() as cur:
+                                        sql = """ INSERT INTO `ada_external_tx` (`coin_name`, `asset_name`, `policy_id`, `user_id`, `real_amount`, `real_external_fee`, `network_fee`, `token_decimal`, `to_address`, `input_json`, `output_json`, `hash_id`, `date`, `user_server`) 
+                                                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                        await cur.execute(sql, ( COIN_NAME, None, None, user_id, amount, withdraw_fee, network_fee, coin_decimal, to_address, json.dumps(sending_tx['inputs']), json.dumps(sending_tx['outputs']), sending_tx['id'], int(time.time()), user_server ))
+                                        await conn.commit()
+                                        return sending_tx
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return None
+
+    async def send_external_ada_asset(self, user_id: str, amount: float, coin_decimal: int, user_server: str, coin: str, withdraw_fee: float, to_address: str, asset_name: str, policy_id: str, time_out=32):
+        COIN_NAME = coin.upper()
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * 
+                              FROM `ada_wallets` 
+                              WHERE `is_for_withdraw`=%s ORDER BY RAND() LIMIT 1 """
+                    await cur.execute(sql, ( 1 ))
+                    result = await cur.fetchone()
+                    if result:
+                        ## got wallet setting
+                        # check if wallet sync
+                        async def fetch_wallet_status(url, timeout):
+                            try:
+                                headers = {
+                                    'Content-Type': 'application/json'
+                                }
+                                async with aiohttp.ClientSession() as session:
+                                    async with session.get(url, headers=headers, timeout=timeout) as response:
+                                        res_data = await response.read()
+                                        res_data = res_data.decode('utf-8')
+                                        decoded_data = json.loads(res_data)
+                                        return decoded_data
+                            except Exception as e:
+                                traceback.print_exc(file=sys.stdout)
+                            return None
+                        fetch_wallet = await fetch_wallet_status(result['wallet_rpc'] + "v2/wallets/" + result['wallet_id'], 8)
+                        if fetch_wallet and fetch_wallet['state']['status'] == "ready":
+                            # wallet is ready, "syncing" if it is syncing
+                            async def estimate_fee_with_asset(url: str, to_address: str, asset_name: str, policy_id: str, amount_atomic: int, timeout: int=90):
+                                try:
+                                    headers = {
+                                        'Content-Type': 'application/json'
+                                    }
+                                    data_json = {"payments": [{"address": to_address, "amount": {"quantity": 0, "unit": "lovelace"}, "assets": [{"policy_id": policy_id, "asset_name": asset_name, "quantity": amount_atomic}]}], "withdrawal": "self"}
+                                    async with aiohttp.ClientSession() as session:
+                                        async with session.post(url, headers=headers, json=data_json, timeout=timeout) as response:
+                                            if response.status == 202:
+                                                res_data = await response.read()
+                                                res_data = res_data.decode('utf-8')
+                                                decoded_data = json.loads(res_data)
+                                                return decoded_data
+                                except Exception as e:
+                                    traceback.print_exc(file=sys.stdout)
+                                return None
+                            async def send_tx(url: str, to_address: str, ada_atomic_amount: int, amount_atomic: int, asset_name: str, policy_id: str, timeout: int=90):
+                                try:
+                                    headers = {
+                                        'Content-Type': 'application/json'
+                                    }
+                                    data_json = {"passphrase": decrypt_string(result['passphrase']), "payments": [{"address": to_address, "amount": {"quantity": ada_atomic_amount, "unit": "lovelace"}, "assets": [{"policy_id": policy_id, "asset_name": asset_name, "quantity": amount_atomic}]}], "withdrawal": "self"}
+                                    async with aiohttp.ClientSession() as session:
+                                        async with session.post(url, headers=headers, json=data_json, timeout=timeout) as response:
+                                            if response.status == 202:
+                                                res_data = await response.read()
+                                                res_data = res_data.decode('utf-8')
+                                                decoded_data = json.loads(res_data)
+                                                return decoded_data
+                                except Exception as e:
+                                    traceback.print_exc(file=sys.stdout)
+                                return None
+                            estimate_tx = await estimate_fee_with_asset(result['wallet_rpc'] + "v2/wallets/" + result['wallet_id'] + "/payment-fees", to_address, asset_name, policy_id, int(amount*10**coin_decimal), 10)
+                            ada_fee_atomic = None
+                            if estimate_tx and "minimum_coins" in estimate_tx:
+                                ada_fee_atomic = estimate_tx['minimum_coins'][0]['quantity']
+                                sending_tx = await send_tx(result['wallet_rpc'] + "v2/wallets/" + result['wallet_id'] + "/transactions", to_address, ada_fee_atomic, int(amount*10**coin_decimal), asset_name, policy_id, 90)
+                                if "code" in sending_tx and "message" in sending_tx:
+                                    return sending_tx
+                                elif "status" in sending_tx and sending_tx['status'] == "pending":
+                                    # success
+                                    rows = []
+                                    if len(sending_tx['outputs']) > 0:
+                                        network_fee = sending_tx['fee']['quantity']/10**6 # Fee in ADA
+                                        for each_output in sending_tx['outputs']:
+                                            if each_output['address'].upper() == to_address:
+                                                # rows.append( () )
+                                                pass
+                                    data_rows = []
+                                    try:
+                                        data_rows.append( ( COIN_NAME, asset_name, policy_id, user_id, amount, withdraw_fee, network_fee, coin_decimal, to_address, json.dumps(sending_tx['inputs']), json.dumps(sending_tx['outputs']), sending_tx['id'], int(time.time()), user_server ) )
+                                        if getattr(getattr(self.bot.coin_list, COIN_NAME), "withdraw_use_gas_ticker") == 1:
+                                            GAS_COIN = getattr(getattr(self.bot.coin_list, COIN_NAME), "gas_ticker")
+                                            fee_limit = getattr(getattr(self.bot.coin_list, COIN_NAME), "fee_limit")
+                                            data_rows.append( ( GAS_COIN, None, None, user_id, fee_limit, 0, network_fee, getattr(getattr(self.bot.coin_list, GAS_COIN), "decimal"), to_address, json.dumps(sending_tx['inputs']), json.dumps(sending_tx['outputs']), sending_tx['id'], int(time.time()), user_server ) )
+                                        await self.openConnection()
+                                        async with self.pool.acquire() as conn:
+                                            async with conn.cursor() as cur:
+                                                sql = """ INSERT INTO `ada_external_tx` (`coin_name`, `asset_name`, `policy_id`, `user_id`, `real_amount`, `real_external_fee`, `network_fee`, `token_decimal`, `to_address`, `input_json`, `output_json`, `hash_id`, `date`, `user_server`) 
+                                                           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                                await cur.executemany(sql, data_rows)
+                                                await conn.commit()
+                                                return sending_tx
+                                    except Exception as e:
+                                        traceback.print_exc(file=sys.stdout)
+                                        await logchanbot(f'[BUG] send_external_ada_asset: user_id: `{user_id}` failed to insert to DB for withdraw {json.dumps(data_rows)}.')
+                            else:
+                                print("send_external_ada_asset: cannot get estimated fee for sending asset `{asset_name}`")
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return None
 
 class Wallet(commands.Cog):
 
@@ -1097,6 +1288,10 @@ class Wallet(commands.Cog):
         self.notified_pending_tx = []
         self.notified_tx = []
 
+        # update ada wallet sync status
+        self.update_ada_wallets_sync.start()
+        self.notify_new_confirmed_ada.start()
+
         # DB
         self.pool = None
 
@@ -1125,7 +1320,6 @@ class Wallet(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    # balance['adjust'] = float("%.4f" % ( balance['mv_balance']+balance['incoming_tx']-balance['airdropping']-balance['mathtip']-balance['triviatip']-balance['tx_expense']-balance['open_order'] ))
                     # moving tip + / -
                     start = time.time()
                     sql = """ SELECT `balance` AS mv_balance FROM `user_balance_mv_data` WHERE `user_id`=%s AND `token_name` = %s AND `user_server` = %s LIMIT 1 """
@@ -1332,6 +1526,33 @@ class Wallet(commands.Cog):
                             sql = """ SELECT SUM(amount) AS incoming_tx FROM `hnt_get_transfers` WHERE `address`=%s AND `memo`=%s AND `coin_name` = %s 
                                       AND `amount`>0 AND `height`<%s """
                             await cur.execute(sql, (address_memo[0], address_memo[2], TOKEN_NAME, nos_block)) # TODO: split to address, memo
+                        result = await cur.fetchone()
+                        if result and result['incoming_tx']:
+                            incoming_tx = result['incoming_tx']
+                        else:
+                            incoming_tx = 0
+                    elif coin_family == "ADA":
+                        sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense 
+                                  FROM `ada_external_tx` 
+                                  WHERE `user_id`=%s AND `coin_name` = %s AND `user_server` = %s AND `crediting`=%s """
+                        await cur.execute(sql, ( userID, TOKEN_NAME, user_server, "YES" ))
+                        result = await cur.fetchone()
+                        if result:
+                            tx_expense = result['tx_expense']
+                        else:
+                            tx_expense = 0
+
+                        if top_block is None:
+                            sql = """ SELECT SUM(amount) AS incoming_tx 
+                                      FROM `ada_get_transfers` WHERE `output_address`=%s AND `direction`=%s AND `coin_name`=%s 
+                                      AND `amount`>0 AND `time_insert`< %s """
+                            await cur.execute(sql, ( address, "incoming", TOKEN_NAME, nos_block ))
+                        else:
+                            sql = """ SELECT SUM(amount) AS incoming_tx 
+                                      FROM `ada_get_transfers` 
+                                      WHERE `output_address`=%s AND `direction`=%s AND `coin_name`=%s 
+                                      AND `amount`>0 AND `inserted_at_height`<%s """
+                            await cur.execute(sql, ( address, "incoming", TOKEN_NAME, nos_block ))
                         result = await cur.fetchone()
                         if result and result['incoming_tx']:
                             incoming_tx = result['incoming_tx']
@@ -1808,6 +2029,173 @@ class Wallet(commands.Cog):
                                             await logchanbot(traceback.format_exc())
             except asyncio.TimeoutError:
                 print('TIMEOUT: COIN: {} - timeout {}'.format(COIN_NAME, timeout))
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            await asyncio.sleep(time_lap)
+
+
+    @tasks.loop(seconds=60.0)
+    async def notify_new_confirmed_ada(self):
+        time_lap = 20 # seconds
+        await self.bot.wait_until_ready()
+        while True:
+            await asyncio.sleep(time_lap)
+            try:
+                await self.openConnection()
+                async with self.pool.acquire() as conn:
+                    async with conn.cursor() as cur:
+                        sql = """ SELECT * FROM `ada_get_transfers` WHERE `notified_confirmation`=%s AND `failed_notification`=%s AND `user_server`=%s """
+                        await cur.execute(sql, ( "NO", "NO", SERVER_BOT ))
+                        result = await cur.fetchall()
+                        if result and len(result) > 0:
+                            for eachTx in result:
+                                if eachTx['user_id']:
+                                    if not eachTx['user_id'].isdigit():
+                                        continue
+                                    COIN_NAME = eachTx['coin_name']
+                                    coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+                                    if eachTx['user_id'].isdigit() and eachTx['user_server'] == SERVER_BOT:
+                                        member = self.bot.get_user(int(eachTx['user_id']))
+                                        if member is not None:
+                                            msg = "You got a new deposit (it could take a few minutes to credit): ```" + "Coin: {}\nTx: {}\nAmount: {}".format(COIN_NAME, eachTx['hash_id'], num_format_coin(eachTx['amount'], COIN_NAME, coin_decimal, False)) + "```"
+                                            try:
+                                                await member.send(msg)
+                                                sql = """ UPDATE `ada_get_transfers` SET `notified_confirmation`=%s, `time_notified`=%s WHERE `hash_id`=%s AND `coin_name`=%s LIMIT 1 """
+                                                await cur.execute(sql, ( "YES", int(time.time()), eachTx['hash_id'], COIN_NAME ))
+                                                await conn.commit()
+                                            except Exception as e:
+                                                traceback.print_exc(file=sys.stdout)
+                                                sql = """ UPDATE `ada_get_transfers` SET `notified_confirmation`=%s, `failed_notification`=%s WHERE `hash_id`=%s AND `coin_name`=%s LIMIT 1 """
+                                                await cur.execute(sql, ( "NO", "YES", eachTx['hash_id'], COIN_NAME ))
+                                                await conn.commit()
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            await asyncio.sleep(time_lap)
+
+    @tasks.loop(seconds=60.0)
+    async def update_ada_wallets_sync(self):
+        time_lap = 30 # seconds
+        await self.bot.wait_until_ready()
+
+        async def fetch_wallet_status(url, timeout):
+            try:
+                headers = {
+                    'Content-Type': 'application/json'
+                }
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url, headers=headers, timeout=timeout) as response:
+                        if response.status == 200:
+                            res_data = await response.read()
+                            res_data = res_data.decode('utf-8')
+                            decoded_data = json.loads(res_data)
+                            return decoded_data
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            return None
+
+        while True:
+            await asyncio.sleep(time_lap)
+            try:
+                await self.openConnection()
+                async with self.pool.acquire() as conn:
+                    async with conn.cursor() as cur:
+                        sql = """ SELECT * FROM `ada_wallets` """
+                        await cur.execute(sql,)
+                        result = await cur.fetchall()
+                        if result and len(result) > 0:
+                            for each_wallet in result:
+                                fetch_wallet = await fetch_wallet_status(each_wallet['wallet_rpc'] + "v2/wallets/" + each_wallet['wallet_id'], 60)
+                                if fetch_wallet:
+                                    try:
+                                        # update height
+                                        try:
+                                            if each_wallet['wallet_name'] == "withdraw_ada":
+                                                height = int(fetch_wallet['tip']['height']['quantity'])
+                                                for each_coin in self.bot.coin_name_list:
+                                                    if getattr(getattr(self.bot.coin_list, each_coin), "type") == "ADA":
+                                                        redis_utils.redis_conn.set(f'{config.redis.prefix+config.redis.daemon_height}{each_coin.upper()}', str(height))
+                                        except Exception as e:
+                                            traceback.print_exc(file=sys.stdout)
+                                        await self.openConnection()
+                                        async with self.pool.acquire() as conn:
+                                            async with conn.cursor() as cur:
+                                                sql = """ UPDATE `ada_wallets` SET `status`=%s, `updated`=%s WHERE `wallet_id`=%s LIMIT 1 """
+                                                await cur.execute(sql, ( json.dumps(fetch_wallet), int(time.time()), each_wallet['wallet_id'] ))
+                                                await conn.commit()
+                                    except Exception as e:
+                                        traceback.print_exc(file=sys.stdout)
+                                # fetch address if Null
+                                if each_wallet['addresses'] is None:
+                                    fetch_addresses = await fetch_wallet_status(each_wallet['wallet_rpc'] + "v2/wallets/" + each_wallet['wallet_id'] + "/addresses", 60)
+                                    if fetch_addresses and len(fetch_addresses) > 0:
+                                        addresses = "\n".join([each['id'] for each in fetch_addresses])
+                                        try:
+                                            await self.openConnection()
+                                            async with self.pool.acquire() as conn:
+                                                async with conn.cursor() as cur:
+                                                    sql = """ UPDATE `ada_wallets` SET `addresses`=%s WHERE `wallet_id`=%s LIMIT 1 """
+                                                    await cur.execute(sql, ( addresses, each_wallet['wallet_id'] ))
+                                                    await conn.commit()
+                                        except Exception as e:
+                                            traceback.print_exc(file=sys.stdout)
+                                # if synced
+                                if each_wallet['syncing'] is None and each_wallet['used_address'] > 0:
+                                    all_addresses = each_wallet['addresses'].split("\n")
+                                    # fetch txes last 48h
+                                    time_end = str(datetime.utcnow().isoformat()).split(".")[0] + "Z"
+                                    time_start = str((datetime.utcnow() - timedelta(hours=24.0)).isoformat()).split(".")[0] + "Z"
+                                    fetch_transactions = await fetch_wallet_status(each_wallet['wallet_rpc'] + "v2/wallets/" + each_wallet['wallet_id'] + "/transactions?start={}&end={}".format(time_start, time_end), 60)
+                                    # get transaction already in DB:
+                                    existing_hash_ids = []
+                                    try:
+                                        await self.openConnection()
+                                        async with self.pool.acquire() as conn:
+                                            async with conn.cursor() as cur:
+                                                sql = """ SELECT DISTINCT `hash_id` FROM `ada_get_transfers` """
+                                                await cur.execute( sql, )
+                                                result = await cur.fetchall()
+                                                if result and len(result) > 0:
+                                                    existing_hash_ids = [each['hash_id'] for each in result]
+                                    except Exception as e:
+                                        traceback.print_exc(file=sys.stdout)
+                                    if fetch_transactions and len(fetch_transactions) > 0:
+                                        data_rows = []
+                                        for each_tx in fetch_transactions:
+                                            if len(existing_hash_ids) > 0 and each_tx['id'] in existing_hash_ids: continue # skip
+                                            try:
+                                                if each_tx['status'] == "in_ledger" and each_tx['direction'] == "incoming" and len(each_tx['outputs']) > 0:
+                                                    for each_output in each_tx['outputs']:
+                                                        if each_output['address'] not in all_addresses: continue # skip this output because no address in...
+                                                        COIN_NAME = "ADA"
+                                                        coin_family = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
+                                                        user_tx = await store.sql_get_userwallet_by_paymentid(each_output['address'], COIN_NAME, coin_family, SERVER_BOT)
+                                                        # ADA
+                                                        data_rows.append( ( user_tx['user_id'], COIN_NAME, each_tx['id'], each_tx['inserted_at']['height']['quantity'], each_tx['direction'], json.dumps(each_tx['inputs']), json.dumps(each_tx['outputs']), each_output['address'], None, None, each_output['amount']['quantity']/10**6, 6, int(time.time()), user_tx['user_server'] ) )
+                                                        if each_output['assets'] and len(each_output['assets']) > 0:
+                                                            # Asset
+                                                            for each_asset in each_output['assets']:
+                                                                asset_name = each_asset['asset_name']
+                                                                COIN_NAME = None
+                                                                for each_coin in self.bot.coin_name_list:
+                                                                    if asset_name and getattr(getattr(self.bot.coin_list, each_coin), "type") == "ADA" and getattr(getattr(self.bot.coin_list, each_coin), "header") == asset_name:
+                                                                        COIN_NAME = each_coin
+                                                                        policyID = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
+                                                                        coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+                                                                        data_rows.append( ( user_tx['user_id'], COIN_NAME, each_tx['id'], each_tx['inserted_at']['height']['quantity'], each_tx['direction'], json.dumps(each_tx['inputs']), json.dumps(each_tx['outputs']), each_output['address'], asset_name, policyID, each_asset['quantity']/10**coin_decimal, coin_decimal, int(time.time()), user_tx['user_server'] ) )
+                                                                        break
+                                            except Exception as e:
+                                                traceback.print_exc(file=sys.stdout)
+                                        if len(data_rows) > 0:
+                                            try:
+                                                await self.openConnection()
+                                                async with self.pool.acquire() as conn:
+                                                    async with conn.cursor() as cur:
+                                                        sql = """ INSERT INTO `ada_get_transfers` (`user_id`, `coin_name`, `hash_id`, `inserted_at_height`, `direction`, `input_json`, `output_json`, `output_address`, `asset_name`, `policy_id`, `amount`, `coin_decimal`, `time_insert`, `user_server`) 
+                                                                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                                        await cur.executemany( sql, data_rows )
+                                                        await conn.commit()
+                                            except Exception as e:
+                                                traceback.print_exc(file=sys.stdout)
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
             await asyncio.sleep(time_lap)
@@ -3447,6 +3835,9 @@ class Wallet(commands.Cog):
                         await ctx.edit_original_message(content=f'{EMOJI_RED_NO} {ctx.author.mention}, invalid given amount.')
                         return
 
+                if getattr(getattr(self.bot.coin_list, COIN_NAME), "integer_amount_only") == 1:
+                    amount = int(amount)
+
                 # end of check if amount is all
                 amount = float(amount)
                 userdata_balance = await self.user_balance(str(ctx.author.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
@@ -3619,6 +4010,95 @@ class Wallet(commands.Cog):
                         else:
                             await logchanbot(f'[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                         self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+                    else:
+                        # reject and tell to wait
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
+                        await ctx.edit_original_message(content=msg)
+                        return
+                elif type_coin == "ADA":
+                    if not address.startswith("addr1"):
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid address. It should start with `addr1`.'
+                        await ctx.edit_original_message(content=msg)
+                        return
+                    if ctx.author.id not in self.bot.TX_IN_PROCESS:
+                        if COIN_NAME == "ADA":
+                            self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                            coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+                            SendTx = await self.WalletAPI.send_external_ada(str(ctx.author.id), amount, coin_decimal, SERVER_BOT, COIN_NAME, NetFee, address, 60)
+                            if "status" in SendTx and SendTx['status'] == "pending":
+                                tx_hash = SendTx['id']
+                                fee_txt = "\nWithdrew fee/node: `{} {}`.".format(num_format_coin(NetFee, COIN_NAME, coin_decimal, False), COIN_NAME)
+                                await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} successfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
+                                msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{tx_hash}`{fee_txt}'
+                                await ctx.edit_original_message(content=msg)
+                            elif "code" in SendTx and "message" in SendTx:
+                                code = SendTx['code']
+                                message = SendTx['message']
+                                await logchanbot(f'[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.```code: {code}\nmessage: {message}```')
+                                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, internal error, please try again later!'
+                                await ctx.edit_original_message(content=msg)
+                            else:
+                                await logchanbot(f'[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
+                                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, internal error, please try again later!'
+                                await ctx.edit_original_message(content=msg)
+                            self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+                            return
+                        else:
+                            ## 
+                            # Check user's ADA balance.
+                            GAS_COIN = None
+                            fee_limit = None
+                            try:
+                                if getattr(getattr(self.bot.coin_list, COIN_NAME), "withdraw_use_gas_ticker") == 1:
+                                    # add main token balance to check if enough to withdraw
+                                    GAS_COIN = getattr(getattr(self.bot.coin_list, COIN_NAME), "gas_ticker")
+                                    fee_limit = getattr(getattr(self.bot.coin_list, COIN_NAME), "fee_limit")
+                                    if GAS_COIN:
+                                        userdata_balance = await self.user_balance(str(ctx.author.id), GAS_COIN, wallet_address, type_coin, height, getattr(getattr(self.bot.coin_list, GAS_COIN), "deposit_confirm_depth"), SERVER_BOT)
+                                        actual_balance = userdata_balance['adjust']
+                                        if actual_balance < fee_limit: # use fee_limit to limit ADA
+                                            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you do not have sufficient {GAS_COIN} to withdraw {COIN_NAME}. You need to have at least `{fee_limit} {GAS_COIN}`.'
+                                            await ctx.edit_original_message(content=msg)
+                                            await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} want to withdraw asset {COIN_NAME} but having only {actual_balance} {GAS_COIN}.')
+                                            return
+                                    else:
+                                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid main token, please report!'
+                                        await ctx.edit_original_message(content=msg)
+                                        await logchanbot(f'[BUG] {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} invalid main token for {COIN_NAME}.')
+                                        return
+                            except Exception as e:
+                                traceback.print_exc(file=sys.stdout)
+                                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, cannot check balance, please try again later!'
+                                await ctx.edit_original_message(content=msg)
+                                await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} failed to check balance {ADA_COIN} for asset transfer...')
+                                return
+
+                            self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                            coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+                            asset_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "header")
+                            policy_id = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
+                            SendTx = await self.WalletAPI.send_external_ada_asset(str(ctx.author.id), amount, coin_decimal, SERVER_BOT, COIN_NAME, NetFee, address, asset_name, policy_id, 60)
+                            if "status" in SendTx and SendTx['status'] == "pending":
+                                tx_hash = SendTx['id']
+                                gas_coin_msg = ""
+                                if GAS_COIN is not None:
+                                    gas_coin_msg = " and `{} {}`.".format(fee_limit, GAS_COIN)
+                                fee_txt = "\nWithdrew fee/node: `{} {}`{}.".format(num_format_coin(NetFee, COIN_NAME, coin_decimal, False), COIN_NAME, gas_coin_msg)
+                                await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} successfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
+                                msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{tx_hash}`{fee_txt}'
+                                await ctx.edit_original_message(content=msg)
+                            elif "code" in SendTx and "message" in SendTx:
+                                code = SendTx['code']
+                                message = SendTx['message']
+                                await logchanbot(f'[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.```code: {code}\nmessage: {message}```')
+                                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, internal error, please try again later!'
+                                await ctx.edit_original_message(content=msg)
+                            else:
+                                await logchanbot(f'[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
+                                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, internal error, please try again later!'
+                                await ctx.edit_original_message(content=msg)
+                            self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+                            return
                     else:
                         # reject and tell to wait
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'

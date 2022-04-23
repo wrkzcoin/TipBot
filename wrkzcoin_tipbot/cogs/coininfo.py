@@ -76,7 +76,13 @@ class Coininfo(commands.Cog):
             get_tx_min_max = "Withdraw Min/Max:\n   " + num_format_coin(Min_Tx, COIN_NAME, coin_decimal, False) + " / " + num_format_coin(Max_Tx, COIN_NAME, coin_decimal, False) + " " + COIN_NAME
             response_text += get_tx_min_max + "\n"
 
-            response_text += "Withdraw Tx Node Fee: {} {}\n".format(num_format_coin(Fee_Tx, COIN_NAME, coin_decimal, False), COIN_NAME)
+            gas_coin_msg = ""
+            if getattr(getattr(self.bot.coin_list, COIN_NAME), "withdraw_use_gas_ticker") == 1:
+                GAS_COIN = getattr(getattr(self.bot.coin_list, COIN_NAME), "gas_ticker")
+                fee_limit = getattr(getattr(self.bot.coin_list, COIN_NAME), "fee_limit")
+                if GAS_COIN and fee_limit > 0:
+                    gas_coin_msg = " and {} {}.".format(fee_limit, GAS_COIN)
+            response_text += "Withdraw Tx Node Fee: {} {}{}\n".format(num_format_coin(Fee_Tx, COIN_NAME, coin_decimal, False), COIN_NAME, gas_coin_msg)
             if deposit_fee > 0:
                 response_text += "Deposit Tx Fee: {} {}\n".format(num_format_coin(deposit_fee, COIN_NAME, coin_decimal, False), COIN_NAME)
 
@@ -111,8 +117,10 @@ class Coininfo(commands.Cog):
         if self.bot.coin_name_list and len(self.bot.coin_name_list) > 0:
             network = {}
             network['Others'] = []
+            network['ADA'] = []
             for COIN_NAME in self.bot.coin_name_list:
                 net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
+                type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
                 if net_name is not None:
                     if net_name not in network:
                         network[net_name] = []
@@ -120,7 +128,10 @@ class Coininfo(commands.Cog):
                     else:
                         network[net_name].append(COIN_NAME)
                 else:
-                    network['Others'].append(COIN_NAME)
+                    if type_coin == "ADA":
+                        network['ADA'].append(COIN_NAME)
+                    else:
+                        network['Others'].append(COIN_NAME)
             embed = disnake.Embed(title=f'Coin/Token list in TipBot', description="Currently, supported {} coins/tokens.".format(len(self.bot.coin_name_list)), timestamp=datetime.now())
             for k, v in network.items():
                 list_coins = ", ".join(v)

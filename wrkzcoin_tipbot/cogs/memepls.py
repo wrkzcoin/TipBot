@@ -1059,7 +1059,12 @@ class MemePls(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return 0
 
+    async def bot_log(self):
+        if self.botLogChan is None:
+            self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
+
     async def meme_view_here(self, ctx):
+        await self.bot_log()
         try:
             await ctx.response.send_message(f"{ctx.author.mention}, checking random meme...")
         except Exception as e:
@@ -1104,6 +1109,7 @@ class MemePls(commands.Cog):
                 traceback.print_exc(file=sys.stdout)
 
     async def meme_view(self, ctx):
+        await self.bot_log()
         try:
             await ctx.response.send_message(f"{ctx.author.mention}, checking random meme...")
         except Exception as e:
@@ -1147,6 +1153,7 @@ class MemePls(commands.Cog):
                 traceback.print_exc(file=sys.stdout)
 
     async def meme_user(self, ctx, member):
+        await self.bot_log()
         try:
             await ctx.response.send_message(f"{ctx.author.mention}, checking user's random meme...")
         except Exception as e:
@@ -1262,6 +1269,7 @@ class MemePls(commands.Cog):
 
 
     async def meme_upload(self, ctx, caption, attachment):
+        await self.bot_log()
         try:
             await ctx.response.send_message(f"{ctx.author.mention}, loading meme...")
         except Exception as e:
@@ -1343,17 +1351,8 @@ class MemePls(commands.Cog):
 
     @commands.slash_command(description="Meme commands (upload, view, list yours)")
     async def memepls(self, ctx):
-        if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
-            try:
-                serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
-                if serverinfo and serverinfo['enable_memepls'] == "NO":
-                    if self.enable_logchan:
-                        await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried /memepls in {ctx.guild.name} / {ctx.guild.id} which is disable.')
-                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, /memepls in this guild is disable. You can enable by `/setting memepls`."
-                    await ctx.response.send_message(content=msg)
-                    return
-            except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+        await self.bot_log()
+        pass
 
 
     @memepls.sub_command(

@@ -305,6 +305,26 @@ class Core(commands.Cog):
                 "subcmd": []
             }
         }
+        basic_help_deposit = """
+You can deposit supported coin/token with command `/deposit coin/token`. Example `/deposit doge`. Each token/coin requires certain blocks to credit to your balance. You can check `/coininfo coin/token` for some basic information about limit, and other information.
+"""
+        basic_help_tip = """
+There are few commands for tipping such as:
+`/tip amount coin @mention1 @mention2 @role1`: You can tip from your balance to any Discord user in the guild by mention or roles.
+`/tip amount coin last 10u`: This will tip the last 10 users who actively texted in the commanded channel.
+`/tip amount coin last 30mn`: This will tip the last users who actively texted last 30 minutes in the commanded channel.
+`/tipall amount coin`: This will spread the amount of coin to all online users in the guild (by default). Example: `/tipall 10 doge` will spread your only 10 doge to all online users in the commanded guild.
+"""
+        basic_help_tip2 = """
+`/randtip amount coin`: Do a random tip to a Discord user in the commanded guild.
+`/freetip amount coin duration`: Spread your balance by allowing other people to join and collect by clicking on "Collect" button. Example: `/freetip 50k WRKZ 30s` will last for 30 seconds.
+`/mathtip amount coin duration math_expression`: Allow you to tip other people who solve your math expression correctly. All answers will show as buttons.
+`/triviatip amount coin duration`: The other people will need to answer to a random question and only who got the right answer will get tipped.
+`/guildtip amount coin @mention1 @mention2 @role1`: Similar to `/tip` command, but Bot will use your guild's tipjar to spread the tips. You need to have enough guild's permission.
+"""
+        basic_help_withdraw = """
+You can withdraw with command `/withdraw amount coin address`. We recommend you to withdraw to your own address. Check `/coininfo coin/token` for fee and limits.
+"""
         if cmd is None:
             page = disnake.Embed(title=f"{self.bot.user.name} Help Menu",
                                  description="Thank you for using This TipBot!",
@@ -312,8 +332,12 @@ class Core(commands.Cog):
             page.add_field(name="Getting Started",
                            value="For each commands, see `/help command`", inline=False )
             page.add_field(name="All command", value="```{}```".format(", ".join(all_slash_cmds)), inline=False, )
+            page.add_field(name="Deposit", value="{}".format(basic_help_deposit), inline=False, )
+            page.add_field(name="Tip", value="{}".format(basic_help_tip), inline=False, )
+            page.add_field(name="Other Tip", value="{}".format(basic_help_tip2), inline=False, )
+            page.add_field(name="Withdraw", value="{}".format(basic_help_withdraw), inline=False, )
             page.set_thumbnail(url=self.bot.user.display_avatar)
-            page.set_footer(text=f"Requested by {ctx.author.name}#{ctx.author.discriminator}")
+            page.set_footer(text=f"Requested by {ctx.author.name}#{ctx.author.discriminator} | Use /help command to show more detail.")
             await ctx.response.send_message(embed=page)
         elif cmd and cmd not in all_slash_cmds:
             msg = f"{ctx.author.mention}, command `{cmd}` is not available in TipBot."

@@ -4648,12 +4648,13 @@ class Wallet(commands.Cog):
         # end of check if amount is all
         userdata_balance = await self.user_balance(str(ctx.author.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
         actual_balance = float(userdata_balance['adjust'])
+        donate_factor = 100
         if amount <= 0:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please get more {token_display}.'
             await ctx.edit_original_message(content=msg)
             return
-        elif amount > MaxTip or amount < MinTip:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, transactions cannot be bigger than **{num_format_coin(MaxTip, COIN_NAME, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(MinTip, COIN_NAME, coin_decimal, False)} {token_display}**.'
+        elif amount > MaxTip*donate_factor or amount < MinTip/donate_factor:
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, transactions (donate) cannot be bigger than **{num_format_coin(MaxTip*donate_factor, COIN_NAME, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(MinTip/donate_factor, COIN_NAME, coin_decimal, False)} {token_display}**.'
             await ctx.edit_original_message(content=msg)
             return
         elif amount > actual_balance:

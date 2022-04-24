@@ -611,6 +611,8 @@ class Events(commands.Cog):
                     
                 if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                     wallet_address = get_deposit['paymentid']
+                else:
+                    wallet_address = get_deposit['balance_wallet_address']
 
                 height = None
                 try:

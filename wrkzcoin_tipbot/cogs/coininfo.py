@@ -81,8 +81,11 @@ class Coininfo(commands.Cog):
                 GAS_COIN = getattr(getattr(self.bot.coin_list, COIN_NAME), "gas_ticker")
                 fee_limit = getattr(getattr(self.bot.coin_list, COIN_NAME), "fee_limit")
                 if GAS_COIN and fee_limit > 0:
-                    gas_coin_msg = " and {} {}.".format(fee_limit, GAS_COIN)
-            response_text += "Withdraw Tx Node Fee: {} {}{}\n".format(num_format_coin(Fee_Tx, COIN_NAME, coin_decimal, False), COIN_NAME, gas_coin_msg)
+                    gas_coin_msg = " and a reserved {} {} (actual tx fee is less).".format(fee_limit, GAS_COIN)
+            if COIN_NAME == "ADA":
+                response_text += "Withdraw Tx reserved Node Fee: {} {} (actual tx fee is less).\n".format(num_format_coin(Fee_Tx, COIN_NAME, coin_decimal, False), COIN_NAME)
+            else:
+                response_text += "Withdraw Tx Node Fee: {} {}{}\n".format(num_format_coin(Fee_Tx, COIN_NAME, coin_decimal, False), COIN_NAME, gas_coin_msg)
             if deposit_fee > 0:
                 response_text += "Deposit Tx Fee: {} {}\n".format(num_format_coin(deposit_fee, COIN_NAME, coin_decimal, False), COIN_NAME)
 

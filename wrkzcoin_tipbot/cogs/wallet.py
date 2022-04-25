@@ -1121,13 +1121,14 @@ class WalletAPI(commands.Cog):
                                 return sending_tx
                             elif "status" in sending_tx and sending_tx['status'] == "pending":
                                 # success
+                                # withdraw_fee became: network_fee + withdraw_fee, it is fee_limit
                                 network_fee = sending_tx['fee']['quantity']/10**coin_decimal
                                 await self.openConnection()
                                 async with self.pool.acquire() as conn:
                                     async with conn.cursor() as cur:
                                         sql = """ INSERT INTO `ada_external_tx` (`coin_name`, `asset_name`, `policy_id`, `user_id`, `real_amount`, `real_external_fee`, `network_fee`, `token_decimal`, `to_address`, `input_json`, `output_json`, `hash_id`, `date`, `user_server`) 
                                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                                        await cur.execute(sql, ( COIN_NAME, None, None, user_id, amount, withdraw_fee, network_fee, coin_decimal, to_address, json.dumps(sending_tx['inputs']), json.dumps(sending_tx['outputs']), sending_tx['id'], int(time.time()), user_server ))
+                                        await cur.execute(sql, ( COIN_NAME, None, None, user_id, amount, network_fee+withdraw_fee, network_fee, coin_decimal, to_address, json.dumps(sending_tx['inputs']), json.dumps(sending_tx['outputs']), sending_tx['id'], int(time.time()), user_server ))
                                         await conn.commit()
                                         return sending_tx
         except Exception as e:
@@ -1220,7 +1221,9 @@ class WalletAPI(commands.Cog):
                                         if getattr(getattr(self.bot.coin_list, COIN_NAME), "withdraw_use_gas_ticker") == 1:
                                             GAS_COIN = getattr(getattr(self.bot.coin_list, COIN_NAME), "gas_ticker")
                                             fee_limit = getattr(getattr(self.bot.coin_list, COIN_NAME), "fee_limit")
-                                            data_rows.append( ( GAS_COIN, None, None, user_id, fee_limit, 0, network_fee, getattr(getattr(self.bot.coin_list, GAS_COIN), "decimal"), to_address, json.dumps(sending_tx['inputs']), json.dumps(sending_tx['outputs']), sending_tx['id'], int(time.time()), user_server ) )
+                                            fee_limit = fee_limit/20 #  => 2 / 20 = 0.1 ADA # Take care if you adjust fee_limit in DB
+                                            # new ADA charge = ADA goes to withdraw wallet + 0.1 ADA
+                                            data_rows.append( ( GAS_COIN, None, None, user_id, network_fee+fee_limit+ada_fee_atomic/10**6, 0, network_fee, getattr(getattr(self.bot.coin_list, GAS_COIN), "decimal"), to_address, json.dumps(sending_tx['inputs']), json.dumps(sending_tx['outputs']), sending_tx['id'], int(time.time()), user_server ) )
                                         await self.openConnection()
                                         async with self.pool.acquire() as conn:
                                             async with conn.cursor() as cur:
@@ -1228,6 +1231,9 @@ class WalletAPI(commands.Cog):
                                                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
                                                 await cur.executemany(sql, data_rows)
                                                 await conn.commit()
+                                                sending_tx['all_ada_fee'] = network_fee+fee_limit+ada_fee_atomic/10**6
+                                                sending_tx['ada_received'] = ada_fee_atomic/10**6
+                                                sending_tx['network_fee'] = network_fee
                                                 return sending_tx
                                     except Exception as e:
                                         traceback.print_exc(file=sys.stdout)
@@ -4024,10 +4030,13 @@ class Wallet(commands.Cog):
                         if COIN_NAME == "ADA":
                             self.bot.TX_IN_PROCESS.append(ctx.author.id)
                             coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
-                            SendTx = await self.WalletAPI.send_external_ada(str(ctx.author.id), amount, coin_decimal, SERVER_BOT, COIN_NAME, NetFee, address, 60)
+                            fee_limit = getattr(getattr(self.bot.coin_list, COIN_NAME), "fee_limit")
+                            # Use fee limit as NetFee
+                            SendTx = await self.WalletAPI.send_external_ada(str(ctx.author.id), amount, coin_decimal, SERVER_BOT, COIN_NAME, fee_limit, address, 60)
                             if "status" in SendTx and SendTx['status'] == "pending":
                                 tx_hash = SendTx['id']
-                                fee_txt = "\nWithdrew fee/node: `{} {}`.".format(num_format_coin(NetFee, COIN_NAME, coin_decimal, False), COIN_NAME)
+                                fee = SendTx['fee']['quantity']/10**coin_decimal + fee_limit
+                                fee_txt = "\nWithdrew fee/node: `{} {}`.".format(num_format_coin(fee, COIN_NAME, coin_decimal, False), COIN_NAME)
                                 await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} successfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                                 msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{tx_hash}`{fee_txt}'
                                 await ctx.edit_original_message(content=msg)
@@ -4057,7 +4066,7 @@ class Wallet(commands.Cog):
                                         userdata_balance = await self.user_balance(str(ctx.author.id), GAS_COIN, wallet_address, type_coin, height, getattr(getattr(self.bot.coin_list, GAS_COIN), "deposit_confirm_depth"), SERVER_BOT)
                                         actual_balance = userdata_balance['adjust']
                                         if actual_balance < fee_limit: # use fee_limit to limit ADA
-                                            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you do not have sufficient {GAS_COIN} to withdraw {COIN_NAME}. You need to have at least `{fee_limit} {GAS_COIN}`.'
+                                            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you do not have sufficient {GAS_COIN} to withdraw {COIN_NAME}. You need to have at least a reserved `{fee_limit} {GAS_COIN}`.'
                                             await ctx.edit_original_message(content=msg)
                                             await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} want to withdraw asset {COIN_NAME} but having only {actual_balance} {GAS_COIN}.')
                                             return
@@ -4082,7 +4091,7 @@ class Wallet(commands.Cog):
                                 tx_hash = SendTx['id']
                                 gas_coin_msg = ""
                                 if GAS_COIN is not None:
-                                    gas_coin_msg = " and `{} {}`.".format(fee_limit, GAS_COIN)
+                                    gas_coin_msg = " and fee `{} {}` you shall receive additional `{} {}`.".format(num_format_coin(SendTx['network_fee']+fee_limit/20, GAS_COIN, 6, False), GAS_COIN, num_format_coin(SendTx['ada_received'], GAS_COIN, 6, False), GAS_COIN)
                                 fee_txt = "\nWithdrew fee/node: `{} {}`{}.".format(num_format_coin(NetFee, COIN_NAME, coin_decimal, False), COIN_NAME, gas_coin_msg)
                                 await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} successfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                                 msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{tx_hash}`{fee_txt}'

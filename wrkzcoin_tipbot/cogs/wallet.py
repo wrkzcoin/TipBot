@@ -3649,7 +3649,11 @@ class Wallet(commands.Cog):
             if getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_note") and len(getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_note")) > 0:
                 description = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_note")
             if getattr(getattr(self.bot.coin_list, COIN_NAME), "real_deposit_fee") and getattr(getattr(self.bot.coin_list, COIN_NAME), "real_deposit_fee") > 0:
-                fee_txt = " **{} {}** will be deducted from your deposit when it reaches minimum.".format(num_format_coin(getattr(getattr(self.bot.coin_list, COIN_NAME), "real_deposit_fee"), COIN_NAME, coin_decimal, False), token_display)
+                real_min_deposit = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_min_deposit")
+                minimum_text = ""
+                if real_min_deposit and real_min_deposit > 0:
+                    minimum_text = " of {} {}".format(num_format_coin(real_min_deposit, COIN_NAME, coin_decimal, False), token_display)
+                fee_txt = " **{} {}** will be deducted from your deposit when it reaches minimum deposit{}.".format(num_format_coin(getattr(getattr(self.bot.coin_list, COIN_NAME), "real_deposit_fee"), COIN_NAME, coin_decimal, False), token_display, minimum_text)
             embed = disnake.Embed(title=f'Deposit for {ctx.author.name}#{ctx.author.discriminator}', description=description + fee_txt, timestamp=datetime.fromtimestamp(int(time.time())))
             embed.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
             qr_address = wallet_address

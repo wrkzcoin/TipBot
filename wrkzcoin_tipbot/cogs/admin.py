@@ -307,6 +307,26 @@ class Admin(commands.Cog):
                             incoming_tx = result['incoming_tx']
                         else:
                             incoming_tx = 0
+                    elif coin_family == "SOL" or coin_family == "SPL":
+                        # When sending tx out, (negative)
+                        sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense FROM `sol_external_tx` 
+                                  WHERE `user_id`=%s AND `coin_name` = %s AND `crediting`=%s """
+                        await cur.execute(sql, ( userID, TOKEN_NAME, "YES" ))
+                        result = await cur.fetchone()
+                        if result:
+                            tx_expense = result['tx_expense']
+                        else:
+                            tx_expense = 0
+
+                        # in case deposit fee -real_deposit_fee
+                        sql = """ SELECT SUM(real_amount-real_deposit_fee) AS incoming_tx FROM `sol_move_deposit` WHERE `user_id`=%s 
+                                  AND `token_name` = %s AND `confirmed_depth`> %s AND `status`=%s """
+                        await cur.execute(sql, (userID, TOKEN_NAME, confirmed_depth, "CONFIRMED"))
+                        result = await cur.fetchone()
+                        if result:
+                            incoming_tx = result['incoming_tx']
+                        else:
+                            incoming_tx = 0
 
                 balance = {}
                 balance['adjust'] = 0
@@ -932,6 +952,8 @@ class Admin(commands.Cog):
                             update_call = await store.sql_update_erc20_user_update_call(member_id)
                         elif type_coin == "TRC-10" or type_coin == "TRC-20":
                             update_call = await store.sql_update_trc20_user_update_call(member_id)
+                        elif type_coin == "SOL" or type_coin == "SPL":
+                            update_call = await store.sql_update_sol_user_update_call(member_id)
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
                     height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
@@ -999,6 +1021,8 @@ class Admin(commands.Cog):
                                 update_call = await store.sql_update_erc20_user_update_call(member_id)
                             elif type_coin == "TRC-10" or type_coin == "TRC-20":
                                 update_call = await store.sql_update_trc20_user_update_call(member_id)
+                            elif type_coin == "SOL" or type_coin == "SPL":
+                                update_call = await store.sql_update_sol_user_update_call(member_id)
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
                         height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())

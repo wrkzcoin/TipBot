@@ -439,6 +439,26 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
                         incoming_tx = result['incoming_tx']
                     else:
                         incoming_tx = 0
+                elif coin_family == "SOL" or coin_family == "SPL":
+                    # When sending tx out, (negative)
+                    sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense FROM `sol_external_tx` 
+                              WHERE `user_id`=%s AND `coin_name` = %s AND `crediting`=%s """
+                    await cur.execute(sql, ( userID, TOKEN_NAME, "YES" ))
+                    result = await cur.fetchone()
+                    if result:
+                        tx_expense = result['tx_expense']
+                    else:
+                        tx_expense = 0
+
+                    # in case deposit fee -real_deposit_fee
+                    sql = """ SELECT SUM(real_amount-real_deposit_fee) AS incoming_tx FROM `sol_move_deposit` WHERE `user_id`=%s 
+                              AND `token_name` = %s AND `confirmed_depth`> %s AND `status`=%s """
+                    await cur.execute(sql, (userID, TOKEN_NAME, confirmed_depth, "CONFIRMED"))
+                    result = await cur.fetchone()
+                    if result:
+                        incoming_tx = result['incoming_tx']
+                    else:
+                        incoming_tx = 0
 
             balance = {}
             balance['adjust'] = 0
@@ -618,6 +638,11 @@ async def sql_get_userwallet_by_paymentid(paymentid: str, coin: str, coin_family
                 elif coin_family == "ADA":
                     # if ADA family, address is paymentid
                     sql = """ SELECT * FROM `ada_user` WHERE `balance_wallet_address`=%s AND `user_server`=%s LIMIT 1 """
+                    await cur.execute(sql, (paymentid, user_server))
+                    result = await cur.fetchone()
+                elif coin_family == "SOL":
+                    # if SOL family, address is paymentid
+                    sql = """ SELECT * FROM `sol_user` WHERE `balance_wallet_address`=%s AND `user_server`=%s LIMIT 1 """
                     await cur.execute(sql, (paymentid, user_server))
                     result = await cur.fetchone()
                 return result
@@ -1935,7 +1960,7 @@ async def sql_update_erc20_user_update_call(userID: str):
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ UPDATE `erc20_user` SET `called_Update`=%s WHERE `user_id`=%s """
+                sql = """ UPDATE `erc20_user` SET `called_Update`=%s WHERE `user_id`=%s LIMIT 1 """
                 await cur.execute(sql, (int(time.time()), userID))
                 await conn.commit()
                 return True
@@ -1951,7 +1976,22 @@ async def sql_update_trc20_user_update_call(userID: str):
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ UPDATE `trc20_user` SET `called_Update`=%s WHERE `user_id`=%s """
+                sql = """ UPDATE `trc20_user` SET `called_Update`=%s WHERE `user_id`=%s LIMIT 1 """
+                await cur.execute(sql, (int(time.time()), userID))
+                await conn.commit()
+                return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return None
+
+async def sql_update_sol_user_update_call(userID: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ UPDATE `sol_user` SET `called_Update`=%s WHERE `user_id`=%s LIMIT 1 """
                 await cur.execute(sql, (int(time.time()), userID))
                 await conn.commit()
                 return True

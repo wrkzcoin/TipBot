@@ -24,10 +24,13 @@ class EthScan(commands.Cog):
 
         self.allow_start_ethscan = False
 
+        # BSC best node
         self.fetch_bsc_node.start()
+        # SOL best node
+        self.fetch_sol_node.start()
+
         self.pull_trc20_scanning.start()
         self.pull_erc20_scanning.start()
-        
         self.remove_all_tx_ethscan.start()
 
 
@@ -46,6 +49,19 @@ class EthScan(commands.Cog):
                         await logchanbot(f"Can not fetch best node for BSC.")
             await asyncio.sleep(10.0)
 
+    @tasks.loop(seconds=10.0)
+    async def fetch_sol_node(self):
+        while True:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(config.api_best_node.sol, headers={'Content-Type': 'application/json'}, timeout=5.0) as response:
+                    if response.status == 200:
+                        res_data = await response.read()
+                        res_data = res_data.decode('utf-8')
+                        # SOL needs to fetch best node from their public
+                        self.bot.erc_node_list['SOL'] = res_data.replace('"', '')
+                    else:
+                        await logchanbot(f"Can not fetch best node for SOL.")
+            await asyncio.sleep(10.0)
 
     @tasks.loop(seconds=60.0)
     async def remove_all_tx_ethscan(self):

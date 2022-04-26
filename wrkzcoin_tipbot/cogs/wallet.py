@@ -30,6 +30,14 @@ from tronpy.providers.async_http import AsyncHTTPProvider
 from tronpy.exceptions import AddressNotFound
 from tronpy.keys import PrivateKey
 
+# For Solana
+from solana.rpc.async_api import AsyncClient as Sol_AsyncClient
+from solana.publickey import PublicKey
+from solana.rpc.types import TokenAccountOpts
+from solana.keypair import Keypair
+from solana.transaction import Transaction
+from solana.system_program import TransferParams, transfer
+
 from httpx import AsyncClient, Timeout, Limits
 
 from eth_account import Account
@@ -266,6 +274,12 @@ class WalletAPI(commands.Cog):
                     balance_address['balance_wallet_address'] = addresses[0]
                     balance_address['address'] = addresses[0]
                     balance_address['wallet_name'] = wallet_name
+            elif type_coin.upper() == "SOL":
+                balance_address = {}
+                kp = Keypair.generate()
+                public_key = str(kp.public_key)
+                balance_address['balance_wallet_address'] = public_key
+                balance_address['secret_key_hex'] = kp.secret_key.hex()
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
@@ -328,6 +342,12 @@ class WalletAPI(commands.Cog):
                             await cur.execute(sql, ( str(userID), balance_address['wallet_name'], balance_address['address'], int(time.time()), user_server, is_discord_guild, balance_address['wallet_name'] ))
                             await conn.commit()
                             return {'balance_wallet_address': balance_address['address']}
+                        elif type_coin.upper() == "SOL":
+                            sql = """ INSERT INTO `sol_user` (`user_id`, `balance_wallet_address`, `address_ts`, `secret_key_hex`, `called_Update`, `user_server`, `is_discord_guild`) 
+                                      VALUES (%s, %s, %s, %s, %s, %s, %s) """
+                            await cur.execute(sql, ( str(userID),  balance_address['balance_wallet_address'], int(time.time()), encrypt_string(balance_address['secret_key_hex']), int(time.time()), user_server, is_discord_guild ))
+                            await conn.commit()
+                            return {'balance_wallet_address': balance_address['balance_wallet_address']}
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
         except Exception as e:
@@ -395,6 +415,11 @@ class WalletAPI(commands.Cog):
                         if result: return result
                     elif type_coin.upper() == "ADA":
                         sql = """ SELECT * FROM `ada_user` WHERE `user_id`=%s AND `user_server` = %s LIMIT 1 """
+                        await cur.execute(sql, (str(userID), user_server))
+                        result = await cur.fetchone()
+                        if result: return result
+                    elif type_coin.upper() == "SOL":
+                        sql = """ SELECT * FROM `sol_user` WHERE `user_id`=%s AND `user_server` = %s LIMIT 1 """
                         await cur.execute(sql, (str(userID), user_server))
                         result = await cur.fetchone()
                         if result: return result
@@ -1245,6 +1270,37 @@ class WalletAPI(commands.Cog):
             await logchanbot(traceback.format_exc())
         return None
 
+    async def send_external_sol(self, url: str, user_from: str, amount: float, to_address: str, coin: str, coin_decimal: int, tx_fee: float, withdraw_fee: float, user_server: str='DISCORD'):
+        async def move_wallet_balance(url: str, receiver: str, atomic_amount: int):
+            # url: is endpoint transfer
+            try:
+                sender = Keypair.from_secret_key(bytes.fromhex(config.sol.MainAddress_key_hex))
+                client = Sol_AsyncClient(url)
+                txn = Transaction().add(transfer(TransferParams(
+                   from_pubkey=sender.public_key, to_pubkey=receiver, lamports=atomic_amount)))
+                sending_tx = await client.send_transaction(txn, sender)
+                if 'result' in sending_tx:
+                    await client.close()
+                    return sending_tx['result'] # This is Tx Hash
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            return None
+        try:
+            send_tx = await move_wallet_balance(url, to_address, int(amount*10**coin_decimal))
+            if send_tx:
+                await self.openConnection()
+                async with self.pool.acquire() as conn:
+                    async with conn.cursor() as cur:
+                        sql = """ INSERT INTO `sol_external_tx` (`coin_name`, `contract`, `user_id`, `real_amount`, `real_external_fee`, `network_fee`, `txn`, `token_decimal`, `to_address`, `date`, `user_server`) 
+                                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                        await cur.execute(sql, ( coin.upper(), None, user_from, amount, withdraw_fee, tx_fee, send_tx, coin_decimal, to_address, int(time.time()), user_server ))
+                        await conn.commit()
+                        return send_tx
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
+
 class Wallet(commands.Cog):
 
     def __init__(self, bot):
@@ -1297,6 +1353,10 @@ class Wallet(commands.Cog):
         # update ada wallet sync status
         self.update_ada_wallets_sync.start()
         self.notify_new_confirmed_ada.start()
+        
+        # update sol wallet sync status
+        self.update_sol_wallets_sync.start()
+        self.unlocked_move_pending_sol.start()
 
         # DB
         self.pool = None
@@ -1561,6 +1621,26 @@ class Wallet(commands.Cog):
                             await cur.execute(sql, ( address, "incoming", TOKEN_NAME, nos_block ))
                         result = await cur.fetchone()
                         if result and result['incoming_tx']:
+                            incoming_tx = result['incoming_tx']
+                        else:
+                            incoming_tx = 0
+                    elif coin_family == "SOL" or coin_family == "SPL":
+                        # When sending tx out, (negative)
+                        sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense FROM `sol_external_tx` 
+                                  WHERE `user_id`=%s AND `coin_name` = %s AND `crediting`=%s """
+                        await cur.execute(sql, ( userID, TOKEN_NAME, "YES" ))
+                        result = await cur.fetchone()
+                        if result:
+                            tx_expense = result['tx_expense']
+                        else:
+                            tx_expense = 0
+
+                        # in case deposit fee -real_deposit_fee
+                        sql = """ SELECT SUM(real_amount-real_deposit_fee) AS incoming_tx FROM `sol_move_deposit` WHERE `user_id`=%s 
+                                  AND `token_name` = %s AND `confirmed_depth`> %s AND `status`=%s """
+                        await cur.execute(sql, (userID, TOKEN_NAME, confirmed_depth, "CONFIRMED"))
+                        result = await cur.fetchone()
+                        if result:
                             incoming_tx = result['incoming_tx']
                         else:
                             incoming_tx = 0
@@ -2077,6 +2157,201 @@ class Wallet(commands.Cog):
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
             await asyncio.sleep(time_lap)
+
+    @tasks.loop(seconds=30.0)
+    async def update_sol_wallets_sync(self):
+        time_lap = 30 # seconds
+        COIN_NAME = "SOL"
+        await self.bot.wait_until_ready()
+
+        async def fetch_getEpochInfo(url: str, timeout: 12):
+            data = '{"jsonrpc":"2.0", "method":"getEpochInfo", "id":1}'
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(url, headers={'Content-Type': 'application/json'}, json=json.loads(data), timeout=timeout) as response:
+                        if response.status == 200:
+                            res_data = await response.read()
+                            res_data = res_data.decode('utf-8')
+                            await session.close()
+                            decoded_data = json.loads(res_data)
+                            if decoded_data and 'result' in decoded_data:
+                                return decoded_data['result']
+            except asyncio.TimeoutError:
+                print('TIMEOUT: getEpochInfo {} for {}s'.format(url, timeout))
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            return None
+
+        async def fetch_wallet_balance(url: str, address: str):
+            # url: is endpoint
+            try:
+                client = Sol_AsyncClient(url)
+                balance = await client.get_balance(PublicKey(address))
+                if 'result' in balance:
+                    await client.close()
+                    return balance['result']
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            return None
+
+        async def move_wallet_balance(url: str, sender_hex_key: str, atomic_amount: int):
+            # url: is endpoint transfer
+            try:
+                sender = Keypair.from_secret_key(bytes.fromhex(sender_hex_key))
+                receiver_addr = config.sol.MainAddress
+                client = Sol_AsyncClient(url)
+                txn = Transaction().add(transfer(TransferParams(
+                   from_pubkey=sender.public_key, to_pubkey=receiver_addr, lamports=atomic_amount)))
+                sending_tx = await client.send_transaction(txn, sender)
+                if 'result' in sending_tx:
+                    await client.close()
+                    return sending_tx['result'] # This is Tx Hash
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            return None
+
+        #while True:
+        await asyncio.sleep(time_lap)
+        # update Height
+        try:
+            getEpochInfo = await fetch_getEpochInfo(self.bot.erc_node_list['SOL'], 8)
+            if getEpochInfo:
+                height = getEpochInfo['absoluteSlot']
+                try:
+                    redis_utils.redis_conn.set(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}', str(height))
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            # If this happen. Sleep and next
+            await asyncio.sleep(time_lap)
+            #continue
+
+        try:
+            lap = int(time.time()) - 3600*2
+            last_move = int(time.time()) - 90 # if there is last move, it has to be at least XXs
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `sol_user` WHERE (`called_Update`>%s OR `is_discord_guild`=1) AND `last_move_deposit`<%s """
+                    await cur.execute(sql, ( lap, last_move ))
+                    result = await cur.fetchall()
+                    if result and len(result) > 0:
+                        for each_addr in result:
+                            try:
+                                # get deposit balance if it's less than minimum
+                                get_balance = await fetch_wallet_balance(self.bot.erc_node_list['SOL'], each_addr['balance_wallet_address'])
+                                coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+                                real_min_deposit = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_min_deposit")
+                                tx_fee = getattr(getattr(self.bot.coin_list, COIN_NAME), "tx_fee")
+                                contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
+                                real_deposit_fee = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_deposit_fee")
+                                if 'context' in get_balance and 'value' in get_balance: 
+                                    actual_balance = float(get_balance['value']/10**coin_decimal)
+                                    if actual_balance >= real_min_deposit:
+                                        # Let's move
+                                        remaining = int((actual_balance - tx_fee)*10**coin_decimal)
+                                        moving = await move_wallet_balance(self.bot.erc_node_list['SOL'], decrypt_string(each_addr['secret_key_hex']), remaining)
+                                        if moving:
+                                            await self.openConnection()
+                                            async with self.pool.acquire() as conn:
+                                                async with conn.cursor() as cur:
+                                                    sql = """ INSERT INTO `sol_move_deposit` (`token_name`, `contract`, `user_id`, `balance_wallet_address`, `to_main_address`, `real_amount`, `real_deposit_fee`, `token_decimal`, `txn`, `time_insert`, 
+                                                              `user_server`) 
+                                                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+                                                              UPDATE `sol_user` SET `last_move_deposit`=%s WHERE `balance_wallet_address`=%s LIMIT 1; """
+                                                    await cur.execute(sql, ( COIN_NAME, contract, each_addr['user_id'], each_addr['balance_wallet_address'], config.sol.MainAddress, actual_balance - tx_fee, real_deposit_fee, coin_decimal, moving, int(time.time()), SERVER_BOT, int(time.time()), each_addr['balance_wallet_address'] ))
+                                                    await conn.commit()
+                            except Exception as e:
+                                traceback.print_exc(file=sys.stdout)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        await asyncio.sleep(time_lap)
+
+    @tasks.loop(seconds=30.0)
+    async def unlocked_move_pending_sol(self):
+        time_lap = 30 # seconds
+        COIN_NAME = "SOL"
+        await self.bot.wait_until_ready()
+
+        async def fetch_getConfirmedTransaction(url: str, txn: str, timeout: 12):
+            json_data = {
+                        "jsonrpc": "2.0",
+                        "id": 1,
+                        "method": "getConfirmedTransaction",
+                        "params": [
+                          txn,
+                          "json"
+                        ]
+                    }
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(url, headers={'Content-Type': 'application/json'}, json=json_data, timeout=timeout) as response:
+                        if response.status == 200:
+                            res_data = await response.read()
+                            res_data = res_data.decode('utf-8')
+                            await session.close()
+                            decoded_data = json.loads(res_data)
+                            if decoded_data and 'result' in decoded_data:
+                                return decoded_data['result']
+            except asyncio.TimeoutError:
+                print('TIMEOUT: getConfirmedTransaction {} for {}s'.format(url, timeout))
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            return None
+
+        time_insert = int(time.time()) - 90
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `sol_move_deposit` WHERE `status`=%s AND `time_insert`<%s """
+                    await cur.execute(sql, ( "PENDING", time_insert ))
+                    result = await cur.fetchall()
+                    if result and len(result) > 0:
+                        for each_mv in result:
+                            fetch_tx = await fetch_getConfirmedTransaction(self.bot.erc_node_list['SOL'], each_mv['txn'], 16)
+                            if fetch_tx:
+                                get_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
+                                net_height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
+                                height = fetch_tx['slot']
+                                confirmed_depth = net_height - height
+                                status = "FAILED"
+                                if fetch_tx['meta']['err'] is None and confirmed_depth > get_confirm_depth:
+                                    status = "CONFIRMED"
+                                elif fetch_tx['meta']['err'] is not None and confirmed_depth > get_confirm_depth:
+                                    status = "FAILED"
+                                else:
+                                    continue
+                                await self.openConnection()
+                                async with self.pool.acquire() as conn:
+                                    async with conn.cursor() as cur:
+                                        sql = """ UPDATE `sol_move_deposit` SET `blockNumber`=%s, `confirmed_depth`=%s, `status`=%s 
+                                                  WHERE `txn`=%s LIMIT 1 """
+                                        await cur.execute(sql, ( height, confirmed_depth, status, each_mv['txn'] ))
+                                        await conn.commit()
+                                        ## Notify
+                                        if not each_mv['user_id'].isdigit():
+                                            continue
+                                        COIN_NAME = each_mv['token_name']
+                                        coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+                                        if each_mv['user_id'].isdigit() and each_mv['user_server'] == SERVER_BOT:
+                                            member = self.bot.get_user(int(each_mv['user_id']))
+                                            if member is not None:
+                                                msg = "You got a new deposit (it could take a few minutes to credit): ```" + "Coin: {}\nMoved Tx: {}\nAmount: {}".format(COIN_NAME, each_mv['txn'], num_format_coin(each_mv['real_amount'], COIN_NAME, coin_decimal, False)) + "```"
+                                                try:
+                                                    await member.send(msg)
+                                                    sql = """ UPDATE `sol_move_deposit` SET `notified_confirmation`=%s, `time_notified`=%s WHERE `txn`=%s AND `token_name`=%s LIMIT 1 """
+                                                    await cur.execute(sql, ( "YES", int(time.time()), each_mv['txn'], COIN_NAME ))
+                                                    await conn.commit()
+                                                except Exception as e:
+                                                    traceback.print_exc(file=sys.stdout)
+                                                    sql = """ UPDATE `sol_move_deposit` SET `notified_confirmation`=%s, `failed_notification`=%s WHERE `txn`=%s AND `token_name`=%s LIMIT 1 """
+                                                    await cur.execute(sql, ( "NO", "YES", each_mv['txn'], COIN_NAME ))
+                                                    await conn.commit()
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        await asyncio.sleep(time_lap)
 
     @tasks.loop(seconds=60.0)
     async def update_ada_wallets_sync(self):
@@ -3363,6 +3638,7 @@ class Wallet(commands.Cog):
             net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
             type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
             get_deposit = await self.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+            coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
             if get_deposit is None:
                 get_deposit = await self.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
                 
@@ -3373,7 +3649,7 @@ class Wallet(commands.Cog):
             if getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_note") and len(getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_note")) > 0:
                 description = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_note")
             if getattr(getattr(self.bot.coin_list, COIN_NAME), "real_deposit_fee") and getattr(getattr(self.bot.coin_list, COIN_NAME), "real_deposit_fee") > 0:
-                fee_txt = " **{} {}** will be deducted from your deposit when it reaches minimum.".format(getattr(getattr(self.bot.coin_list, COIN_NAME), "real_deposit_fee"), token_display)
+                fee_txt = " **{} {}** will be deducted from your deposit when it reaches minimum.".format(num_format_coin(getattr(getattr(self.bot.coin_list, COIN_NAME), "real_deposit_fee"), COIN_NAME, coin_decimal, False), token_display)
             embed = disnake.Embed(title=f'Deposit for {ctx.author.name}#{ctx.author.discriminator}', description=description + fee_txt, timestamp=datetime.fromtimestamp(int(time.time())))
             embed.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
             qr_address = wallet_address
@@ -3506,6 +3782,8 @@ class Wallet(commands.Cog):
                     update_call = await store.sql_update_erc20_user_update_call(str(ctx.author.id))
                 elif type_coin == "TRC-10" or type_coin == "TRC-20":
                     update_call = await store.sql_update_trc20_user_update_call(str(ctx.author.id))
+                elif type_coin == "SOL" or type_coin == "SPL":
+                    update_call = await store.sql_update_sol_user_update_call(str(ctx.author.id))
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
         except Exception as e:
@@ -3596,6 +3874,8 @@ class Wallet(commands.Cog):
                                     update_call = await store.sql_update_erc20_user_update_call(str(ctx.author.id))
                                 elif type_coin == "TRC-10" or type_coin == "TRC-20":
                                     update_call = await store.sql_update_trc20_user_update_call(str(ctx.author.id))
+                                elif type_coin == "SOL" or type_coin == "SPL":
+                                    update_call = await store.sql_update_sol_user_update_call(str(ctx.author.id))
                             except Exception as e:
                                 traceback.print_exc(file=sys.stdout)
                             height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
@@ -4108,6 +4388,24 @@ class Wallet(commands.Cog):
                                 await ctx.edit_original_message(content=msg)
                             self.bot.TX_IN_PROCESS.remove(ctx.author.id)
                             return
+                    else:
+                        # reject and tell to wait
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
+                        await ctx.edit_original_message(content=msg)
+                        return
+                elif type_coin == "SOL" or type_coin == "SPL":
+                    if ctx.author.id not in self.bot.TX_IN_PROCESS:
+                        self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                        tx_fee = getattr(getattr(self.bot.coin_list, COIN_NAME), "tx_fee")
+                        SendTx = await self.WalletAPI.send_external_sol(self.bot.erc_node_list['SOL'], str(ctx.author.id), amount, address, COIN_NAME, coin_decimal, tx_fee, NetFee, SERVER_BOT)
+                        if SendTx:
+                            fee_txt = "\nWithdrew fee/node: `{} {}`.".format(num_format_coin(NetFee, COIN_NAME, coin_decimal, False), COIN_NAME)
+                            msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`{fee_txt}'
+                            await ctx.edit_original_message(content=msg)
+                            await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} successfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
+                        else:
+                            await logchanbot(f'[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
+                        self.bot.TX_IN_PROCESS.remove(ctx.author.id)
                     else:
                         # reject and tell to wait
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'

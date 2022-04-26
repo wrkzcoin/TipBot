@@ -114,6 +114,8 @@ class BotBalance(commands.Cog):
                     update_call = await store.sql_update_erc20_user_update_call(str(member.id))
                 elif type_coin == "TRC-10" or type_coin == "TRC-20":
                     update_call = await store.sql_update_trc20_user_update_call(str(member.id))
+                elif type_coin == "SOL" or type_coin == "SPL":
+                    update_call = await store.sql_update_sol_user_update_call(str(member.id))
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
         except Exception as e:

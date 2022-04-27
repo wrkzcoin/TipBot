@@ -1083,35 +1083,56 @@ class Economy(commands.Cog):
         if "error" in check_this_ctx:
             return check_this_ctx
 
+        try:
+            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking buying items.."
+            await ctx.response.send_message(msg)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await ctx.response.send_message(content=f"{EMOJI_INFORMATION} {ctx.author.mention}, error checking buying items...", ephemeral=True)
+            return
+
         # Getting list
         get_userinfo = await self.db.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
         if get_userinfo:
             if get_userinfo['fishing_bait'] >= self.eco_max_bait[str(get_userinfo['boat_level'])] and (item_name.upper() == "BAIT" or item_name == "🎣"):
-                return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} You have maximum of baits already."}
+                await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you have maximum of baits already.")
+                return
             elif get_userinfo['tree_seed'] >= self.eco_max_seed[str(get_userinfo['farm_level'])] and (item_name.upper() == "SEED" or item_name == "🌱"):
-                return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} You have maximum of seeds already."}
+                await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you have maximum of seeds already.")
+                return
             elif get_userinfo['numb_farm'] >= config.economy.max_farm_per_user and (item_name.upper() == "FARM" or item_name == "👨‍🌾"):
-                return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} You have a `farm` already."}
+                await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you have a farm already.")
+                return
             elif get_userinfo['numb_chicken_farm'] >= config.economy.max_chickenfarm_per_user and (item_name.upper() == "CHICKENFARM" or item_name.upper() == "CHICKEN FARM"):
-                return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} You have a `chicken farm` already."}
+                await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you have a chicken farm already.")
+                return
             elif get_userinfo['numb_chicken_farm'] == 0 and (item_name.upper() == "CHICKEN" or item_name == "🐔"):
-                return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} You do not have a `chicken farm`."}
+                await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you do not have a chicken farm.")
+                return
             elif get_userinfo['numb_chicken'] >= config.economy.max_chicken_per_user and (item_name.upper() == "CHICKEN" or item_name == "🐔"):
-                return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} You have maximum of chicken already."}
+                await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you have maximum number of chicken already.")
+                return
             elif get_userinfo['numb_tractor'] >= config.economy.max_tractor_per_user and (item_name.upper() == "TRACTOR" or item_name == "🚜"):
-                return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} You have a `tractor` already."}
+                await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you have a tractor already.")
+                return
             elif get_userinfo['numb_dairy_cattle'] >= config.economy.max_dairycattle_per_user and (item_name.upper() == "DAIRY CATTLE" or item_name == "DAIRYCATTLE"):
-                return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} You have a dairy cattle already."}
+                await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you have a dairy cattle already.")
+                return
             elif get_userinfo['numb_dairy_cattle'] == 0 and item_name.upper() == "COW":
-                return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} You do not have `dairy cattle`."}
+                await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you do not have dairy cattle.")
+                return
             elif get_userinfo['numb_farm'] == 0 and (item_name.upper() == "TRACTOR" or item_name == "🚜"):
-                return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} You do not have a `farm`."}
+                await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you do not have a farm.")
+                return
             elif get_userinfo['numb_boat'] >= config.economy.max_boat_per_user and (item_name.upper() == "BOAT" or item_name == "🚣"):
-                return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} You have a `boat` already."}
+                await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention} You have a boat already.")
+                return
             elif get_userinfo['numb_cow'] >= self.eco_max_cow_level[str(get_userinfo['dairy_farm_level'])] and (item_name.upper() == "COW" or item_name == "🐄"):
-                return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} You have maximum of cows already."}
+                await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you have maximum number of cows already.")
+                return
             elif get_userinfo['numb_market'] >= config.economy.max_market_per_user and (item_name.upper() == "MARKET" or item_name == "🛒"):
-                return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} You have a `market` already."}
+                await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you have a market already.")
+                return
             else:
                 try:
                     if item_name.upper() == "LIST":
@@ -1128,9 +1149,10 @@ class Economy(commands.Cog):
                             e.set_footer(text=f"User {ctx.author.name}#{ctx.author.discriminator}")
                             e.set_thumbnail(url=ctx.author.display_avatar)
                             msg = await ctx.edit_original_message(content=None, embed=e)
-                            return {"result": True} ## True: No need to reply after call this function
+                            return
                         else:
-                            return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} there is no item in our shop."}
+                            await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, there is no item in our shop.")
+                            return
                     elif item_name.upper() == "CREDIT":
                         # Using gem instead of credit
                         get_shop_item = await self.db.economy_shop_get_item(item_name)
@@ -1143,9 +1165,11 @@ class Economy(commands.Cog):
                             if get_userinfo['gem_credit'] <= 0 or get_userinfo['gem_credit'] < get_shop_item['credit_cost']:
                                 user_credit = get_userinfo['gem_credit']
                                 need_credit = get_shop_item['credit_cost']
-                                return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} You do not have sufficient gem. Having only `{user_credit}`. Need `{need_credit}`."}
+                                await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you do not have sufficient gem. Having only `{user_credit}`. Need `{need_credit}`.")
+                                return
                             elif level < get_shop_item['limit_level']:
-                                return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} Your level `{level}` is still low. Needed level `{str(needed_level)}`."}
+                                await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, your level `{level}` is still low. Needed level `{str(needed_level)}`.")
+                                return
                             else:
                                 if ctx.author.id not in self.bot.GAME_INTERACTIVE_ECO:
                                     self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
@@ -1154,9 +1178,11 @@ class Economy(commands.Cog):
                                 update_item = await self.db.discord_economy_userinfo_what(str(ctx.guild.id), str(ctx.author.id), get_shop_item['id'], item_name, 0, add_item_numbers)
                                 if update_item:
                                     item_desc = get_shop_item['item_name'] + " " + get_shop_item['item_emoji'] + " x" + str(add_item_numbers)
-                                    return {"result": f"{ctx.author.mention}, {EMOJI_INFORMATION} You successfully purchased {item_desc}."}
+                                    await ctx.edit_original_message(content=f"{ctx.author.mention}, {EMOJI_INFORMATION} you successfully purchased {item_desc}.")
+                                    return
                         else:
-                            return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} item `{item_name}` is not available."}
+                            await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, item `{item_name}` is not available.")
+                            return
                     else:
                         # Check if enough credit
                         # 1) Check price
@@ -1169,11 +1195,14 @@ class Economy(commands.Cog):
                             if get_userinfo['credit'] < get_shop_item['credit_cost']:
                                 user_credit = "{:,.2f}".format(get_userinfo['credit'])
                                 need_credit = "{:,.2f}".format(get_shop_item['credit_cost'])
-                                return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} You do not have sufficient credit. Having only `{user_credit}`. Need `{need_credit}`."}
+                                await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you do not have sufficient credit. Having only `{user_credit}`. Need `{need_credit}`.")
+                                return
                             elif level < get_shop_item['limit_level']:
-                                return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} Your level `{level}`  is still low. Needed level `{str(needed_level)}`."}
+                                await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, your level `{level}`  is still low. Needed level `{str(needed_level)}`.")
+                                return
                             elif need_fishing_exp > 0 and your_fishing_exp <  need_fishing_exp:
-                                return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} Your fishing exp `{your_fishing_exp}`  is still low. Needed fishing exp `{str(need_fishing_exp)}`."}
+                                await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, your fishing exp `{your_fishing_exp}`  is still low. Needed fishing exp `{str(need_fishing_exp)}`.")
+                                return
                             else:
                                 if ctx.author.id not in self.bot.GAME_INTERACTIVE_ECO:
                                     self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
@@ -1200,18 +1229,21 @@ class Economy(commands.Cog):
                                     await logchanbot(traceback.format_exc())
                                 item_desc = get_shop_item['item_name'] + " " + get_shop_item['item_emoji'] + " x" + str(add_item_numbers)
                                 if update_item:
-                                    return {"result": f"{ctx.author.mention}, {EMOJI_INFORMATION} You successfully purchased {item_desc}."}
+                                    await ctx.edit_original_message(content=f"{ctx.author.mention}, {EMOJI_INFORMATION}, you successfully purchased {item_desc}.")
+                                    return
                                 else:
-                                    return {"error": f"{ctx.author.mention}, {EMOJI_INFORMATION} internal error {item_desc}."}
+                                    await ctx.edit_original_message(content=f"{ctx.author.mention}, {EMOJI_INFORMATION} internal error {item_desc}.")
+                                    return
                         else:
-                            return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} item `{item_name}` is not available."}
+                            await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention} item `{item_name}` is not available.")
+                            return
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
                 if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO: self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
         else:
-            return {"error": f"{EMOJI_RED_NO} {ctx.author.mention} Internal error."}
-
+            await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, internal error.")
+            return
 
     async def eco_sell(self, ctx, item_name):
         check_this_ctx = await self.check_guild(ctx)
@@ -1734,15 +1766,27 @@ class Economy(commands.Cog):
         if "error" in check_this_ctx:
             return check_this_ctx
 
+        try:
+            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking what you are collecting..."
+            await ctx.response.send_message(msg)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await ctx.response.send_message(content=f"{EMOJI_INFORMATION} {ctx.author.mention}, error checking...", ephemeral=True)
+            return
+
         get_userinfo = await self.db.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
         if what == "MILK" and get_userinfo and get_userinfo['numb_dairy_cattle'] == 0:
-            return {"error": f"{ctx.author.mention}, Not having any dairy cattle."}
+            await ctx.edit_original_message(content=f"{ctx.author.mention}, you don't have any dairy cattle.")
+            return
         elif what == "MILK" and get_userinfo and get_userinfo['numb_cow'] == 0:
-            return {"error": f"{ctx.author.mention}, You do not have any cow."}
+            await ctx.edit_original_message(content=f"{ctx.author.mention}, you don't have any cow.")
+            return
         elif what == "EGG" and get_userinfo and get_userinfo['numb_chicken_farm'] == 0:
-            return {"error": f"{ctx.author.mention}, Not having any chicken farm."}
+            await ctx.edit_original_message(content=f"{ctx.author.mention}, you don't have any chicken farm.")
+            return
         elif what == "EGG" and get_userinfo and get_userinfo['numb_chicken'] == 0:
-            return {"error": f"{ctx.author.mention}, You do not have any chicken."}
+            await ctx.edit_original_message(content=f"{ctx.author.mention}, you don't have any chicken.")
+            return
         elif what == "MILK":
             try:
                 if ctx.author.id not in self.bot.GAME_INTERACTIVE_ECO:
@@ -2752,21 +2796,12 @@ class Economy(commands.Cog):
         *, 
         item_name: str
     ):
-
-        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking shop..."
-        await ctx.response.send_message(msg)
-
         eco_buy = await self.eco_buy(ctx, item_name)
         if item_name is None:
             item_name = "LIST"
         if item_name.upper() == "LIST":
             if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO: self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
             return
-
-        if eco_buy and "error" in eco_buy:
-            await ctx.edit_original_message(content=eco_buy['error'])
-        elif eco_buy and "result" in eco_buy:
-            await ctx.edit_original_message(content=eco_buy['result'])
         if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO: self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
 
     @eco.sub_command(
@@ -2851,17 +2886,7 @@ class Economy(commands.Cog):
         ctx, 
         what: str
     ):
-        try:
-            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking what you are collecting..."
-            await ctx.response.send_message(msg)
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(content=f"{EMOJI_INFORMATION} {ctx.author.mention}, error checking farm...", ephemeral=True)
-            return
-
         eco_collect = await self.eco_collect(ctx, what)
-        if eco_collect and "error" in eco_collect:
-            await ctx.edit_original_message(content=eco_collect['error'])
         if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO: self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
 
 
@@ -2880,9 +2905,6 @@ class Economy(commands.Cog):
         if member is None:
             member = ctx.author
         eco_dairy = await self.eco_dairy(ctx, member)
-        if eco_dairy and "error" in eco_dairy:
-            await ctx.response.send_message(eco_dairy['error'], ephemeral=False)
-
 
     @eco.sub_command(
         usage="eco chicken <member>", 
@@ -2899,9 +2921,6 @@ class Economy(commands.Cog):
         if member is None:
             member = ctx.author
         eco_chicken = await self.eco_chicken(ctx, member)
-        if eco_chicken and "error" in eco_chicken:
-            await ctx.response.send_message(eco_chicken['error'], ephemeral=False)
-
 
     @eco.sub_command(
         usage="eco farm <member>", 
@@ -2918,9 +2937,6 @@ class Economy(commands.Cog):
         if member is None:
             member = ctx.author
         eco_farm = await self.eco_farm(ctx, member)
-        if eco_farm and "error" in eco_farm:
-            await ctx.response.send_message(eco_farm['error'], ephemeral=False)
-
 
     @eco.sub_command(
         usage="eco harvest", 
@@ -2931,9 +2947,6 @@ class Economy(commands.Cog):
         ctx
     ):
         eco_harvest = await self.eco_harvest(ctx)
-        if eco_harvest and "error" in eco_harvest:
-            await ctx.response.send_message(eco_harvest['error'], ephemeral=False)
-
 
     @eco.sub_command(
         usage="eco fishing", 
@@ -2944,9 +2957,6 @@ class Economy(commands.Cog):
         ctx
     ):
         eco_fishing = await self.eco_fishing(ctx)
-        if eco_fishing and "error" in eco_fishing:
-            await ctx.response.send_message(eco_fishing['error'], ephemeral=False)
-
 
     @eco.sub_command(
         usage="eco woodcutting", 
@@ -2957,9 +2967,6 @@ class Economy(commands.Cog):
         ctx
     ):
         eco_woodcutting = await self.eco_woodcutting(ctx)
-        if eco_woodcutting and "error" in eco_woodcutting:
-            await ctx.response.send_message(eco_woodcutting['error'], ephemeral=False)
-
 
     @eco.sub_command(
         usage="eco search", 

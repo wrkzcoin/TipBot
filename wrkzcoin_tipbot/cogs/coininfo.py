@@ -121,6 +121,7 @@ class Coininfo(commands.Cog):
             network = {}
             network['Others'] = []
             network['ADA'] = []
+            network['SOL'] = []
             for COIN_NAME in self.bot.coin_name_list:
                 net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
                 type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
@@ -133,6 +134,8 @@ class Coininfo(commands.Cog):
                 else:
                     if type_coin == "ADA":
                         network['ADA'].append(COIN_NAME)
+                    elif type_coin == "SOL" or type_coin == "SPL":
+                        network['SOL'].append(COIN_NAME)
                     else:
                         network['Others'].append(COIN_NAME)
             embed = disnake.Embed(title=f'Coin/Token list in TipBot', description="Currently, supported {} coins/tokens.".format(len(self.bot.coin_name_list)), timestamp=datetime.now())

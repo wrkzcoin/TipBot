@@ -472,7 +472,6 @@ class WalletAPI(commands.Cog):
         return None
 
     async def send_external_nano(self, main_address: str, user_from: str, amount: float, to_address: str, coin: str, coin_decimal):
-        global pool
         COIN_NAME = coin.upper()
         try:
             await self.openConnection()
@@ -523,9 +522,7 @@ class WalletAPI(commands.Cog):
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
 
-
     async def send_external_xch(self, user_from: str, amount: float, to_address: str, coin: str, coin_decimal: int, tx_fee: float, withdraw_fee: float, user_server: str='DISCORD'):
-        global pool
         COIN_NAME = coin.upper()
         try:
             payload = {
@@ -585,7 +582,6 @@ class WalletAPI(commands.Cog):
 
 
     async def send_external_doge(self, user_from: str, amount: float, to_address: str, coin: str, tx_fee: float, withdraw_fee: float, user_server: str):
-        global pool
         user_server = user_server.upper()
         COIN_NAME = coin.upper()
         try:
@@ -775,7 +771,6 @@ class WalletAPI(commands.Cog):
 
 
     async def send_external_xmr(self, type_coin: str, from_address: str, user_from: str, amount: float, to_address: str, coin: str, coin_decimal: int, tx_fee: float, withdraw_fee: float, is_fee_per_byte: int, get_mixin: int, user_server: str, wallet_api_url: str=None, wallet_api_header: str=None, paymentId: str=None):
-        global pool
         COIN_NAME = coin.upper()
         user_server = user_server.upper()
         time_out = 32
@@ -1674,7 +1669,6 @@ class Wallet(commands.Cog):
             await logchanbot(traceback.format_exc())
 
     async def swap_coin(self, userId: str, from_coin: str, from_amount: float, from_contract: str, from_decimal: int, to_coin: str, to_amount: float, to_contract: str, to_decimal: int, user_server: str):
-        global pool
         # 1] move to_amount to_coin from "SWAP" to userId
         # 2] move from_amount from_coin from userId to "SWAP"
         currentTs = int(time.time())
@@ -3149,7 +3143,6 @@ class Wallet(commands.Cog):
             await asyncio.sleep(time_lap)
 
     async def send_external_erc20(self, url: str, network: str, user_id: str, to_address: str, amount: float, coin: str, coin_decimal: int, real_withdraw_fee: float, user_server: str, chain_id: str=None, contract: str=None):
-        global pool
         TOKEN_NAME = coin.upper()
         user_server = user_server.upper()
 
@@ -3232,7 +3225,6 @@ class Wallet(commands.Cog):
 
 
     async def send_external_trc20(self, user_id: str, to_address: str, amount: float, coin: str, coin_decimal: int, real_withdraw_fee: float, user_server: str, fee_limit: float, trc_type: str, contract: str=None):
-        global pool
         TOKEN_NAME = coin.upper()
         user_server = user_server.upper()
 
@@ -4475,6 +4467,42 @@ class Wallet(commands.Cog):
         address: str
     ):
         await self.async_withdraw(ctx, amount, token, address)
+
+    @commands.slash_command(
+        usage='transfer', 
+        options=[
+            Option('amount', 'amount', OptionType.string, required=True),
+            Option('token', 'token', OptionType.string, required=True),
+            Option('address', 'address', OptionType.string, required=True)
+        ],
+        description="withdraw to your external address."
+    )
+    async def transfer(
+        self, 
+        ctx,
+        amount: str,
+        token: str,
+        address: str
+    ):
+        await self.async_withdraw(ctx, amount, token, address)
+
+    @commands.slash_command(
+        usage='send', 
+        options=[
+            Option('amount', 'amount', OptionType.string, required=True),
+            Option('token', 'token', OptionType.string, required=True),
+            Option('address', 'address', OptionType.string, required=True)
+        ],
+        description="withdraw to your external address."
+    )
+    async def send(
+        self, 
+        ctx,
+        amount: str,
+        token: str,
+        address: str
+    ):
+        await self.async_withdraw(ctx, amount, token, address)
     # End of Withdraw
 
 
@@ -4676,7 +4704,9 @@ class Wallet(commands.Cog):
                 await ctx.edit_original_message(content=msg)
                 return
             elif serverinfo and serverinfo['enable_faucet'] == "YES" and serverinfo['faucet_channel'] is not None and serverinfo['faucet_coin'] is not None:
-                extra_take_text = " Additional reward, you can also do /faucet in <#{}> which funded by the guild.".format(serverinfo['faucet_channel'])
+                extra_take_text = " Additional reward:\n\n1) you can also do /faucet in <#{}> which funded by the guild.".format(serverinfo['faucet_channel'])
+                if serverinfo['vote_reward_amount'] and serverinfo['vote_reward_channel']:
+                    extra_take_text += "\n2) [Vote {} at top.gg](https://top.gg/servers/{}/vote) for {} {} each time.".format(ctx.guild.name, ctx.guild.id, serverinfo['vote_reward_amount'], serverinfo['vote_reward_coin'])
                 
         except Exception as e:
             traceback.print_exc(file=sys.stdout)

@@ -14,6 +14,10 @@ from disnake.ext import commands
 from disnake.enums import OptionType
 from disnake.app_commands import Option, OptionChoice
 
+# For Solana
+from solana.rpc.async_api import AsyncClient as Sol_AsyncClient
+from solana.publickey import PublicKey
+
 from Bot import num_format_coin, EMOJI_INFORMATION
 import store
 from config import config
@@ -223,6 +227,27 @@ class Stats(commands.Cog):
                                     json_resp = decoded_data
                                     balance_decimal = simple_number(float(Decimal(json_resp['balance'])/Decimal(10**coin_decimal)))
                                     embed.add_field(name="Main Balance", value="`{} {}`".format(balance_decimal, COIN_NAME), inline=False)
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                elif type_coin == "SOL":
+                    async def fetch_wallet_balance(url: str, address: str):
+                        # url: is endpoint
+                        try:
+                            client = Sol_AsyncClient(url)
+                            balance = await client.get_balance(PublicKey(address))
+                            if 'result' in balance:
+                                await client.close()
+                                return balance['result']
+                        except Exception as e:
+                            traceback.print_exc(file=sys.stdout)
+                        return None
+                    try:
+                        coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+                        get_balance = await fetch_wallet_balance(self.bot.erc_node_list['SOL'], config.sol.MainAddress)
+                        if 'context' in get_balance and 'value' in get_balance: 
+                            actual_balance = float(get_balance['value']/10**coin_decimal)
+                            balance_decimal = simple_number(actual_balance)
+                            embed.add_field(name="Main Balance", value="`{} {}`".format(balance_decimal, COIN_NAME), inline=False)
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
                 elif type_coin == "HNT":

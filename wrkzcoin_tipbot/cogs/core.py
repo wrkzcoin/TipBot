@@ -130,6 +130,18 @@ class Core(commands.Cog):
                 "related": ["deposit", "coininfo"],
                 "subcmd": []
             },
+            "transfer": {
+                "usage": "/transfer <amount> <coin> <address>",
+                "desc": "Same as withdraw. Withdraw your coin to an external address.", 
+                "related": ["deposit", "coininfo"],
+                "subcmd": []
+            },
+            "send": {
+                "usage": "/send <amount> <coin> <address>",
+                "desc": "Same as withdraw. Send your coin to an external address.", 
+                "related": ["deposit", "coininfo"],
+                "subcmd": []
+            },
             "claim": {
                 "usage": "/claim [coin]",
                 "desc": "Show reward amount for TipBpt's voting. Or set <coin> as your preferred reward.", 

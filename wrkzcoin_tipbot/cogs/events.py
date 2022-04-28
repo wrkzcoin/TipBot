@@ -370,7 +370,7 @@ class Events(commands.Cog):
         print(self.bot.user.id)
         print('------')
         self.bot.start_time = datetime.datetime.now()
-        game = disnake.Game(name="Moved to / > http://invite.discord.bot.tips")
+        game = disnake.Game(name="prefix /")
         await self.bot.change_presence(status=disnake.Status.online, activity=game)
         # Load coin setting
         try:

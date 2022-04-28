@@ -1352,6 +1352,9 @@ class Wallet(commands.Cog):
         # update sol wallet sync status
         self.update_sol_wallets_sync.start()
         self.unlocked_move_pending_sol.start()
+        
+        # monitoring reward for RT
+        self.monitoring_rt_rewards.start()
 
         # DB
         self.pool = None
@@ -1725,6 +1728,178 @@ class Wallet(commands.Cog):
     async def bot_log(self):
         if self.botLogChan is None:
             self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
+
+    @tasks.loop(seconds=60.0)
+    async def monitoring_rt_rewards(self):
+        time_lap = 10 # seconds
+        await self.bot.wait_until_ready()
+        while True:
+            await asyncio.sleep(time_lap)
+            try:
+                await self.openConnection()
+                async with self.pool.acquire() as conn:
+                    async with conn.cursor() as cur:
+                        # get verified user twitter
+                        twitter_discord_user = {}
+                        sql = """ SELECT * FROM `twitter_linkme` 
+                                  WHERE `is_verified`=1 
+                                  """
+                        await cur.execute(sql,)
+                        result = await cur.fetchall()
+                        if result and len(result) > 0:
+                            for each_t_user in result:
+                                twitter_discord_user[each_t_user['id_str']] = each_t_user['discord_user_id'] # twitter[id]= discord
+                        # get unpaid reward
+                        sql = """ SELECT * FROM `twitter_rt_reward_logs` 
+                                  WHERE `rewarded_user` IS NULL AND `is_credited`=%s 
+                                  AND `notified_confirmation`=%s AND `failed_notification`=%s AND `unverified_reward`=%s """
+                        await cur.execute(sql, ( "NO", "NO", "NO", "NO" ))
+                        reward_tos = await cur.fetchall()
+                        if reward_tos and len(reward_tos) > 0:
+                            # there is pending reward
+                            for each_reward in reward_tos:
+                                if each_reward['expired_date'] and each_reward['expired_date'] < int(time.time()):
+                                    # Expired.
+                                    sql = """ UPDATE `twitter_rt_reward_logs` SET `unverified_reward`=%s
+                                              WHERE `id`=%s LIMIT 1
+                                              """
+                                    await cur.execute(sql, ("YES", each_reward['id'] ) )
+                                    await conn.commit()
+                                    continue
+                                each_discord_user = None
+                                # Check if those twitter has verified if not could not find update it
+                                if each_reward['twitter_id'] in twitter_discord_user:
+                                    for k, v in twitter_discord_user.items():
+                                        if k == each_reward['twitter_id']:
+                                            each_discord_user = twitter_discord_user[k]
+                                            break
+                                    if each_discord_user is None:
+                                        await logchanbot("[TWITTER]: can not find twitter ID {} to Discord ID".format(each_reward['twitter_id']))
+                                        continue
+                                    # We got him verified.
+                                    guild_id = each_reward['guild_id']
+                                    guild = self.bot.get_guild(int(each_reward['guild_id']))
+                                    if guild:
+                                        # We found guild
+                                        serverinfo = await store.sql_info_by_server( each_reward['guild_id'] )
+                                        # Check if new link is updated. If yes, we ignore it
+                                        if serverinfo['rt_link'] and each_reward['tweet_link'] != serverinfo['rt_link']:
+                                            # Update
+                                            sql = """ UPDATE `twitter_rt_reward_logs` SET `unverified_reward`=%s
+                                                      WHERE `id`=%s LIMIT 1
+                                                      """
+                                            await cur.execute(sql, ("YES", each_reward['id'] ) )
+                                            await conn.commit()
+                                            continue
+                                        elif serverinfo['rt_reward_amount'] and serverinfo['rt_reward_coin'] and serverinfo['rt_reward_channel'] and serverinfo['rt_link']:
+                                            twitter_link = serverinfo['rt_link']
+                                            COIN_NAME = serverinfo['rt_reward_coin']
+                                            # Check balance of guild
+                                            User_WalletAPI = WalletAPI(self.bot)
+                                            net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
+                                            type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
+                                            deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
+                                            coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+                                            contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
+                                            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
+                                            user_from = await User_WalletAPI.sql_get_userwallet(each_reward['guild_id'], COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                                            if user_from is None:
+                                                user_from = await User_WalletAPI.sql_register_user(each_reward['guild_id'], COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                                            wallet_address = user_from['balance_wallet_address']
+                                            if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                                                wallet_address = user_from['paymentid']
+                                            height = None
+                                            try:
+                                                if type_coin in ["ERC-20", "TRC-20"]:
+                                                    height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
+                                                else:
+                                                    height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
+                                            except Exception as e:
+                                                traceback.print_exc(file=sys.stdout)
+
+                                            # height can be None
+                                            userdata_balance = await store.sql_user_balance_single(each_reward['guild_id'], COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+                                            total_balance = userdata_balance['adjust']
+                                            amount = serverinfo['rt_reward_amount']
+                                            if total_balance < amount:
+                                                # Alert guild owner
+                                                try:
+                                                    sql = """ UPDATE `twitter_rt_reward_logs` SET `rewarded_user`=%s, `is_credited`=%s, `notified_confirmation`=%s, `time_notified`=%s, `shortage_balance`=%s 
+                                                              WHERE `id`=%s LIMIT 1
+                                                              """
+                                                    await cur.execute(sql, ( each_discord_user, "NO", "YES", int(time.time()), each_reward['id'], "YES" ) )
+                                                    await conn.commit()
+                                                except Exception as e:
+                                                    traceback.print_exc(file=sys.stdout)
+                                                guild_owner = self.bot.get_user(guild.owner.id)
+                                                await guild_owner.send(f'Your guild run out of guild\'s balance for {COIN_NAME}. Deposit more!')
+                                                return
+                                            else:
+                                                # Tip
+                                                member = None
+                                                try:
+                                                    member = self.bot.get_user(int(each_discord_user))
+                                                except Exception as e:
+                                                    traceback.print_exc(file=sys.stdout)
+                                                try:
+                                                    amount_in_usd = 0.0
+                                                    if usd_equivalent_enable == 1:
+                                                        native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
+                                                        COIN_NAME_FOR_PRICE = COIN_NAME
+                                                        if native_token_name:
+                                                            COIN_NAME_FOR_PRICE = native_token_name
+                                                        if COIN_NAME_FOR_PRICE in self.bot.token_hints:
+                                                            id = self.bot.token_hints[COIN_NAME_FOR_PRICE]['ticker_name']
+                                                            per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+                                                        else:
+                                                            per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
+                                                        if per_unit and per_unit > 0:
+                                                            amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
+                                                    try:
+                                                        sql = """ UPDATE `twitter_rt_reward_logs` SET `rewarded_user`=%s, `is_credited`=%s, `notified_confirmation`=%s, `time_notified`=%s 
+                                                                  WHERE `id`=%s LIMIT 1
+                                                                  """
+                                                        await cur.execute(sql, ( each_discord_user, "YES", "YES", int(time.time()), each_reward['id'] ) )
+                                                        await conn.commit()
+                                                    except Exception as e:
+                                                        traceback.print_exc(file=sys.stdout)
+                                                    tip = await store.sql_user_balance_mv_single(each_reward['guild_id'], each_discord_user, "TWITTER", "TWITTER", amount, COIN_NAME, "RETWEET", coin_decimal, SERVER_BOT, contract, amount_in_usd)
+                                                    if member is not None:
+                                                        msg = f"Thank you for RT <{twitter_link}>. You just got a reward of {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}."
+                                                        try:
+                                                            await member.send(msg)
+                                                            guild_owner = self.bot.get_user(guild.owner.id)
+                                                            try:
+                                                                await guild_owner.send(f'User `{each_discord_user}` RT your twitter at <{twitter_link}>. He/she just got a reward of {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}.')
+                                                            except Exception as e:
+                                                                pass
+                                                            # Log channel if there is
+                                                            try:
+                                                                if serverinfo and serverinfo['rt_reward_channel']:
+                                                                    channel = self.bot.get_channel(int(serverinfo['rt_reward_channel']))
+                                                                    embed = disnake.Embed(title = "NEW RETWEET REWARD!", timestamp=datetime.now())
+                                                                    embed.add_field(name="User", value="<@{}>".format(each_discord_user), inline=True)
+                                                                    embed.add_field(name="Reward", value="{} {}".format(num_format_coin(amount, COIN_NAME, coin_decimal, False), COIN_NAME), inline=True)
+                                                                    embed.add_field(name="RT Link", value=f"<{twitter_link}>", inline=False)
+                                                                    embed.set_author(name=self.bot.user.name, icon_url=self.bot.user.display_avatar)
+                                                                    await channel.send(embed=embed)
+                                                            except Exception as e:
+                                                                traceback.print_exc(file=sys.stdout)
+                                                                await logchanbot(f'[TWITTER] Failed to send message to retweet reward to channel in guild: `{guild_id}` / {guild.name}.')
+                                                        except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
+                                                            await logchanbot(f'[TWITTER] Failed to thank message to <@{each_discord_user}>.')
+                                                except Exception as e:
+                                                    traceback.print_exc(file=sys.stdout)
+                                else:
+                                    # this is not verified. Update it
+                                    sql = """ UPDATE `twitter_rt_reward_logs` SET `unverified_reward`=%s
+                                              WHERE `id`=%s LIMIT 1
+                                              """
+                                    await cur.execute(sql, ("YES", each_reward['id'] ) )
+                                    await conn.commit()
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            await asyncio.sleep(time_lap)
 
     # Notify user
     @tasks.loop(seconds=60.0)
@@ -3642,10 +3817,7 @@ class Wallet(commands.Cog):
                 description = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_note")
             if getattr(getattr(self.bot.coin_list, COIN_NAME), "real_deposit_fee") and getattr(getattr(self.bot.coin_list, COIN_NAME), "real_deposit_fee") > 0:
                 real_min_deposit = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_min_deposit")
-                minimum_text = ""
-                if real_min_deposit and real_min_deposit > 0:
-                    minimum_text = " of {} {}".format(num_format_coin(real_min_deposit, COIN_NAME, coin_decimal, False), token_display)
-                fee_txt = " **{} {}** will be deducted from your deposit when it reaches minimum deposit{}.".format(num_format_coin(getattr(getattr(self.bot.coin_list, COIN_NAME), "real_deposit_fee"), COIN_NAME, coin_decimal, False), token_display, minimum_text)
+                fee_txt = " You must deposit at least {} {} to cover fees needed to credit your account. This fee will be deducted from your deposit amount.".format(num_format_coin(real_min_deposit, COIN_NAME, coin_decimal, False), token_display)
             embed = disnake.Embed(title=f'Deposit for {ctx.author.name}#{ctx.author.discriminator}', description=description + fee_txt, timestamp=datetime.fromtimestamp(int(time.time())))
             embed.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
             qr_address = wallet_address
@@ -4706,7 +4878,7 @@ class Wallet(commands.Cog):
             elif serverinfo and serverinfo['enable_faucet'] == "YES" and serverinfo['faucet_channel'] is not None and serverinfo['faucet_coin'] is not None:
                 extra_take_text = " Additional reward:\n\n1) you can also do /faucet in <#{}> which funded by the guild.".format(serverinfo['faucet_channel'])
                 if serverinfo['vote_reward_amount'] and serverinfo['vote_reward_channel']:
-                    extra_take_text += "\n2) [Vote {} at top.gg](https://top.gg/servers/{}/vote) for {} {} each time.".format(ctx.guild.name, ctx.guild.id, serverinfo['vote_reward_amount'], serverinfo['vote_reward_coin'])
+                    extra_take_text += "\n2) Vote {} at top.gg <https://top.gg/servers/{}/vote> for {} {} each time.".format(ctx.guild.name, ctx.guild.id, serverinfo['vote_reward_amount'], serverinfo['vote_reward_coin'])
                 
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
@@ -4721,7 +4893,7 @@ class Wallet(commands.Cog):
                         time_waiting = seconds_str(claim_interval*3600 - int(time.time()) + check_claimed['claimed_at'])
                         user_claims = await store.sql_faucet_count_user(str(ctx.author.id))
                         number_user_claimed = '{:,.0f}'.format(user_claims)
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention} You just claimed within last {claim_interval}h. Waiting time {time_waiting} for next **take**. Total user claims: **{total_claimed}** times. You have claimed: **{number_user_claimed}** time(s). Tip me if you want to feed these faucets. Use /claim to vote TipBot and get reward.{extra_take_text}'
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you just claimed within last {claim_interval}h. Waiting time {time_waiting} for next **take**. Total user claims: **{total_claimed}** times. You have claimed: **{number_user_claimed}** time(s). Tip me if you want to feed these faucets. Use /claim to vote TipBot and get reward.{extra_take_text}'
                         await ctx.edit_original_message(content=msg)
                         return
         except Exception as e:

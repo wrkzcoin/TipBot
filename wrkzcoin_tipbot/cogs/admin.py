@@ -497,7 +497,17 @@ class Admin(commands.Cog):
         return
 
     @commands.is_owner()
-    @admin.command(hidden=True, usage='ada <action> [param]', description='ADA\'s action')
+    @admin.command(hidden=True, usage='admin status <text>', description='set bot\'s status.')
+    async def status(self, ctx, *, msg: str):
+        await self.bot.wait_until_ready()
+        game = disnake.Game(name=msg)
+        await self.bot.change_presence(status=disnake.Status.online, activity=game)
+        msg = f'{ctx.author.mention}, changed status to: {msg}'
+        await ctx.reply(msg)
+        return
+
+    @commands.is_owner()
+    @admin.command(hidden=True, usage='admin ada <action> [param]', description='ADA\'s action')
     async def ada(self, ctx, action: str, param: str=None):
         action = action.upper()
         if action == "CREATE":

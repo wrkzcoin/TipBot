@@ -1109,7 +1109,7 @@ class Twitter(commands.Cog):
             get_channel = self.bot.get_channel(int(channel.id))
             channel_str = str(channel.id)
             # Test message
-            msg = f"New Twitter RT reward set to {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display} by {ctx.author.name}#{ctx.author.discriminator} and message here."
+            msg = f"New Twitter RT reward link <{twitter_link}> with {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display} by {ctx.author.name}#{ctx.author.discriminator} and posting here."
             try:
                 await get_channel.send(msg)
             except Exception as e:

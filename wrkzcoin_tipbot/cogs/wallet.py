@@ -4876,10 +4876,31 @@ class Wallet(commands.Cog):
                 await ctx.edit_original_message(content=msg)
                 return
             elif serverinfo and serverinfo['enable_faucet'] == "YES" and serverinfo['faucet_channel'] is not None and serverinfo['faucet_coin'] is not None:
-                extra_take_text = " Additional reward:\n\n1) you can also do /faucet in <#{}> which funded by the guild.".format(serverinfo['faucet_channel'])
+                extra_take_text = " Additional reward:\n\n⚆ You can also do /faucet in <#{}> which funded by the guild.".format(serverinfo['faucet_channel'])
                 if serverinfo['vote_reward_amount'] and serverinfo['vote_reward_channel']:
-                    extra_take_text += "\n2) Vote {} at top.gg <https://top.gg/servers/{}/vote> for {} {} each time.".format(ctx.guild.name, ctx.guild.id, serverinfo['vote_reward_amount'], serverinfo['vote_reward_coin'])
-                
+                    vote_reward_coin = serverinfo['vote_reward_coin']
+                    vote_coin_decimal = getattr(getattr(self.bot.coin_list, vote_reward_coin), "decimal")
+                    vote_reward_amount = num_format_coin(serverinfo['vote_reward_amount'], vote_reward_coin, vote_coin_decimal, False)
+
+                    extra_take_text += "\n⚆ Vote {} at top.gg <https://top.gg/servers/{}/vote> for {} {} each time.".format(ctx.guild.name, ctx.guild.id, vote_reward_amount, serverinfo['vote_reward_coin'])
+                if serverinfo['rt_reward_amount'] and serverinfo['rt_reward_coin'] and serverinfo['rt_end_timestamp'] and serverinfo['rt_end_timestamp'] - 600 > int(time.time()) and serverinfo['rt_link']:
+                    # Some RT with reward still going
+                    tweet_link = serverinfo['rt_link']
+                    rt_reward_coin = serverinfo['rt_reward_coin']
+                    rt_coin_decimal = getattr(getattr(self.bot.coin_list, rt_reward_coin), "decimal")
+                    time_left = serverinfo['rt_end_timestamp'] - int(time.time())  - 600 # reserved.
+                    rt_amount = num_format_coin(serverinfo['rt_reward_amount'], rt_reward_coin, rt_coin_decimal, False)
+                    def seconds_str_days(time: float):
+                        day = time // (24 * 3600)
+                        time = time % (24 * 3600)
+                        hour = time // 3600
+                        time %= 3600
+                        minutes = time // 60
+                        time %= 60
+                        seconds = time
+                        return "{:02d} day(s) {:02d}:{:02d}:{:02d}".format(day, hour, minutes, seconds)
+                    if time_left > 0:
+                        extra_take_text += f"\n⚆ RT <{tweet_link}> and get {rt_amount} {rt_reward_coin} (Be sure you verified your twitter with TipBot <https://www.youtube.com/watch?v=q79_1M0_Hsw>). Time left `{seconds_str_days(time_left)}`."
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         # end of bot channel check

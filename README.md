@@ -2,27 +2,27 @@
 
 This TipBot's code is not ready to deploy. We keep it here for easily bug tracking.
 
-### Getting Started
-
-* Basic Tipping: <https://www.bot.tips/discord-basic-tipping-howto/>
-
-* Some built-in games: <https://www.bot.tips/discord-tipbot-games/>
-
-* Economy game for time killing: <https://www.bot.tips/discord-tipbot-economy-game/>
-
 ### Discord
 
 * WrkzCoin: <https://discordapp.com/invite/GpHzURM>
 
 * Bot invitation link: http://invite.discord.bot.tips
 
-### Short Video
+### Help commands
 
-[![Tipping in Action in WrkzCoin Discord](https://img.youtube.com/vi/qg9CURyD7uc/0.jpg)](https://www.youtube.com/watch?v=qg9CURyD7uc)
+[![Help Command](https://img.youtube.com/vi/yeybe6fWQa8/0.jpg)](https://www.youtube.com/watch?v=yeybe6fWQa8)
 
-### Basic Guide Video
+### How to invite
 
-[![Guide of using Discord TipBot](https://img.youtube.com/vi/Htg6HKLmPZ0/0.jpg)](https://www.youtube.com/watch?v=Htg6HKLmPZ0)
+[![Basic Crypto Tipping](https://img.youtube.com/vi/eNCaJgR3TzY/0.jpg)](https://www.youtube.com/watch?v=eNCaJgR3TzY)
+
+### Basic crypto tipping
+
+[![Basic Crypto Tipping](https://img.youtube.com/vi/w2VWYJ2foTo/0.jpg)](https://www.youtube.com/watch?v=w2VWYJ2foTo)
+
+### Balance check
+
+[![Checking Balance](https://img.youtube.com/vi/tc1xxsggVMo/0.jpg)](https://www.youtube.com/watch?v=tc1xxsggVMo)
 
 ### Donation address list:
 

@@ -909,9 +909,24 @@ class Guild(commands.Cog):
         options=[
             Option('amount', 'amount', OptionType.number, required=True),
             Option('coin', 'coin', OptionType.string, required=True),
-            Option('duration', 'duration', OptionType.string, required=True)
+            Option('duration', 'duration', OptionType.string, required=True, choices=[
+                OptionChoice("1 Hour", "1H"),
+                OptionChoice("2 Hours", "2H"),
+                OptionChoice("3 Hours", "3H"),
+                OptionChoice("4 Hours", "4H"),
+                OptionChoice("5 Hours", "5H"),
+                OptionChoice("6 Hours", "6H"),
+                OptionChoice("12 Hours", "12H"),
+                OptionChoice("1 Day", "1D"),
+                OptionChoice("2 Days", "2D"),
+                OptionChoice("3 Days", "3D"),
+                OptionChoice("4 Days", "4D"),
+                OptionChoice("5 Days", "5D"),
+                OptionChoice("6 Days", "6D"),
+                OptionChoice("7 Days", "7D")
+            ]),
         ],
-        description="Create a raffle."
+        description="Create a raffle in your guild."
     )
     async def createraffle(
         self, 

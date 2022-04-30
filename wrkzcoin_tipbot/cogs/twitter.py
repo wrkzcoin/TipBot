@@ -1,7 +1,5 @@
 import sys, traceback
-import qrcode
 import time
-from io import BytesIO
 import asyncio
 import json
 import functools
@@ -17,12 +15,9 @@ from disnake.app_commands import Option, OptionChoice
 from datetime import datetime, timezone
 import aiomysql
 from aiomysql.cursors import DictCursor
-from terminaltables import AsciiTable
-from PIL import Image, ImageDraw, ImageFont
-import uuid
 
 from config import config
-from Bot import logchanbot, EMOJI_ERROR, EMOJI_RED_NO, SERVER_BOT, num_format_coin, text_to_num, is_ascii, decrypt_string, EMOJI_INFORMATION
+from Bot import logchanbot, EMOJI_ERROR, EMOJI_RED_NO, SERVER_BOT, num_format_coin, text_to_num, is_ascii, decrypt_string, EMOJI_INFORMATION, DEFAULT_TICKER, NOTIFICATION_OFF_CMD, EMOJI_MONEYFACE, EMOJI_ARROW_RIGHTHOOK, EMOJI_HOURGLASS_NOT_DONE
 import store
 from cogs.wallet import WalletAPI
 import redis_utils
@@ -47,6 +42,10 @@ class Twitter(commands.Cog):
         # twitter fetch latest DM
         # start later
         ## self.fetch_latest_dm.start()
+        
+        # enable_twitter_tip
+        self.enable_twitter_tip = 1
+        
         # DB
         self.pool = None
 
@@ -66,6 +65,21 @@ class Twitter(commands.Cog):
             self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
         if self.twitter_auth is None:
             await self.get_twitter_auth()
+
+    async def get_discord_by_twid(self, twid: str):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `twitter_linkme` WHERE `twitter_screen_name`=%s AND `is_verified`=1 LIMIT 1 """
+                    await cur.execute(sql, ( twid ))
+                    result = await cur.fetchone()
+                    if result: return result
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return None
+
 
     async def update_reward(self, guild_id: str, amount: float, coin_name: str, coin_decimal: int, added_by_uid: str, added_by_name: str, disable: bool=False, channel: str=None, rt_link: str=None, end_time: int=None):
         try:
@@ -1175,7 +1189,7 @@ class Twitter(commands.Cog):
                     await ctx.edit_original_message(content=msg)
                 else:
                     # He already have in record but has't verify, show existing to him
-                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you generated a key already:```1) Open your twitter @{screen_name} and post a status by mentioning @botTipsTweet and containing a string {secret_key} in your new tweet.\n2) Copy that tweet status full link to clipboard\n3) Execute command with TipBot /twitter linkme <your twitter name> <url_status>```"
+                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you generated a key already:```1) Open your twitter @{screen_name} and post a status by mentioning @BotTipsTweet and containing a string {secret_key} in your new tweet.\n2) Copy that tweet status full link to clipboard\n3) Execute command with TipBot /twitter linkme <your twitter name> <url_status>```"
                     await ctx.edit_original_message(content=msg)
                 return
             elif get_linkme is None:
@@ -1184,13 +1198,14 @@ class Twitter(commands.Cog):
                 secret_key = ''.join(random.choice(ascii_uppercase) for i in range(32))
                 add = await self.twitter_linkme_add_or_regen( str(ctx.author.id), "{}#{}".format(ctx.author.name, ctx.author.discriminator), secret_key, int(time.time()), twitter_name )
                 if add > 0:
-                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, one more step to verify:```1) Open your twitter @{twitter_name} and post a status by mentioning @botTipsTweet and containing a string {secret_key} in your new tweet.\n2) Copy that tweet status full link to clipboard\n3) Execute command with with TipBot /twitter linkme <your twitter name> <url_status>```"
+                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, one more step to verify:```1) Open your twitter @{twitter_name} and post a status by mentioning @BotTipsTweet and containing a string {secret_key} in your new tweet.\n2) Copy that tweet status full link to clipboard\n3) Execute command with with TipBot /twitter linkme <your twitter name> <url_status>```"
                     await ctx.edit_original_message(content=msg)
                 else:
                     msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, internal error, please report."
                     await ctx.edit_original_message(content=msg)
                 return
         elif status_link:
+            if "?" in status_link: status_link = status_link.split("?")[0] # reported by chooseuser#0308 when using mobile
             if get_linkme is None:
                 msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you didn't generate a `secret_key` yet. You can generate with `/twitter linkme <your twitter name>`."
                 await ctx.edit_original_message(content=msg)
@@ -1217,11 +1232,11 @@ class Twitter(commands.Cog):
                         screen_name = get_tweet['user']['screen_name']
                         status_link = "https://twitter.com/{}/status/{}".format(get_tweet['user']['screen_name'], ids)
                         int_timestamp = int(datetime.strptime(get_tweet['created_at'],'%a %b %d %H:%M:%S +0000 %Y').timestamp())
-                        if secret_key not in get_tweet['text'] or "@BotTipsTweet" not in get_tweet['text'] or screen_name != get_linkme['twitter_screen_name']:
+                        if secret_key not in get_tweet['text'] or bot_name.upper() not in get_tweet['text'].upper() or screen_name.upper() != get_linkme['twitter_screen_name'].upper():
                             twitter_screen_name = get_linkme['twitter_screen_name']
                             msg = "{} {}, the tweet <{}> doesn't contain your `secret_key`, or not from `{}` or not mentioning @{}.".format(EMOJI_INFORMATION, ctx.author.mention, status_link, twitter_screen_name, bot_name)
                             await ctx.edit_original_message(content=msg)
-                        elif secret_key in get_tweet['text'] and "@BotTipsTweet" in get_tweet['text'] and screen_name.upper() == get_linkme['twitter_screen_name'].upper():
+                        elif secret_key in get_tweet['text'] and bot_name.upper() in get_tweet['text'].upper() and screen_name.upper() == get_linkme['twitter_screen_name'].upper():
                             update = await self.twitter_linkme_update_verify( str(ctx.author.id), get_tweet['user']['id_str'], screen_name, status_link, get_tweet['text'], json.dumps(get_tweet), int_timestamp )
                             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, sucessfully verified you with twitter `@{screen_name}`."
                             await ctx.edit_original_message(content=msg)
@@ -1264,6 +1279,218 @@ class Twitter(commands.Cog):
             msg = f"{ctx.author.mention}, sucessfully unlink with `{twitter_screen_name}`."
             await ctx.edit_original_message(content=msg)
             await logchanbot(f"[TWITTER] - Discord User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.id} unlinked with `@{twitter_screen_name}`.")
+
+    @twitter.sub_command(
+        usage="twitter tip <amount> <coin> <twitter link | username>", 
+        options=[
+            Option('amount', 'amount', OptionType.string, required=True),
+            Option('coin', 'coin', OptionType.string, required=True),
+            Option('twitter', 'twitter', OptionType.string, required=True)
+        ],
+        description="Tip to Twitter user by name or link who verified with Discord TipBot."
+    )
+    async def tip(
+        self, 
+        ctx, 
+        amount: str, 
+        coin: str, 
+        twitter: str
+    ):
+        old_twitter = twitter
+        has_link = False
+        await self.bot_log()
+        try:
+            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking twitter..."
+            await ctx.response.send_message(msg)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await ctx.response.send_message(content=f"{EMOJI_INFORMATION} {ctx.author.mention}, error to message...")
+            return
+
+        COIN_NAME = coin.upper()
+        if not hasattr(self.bot.coin_list, COIN_NAME):
+            await ctx.edit_original_message(content=f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.')
+            return
+
+        if '?' in twitter: twitter = twitter.split("?")[0]
+        if 'https://twitter.com/' in twitter:
+            has_link = True
+            twitter = twitter.replace("https://twitter.com/", "")
+            if "/" in twitter:
+                twitter = twitter.split("/")[0]
+        elif 'https://mobile.twitter.com/' in twitter:
+            has_link = True
+            twitter = twitter.replace("https://mobile.twitter.com/", "")
+            if "/" in twitter:
+                twitter = twitter.split("/")[0]
+        if not twitter.isalnum():
+            await ctx.edit_original_message(content=f"{EMOJI_INFORMATION} {ctx.author.mention}, twitter name `{old_twitter}` is invalid.")
+            return
+        else:
+            # Find if he is verified and what is his/her Discord
+            get_user = await self.get_discord_by_twid( twitter )
+            if get_user is None:
+                await ctx.edit_original_message(content=f"{EMOJI_INFORMATION} {ctx.author.mention}, can't find a Discord user with twitter `{old_twitter}`. He may not be verified. How to get verified <https://www.youtube.com/watch?v=q79_1M0_Hsw>.")
+                return
+            else:
+                # Check if himself
+                if int(get_user['discord_user_id']) == ctx.author.id:
+                    await ctx.edit_original_message(content=f"{EMOJI_INFORMATION} {ctx.author.mention}, that is your own twitter!")
+                    return
+                else:
+                    # Let's tip
+                    net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
+                    type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
+                    deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
+                    coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+                    MinTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_min_tip")
+                    MaxTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_max_tip")
+                    usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
+
+                    # token_info = getattr(self.bot.coin_list, COIN_NAME)
+                    token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
+                    contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
+                    User_WalletAPI = WalletAPI(self.bot)
+                    
+                    get_deposit = await User_WalletAPI.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                    if get_deposit is None:
+                        get_deposit = await User_WalletAPI.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
+
+                    wallet_address = get_deposit['balance_wallet_address']
+                    if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                        wallet_address = get_deposit['paymentid']
+
+                    # Check if tx in progress
+                    if ctx.author.id in self.bot.TX_IN_PROCESS:
+                        msg = f'{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress.'
+                        await ctx.edit_original_message(content=msg)
+                        return
+
+                    height = None
+                    try:
+                        if type_coin in ["ERC-20", "TRC-20"]:
+                            height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
+                        else:
+                            height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+
+                    # check if amount is all
+                    all_amount = False
+                    if not amount.isdigit() and amount.upper() == "ALL":
+                        all_amount = True
+                        userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+                        amount = float(userdata_balance['adjust'])
+                    # If $ is in amount, let's convert to coin/token
+                    elif "$" in amount[-1] or "$" in amount[0]: # last is $
+                        # Check if conversion is allowed for this coin.
+                        amount = amount.replace(",", "").replace("$", "")
+                        if usd_equivalent_enable == 0:
+                            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{COIN_NAME}`."
+                            await ctx.edit_original_message(content=msg)
+                            return
+                        else:
+                            native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
+                            COIN_NAME_FOR_PRICE = COIN_NAME
+                            if native_token_name:
+                                COIN_NAME_FOR_PRICE = native_token_name
+                            per_unit = None
+                            if COIN_NAME_FOR_PRICE in self.bot.token_hints:
+                                id = self.bot.token_hints[COIN_NAME_FOR_PRICE]['ticker_name']
+                                per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+                            else:
+                                per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
+                            if per_unit and per_unit > 0:
+                                amount = float(Decimal(amount) / Decimal(per_unit))
+                            else:
+                                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, I cannot fetch equivalent price. Try with different method.'
+                                await ctx.edit_original_message(content=msg)
+                                return
+                    else:
+                        amount = amount.replace(",", "")
+                        amount = text_to_num(amount)
+                        if amount is None:
+                            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid given amount.'
+                            await ctx.edit_original_message(content=msg)
+                            return
+                    # end of check if amount is all
+                    notifyList = await store.sql_get_tipnotify()
+                    userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+                    actual_balance = float(userdata_balance['adjust'])
+
+                    if amount > MaxTip or amount < MinTip:
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than **{num_format_coin(MaxTip, COIN_NAME, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(MinTip, COIN_NAME, coin_decimal, False)} {token_display}**.'
+                        await ctx.edit_original_message(content=msg)
+                        return
+                    elif amount > actual_balance:
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to do a random tip of **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}**.'
+                        await ctx.edit_original_message(content=msg)
+                        return
+
+                    # add queue also randtip
+                    if ctx.author.id in self.bot.TX_IN_PROCESS:
+                        msg = f'{EMOJI_ERROR} {ctx.author.mention} {EMOJI_HOURGLASS_NOT_DONE}, you have another tx in progress.'
+                        await ctx.edit_original_message(content=msg)
+                        return
+
+                    equivalent_usd = ""
+                    amount_in_usd = 0.0
+                    if usd_equivalent_enable == 1:
+                        native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
+                        COIN_NAME_FOR_PRICE = COIN_NAME
+                        if native_token_name:
+                            COIN_NAME_FOR_PRICE = native_token_name
+                        if COIN_NAME_FOR_PRICE in self.bot.token_hints:
+                            id = self.bot.token_hints[COIN_NAME_FOR_PRICE]['ticker_name']
+                            per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+                        else:
+                            per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
+                        if per_unit and per_unit > 0:
+                            amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
+                            if amount_in_usd > 0.0001:
+                                equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
+
+                    tip = None
+                    if ctx.author.id not in self.bot.TX_IN_PROCESS:
+                        self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                    Tip_WalletAPI = WalletAPI(self.bot)
+                    user_to = await User_WalletAPI.sql_get_userwallet(get_user['discord_user_id'], COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                    if user_to is None:
+                        user_to = await User_WalletAPI.sql_register_user(get_user['discord_user_id'], COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+
+                    try:
+                        guild_id = "DM"
+                        channel_id = "DM"
+                        if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
+                            guild_id = str(ctx.guild.id)
+                            channel_id = str(ctx.channel.id)
+                        tip = await store.sql_user_balance_mv_single(str(ctx.author.id), get_user['discord_user_id'], guild_id, channel_id, amount, COIN_NAME, "TWITTERTIP", coin_decimal, SERVER_BOT, contract, amount_in_usd)
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
+                    # remove queue from randtip
+                    if ctx.author.id in self.bot.TX_IN_PROCESS:
+                        self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+                    if tip:
+                        # tipper shall always get DM. Ignore notifyList
+                        try:
+                            msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you sent a twitter tip of **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}** to `{old_twitter}`.'
+                            await ctx.edit_original_message(content=msg)
+                        except Exception as e:
+                            traceback.print_exc(file=sys.stdout)
+                        if get_user['discord_user_id'] not in notifyList:
+                            via_link = ""
+                            if has_link == True:
+                                via_link = f" via <{old_twitter}>." 
+                            try:
+                                tw_user = self.bot.get_user(int(get_user['discord_user_id']))
+                                await tw_user.send(
+                                    f'{EMOJI_MONEYFACE} You got a twitter tip of **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} '
+                                    f'{token_display}** from {ctx.author.name}#{ctx.author.discriminator}{via_link}.'
+                                    f'{NOTIFICATION_OFF_CMD}')
+                            except Exception as e:
+                                pass
+
 
 def setup(bot):
     bot.add_cog(Twitter(bot))

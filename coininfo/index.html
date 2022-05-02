@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css">
+</head>
+<body>
+
+<table id="example" class="display" style="width:100%">
+        <thead>
+            <tr>
+                <th>Ticker</th>
+                <th>Display</th>
+                <th>Net Height</th>
+                <th>Block Confirmation</th>
+                <th>Tip</th>
+                <th>Deposit</th>
+                <th>Withdraw</th>
+                <th>Twitter</th>
+                <th>Min. Withdraw</th>
+                <th>Max. Withdraw</th>
+                <th>Explorer</th>
+            </tr>
+        </thead>
+        <tfoot>
+            <tr>
+                <th>Ticker</th>
+                <th>Display</th>
+                <th>Net Height</th>
+                <th>Block Confirmation</th>
+                <th>Tip</th>
+                <th>Deposit</th>
+                <th>Withdraw</th>
+                <th>Twitter</th>
+                <th>Min. Withdraw</th>
+                <th>Max. Withdraw</th>
+                <th>Explorer</th>
+            </tr>
+        </tfoot>
+    </table>
+
+<script src="https://code.jquery.com/jquery-3.5.1.js"></script>
+<script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+
+<script>
+$(document).ready(function() {
+    $('#example').DataTable( {
+        "paging":   false,
+        "ordering": true,
+        "info":     false,
+        "ajax": 'https://public-trade-api.bot.tips/coininfo'
+    } );
+} );
+</script>
+</body>
+</html>

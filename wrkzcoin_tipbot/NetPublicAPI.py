@@ -9,6 +9,8 @@ import math
 from decimal import Decimal
 
 import sys, traceback
+
+import redis_utils
 from config import config
 
 
@@ -27,6 +29,19 @@ class DBStore():
                                                        db=config.mysql.db, cursorclass=DictCursor, autocommit=True)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
+
+    async def get_all_coin(self):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `coin_settings` """
+                    await cur.execute(sql, )
+                    result = await cur.fetchall()
+                    if result: return result
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return []
 
     async def get_trading_coinlist(self):
         try:
@@ -245,6 +260,37 @@ class DBStore():
                     market_list = ['{}-{}'.format(each_item['coin_sell'], each_item['coin_get']) for each_item in markets]
                 result = {"success": True, "volume_24h": self.num_format_coin(get_trade['trade_24h']), "volume_7d": self.num_format_coin(get_trade['trade_7d']), "volume_30d": self.num_format_coin(get_trade['trade_30d']), "markets": sorted(set(market_list)), "timestamp": int(time.time())}
                 return web.Response(text=json.dumps(result).replace("\\", ""), status=200)
+        elif uri.startswith("/coininfo"):
+            # show json all coin info
+            get_all_coins = await self.get_all_coin()
+            redis_utils.openRedis()
+            if len(get_all_coins) > 0:
+                all_coins = []
+                for c in get_all_coins:
+                    type_coin = c['type']
+                    height = "N/A"
+                    tip = "✅" if c['enable_tip'] == 1 else "❎"
+                    deposit = "✅" if c['enable_deposit'] == 1 else "❎"
+                    withdraw = "✅" if c['enable_withdraw'] == 1 else "❎"
+                    twitter = "✅" if c['enable_twitter'] == 1 else "❎"
+
+                    explorer_link = c['explorer_link']
+                    if explorer_link and explorer_link.startswith("http"):
+                        explorer_link = "<a href=\"{}\" target=\"_blank\">Explorer Link</a>".format(explorer_link)
+                    withdraw_info = "Min. {} / Max. {} {}".format(self.num_format_coin(c['real_min_tx']), self.num_format_coin(c['real_max_tx']), c['coin_name'])
+                    tip_info = "Min. {} / Max. {} {}".format(self.num_format_coin(c['real_min_tip']), self.num_format_coin(c['real_max_tip']), c['coin_name'])
+                    net_name = c['net_name']
+                    COIN_NAME = c['coin_name']
+                    try:
+                        if type_coin in ["ERC-20", "TRC-20"]:
+                            height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
+                        else:
+                            height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                    all_coins.append([ c['coin_name'], height, c['deposit_confirm_depth'], tip, deposit, withdraw, twitter, tip_info, withdraw_info, explorer_link ])
+                result = {'data': all_coins}
+                return web.json_response(result, status=200)
         else:
             return await respond_bad_request_404()
 

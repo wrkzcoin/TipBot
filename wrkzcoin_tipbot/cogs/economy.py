@@ -2678,7 +2678,7 @@ class Economy(commands.Cog):
                                         if per_unit and per_unit > 0:
                                             amount_in_usd = float(Decimal(per_unit) * Decimal(get_last_act['reward_amount']))
 
-                                    reward = await store.sql_user_balance_mv_single(get_last_act['guild_id'], str(ctx.author.id), str(ctx.guild.id), str(ctx.channel.id), get_last_act['reward_amount'], COIN_NAME, 'ECONOMY', coin_decimal, SERVER_BOT, contract, amount_in_usd)
+                                    reward = await store.sql_user_balance_mv_single(get_last_act['guild_id'], str(ctx.author.id), str(ctx.guild.id), str(ctx.channel.id), get_last_act['reward_amount'], COIN_NAME, 'ECONOMY', coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
                                     await ctx.edit_original_message(content=f'{EMOJI_INFORMATION} {ctx.author.mention} ```{completed_task}```')
                                 else:
                                     msg = f"{EMOJI_ERROR} {ctx.author.mention}, internal error."

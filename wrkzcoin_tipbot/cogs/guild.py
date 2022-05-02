@@ -1657,7 +1657,7 @@ class Guild(commands.Cog):
             else:
                 self.bot.TX_IN_PROCESS.append(ctx.author.id)
                 try:
-                    tip = await store.sql_user_balance_mv_single(str(ctx.author.id), str(ctx.guild.id), str(ctx.guild.id), str(ctx.channel.id), amount, COIN_NAME, 'GUILDDEPOSIT', coin_decimal, SERVER_BOT, contract, amount_in_usd)
+                    tip = await store.sql_user_balance_mv_single(str(ctx.author.id), str(ctx.guild.id), str(ctx.guild.id), str(ctx.channel.id), amount, COIN_NAME, 'GUILDDEPOSIT', coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
                     if tip:
                         try:
                             msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention} **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}**{equivalent_usd} was transferred to {ctx.guild.name}.'
@@ -2183,7 +2183,7 @@ class Guild(commands.Cog):
                 if ctx.guild.id not in self.bot.TX_IN_PROCESS:
                     self.bot.TX_IN_PROCESS.append(ctx.guild.id)
                     try:
-                        tip = await store.sql_user_balance_mv_single(str(ctx.guild.id), str(ctx.author.id), str(ctx.guild.id), str(ctx.channel.id), amount, COIN_NAME, 'GUILDFAUCET', coin_decimal, SERVER_BOT, contract, amount_in_usd)
+                        tip = await store.sql_user_balance_mv_single(str(ctx.guild.id), str(ctx.author.id), str(ctx.guild.id), str(ctx.channel.id), amount, COIN_NAME, 'GUILDFAUCET', coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
                         if tip:
                             msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention} got a faucet of **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}**{equivalent_usd} from `{ctx.guild.name}`. Other reward command `/take` and `/claim`. Invite me to your guild? Click on my name and "Add to Server".'
                             await ctx.response.send_message(msg)

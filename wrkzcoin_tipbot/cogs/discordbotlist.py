@@ -160,7 +160,7 @@ class DiscordBotList(commands.Cog):
                                                             per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
                                                         if per_unit and per_unit > 0:
                                                             amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
-                                                    tip = await store.sql_user_balance_mv_single(config.discord.bot_id, user_vote, "DISCORDBOTLIST", "VOTE", amount, COIN_NAME, "BOTVOTE", coin_decimal, SERVER_BOT, contract, amount_in_usd)
+                                                    tip = await store.sql_user_balance_mv_single(config.discord.bot_id, user_vote, "DISCORDBOTLIST", "VOTE", amount, COIN_NAME, "BOTVOTE", coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
                                                     if member is not None:
                                                         msg = f"Thank you for voting our TipBot at {config.bot_vote_link.discordbotlist} . You just got a reward of {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}."
                                                         try:

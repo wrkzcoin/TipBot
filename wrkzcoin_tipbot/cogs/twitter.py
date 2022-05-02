@@ -1464,7 +1464,7 @@ class Twitter(commands.Cog):
                         if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
                             guild_id = str(ctx.guild.id)
                             channel_id = str(ctx.channel.id)
-                        tip = await store.sql_user_balance_mv_single(str(ctx.author.id), get_user['discord_user_id'], guild_id, channel_id, amount, COIN_NAME, "TWITTERTIP", coin_decimal, SERVER_BOT, contract, amount_in_usd)
+                        tip = await store.sql_user_balance_mv_single(str(ctx.author.id), get_user['discord_user_id'], guild_id, channel_id, amount, COIN_NAME, "TWITTERTIP", coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
                         await logchanbot(traceback.format_exc())

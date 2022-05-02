@@ -352,7 +352,7 @@ class BlackJack_Buttons(disnake.ui.View):
                         if per_unit and per_unit > 0:
                             amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                     try:
-                        tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(interaction.user.id), str(interaction.guild.id), str(interaction.channel.id), amount, COIN_NAME, "GAME", coin_decimal, SERVER_BOT, contract, amount_in_usd)
+                        tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(interaction.user.id), str(interaction.guild.id), str(interaction.channel.id), amount, COIN_NAME, "GAME", coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
                         await logchanbot(traceback.format_exc())
@@ -467,7 +467,7 @@ class BlackJack_Buttons(disnake.ui.View):
                         if per_unit and per_unit > 0:
                             amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                     try:
-                        tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(interaction.user.id), str(interaction.guild.id), str(interaction.channel.id), amount, COIN_NAME, "GAME", coin_decimal, SERVER_BOT, contract, amount_in_usd)
+                        tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(interaction.user.id), str(interaction.guild.id), str(interaction.channel.id), amount, COIN_NAME, "GAME", coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
                         await logchanbot(traceback.format_exc())
@@ -591,7 +591,7 @@ class Maze_Buttons(disnake.ui.View):
                         if per_unit and per_unit > 0:
                             amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                     try:
-                        tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(interaction.user.id), str(interaction.guild.id), str(interaction.channel.id), amount, COIN_NAME, "GAME", coin_decimal, SERVER_BOT, contract, amount_in_usd)
+                        tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(interaction.user.id), str(interaction.guild.id), str(interaction.channel.id), amount, COIN_NAME, "GAME", coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
                         await logchanbot(traceback.format_exc())
@@ -678,7 +678,7 @@ class Maze_Buttons(disnake.ui.View):
                         if per_unit and per_unit > 0:
                             amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                     try:
-                        tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(interaction.user.id), str(interaction.guild.id), str(interaction.channel.id), amount, COIN_NAME, "GAME", coin_decimal, SERVER_BOT, contract, amount_in_usd)
+                        tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(interaction.user.id), str(interaction.guild.id), str(interaction.channel.id), amount, COIN_NAME, "GAME", coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
                         await logchanbot(traceback.format_exc())
@@ -765,7 +765,7 @@ class Maze_Buttons(disnake.ui.View):
                         if per_unit and per_unit > 0:
                             amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                     try:
-                        tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(interaction.user.id), str(interaction.guild.id), str(interaction.channel.id), amount, COIN_NAME, "GAME", coin_decimal, SERVER_BOT, contract, amount_in_usd)
+                        tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(interaction.user.id), str(interaction.guild.id), str(interaction.channel.id), amount, COIN_NAME, "GAME", coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
                         await logchanbot(traceback.format_exc())
@@ -852,7 +852,7 @@ class Maze_Buttons(disnake.ui.View):
                         if per_unit and per_unit > 0:
                             amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                     try:
-                        tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(interaction.user.id), str(interaction.guild.id), str(interaction.channel.id), amount, COIN_NAME, "GAME", coin_decimal, SERVER_BOT, contract, amount_in_usd)
+                        tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(interaction.user.id), str(interaction.guild.id), str(interaction.channel.id), amount, COIN_NAME, "GAME", coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
                         await logchanbot(traceback.format_exc())
@@ -971,7 +971,7 @@ class g2048_Buttons(disnake.ui.View):
                     if per_unit and per_unit > 0:
                         amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                 try:
-                    tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(interaction.user.id), str(interaction.guild.id), str(interaction.channel.id), amount, COIN_NAME, "GAME", coin_decimal, SERVER_BOT, contract, amount_in_usd)
+                    tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(interaction.user.id), str(interaction.guild.id), str(interaction.channel.id), amount, COIN_NAME, "GAME", coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
@@ -1048,7 +1048,7 @@ class g2048_Buttons(disnake.ui.View):
                     if per_unit and per_unit > 0:
                         amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                 try:
-                    tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(interaction.user.id), str(interaction.guild.id), str(interaction.channel.id), amount, COIN_NAME, "GAME", coin_decimal, SERVER_BOT, contract, amount_in_usd)
+                    tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(interaction.user.id), str(interaction.guild.id), str(interaction.channel.id), amount, COIN_NAME, "GAME", coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
@@ -1125,7 +1125,7 @@ class g2048_Buttons(disnake.ui.View):
                     if per_unit and per_unit > 0:
                         amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                 try:
-                    tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(interaction.user.id), str(interaction.guild.id), str(interaction.channel.id), amount, COIN_NAME, "GAME", coin_decimal, SERVER_BOT, contract, amount_in_usd)
+                    tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(interaction.user.id), str(interaction.guild.id), str(interaction.channel.id), amount, COIN_NAME, "GAME", coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
@@ -1201,7 +1201,7 @@ class g2048_Buttons(disnake.ui.View):
                     if per_unit and per_unit > 0:
                         amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                 try:
-                    tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(interaction.user.id), str(interaction.guild.id), str(interaction.channel.id), amount, COIN_NAME, "GAME", coin_decimal, SERVER_BOT, contract, amount_in_usd)
+                    tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(interaction.user.id), str(interaction.guild.id), str(interaction.channel.id), amount, COIN_NAME, "GAME", coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
@@ -2282,7 +2282,7 @@ class Games(commands.Cog):
                         if per_unit and per_unit > 0:
                             amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                     try:
-                        tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(ctx.user.id), str(ctx.guild.id), str(ctx.channel.id), amount, COIN_NAME, "GAME", coin_decimal, SERVER_BOT, contract, amount_in_usd)
+                        tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(ctx.user.id), str(ctx.guild.id), str(ctx.channel.id), amount, COIN_NAME, "GAME", coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
                         await logchanbot(traceback.format_exc())
@@ -2490,7 +2490,7 @@ class Games(commands.Cog):
                                         if per_unit and per_unit > 0:
                                             amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                                     try:
-                                        tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(ctx.user.id), str(ctx.guild.id), str(ctx.channel.id), amount, COIN_NAME, "GAME", coin_decimal, SERVER_BOT, contract, amount_in_usd)
+                                        tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(ctx.user.id), str(ctx.guild.id), str(ctx.channel.id), amount, COIN_NAME, "GAME", coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
                                     except Exception as e:
                                         traceback.print_exc(file=sys.stdout)
                                         await logchanbot(traceback.format_exc())

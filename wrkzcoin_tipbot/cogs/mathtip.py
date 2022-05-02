@@ -109,7 +109,7 @@ class MathButton(disnake.ui.View):
             embed.set_footer(text=f"Trivia tip by {owner_displayname}")
 
             if len(answered_msg_id['right_ids']) > 0:
-                trivia_tipping = await store.sql_user_balance_mv_multiple(get_mathtip['from_userid'], answered_msg_id['right_ids'], get_mathtip['guild_id'], get_mathtip['channel_id'], float(indiv_amount), COIN_NAME, "MATHTIP", coin_decimal, SERVER_BOT, contract, float(each_amount_in_usd))
+                trivia_tipping = await store.sql_user_balance_mv_multiple(get_mathtip['from_userid'], answered_msg_id['right_ids'], get_mathtip['guild_id'], get_mathtip['channel_id'], float(indiv_amount), COIN_NAME, "MATHTIP", coin_decimal, SERVER_BOT, contract, float(each_amount_in_usd), None)
             # Change status
             change_status = await store.discord_mathtip_update(get_mathtip['message_id'], "COMPLETED")
             await original_message.edit(embed=embed, view=self)

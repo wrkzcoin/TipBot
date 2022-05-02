@@ -161,7 +161,7 @@ class FreeTip_Button(disnake.ui.View):
                                 actual_spending_usd = " ~ {:,.4f} USD".format(amount_in_usd * len(attend_list_id))
 
                     try:
-                        tips = await store.sql_user_balance_mv_multiple(get_freetip['from_userid'], attend_list_id, get_freetip['guild_id'], get_freetip['channel_id'], float(amountDiv), COIN_NAME, "FREETIP", coin_decimal, SERVER_BOT, contract, float(amount_in_usd))
+                        tips = await store.sql_user_balance_mv_multiple(get_freetip['from_userid'], attend_list_id, get_freetip['guild_id'], get_freetip['channel_id'], float(amountDiv), COIN_NAME, "FREETIP", coin_decimal, SERVER_BOT, contract, float(amount_in_usd), None)
                         # If tip, update status
                         change_status = await store.discord_freetip_update(get_freetip['message_id'], "COMPLETED")
                         # Edit embed
@@ -578,7 +578,7 @@ class Tips(commands.Cog):
                 user_to = await User_WalletAPI.sql_register_user(str(rand_user.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
 
             try:
-                tip = await store.sql_user_balance_mv_single(str(ctx.author.id), str(rand_user.id), str(ctx.guild.id), str(ctx.channel.id), amount, COIN_NAME, "RANDTIP", coin_decimal, SERVER_BOT, contract, amount_in_usd)
+                tip = await store.sql_user_balance_mv_single(str(ctx.author.id), str(rand_user.id), str(ctx.guild.id), str(ctx.channel.id), amount, COIN_NAME, "RANDTIP", coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot(traceback.format_exc())
@@ -1078,7 +1078,7 @@ class Tips(commands.Cog):
         if ctx.author.id not in self.bot.TX_IN_PROCESS:
             self.bot.TX_IN_PROCESS.append(ctx.author.id)
             try:
-                tips = await store.sql_user_balance_mv_multiple(str(ctx.author.id), memids, str(ctx.guild.id), str(ctx.channel.id), float(amountDiv), COIN_NAME, "TIPALL", coin_decimal, SERVER_BOT, contract, float(amount_in_usd))
+                tips = await store.sql_user_balance_mv_multiple(str(ctx.author.id), memids, str(ctx.guild.id), str(ctx.channel.id), float(amountDiv), COIN_NAME, "TIPALL", coin_decimal, SERVER_BOT, contract, float(amount_in_usd), None)
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot(traceback.format_exc())
@@ -1835,7 +1835,7 @@ class Tips(commands.Cog):
                 tip_type = "TIPS"
             if int(id_tipper) not in self.bot.TX_IN_PROCESS:
                 self.bot.TX_IN_PROCESS.append(int(id_tipper))
-            tips = await store.sql_user_balance_mv_multiple(id_tipper, memids, str(ctx.guild.id), str(ctx.channel.id), amount, COIN_NAME, tip_type, coin_decimal, SERVER_BOT, contract, float(amount_in_usd))
+            tips = await store.sql_user_balance_mv_multiple(id_tipper, memids, str(ctx.guild.id), str(ctx.channel.id), amount, COIN_NAME, tip_type, coin_decimal, SERVER_BOT, contract, float(amount_in_usd), None)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
@@ -2085,7 +2085,7 @@ class Tips(commands.Cog):
         try:
             if int(id_tipper) not in self.bot.TX_IN_PROCESS:
                 self.bot.TX_IN_PROCESS.append(int(id_tipper))
-            tiptalk = await store.sql_user_balance_mv_multiple(id_tipper, list_receivers, str(ctx.guild.id), str(ctx.channel.id), amount, COIN_NAME, "TIPTALK", coin_decimal, SERVER_BOT, contract, float(amount_in_usd))
+            tiptalk = await store.sql_user_balance_mv_multiple(id_tipper, list_receivers, str(ctx.guild.id), str(ctx.channel.id), amount, COIN_NAME, "TIPTALK", coin_decimal, SERVER_BOT, contract, float(amount_in_usd), None)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())

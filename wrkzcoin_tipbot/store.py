@@ -84,8 +84,8 @@ async def sql_info_by_server(server_id: str):
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ SELECT * FROM discord_server WHERE serverid = %s LIMIT 1 """
-                await cur.execute(sql, (server_id,))
+                sql = """ SELECT * FROM `discord_server` WHERE `serverid`=%s LIMIT 1 """
+                await cur.execute(sql, ( server_id ))
                 result = await cur.fetchone()
                 return result
     except Exception as e:
@@ -210,7 +210,9 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 # moving tip + / -
-                sql = """ SELECT `balance` AS mv_balance FROM `user_balance_mv_data` WHERE `user_id`=%s AND `token_name` = %s AND `user_server` = %s LIMIT 1 """
+                sql = """ SELECT `balance` AS mv_balance 
+                          FROM `user_balance_mv_data` 
+                          WHERE `user_id`=%s AND `token_name`=%s AND `user_server`=%s LIMIT 1 """
                 await cur.execute(sql, (userID, TOKEN_NAME, user_server))
                 result = await cur.fetchone()
                 if result:
@@ -219,8 +221,9 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
                     mv_balance = 0
 
                 # pending airdrop
-                sql = """ SELECT SUM(real_amount) AS airdropping FROM `discord_airdrop_tmp` WHERE `from_userid`=%s 
-                          AND `token_name` = %s AND `status`=%s """
+                sql = """ SELECT SUM(real_amount) AS airdropping 
+                          FROM `discord_airdrop_tmp` 
+                          WHERE `from_userid`=%s AND `token_name`=%s AND `status`=%s """
                 await cur.execute(sql, (userID, TOKEN_NAME, "ONGOING"))
                 result = await cur.fetchone()
                 if result:
@@ -229,8 +232,9 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
                     airdropping = 0
 
                 # pending mathtip
-                sql = """ SELECT SUM(real_amount) AS mathtip FROM `discord_mathtip_tmp` WHERE `from_userid`=%s 
-                          AND `token_name` = %s AND `status`=%s """
+                sql = """ SELECT SUM(real_amount) AS mathtip 
+                          FROM `discord_mathtip_tmp` 
+                          WHERE `from_userid`=%s AND `token_name`=%s AND `status`=%s """
                 await cur.execute(sql, (userID, TOKEN_NAME, "ONGOING"))
                 result = await cur.fetchone()
                 if result:
@@ -239,8 +243,9 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
                     mathtip = 0
 
                 # pending triviatip
-                sql = """ SELECT SUM(real_amount) AS triviatip FROM `discord_triviatip_tmp` WHERE `from_userid`=%s 
-                          AND `token_name` = %s AND `status`=%s """
+                sql = """ SELECT SUM(real_amount) AS triviatip 
+                          FROM `discord_triviatip_tmp` 
+                          WHERE `from_userid`=%s AND `token_name`=%s AND `status`=%s """
                 await cur.execute(sql, (userID, TOKEN_NAME, "ONGOING"))
                 result = await cur.fetchone()
                 if result:
@@ -249,8 +254,9 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
                     triviatip = 0
 
                 # Expense (negative)
-                sql = """ SELECT SUM(amount_sell) AS open_order FROM open_order WHERE `coin_sell`=%s AND `userid_sell`=%s 
-                          AND `status`=%s
+                sql = """ SELECT SUM(amount_sell) AS open_order 
+                          FROM open_order 
+                          WHERE `coin_sell`=%s AND `userid_sell`=%s AND `status`=%s
                       """
                 await cur.execute(sql, (TOKEN_NAME, userID, 'OPEN'))
                 result = await cur.fetchone()
@@ -260,8 +266,9 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
                     open_order = 0
 
                 # guild_raffle_entries fee entry
-                sql = """ SELECT SUM(amount) AS raffle_fee FROM guild_raffle_entries WHERE `coin_name`=%s AND `user_id`=%s  
-                          AND `user_server`=%s AND `status`=%s
+                sql = """ SELECT SUM(amount) AS raffle_fee 
+                          FROM guild_raffle_entries 
+                          WHERE `coin_name`=%s AND `user_id`=%s AND `user_server`=%s AND `status`=%s
                       """
                 await cur.execute(sql, (TOKEN_NAME, userID, user_server, 'REGISTERED'))
                 result = await cur.fetchone()
@@ -271,7 +278,9 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
 
                 # Each coin
                 if coin_family in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
-                    sql = """ SELECT SUM(amount+withdraw_fee) AS tx_expense FROM `cn_external_tx` WHERE `user_id`=%s AND `coin_name` = %s AND `user_server` = %s AND `crediting`=%s """
+                    sql = """ SELECT SUM(amount+withdraw_fee) AS tx_expense 
+                              FROM `cn_external_tx` 
+                              WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s AND `crediting`=%s """
                     await cur.execute(sql, ( userID, TOKEN_NAME, user_server, "YES" ))
                     result = await cur.fetchone()
                     if result:
@@ -280,20 +289,22 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
                         tx_expense = 0
 
                     if top_block is None:
-                        sql = """ SELECT SUM(amount) AS incoming_tx FROM `cn_get_transfers` WHERE `payment_id`=%s AND `coin_name` = %s 
-                                  AND `amount`>0 AND `time_insert`< %s """
-                        await cur.execute(sql, ( address, TOKEN_NAME, int(time.time())-nos_block )) # seconds
+                        sql = """ SELECT SUM(amount) AS incoming_tx FROM `cn_get_transfers` WHERE `payment_id`=%s AND `coin_name`=%s 
+                                  AND `amount`>0 AND `time_insert`< %s AND `user_server`=%s """
+                        await cur.execute(sql, ( address, TOKEN_NAME, int(time.time())-nos_block, user_server )) # seconds
                     else:
-                        sql = """ SELECT SUM(amount) AS incoming_tx FROM `cn_get_transfers` WHERE `payment_id`=%s AND `coin_name` = %s 
-                                  AND `amount`>0 AND `height`< %s """
-                        await cur.execute(sql, ( address, TOKEN_NAME, nos_block ))
+                        sql = """ SELECT SUM(amount) AS incoming_tx FROM `cn_get_transfers` WHERE `payment_id`=%s AND `coin_name`=%s 
+                                  AND `amount`>0 AND `height`< %s AND `user_server`=%s """
+                        await cur.execute(sql, ( address, TOKEN_NAME, nos_block, user_server ))
                     result = await cur.fetchone()
                     if result and result['incoming_tx']:
                         incoming_tx = result['incoming_tx']
                     else:
                         incoming_tx = 0
                 elif coin_family == "BTC":
-                    sql = """ SELECT SUM(amount+withdraw_fee) AS tx_expense FROM `doge_external_tx` WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s AND `crediting`=%s """
+                    sql = """ SELECT SUM(amount+withdraw_fee) AS tx_expense 
+                              FROM `doge_external_tx` 
+                              WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s AND `crediting`=%s """
                     await cur.execute(sql, ( userID, TOKEN_NAME, user_server, "YES" ))
                     result = await cur.fetchone()
                     if result:
@@ -301,16 +312,31 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
                     else:
                         tx_expense = 0
 
-                    sql = """ SELECT SUM(amount) AS incoming_tx FROM `doge_get_transfers` WHERE `address`=%s AND `coin_name` = %s AND (`category` = %s or `category` = %s) 
-                              AND `confirmations`>=%s AND `amount`>0 """
-                    await cur.execute(sql, (address, TOKEN_NAME, 'receive', 'generate', confirmed_depth))
-                    result = await cur.fetchone()
-                    if result and result['incoming_tx']:
-                        incoming_tx = result['incoming_tx']
+                    if TOKEN_NAME not in ["PGO"]:
+                        sql = """ SELECT SUM(amount) AS incoming_tx 
+                                  FROM `doge_get_transfers` 
+                                  WHERE `address`=%s AND `coin_name`=%s AND (`category` = %s or `category` = %s) AND `confirmations`>=%s AND `amount`>0 """
+                        await cur.execute(sql, (address, TOKEN_NAME, 'receive', 'generate', confirmed_depth))
+                        result = await cur.fetchone()
+                        if result and result['incoming_tx']:
+                            incoming_tx = result['incoming_tx']
+                        else:
+                            incoming_tx = 0
                     else:
-                        incoming_tx = 0
+                        sql = """ SELECT SUM(amount) AS incoming_tx 
+                                  FROM `doge_get_transfers` 
+                                  WHERE `address`=%s 
+                                  AND `coin_name`=%s AND `category` = %s AND `confirmations`>=%s AND `amount`>0 """
+                        await cur.execute(sql, (address, TOKEN_NAME, 'receive', confirmed_depth))
+                        result = await cur.fetchone()
+                        if result and result['incoming_tx']:
+                            incoming_tx = result['incoming_tx']
+                        else:
+                            incoming_tx = 0
                 elif coin_family == "NANO":
-                    sql = """ SELECT SUM(amount) AS tx_expense FROM `nano_external_tx` WHERE `user_id`=%s AND `coin_name` = %s AND `user_server`=%s AND `crediting`=%s """
+                    sql = """ SELECT SUM(amount) AS tx_expense 
+                              FROM `nano_external_tx` 
+                              WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s AND `crediting`=%s """
                     await cur.execute(sql, ( userID, TOKEN_NAME, user_server, "YES" ))
                     result = await cur.fetchone()
                     if result:
@@ -318,7 +344,7 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
                     else:
                         tx_expense = 0
 
-                    sql = """ SELECT SUM(amount) AS incoming_tx FROM `nano_move_deposit` WHERE `user_id`=%s AND `coin_name` = %s 
+                    sql = """ SELECT SUM(amount) AS incoming_tx FROM `nano_move_deposit` WHERE `user_id`=%s AND `coin_name`=%s 
                               AND `amount`>0 AND `time_insert`< %s AND `user_server`=%s """
                     await cur.execute(sql, ( userID, TOKEN_NAME, int(time.time())-confirmed_inserted, user_server ))
                     result = await cur.fetchone()
@@ -327,7 +353,9 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
                     else:
                         incoming_tx = 0
                 elif coin_family == "CHIA":
-                    sql = """ SELECT SUM(amount+withdraw_fee) AS tx_expense FROM `xch_external_tx` WHERE `user_id`=%s AND `coin_name` = %s AND `user_server` = %s AND `crediting`=%s """
+                    sql = """ SELECT SUM(amount+withdraw_fee) AS tx_expense 
+                              FROM `xch_external_tx` 
+                              WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s AND `crediting`=%s """
                     await cur.execute(sql, ( userID, TOKEN_NAME, user_server, "YES" ))
                     result = await cur.fetchone()
                     if result:
@@ -336,12 +364,14 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
                         tx_expense = 0
 
                     if top_block is None:
-                        sql = """ SELECT SUM(amount) AS incoming_tx FROM `xch_get_transfers` WHERE `address`=%s AND `coin_name` = %s 
-                                  AND `amount`>0 AND `time_insert`< %s """
+                        sql = """ SELECT SUM(amount) AS incoming_tx 
+                                  FROM `xch_get_transfers` 
+                                  WHERE `address`=%s AND `coin_name`=%s AND `amount`>0 AND `time_insert`< %s """
                         await cur.execute(sql, (address, TOKEN_NAME, nos_block)) # seconds
                     else:
-                        sql = """ SELECT SUM(amount) AS incoming_tx FROM `xch_get_transfers` WHERE `address`=%s AND `coin_name` = %s 
-                                  AND `amount`>0 AND `height`<%s """
+                        sql = """ SELECT SUM(amount) AS incoming_tx 
+                                  FROM `xch_get_transfers` 
+                                  WHERE `address`=%s AND `coin_name`=%s AND `amount`>0 AND `height`<%s """
                         await cur.execute(sql, (address, TOKEN_NAME, nos_block))
                     result = await cur.fetchone()
                     if result and result['incoming_tx']:
@@ -350,9 +380,10 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
                         incoming_tx = 0
                 elif coin_family == "ERC-20":
                     # When sending tx out, (negative)
-                    sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense FROM `erc20_external_tx` 
-                              WHERE `user_id`=%s AND `token_name` = %s AND `crediting`=%s """
-                    await cur.execute(sql, ( userID, TOKEN_NAME, "YES" ))
+                    sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense 
+                              FROM `erc20_external_tx` 
+                              WHERE `user_id`=%s AND `token_name`=%s AND `user_server`=%s AND `crediting`=%s """
+                    await cur.execute(sql, ( userID, TOKEN_NAME, user_server, "YES" ))
                     result = await cur.fetchone()
                     if result:
                         tx_expense = result['tx_expense']
@@ -360,9 +391,10 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
                         tx_expense = 0
 
                     # in case deposit fee -real_deposit_fee
-                    sql = """ SELECT SUM(real_amount-real_deposit_fee) AS incoming_tx FROM `erc20_move_deposit` WHERE `user_id`=%s 
-                              AND `token_name` = %s AND `confirmed_depth`> %s AND `status`=%s """
-                    await cur.execute(sql, (userID, TOKEN_NAME, confirmed_depth, "CONFIRMED"))
+                    sql = """ SELECT SUM(real_amount-real_deposit_fee) AS incoming_tx 
+                              FROM `erc20_move_deposit` 
+                              WHERE `user_id`=%s AND `token_name`=%s AND `confirmed_depth`> %s AND `user_server`=%s AND `status`=%s """
+                    await cur.execute(sql, (userID, TOKEN_NAME, confirmed_depth, user_server, "CONFIRMED"))
                     result = await cur.fetchone()
                     if result:
                         incoming_tx = result['incoming_tx']
@@ -370,9 +402,10 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
                         incoming_tx = 0
                 elif coin_family == "TRC-20":
                     # When sending tx out, (negative)
-                    sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense FROM `trc20_external_tx` 
-                              WHERE `user_id`=%s AND `token_name` = %s AND `crediting`=%s AND `sucess`=%s """
-                    await cur.execute(sql, ( userID, TOKEN_NAME, "YES", 1 ))
+                    sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense 
+                              FROM `trc20_external_tx` 
+                              WHERE `user_id`=%s AND `token_name`=%s AND `user_server`=%s AND `crediting`=%s AND `sucess`=%s """
+                    await cur.execute(sql, ( userID, TOKEN_NAME, user_server, "YES", 1 ))
                     result = await cur.fetchone()
                     if result:
                         tx_expense = result['tx_expense']
@@ -380,42 +413,47 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
                         tx_expense = 0
 
                     # in case deposit fee -real_deposit_fee
-                    sql = """ SELECT SUM(real_amount-real_deposit_fee) AS incoming_tx FROM `trc20_move_deposit` WHERE `user_id`=%s 
-                              AND `token_name` = %s AND `confirmed_depth`> %s AND `status`=%s """
-                    await cur.execute(sql, (userID, TOKEN_NAME, confirmed_depth, "CONFIRMED"))
+                    sql = """ SELECT SUM(real_amount-real_deposit_fee) AS incoming_tx 
+                              FROM `trc20_move_deposit` 
+                              WHERE `user_id`=%s AND `token_name`=%s AND `confirmed_depth`> %s AND `user_server`=%s AND `status`=%s """
+                    await cur.execute(sql, (userID, TOKEN_NAME, confirmed_depth, user_server, "CONFIRMED"))
                     result = await cur.fetchone()
                     if result:
                         incoming_tx = result['incoming_tx']
                     else:
                         incoming_tx = 0
                 elif coin_family == "HNT":
-                        sql = """ SELECT SUM(amount+withdraw_fee) AS tx_expense FROM `hnt_external_tx` WHERE `user_id`=%s AND `coin_name` = %s AND `user_server` = %s AND `crediting`=%s """
-                        await cur.execute(sql, ( userID, TOKEN_NAME, user_server, "YES" ))
-                        result = await cur.fetchone()
-                        if result:
-                            tx_expense = result['tx_expense']
-                        else:
-                            tx_expense = 0
+                    sql = """ SELECT SUM(amount+withdraw_fee) AS tx_expense 
+                              FROM `hnt_external_tx` 
+                              WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s AND `crediting`=%s """
+                    await cur.execute(sql, ( userID, TOKEN_NAME, user_server, "YES" ))
+                    result = await cur.fetchone()
+                    if result:
+                        tx_expense = result['tx_expense']
+                    else:
+                        tx_expense = 0
 
-                        # split address, memo
-                        address_memo = address.split()
-                        if top_block is None:
-                            sql = """ SELECT SUM(amount) AS incoming_tx FROM `hnt_get_transfers` WHERE `address`=%s AND `memo`=%s AND `coin_name` = %s 
-                                      AND `amount`>0 AND `time_insert`< %s """
-                            await cur.execute(sql, (address_memo[0], address_memo[2], TOKEN_NAME, nos_block)) # TODO: split to address, memo
-                        else:
-                            sql = """ SELECT SUM(amount) AS incoming_tx FROM `hnt_get_transfers` WHERE `address`=%s AND `memo`=%s AND `coin_name` = %s 
-                                      AND `amount`>0 AND `height`<%s """
-                            await cur.execute(sql, (address_memo[0], address_memo[2], TOKEN_NAME, nos_block)) # TODO: split to address, memo
-                        result = await cur.fetchone()
-                        if result and result['incoming_tx']:
-                            incoming_tx = result['incoming_tx']
-                        else:
-                            incoming_tx = 0
+                    # split address, memo
+                    address_memo = address.split()
+                    if top_block is None:
+                        sql = """ SELECT SUM(amount) AS incoming_tx 
+                                  FROM `hnt_get_transfers` 
+                                  WHERE `address`=%s AND `memo`=%s AND `coin_name`=%s AND `amount`>0 AND `time_insert`< %s AND `user_server`=%s """
+                        await cur.execute(sql, (address_memo[0], address_memo[2], TOKEN_NAME, nos_block, user_server)) # TODO: split to address, memo
+                    else:
+                        sql = """ SELECT SUM(amount) AS incoming_tx 
+                                  FROM `hnt_get_transfers` 
+                                  WHERE `address`=%s AND `memo`=%s AND `coin_name`=%s AND `amount`>0 AND `height`<%s AND `user_server`=%s """
+                        await cur.execute(sql, (address_memo[0], address_memo[2], TOKEN_NAME, nos_block, user_server)) # TODO: split to address, memo
+                    result = await cur.fetchone()
+                    if result and result['incoming_tx']:
+                        incoming_tx = result['incoming_tx']
+                    else:
+                        incoming_tx = 0
                 elif coin_family == "ADA":
                     sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense 
                               FROM `ada_external_tx` 
-                              WHERE `user_id`=%s AND `coin_name` = %s AND `user_server` = %s AND `crediting`=%s """
+                              WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s AND `crediting`=%s """
                     await cur.execute(sql, ( userID, TOKEN_NAME, user_server, "YES" ))
                     result = await cur.fetchone()
                     if result:
@@ -426,14 +464,14 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
                     if top_block is None:
                         sql = """ SELECT SUM(amount) AS incoming_tx 
                                   FROM `ada_get_transfers` WHERE `output_address`=%s AND `direction`=%s AND `coin_name`=%s 
-                                  AND `amount`>0 AND `time_insert`< %s """
-                        await cur.execute(sql, ( address, "incoming", TOKEN_NAME, nos_block ))
+                                  AND `amount`>0 AND `time_insert`< %s AND `user_server`=%s """
+                        await cur.execute(sql, ( address, "incoming", TOKEN_NAME, nos_block, user_server ))
                     else:
                         sql = """ SELECT SUM(amount) AS incoming_tx 
                                   FROM `ada_get_transfers` 
                                   WHERE `output_address`=%s AND `direction`=%s AND `coin_name`=%s 
-                                  AND `amount`>0 AND `inserted_at_height`<%s """
-                        await cur.execute(sql, ( address, "incoming", TOKEN_NAME, nos_block ))
+                                  AND `amount`>0 AND `inserted_at_height`<%s AND `user_server`=%s """
+                        await cur.execute(sql, ( address, "incoming", TOKEN_NAME, nos_block, user_server ))
                     result = await cur.fetchone()
                     if result and result['incoming_tx']:
                         incoming_tx = result['incoming_tx']
@@ -441,9 +479,10 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
                         incoming_tx = 0
                 elif coin_family == "SOL" or coin_family == "SPL":
                     # When sending tx out, (negative)
-                    sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense FROM `sol_external_tx` 
-                              WHERE `user_id`=%s AND `coin_name` = %s AND `crediting`=%s """
-                    await cur.execute(sql, ( userID, TOKEN_NAME, "YES" ))
+                    sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense 
+                              FROM `sol_external_tx` 
+                              WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s AND `crediting`=%s """
+                    await cur.execute(sql, ( userID, TOKEN_NAME, user_server, "YES" ))
                     result = await cur.fetchone()
                     if result:
                         tx_expense = result['tx_expense']
@@ -451,9 +490,10 @@ async def sql_user_balance_single(userID: str, coin: str, address: str, coin_fam
                         tx_expense = 0
 
                     # in case deposit fee -real_deposit_fee
-                    sql = """ SELECT SUM(real_amount-real_deposit_fee) AS incoming_tx FROM `sol_move_deposit` WHERE `user_id`=%s 
-                              AND `token_name` = %s AND `confirmed_depth`> %s AND `status`=%s """
-                    await cur.execute(sql, (userID, TOKEN_NAME, confirmed_depth, "CONFIRMED"))
+                    sql = """ SELECT SUM(real_amount-real_deposit_fee) AS incoming_tx 
+                              FROM `sol_move_deposit` 
+                              WHERE `user_id`=%s AND `token_name`=%s AND `confirmed_depth`> %s AND `user_server`=%s AND `status`=%s """
+                    await cur.execute(sql, (userID, TOKEN_NAME, confirmed_depth, user_server, "CONFIRMED"))
                     result = await cur.fetchone()
                     if result:
                         incoming_tx = result['incoming_tx']
@@ -563,7 +603,7 @@ async def sql_nano_get_user_wallets(coin: str):
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ SELECT * FROM nano_user WHERE `coin_name` = %s """
+                sql = """ SELECT * FROM nano_user WHERE `coin_name`=%s """
                 await cur.execute(sql, (COIN_NAME,))
                 result = await cur.fetchall()
                 return result
@@ -604,7 +644,7 @@ async def sql_update_notify_tx_table(payment_id: str, owner_id: str, owner_name:
     return False
 
 
-async def sql_get_userwallet_by_paymentid(paymentid: str, coin: str, coin_family: str, user_server: str):
+async def sql_get_userwallet_by_paymentid(paymentid: str, coin: str, coin_family: str):
     COIN_NAME = coin.upper()
     try:
         await openConnection()
@@ -612,38 +652,38 @@ async def sql_get_userwallet_by_paymentid(paymentid: str, coin: str, coin_family
             async with conn.cursor() as cur:
                 result = None
                 if coin_family in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
-                    sql = """ SELECT * FROM `cn_user_paymentid` WHERE `paymentid`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """
-                    await cur.execute(sql, (paymentid, COIN_NAME, user_server))
+                    sql = """ SELECT * FROM `cn_user_paymentid` WHERE `paymentid`=%s AND `coin_name`=%s LIMIT 1 """
+                    await cur.execute(sql, (paymentid, COIN_NAME))
                     result = await cur.fetchone()
                 elif coin_family == "CHIA":
-                    sql = """ SELECT * FROM `xch_user` WHERE `balance_wallet_address`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """
-                    await cur.execute(sql, (paymentid, COIN_NAME, user_server))
+                    sql = """ SELECT * FROM `xch_user` WHERE `balance_wallet_address`=%s AND `coin_name`=%s LIMIT 1 """
+                    await cur.execute(sql, (paymentid, COIN_NAME))
                     result = await cur.fetchone()
                 elif coin_family == "BTC":
                     # if doge family, address is paymentid
-                    sql = """ SELECT * FROM `doge_user` WHERE `balance_wallet_address`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """
-                    await cur.execute(sql, (paymentid, COIN_NAME, user_server))
+                    sql = """ SELECT * FROM `doge_user` WHERE `balance_wallet_address`=%s AND `coin_name`=%s LIMIT 1 """
+                    await cur.execute(sql, (paymentid, COIN_NAME))
                     result = await cur.fetchone()
                 elif coin_family == "NANO":
                     # if doge family, address is paymentid
-                    sql = """ SELECT * FROM `nano_user` WHERE `balance_wallet_address`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """
-                    await cur.execute(sql, (paymentid, COIN_NAME, user_server))
+                    sql = """ SELECT * FROM `nano_user` WHERE `balance_wallet_address`=%s AND `coin_name`=%s LIMIT 1 """
+                    await cur.execute(sql, (paymentid, COIN_NAME))
                     result = await cur.fetchone()
                 elif coin_family == "HNT":
                     # if doge family, address is paymentid
-                    sql = """ SELECT * FROM `hnt_user` WHERE `main_address`=%s AND `memo`=%s AND `coin_name` = %s AND `user_server`=%s LIMIT 1 """
+                    sql = """ SELECT * FROM `hnt_user` WHERE `main_address`=%s AND `memo`=%s AND `coin_name`=%s LIMIT 1 """
                     address_memo = paymentid.split()
-                    await cur.execute(sql, (address_memo[0], address_memo[2], COIN_NAME, user_server))
+                    await cur.execute(sql, (address_memo[0], address_memo[2], COIN_NAME))
                     result = await cur.fetchone()
                 elif coin_family == "ADA":
                     # if ADA family, address is paymentid
-                    sql = """ SELECT * FROM `ada_user` WHERE `balance_wallet_address`=%s AND `user_server`=%s LIMIT 1 """
-                    await cur.execute(sql, (paymentid, user_server))
+                    sql = """ SELECT * FROM `ada_user` WHERE `balance_wallet_address`=%s LIMIT 1 """
+                    await cur.execute(sql, (paymentid))
                     result = await cur.fetchone()
                 elif coin_family == "SOL":
                     # if SOL family, address is paymentid
-                    sql = """ SELECT * FROM `sol_user` WHERE `balance_wallet_address`=%s AND `user_server`=%s LIMIT 1 """
-                    await cur.execute(sql, (paymentid, user_server))
+                    sql = """ SELECT * FROM `sol_user` WHERE `balance_wallet_address`=%s LIMIT 1 """
+                    await cur.execute(sql, (paymentid))
                     result = await cur.fetchone()
                 return result
     except Exception as e:
@@ -1246,7 +1286,7 @@ async def sql_updating_pending_move_deposit_erc20(notified_confirmation: bool, f
     return None
 
 
-async def trx_check_minimum_deposit(coin: str, type_coin: str, contract: str, coin_decimal: int, min_move_deposit: float, min_gas_tx: float, fee_limit_trx: float, gas_ticker: str, move_gas_amount: float, chainId: str, real_deposit_fee: float, time_lap: int=0, user_server: str='DISCORD'):
+async def trx_check_minimum_deposit(coin: str, type_coin: str, contract: str, coin_decimal: int, min_move_deposit: float, min_gas_tx: float, fee_limit_trx: float, gas_ticker: str, move_gas_amount: float, chainId: str, real_deposit_fee: float, time_lap: int=0):
     global pool
     TOKEN_NAME = coin.upper()
     list_user_addresses = await sql_get_all_trx_user(TOKEN_NAME, time_lap)
@@ -1316,7 +1356,7 @@ async def trx_check_minimum_deposit(coin: str, type_coin: str, contract: str, co
                         await TronClient.close()
                         if txn_ret and in_block:
                             try:
-                                inserted = await trx_move_deposit_for_spendable(TOKEN_NAME, contract, each_address['user_id'], each_address['balance_wallet_address'], config.trc.MainAddress, real_deposited_balance, real_deposit_fee,  coin_decimal, txn_ret['txid'], in_block['blockNumber'], user_server)
+                                inserted = await trx_move_deposit_for_spendable(TOKEN_NAME, contract, each_address['user_id'], each_address['balance_wallet_address'], config.trc.MainAddress, real_deposited_balance, real_deposit_fee,  coin_decimal, txn_ret['txid'], in_block['blockNumber'], each_address['user_server'])
                             except Exception as e:
                                 traceback.print_exc(file=sys.stdout)
                         await asyncio.sleep(3)
@@ -1368,7 +1408,7 @@ async def trx_check_minimum_deposit(coin: str, type_coin: str, contract: str, co
                             await TronClient.close()
                             if txn_ret and in_block:
                                 try:
-                                    inserted = await trx_move_deposit_for_spendable(TOKEN_NAME, contract, each_address['user_id'], each_address['balance_wallet_address'], config.trc.MainAddress, balance, real_deposit_fee, coin_decimal, txn_ret['txid'], in_block['blockNumber'], user_server)
+                                    inserted = await trx_move_deposit_for_spendable(TOKEN_NAME, contract, each_address['user_id'], each_address['balance_wallet_address'], config.trc.MainAddress, balance, real_deposit_fee, coin_decimal, txn_ret['txid'], in_block['blockNumber'], each_address['user_server'])
                                 except Exception as e:
                                     traceback.print_exc(file=sys.stdout)
                             await asyncio.sleep(0.5)
@@ -1414,7 +1454,7 @@ async def trx_check_minimum_deposit(coin: str, type_coin: str, contract: str, co
                             await TronClient.close()
                             if txn_ret and in_block:
                                 try:
-                                    inserted = await trx_move_deposit_for_spendable(TOKEN_NAME, str(contract), each_address['user_id'], each_address['balance_wallet_address'], config.trc.MainAddress, balance, real_deposit_fee,  coin_decimal, txn_ret['txid'], in_block['blockNumber'], user_server)
+                                    inserted = await trx_move_deposit_for_spendable(TOKEN_NAME, str(contract), each_address['user_id'], each_address['balance_wallet_address'], config.trc.MainAddress, balance, real_deposit_fee,  coin_decimal, txn_ret['txid'], in_block['blockNumber'], each_address['user_server'])
                                 except Exception as e:
                                     traceback.print_exc(file=sys.stdout)
                             await asyncio.sleep(3)
@@ -1878,7 +1918,7 @@ async def discord_triviatip_update(message_id: str, status: str):
 ## End of Trivia
 
 
-async def sql_user_balance_mv_single(from_userid: str, to_userid: str, guild_id: str, channel_id: str, real_amount: float, coin: str, tiptype: str, token_decimal: int, user_server: str, contract: str, real_amount_usd: float):
+async def sql_user_balance_mv_single(from_userid: str, to_userid: str, guild_id: str, channel_id: str, real_amount: float, coin: str, tiptype: str, token_decimal: int, user_server: str, contract: str, real_amount_usd: float, extra_message: str=None):
     global pool
     TOKEN_NAME = coin.upper()
     currentTs = int(time.time())
@@ -1887,8 +1927,8 @@ async def sql_user_balance_mv_single(from_userid: str, to_userid: str, guild_id:
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 sql = """ INSERT INTO user_balance_mv 
-                          (`token_name`, `contract`, `from_userid`, `to_userid`, `guild_id`, `channel_id`, `real_amount`, `real_amount_usd`, `token_decimal`, `type`, `date`, `user_server`) 
-                          VALUES (%s, %s, %s, %s, %s, %s, CAST(%s AS DECIMAL(32,8)), CAST(%s AS DECIMAL(32,8)), %s, %s, %s, %s);
+                          (`token_name`, `contract`, `from_userid`, `to_userid`, `guild_id`, `channel_id`, `real_amount`, `real_amount_usd`, `token_decimal`, `type`, `date`, `user_server`, `extra_message`) 
+                          VALUES (%s, %s, %s, %s, %s, %s, CAST(%s AS DECIMAL(32,8)), CAST(%s AS DECIMAL(32,8)), %s, %s, %s, %s, %s);
 
                           INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, `balance`, `update_date`) 
                           VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
@@ -1903,7 +1943,7 @@ async def sql_user_balance_mv_single(from_userid: str, to_userid: str, guild_id:
                           `update_date`=VALUES(`update_date`);
 
                           """
-                await cur.execute(sql, ( TOKEN_NAME, contract, from_userid, to_userid, guild_id, channel_id, real_amount, real_amount_usd, token_decimal, tiptype, currentTs, user_server, from_userid, TOKEN_NAME, user_server, -real_amount, currentTs, to_userid, TOKEN_NAME, user_server, real_amount, currentTs ))
+                await cur.execute(sql, ( TOKEN_NAME, contract, from_userid, to_userid, guild_id, channel_id, real_amount, real_amount_usd, token_decimal, tiptype, currentTs, user_server, extra_message, from_userid, TOKEN_NAME, user_server, -real_amount, currentTs, to_userid, TOKEN_NAME, user_server, real_amount, currentTs ))
                 await conn.commit()
                 return True
     except Exception as e:
@@ -1912,7 +1952,7 @@ async def sql_user_balance_mv_single(from_userid: str, to_userid: str, guild_id:
     return None
 
 
-async def sql_user_balance_mv_multiple(user_from: str, user_tos, guild_id: str, channel_id: str, amount_each: float, coin: str, tiptype: str, token_decimal: int, user_server: str, contract: str, real_amount_usd: float):
+async def sql_user_balance_mv_multiple(user_from: str, user_tos, guild_id: str, channel_id: str, amount_each: float, coin: str, tiptype: str, token_decimal: int, user_server: str, contract: str, real_amount_usd: float, extra_message: str=None):
     # user_tos is array "account1", "account2", ....
     global pool
     TOKEN_NAME = coin.upper()
@@ -1920,7 +1960,7 @@ async def sql_user_balance_mv_multiple(user_from: str, user_tos, guild_id: str, 
     currentTs = int(time.time())
     #type_list = []
     for item in user_tos:
-        values_list.append(( TOKEN_NAME, contract, user_from, item, guild_id, channel_id, amount_each, token_decimal, tiptype.upper(), currentTs, user_server, real_amount_usd, user_from, TOKEN_NAME, user_server, -amount_each, currentTs, item, TOKEN_NAME, user_server, amount_each, currentTs, ))
+        values_list.append(( TOKEN_NAME, contract, user_from, item, guild_id, channel_id, amount_each, token_decimal, tiptype.upper(), currentTs, user_server, real_amount_usd, extra_message, user_from, TOKEN_NAME, user_server, -amount_each, currentTs, item, TOKEN_NAME, user_server, amount_each, currentTs, ))
         
     if len(values_list) == 0:
         print("sql_user_balance_mv_multiple: got 0 data inserting. return...")
@@ -1930,8 +1970,8 @@ async def sql_user_balance_mv_multiple(user_from: str, user_tos, guild_id: str, 
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ INSERT INTO user_balance_mv (`token_name`, `contract`, `from_userid`, `to_userid`, `guild_id`, `channel_id`, `real_amount`, `token_decimal`, `type`, `date`, `user_server`, `real_amount_usd`) 
-                          VALUES (%s, %s, %s, %s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s, %s, %s, %s, %s);
+                sql = """ INSERT INTO user_balance_mv (`token_name`, `contract`, `from_userid`, `to_userid`, `guild_id`, `channel_id`, `real_amount`, `token_decimal`, `type`, `date`, `user_server`, `real_amount_usd`, `extra_message`) 
+                          VALUES (%s, %s, %s, %s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s, %s, %s, %s, %s, %s);
                         
                           INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, `balance`, `update_date`) 
                           VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
@@ -2723,15 +2763,15 @@ async def sql_updateinfo_by_server(server_id: str, what: str, value: str):
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ SELECT serverid, servername, prefix, default_coin, numb_user, numb_bot, tiponly 
-                          FROM discord_server WHERE serverid = %s """
+                sql = """ SELECT `serverid`, `servername`, `prefix`, `default_coin`, `numb_user`, `numb_bo`t, `tiponly` 
+                          FROM `discord_server` WHERE `serverid`=%s """
                 await cur.execute(sql, (server_id,))
                 result = await cur.fetchone()
                 if result is None:
                     return None
                 else:
                     if what in ["servername", "prefix", "default_coin", "tiponly", "status"]:
-                        sql = """ UPDATE discord_server SET `"""+what+"""`=%s WHERE serverid=%s """
+                        sql = """ UPDATE `discord_server` SET `"""+what+"""`=%s WHERE `serverid`=%s """
                         await cur.execute(sql, (value, server_id,))
                         await conn.commit()
                     else:

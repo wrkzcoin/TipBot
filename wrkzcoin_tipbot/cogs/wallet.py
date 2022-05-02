@@ -373,53 +373,53 @@ class WalletAPI(commands.Cog):
                 async with conn.cursor() as cur:
                     if netname and netname not in ["TRX"]:
                         sql = """ SELECT * FROM `erc20_user` WHERE `user_id`=%s 
-                                  AND `user_id_erc20`=%s AND `user_server` = %s LIMIT 1 """
+                                  AND `user_id_erc20`=%s AND `user_server`=%s LIMIT 1 """
                         await cur.execute(sql, (str(userID), user_id_erc20, user_server))
                         result = await cur.fetchone()
                         if result: return result
                     elif netname and netname in ["TRX"]:
                         sql = """ SELECT * FROM `trc20_user` WHERE `user_id`=%s 
-                                  AND `user_id_trc20`=%s AND `user_server` = %s LIMIT 1 """
+                                  AND `user_id_trc20`=%s AND `user_server`=%s LIMIT 1 """
                         await cur.execute(sql, (str(userID), user_id_erc20, user_server))
                         result = await cur.fetchone()
                         if result: return result
                     elif type_coin.upper() in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                         sql = """ SELECT * FROM `cn_user_paymentid` WHERE `user_id`=%s 
-                                  AND `coin_name`=%s AND `user_server` = %s LIMIT 1 """
+                                  AND `coin_name`=%s AND `user_server`=%s LIMIT 1 """
                         await cur.execute(sql, (str(userID), COIN_NAME, user_server))
                         result = await cur.fetchone()
                         if result: return result
                     elif type_coin.upper() == "NANO":
                         sql = """ SELECT * FROM `nano_user` WHERE `user_id`=%s 
-                                  AND `coin_name`=%s AND `user_server` = %s LIMIT 1 """
+                                  AND `coin_name`=%s AND `user_server`=%s LIMIT 1 """
                         await cur.execute(sql, (str(userID), COIN_NAME, user_server))
                         result = await cur.fetchone()
                         if result: return result
                     elif type_coin.upper() == "BTC":
                         sql = """ SELECT * FROM `doge_user` WHERE `user_id`=%s 
-                                  AND `coin_name`=%s AND `user_server` = %s LIMIT 1 """
+                                  AND `coin_name`=%s AND `user_server`=%s LIMIT 1 """
                         await cur.execute(sql, (str(userID), COIN_NAME, user_server))
                         result = await cur.fetchone()
                         if result: return result
                     elif type_coin.upper() == "CHIA":
                         sql = """ SELECT * FROM `xch_user` WHERE `user_id`=%s 
-                                  AND `coin_name`=%s AND `user_server` = %s LIMIT 1 """
+                                  AND `coin_name`=%s AND `user_server`=%s LIMIT 1 """
                         await cur.execute(sql, (str(userID), COIN_NAME, user_server))
                         result = await cur.fetchone()
                         if result: return result
                     elif type_coin.upper() == "HNT":
                         sql = """ SELECT * FROM `hnt_user` WHERE `user_id`=%s 
-                                  AND `coin_name`=%s AND `user_server` = %s LIMIT 1 """
+                                  AND `coin_name`=%s AND `user_server`=%s LIMIT 1 """
                         await cur.execute(sql, (str(userID), COIN_NAME, user_server))
                         result = await cur.fetchone()
                         if result: return result
                     elif type_coin.upper() == "ADA":
-                        sql = """ SELECT * FROM `ada_user` WHERE `user_id`=%s AND `user_server` = %s LIMIT 1 """
+                        sql = """ SELECT * FROM `ada_user` WHERE `user_id`=%s AND `user_server`=%s LIMIT 1 """
                         await cur.execute(sql, (str(userID), user_server))
                         result = await cur.fetchone()
                         if result: return result
                     elif type_coin.upper() == "SOL":
-                        sql = """ SELECT * FROM `sol_user` WHERE `user_id`=%s AND `user_server` = %s LIMIT 1 """
+                        sql = """ SELECT * FROM `sol_user` WHERE `user_id`=%s AND `user_server`=%s LIMIT 1 """
                         await cur.execute(sql, (str(userID), user_server))
                         result = await cur.fetchone()
                         if result: return result
@@ -1355,6 +1355,10 @@ class Wallet(commands.Cog):
         
         # monitoring reward for RT
         self.monitoring_rt_rewards.start()
+        
+        # Monitoring Tweet command
+        self.monitoring_tweet_command.start()
+        self.monitoring_tweet_mentioned_command.start()
 
         # DB
         self.pool = None
@@ -1386,7 +1390,9 @@ class Wallet(commands.Cog):
                 async with conn.cursor() as cur:
                     # moving tip + / -
                     start = time.time()
-                    sql = """ SELECT `balance` AS mv_balance FROM `user_balance_mv_data` WHERE `user_id`=%s AND `token_name` = %s AND `user_server` = %s LIMIT 1 """
+                    sql = """ SELECT `balance` AS mv_balance 
+                              FROM `user_balance_mv_data` 
+                              WHERE `user_id`=%s AND `token_name`=%s AND `user_server`=%s LIMIT 1 """
                     await cur.execute(sql, (userID, TOKEN_NAME, user_server))
                     result = await cur.fetchone()
                     if result:
@@ -1394,8 +1400,9 @@ class Wallet(commands.Cog):
                     else:
                         mv_balance = 0
                     # pending airdrop
-                    sql = """ SELECT SUM(real_amount) AS airdropping FROM `discord_airdrop_tmp` WHERE `from_userid`=%s 
-                              AND `token_name` = %s AND `status`=%s """
+                    sql = """ SELECT SUM(real_amount) AS airdropping 
+                              FROM `discord_airdrop_tmp` 
+                              WHERE `from_userid`=%s AND `token_name`=%s AND `status`=%s """
                     await cur.execute(sql, (userID, TOKEN_NAME, "ONGOING"))
                     result = await cur.fetchone()
                     if result:
@@ -1404,8 +1411,9 @@ class Wallet(commands.Cog):
                         airdropping = 0
 
                     # pending mathtip
-                    sql = """ SELECT SUM(real_amount) AS mathtip FROM `discord_mathtip_tmp` WHERE `from_userid`=%s 
-                              AND `token_name` = %s AND `status`=%s """
+                    sql = """ SELECT SUM(real_amount) AS mathtip 
+                              FROM `discord_mathtip_tmp` 
+                              WHERE `from_userid`=%s AND `token_name`=%s AND `status`=%s """
                     await cur.execute(sql, (userID, TOKEN_NAME, "ONGOING"))
                     result = await cur.fetchone()
                     if result:
@@ -1414,8 +1422,9 @@ class Wallet(commands.Cog):
                         mathtip = 0
 
                     # pending triviatip
-                    sql = """ SELECT SUM(real_amount) AS triviatip FROM `discord_triviatip_tmp` WHERE `from_userid`=%s 
-                              AND `token_name` = %s AND `status`=%s """
+                    sql = """ SELECT SUM(real_amount) AS triviatip 
+                              FROM `discord_triviatip_tmp` 
+                              WHERE `from_userid`=%s AND `token_name`=%s AND `status`=%s """
                     await cur.execute(sql, (userID, TOKEN_NAME, "ONGOING"))
                     result = await cur.fetchone()
                     if result:
@@ -1424,8 +1433,9 @@ class Wallet(commands.Cog):
                         triviatip = 0
 
                     # Expense (negative)
-                    sql = """ SELECT SUM(amount_sell) AS open_order FROM open_order WHERE `coin_sell`=%s AND `userid_sell`=%s 
-                              AND `status`=%s
+                    sql = """ SELECT SUM(amount_sell) AS open_order 
+                              FROM open_order 
+                              WHERE `coin_sell`=%s AND `userid_sell`=%s AND `status`=%s
                           """
                     await cur.execute(sql, (TOKEN_NAME, userID, 'OPEN'))
                     result = await cur.fetchone()
@@ -1435,8 +1445,9 @@ class Wallet(commands.Cog):
                         open_order = 0
 
                     # guild_raffle_entries fee entry
-                    sql = """ SELECT SUM(amount) AS raffle_fee FROM guild_raffle_entries WHERE `coin_name`=%s AND `user_id`=%s  
-                              AND `user_server`=%s AND `status`=%s
+                    sql = """ SELECT SUM(amount) AS raffle_fee 
+                              FROM guild_raffle_entries 
+                              WHERE `coin_name`=%s AND `user_id`=%s AND `user_server`=%s AND `status`=%s
                           """
                     await cur.execute(sql, (TOKEN_NAME, userID, user_server, 'REGISTERED'))
                     result = await cur.fetchone()
@@ -1446,7 +1457,9 @@ class Wallet(commands.Cog):
 
                     # Each coin
                     if coin_family in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
-                        sql = """ SELECT SUM(amount+withdraw_fee) AS tx_expense FROM `cn_external_tx` WHERE `user_id`=%s AND `coin_name` = %s AND `user_server` = %s AND `crediting`=%s """
+                        sql = """ SELECT SUM(amount+withdraw_fee) AS tx_expense 
+                                  FROM `cn_external_tx` 
+                                  WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s AND `crediting`=%s """
                         await cur.execute(sql, ( userID, TOKEN_NAME, user_server, "YES" ))
                         result = await cur.fetchone()
                         if result:
@@ -1455,20 +1468,22 @@ class Wallet(commands.Cog):
                             tx_expense = 0
 
                         if top_block is None:
-                            sql = """ SELECT SUM(amount) AS incoming_tx FROM `cn_get_transfers` WHERE `payment_id`=%s AND `coin_name` = %s 
-                                      AND `amount`>0 AND `time_insert`< %s """
-                            await cur.execute(sql, ( address, TOKEN_NAME, int(time.time())-nos_block )) # seconds
+                            sql = """ SELECT SUM(amount) AS incoming_tx FROM `cn_get_transfers` WHERE `payment_id`=%s AND `coin_name`=%s 
+                                      AND `amount`>0 AND `time_insert`< %s AND `user_server`=%s """
+                            await cur.execute(sql, ( address, TOKEN_NAME, int(time.time())-nos_block, user_server )) # seconds
                         else:
-                            sql = """ SELECT SUM(amount) AS incoming_tx FROM `cn_get_transfers` WHERE `payment_id`=%s AND `coin_name` = %s 
-                                      AND `amount`>0 AND `height`< %s """
-                            await cur.execute(sql, ( address, TOKEN_NAME, nos_block ))
+                            sql = """ SELECT SUM(amount) AS incoming_tx FROM `cn_get_transfers` WHERE `payment_id`=%s AND `coin_name`=%s 
+                                      AND `amount`>0 AND `height`< %s AND `user_server`=%s """
+                            await cur.execute(sql, ( address, TOKEN_NAME, nos_block, user_server ))
                         result = await cur.fetchone()
                         if result and result['incoming_tx']:
                             incoming_tx = result['incoming_tx']
                         else:
                             incoming_tx = 0
                     elif coin_family == "BTC":
-                        sql = """ SELECT SUM(amount+withdraw_fee) AS tx_expense FROM `doge_external_tx` WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s AND `crediting`=%s """
+                        sql = """ SELECT SUM(amount+withdraw_fee) AS tx_expense 
+                                  FROM `doge_external_tx` 
+                                  WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s AND `crediting`=%s """
                         await cur.execute(sql, ( userID, TOKEN_NAME, user_server, "YES" ))
                         result = await cur.fetchone()
                         if result:
@@ -1477,7 +1492,9 @@ class Wallet(commands.Cog):
                             tx_expense = 0
 
                         if TOKEN_NAME not in ["PGO"]:
-                            sql = """ SELECT SUM(amount) AS incoming_tx FROM `doge_get_transfers` WHERE `address`=%s AND `coin_name` = %s AND (`category` = %s or `category` = %s) AND `confirmations`>=%s AND `amount`>0 """
+                            sql = """ SELECT SUM(amount) AS incoming_tx 
+                                      FROM `doge_get_transfers` 
+                                      WHERE `address`=%s AND `coin_name`=%s AND (`category` = %s or `category` = %s) AND `confirmations`>=%s AND `amount`>0 """
                             await cur.execute(sql, (address, TOKEN_NAME, 'receive', 'generate', confirmed_depth))
                             result = await cur.fetchone()
                             if result and result['incoming_tx']:
@@ -1485,7 +1502,10 @@ class Wallet(commands.Cog):
                             else:
                                 incoming_tx = 0
                         else:
-                            sql = """ SELECT SUM(amount) AS incoming_tx FROM `doge_get_transfers` WHERE `address`=%s AND `coin_name` = %s AND `category` = %s AND `confirmations`>=%s AND `amount`>0 """
+                            sql = """ SELECT SUM(amount) AS incoming_tx 
+                                      FROM `doge_get_transfers` 
+                                      WHERE `address`=%s 
+                                      AND `coin_name`=%s AND `category` = %s AND `confirmations`>=%s AND `amount`>0 """
                             await cur.execute(sql, (address, TOKEN_NAME, 'receive', confirmed_depth))
                             result = await cur.fetchone()
                             if result and result['incoming_tx']:
@@ -1493,7 +1513,9 @@ class Wallet(commands.Cog):
                             else:
                                 incoming_tx = 0
                     elif coin_family == "NANO":
-                        sql = """ SELECT SUM(amount) AS tx_expense FROM `nano_external_tx` WHERE `user_id`=%s AND `coin_name` = %s AND `user_server`=%s AND `crediting`=%s """
+                        sql = """ SELECT SUM(amount) AS tx_expense 
+                                  FROM `nano_external_tx` 
+                                  WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s AND `crediting`=%s """
                         await cur.execute(sql, ( userID, TOKEN_NAME, user_server, "YES" ))
                         result = await cur.fetchone()
                         if result:
@@ -1501,7 +1523,7 @@ class Wallet(commands.Cog):
                         else:
                             tx_expense = 0
 
-                        sql = """ SELECT SUM(amount) AS incoming_tx FROM `nano_move_deposit` WHERE `user_id`=%s AND `coin_name` = %s 
+                        sql = """ SELECT SUM(amount) AS incoming_tx FROM `nano_move_deposit` WHERE `user_id`=%s AND `coin_name`=%s 
                                   AND `amount`>0 AND `time_insert`< %s AND `user_server`=%s """
                         await cur.execute(sql, ( userID, TOKEN_NAME, int(time.time())-confirmed_inserted, user_server ))
                         result = await cur.fetchone()
@@ -1510,7 +1532,9 @@ class Wallet(commands.Cog):
                         else:
                             incoming_tx = 0
                     elif coin_family == "CHIA":
-                        sql = """ SELECT SUM(amount+withdraw_fee) AS tx_expense FROM `xch_external_tx` WHERE `user_id`=%s AND `coin_name` = %s AND `user_server` = %s AND `crediting`=%s """
+                        sql = """ SELECT SUM(amount+withdraw_fee) AS tx_expense 
+                                  FROM `xch_external_tx` 
+                                  WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s AND `crediting`=%s """
                         await cur.execute(sql, ( userID, TOKEN_NAME, user_server, "YES" ))
                         result = await cur.fetchone()
                         if result:
@@ -1519,12 +1543,14 @@ class Wallet(commands.Cog):
                             tx_expense = 0
 
                         if top_block is None:
-                            sql = """ SELECT SUM(amount) AS incoming_tx FROM `xch_get_transfers` WHERE `address`=%s AND `coin_name` = %s 
-                                      AND `amount`>0 AND `time_insert`< %s """
+                            sql = """ SELECT SUM(amount) AS incoming_tx 
+                                      FROM `xch_get_transfers` 
+                                      WHERE `address`=%s AND `coin_name`=%s AND `amount`>0 AND `time_insert`< %s """
                             await cur.execute(sql, (address, TOKEN_NAME, nos_block)) # seconds
                         else:
-                            sql = """ SELECT SUM(amount) AS incoming_tx FROM `xch_get_transfers` WHERE `address`=%s AND `coin_name` = %s 
-                                      AND `amount`>0 AND `height`<%s """
+                            sql = """ SELECT SUM(amount) AS incoming_tx 
+                                      FROM `xch_get_transfers` 
+                                      WHERE `address`=%s AND `coin_name`=%s AND `amount`>0 AND `height`<%s """
                             await cur.execute(sql, (address, TOKEN_NAME, nos_block))
                         result = await cur.fetchone()
                         if result and result['incoming_tx']:
@@ -1533,9 +1559,10 @@ class Wallet(commands.Cog):
                             incoming_tx = 0
                     elif coin_family == "ERC-20":
                         # When sending tx out, (negative)
-                        sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense FROM `erc20_external_tx` 
-                                  WHERE `user_id`=%s AND `token_name` = %s AND `crediting`=%s """
-                        await cur.execute(sql, ( userID, TOKEN_NAME, "YES" ))
+                        sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense 
+                                  FROM `erc20_external_tx` 
+                                  WHERE `user_id`=%s AND `token_name`=%s AND `user_server`=%s AND `crediting`=%s """
+                        await cur.execute(sql, ( userID, TOKEN_NAME, user_server, "YES" ))
                         result = await cur.fetchone()
                         if result:
                             tx_expense = result['tx_expense']
@@ -1543,9 +1570,10 @@ class Wallet(commands.Cog):
                             tx_expense = 0
 
                         # in case deposit fee -real_deposit_fee
-                        sql = """ SELECT SUM(real_amount-real_deposit_fee) AS incoming_tx FROM `erc20_move_deposit` WHERE `user_id`=%s 
-                                  AND `token_name` = %s AND `confirmed_depth`> %s AND `status`=%s """
-                        await cur.execute(sql, (userID, TOKEN_NAME, confirmed_depth, "CONFIRMED"))
+                        sql = """ SELECT SUM(real_amount-real_deposit_fee) AS incoming_tx 
+                                  FROM `erc20_move_deposit` 
+                                  WHERE `user_id`=%s AND `token_name`=%s AND `confirmed_depth`> %s AND `user_server`=%s AND `status`=%s """
+                        await cur.execute(sql, (userID, TOKEN_NAME, confirmed_depth, user_server, "CONFIRMED"))
                         result = await cur.fetchone()
                         if result:
                             incoming_tx = result['incoming_tx']
@@ -1553,9 +1581,10 @@ class Wallet(commands.Cog):
                             incoming_tx = 0
                     elif coin_family == "TRC-20":
                         # When sending tx out, (negative)
-                        sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense FROM `trc20_external_tx` 
-                                  WHERE `user_id`=%s AND `token_name` = %s AND `crediting`=%s AND `sucess`=%s """
-                        await cur.execute(sql, ( userID, TOKEN_NAME, "YES", 1 ))
+                        sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense 
+                                  FROM `trc20_external_tx` 
+                                  WHERE `user_id`=%s AND `token_name`=%s AND `user_server`=%s AND `crediting`=%s AND `sucess`=%s """
+                        await cur.execute(sql, ( userID, TOKEN_NAME, user_server, "YES", 1 ))
                         result = await cur.fetchone()
                         if result:
                             tx_expense = result['tx_expense']
@@ -1563,16 +1592,19 @@ class Wallet(commands.Cog):
                             tx_expense = 0
 
                         # in case deposit fee -real_deposit_fee
-                        sql = """ SELECT SUM(real_amount-real_deposit_fee) AS incoming_tx FROM `trc20_move_deposit` WHERE `user_id`=%s 
-                                  AND `token_name` = %s AND `confirmed_depth`> %s AND `status`=%s """
-                        await cur.execute(sql, (userID, TOKEN_NAME, confirmed_depth, "CONFIRMED"))
+                        sql = """ SELECT SUM(real_amount-real_deposit_fee) AS incoming_tx 
+                                  FROM `trc20_move_deposit` 
+                                  WHERE `user_id`=%s AND `token_name`=%s AND `confirmed_depth`> %s AND `user_server`=%s AND `status`=%s """
+                        await cur.execute(sql, (userID, TOKEN_NAME, confirmed_depth, user_server, "CONFIRMED"))
                         result = await cur.fetchone()
                         if result:
                             incoming_tx = result['incoming_tx']
                         else:
                             incoming_tx = 0
                     elif coin_family == "HNT":
-                        sql = """ SELECT SUM(amount+withdraw_fee) AS tx_expense FROM `hnt_external_tx` WHERE `user_id`=%s AND `coin_name` = %s AND `user_server` = %s AND `crediting`=%s """
+                        sql = """ SELECT SUM(amount+withdraw_fee) AS tx_expense 
+                                  FROM `hnt_external_tx` 
+                                  WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s AND `crediting`=%s """
                         await cur.execute(sql, ( userID, TOKEN_NAME, user_server, "YES" ))
                         result = await cur.fetchone()
                         if result:
@@ -1583,13 +1615,15 @@ class Wallet(commands.Cog):
                         # split address, memo
                         address_memo = address.split()
                         if top_block is None:
-                            sql = """ SELECT SUM(amount) AS incoming_tx FROM `hnt_get_transfers` WHERE `address`=%s AND `memo`=%s AND `coin_name` = %s 
-                                      AND `amount`>0 AND `time_insert`< %s """
-                            await cur.execute(sql, (address_memo[0], address_memo[2], TOKEN_NAME, nos_block)) # TODO: split to address, memo
+                            sql = """ SELECT SUM(amount) AS incoming_tx 
+                                      FROM `hnt_get_transfers` 
+                                      WHERE `address`=%s AND `memo`=%s AND `coin_name`=%s AND `amount`>0 AND `time_insert`< %s AND `user_server`=%s """
+                            await cur.execute(sql, (address_memo[0], address_memo[2], TOKEN_NAME, nos_block, user_server)) # TODO: split to address, memo
                         else:
-                            sql = """ SELECT SUM(amount) AS incoming_tx FROM `hnt_get_transfers` WHERE `address`=%s AND `memo`=%s AND `coin_name` = %s 
-                                      AND `amount`>0 AND `height`<%s """
-                            await cur.execute(sql, (address_memo[0], address_memo[2], TOKEN_NAME, nos_block)) # TODO: split to address, memo
+                            sql = """ SELECT SUM(amount) AS incoming_tx 
+                                      FROM `hnt_get_transfers` 
+                                      WHERE `address`=%s AND `memo`=%s AND `coin_name`=%s AND `amount`>0 AND `height`<%s AND `user_server`=%s """
+                            await cur.execute(sql, (address_memo[0], address_memo[2], TOKEN_NAME, nos_block, user_server)) # TODO: split to address, memo
                         result = await cur.fetchone()
                         if result and result['incoming_tx']:
                             incoming_tx = result['incoming_tx']
@@ -1598,7 +1632,7 @@ class Wallet(commands.Cog):
                     elif coin_family == "ADA":
                         sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense 
                                   FROM `ada_external_tx` 
-                                  WHERE `user_id`=%s AND `coin_name` = %s AND `user_server` = %s AND `crediting`=%s """
+                                  WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s AND `crediting`=%s """
                         await cur.execute(sql, ( userID, TOKEN_NAME, user_server, "YES" ))
                         result = await cur.fetchone()
                         if result:
@@ -1609,14 +1643,14 @@ class Wallet(commands.Cog):
                         if top_block is None:
                             sql = """ SELECT SUM(amount) AS incoming_tx 
                                       FROM `ada_get_transfers` WHERE `output_address`=%s AND `direction`=%s AND `coin_name`=%s 
-                                      AND `amount`>0 AND `time_insert`< %s """
-                            await cur.execute(sql, ( address, "incoming", TOKEN_NAME, nos_block ))
+                                      AND `amount`>0 AND `time_insert`< %s AND `user_server`=%s """
+                            await cur.execute(sql, ( address, "incoming", TOKEN_NAME, nos_block, user_server ))
                         else:
                             sql = """ SELECT SUM(amount) AS incoming_tx 
                                       FROM `ada_get_transfers` 
                                       WHERE `output_address`=%s AND `direction`=%s AND `coin_name`=%s 
-                                      AND `amount`>0 AND `inserted_at_height`<%s """
-                            await cur.execute(sql, ( address, "incoming", TOKEN_NAME, nos_block ))
+                                      AND `amount`>0 AND `inserted_at_height`<%s AND `user_server`=%s """
+                            await cur.execute(sql, ( address, "incoming", TOKEN_NAME, nos_block, user_server ))
                         result = await cur.fetchone()
                         if result and result['incoming_tx']:
                             incoming_tx = result['incoming_tx']
@@ -1624,9 +1658,10 @@ class Wallet(commands.Cog):
                             incoming_tx = 0
                     elif coin_family == "SOL" or coin_family == "SPL":
                         # When sending tx out, (negative)
-                        sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense FROM `sol_external_tx` 
-                                  WHERE `user_id`=%s AND `coin_name` = %s AND `crediting`=%s """
-                        await cur.execute(sql, ( userID, TOKEN_NAME, "YES" ))
+                        sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense 
+                                  FROM `sol_external_tx` 
+                                  WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s AND `crediting`=%s """
+                        await cur.execute(sql, ( userID, TOKEN_NAME, user_server, "YES" ))
                         result = await cur.fetchone()
                         if result:
                             tx_expense = result['tx_expense']
@@ -1634,9 +1669,10 @@ class Wallet(commands.Cog):
                             tx_expense = 0
 
                         # in case deposit fee -real_deposit_fee
-                        sql = """ SELECT SUM(real_amount-real_deposit_fee) AS incoming_tx FROM `sol_move_deposit` WHERE `user_id`=%s 
-                                  AND `token_name` = %s AND `confirmed_depth`> %s AND `status`=%s """
-                        await cur.execute(sql, (userID, TOKEN_NAME, confirmed_depth, "CONFIRMED"))
+                        sql = """ SELECT SUM(real_amount-real_deposit_fee) AS incoming_tx 
+                                  FROM `sol_move_deposit` 
+                                  WHERE `user_id`=%s AND `token_name`=%s AND `confirmed_depth`> %s AND `user_server`=%s AND `status`=%s """
+                        await cur.execute(sql, (userID, TOKEN_NAME, confirmed_depth, user_server, "CONFIRMED"))
                         result = await cur.fetchone()
                         if result:
                             incoming_tx = result['incoming_tx']
@@ -1728,6 +1764,327 @@ class Wallet(commands.Cog):
     async def bot_log(self):
         if self.botLogChan is None:
             self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
+
+
+    @tasks.loop(seconds=60.0)
+    async def monitoring_tweet_mentioned_command(self):
+        time_lap = 15 # seconds
+        await self.bot.wait_until_ready()
+
+        async def invalidate_mentioned(twitter_id: int):
+            try:
+                await self.openConnection()
+                async with self.pool.acquire() as conn:
+                    async with conn.cursor() as cur:
+                        sql = """ UPDATE `twitter_mentions_timeline` SET `response_date`=%s WHERE `twitter_id`=%s LIMIT 1 """
+                        await cur.execute(sql, ( int(time.time()), twitter_id ) )
+                        await conn.commit()
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+
+        async def response_tip(twitter_id: int, tipped_text: str):
+            try:
+                await self.openConnection()
+                async with self.pool.acquire() as conn:
+                    async with conn.cursor() as cur:
+                        sql = """ UPDATE `twitter_mentions_timeline` SET `has_tip`=1, `tipped_text`=%s, `response_date`=%s WHERE `twitter_id`=%s LIMIT 1 """
+                        await cur.execute(sql, ( tipped_text, int(time.time()), twitter_id ) )
+                        await conn.commit()
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+
+        while True:
+            await asyncio.sleep(time_lap)
+            try:
+                await self.openConnection()
+                async with self.pool.acquire() as conn:
+                    async with conn.cursor() as cur:
+                        sql = """ SELECT * FROM `twitter_mentions_timeline` 
+                                  WHERE `response_date` IS NULL 
+                                  ORDER BY `created_at` ASC """
+                        await cur.execute(sql,)
+                        result = await cur.fetchall()
+                        if result and len(result) > 0:
+                            for each_resp in result:
+                                if each_resp['user_mentions_list'] is None:
+                                    await invalidate_mentioned( each_resp['twitter_id'] )
+                                    continue
+                                if len(json.loads(each_resp['user_mentions_list'])) <= 1:
+                                    # no one to tip to
+                                    await invalidate_mentioned( each_resp['twitter_id'] )
+                                    continue
+                                elif len(json.loads(each_resp['user_mentions_list'])) > 1:
+                                    text = each_resp['text'].replace("@BotTipsTweet", "").strip().upper()
+                                    arg = text.split()
+                                    if len(arg) < 4 or not text.startswith("TIP "):
+                                        await invalidate_mentioned( each_resp['twitter_id'] )
+                                        continue
+                                    elif text.startswith("TIP ") and len(arg) >= 4:
+                                        amount = arg[1]
+                                        COIN_NAME = arg[2]
+                                        if not hasattr(self.bot.coin_list, COIN_NAME):
+                                            await invalidate_mentioned( each_resp['twitter_id'] )
+                                            continue
+                                        else:
+                                            net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
+                                            type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
+                                            deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
+                                            coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+                                            contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
+                                            token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
+
+                                            MinTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_min_tip")
+                                            MaxTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_max_tip")
+                                            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
+                                            if "$" in amount[-1] or "$" in amount[0]: # last is $
+                                                # Check if conversion is allowed for this coin.
+                                                amount = amount.replace(",", "").replace("$", "")
+                                                if usd_equivalent_enable == 0:
+                                                    await invalidate_mentioned( each_resp['twitter_id'] )
+                                                    continue
+                                                else:
+                                                    native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
+                                                    COIN_NAME_FOR_PRICE = COIN_NAME
+                                                    if native_token_name:
+                                                        COIN_NAME_FOR_PRICE = native_token_name
+                                                    per_unit = None
+                                                    if COIN_NAME_FOR_PRICE in self.bot.token_hints:
+                                                        id = self.bot.token_hints[COIN_NAME_FOR_PRICE]['ticker_name']
+                                                        per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+                                                    else:
+                                                        per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
+                                                    if per_unit and per_unit > 0:
+                                                        amount = float(Decimal(amount) / Decimal(per_unit))
+                                                    else:
+                                                        await invalidate_mentioned( each_resp['twitter_id'] )
+                                                        continue
+                                            else:
+                                                amount = amount.replace(",", "")
+                                                amount = text_to_num(amount)
+                                                if amount is None:
+                                                    await invalidate_mentioned( each_resp['twitter_id'] )
+                                                    continue
+
+                                            get_deposit = await self.sql_get_userwallet(str(each_resp['twitter_user_id']), COIN_NAME, net_name, type_coin, "TWITTER", 0)
+                                            if get_deposit is None:
+                                                get_deposit = await self.sql_register_user(str(each_resp['twitter_user_id']), COIN_NAME, net_name, type_coin, "TWITTER", 0, 0)
+
+                                            wallet_address = get_deposit['balance_wallet_address']
+                                            if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                                                wallet_address = get_deposit['paymentid']
+
+                                            height = None
+                                            try:
+                                                if type_coin in ["ERC-20", "TRC-20"]:
+                                                    height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
+                                                else:
+                                                    height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
+                                            except Exception as e:
+                                                traceback.print_exc(file=sys.stdout)
+
+                                            userdata_balance = await store.sql_user_balance_single(str(each_resp['twitter_user_id']), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, "TWITTER")
+                                            actual_balance = float(userdata_balance['adjust'])
+                                            if amount > MaxTip or amount < MinTip or amount > actual_balance:
+                                                await invalidate_mentioned( each_resp['twitter_id'] )
+                                                continue
+                                            else:
+                                                list_receivers = json.loads(each_resp['user_mentions_list'])
+                                                list_users = []
+                                                for each_u in list_receivers:
+                                                    if each_u['id_str'] not in ["1343104498722467845", str(each_resp['twitter_user_id'])]: # BotTipsTweet, twitter user
+                                                        list_users.append(each_u['id_str'])
+                                                if len(list_users) == 0:
+                                                    await invalidate_mentioned( each_resp['twitter_id'] )
+                                                    continue
+                                                else:
+                                                    for each in list_users:
+                                                        try:
+                                                            to_user = await self.sql_get_userwallet(each, COIN_NAME, net_name, type_coin, "TWITTER", 0)
+                                                            if to_user is None:
+                                                                to_user = await self.sql_register_user(each, COIN_NAME, net_name, type_coin, "TWITTER", 0, 0)
+                                                        except Exception as e:
+                                                            traceback.print_exc(file=sys.stdout)
+                                                    total_amount = len(list_users) * amount
+                                                    if total_amount > actual_balance:
+                                                        await invalidate_mentioned( each_resp['twitter_id'] )
+                                                        continue
+                                                    else:
+                                                        equivalent_usd = ""
+                                                        amount_in_usd = 0.0
+                                                        per_unit = None
+                                                        if usd_equivalent_enable == 1:
+                                                            native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
+                                                            COIN_NAME_FOR_PRICE = COIN_NAME
+                                                            if native_token_name:
+                                                                COIN_NAME_FOR_PRICE = native_token_name
+                                                            if COIN_NAME_FOR_PRICE in self.bot.token_hints:
+                                                                id = self.bot.token_hints[COIN_NAME_FOR_PRICE]['ticker_name']
+                                                                per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+                                                            else:
+                                                                per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
+                                                            if per_unit and per_unit > 0:
+                                                                amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
+                                                                if amount_in_usd > 0.0001:
+                                                                    equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
+                                                        try:
+                                                            tw_tip = await store.sql_user_balance_mv_multiple(str(each_resp['twitter_user_id']), list_users, "TWITTER", "TWITTER", amount, COIN_NAME, "TWITTERTIP", coin_decimal, "TWITTER", contract, float(amount_in_usd), each_resp['text'])
+                                                            await response_tip(each_resp['twitter_id'], each_resp['text'])
+                                                        except Exception as e:
+                                                            traceback.print_exc(file=sys.stdout)
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            await asyncio.sleep(time_lap)
+
+    @tasks.loop(seconds=60.0)
+    async def monitoring_tweet_command(self):
+        time_lap = 15 # seconds
+        await self.bot.wait_until_ready()
+        while True:
+            await asyncio.sleep(time_lap)
+            try:
+                await self.openConnection()
+                async with self.pool.acquire() as conn:
+                    async with conn.cursor() as cur:
+                        sql = """ SELECT * FROM `twitter_fetch_bot_messages` 
+                                  WHERE `is_ignored`=0 AND `draft_response_text` IS NULL 
+                                  ORDER BY `created_timestamp` ASC """
+                        await cur.execute(sql,)
+                        result = await cur.fetchall()
+                        if result and len(result) > 0:
+                            for each_msg in result:
+                                if each_msg['text'].lower().startswith( ("deposit all", "depositall") ):
+                                    try:
+                                        mytokens = await store.get_coin_settings(coin_type=None)
+                                        all_names = [each['coin_name'] for each in mytokens]
+                                        address_of_coins = {}
+                                        addresses_text = []
+                                        address_lines = []
+                                        for COIN_NAME in all_names:
+                                            net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
+                                            type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
+                                            if getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_deposit") == 1:
+                                                get_deposit = await self.sql_get_userwallet(each_msg['sender_id'], COIN_NAME, net_name, type_coin, "TWITTER", 0)
+                                                if get_deposit is None:
+                                                    get_deposit = await self.sql_register_user(each_msg['sender_id'], COIN_NAME, net_name, type_coin, "TWITTER", 0, 0)
+                                                wallet_address = get_deposit['balance_wallet_address']
+                                                address_of_coins[COIN_NAME] = wallet_address
+                                        for key, value in address_of_coins.items():
+                                            keys = [k for k, v in address_of_coins.items() if v == value]
+                                            if keys not in addresses_text:
+                                                addresses_text.append(keys)
+                                                address_lines.append("{}: {}".format(", ".join(keys), value))
+                                        address_lines_str = "\n\n".join(address_lines)
+                                        responses = "Your deposited address:\n"+address_lines_str+"\n\nPlease refer to https://coininfo.bot.tips for each coin's information."
+                                        sql = """ UPDATE `twitter_fetch_bot_messages` 
+                                                  SET `draft_response_text`=%s WHERE `draft_response_text` IS NULL AND `id`=%s LIMIT 1
+                                              """
+                                        await cur.execute(sql, ( responses, each_msg['id'] ) )
+                                        await conn.commit()
+                                    except Exception as e:
+                                        traceback.print_exc(file=sys.stdout)
+                                elif each_msg['text'].lower().startswith( "deposit " ):
+                                    responses = None
+                                    COIN_NAME = each_msg['text'].upper().replace("DEPOSIT ", "").strip()
+                                    if len(COIN_NAME) > 0 and not hasattr(self.bot.coin_list, COIN_NAME):
+                                        responses = f"{COIN_NAME} does not exist with us. Check https://coininfo.bot.tips"
+                                    elif len(COIN_NAME) > 0 and hasattr(self.bot.coin_list, COIN_NAME):
+                                        net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
+                                        type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
+                                        if getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_deposit") == 1 and getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_twitter") == 1:
+                                            get_deposit = await self.sql_get_userwallet(each_msg['sender_id'], COIN_NAME, net_name, type_coin, "TWITTER", 0)
+                                            if get_deposit is None:
+                                                get_deposit = await self.sql_register_user(each_msg['sender_id'], COIN_NAME, net_name, type_coin, "TWITTER", 0, 0)
+                                            wallet_address = get_deposit['balance_wallet_address']
+                                            if COIN_NAME == "HNT": # put memo and base64
+                                                address_memo = wallet_address.split()
+                                                address = address_memo[0]
+                                                memo_ascii = address_memo[2]
+                                                responses = f"Your {COIN_NAME} deposited address: {address}, memo: {memo_ascii}"
+                                            else:
+                                                responses = f"Your {COIN_NAME} deposited address: {wallet_address}"
+                                        else:
+                                            responses = f"{COIN_NAME} is not available for deposit or not available for twitter yet."
+                                    else:
+                                        responses = f"{COIN_NAME} invalid coin name. Check https://coininfo.bot.tips"
+                                    if responses:
+                                        sql = """ UPDATE `twitter_fetch_bot_messages` 
+                                                  SET `draft_response_text`=%s WHERE `draft_response_text` IS NULL AND `id`=%s LIMIT 1
+                                              """
+                                        await cur.execute(sql, ( responses, each_msg['id'] ) )
+                                        await conn.commit()
+                                elif each_msg['text'].lower().startswith("balance"):
+                                    try:
+                                        zero_tokens = []
+                                        non_zero_tokens = {}
+                                        mytokens = await store.get_coin_settings(coin_type=None)
+                                        all_names = [each['coin_name'] for each in mytokens]
+                                        for COIN_NAME in all_names:
+                                            net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
+                                            type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
+                                            deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
+                                            coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+                                            token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
+                                            if getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_deposit") == 1:
+                                                get_deposit = await self.sql_get_userwallet(each_msg['sender_id'], COIN_NAME, net_name, type_coin, "TWITTER", 0)
+                                                if get_deposit is None:
+                                                    get_deposit = await self.sql_register_user(each_msg['sender_id'], COIN_NAME, net_name, type_coin, "TWITTER", 0, 0)
+                                                wallet_address = get_deposit['balance_wallet_address']
+                                                if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                                                    wallet_address = get_deposit['paymentid']
+
+                                                height = None
+                                                try:
+                                                    if type_coin in ["ERC-20", "TRC-20"]:
+                                                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
+                                                    else:
+                                                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
+                                                except Exception as e:
+                                                    traceback.print_exc(file=sys.stdout)
+                                            userdata_balance = await self.user_balance(each_msg['sender_id'], COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, "TWITTER")
+                                            total_balance = userdata_balance['adjust']
+                                            if total_balance == 0:
+                                                zero_tokens.append(COIN_NAME)
+                                            elif total_balance > 0:
+                                                non_zero_tokens[COIN_NAME] = num_format_coin(total_balance, COIN_NAME, coin_decimal, False) + " " + token_display
+                                        if len(zero_tokens) == len(all_names):
+                                            responses = "You do not have any balance. Please DEPOSIT"
+                                            sql = """ UPDATE `twitter_fetch_bot_messages` 
+                                                      SET `draft_response_text`=%s WHERE `draft_response_text` IS NULL AND `id`=%s LIMIT 1
+                                                  """
+                                            await cur.execute(sql, ( responses, each_msg['id'] ) )
+                                            await conn.commit()
+                                        elif len(zero_tokens) < len(all_names):
+                                            responses = "Your coin/tokens's balance:\n"
+                                            for k, v in non_zero_tokens.items():
+                                                responses += "{}: {}\n".format(k, v)
+                                            responses += "\nZero balance coin/tokens: {}".format(", ".join(zero_tokens))
+                                            sql = """ UPDATE `twitter_fetch_bot_messages` 
+                                                      SET `draft_response_text`=%s WHERE `draft_response_text` IS NULL AND `id`=%s LIMIT 1
+                                                  """
+                                            await cur.execute(sql, ( responses, each_msg['id'] ) )
+                                            await conn.commit()
+                                    except Exception as e:
+                                        traceback.print_exc(file=sys.stdout)
+                                elif each_msg['text'].lower().startswith("withdraw"):
+                                    pass
+                                elif each_msg['text'].lower().startswith("donate"):
+                                    pass
+                                elif each_msg['text'].lower().startswith("help"):
+                                    responses = "Please refer to https://twitter-help.bot.tips"
+                                    sql = """ UPDATE `twitter_fetch_bot_messages` 
+                                              SET `draft_response_text`=%s WHERE `draft_response_text` IS NULL AND `id`=%s LIMIT 1
+                                          """
+                                    await cur.execute(sql, ( responses, each_msg['id'] ) )
+                                    await conn.commit()
+                                else:
+                                    sql = """ UPDATE `twitter_fetch_bot_messages` 
+                                              SET `is_ignored`=%s, `ignored_date`=%s WHERE `id`=%s LIMIT 1
+                                          """
+                                    await cur.execute(sql, ( 1, int(time.time()), each_msg['id'] ) )
+                                    await conn.commit()
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            await asyncio.sleep(time_lap)
 
     @tasks.loop(seconds=60.0)
     async def monitoring_rt_rewards(self):
@@ -1863,7 +2220,7 @@ class Wallet(commands.Cog):
                                                         await conn.commit()
                                                     except Exception as e:
                                                         traceback.print_exc(file=sys.stdout)
-                                                    tip = await store.sql_user_balance_mv_single(each_reward['guild_id'], each_discord_user, "TWITTER", "TWITTER", amount, COIN_NAME, "RETWEET", coin_decimal, SERVER_BOT, contract, amount_in_usd)
+                                                    tip = await store.sql_user_balance_mv_single(each_reward['guild_id'], each_discord_user, "TWITTER", "TWITTER", amount, COIN_NAME, "RETWEET", coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
                                                     if member is not None:
                                                         msg = f"Thank you for RT <{twitter_link}>. You just got a reward of {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}."
                                                         try:
@@ -1973,7 +2330,7 @@ class Wallet(commands.Cog):
                             coin_family = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
                             coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
                             if coin_family in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR", "BTC", "CHIA", "NANO"]:
-                                user_tx = await store.sql_get_userwallet_by_paymentid(eachTx['payment_id'], eachTx['coin_name'], coin_family, SERVER_BOT)
+                                user_tx = await store.sql_get_userwallet_by_paymentid(eachTx['payment_id'], eachTx['coin_name'], coin_family)
                                 if user_tx:
                                     user_found = self.bot.get_user(int(user_tx['user_id']))
                                     if user_found:
@@ -2063,7 +2420,7 @@ class Wallet(commands.Cog):
                                         if eachTx and coin_family in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR", "BTC", "CHIA"]:
                                             get_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
                                             coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
-                                            user_tx = await store.sql_get_userwallet_by_paymentid(eachTx['payment_id'], eachTx['coin_name'], coin_family, SERVER_BOT)
+                                            user_tx = await store.sql_get_userwallet_by_paymentid(eachTx['payment_id'], eachTx['coin_name'], coin_family)
                                             if user_tx:
                                                 user_found = self.bot.get_user(int(user_tx['user_id']))
                                                 if user_found:
@@ -2267,7 +2624,7 @@ class Wallet(commands.Cog):
                                             user_memo = None
                                             user_id = None
                                             if len(memo) == 8:
-                                                user_memo = await store.sql_get_userwallet_by_paymentid("{} MEMO: {}".format(main_address, memo), COIN_NAME, coin_family, SERVER_BOT)
+                                                user_memo = await store.sql_get_userwallet_by_paymentid("{} MEMO: {}".format(main_address, memo), COIN_NAME, coin_family)
                                                 if user_memo is not None and user_memo['user_id']:
                                                     user_id = user_memo['user_id']
                                             await self.openConnection()
@@ -2275,9 +2632,9 @@ class Wallet(commands.Cog):
                                                 async with conn.cursor() as cur:
                                                     sql = """ INSERT INTO `hnt_get_transfers` (`coin_name`, `user_id`, `txid`, `height`, `timestamp`, 
                                                               `amount`, `fee`, `decimal`, `address`, `memo`, 
-                                                              `payer`, `time_insert`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                                              `payer`, `time_insert`, `user_server`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
                                                     await cur.execute(sql, (COIN_NAME, user_id, tx_hash, height, blockTime, amount, fee, 
-                                                                            coin_decimal, each_payment['payee'], memo, payer, int(time.time())))
+                                                                            coin_decimal, each_payment['payee'], memo, payer, int(time.time()), user_memo['user_server'] if user_memo else None ))
                                                     await conn.commit()
                                         except Exception as e:
                                             traceback.print_exc(file=sys.stdout)
@@ -2415,7 +2772,7 @@ class Wallet(commands.Cog):
                                 tx_fee = getattr(getattr(self.bot.coin_list, COIN_NAME), "tx_fee")
                                 contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
                                 real_deposit_fee = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_deposit_fee")
-                                if 'context' in get_balance and 'value' in get_balance: 
+                                if get_balance and 'context' in get_balance and 'value' in get_balance: 
                                     actual_balance = float(get_balance['value']/10**coin_decimal)
                                     if actual_balance >= real_min_deposit:
                                         # Let's move
@@ -2425,11 +2782,10 @@ class Wallet(commands.Cog):
                                             await self.openConnection()
                                             async with self.pool.acquire() as conn:
                                                 async with conn.cursor() as cur:
-                                                    sql = """ INSERT INTO `sol_move_deposit` (`token_name`, `contract`, `user_id`, `balance_wallet_address`, `to_main_address`, `real_amount`, `real_deposit_fee`, `token_decimal`, `txn`, `time_insert`, 
-                                                              `user_server`) 
+                                                    sql = """ INSERT INTO `sol_move_deposit` (`token_name`, `contract`, `user_id`, `balance_wallet_address`, `to_main_address`, `real_amount`, `real_deposit_fee`, `token_decimal`, `txn`, `time_insert`, `user_server`) 
                                                               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
                                                               UPDATE `sol_user` SET `last_move_deposit`=%s WHERE `balance_wallet_address`=%s LIMIT 1; """
-                                                    await cur.execute(sql, ( COIN_NAME, contract, each_addr['user_id'], each_addr['balance_wallet_address'], config.sol.MainAddress, actual_balance - tx_fee, real_deposit_fee, coin_decimal, moving, int(time.time()), SERVER_BOT, int(time.time()), each_addr['balance_wallet_address'] ))
+                                                    await cur.execute(sql, ( COIN_NAME, contract, each_addr['user_id'], each_addr['balance_wallet_address'], config.sol.MainAddress, actual_balance - tx_fee, real_deposit_fee, coin_decimal, moving, int(time.time()), each_addr['user_server'], int(time.time()), each_addr['balance_wallet_address'] ))
                                                     await conn.commit()
                             except Exception as e:
                                 traceback.print_exc(file=sys.stdout)
@@ -2618,7 +2974,7 @@ class Wallet(commands.Cog):
                                                         if each_output['address'] not in all_addresses: continue # skip this output because no address in...
                                                         COIN_NAME = "ADA"
                                                         coin_family = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
-                                                        user_tx = await store.sql_get_userwallet_by_paymentid(each_output['address'], COIN_NAME, coin_family, SERVER_BOT)
+                                                        user_tx = await store.sql_get_userwallet_by_paymentid(each_output['address'], COIN_NAME, coin_family)
                                                         # ADA
                                                         data_rows.append( ( user_tx['user_id'], COIN_NAME, each_tx['id'], each_tx['inserted_at']['height']['quantity'], each_tx['direction'], json.dumps(each_tx['inputs']), json.dumps(each_tx['outputs']), each_output['address'], None, None, each_output['amount']['quantity']/10**6, 6, int(time.time()), user_tx['user_server'] ) )
                                                         if each_output['assets'] and len(each_output['assets']) > 0:
@@ -2682,7 +3038,7 @@ class Wallet(commands.Cog):
                             await self.openConnection()
                             async with self.pool.acquire() as conn:
                                 async with conn.cursor() as cur:
-                                    sql = """ SELECT * FROM `cn_get_transfers` WHERE `coin_name` = %s """
+                                    sql = """ SELECT * FROM `cn_get_transfers` WHERE `coin_name`=%s """
                                     await cur.execute(sql, (COIN_NAME,))
                                     result = await cur.fetchall()
                                     d = [i['txid'] for i in result]
@@ -2707,7 +3063,7 @@ class Wallet(commands.Cog):
                                                         if len(each_add['address']) > 0: address = each_add['address']
                                                         break
 
-                                                    sql = """ INSERT IGNORE INTO `cn_get_transfers` (`coin_name`, `txid`, `payment_id`, `height`, `timestamp`, `amount`, `fee`, `decimal`, `address`, time_insert) 
+                                                    sql = """ INSERT IGNORE INTO `cn_get_transfers` (`coin_name`, `txid`, `payment_id`, `height`, `timestamp`, `amount`, `fee`, `decimal`, `address`, `time_insert`) 
                                                               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
                                                     await cur.execute(sql, (COIN_NAME, tx['hash'], tx['paymentID'], tx['blockHeight'], tx['timestamp'], float(int(tx['transfers'][0]['amount'])/10**coin_decimal), float(int(tx['fee'])/10**coin_decimal), coin_decimal, address, int(time.time())))
                                                     await conn.commit()
@@ -2770,7 +3126,7 @@ class Wallet(commands.Cog):
                             await self.openConnection()
                             async with self.pool.acquire() as conn:
                                 async with conn.cursor() as cur:
-                                    sql = """ SELECT * FROM `cn_get_transfers` WHERE `coin_name` = %s """
+                                    sql = """ SELECT * FROM `cn_get_transfers` WHERE `coin_name`=%s """
                                     await cur.execute(sql, (COIN_NAME,))
                                     result = await cur.fetchall()
                                     d = [i['txid'] for i in result]
@@ -2795,7 +3151,7 @@ class Wallet(commands.Cog):
                                                             if len(each_add['address']) > 0: address = each_add['address']
                                                             break
                                                             
-                                                        sql = """ INSERT IGNORE INTO `cn_get_transfers` (`coin_name`, `txid`, `payment_id`, `height`, `timestamp`, `amount`, `fee`, `decimal`, `address`, time_insert) 
+                                                        sql = """ INSERT IGNORE INTO `cn_get_transfers` (`coin_name`, `txid`, `payment_id`, `height`, `timestamp`, `amount`, `fee`, `decimal`, `address`, `time_insert`) 
                                                                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
                                                         await cur.execute(sql, (COIN_NAME, tx['transactionHash'], tx['paymentId'], tx['blockIndex'], tx['timestamp'], float(tx['amount']/10**coin_decimal), float(tx['fee']/10**coin_decimal), coin_decimal, address, int(time.time())))
                                                         await conn.commit()
@@ -2868,7 +3224,7 @@ class Wallet(commands.Cog):
                                 await self.openConnection()
                                 async with self.pool.acquire() as conn:
                                     async with conn.cursor() as cur:
-                                        sql = """ SELECT * FROM `cn_get_transfers` WHERE `coin_name` = %s """
+                                        sql = """ SELECT * FROM `cn_get_transfers` WHERE `coin_name`=%s """
                                         await cur.execute(sql, (COIN_NAME,))
                                         result = await cur.fetchall()
                                         d = [i['txid'] for i in result]
@@ -2886,14 +3242,17 @@ class Wallet(commands.Cog):
                                                 try:
                                                     if tx['txid'] not in d:
                                                         tx_address = tx['address'] if COIN_NAME != "LTHN" else getattr(getattr(self.bot.coin_list, COIN_NAME), "MainAddress")
-                                                        sql = """ INSERT IGNORE INTO `cn_get_transfers` (`coin_name`, `in_out`, `txid`, `payment_id`, `height`, `timestamp`, `amount`, `fee`, `decimal`, `address`, time_insert) 
-                                                                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                                                        await cur.execute(sql, (COIN_NAME, tx['type'].upper(), tx['txid'], tx['payment_id'], tx['height'], tx['timestamp'], float(tx['amount']/10**coin_decimal), float(tx['fee']/10**coin_decimal), coin_decimal, tx_address, int(time.time())))
+                                                        user_paymentId = await store.sql_get_userwallet_by_paymentid( tx['payment_id'], COIN_NAME, getattr(getattr(self.bot.coin_list, COIN_NAME), "type") )
+                                                        u_server = None
+                                                        if user_paymentId: u_server = user_paymentId['user_server']
+                                                        sql = """ INSERT IGNORE INTO `cn_get_transfers` (`coin_name`, `in_out`, `txid`, `payment_id`, `height`, `timestamp`, `amount`, `fee`, `decimal`, `address`, `time_insert`, `user_server`) 
+                                                                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                                        await cur.execute(sql, ( COIN_NAME, tx['type'].upper(), tx['txid'], tx['payment_id'], tx['height'], tx['timestamp'], float(tx['amount']/10**coin_decimal), float(tx['fee']/10**coin_decimal), coin_decimal, tx_address, int(time.time()), u_server ) )
                                                         await conn.commit()
                                                         # add to notification list also
-                                                        sql = """ INSERT IGNORE INTO `discord_notify_new_tx` (`coin_name`, `txid`, `payment_id`, `height`, `amount`, `fee`, `decimal`) 
-                                                                  VALUES (%s, %s, %s, %s, %s, %s, %s) """
-                                                        await cur.execute(sql, (COIN_NAME, tx['txid'], tx['payment_id'], tx['height'], float(tx['amount']/10**coin_decimal), float(tx['fee']/10**coin_decimal), coin_decimal))
+                                                        sql = """ INSERT IGNORE INTO `discord_notify_new_tx` (`coin_name`, `txid`, `payment_id`, `height`, `amount`, `fee`, `decimal`, `user_server`) 
+                                                                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                                                        await cur.execute(sql, ( COIN_NAME, tx['txid'], tx['payment_id'], tx['height'], float(tx['amount']/10**coin_decimal), float(tx['fee']/10**coin_decimal), coin_decimal, u_server ) )
                                                         await conn.commit()
                                                 except Exception as e:
                                                     traceback.print_exc(file=sys.stdout)
@@ -2955,7 +3314,7 @@ class Wallet(commands.Cog):
                                 await self.openConnection()
                                 async with self.pool.acquire() as conn:
                                     async with conn.cursor() as cur:
-                                        sql = """ SELECT * FROM `doge_get_transfers` WHERE `coin_name` = %s AND `category` IN (%s, %s) """
+                                        sql = """ SELECT * FROM `doge_get_transfers` WHERE `coin_name`=%s AND `category` IN (%s, %s) """
                                         await cur.execute(sql, (COIN_NAME, 'receive', 'send'))
                                         result = await cur.fetchall()
                                         d = [i['txid'] for i in result]
@@ -2972,25 +3331,28 @@ class Wallet(commands.Cog):
                                                     list_balance_user[tx['address']] = tx['amount']
                                                 try:
                                                     if tx['txid'] not in d:
+                                                        user_paymentId = await store.sql_get_userwallet_by_paymentid( tx['address'], COIN_NAME, getattr(getattr(self.bot.coin_list, COIN_NAME), "type") )
+                                                        u_server = None
+                                                        if user_paymentId: u_server = user_paymentId['user_server']
                                                         if COIN_NAME in ["PGO"]:
                                                             # generate from mining
                                                             if tx['category'] == 'receive' and 'generated' not in tx:
-                                                                sql = """ INSERT IGNORE INTO `doge_get_transfers` (`coin_name`, `txid`, `blockhash`, `address`, `blocktime`, `amount`, `fee`, `confirmations`, `category`, `time_insert`) 
-                                                                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                                                                await cur.execute(sql, (COIN_NAME, tx['txid'], tx['blockhash'], tx['address'], tx['blocktime'], float(tx['amount']), float(tx['fee']) if 'fee' in tx else None, tx['confirmations'], tx['category'], int(time.time())))
+                                                                sql = """ INSERT IGNORE INTO `doge_get_transfers` (`coin_name`, `txid`, `blockhash`, `address`, `blocktime`, `amount`, `fee`, `confirmations`, `category`, `time_insert`, `user_server`) 
+                                                                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                                                await cur.execute(sql, ( COIN_NAME, tx['txid'], tx['blockhash'], tx['address'], tx['blocktime'], float(tx['amount']), float(tx['fee']) if 'fee' in tx else None, tx['confirmations'], tx['category'], int(time.time()), u_server ) )
                                                                 await conn.commit()
                                                                 # Notify Tx
                                                             if (tx['amount'] > 0) and tx['category'] == 'receive' and 'generated' not in tx:
-                                                                sql = """ INSERT IGNORE INTO `discord_notify_new_tx` (`coin_name`, `txid`, `payment_id`, `blockhash`, `amount`, `fee`, `decimal`) 
-                                                                          VALUES (%s, %s, %s, %s, %s, %s, %s) """
-                                                                await cur.execute(sql, (COIN_NAME, tx['txid'], tx['address'], tx['blockhash'], float(tx['amount']), float(tx['fee']) if 'fee' in tx else None, coin_decimal))
+                                                                sql = """ INSERT IGNORE INTO `discord_notify_new_tx` (`coin_name`, `txid`, `payment_id`, `blockhash`, `amount`, `fee`, `decimal`, `user_server`) 
+                                                                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                                                                await cur.execute(sql, ( COIN_NAME, tx['txid'], tx['address'], tx['blockhash'], float(tx['amount']), float(tx['fee']) if 'fee' in tx else None, coin_decimal, u_server ))
                                                                 await conn.commit()
                                                         else:
                                                             # generate from mining
                                                             if tx['category'] == "receive" or tx['category'] == "generate":
-                                                                sql = """ INSERT IGNORE INTO `doge_get_transfers` (`coin_name`, `txid`, `blockhash`, `address`, `blocktime`, `amount`, `fee`, `confirmations`, `category`, `time_insert`) 
-                                                                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                                                                await cur.execute(sql, (COIN_NAME, tx['txid'], tx['blockhash'], tx['address'], tx['blocktime'], float(tx['amount']), float(tx['fee']) if 'fee' in tx else None, tx['confirmations'], tx['category'], int(time.time())))
+                                                                sql = """ INSERT IGNORE INTO `doge_get_transfers` (`coin_name`, `txid`, `blockhash`, `address`, `blocktime`, `amount`, `fee`, `confirmations`, `category`, `time_insert`, `user_server`) 
+                                                                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                                                await cur.execute(sql, ( COIN_NAME, tx['txid'], tx['blockhash'], tx['address'], tx['blocktime'], float(tx['amount']), float(tx['fee']) if 'fee' in tx else None, tx['confirmations'], tx['category'], int(time.time()), u_server ))
                                                                 await conn.commit()
                                                             # add to notification list also, doge payment_id = address
                                                             if (tx['amount'] > 0) and tx['category'] == 'receive':
@@ -3058,7 +3420,7 @@ class Wallet(commands.Cog):
                                     await self.openConnection()
                                     async with self.pool.acquire() as conn:
                                         async with conn.cursor() as cur:
-                                            sql = """ SELECT * FROM `xch_get_transfers` WHERE `coin_name` = %s  """
+                                            sql = """ SELECT * FROM `xch_get_transfers` WHERE `coin_name`=%s  """
                                             await cur.execute(sql, (COIN_NAME))
                                             result = await cur.fetchall()
                                             d = [i['txid'] for i in result]
@@ -3077,17 +3439,24 @@ class Wallet(commands.Cog):
                                                         if tx['name'] not in d:
                                                             # receive
                                                             if len(tx['sent_to']) == 0:
-                                                                sql = """ INSERT IGNORE INTO `xch_get_transfers` (`coin_name`, `txid`, `height`, `timestamp`, `address`, `amount`, `fee`, `decimal`, `time_insert`) 
-                                                                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                                                                await cur.execute(sql, (COIN_NAME, tx['name'], tx['confirmed_at_height'], tx['created_at_time'],
-                                                                                        tx['to_address'], float(tx['amount']/10**coin_decimal), float(tx['fee_amount']/10**coin_decimal), coin_decimal, int(time.time())))
+                                                                user_paymentId = await store.sql_get_userwallet_by_paymentid( tx['to_address'], COIN_NAME, getattr(getattr(self.bot.coin_list, COIN_NAME), "type") )
+                                                                u_server = None
+                                                                if user_paymentId: u_server = user_paymentId['user_server']
+                                                                
+                                                                sql = """ INSERT IGNORE INTO `xch_get_transfers` (`coin_name`, `txid`, `height`, `timestamp`, `address`, `amount`, `fee`, `decimal`, `time_insert`, `user_server`) 
+                                                                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                                                await cur.execute(sql, ( COIN_NAME, tx['name'], tx['confirmed_at_height'], tx['created_at_time'],
+                                                                                        tx['to_address'], float(tx['amount']/10**coin_decimal), float(tx['fee_amount']/10**coin_decimal), coin_decimal, int(time.time()), u_server ))
                                                                 await conn.commit()
                                                             # add to notification list also, doge payment_id = address
                                                             if (tx['amount'] > 0) and len(tx['sent_to']) == 0:
-                                                                sql = """ INSERT IGNORE INTO `discord_notify_new_tx` (`coin_name`, `txid`, `payment_id`, `blockhash`, `height`, `amount`, `fee`, `decimal`) 
-                                                                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                                                                user_paymentId = await store.sql_get_userwallet_by_paymentid( tx['to_address'], COIN_NAME, getattr(getattr(self.bot.coin_list, COIN_NAME), "type") )
+                                                                u_server = None
+                                                                if user_paymentId: u_server = user_paymentId['user_server']
+                                                                sql = """ INSERT IGNORE INTO `discord_notify_new_tx` (`coin_name`, `txid`, `payment_id`, `blockhash`, `height`, `amount`, `fee`, `decimal`, `user_server`) 
+                                                                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
                                                                 await cur.execute(sql, (COIN_NAME, tx['name'], tx['to_address'], tx['name'], int(tx['confirmed_at_height']), 
-                                                                                        float(tx['amount']/10**coin_decimal), float(tx['fee_amount']/10**coin_decimal), coin_decimal))
+                                                                                        float(tx['amount']/10**coin_decimal), float(tx['fee_amount']/10**coin_decimal), coin_decimal, u_server))
                                                                 await conn.commit()
                                                     except Exception as e:
                                                         traceback.print_exc(file=sys.stdout)
@@ -3166,9 +3535,9 @@ class Wallet(commands.Cog):
                                                     await self.openConnection()
                                                     async with self.pool.acquire() as conn:
                                                         async with conn.cursor() as cur:
-                                                            sql = """ INSERT INTO nano_move_deposit (`coin_name`, `user_id`, `balance_wallet_address`, `to_main_address`, `amount`, `decimal`, `block`, `time_insert`) 
-                                                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
-                                                            await cur.execute(sql, (COIN_NAME, all_deposit_address[address]['user_id'], address, main_address, float(int(balance['balance'])/10**coin_decimal), coin_decimal, move_to_deposit['block'], int(time.time()), ))
+                                                            sql = """ INSERT INTO nano_move_deposit (`coin_name`, `user_id`, `balance_wallet_address`, `to_main_address`, `amount`, `decimal`, `block`, `time_insert`, `user_server`) 
+                                                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                                            await cur.execute(sql, ( COIN_NAME, all_deposit_address[address]['user_id'], address, main_address, float(int(balance['balance'])/10**coin_decimal), coin_decimal, move_to_deposit['block'], int(time.time()), all_deposit_address[address]['user_server'] ))
                                                             await conn.commit()
                                                             updated += 1
                                                             # add to notification list also
@@ -3229,7 +3598,7 @@ class Wallet(commands.Cog):
                     for each_c in erc_contracts:
                         try:
                             type_name = each_c['type']
-                            await store.trx_check_minimum_deposit(each_c['coin_name'], type_name, each_c['contract'], each_c['decimal'], each_c['min_move_deposit'], each_c['min_gas_tx'], each_c['fee_limit'], each_c['gas_ticker'], each_c['move_gas_amount'], each_c['chain_id'], each_c['real_deposit_fee'], 7200, SERVER_BOT)
+                            await store.trx_check_minimum_deposit(each_c['coin_name'], type_name, each_c['contract'], each_c['decimal'], each_c['min_move_deposit'], each_c['min_gas_tx'], each_c['fee_limit'], each_c['gas_ticker'], each_c['move_gas_amount'], each_c['chain_id'], each_c['real_deposit_fee'], 7200 )
                             pass
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
@@ -3238,7 +3607,7 @@ class Wallet(commands.Cog):
                     for each_c in main_tokens:
                         try:
                             type_name = each_c['type']
-                            await store.trx_check_minimum_deposit(each_c['coin_name'], type_name, None, each_c['decimal'], each_c['min_move_deposit'], each_c['min_gas_tx'], each_c['fee_limit'], each_c['gas_ticker'], each_c['move_gas_amount'], each_c['chain_id'], each_c['real_deposit_fee'], 7200, SERVER_BOT)
+                            await store.trx_check_minimum_deposit(each_c['coin_name'], type_name, None, each_c['decimal'], each_c['min_move_deposit'], each_c['min_gas_tx'], each_c['fee_limit'], each_c['gas_ticker'], each_c['move_gas_amount'], each_c['chain_id'], each_c['real_deposit_fee'], 7200 )
                             pass
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
@@ -5031,7 +5400,7 @@ class Wallet(commands.Cog):
                         per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
                     if per_unit and per_unit > 0:
                         amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
-                tip = await store.sql_user_balance_mv_single(str(self.bot.user.id), str(ctx.author.id), str(ctx.guild.id), str(ctx.channel.id), amount, COIN_NAME, "FAUCET", coin_decimal, SERVER_BOT, contract, amount_in_usd)
+                tip = await store.sql_user_balance_mv_single(str(self.bot.user.id), str(ctx.author.id), str(ctx.guild.id), str(ctx.channel.id), amount, COIN_NAME, "FAUCET", coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
                 try:
                     faucet_add = await store.sql_faucet_add(str(ctx.author.id), str(ctx.guild.id), COIN_NAME, amount, coin_decimal, SERVER_BOT)
                     msg = f'{EMOJI_MONEYFACE} {ctx.author.mention}, you got a random faucet {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}. Use /claim to vote TipBot and get reward.{extra_take_text}'
@@ -5221,7 +5590,7 @@ class Wallet(commands.Cog):
         if ctx.author.id not in self.bot.TX_IN_PROCESS:
             self.bot.TX_IN_PROCESS.append(ctx.author.id)
             try:
-                donate = await store.sql_user_balance_mv_single(str(ctx.author.id), str(self.donate_to), "DONATE", "DONATE", amount, COIN_NAME, "DONATE", coin_decimal, SERVER_BOT, contract, amount_in_usd)
+                donate = await store.sql_user_balance_mv_single(str(ctx.author.id), str(self.donate_to), "DONATE", "DONATE", amount, COIN_NAME, "DONATE", coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
                 if donate:
                     msg = f'{ctx.author.mention}, thank you for donate {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.'
                     await ctx.edit_original_message(content=msg)

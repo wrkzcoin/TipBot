@@ -2763,7 +2763,7 @@ async def sql_updateinfo_by_server(server_id: str, what: str, value: str):
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ SELECT `serverid`, `servername`, `prefix`, `default_coin`, `numb_user`, `numb_bo`t, `tiponly` 
+                sql = """ SELECT `serverid`, `servername`, `prefix`, `default_coin`, `numb_user`, `numb_bot`, `tiponly` 
                           FROM `discord_server` WHERE `serverid`=%s """
                 await cur.execute(sql, (server_id,))
                 result = await cur.fetchone()

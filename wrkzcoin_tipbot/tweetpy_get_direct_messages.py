@@ -12,7 +12,7 @@ from discord_webhook import DiscordWebhook
 
 from config import config
 pool=None
-sleep_no_records=300
+sleep_no_records=60
 bot_id='1343104498722467845' # to avoid fetch own message
 
 def logchanbot(content: str):

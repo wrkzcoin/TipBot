@@ -12,7 +12,7 @@ from discord_webhook import DiscordWebhook
 
 from config import config
 pool=None
-sleep_no_records=600
+sleep_no_records=60
 
 def logchanbot(content: str):
     try:
@@ -66,6 +66,7 @@ async def fetch_bot_timeline():
     while True:
         await asyncio.sleep(time_lap)
         try:
+            i = 0
             await openConnection()
             async with pool.acquire() as conn:
                 async with conn.cursor() as cur:
@@ -101,9 +102,11 @@ async def fetch_bot_timeline():
                                 logchanbot(msg)
                                 print(msg)
                     else:
-                        msg = "[TWITTER] - mentions_timeline no new records. Sleep {}s".format(sleep_no_records)
-                        logchanbot(msg)
-                        print(msg)
+                        i += 1
+                        if i > 0 and i % 10 == 0:
+                            msg = "[TWITTER] - mentions_timeline no new records. Sleep {}s".format(sleep_no_records)
+                            logchanbot(msg)
+                            print(msg)
                         await asyncio.sleep(sleep_no_records) 
                     await asyncio.sleep(time_lap)                        
         except Exception as e:

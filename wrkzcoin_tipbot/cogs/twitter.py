@@ -1174,6 +1174,14 @@ class Twitter(commands.Cog):
             traceback.print_exc(file=sys.stdout)
             await ctx.response.send_message(content=f"{EMOJI_INFORMATION} {ctx.author.mention}, error to message...", ephemeral=True)
             return
+        
+        if "https://" in twitter_name and status_link is None:
+            # sometimes people fill name and link in the same field.
+            split_text = twitter_name.split()
+            if len(split_text) == 2:
+                twitter_name = split_text[0]
+                status_link = split_text[1]
+            
         if not twitter_name.isalnum():
             await ctx.edit_original_message(content=f"{EMOJI_INFORMATION} {ctx.author.mention}, twitter name `{twitter_name}` is invalid.")
             return

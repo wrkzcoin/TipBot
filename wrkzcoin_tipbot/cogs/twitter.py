@@ -1536,6 +1536,9 @@ class Twitter(commands.Cog):
                 if getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_deposit") == 0:
                     await ctx.edit_original_message(content=f'{ctx.author.mention}, **{COIN_NAME}** deposit disable.')
                     return
+                elif getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_twitter") != 1:
+                    await ctx.edit_original_message(content=f'{ctx.author.mention}, **{COIN_NAME}** is currently disable with /twitter.')
+                    return
         # Do the job
         try:
             user_server = "TWITTER"
@@ -1638,8 +1641,8 @@ class Twitter(commands.Cog):
             mytokens = await store.get_coin_settings(coin_type=None)
             total_all_balance_usd = 0.0
             all_pages = []
-            all_names = [each['coin_name'] for each in mytokens]
-            total_coins = len(mytokens)
+            all_names = [each['coin_name'] for each in mytokens if each['enable_twitter'] == 1]
+            total_coins = len(all_names)
             page = disnake.Embed(title=f'[ YOUR TWITTER @{twitter_screen_name} BALANCE LIST ]',
                                   description="Thank you for using TipBot!",
                                   color=disnake.Color.blue(),
@@ -1653,6 +1656,7 @@ class Twitter(commands.Cog):
             per_page = 8
             user_server = "TWITTER"
             for each_token in mytokens:
+                if each_token['enable_twitter'] != 1: continue
                 User_WalletAPI = WalletAPI(self.bot)
                 try:
                     COIN_NAME = each_token['coin_name']

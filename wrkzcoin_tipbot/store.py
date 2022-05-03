@@ -975,6 +975,7 @@ async def sql_check_minimum_deposit_erc20(url: str, net_name: str, coin: str, co
 
                         estimateGas = w3.eth.estimateGas({'to': w3.toChecksumAddress(config.eth.MainAddress), 'from': w3.toChecksumAddress(each_address['balance_wallet_address']), 'value':  deposited_balance})
                         est_gas_amount = float(gasPrice*estimateGas/10**18)
+                        if min_gas_tx is None: min_gas_tx = est_gas_amount
                         if est_gas_amount > min_gas_tx:
                             await logchanbot("[ERROR GAS {}]: Est. {} > minimum gas {}".format(TOKEN_NAME, est_gas_amount, min_gas_tx))
                             await asyncio.sleep(5.0)
@@ -2000,7 +2001,7 @@ async def sql_update_erc20_user_update_call(userID: str):
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ UPDATE `erc20_user` SET `called_Update`=%s WHERE `user_id`=%s LIMIT 1 """
+                sql = """ UPDATE `erc20_user` SET `called_Update`=%s WHERE `user_id`=%s """
                 await cur.execute(sql, (int(time.time()), userID))
                 await conn.commit()
                 return True
@@ -2016,7 +2017,7 @@ async def sql_update_trc20_user_update_call(userID: str):
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ UPDATE `trc20_user` SET `called_Update`=%s WHERE `user_id`=%s LIMIT 1 """
+                sql = """ UPDATE `trc20_user` SET `called_Update`=%s WHERE `user_id`=%s """
                 await cur.execute(sql, (int(time.time()), userID))
                 await conn.commit()
                 return True
@@ -2031,7 +2032,7 @@ async def sql_update_sol_user_update_call(userID: str):
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ UPDATE `sol_user` SET `called_Update`=%s WHERE `user_id`=%s LIMIT 1 """
+                sql = """ UPDATE `sol_user` SET `called_Update`=%s WHERE `user_id`=%s """
                 await cur.execute(sql, (int(time.time()), userID))
                 await conn.commit()
                 return True

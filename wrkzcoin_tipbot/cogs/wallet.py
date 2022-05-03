@@ -1978,7 +1978,7 @@ class Wallet(commands.Cog):
                                 if each_msg['text'].lower().startswith( ("deposit all", "depositall") ):
                                     try:
                                         mytokens = await store.get_coin_settings(coin_type=None)
-                                        all_names = [each['coin_name'] for each in mytokens]
+                                        all_names = [each['coin_name'] for each in mytokens if each['enable_twitter'] == 1]
                                         address_of_coins = {}
                                         addresses_text = []
                                         address_lines = []
@@ -2004,7 +2004,7 @@ class Wallet(commands.Cog):
                                         traceback.print_exc(file=sys.stdout)
                                 elif each_msg['text'].lower().startswith( "deposit " ):
                                     COIN_NAME = each_msg['text'].upper().replace("DEPOSIT ", "").strip()
-                                    if len(COIN_NAME) > 0 and not hasattr(self.bot.coin_list, COIN_NAME):
+                                    if len(COIN_NAME) > 0 and not hasattr(self.bot.coin_list, COIN_NAME) or getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_twitter") != 1:
                                         response = f"{COIN_NAME} does not exist with us. Check https://coininfo.bot.tips"
                                         await update_bot_response(each_msg['text'], response, each_msg['id'])
                                         continue
@@ -2037,7 +2037,7 @@ class Wallet(commands.Cog):
                                         zero_tokens = []
                                         non_zero_tokens = {}
                                         mytokens = await store.get_coin_settings(coin_type=None)
-                                        all_names = [each['coin_name'] for each in mytokens]
+                                        all_names = [each['coin_name'] for each in mytokens if each['enable_twitter'] == 1]
                                         for COIN_NAME in all_names:
                                             net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
                                             type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
@@ -2089,8 +2089,8 @@ class Wallet(commands.Cog):
                                         amount = arg[1]
                                         COIN_NAME = arg[2].upper().replace("#", "")
                                         address = arg[3]
-                                        if not hasattr(self.bot.coin_list, COIN_NAME):
-                                            response = f"{COIN_NAME} not exist! Check https://coininfo.bot.tips/"
+                                        if not hasattr(self.bot.coin_list, COIN_NAME) or getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_twitter") != 1:
+                                            response = f"{COIN_NAME} not exist with us! Check https://coininfo.bot.tips/"
                                             await update_bot_response(each_msg['text'], response, each_msg['id'])
                                             continue
                                         else:

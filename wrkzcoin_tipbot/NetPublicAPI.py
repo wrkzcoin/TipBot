@@ -269,10 +269,10 @@ class DBStore():
                 for c in get_all_coins:
                     type_coin = c['type']
                     height = "N/A"
-                    tip = "✅" if c['enable_tip'] == 1 else "❎"
-                    deposit = "✅" if c['enable_deposit'] == 1 else "❎"
-                    withdraw = "✅" if c['enable_withdraw'] == 1 else "❎"
-                    twitter = "✅" if c['enable_twitter'] == 1 else "❎"
+                    tip = "✅" if c['enable_tip'] == 1 else "❌"
+                    deposit = "✅" if c['enable_deposit'] == 1 else "❌"
+                    withdraw = "✅" if c['enable_withdraw'] == 1 else "❌"
+                    twitter = "✅" if c['enable_twitter'] == 1 else "❌"
 
                     explorer_link = c['explorer_link']
                     if explorer_link and explorer_link.startswith("http"):

@@ -103,7 +103,7 @@ async def fetch_bot_dm():
                         await asyncio.sleep(3.0)
                     else:
                         i += 1
-                        if i > 0 and i % 10 == 0:
+                        if i > 0 and i % 50 == 0:
                             msg = "[TWITTER] - send_direct_message nothing to respond. Sleep {}s".format(sleep_no_records)
                             logchanbot(msg)
                             print(msg)

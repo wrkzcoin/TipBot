@@ -103,7 +103,7 @@ async def fetch_bot_timeline():
                                 print(msg)
                     else:
                         i += 1
-                        if i > 0 and i % 10 == 0:
+                        if i > 0 and i % 50 == 0:
                             msg = "[TWITTER] - mentions_timeline no new records. Sleep {}s".format(sleep_no_records)
                             logchanbot(msg)
                             print(msg)

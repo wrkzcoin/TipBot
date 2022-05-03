@@ -1821,7 +1821,7 @@ class Wallet(commands.Cog):
                                         continue
                                     elif text.startswith("TIP ") and len(arg) >= 4:
                                         amount = arg[1]
-                                        COIN_NAME = arg[2]
+                                        COIN_NAME = arg[2].replace("#", "")
                                         if not hasattr(self.bot.coin_list, COIN_NAME):
                                             await invalidate_mentioned( each_resp['twitter_id'] )
                                             continue

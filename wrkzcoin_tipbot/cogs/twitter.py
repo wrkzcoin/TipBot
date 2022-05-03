@@ -50,6 +50,13 @@ class Twitter(commands.Cog):
         self.pool = None
 
 
+    async def generate_qr_address(
+        self, 
+        address: str
+    ):
+        User_WalletAPI = WalletAPI(self.bot)
+        return await User_WalletAPI.generate_qr_address(address)
+
     async def openConnection(self):
         try:
             if self.pool is None:
@@ -1159,6 +1166,7 @@ class Twitter(commands.Cog):
         status_link: str=None
     ):
         await self.bot_log()
+        twitter_name = twitter_name.replace("@", "")
         try:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your twitter..."
             await ctx.response.send_message(msg, ephemeral=True)
@@ -1490,6 +1498,286 @@ class Twitter(commands.Cog):
                                     f'{NOTIFICATION_OFF_CMD}')
                             except Exception as e:
                                 pass
+
+
+    @twitter.sub_command(
+        usage='twitter deposit <token> [plain/embed]', 
+        options=[
+            Option('token', 'token', OptionType.string, required=True),
+            Option('plain', 'plain', OptionType.string, required=False)
+        ],
+        description="Get your linked twitter's wallet deposit address."
+    )
+    async def deposit(
+        self, 
+        ctx, 
+        token: str,
+        plain: str = 'embed'
+    ):
+        await self.bot_log()
+        try:
+            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking twitter..."
+            await ctx.response.send_message(msg, ephemeral=True)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await ctx.response.send_message(content=f"{EMOJI_INFORMATION} {ctx.author.mention}, error to message...", ephemeral=True)
+            return
+
+        if token is None:
+            await ctx.edit_original_message(content=f'{ctx.author.mention}, token name is missing.')
+            return
+        else:
+            COIN_NAME = token.upper()
+            # print(self.bot.coin_list)
+            if not hasattr(self.bot.coin_list, COIN_NAME):
+                await ctx.edit_original_message(content=f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.')
+                return
+            else:
+                if getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_deposit") == 0:
+                    await ctx.edit_original_message(content=f'{ctx.author.mention}, **{COIN_NAME}** deposit disable.')
+                    return
+        # Do the job
+        try:
+            user_server = "TWITTER"
+            User_WalletAPI = WalletAPI(self.bot)
+            # Check if exist in DB..
+            get_linkme = await self.twitter_linkme_get_user(str(ctx.author.id))
+            if get_linkme is None:
+                msg = f"{ctx.author.mention}, you haven't linked with any twitter yet."
+                await ctx.edit_original_message(content=msg)
+            elif get_linkme and get_linkme['is_verified'] == 0:
+                twitter_screen_name = get_linkme['twitter_screen_name']
+                msg = f"{ctx.author.mention}, you linked to a twitter `{twitter_screen_name}` but not yet verified."
+                await ctx.edit_original_message(content=msg)
+            elif get_linkme and get_linkme['is_verified'] == 1 and get_linkme['id_str'].isdigit():
+                twitter_screen_name = get_linkme['twitter_screen_name']
+                twitter_id_str = get_linkme['id_str']
+                net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
+                type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
+                get_deposit = await User_WalletAPI.sql_get_userwallet(twitter_id_str, COIN_NAME, net_name, type_coin, user_server, 0)
+                coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+                if get_deposit is None:
+                    get_deposit = await User_WalletAPI.sql_register_user(twitter_id_str, COIN_NAME, net_name, type_coin, user_server, 0, 0)
+                    
+                wallet_address = get_deposit['balance_wallet_address']
+                description = ""
+                fee_txt = ""
+                token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
+                if getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_note") and len(getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_note")) > 0:
+                    description = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_note")
+                if getattr(getattr(self.bot.coin_list, COIN_NAME), "real_deposit_fee") and getattr(getattr(self.bot.coin_list, COIN_NAME), "real_deposit_fee") > 0:
+                    real_min_deposit = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_min_deposit")
+                    fee_txt = " You must deposit at least {} {} to cover fees needed to credit your account. This fee will be deducted from your deposit amount.".format(num_format_coin(real_min_deposit, COIN_NAME, coin_decimal, False), token_display)
+                embed = disnake.Embed(title=f'Deposit for your twitter {twitter_screen_name}', description=description + fee_txt, timestamp=datetime.fromtimestamp(int(time.time())))
+                embed.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
+                qr_address = wallet_address
+                if COIN_NAME == "HNT":
+                    address_memo = wallet_address.split()
+                    qr_address = '{"type":"payment","address":"'+address_memo[0]+'","memo":"'+address_memo[2]+'"}'
+                try:
+                    gen_qr_address = await self.generate_qr_address(qr_address)
+                    address_path = qr_address.replace('{', '_').replace('}', '_').replace(':', '_').replace('"', "_").replace(',', "_").replace(' ', "_")
+                    embed.set_thumbnail(url=config.storage.deposit_url + address_path + ".png")
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                    
+                plain_msg = 'Twitter @{} Your deposit address: ```{}```'.format(twitter_screen_name, wallet_address)
+                embed.add_field(name=f"Your Twitter Deposit {COIN_NAME}", value="`{}`".format(wallet_address), inline=False)
+                if getattr(getattr(self.bot.coin_list, COIN_NAME), "explorer_link") and len(getattr(getattr(self.bot.coin_list, COIN_NAME), "explorer_link")) > 0:
+                    embed.add_field(name="Other links", value="[{}]({})".format("Explorer", getattr(getattr(self.bot.coin_list, COIN_NAME), "explorer_link")), inline=False)
+                
+                if COIN_NAME == "HNT": # put memo and base64
+                    try:
+                        address_memo = wallet_address.split()
+                        embed.add_field(name="MEMO", value="```Ascii: {}\nBase64: {}```".format(address_memo[2], base64.b64encode(address_memo[2].encode('ascii')).decode('ascii')), inline=False)
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                embed.set_footer(text="Use: /twitter deposit plain (for plain text)")
+                try:
+                    if plain and plain.lower() == 'plain' or plain.lower() == 'text':
+                        await ctx.edit_original_message(content=plain_msg)
+                    else:
+                        await ctx.edit_original_message(embed=embed)
+                except (disnake.Forbidden, disnake.errors.Forbidden) as e:
+                    traceback.print_exc(file=sys.stdout)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+
+
+    @twitter.sub_command(
+        usage="twitter balances", 
+        description="Show all your linked twitter's balances."
+    )
+    async def balances(
+        self, 
+        ctx
+    ):
+        await self.bot_log()
+        try:
+            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking twitter..."
+            await ctx.response.send_message(msg, ephemeral=True)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await ctx.response.send_message(content=f"{EMOJI_INFORMATION} {ctx.author.mention}, error to message...", ephemeral=True)
+            return
+
+        # Check if exist in DB..
+        get_linkme = await self.twitter_linkme_get_user(str(ctx.author.id))
+        if get_linkme is None:
+            msg = f"{ctx.author.mention}, you haven't linked with any twitter yet."
+            await ctx.edit_original_message(content=msg)
+        elif get_linkme and get_linkme['is_verified'] == 0:
+            twitter_screen_name = get_linkme['twitter_screen_name']
+            msg = f"{ctx.author.mention}, you linked to a twitter `{twitter_screen_name}` but not yet verified."
+            await ctx.edit_original_message(content=msg)
+        elif get_linkme and get_linkme['is_verified'] == 1 and get_linkme['id_str'].isdigit():
+            twitter_screen_name = get_linkme['twitter_screen_name']
+            twitter_id_str = get_linkme['id_str']
+            zero_tokens = []
+            has_none_balance = True
+            mytokens = await store.get_coin_settings(coin_type=None)
+            total_all_balance_usd = 0.0
+            all_pages = []
+            all_names = [each['coin_name'] for each in mytokens]
+            total_coins = len(mytokens)
+            page = disnake.Embed(title=f'[ YOUR TWITTER @{twitter_screen_name} BALANCE LIST ]',
+                                  description="Thank you for using TipBot!",
+                                  color=disnake.Color.blue(),
+                                  timestamp=datetime.fromtimestamp(int(time.time())), )
+            page.add_field(name="Coin/Tokens: [{}]".format(len(all_names)), 
+                           value="```"+", ".join(all_names)+"```", inline=False)
+            page.set_thumbnail(url=ctx.author.display_avatar)
+            page.set_footer(text="Use the reactions to flip pages.")
+            all_pages.append(page)
+            num_coins = 0
+            per_page = 8
+            user_server = "TWITTER"
+            for each_token in mytokens:
+                User_WalletAPI = WalletAPI(self.bot)
+                try:
+                    COIN_NAME = each_token['coin_name']
+                    type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
+                    net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
+                    deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
+                    coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+                    token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
+                    usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
+                    get_deposit = await User_WalletAPI.sql_get_userwallet(twitter_id_str, COIN_NAME, net_name, type_coin, user_server, 0)
+                    if get_deposit is None:
+                        get_deposit = await User_WalletAPI.sql_register_user(twitter_id_str, COIN_NAME, net_name, type_coin, user_server, 0, 0)
+                    wallet_address = get_deposit['balance_wallet_address']
+                    if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                        wallet_address = get_deposit['paymentid']
+                    height = None
+                    try:
+                        if type_coin in ["ERC-20", "TRC-20"]:
+                            # Add update for future call
+                            try:
+                                if type_coin == "ERC-20":
+                                    update_call = await store.sql_update_erc20_user_update_call(twitter_id_str)
+                                elif type_coin == "TRC-10" or type_coin == "TRC-20":
+                                    update_call = await store.sql_update_trc20_user_update_call(twitter_id_str)
+                                elif type_coin == "SOL" or type_coin == "SPL":
+                                    update_call = await store.sql_update_sol_user_update_call(twitter_id_str)
+                            except Exception as e:
+                                traceback.print_exc(file=sys.stdout)
+                            height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
+                        else:
+                            height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                    if num_coins == 0 or num_coins % per_page == 0:
+                        page = disnake.Embed(title=f'[ YOUR TWITTER @{twitter_screen_name} BALANCE LIST ]',
+                                             description="Thank you for using TipBot!",
+                                             color=disnake.Color.blue(),
+                                             timestamp=datetime.fromtimestamp(int(time.time())), )
+                        page.set_thumbnail(url=ctx.author.display_avatar)
+                        page.set_footer(text="Use the reactions to flip pages.")
+                    # height can be None
+                    userdata_balance = await store.sql_user_balance_single(twitter_id_str, COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, user_server)
+                    total_balance = userdata_balance['adjust']
+                    if total_balance == 0:
+                        zero_tokens.append(COIN_NAME)
+                        continue
+                    elif total_balance > 0:
+                        has_none_balance = False
+                    equivalent_usd = ""
+                    if usd_equivalent_enable == 1:
+                        native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
+                        COIN_NAME_FOR_PRICE = COIN_NAME
+                        if native_token_name:
+                            COIN_NAME_FOR_PRICE = native_token_name
+                        per_unit = None
+                        if COIN_NAME_FOR_PRICE in self.bot.token_hints:
+                            id = self.bot.token_hints[COIN_NAME_FOR_PRICE]['ticker_name']
+                            per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+                        else:
+                            per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
+                        if per_unit and per_unit > 0:
+                            total_in_usd = float(Decimal(total_balance) * Decimal(per_unit))
+                            total_all_balance_usd += total_in_usd
+                            if total_in_usd >= 0.01:
+                                equivalent_usd = " ~ {:,.2f}$".format(total_in_usd)
+                            elif total_in_usd >= 0.0001:
+                                equivalent_usd = " ~ {:,.4f}$".format(total_in_usd)
+
+                    page.add_field(name="{}{}".format(token_display, equivalent_usd) , value="```{}```".format(num_format_coin(total_balance, COIN_NAME, coin_decimal, False)), inline=True)
+                    num_coins += 1
+                    if num_coins > 0 and num_coins % per_page == 0:
+                        all_pages.append(page)
+                        if num_coins < total_coins:
+                            page = disnake.Embed(title=f'[ YOUR TWITTER @{twitter_screen_name} BALANCE LIST ]',
+                                                 description="Thank you for using TipBot!",
+                                                 color=disnake.Color.blue(),
+                                                 timestamp=datetime.fromtimestamp(int(time.time())), )
+                            page.set_thumbnail(url=ctx.author.display_avatar)
+                            page.set_footer(text="Use the reactions to flip pages.")
+                        else:
+                            all_pages.append(page)
+                            break
+                    elif num_coins == total_coins:
+                        all_pages.append(page)
+                        break
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+            # remaining
+            if (total_coins - len(zero_tokens)) % per_page > 0:
+                all_pages.append(page)
+            # Replace first page
+            if total_all_balance_usd > 0.01:
+                total_all_balance_usd = "Having ~ {:,.2f}$".format(total_all_balance_usd)
+            elif total_all_balance_usd > 0.0001:
+                total_all_balance_usd = "Having ~ {:,.4f}$".format(total_all_balance_usd)
+            else:
+                total_all_balance_usd = "Thank you for using TipBot!"
+            page = disnake.Embed(title=f'[ YOUR TWITTER @{twitter_screen_name} BALANCE LIST ]',
+                                  description=f"`{total_all_balance_usd}`",
+                                  color=disnake.Color.blue(),
+                                  timestamp=datetime.fromtimestamp(int(time.time())), )
+            # Remove zero from all_names
+            if has_none_balance == True:
+                msg = f'{ctx.author.mention}, your twitter {twitter_screen_name} does not have any balance.'
+                await ctx.edit_original_message(content=msg)
+                return
+            else:
+                all_names = [each for each in all_names if each not in zero_tokens]
+                page.add_field(name="Coin/Tokens: [{}]".format(len(all_names)), 
+                               value="```"+", ".join(all_names)+"```", inline=False)
+                if len(zero_tokens) > 0:
+                    zero_tokens = list(set(zero_tokens))
+                    page.add_field(name="Zero Balances: [{}]".format(len(zero_tokens)), 
+                                   value="```"+", ".join(zero_tokens)+"```", inline=False)
+                page.set_thumbnail(url=ctx.author.display_avatar)
+                page.set_footer(text="Use the reactions to flip pages.")
+                all_pages[0] = page
+                try:
+                    view=MenuPage(ctx, all_pages, timeout=30)
+                    view.message = await ctx.edit_original_message(content=None, embed=all_pages[0], view=view)
+                except Exception as e:
+                    msg = f'{ctx.author.mention}, internal error when checking /twitter balances. Try again later. If problem still persists, contact TipBot dev.'
+                    await ctx.edit_original_message(content=msg)
+                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(f"[ERROR] /twitter balances with {ctx.author.name}#{ctx.author.discriminator}")
 
 
 def setup(bot):

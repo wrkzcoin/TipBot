@@ -61,6 +61,7 @@ async def fetch_bot_dm():
         return list_dms
 
     while True:
+        i = 0
         await asyncio.sleep(time_lap)
         try:
             await openConnection()
@@ -94,9 +95,11 @@ async def fetch_bot_dm():
                                 logchanbot(msg)
                                 print(msg)
                     if len(data_rows) == 0:
-                        msg = "[TWITTER] - get_direct_messages no new records. Sleep {}s".format(sleep_no_records)
-                        logchanbot(msg)
-                        print(msg)
+                        i += 1
+                        if i > 0 and i % 50 == 0:
+                            msg = "[TWITTER] - get_direct_messages no new records. Sleep {}s".format(sleep_no_records)
+                            logchanbot(msg)
+                            print(msg)
                         await asyncio.sleep(sleep_no_records) 
                     await asyncio.sleep(time_lap)                        
         except Exception as e:

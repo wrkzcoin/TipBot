@@ -35,13 +35,8 @@ class Twitter(commands.Cog):
         self.twitter_auth = None
         # twitter fetch latest tweet
         self.fetch_latest_tweets.start()
-        # fetch reward status
-        self.fetch_latest_status_list.start()
         # post to channel
         self.post_tweets.start()
-        # twitter fetch latest DM
-        # start later
-        ## self.fetch_latest_dm.start()
         
         # enable_twitter_tip
         self.enable_twitter_tip = 1
@@ -420,60 +415,6 @@ class Twitter(commands.Cog):
             await logchanbot(traceback.format_exc())
         return None
 
-    async def get_list_rt_reward_status(self):
-        try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
-                async with conn.cursor() as cur:
-                    now = int(time.time())
-                    sql = """ SELECT DISTINCT (`tweet_link`), `guild_id`, `rt_by_uids`, `rt_counts`, `rt_updated_date`, `id`, `expired_date` FROM `twitter_rt_reward` 
-                              WHERE `expired_date`>%s """
-                    await cur.execute(sql, (now) )
-                    result = await cur.fetchall()
-                    if result and len(result) > 0:
-                        return result
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-        return []
-
-    async def list_rt_update(self, rt_by_uids: str, rt_counts: int, guild_id: str, tweet_link: str, expired_date: int): #id_num
-        try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
-                async with conn.cursor() as cur:
-                    # get list log first
-                    given_ids = json.loads(rt_by_uids)
-                    data_rows = []
-                    sql = """ SELECT * FROM `twitter_rt_reward_logs` 
-                              WHERE `guild_id`=%s AND `tweet_link`=%s """
-                    await cur.execute(sql, ( guild_id, tweet_link ) )
-                    result = await cur.fetchall()
-                    if result and len(result) > 0:
-                        ids_ins = [int(each['twitter_id']) for each in result]
-                        if len(given_ids) > 0:
-                            for each in given_ids:
-                                if int(each) not in ids_ins:
-                                    data_rows.append( ( guild_id, tweet_link, str(each), int(time.time()), expired_date ) )
-                    else:
-                        for each in given_ids:
-                            data_rows.append( ( guild_id, tweet_link, str(each), int(time.time()), expired_date ) )
-                    sql = """ UPDATE `twitter_rt_reward` 
-                              SET `rt_by_uids`=%s, `rt_counts`=%s, `rt_updated_date`=%s 
-                              WHERE `tweet_link`=%s AND `guild_id`=%s LIMIT 1;
-                              """
-                    await cur.execute(sql, (rt_by_uids, rt_counts, int(time.time()), tweet_link, guild_id ) )
-                    if len(data_rows) > 0:
-                        sql = """ INSERT INTO `twitter_rt_reward_logs` (`guild_id`, `tweet_link`, `twitter_id`, `rewarded_date`, `expired_date`)
-                                  VALUES (%s, %s, %s, %s, %s)
-                              """
-                        await cur.executemany(sql, data_rows )
-                    await conn.commit()
-                    return cur.rowcount
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
-        return None
-
     async def get_user(self, user_name: str, by_id: str, by_name: str): #screen_name
         if self.twitter_auth is None:
             await self.get_twitter_auth()
@@ -567,97 +508,14 @@ class Twitter(commands.Cog):
                                                 embed.set_author(name=each_t['user']['screen_name'], icon_url=avatar_url)
                                         except Exception as e:
                                             traceback.print_exc(file=sys.stdout)
-                                        msg = await channel.send(embed=embed)
-                                        await self.add_posted( each_tw['guild_id'], each_tw['subscribe_to'], each_tw['push_to_channel_id'], each_t['id_str'], str(msg.id) )
-                                        await logchanbot("[TWITTER] - Posted to guild {} / channel {}:```{}```".format(each_tw['guild_id'], each_tw['push_to_channel_id'], each_t['full_text'] ))
+                                        added = await self.add_posted( each_tw['guild_id'], each_tw['subscribe_to'], each_tw['push_to_channel_id'], each_t['id_str'], str(msg.id) )
+                                        if added > 0:
+                                            msg = await channel.send(embed=embed)
+                                            await logchanbot("[TWITTER] - Posted to guild {} / channel {}:```{}```".format(each_tw['guild_id'], each_tw['push_to_channel_id'], each_t['full_text'] ))
                                     else:
                                         await logchanbot("[TWITTER] - Failed to find channel {} in guild {} for posting.".format(each_tw['push_to_channel_id'], each_tw['guild_id'] ))
                                 except Exception as e:
                                     traceback.print_exc(file=sys.stdout)
-        await asyncio.sleep(time_lap)
-
-
-    @tasks.loop(seconds=60.0)
-    async def fetch_latest_status_list(self):
-        time_lap = 5 # seconds
-        await self.bot.wait_until_ready()
-        await asyncio.sleep(time_lap)
-
-        if self.twitter_auth is None:
-            await self.get_twitter_auth()
-        def g_status(list_status_ids):
-            try:
-                auth = tweepy.OAuth1UserHandler(
-                   self.twitter_auth['consumer_key'], 
-                   self.twitter_auth['consumer_secret'], 
-                   self.twitter_auth['access_token'], 
-                   self.twitter_auth['access_token_secret']
-                )
-                api = tweepy.API(auth)
-                get_stats = api.lookup_statuses(id=list_status_ids)
-            except tweepy.errors.TooManyRequests as e:
-                print("[TWITTER] - tweepy.errors.TooManyRequests g_status")
-                time.sleep(60.0)
-                return None
-            except Exception as e:
-                traceback.print_exc(file=sys.stdout)
-                time.sleep(30.0)
-                return None
-            return get_stats
-
-        def g_rt(id_n: int):
-            try:
-                auth = tweepy.OAuth1UserHandler(
-                   self.twitter_auth['consumer_key'], 
-                   self.twitter_auth['consumer_secret'], 
-                   self.twitter_auth['access_token'], 
-                   self.twitter_auth['access_token_secret']
-                )
-                api = tweepy.API(auth)
-                get_rt = api.get_retweeter_ids(id=id_n, count=100)
-            except tweepy.errors.TooManyRequests as e:
-                print("[TWITTER] - tweepy.errors.TooManyRequests g_rt")
-                time.sleep(60.0)
-                return None
-            except Exception as e:
-                traceback.print_exc(file=sys.stdout)
-                time.sleep(30.0)
-                return None
-            return get_rt
-        # get list subscribe to download
-        get_list = await self.get_list_rt_reward_status()
-        if get_list and len(get_list) > 0:
-            rt_lists = {}
-            try:
-                list_ids = [int(each['tweet_link'].split("/")[-1]) for each in get_list]
-                existing_list = {}
-                twitter_status_id = {}
-                expired_date = {}
-                for each_one in get_list:
-                    existing_list[each_one['tweet_link'].split("/")[-1]] = each_one
-                    twitter_status_id[each_one['tweet_link'].split("/")[-1]] = each_one['tweet_link']
-                    expired_date[each_one['tweet_link'].split("/")[-1]] = each_one['expired_date']
-                func_get_st = functools.partial(g_status, list_ids)
-                fetch_st = await self.bot.loop.run_in_executor(None, func_get_st)
-                if fetch_st and len(fetch_st) > 0:
-                    for each_status in fetch_st:
-                        try:
-                            each_status_json = each_status._json
-                            if each_status_json and each_status_json['retweet_count'] > 0:
-                                # get list retweet by ID
-                                func_get_rt = functools.partial(g_rt, each_status_json['id'])
-                                fetch_rt = await self.bot.loop.run_in_executor(None, func_get_rt)
-                                if fetch_rt is not None and len(fetch_rt) > 0 and len(fetch_rt) > existing_list[str(each_status_json['id'])]['rt_counts']:
-                                    # Update
-                                    update = await self.list_rt_update( json.dumps(fetch_rt), each_status_json['retweet_count'], existing_list[str(each_status_json['id'])]['guild_id'], twitter_status_id[str(each_status_json['id'])], expired_date[str(each_status_json['id'])] )
-                                else:
-                                    await asyncio.sleep(5.0)
-                        except Exception as e:
-                            traceback.print_exc(file=sys.stdout)
-                else:
-                    await asyncio.sleep(5.0)
-            except Exception as e:
-                traceback.print_exc(file=sys.stdout)
         await asyncio.sleep(time_lap)
 
     @tasks.loop(seconds=60.0)
@@ -724,66 +582,6 @@ class Twitter(commands.Cog):
                                 inserts = await self.add_fetch_timeline( twitter_link, json.dumps(tweets), latest_tweet_id_str, old_time, latest_full_text  )
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
-        await asyncio.sleep(time_lap)
-
-    @tasks.loop(seconds=300.0)
-    async def fetch_latest_dm(self):
-        time_lap = 120 # seconds
-        await self.bot.wait_until_ready()
-        await asyncio.sleep(time_lap)
-
-        if self.twitter_auth is None:
-            await self.get_twitter_auth()
-
-        def g_dm(count: int=20):
-            try:
-                auth = tweepy.OAuth1UserHandler(
-                   self.twitter_auth['consumer_key'], 
-                   self.twitter_auth['consumer_secret'], 
-                   self.twitter_auth['access_token'], 
-                   self.twitter_auth['access_token_secret']
-                )
-                api = tweepy.API(auth)
-                get_msg = api.get_direct_messages(count=count)
-            except tweepy.errors.TooManyRequests as e:
-                return None
-            except Exception as e:
-                traceback.print_exc(file=sys.stdout)
-                return None
-            return get_msg
-
-        try:
-            func_dm = functools.partial(g_dm, 20)
-            fetch_dm = await self.bot.loop.run_in_executor(None, func_dm)
-            if fetch_dm is not None and len(fetch_dm) > 0:
-                # get
-                dms = []
-                for each_dm in fetch_dm:
-                    dms.append(each_dm._json)
-                # Check latest one:
-                last_record = await self.get_latest_in_dm()
-                data_rows = []
-                if last_record is None:
-                    for each_msg in dms:
-                        try:
-                            if each_msg['type'] == "message_create":
-                                data_rows.append( ( json.dumps(each_msg), json.dumps(each_msg['message_create']['message_data']), each_msg['message_create']['message_data']['text'], each_msg['id'], each_msg['message_create']['sender_id'], each_msg['message_create']['target']['recipient_id'], int(int(each_msg['created_timestamp'])/1000), int(time.time()) ) )
-                        except Exception as e:
-                            traceback.print_exc(file=sys.stdout)
-                elif len(last_record) > 0:
-                    list_rec_ids = [each['message_id'] for each in last_record]
-                    for each_msg in dms:
-                        if each_msg['id'] not in list_rec_ids:
-                            data_rows.append( ( json.dumps(each_msg), json.dumps(each_msg['message_create']['message_data']), each_msg['message_create']['message_data']['text'], each_msg['id'], each_msg['message_create']['sender_id'], each_msg['message_create']['target']['recipient_id'], int(int(each_msg['created_timestamp'])/1000), int(time.time()) ))
-                if len(data_rows) > 0:
-                    inserts = await self.add_bot_dm_messages( data_rows )
-                else:
-                    await asyncio.sleep(time_lap)
-            else:
-                await logchanbot("[TWITTER] - tweepy.errors.TooManyRequests from fetch_latest_dm or error....")
-                await asyncio.sleep(60.0)
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
         await asyncio.sleep(time_lap)
 
     @commands.guild_only()
@@ -1106,6 +904,8 @@ class Twitter(commands.Cog):
 
         amount = amount.replace(",", "")
         amount = text_to_num(amount)
+        
+        population = len([member for member in ctx.guild.members if member.bot == False and member.status != disnake.Status.offline])
         if amount is None:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid given amount.'
             await ctx.edit_original_message(content=msg)
@@ -1116,12 +916,13 @@ class Twitter(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
         # We assume at least guild need to have 100x of reward or depends on guild's population
+        
         elif amount*100 > actual_balance:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you need to have at least 100x reward balance. 100x rewards = {num_format_coin(amount*100, COIN_NAME, coin_decimal, False)} {token_display}.'
             await ctx.edit_original_message(content=msg)
             return
-        elif amount*len(ctx.guild.members) > actual_balance:
-            population = len(ctx.guild.members)
+        elif amount*population > actual_balance:
+            
             msg = f'{EMOJI_RED_NO} {ctx.author.mention} you need to have at least {str(population)}x reward balance. {str(population)}x rewards = {num_format_coin(amount*population, COIN_NAME, coin_decimal, False)} {token_display}.'
             await ctx.edit_original_message(content=msg)
             return
@@ -1182,7 +983,7 @@ class Twitter(commands.Cog):
                 twitter_name = split_text[0]
                 status_link = split_text[1]
             
-        if not twitter_name.isalnum():
+        if not twitter_name.replace('_', '').isalnum():
             await ctx.edit_original_message(content=f"{EMOJI_INFORMATION} {ctx.author.mention}, twitter name `{twitter_name}` is invalid.")
             return
         

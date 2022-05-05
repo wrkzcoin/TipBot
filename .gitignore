@@ -11,4 +11,3 @@ wrkzcoin_tipbot/testing_notes/*
 wrkzcoin_tipbot/coin_bot_reward_games.sql
 wrkzcoin_tipbot/migration_to_v2.py
 wrkzcoin_tipbot/migrating.txt
-wrkzcoin_tipbot/TGBot.py

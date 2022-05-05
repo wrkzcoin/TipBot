@@ -287,65 +287,65 @@ class WalletAPI(commands.Cog):
                         if netname and netname not in ["TRX"]:
                             sql = """ INSERT INTO `erc20_user` (`user_id`, `user_id_erc20`, `type`, `balance_wallet_address`, `address_ts`, 
                                       `seed`, `create_dump`, `private_key`, `public_key`, `xprivate_key`, `xpublic_key`, 
-                                      `called_Update`, `user_server`, `is_discord_guild`) 
-                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                      `called_Update`, `user_server`, `chat_id`, `is_discord_guild`) 
+                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
                             await cur.execute(sql, (str(userID), user_id_erc20, type_coin_user, w['address'], int(time.time()), 
                                               encrypt_string(w['seed']), encrypt_string(str(w)), encrypt_string(str(w['private_key'])), w['public_key'], 
-                                              encrypt_string(str(w['xprivate_key'])), w['xpublic_key'], int(time.time()), user_server, is_discord_guild))
+                                              encrypt_string(str(w['xprivate_key'])), w['xpublic_key'], int(time.time()), user_server, chat_id, is_discord_guild))
                             await conn.commit()
                             return {'balance_wallet_address': w['address']}
                         elif netname and netname in ["TRX"]:
                             sql = """ INSERT INTO `trc20_user` (`user_id`, `user_id_trc20`, `type`, `balance_wallet_address`, `hex_address`, `address_ts`, 
-                                      `private_key`, `public_key`, `called_Update`, `user_server`, `is_discord_guild`) 
-                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                      `private_key`, `public_key`, `called_Update`, `user_server`, `chat_id`, `is_discord_guild`) 
+                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
                             await cur.execute(sql, (str(userID), user_id_erc20, type_coin_user, w['base58check_address'], w['hex_address'], int(time.time()), 
-                                              encrypt_string(str(w['private_key'])), w['public_key'], int(time.time()), user_server, is_discord_guild))
+                                              encrypt_string(str(w['private_key'])), w['public_key'], int(time.time()), user_server, chat_id, is_discord_guild))
                             await conn.commit()
                             return {'balance_wallet_address': w['base58check_address']}
                         elif type_coin.upper() in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                             sql = """ INSERT INTO cn_user_paymentid (`coin_name`, `user_id`, `user_id_coin`, `main_address`, `paymentid`, 
-                                      `balance_wallet_address`, `paymentid_ts`, `user_server`, `is_discord_guild`) 
-                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                      `balance_wallet_address`, `paymentid_ts`, `user_server`, `chat_id`, `is_discord_guild`) 
+                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
                             await cur.execute(sql, (COIN_NAME, str(userID), "{}_{}".format(userID, COIN_NAME), main_address, balance_address['payment_id'], 
-                                                    balance_address['integrated_address'], int(time.time()), user_server, is_discord_guild))
+                                                    balance_address['integrated_address'], int(time.time()), user_server, chat_id, is_discord_guild))
                             await conn.commit()
                             return {'balance_wallet_address': balance_address['integrated_address'], 'paymentid': balance_address['payment_id']}
                         elif type_coin.upper() == "NANO":
-                            sql = """ INSERT INTO `nano_user` (`coin_name`, `user_id`, `user_id_coin`, `balance_wallet_address`, `address_ts`, `user_server`, `is_discord_guild`) 
-                                      VALUES (%s, %s, %s, %s, %s, %s, %s) """
-                            await cur.execute(sql, (COIN_NAME, str(userID), "{}_{}".format(userID, COIN_NAME), balance_address['account'], int(time.time()), user_server, is_discord_guild))
+                            sql = """ INSERT INTO `nano_user` (`coin_name`, `user_id`, `user_id_coin`, `balance_wallet_address`, `address_ts`, `user_server`, `chat_id`, `is_discord_guild`) 
+                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                            await cur.execute(sql, (COIN_NAME, str(userID), "{}_{}".format(userID, COIN_NAME), balance_address['account'], int(time.time()), user_server, chat_id, is_discord_guild))
                             await conn.commit()
                             return {'balance_wallet_address': balance_address['account']}
                         elif type_coin.upper() == "BTC":
-                            sql = """ INSERT INTO `doge_user` (`coin_name`, `user_id`, `user_id_coin`, `balance_wallet_address`, `address_ts`, `privateKey`, `user_server`, `is_discord_guild`) 
-                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                            sql = """ INSERT INTO `doge_user` (`coin_name`, `user_id`, `user_id_coin`, `balance_wallet_address`, `address_ts`, `privateKey`, `user_server`, `chat_id`, `is_discord_guild`) 
+                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
                             await cur.execute(sql, (COIN_NAME, str(userID), "{}_{}".format(userID, COIN_NAME), balance_address['address'], int(time.time()), 
-                                                    encrypt_string(balance_address['privateKey']), user_server, is_discord_guild))
+                                                    encrypt_string(balance_address['privateKey']), user_server, chat_id, is_discord_guild))
                             await conn.commit()
                             return {'balance_wallet_address': balance_address['address']}
                         elif type_coin.upper() == "CHIA":
-                            sql = """ INSERT INTO `xch_user` (`coin_name`, `user_id`, `user_id_coin`, `balance_wallet_address`, `address_ts`, `user_server`, `is_discord_guild`) 
-                                      VALUES (%s, %s, %s, %s, %s, %s, %s) """
-                            await cur.execute(sql, (COIN_NAME, str(userID), "{}_{}".format(userID, COIN_NAME), balance_address['address'], int(time.time()), user_server, is_discord_guild))
+                            sql = """ INSERT INTO `xch_user` (`coin_name`, `user_id`, `user_id_coin`, `balance_wallet_address`, `address_ts`, `user_server`, `chat_id`, `is_discord_guild`) 
+                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                            await cur.execute(sql, (COIN_NAME, str(userID), "{}_{}".format(userID, COIN_NAME), balance_address['address'], int(time.time()), user_server, chat_id, is_discord_guild))
                             await conn.commit()
                             return {'balance_wallet_address': balance_address['address']}
                         elif type_coin.upper() == "HNT":
-                            sql = """ INSERT INTO `hnt_user` (`coin_name`, `user_id`, `main_address`, `balance_wallet_address`, `memo`, `address_ts`, `user_server`, `is_discord_guild`) 
-                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
-                            await cur.execute(sql, (COIN_NAME, str(userID), main_address, balance_address['balance_wallet_address'], memo, int(time.time()), user_server, is_discord_guild))
+                            sql = """ INSERT INTO `hnt_user` (`coin_name`, `user_id`, `main_address`, `balance_wallet_address`, `memo`, `address_ts`, `user_server`, `chat_id`, `is_discord_guild`) 
+                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                            await cur.execute(sql, (COIN_NAME, str(userID), main_address, balance_address['balance_wallet_address'], memo, int(time.time()), user_server, chat_id, is_discord_guild))
                             await conn.commit()
                             return balance_address
                         elif type_coin.upper() == "ADA":
-                            sql = """ INSERT INTO `ada_user` (`user_id`, `wallet_name`, `balance_wallet_address`, `address_ts`, `user_server`, `is_discord_guild`) 
-                                      VALUES (%s, %s, %s, %s, %s, %s);
+                            sql = """ INSERT INTO `ada_user` (`user_id`, `wallet_name`, `balance_wallet_address`, `address_ts`, `user_server`, `chat_id`, `is_discord_guild`) 
+                                      VALUES (%s, %s, %s, %s, %s, %s, %s);
                                       UPDATE `ada_wallets` SET `used_address`=`used_address`+1 WHERE `wallet_name`=%s LIMIT 1; """
-                            await cur.execute(sql, ( str(userID), balance_address['wallet_name'], balance_address['address'], int(time.time()), user_server, is_discord_guild, balance_address['wallet_name'] ))
+                            await cur.execute(sql, ( str(userID), balance_address['wallet_name'], balance_address['address'], int(time.time()), user_server, chat_id, is_discord_guild, balance_address['wallet_name'] ))
                             await conn.commit()
                             return {'balance_wallet_address': balance_address['address']}
                         elif type_coin.upper() == "SOL":
-                            sql = """ INSERT INTO `sol_user` (`user_id`, `balance_wallet_address`, `address_ts`, `secret_key_hex`, `called_Update`, `user_server`, `is_discord_guild`) 
-                                      VALUES (%s, %s, %s, %s, %s, %s, %s) """
-                            await cur.execute(sql, ( str(userID),  balance_address['balance_wallet_address'], int(time.time()), encrypt_string(balance_address['secret_key_hex']), int(time.time()), user_server, is_discord_guild ))
+                            sql = """ INSERT INTO `sol_user` (`user_id`, `balance_wallet_address`, `address_ts`, `secret_key_hex`, `called_Update`, `user_server`, `chat_id`, `is_discord_guild`) 
+                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                            await cur.execute(sql, ( str(userID),  balance_address['balance_wallet_address'], int(time.time()), encrypt_string(balance_address['secret_key_hex']), int(time.time()), user_server, chat_id, is_discord_guild ))
                             await conn.commit()
                             return {'balance_wallet_address': balance_address['balance_wallet_address']}
                     except Exception as e:

@@ -2428,7 +2428,7 @@ class Wallet(commands.Cog):
                                                         except Exception as e:
                                                             traceback.print_exc(file=sys.stdout)
                                                             response = 'I cannot check balance, please try again later!'
-                                                            await logchanbot(f'[{user_server}] A user {tw_user} failed to check balance {ADA_COIN} for asset transfer...')
+                                                            await logchanbot(f'[{user_server}] A user {tw_user} failed to check balance gas coin for asset transfer...')
                                                             await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                             continue
 
@@ -2754,7 +2754,7 @@ class Wallet(commands.Cog):
                             coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
                             if coin_family in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR", "BTC", "CHIA", "NANO"]:
                                 user_tx = await store.sql_get_userwallet_by_paymentid(eachTx['payment_id'], eachTx['coin_name'], coin_family)
-                                if user_tx:
+                                if user_tx and user_tx['user_server'] == SERVER_BOT:
                                     user_found = self.bot.get_user(int(user_tx['user_id']))
                                     if user_found:
                                         is_notify_failed = False
@@ -2844,7 +2844,7 @@ class Wallet(commands.Cog):
                                             get_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
                                             coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
                                             user_tx = await store.sql_get_userwallet_by_paymentid(eachTx['payment_id'], eachTx['coin_name'], coin_family)
-                                            if user_tx:
+                                            if user_tx and user_tx['user_server'] == SERVER_BOT:
                                                 user_found = self.bot.get_user(int(user_tx['user_id']))
                                                 if user_found:
                                                     try:
@@ -5340,7 +5340,7 @@ class Wallet(commands.Cog):
                                 traceback.print_exc(file=sys.stdout)
                                 msg = f'{EMOJI_RED_NO} {ctx.author.mention}, cannot check balance, please try again later!'
                                 await ctx.edit_original_message(content=msg)
-                                await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} failed to check balance {ADA_COIN} for asset transfer...')
+                                await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} failed to check balance gas coin for asset transfer...')
                                 return
 
                             self.bot.TX_IN_PROCESS.append(ctx.author.id)

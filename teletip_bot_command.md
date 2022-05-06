@@ -1,10 +1,6 @@
-balance - <coin|list> Get balance of supported coins
-register - <coin_address> Register a withdrawn address
-send - <amount> <coin name> <address> Send from your available balance to your wallet or exchange address through blockchain
-tip - <amount> <coin name> <@user> Tip to Telegram user their username
+coinlist - Get all supported coin list
 deposit - <coin name> Get deposited address of a supported coin
-tipto - <amount> <coin name> <userid@server> Tip to Discord user by ID
-take - Get random crypto amount from available faucet every 24h
-coin - <coin name> Get coin information such as confirmation depth, mix/max tipping, etc
-donate - <amount> <coin name> Donate some of your available balance to Bot Owner
-
+balance - <coin1, coin2, ..> Get balance of supported coins
+withdraw - <amount> <coin name> <address> Withdraw from your available balance to your external address
+tip - <amount> <coin name> <@user> <@user2> ... Tip to Telegram user their username
+about - Show about us

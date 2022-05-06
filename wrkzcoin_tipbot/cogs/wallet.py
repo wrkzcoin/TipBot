@@ -2754,7 +2754,7 @@ class Wallet(commands.Cog):
                             coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
                             if coin_family in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR", "BTC", "CHIA", "NANO"]:
                                 user_tx = await store.sql_get_userwallet_by_paymentid(eachTx['payment_id'], eachTx['coin_name'], coin_family)
-                                if user_tx and user_tx['user_server'] == SERVER_BOT:
+                                if user_tx and user_tx['user_server'] == SERVER_BOT and user_tx['user_id'].isdigit():
                                     user_found = self.bot.get_user(int(user_tx['user_id']))
                                     if user_found:
                                         is_notify_failed = False
@@ -2844,7 +2844,7 @@ class Wallet(commands.Cog):
                                             get_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
                                             coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
                                             user_tx = await store.sql_get_userwallet_by_paymentid(eachTx['payment_id'], eachTx['coin_name'], coin_family)
-                                            if user_tx and user_tx['user_server'] == SERVER_BOT:
+                                            if user_tx and user_tx['user_server'] == SERVER_BOT and user_tx['user_id'].isdigit():
                                                 user_found = self.bot.get_user(int(user_tx['user_id']))
                                                 if user_found:
                                                     try:

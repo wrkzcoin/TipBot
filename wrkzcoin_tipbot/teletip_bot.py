@@ -11,6 +11,11 @@ from aiogram.utils.markdown import text, bold, italic, code, pre, quote_html, es
 from aiogram.utils.markdown import markdown_decoration as markdown
 from aiogram.types import ParseMode, InputMediaPhoto, InputMediaVideo, ChatActions
 
+from aiogram.contrib.fsm_storage.memory import MemoryStorage
+from aiogram.dispatcher import FSMContext
+from aiogram.dispatcher.filters import Text
+from aiogram.dispatcher.filters.state import State, StatesGroup
+
 import aiohttp, asyncio, json
 import aiomysql
 from aiomysql.cursors import DictCursor
@@ -63,7 +68,8 @@ logging.basicConfig(level=logging.INFO)
 
 # Initialize bot and dispatcher
 bot = Bot(token=config.telegram.token_id)
-dp = Dispatcher(bot)
+storage = MemoryStorage()
+dp = Dispatcher(bot, storage = MemoryStorage())
 
 QUEUE_MSG = []
 SERVER_BOT = "TELEGRAM"
@@ -2041,13 +2047,11 @@ async def start_cmd_handler(message: types.Message):
     await WalletAPI.get_coin_setting()
 
     if len(args) != 2:
-        message_text = text(bold('ERROR:'),
-                            markdown.pre("Please use /deposit coin_name"))
-        message_text += text(bold('SUPPORTED COINS:'),
+        ## Form
+        await Form_Deposit.coin_name.set()
+        message_text = text(bold('PICK COIN FROM LIST:'),
                             markdown.pre( ", ".join(WalletAPI.coin_list_name) ))
-        await message.reply(message_text,
-                            parse_mode=ParseMode.MARKDOWN_V2)
-        return
+        await message.reply(message_text, parse_mode=ParseMode.MARKDOWN_V2)
     else:
         COIN_NAME = args[1].upper()
         if not hasattr(WalletAPI.coin_list, COIN_NAME):
@@ -2104,23 +2108,174 @@ async def start_cmd_handler(message: types.Message):
                     traceback.print_exc(file=sys.stdout)
 
 
-# Use multiple registrators. Handler will execute when one of the filters is OK
-@dp.callback_query_handler(text='no')  # if cb.data == 'no'
-@dp.callback_query_handler(text='yes')  # if cb.data == 'yes'
-async def inline_kb_answer_callback_handler(query: types.CallbackQuery):
-    answer_data = query.data
-    # always answer callback queries, even if you have nothing to say
-    await query.answer(f'You answered with {answer_data!r}')
+class Form_Balance(StatesGroup):
+    coin_name = State()  # Will be represented in storage as 'Form_Balance:coin_name'
 
-    if answer_data == 'yes':
-        text = 'Great, me too!'
-    elif answer_data == 'no':
-        text = 'Oh no...Why so?'
-    else:
-        text = f'Unexpected callback data {answer_data!r}!'
+class Form_Deposit(StatesGroup):
+    coin_name = State()  # Will be represented in storage as 'Form_Deposit:coin_name'
 
-    await bot.send_message(query.from_user.id, text)
+@dp.message_handler(state=Form_Deposit.coin_name)
+async def process_deposit_coin_name(message: types.Message, state: FSMContext):
+    async with state.proxy() as data:
+        data['coin_name'] = message.text.upper()
+        WalletAPI = WalletTG()
+        await WalletAPI.get_coin_setting()
+        if data['coin_name'].upper() == "CANCEL":
+            message_text = text(bold('CANCELLED:'),
+                                markdown.pre(f"Action cancelled. Thank you!"))
+            await message.reply(message_text, parse_mode=ParseMode.MARKDOWN_V2)
+            await state.finish()
+            return
+        elif data['coin_name'].upper() not in WalletAPI.coin_list_name + ["ALL"]:
+            message_text = text(bold('PICK COIN FROM LIST:'),
+                                markdown.pre( ", ".join(WalletAPI.coin_list_name) ))
+            await message.reply(message_text, parse_mode=ParseMode.MARKDOWN_V2)
+        else:
+            COIN_NAME = data['coin_name']
+            if getattr(getattr(WalletAPI.coin_list, COIN_NAME), "is_maintenance") == 1 \
+                or getattr(getattr(WalletAPI.coin_list, COIN_NAME), "enable_deposit") != 1:
+                message_text = text(bold('ERROR:'),
+                                    markdown.pre(f"{COIN_NAME} is currently under maintenance or disable deposit."))
+                await message.reply(message_text, parse_mode=ParseMode.MARKDOWN_V2)
+                await state.finish()
+                return
+            else:
+                ############
+                tg_user = message.from_user.username
+                chat_id = message.chat.id
+                net_name = getattr(getattr(WalletAPI.coin_list, COIN_NAME), "net_name")
+                type_coin = getattr(getattr(WalletAPI.coin_list, COIN_NAME), "type")
+                contract = getattr(getattr(WalletAPI.coin_list, COIN_NAME), "contract")
+                explorer_link = getattr(getattr(WalletAPI.coin_list, COIN_NAME), "explorer_link")
+                deposit_note = getattr(getattr(WalletAPI.coin_list, COIN_NAME), "deposit_note")
+                
+                get_deposit = await WalletAPI.sql_get_userwallet(tg_user, COIN_NAME, net_name, type_coin, SERVER_BOT, message.chat.id)
+                if get_deposit is None:
+                    get_deposit = await WalletAPI.sql_register_user(tg_user, COIN_NAME, net_name, type_coin, SERVER_BOT, chat_id, 0)
+                message_text = text(markdown.bold(f"DEPOSIT {COIN_NAME} INFO:\n") + \
+                                    markdown.pre("Deposit:       " + get_deposit['balance_wallet_address'])
+                                    )
+                if deposit_note:
+                    message_text += text(bold('NOTE:'),
+                                        markdown.pre( deposit_note ))
 
+                keyboard_markup = types.InlineKeyboardMarkup(row_width=3)
+                if explorer_link is not None and explorer_link.startswith("http"):
+                    keyboard_markup.add(
+                        # url buttons have no callback data
+                        types.InlineKeyboardButton('Explorer Link', url=explorer_link),
+                    )
+                else:
+                    keyboard_markup = None
+
+                #message_text += text(markdown.link("Link to Explorer", explorer_link))
+                await message.reply(message_text, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True, reply_markup=keyboard_markup)
+                if type_coin in ["ERC-20", "TRC-20"]:
+                    # Add update for future call
+                    try:
+                        if type_coin == "ERC-20":
+                            update_call = await store.sql_update_erc20_user_update_call(tg_user)
+                        elif type_coin == "TRC-10" or type_coin == "TRC-20":
+                            update_call = await store.sql_update_trc20_user_update_call(tg_user)
+                        elif type_coin == "SOL" or type_coin == "SPL":
+                            update_call = await store.sql_update_sol_user_update_call(tg_user)
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                await state.finish()
+                return
+
+@dp.message_handler(state=Form_Balance.coin_name)
+async def process_coin_name(message: types.Message, state: FSMContext):
+    async with state.proxy() as data:
+        data['coin_name'] = message.text.upper()
+        WalletAPI = WalletTG()
+        await WalletAPI.get_coin_setting()
+        if data['coin_name'].upper() == "CANCEL":
+            message_text = text(bold('CANCELLED:'),
+                                markdown.pre(f"Action cancelled. Thank you!"))
+            await message.reply(message_text, parse_mode=ParseMode.MARKDOWN_V2)
+            await state.finish()
+            return
+        elif data['coin_name'].upper() not in WalletAPI.coin_list_name + ["ALL"]:
+            message_text = text(bold('PICK COIN FROM LIST (or ALL):'),
+                        markdown.pre( ", ".join(WalletAPI.coin_list_name) ))
+            await message.reply(message_text, parse_mode=ParseMode.MARKDOWN_V2)
+        else:
+            COIN_NAME = data['coin_name']
+            #######
+            has_none_balance = True
+            zero_tokens = []
+            unknown_tokens = []
+            tg_user = message.from_user.username
+            chat_id = message.chat.id
+            list_coin_balances = {}
+            if COIN_NAME in ["LIST", "ALL"]:
+                coin_list = WalletAPI.coin_list_name
+            else:
+                coin_list = [COIN_NAME]
+            for each in coin_list:
+                COIN_NAME = each.upper()
+                if COIN_NAME in WalletAPI.coin_list_name:
+                    type_coin = getattr(getattr(WalletAPI.coin_list, COIN_NAME), "type")
+                    net_name = getattr(getattr(WalletAPI.coin_list, COIN_NAME), "net_name")
+                    deposit_confirm_depth = getattr(getattr(WalletAPI.coin_list, COIN_NAME), "deposit_confirm_depth")
+                    coin_decimal = getattr(getattr(WalletAPI.coin_list, COIN_NAME), "decimal")
+                    token_display = getattr(getattr(WalletAPI.coin_list, COIN_NAME), "display_name")
+                    usd_equivalent_enable = getattr(getattr(WalletAPI.coin_list, COIN_NAME), "usd_equivalent_enable")
+
+                    get_deposit = await WalletAPI.sql_get_userwallet(tg_user, COIN_NAME, net_name, type_coin, SERVER_BOT, message.chat.id)
+                    if get_deposit is None:
+                        get_deposit = await WalletAPI.sql_register_user(tg_user, COIN_NAME, net_name, type_coin, SERVER_BOT, chat_id, 0)
+                    wallet_address = get_deposit['balance_wallet_address']
+                    if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                        wallet_address = get_deposit['paymentid']
+                    height = None
+                    try:
+                        if type_coin in ["ERC-20", "TRC-20"]:
+                            # Add update for future call
+                            try:
+                                if type_coin == "ERC-20":
+                                    update_call = await store.sql_update_erc20_user_update_call(tg_user)
+                                elif type_coin == "TRC-10" or type_coin == "TRC-20":
+                                    update_call = await store.sql_update_trc20_user_update_call(tg_user)
+                                elif type_coin == "SOL" or type_coin == "SPL":
+                                    update_call = await store.sql_update_sol_user_update_call(tg_user)
+                            except Exception as e:
+                                traceback.print_exc(file=sys.stdout)
+                            height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
+                        else:
+                            height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                    userdata_balance = await WalletAPI.user_balance(tg_user, COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+                    total_balance = userdata_balance['adjust']
+                    if total_balance == 0:
+                        zero_tokens.append(COIN_NAME)
+                        continue
+                    elif total_balance > 0:
+                        has_none_balance = False
+                        list_coin_balances[COIN_NAME] = num_format_coin(total_balance, COIN_NAME, coin_decimal, False)
+                else:
+                    unknown_tokens.append(COIN_NAME)
+            
+            if has_none_balance == True:
+                coin_text = ""
+                if len(coin_list) == 1: coin_text = "{} ".format(COIN_NAME)
+                message_text = text(bold('ERROR:'), markdown.pre(f"You don't have any {coin_text}balance."))
+                await message.reply(message_text, parse_mode=ParseMode.MARKDOWN_V2)
+                return
+            else:
+                balance_list = []
+                for k, v in list_coin_balances.items():
+                    balance_list.append("{}: {}".format(k, v))
+                message_text = text(bold('BALANCE:'), markdown.pre("\n".join(balance_list)))
+                if len(zero_tokens) > 0:
+                    message_text += text(bold('ZERO BALANCE:'), markdown.pre(", ".join(zero_tokens)))
+                if len(unknown_tokens) > 0:
+                    message_text += text(bold('UNKNOWN COIN/TOKEN:'), markdown.pre(", ".join(unknown_tokens)))
+                await message.reply(message_text, parse_mode=ParseMode.MARKDOWN_V2)
+                return
+            await state.finish()
 
 @dp.message_handler(commands='balance')
 async def start_cmd_handler(message: types.Message):
@@ -2140,13 +2295,12 @@ async def start_cmd_handler(message: types.Message):
     await WalletAPI.get_coin_setting()
         
     if len(args) < 2:
-        message_text = text(bold('ERROR:'),
-                            markdown.pre("Please use /balance token or /balance token1 token2..."))
-        message_text += text(bold('SUPPORTED COINS:'),
-                            markdown.pre( ", ".join(WalletAPI.coin_list_name) ))
-        await message.reply(message_text,
-                            parse_mode=ParseMode.MARKDOWN_V2)
-        return
+        ## Form
+        await Form_Balance.coin_name.set()
+        message_text = text(bold('PICK COIN FROM LIST (or ALL):'),
+                    markdown.pre( ", ".join(WalletAPI.coin_list_name) ))
+        await message.reply(message_text, parse_mode=ParseMode.MARKDOWN_V2)
+
     elif len(args) >= 2:
         has_none_balance = True
         zero_tokens = []
@@ -2204,7 +2358,9 @@ async def start_cmd_handler(message: types.Message):
                 unknown_tokens.append(COIN_NAME)
         
         if has_none_balance == True:
-            message_text = text(bold('ERROR:'), markdown.pre("You don't have any balance."))
+            coin_text = ""
+            if len(coin_list) == 1: coin_text = "{} ".format(COIN_NAME)
+            message_text = text(bold('ERROR:'), markdown.pre(f"You don't have any {coin_text}balance."))
             await message.reply(message_text, parse_mode=ParseMode.MARKDOWN_V2)
             return
         else:
@@ -2966,6 +3122,7 @@ async def echo(message: types.Message):
                     traceback.print_exc(file=sys.stdout)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
+
 
 # Notify user
 async def notify_new_tx_user():

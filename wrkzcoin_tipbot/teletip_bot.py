@@ -2124,8 +2124,6 @@ async def process_deposit_coin_name(message: types.Message, state: FSMContext):
             message_text = text(bold('CANCELLED:'),
                                 markdown.pre(f"Action cancelled. Thank you!"))
             await message.reply(message_text, parse_mode=ParseMode.MARKDOWN_V2)
-            await state.finish()
-            return
         elif data['coin_name'].upper() not in WalletAPI.coin_list_name + ["ALL"]:
             message_text = text(bold('PICK COIN FROM LIST:'),
                                 markdown.pre( ", ".join(WalletAPI.coin_list_name) ))
@@ -2137,8 +2135,6 @@ async def process_deposit_coin_name(message: types.Message, state: FSMContext):
                 message_text = text(bold('ERROR:'),
                                     markdown.pre(f"{COIN_NAME} is currently under maintenance or disable deposit."))
                 await message.reply(message_text, parse_mode=ParseMode.MARKDOWN_V2)
-                await state.finish()
-                return
             else:
                 ############
                 tg_user = message.from_user.username
@@ -2181,8 +2177,7 @@ async def process_deposit_coin_name(message: types.Message, state: FSMContext):
                             update_call = await store.sql_update_sol_user_update_call(tg_user)
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
-                await state.finish()
-                return
+        await state.finish()
 
 @dp.message_handler(state=Form_Balance.coin_name)
 async def process_coin_name(message: types.Message, state: FSMContext):
@@ -2263,7 +2258,6 @@ async def process_coin_name(message: types.Message, state: FSMContext):
                 if len(coin_list) == 1: coin_text = "{} ".format(COIN_NAME)
                 message_text = text(bold('ERROR:'), markdown.pre(f"You don't have any {coin_text}balance."))
                 await message.reply(message_text, parse_mode=ParseMode.MARKDOWN_V2)
-                return
             else:
                 balance_list = []
                 for k, v in list_coin_balances.items():
@@ -2274,7 +2268,6 @@ async def process_coin_name(message: types.Message, state: FSMContext):
                 if len(unknown_tokens) > 0:
                     message_text += text(bold('UNKNOWN COIN/TOKEN:'), markdown.pre(", ".join(unknown_tokens)))
                 await message.reply(message_text, parse_mode=ParseMode.MARKDOWN_V2)
-                return
             await state.finish()
 
 @dp.message_handler(commands='balance')

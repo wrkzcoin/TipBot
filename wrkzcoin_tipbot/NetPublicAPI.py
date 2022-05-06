@@ -273,10 +273,11 @@ class DBStore():
                     deposit = "✅" if c['enable_deposit'] == 1 else "❌"
                     withdraw = "✅" if c['enable_withdraw'] == 1 else "❌"
                     twitter = "✅" if c['enable_twitter'] == 1 else "❌"
+                    telegram = "✅" if c['enable_telegram'] == 1 else "❌"
 
                     explorer_link = c['explorer_link']
                     if explorer_link and explorer_link.startswith("http"):
-                        explorer_link = "<a href=\"{}\" target=\"_blank\">Explorer Link</a>".format(explorer_link)
+                        explorer_link = "<a href=\"{}\" target=\"_blank\">Link</a>".format(explorer_link)
                     withdraw_info = "Min. {} / Max. {} {}".format(self.num_format_coin(c['real_min_tx']), self.num_format_coin(c['real_max_tx']), c['coin_name'])
                     tip_info = "Min. {} / Max. {} {}".format(self.num_format_coin(c['real_min_tip']), self.num_format_coin(c['real_max_tip']), c['coin_name'])
                     net_name = c['net_name']
@@ -288,7 +289,7 @@ class DBStore():
                             height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
-                    all_coins.append([ c['coin_name'], height, c['deposit_confirm_depth'], tip, deposit, withdraw, twitter, tip_info, withdraw_info, explorer_link ])
+                    all_coins.append([ c['coin_name'], height, c['deposit_confirm_depth'], tip, deposit, withdraw, twitter, telegram, tip_info, withdraw_info, explorer_link ])
                 result = {'data': all_coins}
                 return web.json_response(result, status=200)
         else:

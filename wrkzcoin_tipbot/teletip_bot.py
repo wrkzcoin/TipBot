@@ -1,7 +1,3 @@
-"""
-This is a echo bot.
-It echoes any incoming text messages.
-"""
 import traceback, sys, os
 import disnake
 from discord_webhook import DiscordWebhook
@@ -10,6 +6,7 @@ from aiogram import Bot, Dispatcher, executor, types
 from aiogram.utils.markdown import text, bold, italic, code, pre, quote_html, escape_md
 from aiogram.utils.markdown import markdown_decoration as markdown
 from aiogram.types import ParseMode, InputMediaPhoto, InputMediaVideo, ChatActions
+from aiogram.utils import exceptions, executor
 
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import FSMContext
@@ -2586,7 +2583,7 @@ async def start_cmd_handler(message: types.Message):
                                         except exceptions.RetryAfter as e:
                                             await logchanbot(f"{SERVER_BOT} Target [ID:{to_user}]: Flood limit is exceeded. Sleep {e.timeout} seconds.")
                                             await asyncio.sleep(e.timeout)
-                                            return await bot.send_message(chat_id=to_user, text=to_message_text, parse_mode=ParseMode.MARKDOWN_V2)  # Recursive call
+                                            await bot.send_message(chat_id=to_user, text=to_message_text, parse_mode=ParseMode.MARKDOWN_V2)  # Recursive call
                                         except exceptions.UserDeactivated:
                                             await logchanbot(f"{SERVER_BOT} Target [ID:{to_user}]: user is deactivated")
                                         except exceptions.TelegramAPIError:
@@ -2595,7 +2592,6 @@ async def start_cmd_handler(message: types.Message):
                                             await logchanbot(traceback.print_exc(file=sys.stdout))
                             except Exception as e:
                                 traceback.print_exc(file=sys.stdout)
-                        return
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
                         await logchanbot(traceback.format_exc())
@@ -2604,7 +2600,6 @@ async def start_cmd_handler(message: types.Message):
                     message_text = text(bold('ERROR:'),
                                         markdown.pre("You have another tx in process. Please wait it to finish."))
                     await message.reply(message_text, parse_mode=ParseMode.MARKDOWN_V2)
-                    return
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
 
@@ -3098,6 +3093,68 @@ async def start_cmd_handler(message: types.Message):
                                         markdown.pre("You have another tx in process. Please wait it to finish."))
                     await message.reply(message_text, parse_mode=ParseMode.MARKDOWN_V2)
                     return
+
+@dp.message_handler(commands='price')
+async def start_cmd_handler(message: types.Message):
+    content = ' '.join(message.text.split())
+    args = content.split(" ")
+    if len(args) != 3:
+        message_text = text(bold('ERROR:'),
+                            markdown.pre("Please use /price amount coin"))
+        await message.reply(message_text, parse_mode=ParseMode.MARKDOWN_V2)
+        return
+    else:
+        original_amount = args[1]
+        amount = args[1].replace(",", "")
+        COIN_NAME = args[2].upper()
+        try:
+            amount = float(amount)
+        except ValueError:
+            message_text = text(bold('ERROR:'),
+                                markdown.pre("Invalid given amount!"))
+            await message.reply(message_text, parse_mode=ParseMode.MARKDOWN_V2)
+            return
+        
+        WalletAPI = WalletTG()
+        await WalletAPI.get_coin_setting()
+        per_unit = None
+        if COIN_NAME in WalletAPI.token_hints:
+            id = WalletAPI.token_hints[COIN_NAME]['ticker_name']
+            per_unit = WalletAPI.coin_paprika_id_list[id]['price_usd']
+            name = WalletAPI.coin_paprika_id_list[id]['name']
+            id_name = id
+        else:
+            per_unit = WalletAPI.coin_paprika_symbol_list[COIN_NAME]['price_usd']
+            name = WalletAPI.coin_paprika_symbol_list[COIN_NAME]['name']
+            id_name = WalletAPI.coin_paprika_symbol_list[COIN_NAME]['id']
+
+        try:
+            if per_unit:
+                total_price = amount*per_unit
+                total_price_str = ""
+                if total_price > 1000:
+                    total_price_str = "{:,.2f}".format(total_price)
+                elif total_price > 100:
+                    total_price_str = "{:.2f}".format(total_price)
+                elif total_price > 1:
+                    total_price_str = "{:.3f}".format(total_price)
+                elif total_price > 0.01:
+                    total_price_str = "{:.4f}".format(total_price)
+                else:
+                    total_price_str = "{:.8f}".format(total_price)
+
+                link = "https://coinpaprika.com/coin/" + id_name
+                keyboard_markup = types.InlineKeyboardMarkup(row_width=3)
+                keyboard_markup.add(
+                    # url buttons have no callback data
+                    types.InlineKeyboardButton('coinpaprika', url=link),
+                )
+                message_text = text(bold(f'{original_amount} {name}:'),
+                                    markdown.pre("{} {}\n".format(total_price_str, "USD")))
+                await message.reply(message_text, parse_mode=ParseMode.MARKDOWN_V2, reply_markup=keyboard_markup)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+
 
 @dp.message_handler()
 async def echo(message: types.Message):

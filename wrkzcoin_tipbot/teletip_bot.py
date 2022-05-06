@@ -2554,7 +2554,7 @@ async def start_cmd_handler(message: types.Message):
                         if len(receivers) > 1:
                             tiptype = "TIPS"
                         tips = await store.sql_user_balance_mv_multiple( message.from_user.username, receivers, str(chat_id), str(chat_id), float(amount), COIN_NAME, tiptype, coin_decimal, SERVER_BOT, contract, float(amount_in_usd), None)
-                        message_text = text(escape_md('TIPPED: {} {}{}'.format( num_format_coin(amount, COIN_NAME, coin_decimal, False), COIN_NAME, equivalent_usd )),
+                        message_text = text(bold('TIPPED: {} {}{}'.format( num_format_coin(amount, COIN_NAME, coin_decimal, False), COIN_NAME, equivalent_usd )),
                                             markdown.pre("{}".format(", ".join(receivers))))
                         if len(no_wallet_receivers) > 0:
                             message_text += text(bold('USER NO WALLET:'),

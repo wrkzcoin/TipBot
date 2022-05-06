@@ -26,11 +26,11 @@ This TipBot's code is not ready to deploy. We keep it here for easily bug tracki
 
 ### Donation address list:
 
-* Refer to <https://github.com/wrkzcoin/TipBot/blob/multi-tipbot/DONATION.md>
+* Refer to <https://github.com/wrkzcoin/TipBot/blob/multip-tipbot-new-api/DONATION.md>
 * Swagger: <http://tradeapi.bot.tips/>
 
 ### Public API for Trading:
-* Refer to <https://github.com/wrkzcoin/TipBot/blob/multi-tipbot/TRADE_API.md>
+* Refer to <https://github.com/wrkzcoin/TipBot/blob/multip-tipbot-new-api/TRADE_API.md>
 
 ### Credit and thanks to:
 

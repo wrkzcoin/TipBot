@@ -508,10 +508,11 @@ class Twitter(commands.Cog):
                                                 embed.set_author(name=each_t['user']['screen_name'], icon_url=avatar_url)
                                         except Exception as e:
                                             traceback.print_exc(file=sys.stdout)
-                                        added = await self.add_posted( each_tw['guild_id'], each_tw['subscribe_to'], each_tw['push_to_channel_id'], each_t['id_str'], str(msg.id) )
-                                        if added > 0:
-                                            msg = await channel.send(embed=embed)
-                                            await logchanbot("[TWITTER] - Posted to guild {} / channel {}:```{}```".format(each_tw['guild_id'], each_tw['push_to_channel_id'], each_t['full_text'] ))
+                                        msg = await channel.send(embed=embed)
+                                        await logchanbot("[TWITTER] - Posted to guild {} / channel {}:```{}```".format(each_tw['guild_id'], each_tw['push_to_channel_id'], each_t['full_text'] ))
+                                        if msg:
+                                            added = await self.add_posted( each_tw['guild_id'], each_tw['subscribe_to'], each_tw['push_to_channel_id'], each_t['id_str'], str(msg.id) )
+                                            await asyncio.sleep(2.0)
                                     else:
                                         await logchanbot("[TWITTER] - Failed to find channel {} in guild {} for posting.".format(each_tw['push_to_channel_id'], each_tw['guild_id'] ))
                                 except Exception as e:

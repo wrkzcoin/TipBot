@@ -645,7 +645,7 @@ class WalletAPI(commands.Cog):
         try:
             _http_client = AsyncClient(limits=Limits(max_connections=100, max_keepalive_connections=20),
                                        timeout=Timeout(timeout=10, connect=5, read=5))
-            TronClient = AsyncTron(provider=AsyncHTTPProvider(config.Tron_Node.fullnode, client=_http_client))
+            TronClient = AsyncTron(provider=AsyncHTTPProvider(self.bot.erc_node_list['TRX'], client=_http_client))
             create_wallet = TronClient.generate_address()
             await TronClient.close()
             return create_wallet
@@ -4211,7 +4211,7 @@ class Wallet(commands.Cog):
         try:
             _http_client = AsyncClient(limits=Limits(max_connections=100, max_keepalive_connections=20),
                                        timeout=Timeout(timeout=10, connect=5, read=5))
-            TronClient = AsyncTron(provider=AsyncHTTPProvider(config.Tron_Node.fullnode, client=_http_client))
+            TronClient = AsyncTron(provider=AsyncHTTPProvider(self.bot.erc_node_list['TRX'], client=_http_client))
             if TOKEN_NAME == "TRX":
                 txb = (
                     TronClient.trx.transfer(config.trc.MainAddress, to_address, int(amount*10**6))

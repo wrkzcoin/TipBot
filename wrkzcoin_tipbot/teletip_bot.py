@@ -73,6 +73,8 @@ SERVER_BOT = "TELEGRAM"
 TX_IN_PROGRESS = []
 MIN_MSG_TO_SAVE = 2
 
+pool_netmon=None
+
 async def logchanbot(content: str):
     try:
         webhook = DiscordWebhook(url=config.discord.webhook_url, content=f'```{disnake.utils.escape_markdown(content)}```')
@@ -83,6 +85,43 @@ async def logchanbot(content: str):
 class RPCException(Exception):
     def __init__(self, message):
         super(RPCException, self).__init__(message)
+
+
+async def openConnection_node_monitor():
+    global pool_netmon
+    try:
+        if pool_netmon is None:
+            pool_netmon = await aiomysql.create_pool(host=config.mysql_node_monitor.host, port=3306, minsize=2, maxsize=4, 
+                                                     user=config.mysql_node_monitor.user, password=config.mysql_node_monitor.password,
+                                                     db=config.mysql_node_monitor.db, cursorclass=DictCursor)
+    except:
+        print("ERROR: Unexpected error: Could not connect to MySql instance.")
+        traceback.print_exc(file=sys.stdout)
+
+async def handle_best_node(network: str):
+    global pool_netmon
+    table = ""
+    if network.upper() == "TRX":
+        table = "chain_trx"
+    try:
+        await openConnection_node_monitor()
+        async with pool_netmon.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT id, url, name, duration, MAX(height) as height
+                          FROM `"""+table+"""`
+                          GROUP BY url ORDER BY height DESC LIMIT 10 """
+                await cur.execute(sql,)
+                nodes = await cur.fetchall()
+                if nodes and len(nodes) > 1:
+                    # Check which one has low fetch time
+                    url = nodes[0]['url']
+                    fetch_time = nodes[0]['duration']
+                    for each_node in nodes:
+                        if fetch_time > each_node['duration']:
+                            url = each_node['url']
+                    return url
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
 
 class WalletTG:
     # init method or constructor 
@@ -135,7 +174,7 @@ class WalletTG:
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
-    async def get_messages(chat_id: str, time_int: int, num_user: int=None):
+    async def get_messages(self, chat_id: str, time_int: int, num_user: int=None):
         lapDuration = int(time.time()) - time_int
         try:
             await self.openConnection()
@@ -810,12 +849,12 @@ class WalletTG:
         w = ethwallet.create_wallet(network="ETH", seed=seed, children=1)
         return w
 
-
     async def create_address_trx(self):
         try:
+            tron_node = await handle_best_node("TRX")
             _http_client = AsyncClient(limits=Limits(max_connections=100, max_keepalive_connections=20),
                                        timeout=Timeout(timeout=10, connect=5, read=5))
-            TronClient = AsyncTron(provider=AsyncHTTPProvider(config.Tron_Node.fullnode, client=_http_client))
+            TronClient = AsyncTron(provider=AsyncHTTPProvider(tron_node, client=_http_client))
             create_wallet = TronClient.generate_address()
             await TronClient.close()
             return create_wallet
@@ -2378,7 +2417,6 @@ async def start_cmd_handler(message: types.Message):
     # there could be more than one receivers
     # Example /tip 10 doge @mention_1 @mention_2 @mention_3 ....ddfd @mention_4 last text
 
-    private_receiver_list = []
     receivers = []
     no_wallet_receivers = []
     last_receiver = ""
@@ -3158,6 +3196,7 @@ async def start_cmd_handler(message: types.Message):
 
 @dp.message_handler()
 async def echo(message: types.Message):
+    global QUEUE_MSG, MIN_MSG_TO_SAVE
     # old style:
     # await bot.send_message(message.chat.id, message.text)
     # await message.answer(message.text)
@@ -3168,6 +3207,7 @@ async def echo(message: types.Message):
                 try:
                     WalletAPI = WalletTG()
                     inserted = await WalletAPI.insert_messages(QUEUE_MSG)
+                    QUEUE_MSG = []
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
         except Exception as e:

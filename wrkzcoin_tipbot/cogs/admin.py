@@ -515,7 +515,7 @@ class Admin(commands.Cog):
         try:
             _http_client = AsyncClient(limits=Limits(max_connections=100, max_keepalive_connections=20),
                                        timeout=Timeout(timeout=10, connect=5, read=5))
-            TronClient = AsyncTron(provider=AsyncHTTPProvider(config.Tron_Node.fullnode, client=_http_client))
+            TronClient = AsyncTron(provider=AsyncHTTPProvider(self.bot.erc_node_list['TRX'], client=_http_client))
             create_wallet = TronClient.generate_address()
             await TronClient.close()
             return create_wallet
@@ -1015,6 +1015,63 @@ class Admin(commands.Cog):
                 traceback.print_exc(file=sys.stdout)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
+
+
+    @commands.is_owner()
+    @admin.command(hidden=True, usage='credit <user> <amount> <coin> <server>', description='Credit a user')
+    async def credit(self, ctx, member_id: str, amount: str, coin: str, user_server: str="DISCORD"):
+        user_server = user_server.upper()
+        if user_server not in ["DISCORD", "TWITTER", "TELEGRAM", "REDDIT"]:
+            await ctx.reply(f"{ctx.author.mention}, invalid server.")
+            return
+        creditor = "CREDITOR"
+        amount = amount.replace(",", "")
+        try:
+            amount = float(amount)
+        except ValueError:
+            await ctx.reply(f"{ctx.author.mention}, invalid amount.")
+            return
+        COIN_NAME = coin.upper()
+        if not hasattr(self.bot.coin_list, COIN_NAME):
+            msg = f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.'
+            await ctx.reply(msg)
+            return
+
+        try:
+            net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
+            type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
+            coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+            contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
+            MinTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_min_tip")
+            MaxTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_max_tip")
+            token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
+
+            if amount > MaxTip or amount < MinTip:
+                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, credit cannot be bigger than **{num_format_coin(MaxTip, COIN_NAME, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(MinTip, COIN_NAME, coin_decimal, False)} {token_display}**.'
+                await ctx.reply(msg)
+                return
+
+            User_WalletAPI = WalletAPI(self.bot)
+            get_deposit = await User_WalletAPI.sql_get_userwallet(member_id, COIN_NAME, net_name, type_coin, user_server, 0)
+            if get_deposit is None:
+                msg = f'{ctx.author.mention}, {member_id} not exist with server `{user_server}` in our DB.'
+                await ctx.reply(msg)
+                return
+            else:
+                # let's credit
+                try:
+                    # No need amount_in_usd, keep it 0.0
+                    tip = await store.sql_user_balance_mv_single(creditor, member_id, "CREDIT+", "CREDIT+", amount, COIN_NAME, "CREDIT", coin_decimal, user_server, contract, 0.0, None)
+                    if tip:
+                        msg = f"[CREDITING] to user {member_id} server {user_server} with amount : {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}"
+                        await ctx.reply(msg)
+                        await logchanbot(f"[CREDITING] {ctx.author.name}#{ctx.author.discriminator} / str(ctx.author.id) credit to user {member_id} server {user_server} with amount : {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}")
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(traceback.format_exc())
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+
 
 
     @commands.is_owner()

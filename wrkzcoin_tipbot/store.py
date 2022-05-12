@@ -41,6 +41,8 @@ redis_pool = None
 redis_conn = None
 redis_expired = 10
 pool = None
+pool_netmon = None
+
 sys.path.append("..")
 
 
@@ -67,13 +69,50 @@ async def openConnection():
                                                    db=config.mysql.db, cursorclass=DictCursor, autocommit=True)
     except:
         print("ERROR: Unexpected error: Could not connect to MySql instance.")
-        sys.exit()
+        traceback.print_exc(file=sys.stdout)
 
+
+async def openConnection_node_monitor():
+    global pool_netmon
+    try:
+        if pool_netmon is None:
+            pool_netmon = await aiomysql.create_pool(host=config.mysql_node_monitor.host, port=3306, minsize=2, maxsize=4, 
+                                                     user=config.mysql_node_monitor.user, password=config.mysql_node_monitor.password,
+                                                     db=config.mysql_node_monitor.db, cursorclass=DictCursor)
+    except:
+        print("ERROR: Unexpected error: Could not connect to MySql instance.")
+        traceback.print_exc(file=sys.stdout)
 
 async def logchanbot(content: str):
     try:
         webhook = DiscordWebhook(url=config.discord.webhook_url, content=f'```{disnake.utils.escape_markdown(content)}```')
         webhook.execute()
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+
+async def handle_best_node(network: str):
+    global pool_netmon
+    table = ""
+    if network.upper() == "TRX":
+        table = "chain_trx"
+    try:
+        await openConnection_node_monitor()
+        async with pool_netmon.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT id, url, name, duration, MAX(height) as height
+                          FROM `"""+table+"""`
+                          GROUP BY url ORDER BY height DESC LIMIT 10 """
+                await cur.execute(sql,)
+                nodes = await cur.fetchall()
+                if nodes and len(nodes) > 1:
+                    # Check which one has low fetch time
+                    url = nodes[0]['url']
+                    fetch_time = nodes[0]['duration']
+                    for each_node in nodes:
+                        if fetch_time > each_node['duration']:
+                            url = each_node['url']
+                    return url
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
 
@@ -795,7 +834,8 @@ async def get_monit_scanning_net_name_update_height(net_name: str, new_height: i
 
 async def trx_get_block_number(timeout: int = 64):
     height = 0
-    url = config.Tron_Node.fullnode + "/wallet/getnowblock"
+    tron_node = await handle_best_node("TRX")
+    url = tron_node + "wallet/getnowblock"
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(url, headers={'Content-Type': 'application/json'}, timeout=timeout) as response:
@@ -1331,9 +1371,10 @@ async def trx_check_minimum_deposit(coin: str, type_coin: str, contract: str, co
                     # gas TRX is 6 coin_decimal
                     real_deposited_balance = deposited_balance-min_gas_tx
                     try:
+                        tron_node = await handle_best_node("TRX")
                         _http_client = AsyncClient(limits=Limits(max_connections=100, max_keepalive_connections=20),
                                                    timeout=Timeout(timeout=10, connect=5, read=5))
-                        TronClient = AsyncTron(provider=AsyncHTTPProvider(config.Tron_Node.fullnode, client=_http_client))
+                        TronClient = AsyncTron(provider=AsyncHTTPProvider(tron_node, client=_http_client))
                         txb = (
                             TronClient.trx.transfer(each_address['balance_wallet_address'], config.trc.MainAddress, int(real_deposited_balance*10**6))
                             #.memo("test memo")
@@ -1367,9 +1408,10 @@ async def trx_check_minimum_deposit(coin: str, type_coin: str, contract: str, co
                     # Let's move to main address
                     if type_coin == "TRC-20":
                         try:
+                            tron_node = await handle_best_node("TRX")
                             _http_client = AsyncClient(limits=Limits(max_connections=100, max_keepalive_connections=20),
                                                        timeout=Timeout(timeout=10, connect=5, read=5))
-                            TronClient = AsyncTron(provider=AsyncHTTPProvider(config.Tron_Node.fullnode, client=_http_client))
+                            TronClient = AsyncTron(provider=AsyncHTTPProvider(tron_node, client=_http_client))
                             cntr = await TronClient.get_contract(contract)
                             precision = await cntr.functions.decimals()
                             balance = await cntr.functions.balanceOf(each_address['balance_wallet_address']) / 10**precision
@@ -1417,9 +1459,10 @@ async def trx_check_minimum_deposit(coin: str, type_coin: str, contract: str, co
                             traceback.print_exc(file=sys.stdout)
                     elif type_coin == "TRC-10":
                         try:
+                            tron_node = await handle_best_node("TRX")
                             _http_client = AsyncClient(limits=Limits(max_connections=100, max_keepalive_connections=20),
                                                        timeout=Timeout(timeout=10, connect=5, read=5))
-                            TronClient = AsyncTron(provider=AsyncHTTPProvider(config.Tron_Node.fullnode, client=_http_client))                            
+                            TronClient = AsyncTron(provider=AsyncHTTPProvider(tron_node, client=_http_client))                            
                             balance = await trx_wallet_getbalance(each_address['balance_wallet_address'], TOKEN_NAME, coin_decimal, type_coin, contract)
                             # Check balance and Transfer gas to it
                             try:
@@ -1498,9 +1541,10 @@ async def sql_check_pending_move_deposit_trc20(net_name: str, deposit_confirm_de
 async def trx_get_tx_info(tx: str):
     timeout = 64
     try:
+        tron_node = await handle_best_node("TRX")
         _http_client = AsyncClient(limits=Limits(max_connections=100, max_keepalive_connections=20),
                                    timeout=Timeout(timeout=10, connect=5, read=5))
-        TronClient = AsyncTron(provider=AsyncHTTPProvider(config.Tron_Node.fullnode, client=_http_client))
+        TronClient = AsyncTron(provider=AsyncHTTPProvider(tron_node, client=_http_client))
         getTx = await TronClient.get_transaction(tx)
         await TronClient.close()
         if getTx['ret'][0]['contractRet'] != "SUCCESS":
@@ -1518,9 +1562,10 @@ async def trx_wallet_getbalance(address: str, coin: str, coin_decimal: int, type
     TOKEN_NAME = coin.upper()
     balance = 0.0
     try:
+        tron_node = await handle_best_node("TRX")
         _http_client = AsyncClient(limits=Limits(max_connections=100, max_keepalive_connections=20),
                                    timeout=Timeout(timeout=10, connect=5, read=5))
-        TronClient = AsyncTron(provider=AsyncHTTPProvider(config.Tron_Node.fullnode, client=_http_client))
+        TronClient = AsyncTron(provider=AsyncHTTPProvider(tron_node, client=_http_client))
         if contract is None or TOKEN_NAME == "TRX":
             try:
                 balance = await TronClient.get_account_balance(address)
@@ -1656,14 +1701,14 @@ async def sql_get_all_trx_user(coin: str, called_Update: int=0):
             await conn.ping(reconnect=True)
             async with conn.cursor() as cur:
                 if called_Update == 0:
-                    sql = """ SELECT `user_id`, `user_id_trc20`, `balance_wallet_address`, `hex_address`, `private_key` FROM trc20_user 
+                    sql = """ SELECT `user_id`, `user_id_trc20`, `balance_wallet_address`, `hex_address`, `private_key`, `user_server` FROM trc20_user 
                                """ + extra_str + """ ) OR `is_discord_guild`=1 """
                     await cur.execute(sql, ())
                     result = await cur.fetchall()
                     if result: return result
                 elif called_Update > 0:
                     lap = int(time.time()) - called_Update
-                    sql = """ SELECT `user_id`, `user_id_trc20`, `balance_wallet_address`, `hex_address`, `private_key` FROM trc20_user 
+                    sql = """ SELECT `user_id`, `user_id_trc20`, `balance_wallet_address`, `hex_address`, `private_key`, `user_server` FROM trc20_user 
                               """+extra_str+""" AND `called_Update`>%s) OR `is_discord_guild`=1 """
                     await cur.execute(sql, (lap))
                     result = await cur.fetchall()

@@ -315,6 +315,12 @@ class Core(commands.Cog):
                 "desc": "List all coins/tokens within TipBot.", 
                 "related": ["coininfo"],
                 "subcmd": []
+            },
+            "twitter": {
+                "usage": "/twitter <sub-command>",
+                "desc": "Various twitter commands.", 
+                "related": [],
+                "subcmd": ["rt_reward", "linkme", "unlinkme", "deposit", "balances", "listsub", "tip", "subscribe", "unsubscribe"]
             }
         }
         basic_help_deposit = """

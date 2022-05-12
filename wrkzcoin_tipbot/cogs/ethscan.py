@@ -28,12 +28,28 @@ class EthScan(commands.Cog):
         self.fetch_bsc_node.start()
         # SOL best node
         self.fetch_sol_node.start()
+        # TRX best node
+        self.fetch_trx_node.start()
 
         self.pull_trc20_scanning.start()
         self.pull_erc20_scanning.start()
         self.remove_all_tx_ethscan.start()
 
 
+
+    @tasks.loop(seconds=10.0)
+    async def fetch_trx_node(self):
+        while True:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(config.api_best_node.trx, headers={'Content-Type': 'application/json'}, timeout=5.0) as response:
+                    if response.status == 200:
+                        res_data = await response.read()
+                        res_data = res_data.decode('utf-8')
+                        # trx needs to fetch best node from their public
+                        self.bot.erc_node_list['TRX'] = res_data.replace('"', '')
+                    else:
+                        await logchanbot(f"Can not fetch best node for TRX.")
+            await asyncio.sleep(10.0)
 
     @tasks.loop(seconds=10.0)
     async def fetch_bsc_node(self):
@@ -360,7 +376,7 @@ class EthScan(commands.Cog):
                                                         blockTime = self.blockTime[str(each['block_number'])]
                                                     else:
                                                         try:
-                                                            get_blockinfo = await store.trx_get_block_info(config.Tron_Node.fullnode, each['block_number'])
+                                                            get_blockinfo = await store.trx_get_block_info(self.bot.erc_node_list['TRX'], each['block_number'])
                                                             if get_blockinfo:
                                                                 blockTime = int(get_blockinfo['timestamp'] / 1000)
                                                                 self.blockTime[str(each['block_number'])] = blockTime

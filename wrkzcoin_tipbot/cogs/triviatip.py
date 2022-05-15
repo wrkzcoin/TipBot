@@ -126,7 +126,7 @@ class TriviaTips(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.trivia_duration_min = 5
-        self.trivia_duration_max = 600
+        self.trivia_duration_max = 45
 
     async def async_triviatip(self, ctx, amount: str, token: str, duration: str):
         COIN_NAME = token.upper()

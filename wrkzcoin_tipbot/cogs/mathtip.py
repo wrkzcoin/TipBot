@@ -122,7 +122,7 @@ class MathTips(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.math_duration_min = 5
-        self.math_duration_max = 600
+        self.math_duration_max = 45
 
     async def async_mathtip(self, ctx, amount: str, token: str, duration: str, math_exp: str=None):
         COIN_NAME = token.upper()

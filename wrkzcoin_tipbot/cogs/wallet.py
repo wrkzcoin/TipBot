@@ -5597,17 +5597,20 @@ class Wallet(commands.Cog):
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
  
-            userdata_balance = await self.user_balance(str(self.bot.user.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
-            actual_balance = float(userdata_balance['adjust'])
-            sum_sub = float(get_game_stat[COIN_NAME])
- 
-            balance_actual = num_format_coin(actual_balance, COIN_NAME, coin_decimal, False)
-            get_claimed_count = await store.sql_faucet_sum_count_claimed(COIN_NAME)
-            sub_claim = num_format_coin(float(get_claimed_count['claimed']) + sum_sub, COIN_NAME, coin_decimal, False) if get_claimed_count['count'] > 0 else f"0.00{COIN_NAME}"
-            if actual_balance != 0:
-                table_data.append([COIN_NAME, balance_actual, sub_claim])
-            else:
-                table_data.append([COIN_NAME, '0', sub_claim])
+            try:
+                userdata_balance = await self.user_balance(str(self.bot.user.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+                actual_balance = float(userdata_balance['adjust'])
+                sum_sub = float(get_game_stat[COIN_NAME])
+     
+                balance_actual = num_format_coin(actual_balance, COIN_NAME, coin_decimal, False)
+                get_claimed_count = await store.sql_faucet_sum_count_claimed(COIN_NAME)
+                sub_claim = num_format_coin(float(get_claimed_count['claimed']) + sum_sub, COIN_NAME, coin_decimal, False) if get_claimed_count['count'] > 0 else f"0.00{COIN_NAME}"
+                if actual_balance != 0:
+                    table_data.append([COIN_NAME, balance_actual, sub_claim])
+                else:
+                    table_data.append([COIN_NAME, '0', sub_claim])
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
         table = AsciiTable(table_data)
         table.padding_left = 0
         table.padding_right = 0

@@ -2267,8 +2267,8 @@ async def get_active_discord_freetip():
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 swap_in = 0.0
-                sql = """ SELECT * FROM `discord_airdrop_tmp` WHERE `status`=%s """
-                await cur.execute(sql, ("ONGOING"))
+                sql = """ SELECT * FROM `discord_airdrop_tmp` WHERE `status`=%s AND `airdrop_time`>%s """
+                await cur.execute(sql, ( "ONGOING", int(time.time()) ) )
                 result = await cur.fetchall()
                 if result and len(result) > 0: return result
     except Exception as e:

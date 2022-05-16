@@ -79,19 +79,19 @@ class Core(commands.Cog):
             "randtip": {
                 "usage": "/randtip <amount> <coin>",
                 "desc": "Tip to a ranndom discord users from your balance.", 
-                "related": ["tip", "tipall"],
+                "related": ["tip", "tipall", "z"],
                 "subcmd": []
             },
             "freetip": {
                 "usage": "/freetip <amount> <coin> <duration> [comment]",
                 "desc": "Do airdrop with clickable buttom and every can collect.", 
-                "related": ["tip", "tipall", "mathtip", "triviatip"],
+                "related": ["tip", "tipall", "mathtip", "triviatip", "z"],
                 "subcmd": []
             },
             "tipall": {
                 "usage": "/tipall <amount> <coin> [online|all]",
                 "desc": "Tip all online users or every users in the guild from your balance.", 
-                "related": ["tip", "randtip", "randtip"],
+                "related": ["tip", "randtip", "randtip", "z"],
                 "subcmd": []
             },
             "feedback": {
@@ -103,7 +103,7 @@ class Core(commands.Cog):
             "triviatip": {
                 "usage": "/triviatip <amount> <coin> <duration>",
                 "desc": "Drop a Trivia Tip to discord users in the guild.", 
-                "related": ["mathtip", "freetip"],
+                "related": ["mathtip", "freetip", "z"],
                 "subcmd": []
             },
             "deposit": {
@@ -253,7 +253,7 @@ class Core(commands.Cog):
             "mathtip": {
                 "usage": "/mathtip <amount> <coin> <duration> <math expression>",
                 "desc": "Similiar to Trivia Tip, create a math expression to discord users in the guild.", 
-                "related": ["triviatip", "freetip"],
+                "related": ["triviatip", "freetip", "z"],
                 "subcmd": []
             },
             "eco": {
@@ -301,13 +301,19 @@ class Core(commands.Cog):
             "tip": {
                 "usage": "/tip <amount> <coin> @mention @role | last 10u | last 10mn",
                 "desc": "Tip discord users from your balance.", 
+                "related": ["z", "tipall", "randtip", "freetip", "mathtip", "triviatip"],
+                "subcmd": []
+            },
+            "z": {
+                "usage": "/z <amount coin, amount coin, amount token> @mention ... @role",
+                "desc": "Like /tip but you can tip many different coins/tokens at once.", 
                 "related": ["tipall", "randtip", "freetip", "mathtip", "triviatip"],
                 "subcmd": []
             },
             "guildtip": {
                 "usage": "/guildtip <amount> <coin> @mention @role | last 10u | last 10mn",
                 "desc": "Tip discord users from guild's balance.", 
-                "related": ["tip", "mdeposit", "guild info", "guild deposit"],
+                "related": ["z", "tip", "mdeposit", "guild info", "guild deposit"],
                 "subcmd": []
             },
             "coinlist": {

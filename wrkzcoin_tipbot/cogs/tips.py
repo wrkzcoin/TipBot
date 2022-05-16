@@ -1783,6 +1783,38 @@ class Tips(commands.Cog):
             await ctx.response.send_message(f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute z tip message...", ephemeral=True)
             return
 
+        list_member_ids = []
+        if "@everyone" in amount_list_to.lower():
+            list_member_ids = [str(member.id) for member in ctx.guild.members if member.id != ctx.author.id]
+        else:
+            get_list_member_n_role = re.findall(r"([0-9]{15,20})", amount_list_to)
+            if len(get_list_member_n_role) > 0:
+                get_list_member_n_role = [each.replace(">", "").replace("<", "") for each in get_list_member_n_role]
+                # There is member or role to check
+                # Check member
+                for each_m in get_list_member_n_role:
+                    try:
+                        m = self.bot.get_user(int(each_m))
+                        list_member_ids.append(str(m.id))
+                    except Exception as e:
+                        pass
+                if len(get_list_member_n_role) > 0:
+                    for each_r in get_list_member_n_role:
+                        try:
+                            # get list users in role
+                            get_role = disnake.utils.get(ctx.guild.roles, id=int(each_r))
+                            role_listMember = [str(member.id) for member in ctx.guild.members if get_role in member.roles]
+                            if len(role_listMember) > 0:
+                                list_member_ids += role_listMember
+                        except Exception as e:
+                            pass
+                list_member_ids = list(set(list_member_ids))
+        if str(ctx.author.id) in list_member_ids: list_member_ids.remove(str(ctx.author.id))
+
+        if len(list_member_ids) == 0:
+            await ctx.edit_original_message(content=f"{ctx.author.mention}, there is no one to tip to.")
+            return
+
         list_amount_and_tokens = {}
         list_coin_decimal = {}
         list_contract = {}
@@ -1793,6 +1825,7 @@ class Tips(commands.Cog):
         sum_in_usd = 0.0
 
         User_WalletAPI = WalletAPI(self.bot)
+        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         amount_token = amount_list_to.split(",")
         for each_token in amount_token:
             if len(each_token) > 0:
@@ -1801,6 +1834,18 @@ class Tips(commands.Cog):
                     amount = split_amount_token[0]
                     COIN_NAME = split_amount_token[1].upper()
                     if hasattr(self.bot.coin_list, COIN_NAME):
+                        if getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_tip") != 1:
+                            error_msg = f'**{COIN_NAME}** tipping is disable.'
+                            has_amount_error = True
+                            break
+                        try:
+                            if serverinfo and serverinfo['tiponly'] and serverinfo['tiponly'] != "ALLCOIN" and COIN_NAME not in serverinfo['tiponly'].split(","):
+                                allowed_coins = serverinfo['tiponly']
+                                error_msg = f'**{COIN_NAME}** is not allowed here. Currently, allowed `{allowed_coins}`. You can ask guild owner to allow. `/SETTING TIPONLY coin1,coin2,...`'
+                                has_amount_error = True
+                                break
+                        except Exception as e:
+                            traceback.print_exc(file=sys.stdout)
                         net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
                         type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
                         deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
@@ -1894,8 +1939,8 @@ class Tips(commands.Cog):
                                     error_msg = f'tipping for {COIN_NAME} cannot be smaller than **{num_format_coin(MinTip, COIN_NAME, coin_decimal, False)} {token_display}** or bigger than **{num_format_coin(MaxTip, COIN_NAME, coin_decimal, False)} {token_display}**.'
                                     has_amount_error = True
                                     break
-                                elif amount > actual_balance:
-                                    error_msg = f'insufficient balance to tip **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}**.'
+                                elif amount*len(list_member_ids) > actual_balance:
+                                    error_msg = f'insufficient balance to tip **{num_format_coin(amount*len(list_member_ids), COIN_NAME, coin_decimal, False)} {token_display}**. Having {num_format_coin(actual_balance, COIN_NAME, coin_decimal, False)} {token_display}.'
                                     has_amount_error = True
                                     break
                                 else:
@@ -1933,125 +1978,94 @@ class Tips(commands.Cog):
             if len(list_amount_and_tokens) == 0:
                 await ctx.edit_original_message(content=f"{ctx.author.mention}, invalid amount or token.")
                 return
-            list_member_ids = []
-            if "@everyone" in amount_list_to.lower():
-                list_member_ids = [str(member.id) for member in ctx.guild.members if member.id != ctx.author.id]
-            else:
-                get_list_member_n_role = re.findall(r"([0-9]{15,20})", amount_list_to)
-                if len(get_list_member_n_role) > 0:
-                    get_list_member_n_role = [each.replace(">", "").replace("<", "") for each in get_list_member_n_role]
-                    # There is member or role to check
-                    # Check member
-                    for each_m in get_list_member_n_role:
-                        try:
-                            m = self.bot.get_user(int(each_m))
-                            list_member_ids.append(str(m.id))
-                        except Exception as e:
-                            pass
-                    if len(get_list_member_n_role) > 0:
-                        for each_r in get_list_member_n_role:
-                            try:
-                                # get list users in role
-                                get_role = disnake.utils.get(ctx.guild.roles, id=int(each_r))
-                                role_listMember = [str(member.id) for member in ctx.guild.members if get_role in member.roles]
-                                if len(role_listMember) > 0:
-                                    list_member_ids += role_listMember
-                            except Exception as e:
-                                pass
-                    list_member_ids = list(set(list_member_ids))
-            if str(ctx.author.id) in list_member_ids: list_member_ids.remove(str(ctx.author.id))
 
-            if len(list_member_ids) == 0:
-                await ctx.edit_original_message(content=f"{ctx.author.mention}, there is no one to tip to.")
-                return
-            else:
-                # This one should limit by 100 (Testing)
-                max_allowed = 50
-                try:
-                    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
-                    if len(list_member_ids) > max_allowed:
-                        # Check if premium guild
-                        if serverinfo and serverinfo['is_premium'] == 0:
-                            msg = f'{ctx.author.mention}, there are more than maximum allowed `{str(max_allowed)}`. You can request pluton#8888 to allow this for your guild.'
-                            await ctx.edit_original_message(content=msg)
-                            await logchanbot(f"{ctx.guild.id} / {ctx.guild.name} reaches number of recievers: `{str(len(list_member_ids))}` issued by {ctx.author.id} / {ctx.author.name}#{ctx.author.discriminator}.")
-                            return
-                        else:
-                            await logchanbot(f"{ctx.guild.id} / {ctx.guild.name} reaches number of recievers: `{str(len(list_member_ids))}` issued by {ctx.author.id} / {ctx.author.name}#{ctx.author.discriminator}.")
-                except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
+            # This one should limit by 100 (Testing)
+            max_allowed = 50
+            try:
+                serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                if len(list_member_ids) > max_allowed:
+                    # Check if premium guild
+                    if serverinfo and serverinfo['is_premium'] == 0:
+                        msg = f'{ctx.author.mention}, there are more than maximum allowed `{str(max_allowed)}`. You can request pluton#8888 to allow this for your guild.'
+                        await ctx.edit_original_message(content=msg)
+                        await logchanbot(f"{ctx.guild.id} / {ctx.guild.name} reaches number of recievers: `{str(len(list_member_ids))}` issued by {ctx.author.id} / {ctx.author.name}#{ctx.author.discriminator}.")
+                        return
+                    else:
+                        await logchanbot(f"{ctx.guild.id} / {ctx.guild.name} reaches number of recievers: `{str(len(list_member_ids))}` issued by {ctx.author.id} / {ctx.author.name}#{ctx.author.discriminator}.")
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
 
-                passed_tips = []
-                each_tips = []
-                notifyList = await store.sql_get_tipnotify()
-                try:
-                    tip_type = "TIP"
-                    if len(list_member_ids) > 1:
-                        tip_type = "TIPS"
-                    if ctx.author.id not in self.bot.TX_IN_PROCESS:
-                        self.bot.TX_IN_PROCESS.append(ctx.author.id)
-                    for k, v in list_amount_and_tokens.items():
-                        try:
-                            tips = await store.sql_user_balance_mv_multiple(str(ctx.author.id), list_member_ids, str(ctx.guild.id), str(ctx.channel.id), v, k, tip_type, list_coin_decimal[k], SERVER_BOT, list_contract[k], float(list_amount_in_usd[k]), None)
-                            passed_tips.append("{} {}".format( num_format_coin(v*len(list_member_ids), k, list_coin_decimal[k], False), k ))
-                            each_tips.append("{} {}".format( num_format_coin(v, k, list_coin_decimal[k], False), k ))
-                        except Exception as e:
-                            traceback.print_exc(file=sys.stdout)
-                except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
-                    await logchanbot(traceback.format_exc())
-                if int(ctx.author.id) in self.bot.TX_IN_PROCESS:
-                    self.bot.TX_IN_PROCESS.remove(ctx.author.id)
-                if len(passed_tips) > 0:
-                    list_mentions = []
-                    # tipper shall always get DM. Ignore notifyList
-                    joined_tip_list = " / ".join(passed_tips)
-                    each_tips_list = " / ".join(each_tips)
-                    sum_in_usd_text = ""
-                    if sum_in_usd > 0:
-                        sum_in_usd_text = " ~ {:,.4f} USD".format(sum_in_usd)
+            passed_tips = []
+            each_tips = []
+            notifyList = await store.sql_get_tipnotify()
+            try:
+                tip_type = "TIP"
+                if len(list_member_ids) > 1:
+                    tip_type = "TIPS"
+                if ctx.author.id not in self.bot.TX_IN_PROCESS:
+                    self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                for k, v in list_amount_and_tokens.items():
                     try:
-                        if len(list_member_ids) > 20:
-                            msg = f'{EMOJI_ARROW_RIGHTHOOK} tip of **{joined_tip_list}** was sent to ({str(len(list_member_ids))}) members in server `{ctx.guild.name}`.\nEach member got: **{each_tips_list}{sum_in_usd_text}**'
-                        elif len(list_member_ids) >= 1:
-                            incl_msg = []
-                            incl_msg_str = ""
-                            for each_m in list_member_ids:
-                                try:
-                                    each_user = self.bot.get_user(int(each_m))
-                                except Exception as e:
-                                    continue
-                                if ctx.author.id != int(each_m) and each_m not in notifyList:
-                                    incl_msg.append(each_user.mention)
-                                    list_mentions.append(each_user)
-                                if ctx.author.id != int(each_m) and each_m in notifyList:
-                                    incl_msg.append("{}#{}".format(each_user.name, each_user.discriminator))
-                            if len(incl_msg) > 0: incl_msg_str = ", ".join(incl_msg)
-                            msg = f'{EMOJI_ARROW_RIGHTHOOK} tip of **{joined_tip_list}** was sent to {incl_msg_str} in server `{ctx.guild.name}`.'
-                            if len(list_member_ids) > 1:
-                                msg += f'\nEach member got: **{each_tips_list}{sum_in_usd_text}**\n'
-                        try:
-                            await ctx.author.send(msg)
-                        except Exception as e:
-                            pass
-                        try:
-                            await ctx.edit_original_message(content=msg)
-                        except Exception as e:
-                            pass
-                    except (disnake.Forbidden, disnake.errors.Forbidden) as e:
+                        tips = await store.sql_user_balance_mv_multiple(str(ctx.author.id), list_member_ids, str(ctx.guild.id), str(ctx.channel.id), v, k, tip_type, list_coin_decimal[k], SERVER_BOT, list_contract[k], float(list_amount_in_usd[k]), None)
+                        passed_tips.append("{} {}".format( num_format_coin(v*len(list_member_ids), k, list_coin_decimal[k], False), k ))
+                        each_tips.append("{} {}".format( num_format_coin(v, k, list_coin_decimal[k], False), k ))
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
+            if int(ctx.author.id) in self.bot.TX_IN_PROCESS:
+                self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+            if len(passed_tips) > 0:
+                list_mentions = []
+                # tipper shall always get DM. Ignore notifyList
+                joined_tip_list = " / ".join(passed_tips)
+                each_tips_list = " / ".join(each_tips)
+                sum_in_usd_text = ""
+                if sum_in_usd > 0:
+                    sum_in_usd_text = " ~ {:,.4f} USD".format(sum_in_usd)
+                try:
+                    if len(list_member_ids) > 20:
+                        msg = f'{EMOJI_ARROW_RIGHTHOOK} tip of **{joined_tip_list}** was sent to ({str(len(list_member_ids))}) members in server `{ctx.guild.name}`.\nEach member got: **{each_tips_list}{sum_in_usd_text}**'
+                    elif len(list_member_ids) >= 1:
+                        incl_msg = []
+                        incl_msg_str = ""
+                        for each_m in list_member_ids:
+                            try:
+                                each_user = self.bot.get_user(int(each_m))
+                            except Exception as e:
+                                continue
+                            if ctx.author.id != int(each_m) and each_m not in notifyList:
+                                incl_msg.append(each_user.mention)
+                                list_mentions.append(each_user)
+                            if ctx.author.id != int(each_m) and each_m in notifyList:
+                                incl_msg.append("{}#{}".format(each_user.name, each_user.discriminator))
+                        if len(incl_msg) > 0: incl_msg_str = ", ".join(incl_msg)
+                        msg = f'{EMOJI_ARROW_RIGHTHOOK} tip of **{joined_tip_list}** was sent to {incl_msg_str} in server `{ctx.guild.name}`.'
+                        if len(list_member_ids) > 1:
+                            msg += f'\nEach member got: **{each_tips_list}{sum_in_usd_text}**\n'
+                    try:
+                        await ctx.author.send(msg)
+                    except Exception as e:
                         pass
-                    if len(list_mentions) >= 1:
-                        tip_text = "a tip"
-                        if len(each_tips) > 1:
-                            tip_text = "tips"
-                        for member in list_mentions:
-                            # print(member.name) # you'll just print out Member objects your way.
-                            if ctx.author.id != member.id and member.id != self.bot.user.id and member.bot == False and str(member.id) not in notifyList:
-                                try:
-                                    msg = f'{EMOJI_MONEYFACE}, you got {tip_text} of **{each_tips_list}{sum_in_usd_text}** from {ctx.author.name}#{ctx.author.discriminator} in server `{ctx.guild.name}`\n{NOTIFICATION_OFF_CMD}'
-                                    await member.send(msg)
-                                except (disnake.Forbidden, disnake.errors.Forbidden) as e:
-                                    pass
+                    try:
+                        await ctx.edit_original_message(content=msg)
+                    except Exception as e:
+                        pass
+                except (disnake.Forbidden, disnake.errors.Forbidden) as e:
+                    pass
+                if len(list_mentions) >= 1:
+                    tip_text = "a tip"
+                    if len(each_tips) > 1:
+                        tip_text = "tips"
+                    for member in list_mentions:
+                        # print(member.name) # you'll just print out Member objects your way.
+                        if ctx.author.id != member.id and member.id != self.bot.user.id and member.bot == False and str(member.id) not in notifyList:
+                            try:
+                                msg = f'{EMOJI_MONEYFACE}, you got {tip_text} of **{each_tips_list}{sum_in_usd_text}** from {ctx.author.name}#{ctx.author.discriminator} in server `{ctx.guild.name}`\n{NOTIFICATION_OFF_CMD}'
+                                await member.send(msg)
+                            except (disnake.Forbidden, disnake.errors.Forbidden) as e:
+                                pass
 
 
     # Multiple tip

@@ -275,7 +275,7 @@ class Tips(commands.Cog):
 
     @tasks.loop(seconds=30.0)
     async def freetip_check(self):
-        get_active_freetip = await store.get_active_discord_freetip()
+        get_active_freetip = await store.get_active_discord_freetip(lap=120)
         await self.bot.wait_until_ready()
 
         loop_next = 0

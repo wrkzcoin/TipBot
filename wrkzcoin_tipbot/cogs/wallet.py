@@ -5513,7 +5513,7 @@ class Wallet(commands.Cog):
         if token is None:
             embed = disnake.Embed(title=f'Faucet Claim{title_text}', description=f"```1] Set your reward coin claim with any of this {list_coins_str} with command /claim token_name\n\n2] Vote for TipBot in below links.\n\n```", timestamp=datetime.fromtimestamp(int(time.time())))
             
-            for key in ["topgg", "discordbotlist"]:
+            for key in ["topgg", "discordbotlist", "botsfordiscord"]:
                 reward_list = []
                 for each in list_coin_sets[key]:
                     for k, v in each.items():

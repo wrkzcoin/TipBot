@@ -2260,7 +2260,7 @@ async def insert_discord_freetip(token_name: str, contract: str, from_userid: st
     return False
 
 
-async def get_active_discord_freetip():
+async def get_active_discord_freetip(lap: int=60):
     global pool
     try:
         await openConnection()
@@ -2268,7 +2268,7 @@ async def get_active_discord_freetip():
             async with conn.cursor() as cur:
                 swap_in = 0.0
                 sql = """ SELECT * FROM `discord_airdrop_tmp` WHERE `status`=%s AND `airdrop_time`>%s """
-                await cur.execute(sql, ( "ONGOING", int(time.time()) ) )
+                await cur.execute(sql, ( "ONGOING", int(time.time())-lap ) )
                 result = await cur.fetchall()
                 if result and len(result) > 0: return result
     except Exception as e:

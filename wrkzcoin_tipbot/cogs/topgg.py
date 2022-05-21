@@ -214,19 +214,18 @@ class TopGGVote(commands.Cog):
                                                     amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                                             tip = await store.sql_user_balance_mv_single(guild_id, user_vote, "TOPGG", "VOTE", amount, COIN_NAME, "GUILDVOTE", coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
                                             if member is not None:
-                                                msg = f"Thank you for voting guild `{guild.name}` at top.gg. You just got a reward of {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}."
+                                                msg = f"Thank you for voting for guild `{guild.name}` at top.gg. You got a reward {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}."
                                                 try:
                                                     await member.send(msg)
                                                     guild_owner = self.bot.get_user(guild.owner.id)
                                                     try:
-                                                        await guild_owner.send(f'User `{user_vote}` voted your guild {guild.name} at top.gg. He/she just got a reward of {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}.')
+                                                        await guild_owner.send(f'User `{user_vote}` voted for your guild {guild.name} at top.gg. They got a reward {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}.')
                                                     except Exception as e:
                                                         pass
                                                     # Log channel if there is
                                                     try:
                                                         serverinfo = await store.sql_info_by_server(guild_id)
                                                         if serverinfo and serverinfo['vote_reward_channel']:
-                                                            # msg = f'User <@{user_vote}> voted for guild {guild.name} at https://top.gg/servers/'+guild_id+f' . He/she just got a reward of {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}. Thank you!'
                                                             channel = self.bot.get_channel(int(serverinfo['vote_reward_channel']))
                                                             embed = disnake.Embed(title = "NEW GUILD VOTE!", timestamp=datetime.now())
                                                             embed.add_field(name="User", value="<@{}>".format(user_vote), inline=True)
@@ -296,7 +295,7 @@ class TopGGVote(commands.Cog):
                                                 amount = 0.0
                                                 COIN_NAME = get_user_coin['coin_name']
                                                 for each_coin in list_coins:
-                                                    if each_coin['coin_name'].upper() == COIN_NAME.upper():
+                                                    if each_coin['coin_name'].upper() == COIN_NAME.upper() and each_coin['reward_for'] == "topgg":
                                                         COIN_NAME = each_coin['coin_name'].upper()
                                                         amount = each_coin['reward_amount']
                                                         break
@@ -350,7 +349,7 @@ class TopGGVote(commands.Cog):
                                                                     amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                                                             tip = await store.sql_user_balance_mv_single(config.discord.bot_id, user_vote, "TOPGG", "VOTE", amount, COIN_NAME, "BOTVOTE", coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
                                                             if member is not None:
-                                                                msg = f"Thank you for voting our TipBot at {config.bot_vote_link.topgg} . You just got a reward of {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}."
+                                                                msg = f"Thank you for voting for our TipBot at <{config.bot_vote_link.topgg}>. You just got a reward {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}. Check with `/claim` for voting list at other websites."
                                                                 try:
                                                                     await member.send(msg)
                                                                 except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
@@ -370,7 +369,7 @@ class TopGGVote(commands.Cog):
                                             else:
                                                 # User didn't put any prefer coin. Message him he could reward
                                                 if member is not None:
-                                                    msg = f"Thank you for voting our TipBot at {config.bot_vote_link.topgg} . You can get a reward! Know more by `/claim` or `/claim token_name` to set your preferred coin/token reward."
+                                                    msg = f"Thank you for voting for our TipBot at <{config.bot_vote_link.topgg}>. You can get a reward! Know more by `/claim` or `/claim token_name` to set your preferred coin/token reward."
                                                     try:
                                                         await member.send(msg)
                                                     except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:

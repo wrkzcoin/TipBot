@@ -5512,14 +5512,18 @@ class Wallet(commands.Cog):
         list_coins_str = ", ".join(list_coin_names)
         if token is None:
             embed = disnake.Embed(title=f'Faucet Claim{title_text}', description=f"```1] Set your reward coin claim with any of this {list_coins_str} with command /claim token_name\n\n2] Vote for TipBot in below links.\n\n```", timestamp=datetime.fromtimestamp(int(time.time())))
-            
-            for key in ["topgg", "discordbotlist", "botsfordiscord"]:
+
+            reward_list_default = []
+            link_list = []
+            for key in ["topgg", "discordbotlist", "botsfordiscord", "discordlistspace"]:
                 reward_list = []
                 for each in list_coin_sets[key]:
                     for k, v in each.items():
                         reward_list.append("{}{}".format(v, k))
-                reward_list_str = ", ".join(reward_list)
-                embed.add_field(name="{}'s reward".format(key), value="Vote at: [{}]({})```{}```".format(key, getattr(config.bot_vote_link, key), reward_list_str), inline=False)
+                reward_list_default = reward_list
+                link_list.append( "Vote at: [{}]({})".format( key, getattr(config.bot_vote_link, key) ) )
+            embed.add_field(name="Vote List", value="\n".join(link_list), inline=False)
+            embed.add_field(name="Vote rewards".format(key), value="```{}```".format( ", ".join(reward_list_default) ), inline=False)
             embed.set_footer(text="Requested by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
             try:
                 
@@ -5816,7 +5820,7 @@ class Wallet(commands.Cog):
             trunc_num = 6
         amount = truncate(float(amount), trunc_num)
         if amount == 0:
-            amount_msg_zero = 'Get 0 random amount requested faucet by: {}#{}'.format(ctx.author.name, ctx.author.discriminator)
+            amount_msg_zero = 'Get 0 random amount requested faucet by: {}#{} for coin {}'.format(ctx.author.name, ctx.author.discriminator, COIN_NAME)
             await logchanbot(amount_msg_zero)
             return
 

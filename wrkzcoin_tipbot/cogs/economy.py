@@ -1088,7 +1088,6 @@ class Economy(commands.Cog):
             await ctx.response.send_message(msg)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(content=f"{EMOJI_INFORMATION} {ctx.author.mention}, error checking buying items...", ephemeral=True)
             return
 
         # Getting list
@@ -1477,7 +1476,7 @@ class Economy(commands.Cog):
             await ctx.response.send_message(content=msg)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(content=f"{EMOJI_INFORMATION} {ctx.author.mention}, error checking info...", ephemeral=True)
+            return
 
         # Get all available work in the guild
         get_worklist = await self.db.economy_get_guild_worklist(str(ctx.guild.id), True)
@@ -1556,7 +1555,7 @@ class Economy(commands.Cog):
             await ctx.response.send_message(msg)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(content=f"{EMOJI_INFORMATION} {ctx.author.mention}, error checking backpack items...", ephemeral=True)
+            return
 
         # Getting list of work in the guild and re-act
         get_userinfo = await self.db.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
@@ -1612,7 +1611,7 @@ class Economy(commands.Cog):
             await ctx.response.send_message(msg)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(content=f"{EMOJI_INFORMATION} {ctx.author.mention}, error checking lumber storage...", ephemeral=True)
+            return
 
         try:
             get_lumber_inventory = await self.db.economy_get_timber_user(str(member.id), sold_timber='NO', sold_leaf='NO')
@@ -1639,7 +1638,7 @@ class Economy(commands.Cog):
             await ctx.response.send_message(msg)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(content=f"{EMOJI_INFORMATION} {ctx.author.mention}, error checking fish storage...", ephemeral=True)
+            return
 
         try:
             get_userinfo = await self.db.economy_get_user(str(member.id), '{}#{}'.format(member.name, member.discriminator))
@@ -1771,7 +1770,6 @@ class Economy(commands.Cog):
             await ctx.response.send_message(msg)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(content=f"{EMOJI_INFORMATION} {ctx.author.mention}, error checking...", ephemeral=True)
             return
 
         get_userinfo = await self.db.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
@@ -1860,7 +1858,7 @@ class Economy(commands.Cog):
             await ctx.response.send_message(msg)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(content=f"{EMOJI_INFORMATION} {ctx.author.mention}, error checking chicken farm...", ephemeral=True)
+            return
 
         # Getting list of work in the guild and re-act
         get_userinfo = await self.db.economy_get_user(str(member.id), '{}#{}'.format(member.name, member.discriminator))
@@ -1962,7 +1960,7 @@ class Economy(commands.Cog):
             await ctx.response.send_message(msg)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(content=f"{EMOJI_INFORMATION} {ctx.author.mention}, error checking chicken farm...", ephemeral=True)
+            return
 
         # Getting list of work in the guild and re-act
         get_userinfo = await self.db.economy_get_user(str(member.id), '{}#{}'.format(member.name, member.discriminator))
@@ -2052,7 +2050,7 @@ class Economy(commands.Cog):
             await ctx.response.send_message(msg)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(content=f"{EMOJI_INFORMATION} {ctx.author.mention}, error checking farm...", ephemeral=True)
+            return
 
         # Getting list of work in the guild and re-act
         get_userinfo = await self.db.economy_get_user(str(member.id), '{}#{}'.format(member.name, member.discriminator))
@@ -2155,7 +2153,7 @@ class Economy(commands.Cog):
             await ctx.response.send_message(msg)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(content=f"{EMOJI_INFORMATION} {ctx.author.mention}, error checking farm...", ephemeral=True)
+            return
 
         get_userinfo = await self.db.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
         if get_userinfo and get_userinfo['numb_farm'] == 0:
@@ -2207,7 +2205,6 @@ class Economy(commands.Cog):
             await ctx.response.send_message(msg)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute food message...", ephemeral=True)
             return
 
         # If user has so many items and not use:
@@ -2345,7 +2342,6 @@ class Economy(commands.Cog):
             await ctx.response.send_message(msg)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute food message...", ephemeral=True)
             return
 
         get_userinfo = await self.db.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
@@ -2406,7 +2402,6 @@ class Economy(commands.Cog):
             await ctx.response.send_message(msg)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute search message...", ephemeral=True)
             return
 
         # If user has so many items and not use:
@@ -2480,7 +2475,6 @@ class Economy(commands.Cog):
             await ctx.response.send_message(msg)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute food message...", ephemeral=True)
             return
 
         # If a user ate a lot already for the last 12h
@@ -2864,7 +2858,6 @@ class Economy(commands.Cog):
             await ctx.response.send_message(msg)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(content=f"{EMOJI_INFORMATION} {ctx.author.mention}, error checking your farm and seeds...", ephemeral=True)
             return
         eco_plant = await self.eco_plant(ctx, plant_name)
         if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO: self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)

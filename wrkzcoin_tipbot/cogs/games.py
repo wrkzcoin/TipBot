@@ -1440,7 +1440,7 @@ class Sokoban_Buttons(disnake.ui.View):
                 else:
                     reward = await self.db.sql_game_add(str(self.level), str(self.ctx.author.id), COIN_NAME, 'WIN', amount, coin_decimal, str(self.ctx.guild.id), 'SOKOBAN', int(time.time()) - self.time_start, SERVER_BOT)
                 duration = seconds_str(int(time.time()) - self.time_start)
-                await self.message.reply(content=f'**Level {self.level} completed. You have spent time: **{duration}**\n{result}', view=None)
+                await self.message.reply(content=f'Level {self.level} completed. You have spent time: **{duration}**\n{result}', view=None)
             else:
                 display_level = self.displayLevel(self.currentLevel)
                 embed = disnake.Embed(title=f'SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}', description=f'{display_level}', timestamp=datetime.now())
@@ -1559,7 +1559,7 @@ class Sokoban_Buttons(disnake.ui.View):
                     reward = await self.db.sql_game_add(str(self.level), str(self.ctx.author.id), COIN_NAME, 'WIN', amount, coin_decimal, str(self.ctx.guild.id), 'SOKOBAN', int(time.time()) - self.time_start, SERVER_BOT)
 
                 duration = seconds_str(int(time.time()) - self.time_start)
-                await self.message.reply(content=f'**Level {self.level} completed. You have spent time: **{duration}**\n{result}', view=None)
+                await self.message.reply(content=f'Level {self.level} completed. You have spent time: **{duration}**\n{result}', view=None)
             else:
                 display_level = self.displayLevel(self.currentLevel)
                 embed = disnake.Embed(title=f'SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}', description=f'{display_level}', timestamp=datetime.now())
@@ -1678,7 +1678,7 @@ class Sokoban_Buttons(disnake.ui.View):
                     reward = await self.db.sql_game_add(str(self.level), str(self.ctx.author.id), COIN_NAME, 'WIN', amount, coin_decimal, str(self.ctx.guild.id), 'SOKOBAN', int(time.time()) - self.time_start, SERVER_BOT)
 
                 duration = seconds_str(int(time.time()) - self.time_start)
-                await self.message.reply(content=f'**Level {self.level} completed. You have spent time: **{duration}**\n{result}', view=None)
+                await self.message.reply(content=f'Level {self.level} completed. You have spent time: **{duration}**\n{result}', view=None)
             else:
                 display_level = self.displayLevel(self.currentLevel)
                 embed = disnake.Embed(title=f'SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}', description=f'{display_level}', timestamp=datetime.now())
@@ -1796,7 +1796,7 @@ class Sokoban_Buttons(disnake.ui.View):
                     reward = await self.db.sql_game_add(str(self.level), str(self.ctx.author.id), COIN_NAME, 'WIN', amount, coin_decimal, str(self.ctx.guild.id), 'SOKOBAN', int(time.time()) - self.time_start, SERVER_BOT)
 
                 duration = seconds_str(int(time.time()) - self.time_start)
-                await self.message.reply(content=f'**Level {self.level} completed. You have spent time: **{duration}**\n{result}', view=None)
+                await self.message.reply(content=f'Level {self.level} completed. You have spent time: **{duration}**\n{result}', view=None)
             else:
                 display_level = self.displayLevel(self.currentLevel)
                 embed = disnake.Embed(title=f'SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}', description=f'{display_level}', timestamp=datetime.now())

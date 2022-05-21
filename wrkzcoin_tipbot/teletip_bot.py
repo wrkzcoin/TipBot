@@ -1588,6 +1588,126 @@ class WalletTG:
             await logchanbot(traceback.format_exc())
 
 
+    async def send_external_trc20(self, user_id: str, to_address: str, amount: float, coin: str, coin_decimal: int, real_withdraw_fee: float, user_server: str, fee_limit: float, trc_type: str, contract: str=None):
+        TOKEN_NAME = coin.upper()
+        user_server = user_server.upper()
+
+        try:
+            tron_node = await handle_best_node("TRX")
+            _http_client = AsyncClient(limits=Limits(max_connections=100, max_keepalive_connections=20),
+                                       timeout=Timeout(timeout=10, connect=5, read=5))
+            TronClient = AsyncTron(provider=AsyncHTTPProvider(tron_node, client=_http_client))
+            if TOKEN_NAME == "TRX":
+                txb = (
+                    TronClient.trx.transfer(config.trc.MainAddress, to_address, int(amount*10**6))
+                    #.memo("test memo")
+                    .fee_limit(int(fee_limit*10**6))
+                )
+                txn = await txb.build()
+                priv_key = PrivateKey(bytes.fromhex(config.trc.MainAddress_key))
+                txn_ret = await txn.sign(priv_key).broadcast()
+                try:
+                    in_block = await txn_ret.wait()
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                await TronClient.close()
+                if txn_ret and in_block:
+                    # Add to SQL
+                    try:
+                        await self.openConnection()
+                        async with self.pool.acquire() as conn:
+                            await conn.ping(reconnect=True)
+                            async with conn.cursor() as cur:
+                                sql = """ INSERT INTO trc20_external_tx (`token_name`, `contract`, `user_id`, `real_amount`, 
+                                          `real_external_fee`, `token_decimal`, `to_address`, `date`, `txn`, `user_server`) 
+                                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                await cur.execute(sql, (TOKEN_NAME, contract, user_id, amount, real_withdraw_fee, coin_decimal, 
+                                                        to_address, int(time.time()), txn_ret['txid'], user_server))
+                                await conn.commit()
+                                return txn_ret['txid']
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
+            else:
+                if trc_type == "TRC-20":
+                    try:
+                        cntr = await TronClient.get_contract(contract)
+                        precision = await cntr.functions.decimals()
+                        ## TODO: alert if balance below threshold
+                        ## balance = await cntr.functions.balanceOf(config.trc.MainAddress) / 10**precision
+                        txb = await cntr.functions.transfer(to_address, int(amount*10**coin_decimal))
+                        txb = txb.with_owner(config.trc.MainAddress).fee_limit(int(fee_limit*10**6))
+                        txn = await txb.build()
+                        priv_key = PrivateKey(bytes.fromhex(config.trc.MainAddress_key))
+                        txn_ret = await txn.sign(priv_key).broadcast()
+                        in_block = None
+                        try:
+                            in_block = await txn_ret.wait()
+                        except Exception as e:
+                            traceback.print_exc(file=sys.stdout)
+                        await TronClient.close()
+                        if txn_ret and in_block:
+                            # Add to SQL
+                            try:
+                                await self.openConnection()
+                                async with self.pool.acquire() as conn:
+                                    await conn.ping(reconnect=True)
+                                    async with conn.cursor() as cur:
+                                        sql = """ INSERT INTO trc20_external_tx (`token_name`, `contract`, `user_id`, `real_amount`, 
+                                                  `real_external_fee`, `token_decimal`, `to_address`, `date`, `txn`, `user_server`) 
+                                                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                        await cur.execute(sql, (TOKEN_NAME, contract, user_id, amount, real_withdraw_fee, coin_decimal, 
+                                                                to_address, int(time.time()), txn_ret['txid'], user_server))
+                                        await conn.commit()
+                                        return txn_ret['txid']
+                            except Exception as e:
+                                traceback.print_exc(file=sys.stdout)
+                                await logchanbot(traceback.format_exc())
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                elif trc_type == "TRC-10":
+                    try:
+                        precision = 10**coin_decimal
+                        txb = (
+                            TronClient.trx.asset_transfer(
+                                config.trc.MainAddress, to_address, int(precision*amount), token_id=int(contract)
+                            )
+                            .fee_limit(int(fee_limit*10**6))
+                        )
+                        txn = await txb.build()
+                        priv_key = PrivateKey(bytes.fromhex(config.trc.MainAddress_key))
+                        txn_ret = await txn.sign(priv_key).broadcast()
+
+                        in_block = None
+                        try:
+                            in_block = await txn_ret.wait()
+                        except Exception as e:
+                            traceback.print_exc(file=sys.stdout)
+                        await TronClient.close()
+                        if txn_ret and in_block:
+                            # Add to SQL
+                            try:
+                                await self.openConnection()
+                                async with self.pool.acquire() as conn:
+                                    await conn.ping(reconnect=True)
+                                    async with conn.cursor() as cur:
+                                        sql = """ INSERT INTO trc20_external_tx (`token_name`, `contract`, `user_id`, `real_amount`, 
+                                                  `real_external_fee`, `token_decimal`, `to_address`, `date`, `txn`, `user_server`) 
+                                                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                        await cur.execute(sql, (TOKEN_NAME, str(contract), user_id, amount, real_withdraw_fee, coin_decimal, 
+                                                                to_address, int(time.time()), txn_ret['txid'], user_server))
+                                        await conn.commit()
+                                        return txn_ret['txid']
+                            except Exception as e:
+                                traceback.print_exc(file=sys.stdout)
+                                await logchanbot(traceback.format_exc())
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
+
 ### For Wallet
     async def check_withdraw_coin_address(self, coin_family: str, address: str):
         try:
@@ -2838,13 +2958,13 @@ async def start_cmd_handler(message: types.Message):
                         message_text = text(bold('COMPLETED:'),
                                             markdown.pre(msg))
                         await message.reply(message_text, parse_mode=ParseMode.MARKDOWN_V2)
-                        return
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
                     try:
                         await logchanbot(f'[{SERVER_BOT}] A user {tg_user} sucessfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}')
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
+                return
             elif type_coin in ["TRC-20", "TRC-10"]:
                 # TODO: validate address
                 SendTx = None
@@ -2869,13 +2989,13 @@ async def start_cmd_handler(message: types.Message):
                         message_text = text(bold('COMPLETED:'),
                                             markdown.pre(msg))
                         await message.reply(message_text, parse_mode=ParseMode.MARKDOWN_V2)
-                        return
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
                     try:
                         await logchanbot(f'[{SERVER_BOT}] A user {tg_user} sucessfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}')
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
+                return
             elif type_coin == "NANO":
                 valid_address = await WalletAPI.nano_validate_address(COIN_NAME, address)
                 if not valid_address == True:
@@ -2907,7 +3027,7 @@ async def start_cmd_handler(message: types.Message):
                         message_text = text(bold('ERROR:'),
                                             markdown.pre("You have another tx in process. Please wait it to finish."))
                         await message.reply(message_text, parse_mode=ParseMode.MARKDOWN_V2)
-                        return
+                    return
             elif type_coin == "CHIA":
                 if tg_user not in TX_IN_PROGRESS:
                     TX_IN_PROGRESS.append(tg_user)
@@ -2926,7 +3046,7 @@ async def start_cmd_handler(message: types.Message):
                     message_text = text(bold('ERROR:'),
                                         markdown.pre("You have another tx in process. Please wait it to finish."))
                     await message.reply(message_text, parse_mode=ParseMode.MARKDOWN_V2)
-                    return
+                return
             elif type_coin == "HNT":
                 if tg_user not in TX_IN_PROGRESS:
                     TX_IN_PROGRESS.append(tg_user)
@@ -2950,7 +3070,7 @@ async def start_cmd_handler(message: types.Message):
                     message_text = text(bold('ERROR:'),
                                         markdown.pre("You have another tx in process. Please wait it to finish."))
                     await message.reply(message_text, parse_mode=ParseMode.MARKDOWN_V2)
-                    return
+                return
             elif type_coin == "ADA":
                 if not address.startswith("addr1"):
                     msg = f'Invalid address. It should start with addr1.'
@@ -3084,7 +3204,7 @@ async def start_cmd_handler(message: types.Message):
                     message_text = text(bold('ERROR:'),
                                         markdown.pre("You have another tx in process. Please wait it to finish."))
                     await message.reply(message_text, parse_mode=ParseMode.MARKDOWN_V2)
-                    return
+                return
             elif type_coin == "BTC":
                 if tg_user not in TX_IN_PROGRESS:
                     TX_IN_PROGRESS.append(tg_user)
@@ -3105,7 +3225,7 @@ async def start_cmd_handler(message: types.Message):
                     message_text = text(bold('ERROR:'),
                                         markdown.pre(msg))
                     await message.reply(message_text, parse_mode=ParseMode.MARKDOWN_V2)
-                    return
+                return
             elif type_coin == "XMR" or type_coin == "TRTL-API" or type_coin == "TRTL-SERVICE" or type_coin == "BCN":
                 if tg_user not in TX_IN_PROGRESS:
                     TX_IN_PROGRESS.append(tg_user)
@@ -3130,7 +3250,7 @@ async def start_cmd_handler(message: types.Message):
                     message_text = text(bold('ERROR:'),
                                         markdown.pre("You have another tx in process. Please wait it to finish."))
                     await message.reply(message_text, parse_mode=ParseMode.MARKDOWN_V2)
-                    return
+                return
 
 @dp.message_handler(commands='price')
 async def start_cmd_handler(message: types.Message):

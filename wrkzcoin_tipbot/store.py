@@ -2307,6 +2307,25 @@ async def discord_freetip_update(message_id: str, status: str):
         traceback.print_exc(file=sys.stdout)
         await logchanbot(traceback.format_exc())
     return None
+
+async def discord_freetip_ongoing(user_id: str, status: str="ONGOING"):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT (SELECT COUNT(*) FROM `discord_airdrop_tmp` WHERE `from_userid`=%s AND `status`=%s) as airdrop, 
+                                 (SELECT COUNT(*) FROM `discord_mathtip_tmp` WHERE `from_userid`=%s AND `status`=%s) as mathtip,
+                                 (SELECT COUNT(*) FROM `discord_triviatip_tmp` WHERE `from_userid`=%s AND `status`=%s) as triviatip
+                      """
+                await cur.execute(sql, ( user_id, status, user_id, status, user_id, status ))
+                result = await cur.fetchone()
+                if result:
+                    return result['airdrop'] + result['mathtip'] + result['triviatip']
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return 0
 # End of FreeTip
 
 # Trade

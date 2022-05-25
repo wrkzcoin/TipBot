@@ -3441,6 +3441,9 @@ class Wallet(commands.Cog):
                 list_coins = [each['coin_name'].upper() for each in list_trtl_api]
                 for COIN_NAME in list_coins:
                     # print(f"Check balance {COIN_NAME}")
+                    if getattr(getattr(self.bot.coin_list, COIN_NAME), "is_maintenance") == 1 or getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_deposit") == 0:
+                        await asyncio.sleep(10.0)
+                        continue
                     gettopblock = await self.gettopblock(COIN_NAME, time_out=32)
                     height = int(gettopblock['block_header']['height'])
                     try:
@@ -3537,6 +3540,9 @@ class Wallet(commands.Cog):
                 list_coins = [each['coin_name'].upper() for each in list_trtl_service+list_bcn_service]
                 for COIN_NAME in list_coins:
                     # print(f"Check balance {COIN_NAME}")
+                    if getattr(getattr(self.bot.coin_list, COIN_NAME), "is_maintenance") == 1 or getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_deposit") == 0:
+                        await asyncio.sleep(10.0)
+                        continue
                     gettopblock = await self.gettopblock(COIN_NAME, time_out=32)
                     height = int(gettopblock['block_header']['height'])
                     try:
@@ -3631,6 +3637,9 @@ class Wallet(commands.Cog):
                 list_coins = [each['coin_name'].upper() for each in list_xmr_api]
                 for COIN_NAME in list_coins:
                     # print(f"Check balance {COIN_NAME}")
+                    if getattr(getattr(self.bot.coin_list, COIN_NAME), "is_maintenance") == 1 or getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_deposit") == 0:
+                        await asyncio.sleep(10.0)
+                        continue
                     gettopblock = await self.gettopblock(COIN_NAME, time_out=32)
                     height = int(gettopblock['block_header']['height'])
                     try:
@@ -3728,6 +3737,9 @@ class Wallet(commands.Cog):
                 list_coins = [each['coin_name'].upper() for each in list_btc_api]
                 for COIN_NAME in list_coins:
                     # print(f"Check balance {COIN_NAME}")
+                    if getattr(getattr(self.bot.coin_list, COIN_NAME), "is_maintenance") == 1 or getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_deposit") == 0:
+                        await asyncio.sleep(10.0)
+                        continue
                     gettopblock = await self.WalletAPI.call_doge('getblockchaininfo', COIN_NAME)
                     height = int(gettopblock['blocks'])
                     try:
@@ -3836,6 +3848,9 @@ class Wallet(commands.Cog):
                 list_coins = [each['coin_name'].upper() for each in list_chia_api]
                 for COIN_NAME in list_coins:
                     # print(f"Check balance {COIN_NAME}")
+                    if getattr(getattr(self.bot.coin_list, COIN_NAME), "is_maintenance") == 1 or getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_deposit") == 0:
+                        await asyncio.sleep(10.0)
+                        continue
                     gettopblock = await self.gettopblock(COIN_NAME, time_out=32)
                     height = int(gettopblock['height'])
                     try:
@@ -3933,6 +3948,9 @@ class Wallet(commands.Cog):
                 list_coins = [each['coin_name'].upper() for each in list_nano]
                 for COIN_NAME in list_coins:
                     # print(f"Check balance {COIN_NAME}")
+                    if getattr(getattr(self.bot.coin_list, COIN_NAME), "is_maintenance") == 1 or getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_deposit") == 0:
+                        await asyncio.sleep(10.0)
+                        continue
                     start = time.time()
                     timeout = 16
                     try:
@@ -6088,7 +6106,7 @@ class Wallet(commands.Cog):
                 await ctx.response.send_message(msg)
             else:
                 if amount <= 0:
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please get more {token_display}.'
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, Invalid given amount.'
                     await ctx.response.send_message(msg)
                     return
 

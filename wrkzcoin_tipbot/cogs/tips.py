@@ -767,6 +767,17 @@ class Tips(commands.Cog):
             await ctx.response.send_message(f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute free tip message...", ephemeral=True)
             return
 
+        # Check if there is many airdrop/mathtip/triviatip
+        try:
+            count_ongoing = await store.discord_freetip_ongoing( str(ctx.author.id), "ONGOING" )
+            if count_ongoing >= 3:
+                msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, you still have some ongoing tips. Please wait for them to complete first!'
+                await ctx.edit_original_message(content=msg)
+                return
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        # End of ongoing check
+
         net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
         type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
         deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")

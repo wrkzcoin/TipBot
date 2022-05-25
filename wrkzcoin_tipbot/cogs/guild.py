@@ -39,7 +39,7 @@ class Guild(commands.Cog):
         self.monitor_guild_reward_amount.start()
         
         # Raffle
-        self.raffle_min_useronline = 10
+        self.raffle_min_useronline = 5
         self.raffle_1st_winner = 0.5
         self.raffle_2nd_winner = 0.3
         self.raffle_3rd_winner = 0.19
@@ -1117,10 +1117,10 @@ class Guild(commands.Cog):
         coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
         if subc == "INFO":
             try:
-                ending_ts = datetime.utcfromtimestamp(int(get_raffle['ending_ts']))
+                ending_ts = datetime.fromtimestamp(int(get_raffle['ending_ts']))
                 embed = disnake.Embed(title = "RAFFLE #{} / {}".format(get_raffle['id'], ctx.guild.name), timestamp=ending_ts)
                 embed.add_field(name="ENTRY FEE", value="{} {}".format(num_format_coin(get_raffle['amount'], COIN_NAME, coin_decimal, False), COIN_NAME), inline=True)
-                create_ts = datetime.utcfromtimestamp(int(get_raffle['created_ts'])).strftime("%Y-%m-%d %H:%M:%S")
+                create_ts = datetime.fromtimestamp(int(get_raffle['created_ts'])).strftime("%Y-%m-%d %H:%M:%S")
                 create_ts_ago = str(timeago.format(create_ts, datetime.fromtimestamp(int(time.time()))))
                 embed.add_field(name="CREATED", value=create_ts_ago, inline=True)
                 if list_raffle_id and list_raffle_id['entries']:

@@ -1482,7 +1482,7 @@ class Guild(commands.Cog):
             return
         # We assume at least guild need to have 100x of reward or depends on guild's population
         elif amount*100 > actual_balance:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you need to have at least 100x reward balance. 100x rewards = {num_format_coin(amount*100, COIN_NAME, coin_decimal, False)} {token_display}.'
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, your guild needs to have at least 100x reward balance. 100x rewards = {num_format_coin(amount*100, COIN_NAME, coin_decimal, False)} {token_display}. Check with `/guild balance`.'
             await ctx.response.send_message(msg, ephemeral=True)
             return
         elif amount*len(ctx.guild.members) > actual_balance:
@@ -1948,8 +1948,8 @@ class Guild(commands.Cog):
             await ctx.response.send_message(msg, ephemeral=True)
             return
         # We assume at least guild need to have 100x of reward or depends on guild's population
-        elif amount*200 > actual_balance:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you need to have at least 100x reward balance. 100x rewards = {num_format_coin(amount*200, COIN_NAME, coin_decimal, False)} {token_display}.'
+        elif amount*100 > actual_balance:
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, your guild needs to have at least 100x reward balance. 100x rewards = {num_format_coin(amount*100, COIN_NAME, coin_decimal, False)} {token_display}. Check with `/guild balance`.'
             await ctx.response.send_message(msg, ephemeral=True)
             return
         elif amount*len(ctx.guild.members) > actual_balance:

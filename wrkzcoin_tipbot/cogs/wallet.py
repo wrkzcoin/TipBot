@@ -238,6 +238,8 @@ class WalletAPI(commands.Cog):
                 naming = config.redis.prefix + "_"+user_server+"_" + str(userID)
                 payload = f'"{naming}"'
                 address_call = await self.call_doge('getnewaddress', COIN_NAME, payload=payload)
+                if COIN_NAME in ["HNS"]:
+                    address_call = await self.call_doge('getnewaddress', COIN_NAME, payload='"default"')
                 reg_address = {}
                 reg_address['address'] = address_call
                 payload = f'"{address_call}"'
@@ -555,13 +557,21 @@ class WalletAPI(commands.Cog):
         headers = {
             'content-type': 'text/plain;',
         }
-        if payload is None:
-            data = '{"jsonrpc": "1.0", "id":"'+str(uuid.uuid4())+'", "method": "'+method_name+'", "params": [] }'
+        if COIN_NAME in ["HNS"]:
+            if payload is None:
+                data = '{"method": "'+method_name+'" }'
+            else:
+                data = '{"method": "'+method_name+'", "params": ['+payload+'] }'
         else:
-            data = '{"jsonrpc": "1.0", "id":"'+str(uuid.uuid4())+'", "method": "'+method_name+'", "params": ['+payload+'] }'
+            if payload is None:
+                data = '{"jsonrpc": "1.0", "id":"'+str(uuid.uuid4())+'", "method": "'+method_name+'", "params": [] }'
+            else:
+                data = '{"jsonrpc": "1.0", "id":"'+str(uuid.uuid4())+'", "method": "'+method_name+'", "params": ['+payload+'] }'
         
-        url = getattr(getattr(self.bot.coin_list, COIN_NAME), "daemon_address")
+        url = getattr(getattr(self.bot.coin_list, COIN_NAME), "wallet_address")
         # print(url, method_name)
+        if method_name == "getblockchaininfo": # daemon
+            url = getattr(getattr(self.bot.coin_list, COIN_NAME), "daemon_address")
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(url, data=data, timeout=timeout) as response:
@@ -3756,6 +3766,8 @@ class Wallet(commands.Cog):
                     payload = '"*", 100, 0'
                     if COIN_NAME in ["PGO"]:
                         payload = '"*", 200, 0'
+                    elif COIN_NAME in ["HNS"]:
+                        payload = '"default"'
                     get_transfers = await self.WalletAPI.call_doge('listtransactions', COIN_NAME, payload=payload)
                     if get_transfers and len(get_transfers) >= 1:
                         try:

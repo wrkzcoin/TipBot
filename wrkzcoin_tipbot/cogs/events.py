@@ -35,6 +35,8 @@ class Events(commands.Cog):
         self.reload_coin_paprika.start()
         self.reload_coingecko.start()
         
+        self.update_discord_stats.start()
+        
         self.botLogChan = None
         self.message_id_list = []
         # DB
@@ -53,6 +55,35 @@ class Events(commands.Cog):
         if self.botLogChan is None:
             self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
 
+
+    # Update stats
+    async def insert_new_stats(self, num_server: int, num_online: int, num_users: int, num_bots: int, num_tips: int, date: int):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ INSERT INTO discord_stats (`num_server`, `num_online`, `num_users`, `num_bots`, `num_tips`, `date`) VALUES (%s, %s, %s, %s, %s, %s) """
+                    await cur.execute(sql, ( num_server, num_online, num_users, num_bots, num_tips, date ) )
+                    await conn.commit()
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+
+    async def get_tipping_count(self):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT (SELECT COUNT(*) FROM user_balance_mv) AS nos_tipping,
+                              (SELECT COUNT(*) FROM user_balance_mv_data) AS nos_user """
+                    await cur.execute(sql, ())
+                    result = await cur.fetchone()
+                    return result
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return None
+    # End Update stats
 
     # Trivia / Math
     async def insert_mathtip_responder(self, message_id: str, guild_id: str, from_userid: str, responder_id: str, responder_name: str, result: str):
@@ -230,6 +261,22 @@ class Events(commands.Cog):
                 traceback.print_exc(file=sys.stdout)
             await asyncio.sleep(time_lap)
 
+    @tasks.loop(seconds=3600.0)
+    async def update_discord_stats(self):
+        time_lap = 5.0 # seconds
+        await self.bot.wait_until_ready()
+        await asyncio.sleep(time_lap)
+        try:
+            num_server = len(self.bot.guilds)
+            num_online = sum(1 for m in self.bot.get_all_members() if m.status == disnake.Status.online)
+            num_users = sum(1 for m in self.bot.get_all_members() if m.bot == False)
+            num_bots = sum(1 for m in self.bot.get_all_members() if m.bot == True)
+            get_tipping_count = await self.get_tipping_count()
+            num_tips = get_tipping_count['nos_tipping']
+            await self.insert_new_stats( num_server, num_online, num_users, num_bots, num_tips, int(time.time()) )
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        await asyncio.sleep(time_lap)
 
     async def get_coin_setting(self):
         try:
@@ -776,6 +823,16 @@ class Events(commands.Cog):
     @commands.Cog.listener()
     async def on_guild_join(self, guild):
         await self.bot_log()
+        try:
+            num_server = len(self.bot.guilds)
+            num_online = sum(1 for m in self.bot.get_all_members() if m.status == disnake.Status.online)
+            num_users = sum(1 for m in self.bot.get_all_members() if m.bot == False)
+            num_bots = sum(1 for m in self.bot.get_all_members() if m.bot == True)
+            get_tipping_count = await self.get_tipping_count()
+            num_tips = get_tipping_count['nos_tipping']
+            await self.insert_new_stats( num_server, num_online, num_users, num_bots, num_tips, int(time.time()) )
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
         add_server_info = await store.sql_addinfo_by_server(str(guild.id), guild.name, config.discord.prefixCmd, "WRKZ", True)
         await self.botLogChan.send(f'Bot joins a new guild {guild.name} / {guild.id} / Users: {len(guild.members)}. Total guilds: {len(self.bot.guilds)}.')
         return
@@ -784,6 +841,16 @@ class Events(commands.Cog):
     @commands.Cog.listener()
     async def on_guild_remove(self, guild):
         await self.bot_log()
+        try:
+            num_server = len(self.bot.guilds)
+            num_online = sum(1 for m in self.bot.get_all_members() if m.status == disnake.Status.online)
+            num_users = sum(1 for m in self.bot.get_all_members() if m.bot == False)
+            num_bots = sum(1 for m in self.bot.get_all_members() if m.bot == True)
+            get_tipping_count = await self.get_tipping_count()
+            num_tips = get_tipping_count['nos_tipping']
+            await self.insert_new_stats( num_server, num_online, num_users, num_bots, num_tips, int(time.time()) )
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
         add_server_info = await store.sql_updateinfo_by_server(str(guild.id), "status", "REMOVED")
         await self.botLogChan.send(f'Bot was removed from guild {guild.name} / {guild.id}. Total guilds: {len(self.bot.guilds)}')
         return

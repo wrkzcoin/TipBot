@@ -5042,7 +5042,9 @@ class Wallet(commands.Cog):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
             return
-                    
+
+        # remove space from address
+        address = address.replace(" ", "")
         try:
             net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
             type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")

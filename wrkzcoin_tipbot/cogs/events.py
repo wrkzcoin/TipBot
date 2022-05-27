@@ -831,12 +831,30 @@ class Events(commands.Cog):
             get_tipping_count = await self.get_tipping_count()
             num_tips = get_tipping_count['nos_tipping']
             await self.insert_new_stats( num_server, num_online, num_users, num_bots, num_tips, int(time.time()) )
+            try:
+                if len(self.bot.guilds) > 0 and len(self.bot.guilds) % 10 == 0:
+                    botdetails = disnake.Embed(title='About Me', description='')
+                    botdetails.add_field(name='Creator\'s Discord Name:', value='pluton#8888', inline=True)
+                    botdetails.add_field(name='My Github:', value="[TipBot Github](https://github.com/wrkzcoin/TipBot)", inline=True)
+                    botdetails.add_field(name='Invite Me:', value=config.discord.invite_link, inline=True)
+                    botdetails.add_field(name='Servers:', value=len(self.bot.guilds), inline=True)
+                    try:
+                        botdetails.add_field(name="Online", value='{:,.0f}'.format(sum(1 for m in self.bot.get_all_members() if m.status == disnake.Status.online)), inline=True)
+                        botdetails.add_field(name="Users", value='{:,.0f}'.format(sum(1 for m in self.bot.get_all_members() if m.bot == False)), inline=True)
+                        botdetails.add_field(name="Bots", value='{:,.0f}'.format(sum(1 for m in self.bot.get_all_members() if m.bot == True)), inline=True)
+                        botdetails.add_field(name="Tips", value='{:,.0f}'.format(get_tipping_count['nos_tipping']), inline=True)
+                        botdetails.add_field(name="Wallets", value='{:,.0f}'.format(get_tipping_count['nos_user']), inline=True)
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                    botdetails.set_footer(text='Made in Python', icon_url='http://findicons.com/files/icons/2804/plex/512/python.png')
+                    botdetails.set_author(name=self.bot.user.name, icon_url=self.bot.user.display_avatar)
+                    await self.botLogChan.send(embed=botdetails)
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         add_server_info = await store.sql_addinfo_by_server(str(guild.id), guild.name, config.discord.prefixCmd, "WRKZ", True)
         await self.botLogChan.send(f'Bot joins a new guild {guild.name} / {guild.id} / Users: {len(guild.members)}. Total guilds: {len(self.bot.guilds)}.')
-        return
-
 
     @commands.Cog.listener()
     async def on_guild_remove(self, guild):
@@ -849,12 +867,30 @@ class Events(commands.Cog):
             get_tipping_count = await self.get_tipping_count()
             num_tips = get_tipping_count['nos_tipping']
             await self.insert_new_stats( num_server, num_online, num_users, num_bots, num_tips, int(time.time()) )
+            try:
+                if len(self.bot.guilds) > 0 and len(self.bot.guilds) % 10 == 0:
+                    botdetails = disnake.Embed(title='About Me', description='')
+                    botdetails.add_field(name='Creator\'s Discord Name:', value='pluton#8888', inline=True)
+                    botdetails.add_field(name='My Github:', value="[TipBot Github](https://github.com/wrkzcoin/TipBot)", inline=True)
+                    botdetails.add_field(name='Invite Me:', value=config.discord.invite_link, inline=True)
+                    botdetails.add_field(name='Servers:', value=len(self.bot.guilds), inline=True)
+                    try:
+                        botdetails.add_field(name="Online", value='{:,.0f}'.format(sum(1 for m in self.bot.get_all_members() if m.status == disnake.Status.online)), inline=True)
+                        botdetails.add_field(name="Users", value='{:,.0f}'.format(sum(1 for m in self.bot.get_all_members() if m.bot == False)), inline=True)
+                        botdetails.add_field(name="Bots", value='{:,.0f}'.format(sum(1 for m in self.bot.get_all_members() if m.bot == True)), inline=True)
+                        botdetails.add_field(name="Tips", value='{:,.0f}'.format(get_tipping_count['nos_tipping']), inline=True)
+                        botdetails.add_field(name="Wallets", value='{:,.0f}'.format(get_tipping_count['nos_user']), inline=True)
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                    botdetails.set_footer(text='Made in Python', icon_url='http://findicons.com/files/icons/2804/plex/512/python.png')
+                    botdetails.set_author(name=self.bot.user.name, icon_url=self.bot.user.display_avatar)
+                    await self.botLogChan.send(embed=botdetails)
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         add_server_info = await store.sql_updateinfo_by_server(str(guild.id), "status", "REMOVED")
         await self.botLogChan.send(f'Bot was removed from guild {guild.name} / {guild.id}. Total guilds: {len(self.bot.guilds)}')
-        return
-
 
     @commands.Cog.listener()
     async def on_reaction_add(self, reaction, user):

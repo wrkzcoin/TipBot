@@ -276,6 +276,7 @@ class Tips(commands.Cog):
     @tasks.loop(seconds=30.0)
     async def freetip_check(self):
         get_active_freetip = await store.get_active_discord_freetip(lap=120)
+        get_inactive_freetip = await store.get_inactive_discord_freetip(lap=1200)
         await self.bot.wait_until_ready()
 
         loop_next = 0
@@ -373,6 +374,12 @@ class Tips(commands.Cog):
         else:
             # Nothing to do, sleep
             await asyncio.sleep(3.0)
+        # Check in active
+        if len(get_inactive_freetip) > 0:
+            for each_message_data in get_inactive_freetip:
+                change_status = await store.discord_freetip_update( each_message_data['message_id'], "FAILED" )
+                if change_status == True:
+                    await logchanbot("[{}] /freetip changed status to {} for ID: {} in guild: {} an channel: {} by user {} / {}".format( SERVER_BOT, "FAILED", each_message_data['message_id'], each_message_data['guild_id'], each_message_data['channel_id'], each_message_data['from_ownername'], each_message_data['from_userid'] ))            
 
 
     # Notifytip

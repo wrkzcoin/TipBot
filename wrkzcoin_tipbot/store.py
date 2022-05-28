@@ -2276,6 +2276,23 @@ async def get_active_discord_freetip(lap: int=60):
         await logchanbot(traceback.format_exc())
     return []
 
+async def get_inactive_discord_freetip(lap: int=1200):
+    # cleanup some mess
+    # assume any active still ONGOING state for ~20mn
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                swap_in = 0.0
+                sql = """ SELECT * FROM `discord_airdrop_tmp` WHERE `status`=%s AND `airdrop_time`<%s """
+                await cur.execute(sql, ( "ONGOING", int(time.time())-lap ) )
+                result = await cur.fetchall()
+                if result and len(result) > 0: return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return []
 
 async def get_discord_freetip_by_msgid(message_id: str):
     global pool

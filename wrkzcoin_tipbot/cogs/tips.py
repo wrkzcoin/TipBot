@@ -83,12 +83,16 @@ class FreeTip_Button(disnake.ui.View):
             attend_list = []
             attend_list_id = []
             attend_list_names = ""
+            collector_mentioned = []
             collectors = await store.get_freetip_collector_by_id(str(self.message.id), get_freetip['from_userid'])
+            notifyList = await store.sql_get_tipnotify()
             if len(collectors) > 0:
                 # have some
                 attend_list = [i['collector_name'] for i in collectors]
                 attend_list_names = " | ".join(attend_list)
                 attend_list_id = [int(i['collector_id']) for i in collectors]
+                collector_mentioned = [i['collector_name'] for i in collectors if i['collector_id'] in notifyList]
+                collector_mentioned += ["<@{}>".format(i['collector_id']) for i in collectors if i['collector_id'] not in notifyList]
             else:
                 # No collector
                 print("FreeTip msg ID {} timeout..".format(str(self.message.id)))
@@ -140,7 +144,6 @@ class FreeTip_Button(disnake.ui.View):
                     # end of re-check balance
                 else:
                     # Multiple tip here
-                    notifyList = await store.sql_get_tipnotify()
                     amountDiv = truncate(amount / len(attend_list_id), 4)
                     tips = None
 
@@ -197,6 +200,14 @@ class FreeTip_Button(disnake.ui.View):
                                     f'Actual spending: **{ActualSpend_str} {token_display}**\n{link_to_msg}')
                         except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                             pass
+                        # reply and ping user
+                        try:
+                            if len(collector_mentioned) > 0:
+                                list_mentioned = ", ".join(collector_mentioned)
+                                msg = f"{list_mentioned}, you collected a tip of {amountDiv_str} {token_display} from {get_owner.name}#{get_owner.discriminator}!"
+                                await original_message.reply(content=msg)
+                        except Exception as e:
+                            traceback.print_exc(file=sys.stdout)
                     else:
                         # If tip, update status
                         change_status = await store.discord_freetip_update(str(self.message.id), "FAILED")

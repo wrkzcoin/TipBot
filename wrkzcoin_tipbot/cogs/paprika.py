@@ -34,16 +34,16 @@ from config import config
 
 # https://api.coinpaprika.com/#tag/Tags/paths/~1tags~1{tag_id}/get
 
-def get_trade_view_by_id( display_id: str, web_url: str, id_coin: str, saved_path: str ):
+def get_trade_view_by_id( display_id: str, web_url: str, id_coin: str, saved_path: str, option: str=None ):
     timeout = 10
     return_to = None
-    file_name = "tradeview_{}_image_{}.png".format( id_coin, datetime.datetime.now().strftime("%Y-%m-%d-%H-%M") ) #
+    file_name = "tradeview_{}_image_{}_{}.png".format( id_coin, datetime.datetime.now().strftime("%Y-%m-%d-%H-%M"), option.lower() if option else "" ) #
     file_path = saved_path + file_name
     if os.path.exists(file_path):
         return file_name
     try:
         os.environ['DISPLAY'] = display_id
-        display = Display(visible=0, size=(1366, 768))
+        display = Display(visible=0, size=(1920, 1080))
         display.start()
         # Wait for 20s
 
@@ -68,10 +68,33 @@ def get_trade_view_by_id( display_id: str, web_url: str, id_coin: str, saved_pat
         WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((By.CLASS_NAME, "chart-markup-table")))
         WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((By.CLASS_NAME, "chart-container-border")))
 
-        time.sleep(3.0)
-        # https://stackoverflow.com/questions/8900073/webdriver-screenshot
-        # now that we have the preliminary stuff out of the way time to get that image :D
-        element = driver.find_element_by_class_name( "chart-page" ) # find part of the page you want image of
+        if option is None:
+            time.sleep(3.0)
+            # https://stackoverflow.com/questions/8900073/webdriver-screenshot
+            # now that we have the preliminary stuff out of the way time to get that image :D
+            # element = driver.find_element_by_class_name( "js-rootresizer__contents" ) # find part of the page you want image of
+            
+            # driver.switch_to.default_content()
+            driver.switch_to.default_content()
+            element = driver.find_element_by_id( "tv_chart_container" )
+            # Updated switch back to default
+        # https://stackoverflow.com/questions/43489391/python-selenium-data-style-name
+        elif option.lower() in ["1d", "7d", "1m", "1q", "1y", "5y"]:
+            time.sleep(3.0)
+            ## elements = driver.find_elements_by_xpath("//div[@data-name=date-ranges-tabs]")
+            ## elements = driver.find_elements_by_xpath("//div[contains(@class, 'sliderRow')]")
+            # element = driver.find_element_by_xpath("//*[starts-with(@class, 'sliderRow-') and contains(@data-name, 'date-ranges-tabs')]")
+            element_date = driver.find_element_by_xpath("//*[starts-with(@class, 'dateRangeExpanded-')]")
+            names = element_date.find_elements(By.XPATH, "//*[starts-with(@class, 'item-')]")
+            found = False
+            for each_i in names:
+                if each_i.text == option.lower():
+                    each_i.click()
+                    found = True
+                    break
+            time.sleep(3.0)
+            driver.switch_to.default_content()
+            element = driver.find_element_by_id( "tv_chart_container" )
         location = element.location
         size = element.size
         png = driver.get_screenshot_as_png() # saves screenshot of entire page
@@ -207,7 +230,8 @@ class Paprika(commands.Cog):
     async def paprika_coin(
         self, 
         ctx, 
-        coin: str
+        coin: str,
+        option: str
     ):
 
         try:
@@ -257,11 +281,13 @@ class Paprika(commands.Cog):
                         if len(self.display_list) > 2:
                             display_id = random.choice(self.display_list)
                             self.display_list.remove(display_id)
-                            fetch_tradeview = functools.partial(get_trade_view_by_id, display_id, self.tradeview_url + id, id, self.tradeview_path )
+                            fetch_tradeview = functools.partial(get_trade_view_by_id, display_id, self.tradeview_url + id, id, self.tradeview_path, option )
                             self.display_list.append(display_id)
                             tv_image = await self.bot.loop.run_in_executor(None, fetch_tradeview)
                             if tv_image:
                                 e = disnake.Embed(timestamp=datetime.datetime.now(), description=response_text)
+                                if option:
+                                    e.add_field(name="Range", value=option.lower(), inline=False)
                                 e.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
                                 e.set_image(url=self.tradeview_static_png + tv_image)
                                 e.set_footer(text=f"Requested by {ctx.author.name}#{ctx.author.discriminator}")
@@ -361,11 +387,13 @@ class Paprika(commands.Cog):
                                 if len(self.display_list) > 2:
                                     display_id = random.choice(self.display_list)
                                     self.display_list.remove(display_id)
-                                    fetch_tradeview = functools.partial(get_trade_view_by_id, display_id, self.tradeview_url + id, id, self.tradeview_path )
+                                    fetch_tradeview = functools.partial(get_trade_view_by_id, display_id, self.tradeview_url + id, id, self.tradeview_path, option )
                                     self.display_list.append(display_id)
                                     tv_image = await self.bot.loop.run_in_executor(None, fetch_tradeview)
                                     if tv_image:
                                         e = disnake.Embed(timestamp=datetime.datetime.now(), description=response_text)
+                                        if option:
+                                            e.add_field(name="Range", value=option.lower(), inline=False)
                                         e.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
                                         e.set_image(url=self.tradeview_static_png + tv_image)
                                         e.set_footer(text=f"Requested by {ctx.author.name}#{ctx.author.discriminator}")
@@ -381,15 +409,24 @@ class Paprika(commands.Cog):
 
     @commands.slash_command(usage="paprika [coin]",
                             options=[
-                                Option("coin", "Enter coin ticker/name", OptionType.string, required=True)
+                                Option("coin", "Enter coin ticker/name", OptionType.string, required=True),
+                                Option('range_choice', 'range duration', OptionType.string, required=False, choices=[
+                                    OptionChoice("1d", "1d"),
+                                    OptionChoice("7d", "7d"),
+                                    OptionChoice("1m", "1m"),
+                                    OptionChoice("1q", "1q"),
+                                    OptionChoice("1y", "1y"),
+                                    OptionChoice("5y", "5y")
+                                ])
                             ],
                             description="Check coin at Paprika.")
     async def paprika(
         self, 
         ctx, 
-        coin: str
+        coin: str,
+        range_choice: str=None
     ):
-        get_pap = await self.paprika_coin( ctx, coin )
+        get_pap = await self.paprika_coin( ctx, coin, range_choice )
 
 
 def setup(bot):

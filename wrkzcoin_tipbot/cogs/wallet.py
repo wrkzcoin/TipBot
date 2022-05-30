@@ -4808,11 +4808,11 @@ class Wallet(commands.Cog):
             get_tokens = await store.get_coin_settings(coin_type=None)
             token_list = None
             if "," in tokens:
-                token_list = tokens.upper().split(",")
+                token_list = tokens.upper().replace(" ", "").split(",")
             elif ";" in tokens:
-                token_list = tokens.upper().split(",")
+                token_list = tokens.upper().replace(" ", "").split(",")
             elif "." in tokens:
-                token_list = tokens.upper().split(",")
+                token_list = tokens.upper().replace(" ", "").split(",")
             elif " " in tokens:
                 token_list = tokens.upper().split()
             else:
@@ -4935,14 +4935,16 @@ class Wallet(commands.Cog):
                         else:
                             all_pages.append(page)
                             break
-                    elif num_coins == total_coins:
+                    elif num_coins + len(zero_tokens) == total_coins:
                         all_pages.append(page)
                         break
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
             # remaining
-            if (total_coins - len(zero_tokens)) % per_page > 0:
-                all_pages.append(page)
+            # if len(zero_tokens) > 0 and (total_coins - len(zero_tokens)) % per_page > 0 and total_coins > per_page:
+                # all_pages.append(page)
+            # elif len(zero_tokens) == 0 and total_coins % per_page > 0:
+                # all_pages.append(page)
             # Replace first page
             if total_all_balance_usd > 0.01:
                 total_all_balance_usd = "Having ~ {:,.2f}$".format(total_all_balance_usd)
@@ -4956,7 +4958,7 @@ class Wallet(commands.Cog):
                                   timestamp=datetime.fromtimestamp(int(time.time())), )
             # Remove zero from all_names
             if has_none_balance == True:
-                msg = f'{ctx.author.mention}, you do not have any balance.'
+                msg = f'{ctx.author.mention}, you do not have any balance or the inquired tokens are empty.'
                 await ctx.edit_original_message(content=msg)
                 return
             else:
@@ -5014,7 +5016,10 @@ class Wallet(commands.Cog):
         ctx,
         tokens: str=None
     ):
-        await self.async_balances(ctx, tokens)
+        if tokens and hasattr(self.bot.coin_list, tokens.upper()):
+            await self.async_balance(ctx, tokens)
+        else:
+            await self.async_balances(ctx, tokens)
     # End of Balance
 
 

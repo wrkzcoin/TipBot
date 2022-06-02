@@ -4807,13 +4807,8 @@ class Wallet(commands.Cog):
             # get list of coin/token from tokens
             get_tokens = await store.get_coin_settings(coin_type=None)
             token_list = None
-            if "," in tokens:
-                token_list = tokens.upper().replace(" ", "").split(",")
-            elif ";" in tokens:
-                token_list = tokens.upper().replace(" ", "").split(",")
-            elif "." in tokens:
-                token_list = tokens.upper().replace(" ", "").split(",")
-            elif " " in tokens:
+            tokens = tokens.replace(",", " ").replace(";", " ").replace("/", " ")
+            if " " in tokens:
                 token_list = tokens.upper().split()
             else:
                 # one token
@@ -4935,16 +4930,11 @@ class Wallet(commands.Cog):
                         else:
                             all_pages.append(page)
                             break
-                    elif num_coins + len(zero_tokens) == total_coins:
-                        all_pages.append(page)
-                        break
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
-            # remaining
-            # if len(zero_tokens) > 0 and (total_coins - len(zero_tokens)) % per_page > 0 and total_coins > per_page:
-                # all_pages.append(page)
-            # elif len(zero_tokens) == 0 and total_coins % per_page > 0:
-                # all_pages.append(page)
+            # Check if there is remaining
+            if (total_coins - len(zero_tokens)) % per_page > 0:
+                all_pages.append(page)
             # Replace first page
             if total_all_balance_usd > 0.01:
                 total_all_balance_usd = "Having ~ {:,.2f}$".format(total_all_balance_usd)

@@ -1170,7 +1170,7 @@ class Admin(commands.Cog):
                             equivalent_usd = " ~ {:,.2f}$".format(total_in_usd)
                         elif total_in_usd >= 0.0001:
                             equivalent_usd = " ~ {:,.4f}$".format(total_in_usd)
-                         
+
                 page.add_field(name="{}{}".format(token_display, equivalent_usd) , value="```{}```".format(num_format_coin(total_balance, COIN_NAME, coin_decimal, False)), inline=True)
                 num_coins += 1
                 if num_coins > 0 and num_coins % per_page == 0:
@@ -1185,10 +1185,7 @@ class Admin(commands.Cog):
                     else:
                         all_pages.append(page)
                         break
-                elif num_coins == total_coins:
-                    all_pages.append(page)
-                    break
-            # remaining
+            # Check if there is remaining
             if (total_coins - len(zero_tokens)) % per_page > 0:
                 all_pages.append(page)
             # Replace first page

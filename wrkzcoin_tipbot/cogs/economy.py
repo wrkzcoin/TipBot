@@ -48,6 +48,9 @@ class database_economy():
         self.bot = bot
         # DB
         self.pool = None
+        
+        self.eco_salt_collecting_time = 43200 # 12 hrs
+        self.eco_salt_qty_per_field = 50 # kg
 
     async def openConnection(self):
         try:
@@ -498,6 +501,13 @@ class database_economy():
                         sql = """ INSERT INTO discord_economy_dairy_cattle_ownership (`user_id`, `guild_id`, `bought_date`, `credit_cost`, `possible_collect_date`) 
                                   VALUES (%s, %s, %s, %s, %s) """
                         await cur.execute(sql, (user_id, guild_id, int(time.time()), credit, int(time.time())+config.economy.dairy_collecting_time))
+                    elif what.upper() == "SALT FIELD":
+                        sql = """ UPDATE discord_economy_userinfo SET `numb_salt_field`=`numb_salt_field`+%s, `credit`=`credit`+%s WHERE `user_id`=%s """
+                        await cur.execute(sql, (item_nos, credit, user_id,))
+                        # insert to dairy ownership
+                        sql = """ INSERT INTO discord_economy_salt_farm_ownership (`user_id`, `guild_id`, `bought_date`, `credit_cost`, `possible_collect_date`) 
+                                  VALUES (%s, %s, %s, %s, %s) """
+                        await cur.execute(sql, (user_id, guild_id, int(time.time()), credit, int(time.time())+self.eco_salt_collecting_time))
                     elif what.upper() == "CHICKEN" or what == "🐔":
                         sql = """ UPDATE discord_economy_userinfo SET `numb_chicken`=`numb_chicken`+%s, `credit`=`credit`+%s WHERE `user_id`=%s """
                         await cur.execute(sql, (item_nos, credit, user_id,))
@@ -905,6 +915,86 @@ class database_economy():
             await logchanbot(traceback.format_exc())
         return None
 
+    # salt
+    async def economy_salt_farm_ownership(self, user_id: str):        
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM discord_economy_salt_farm_ownership WHERE `user_id`=%s """
+                    await cur.execute(sql, (user_id))
+                    result = await cur.fetchall()
+                    if result: return result
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return []
+
+    async def economy_salt_collecting(self, user_id: str, salt_farm_list, qty_collect: float, credit_raw_salt_kg: float):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ INSERT INTO discord_economy_salt_collected (`user_id`, `collected_date`, `collected_qty`, `credit_per_item`) 
+                              VALUES (%s, %s, %s, %s) """
+                    await cur.execute(sql, (user_id, int(time.time()), qty_collect, credit_raw_salt_kg))
+
+                    ## add salt_qty
+                    sql = """ UPDATE discord_economy_userinfo SET `salt_qty`=`salt_qty`+%s 
+                              WHERE `user_id`=%s LIMIT 1 """
+                    await cur.execute(sql, ( qty_collect, user_id, ))
+
+                    sql = """ UPDATE discord_economy_salt_farm_ownership SET `last_collect_date`=%s, `possible_collect_date`=%s, `total_produced_qty`=`total_produced_qty`+%s 
+                              WHERE `user_id`=%s AND `id`=%s """
+                    list_update = []
+                    for each_item in salt_farm_list:
+                        list_update.append((int(time.time()), int(time.time())+self.eco_salt_collecting_time, self.eco_salt_qty_per_field, user_id, each_item))
+                    await cur.executemany(sql, list_update)
+                    await conn.commit()
+                    return True
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return None
+
+    async def economy_salt_collected(self, user_id: str):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM discord_economy_salt_collected WHERE `user_id`=%s AND `sold`=%s """
+                    await cur.execute(sql, (user_id, 'NO'))
+                    result = await cur.fetchall()
+                    if result: return result
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return []
+
+    async def economy_sell_salt(self, user_id: str, ids, credit: float, qty_sell: float):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    ## update salt_qty
+                    sql = """ UPDATE discord_economy_userinfo SET `salt_qty`=`salt_qty`-%s, `salt_qty_sold`=`salt_qty_sold`+%s, `credit`=`credit`+%s 
+                              WHERE `user_id`=%s LIMIT 1 """
+                    await cur.execute(sql, ( qty_sell, qty_sell, credit, user_id ))
+                    sql = """ UPDATE discord_economy_salt_collected SET `sold`=%s, `sold_date`=%s 
+                              WHERE `user_id`=%s AND `id`=%s AND `sold`=%s """
+                    list_update = []
+                    for each_item in ids:
+                        list_update.append(( 'YES', int(time.time()), user_id, each_item, 'NO' ))
+                    await cur.executemany( sql, list_update )
+                    await conn.commit()
+                    return True
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return None
+
+    # end salt
+
     async def economy_chicken_farm_ownership(self, user_id: str):
         try:
             await self.openConnection()
@@ -1066,6 +1156,13 @@ class Economy(commands.Cog):
         self.eco_engery_cap = {"1": 100, "2": 250, "3": 500, "4": 750, "5": 1000} # maximum engery based on worker level
         self.eco_max_worker_level = 2
         self.base_worker_cost = 2000000
+        
+        # salt
+        self.max_salt_farm_per_user = 1
+        self.eco_salt_credit_per_kg = 3 # 3 per kg
+        self.eco_max_salt_farm_level_num = 5
+        self.eco_max_salt_farm_level = {"1": 36, "2": 42, "3": 49, "4": 56, "5": 64} # 1: 6x6, 2: 6x7, 3: 7x7, 4: 7x8, 5: 8x8
+        self.base_salt_farm_cost = 10000000 # 5 millions credit, increased by existing level*base_farm_cost
 
 
     async def bot_log(self):
@@ -1106,7 +1203,13 @@ class Economy(commands.Cog):
                 await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you have a chicken farm already.")
                 return
             elif get_userinfo['numb_chicken_farm'] == 0 and (item_name.upper() == "CHICKEN" or item_name == "🐔"):
-                await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you do not have a chicken farm.")
+                await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you do not have a chicken farm. Please buy one.")
+                return
+            elif get_userinfo['numb_salt_farm'] >= self.max_salt_farm_per_user and item_name.upper() == "SALT FARM":
+                await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you have a salt farm already.")
+                return
+            elif get_userinfo['numb_salt_farm'] == 0 and item_name.upper() == "SALT FIELD":
+                await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you do not have a salt farm. Please buy one.")
                 return
             elif get_userinfo['numb_chicken'] >= config.economy.max_chicken_per_user and (item_name.upper() == "CHICKEN" or item_name == "🐔"):
                 await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you have maximum number of chicken already.")
@@ -1118,7 +1221,7 @@ class Economy(commands.Cog):
                 await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you have a dairy cattle already.")
                 return
             elif get_userinfo['numb_dairy_cattle'] == 0 and item_name.upper() == "COW":
-                await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you do not have dairy cattle.")
+                await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you do not have dairy cattle. Please buy one.")
                 return
             elif get_userinfo['numb_farm'] == 0 and (item_name.upper() == "TRACTOR" or item_name == "🚜"):
                 await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you do not have a farm.")
@@ -1128,6 +1231,9 @@ class Economy(commands.Cog):
                 return
             elif get_userinfo['numb_cow'] >= self.eco_max_cow_level[str(get_userinfo['dairy_farm_level'])] and (item_name.upper() == "COW" or item_name == "🐄"):
                 await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you have maximum number of cows already.")
+                return
+            elif get_userinfo['numb_salt_field'] >= self.eco_max_cow_level[str(get_userinfo['salt_farm_level'])] and item_name.upper() == "SALT FIELD":
+                await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you have maximum number of salt field already.")
                 return
             elif get_userinfo['numb_market'] >= config.economy.max_market_per_user and (item_name.upper() == "MARKET" or item_name == "🛒"):
                 await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you have a market already.")
@@ -1416,6 +1522,43 @@ class Economy(commands.Cog):
                         if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
                             self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                         msg = f"{ctx.author.name}#{ctx.author.discriminator}, You do not have milk to sell!"
+                        await ctx.edit_original_message(content=msg)
+                        return
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(traceback.format_exc())
+            elif item_name.strip().upper() == "SALT":
+                # Selling salt
+                try:
+                    get_raw_salt = await self.db.economy_salt_collected(str(ctx.author.id))
+                    ids = []
+                    qty_raw_salt = 0.0
+                    credit_sell = 0.0
+                    if get_raw_salt and len(get_raw_salt) > 0:
+                        for each in get_raw_salt:
+                            ids.append(each['id'])
+                            qty_raw_salt += float(each['collected_qty'])
+                            credit_sell += float(each['collected_qty']) * float(each['credit_per_item']) * market_factored
+                        if qty_raw_salt > 0:
+                            # has salt, sell all
+                            sell_salt = await self.db.economy_sell_salt(str(ctx.author.id), ids, credit_sell, qty_raw_salt)
+                            if sell_salt:
+                                get_userinfo['credit'] = float(get_userinfo['credit']) + float(credit_sell)
+                                if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                                    self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+                                msg = "{}You sold {:,.2f} kg(s) of salt for `{:,.2f}` Credit(s). Your credit now is: `{:,.2f}`.".format(extra_bonus, qty_raw_salt, credit_sell, get_userinfo['credit'])
+                                await ctx.edit_original_message(content=msg)
+                                return
+                        else:
+                            if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                                self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+                            msg = f"{ctx.author.name}#{ctx.author.discriminator}, You do not have salt to sell!!"
+                            await ctx.edit_original_message(content=msg)
+                            return
+                    else:
+                        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
+                            self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+                        msg = f"{ctx.author.name}#{ctx.author.discriminator}, You do not have salt to sell!"
                         await ctx.edit_original_message(content=msg)
                         return
                 except Exception as e:
@@ -1785,6 +1928,12 @@ class Economy(commands.Cog):
         elif what == "EGG" and get_userinfo and get_userinfo['numb_chicken'] == 0:
             await ctx.edit_original_message(content=f"{ctx.author.mention}, you don't have any chicken.")
             return
+        elif what == "SALT" and get_userinfo and get_userinfo['numb_salt_farm'] == 0:
+            await ctx.edit_original_message(content=f"{ctx.author.mention}, you don't have any salt farm.")
+            return
+        elif what == "SALT" and get_userinfo and get_userinfo['numb_salt_field'] == 0:
+            await ctx.edit_original_message(content=f"{ctx.author.mention}, you don't have any salt field.")
+            return
         elif what == "MILK":
             try:
                 if ctx.author.id not in self.bot.GAME_INTERACTIVE_ECO:
@@ -1802,10 +1951,10 @@ class Economy(commands.Cog):
                     if total_can_collect > 0:
                         insert_collecting = await self.db.economy_dairy_collecting(str(ctx.author.id), id_collecting, qty_collect, config.economy.credit_raw_milk_liter)
                         if insert_collecting:
-                            msg = f'{EMOJI_INFORMATION} {ctx.author.mention} Nice! You have collected `{qty_collect}` liters of milk from `{total_can_collect}` cow(s).'
+                            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, nice! You have collected `{qty_collect}` liters of milk from `{total_can_collect}` cow(s).'
                             await ctx.edit_original_message(content=msg)
                     else:
-                        msg = f"{ctx.author.mention}, You need to wait a bit longer. It\'s not time yet."
+                        msg = f"{ctx.author.mention}, you need to wait a bit longer. It\'s not time yet."
                         await ctx.edit_original_message(content=msg)
                 else:
                     msg = f"{ctx.author.mention}, you do not have any cow."
@@ -1830,7 +1979,7 @@ class Economy(commands.Cog):
                     if total_can_collect > 0:
                         insert_collecting = await self.db.economy_egg_collecting(str(ctx.author.id), id_collecting, qty_collect, config.economy.credit_egg)
                         if insert_collecting:
-                            msg = f'{EMOJI_INFORMATION} {ctx.author.mention} Nice! You have collected `{qty_collect}` egg(s) from `{total_can_collect}` chicken(s).'
+                            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, nice! You have collected `{qty_collect}` egg(s) from `{total_can_collect}` chicken(s).'
                             await ctx.edit_original_message(content=msg)
                     else:
                         msg = f"{ctx.author.mention}, you need to wait a bit longer. It\'s not time yet."
@@ -1841,8 +1990,36 @@ class Economy(commands.Cog):
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot(traceback.format_exc())
+        elif what == "SALT":
+            try:
+                if ctx.author.id not in self.bot.GAME_INTERACTIVE_ECO:
+                    self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
+                total_can_collect = 0
+                qty_collect = 0.0
+                get_salt_fields = await self.db.economy_salt_farm_ownership(str(ctx.author.id))
+                id_collecting = []
+                if get_salt_fields and len(get_salt_fields) > 0:
+                    for each_field in get_salt_fields:
+                        if each_field['possible_collect_date'] < int(time.time()):
+                            total_can_collect += 1
+                            qty_collect += self.db.eco_salt_qty_per_field
+                            id_collecting.append(each_field['id'])
+                    if total_can_collect > 0:
+                        insert_collecting = await self.db.economy_salt_collecting(str(ctx.author.id), id_collecting, qty_collect, self.eco_salt_credit_per_kg)
+                        if insert_collecting:
+                            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, nice! You have collected `{qty_collect}` kg of salt from `{total_can_collect}` field(s).'
+                            await ctx.edit_original_message(content=msg)
+                    else:
+                        msg = f"{ctx.author.mention}, you need to wait a bit longer. It\'s not time yet."
+                        await ctx.edit_original_message(content=msg)
+                else:
+                    msg = f"{ctx.author.mention}, you do not have any salt field."
+                    await ctx.edit_original_message(content=msg)
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
         else:
-            msg = f"{ctx.author.mention}, Sorry `{what}` is not available."
+            msg = f"{ctx.author.mention}, sorry `{what}` is not available."
             await ctx.edit_original_message(content=msg)
         if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
             self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
@@ -1948,7 +2125,6 @@ class Economy(commands.Cog):
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot(traceback.format_exc())
-
 
     async def eco_chicken(self, ctx, member):
         check_this_ctx = await self.check_guild(ctx)
@@ -2137,6 +2313,106 @@ class Economy(commands.Cog):
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot(traceback.format_exc())
 
+    async def eco_saltfarm(self, ctx, member):
+        check_this_ctx = await self.check_guild(ctx)
+        if "error" in check_this_ctx:
+            return check_this_ctx
+
+        try:
+            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your salt farm..."
+            await ctx.response.send_message(msg)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            return
+
+        # Getting list of work in the guild and re-act
+        get_userinfo = await self.db.economy_get_user(str(member.id), '{}#{}'.format(member.name, member.discriminator))
+        if get_userinfo and get_userinfo['numb_salt_farm'] == 0:
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, {member.name}#{member.discriminator}, not having any salt farm."
+            await ctx.edit_original_message(content=msg)
+            return
+        else:
+            try:
+                # Farm list
+                fence_left = "❎"
+                soil = "🟫"
+                fence_right = "❎"
+                fence_h = "❎"
+                salt_farm_show = ""
+                can_collect = []
+                total_can_collect = 0
+                can_harvest_string = "None"
+                salt_farm_emoji = "◻️"
+                # Get all item in farms
+                get_salt_fields = await self.db.economy_salt_farm_ownership(str(member.id))
+                cols = 6
+                # # 1: 6x6, 2: 6x7, 3: 7x7, 4: 7x8, 5: 8x8
+                if get_userinfo['salt_farm_level'] in [5, 6]:
+                    cols = 8
+                elif get_userinfo['salt_farm_level'] in [3, 4]:
+                    cols = 7
+                elif get_userinfo['salt_farm_level'] in [1, 2]:
+                    cols = 6
+                fence_hs = "".join([fence_h]*cols)
+                if get_salt_fields and len(get_salt_fields) > 0:
+                    cows_array_emoji = [salt_farm_emoji]*len(get_salt_fields)
+                    if len(cows_array_emoji) < self.eco_max_salt_farm_level[str(get_userinfo['salt_farm_level'])]:
+                        cows_array_emoji = cows_array_emoji + [soil]*(self.eco_max_salt_farm_level[str(get_userinfo['salt_farm_level'])] - len(cows_array_emoji))
+                    i=1
+                    for each_salt_farm in cows_array_emoji:
+                        if (i-1) % cols == 0:
+                            salt_farm_show += f"{fence_left}"
+                            salt_farm_show += f"{each_salt_farm}"
+                        elif i > 0 and i % cols == 0:
+                            salt_farm_show += f"{each_salt_farm}"
+                            salt_farm_show += f"{fence_right}\n"
+                        else:
+                            salt_farm_show += f"{each_salt_farm}"
+                        i += 1
+                    salt_farm_show = f"{fence_left}{fence_hs}{fence_right}\n" + salt_farm_show
+                    salt_farm_show += f"{fence_left}{fence_hs}{fence_right}\n"
+                    for each_salt_farm in get_salt_fields:
+                        if each_salt_farm['possible_collect_date'] < int(time.time()):
+                            if "{}".format(salt_farm_emoji) not in can_collect:
+                                can_collect.append("{}".format(salt_farm_emoji))
+                            total_can_collect += 1
+                    if total_can_collect > 0:
+                        can_harvest_string = "\n".join(can_collect)
+                else:
+                    # Empty salt_farm_show
+                    cows_array_emoji = [soil]*self.eco_max_salt_farm_level[str(get_userinfo['salt_farm_level'])]
+                    i=1
+                    for each_salt_farm in cows_array_emoji:
+                        if (i-1) % cols == 0:
+                            salt_farm_show += f"{fence_left}"
+                            salt_farm_show += f"{each_salt_farm}"
+                        elif i > 0 and i % cols == 0:
+                            salt_farm_show += f"{each_salt_farm}"
+                            salt_farm_show += f"{fence_right}\n"
+                        else:
+                            salt_farm_show += f"{each_salt_farm}"
+                        i += 1
+                    salt_farm_show = f"{fence_left}{fence_hs}{fence_right}\n" + salt_farm_show
+                    salt_farm_show += f"{fence_left}{fence_hs}{fence_right}\n"
+
+                e = disnake.Embed(title="{}#{} Salt Farm".format(member.name, member.discriminator), description="Economy game in TipBot", timestamp=datetime.now())
+                e.add_field(name="Salt Farm View Level {}".format(get_userinfo['salt_farm_level']), value=salt_farm_show, inline=False)
+                if total_can_collect > 0:
+                    e.add_field(name="Can Collect: {}".format(total_can_collect), value=can_harvest_string, inline=False)
+                try:
+                    get_raw_salt = await self.db.economy_salt_collected(str(member.id))
+                    if get_raw_salt and len(get_raw_salt) > 0:
+                        qty_raw_salt = sum(each['collected_qty'] for each in get_raw_salt)
+                        e.add_field(name="Raw Salt Available", value=salt_farm_emoji + " x" +str(len(get_raw_salt)) + "={:,.2f}".format(qty_raw_salt), inline=False)
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                e.set_footer(text=f"Requested by {ctx.author.name}#{ctx.author.discriminator}")
+                e.set_thumbnail(url=member.display_avatar)
+                msg = await ctx.edit_original_message(content=None, embed=e)
+                
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
 
     async def eco_harvest(self, ctx):
         check_this_ctx = await self.check_guild(ctx)
@@ -2868,7 +3144,8 @@ class Economy(commands.Cog):
         options=[
             Option('what', 'name', OptionType.string, required=True, choices=[
                 OptionChoice("EGG", "EGG"),
-                OptionChoice("MILK", "MILK")
+                OptionChoice("MILK", "MILK"),
+                OptionChoice("SALT", "SALT")
             ]
             )
         ],
@@ -2914,6 +3191,22 @@ class Economy(commands.Cog):
         if member is None:
             member = ctx.author
         eco_chicken = await self.eco_chicken(ctx, member)
+
+    @eco.sub_command(
+        usage="eco saltfarm <member>", 
+        options=[
+            Option('member', 'member', OptionType.user, required=False)
+        ],
+        description="Show a salt farm farm of a member."
+    )
+    async def saltfarm(
+        self, 
+        ctx, 
+        member: disnake.Member=None
+    ):
+        if member is None:
+            member = ctx.author
+        eco_saltfarm = await self.eco_saltfarm(ctx, member)
 
     @eco.sub_command(
         usage="eco farm <member>", 
@@ -3030,6 +3323,7 @@ class Economy(commands.Cog):
         options=[
             Option('item', 'item', OptionType.string, required=True, choices=[
                 OptionChoice("👨‍🌾 farm", "farm"),
+                OptionChoice("🧂 salt farm", "salt_farm"),
                 OptionChoice("🚣 boat", "boat"),
                 OptionChoice("🐮 dairy farm", "dairy_farm"),
                 OptionChoice("👷🏿 worker", "worker")
@@ -3043,7 +3337,8 @@ class Economy(commands.Cog):
         item: str
     ):
         # Getting list
-        if item.lower() not in ["farm", "boat", "dairy_farm", "worker"]:
+        # self.base_salt_farm_cost
+        if item.lower() not in ["farm", "boat", "dairy_farm", "worker", "salt_farm"]:
             return
         get_userinfo = await self.db.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
         cost = None
@@ -3066,6 +3361,12 @@ class Economy(commands.Cog):
                 await ctx.response.send_message(msg)
                 return
             cost = self.base_dairy_cost*get_userinfo['dairy_farm_level']
+        elif item == "salt_farm":
+            if get_userinfo['numb_salt_farm'] == 0:
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you do not have any salt farm."
+                await ctx.response.send_message(msg)
+                return
+            cost = self.base_salt_farm_cost*get_userinfo['salt_farm_level']
         elif item == "worker":
             if get_userinfo['numb_farm'] == 0 or get_userinfo['numb_dairy_cattle'] == 0 or get_userinfo['numb_boat'] == 0 or get_userinfo['numb_chicken_farm'] == 0:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you need to own a farm, a dairy cattle, a boat and a chicken farm."
@@ -3083,6 +3384,10 @@ class Economy(commands.Cog):
             return
         elif item == "dairy_farm" and get_userinfo['dairy_farm_level'] >= self.eco_max_dairy_farm_level:
             msg = f"{ctx.author.mention}, you already have maximum level of dairy farm."
+            await ctx.response.send_message(msg)
+            return
+        elif item == "salt_farm" and get_userinfo['salt_farm_level'] >= self.eco_max_salt_farm_level_num:
+            msg = f"{ctx.author.mention}, you already have maximum level of salt farm."
             await ctx.response.send_message(msg)
             return
         elif item == "worker" and get_userinfo['worker_level'] >= self.eco_max_worker_level:

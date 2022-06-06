@@ -14,6 +14,8 @@ import timeago
 import disnake
 from disnake.ext import tasks, commands
 
+from cachetools import TTLCache
+
 from disnake.enums import OptionType
 from disnake.app_commands import Option, OptionChoice
 from discord_webhook import DiscordWebhook
@@ -52,7 +54,7 @@ class Guild(commands.Cog):
 
         # DB
         self.pool = None
-
+        self.ttlcache = TTLCache(maxsize=100, ttl=30.0)
 
     async def openConnection(self):
         try:
@@ -391,6 +393,14 @@ class Guild(commands.Cog):
             get_all_active_raffle = await self.raffle_get_all(SERVER_BOT)
             if get_all_active_raffle and len(get_all_active_raffle) > 0:
                 for each_raffle in get_all_active_raffle:
+                    key = "guild_raffle_{}_{}".format( each_raffle['guild_id'], each_raffle['id'] )
+                    try:
+                        if self.ttlcache[key] == key:
+                            continue # next
+                        else:
+                            self.ttlcache[key] = key
+                    except Exception as e:
+                        pass
                     # loop each raffle
                     try:
                         if each_raffle['status'] == "OPENED":

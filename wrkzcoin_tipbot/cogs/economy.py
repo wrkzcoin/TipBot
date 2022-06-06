@@ -416,11 +416,11 @@ class database_economy():
                     sql = """ UPDATE discord_economy_secret_findings SET `used_date`=%s, `used`=%s WHERE `used`=%s AND `item_id`=%s AND `user_id`=%s LIMIT 1 """
                     await cur.execute(sql, (int(time.time()), 'YES', 'NO', item_id, user_id,))
                     # 2nd query
-                    if gained_energy > 0:
+                    if gained_energy >= 0:
                         sql = """ UPDATE discord_economy_userinfo SET `energy_current`=`energy_current`+%s, `backpack_items`=`backpack_items`-1 WHERE `user_id`=%s LIMIT 1 """
                         await cur.execute(sql, (gained_energy, user_id,))
                     # could be 3rd query
-                    if gained_health > 0:
+                    if gained_health >= 0:
                         sql = """ UPDATE discord_economy_userinfo SET `health_current`=`health_current`+%s, `backpack_items`=`backpack_items`-1 WHERE `user_id`=%s LIMIT 1 """
                         await cur.execute(sql, (gained_health, user_id,))
                     await conn.commit()

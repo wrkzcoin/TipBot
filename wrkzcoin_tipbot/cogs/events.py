@@ -629,7 +629,7 @@ class Events(commands.Cog):
         elif inter.message.author == self.bot.user and inter.component.custom_id.startswith("economy_{}_".format(inter.author.id)):
             if inter.component.custom_id.startswith("economy_{}_eat_".format(inter.author.id)):
                 # Not to duplicate
-                key = inter.component.custom_id + str(int(time.time()))
+                key = inter.component.custom_id + str(int(time.time())) + str(inter.author.id)
                 try:
                     if self.ttlcache[key] == key:
                         return
@@ -639,6 +639,11 @@ class Events(commands.Cog):
                     pass
                 # Not to duplicate
                 # Eat
+                # Place holder message
+                try:
+                    await inter.response.send_message(f'{inter.author.mention}, checking food...')
+                except Exception as e:
+                    return
                 name = inter.component.custom_id.replace("economy_{}_eat_".format(inter.author.id), "")
                 db = database_economy(self.bot)
                 get_foodlist_guild = await db.economy_get_guild_foodlist(str(inter.guild.id), False)
@@ -685,7 +690,7 @@ class Events(commands.Cog):
                 if get_food_id['cost_expense_amount'] > total_balance:
                     if inter.author.id in self.bot.GAME_INTERACTIVE_ECO:
                         self.bot.GAME_INTERACTIVE_ECO.remove(inter.author.id)
-                    await inter.response.send_message(content=f"{EMOJI_RED_NO} {inter.author.mention}, Insufficient balance to eat `{food_name}`.")
+                    await inter.edit_original_message(content=f"{EMOJI_RED_NO} {inter.author.mention}, insufficient balance to eat `{food_name}`.")
                 else:
                     # Else, go on and Insert work to DB
                     add_energy = get_food_id['gained_energy']
@@ -698,7 +703,7 @@ class Events(commands.Cog):
                     coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
                     contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
                     # Not to duplicate
-                    key = inter.component.custom_id + str(int(time.time()))
+                    key = inter.component.custom_id + str(int(time.time())) + str(inter.author.id)
                     try:
                         if self.ttlcache[key] == key:
                             return
@@ -713,15 +718,16 @@ class Events(commands.Cog):
 
                     paid_money = '{} {}'.format(num_format_coin(get_food_id['cost_expense_amount'], get_food_id['cost_coin_name'], coin_decimal, False), COIN_NAME)
                     if insert_eating:
-                        await inter.response.send_message(f'{EMOJI_INFORMATION} {inter.author.mention} You paid `{paid_money}` and ate `{food_name}`. You gained `{add_energy}` energy. You have total `{total_energy}` energy.')
+                        await inter.edit_original_message(content=f'{EMOJI_INFORMATION} {inter.author.mention}, you paid `{paid_money}` and ate `{food_name}`. You gained `{add_energy}` energy. You have total `{total_energy}` energy.')
                         await inter.message.delete()
                     else:
-                        await inter.response.send_message(content=f"{EMOJI_RED_NO} {inter.author.mention}, Internal error.")
+                        await inter.edit_original_message(content=f"{EMOJI_RED_NO} {inter.author.mention}, internal error.")
                 if inter.author.id in self.bot.GAME_INTERACTIVE_ECO:
                     self.bot.GAME_INTERACTIVE_ECO.remove(inter.author.id)
+
             elif inter.component.custom_id.startswith("economy_{}_work_".format(inter.author.id)):
                 # Not to duplicate
-                key = inter.component.custom_id + str(int(time.time()))
+                key = inter.component.custom_id + str(int(time.time())) + str(inter.author.id)
                 try:
                     if self.ttlcache[key] == key:
                         return
@@ -731,6 +737,11 @@ class Events(commands.Cog):
                     pass
                 # Not to duplicate
                 # Work
+                # Place holder message
+                try:
+                    await inter.response.send_message(f'{inter.author.mention}, checking your work...')
+                except Exception as e:
+                    return
                 name = inter.component.custom_id.replace("economy_{}_work_".format(inter.author.id), "")
                 db = database_economy(self.bot)
                 all_work_in_guild = {}
@@ -753,15 +764,16 @@ class Events(commands.Cog):
                     if insert_activity:
                         additional_text = " You can claim in: `{}`.".format(seconds_str(get_work_id['duration_in_second']))
                         task_name = "{} {}".format(get_work_id['work_name'], get_work_id['work_emoji'])
-                        await inter.response.send_message(f'{EMOJI_INFORMATION} {inter.author.mention} You started a new task - {task_name}! {additional_text}')
+                        await inter.edit_original_message(content=f'{EMOJI_INFORMATION} {inter.author.mention}, you started a new task - {task_name}! {additional_text}')
                     else:
-                        await inter.response.send_message(f"{EMOJI_INFORMATION} {inter.author.mention}, Internal error.")
+                        await inter.edit_original_message(content=f"{EMOJI_INFORMATION} {inter.author.mention}, internal error.")
                     if inter.author.id in self.bot.GAME_INTERACTIVE_ECO:
                         self.bot.GAME_INTERACTIVE_ECO.remove(inter.author.id)
                     await inter.message.delete()
+
             elif inter.component.custom_id.startswith("economy_{}_item_".format(inter.author.id)):
                 # Not to duplicate
-                key = inter.component.custom_id + str(int(time.time()))
+                key = inter.component.custom_id + str(int(time.time())) + str(inter.author.id)
                 try:
                     if self.ttlcache[key] == key:
                         return
@@ -770,13 +782,19 @@ class Events(commands.Cog):
                 except Exception as e:
                     pass
                 # Backpack
+                # Place holder message
+                try:
+                    await inter.response.send_message(f'{inter.author.mention}, checking your items...')
+                except Exception as e:
+                    return
+
                 name = inter.component.custom_id.replace("economy_{}_item_".format(inter.author.id), "")
                 all_item_backpack = {}
                 db = database_economy(self.bot)
                 get_user_inventory = await db.economy_get_user_inventory(str(inter.author.id))
                 nos_items = sum(each_item['numbers'] for each_item in get_user_inventory if each_item['item_name'] != "Gem")
                 if get_user_inventory and nos_items == 0:
-                    await inter.response.send_message(f"{EMOJI_RED_NO} {inter.author.mention} You do not have any item in your backpack.")
+                    await inter.edit_original_message(content=f"{EMOJI_RED_NO} {inter.author.mention}, you do not have any item in your backpack.")
                     return
                 if get_user_inventory and len(get_user_inventory) > 0:
                     for each_item in get_user_inventory:
@@ -806,9 +824,9 @@ class Events(commands.Cog):
                 update_userinfo = await db.economy_item_update_used(str(inter.author.id), all_item_backpack[name], add_energy, add_health)
                 using_item = '{} {}'.format(get_item_id['item_name'], get_item_id['item_emoji'])
                 if update_userinfo:
-                    await inter.response.send_message(f'{EMOJI_INFORMATION} {inter.author.mention} You used `{using_item}`. You gained `{add_energy_health_str}`. {total_energy_health_str}')
+                    await inter.edit_original_message(content=f'{EMOJI_INFORMATION} {inter.author.mention}, you used `{using_item}`. You gained `{add_energy_health_str}`. {total_energy_health_str}')
                 else:
-                    await inter.response.send_message(f"{EMOJI_RED_NO} {inter.author.mention} Internal error.")
+                    await inter.edit_original_message(content=f"{EMOJI_RED_NO} {inter.author.mention}, internal error.")
                 if inter.author.id in self.bot.GAME_INTERACTIVE_ECO:
                     self.bot.GAME_INTERACTIVE_ECO.remove(inter.author.id)
                 await inter.message.delete()

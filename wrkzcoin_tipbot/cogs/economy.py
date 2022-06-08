@@ -1,3 +1,4 @@
+import asyncio
 import sys, traceback
 import time
 import disnake
@@ -9,7 +10,7 @@ from disnake.app_commands import Option, OptionChoice
 from decimal import Decimal
 
 import random
-import asyncio
+
 import math
 import aiomysql
 from aiomysql.cursors import DictCursor
@@ -49,8 +50,8 @@ class database_economy():
         # DB
         self.pool = None
         
-        self.eco_salt_collecting_time = 43200 # 12 hrs
-        self.eco_salt_qty_per_field = 50 # kg
+        self.eco_salt_collecting_time = 21600 # 6 hrs
+        self.eco_salt_qty_per_field = 100 # kg
 
     async def openConnection(self):
         try:
@@ -1169,17 +1170,7 @@ class Economy(commands.Cog):
         if self.botLogChan is None:
             self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
 
-    async def check_guild(self, ctx):
-        if self.botLogChan is None:
-            self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
-        return {"result": True}
-
-
     async def eco_buy(self, ctx, item_name):
-        check_this_ctx = await self.check_guild(ctx)
-        if "error" in check_this_ctx:
-            return check_this_ctx
-
         try:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking buying items.."
             await ctx.response.send_message(msg)
@@ -1351,10 +1342,6 @@ class Economy(commands.Cog):
             return
 
     async def eco_sell(self, ctx, item_name):
-        check_this_ctx = await self.check_guild(ctx)
-        if "error" in check_this_ctx:
-            return check_this_ctx
-
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your storage..."
         await ctx.response.send_message(msg)
 
@@ -1611,9 +1598,7 @@ class Economy(commands.Cog):
         if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
             self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
 
-
     async def eco_info(self, ctx, member):
-        check_this_ctx = await self.check_guild(ctx)
         try:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking info..."
             await ctx.response.send_message(content=msg)
@@ -1687,12 +1672,7 @@ class Economy(commands.Cog):
         else:
             await ctx.edit_original_message(content=f'{EMOJI_RED_NO} {ctx.author.mention}, internal error.')
 
-
     async def eco_items(self, ctx):
-        check_this_ctx = await self.check_guild(ctx)
-        if "error" in check_this_ctx:
-            return check_this_ctx
-
         try:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking backpack items.."
             await ctx.response.send_message(msg)
@@ -1745,10 +1725,6 @@ class Economy(commands.Cog):
             await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, not have anything in your backpack.")
 
     async def eco_lumber(self, ctx, member):
-        check_this_ctx = await self.check_guild(ctx)
-        if "error" in check_this_ctx:
-            return check_this_ctx
-
         try:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking lumber storage.."
             await ctx.response.send_message(msg)
@@ -1770,12 +1746,7 @@ class Economy(commands.Cog):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
-
     async def eco_fish(self, ctx, member):
-        check_this_ctx = await self.check_guild(ctx)
-        if "error" in check_this_ctx:
-            return check_this_ctx
-
         try:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking fish storage.."
             await ctx.response.send_message(msg)
@@ -1802,12 +1773,7 @@ class Economy(commands.Cog):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
-
     async def eco_plant(self, ctx, plant_name):
-        check_this_ctx = await self.check_guild(ctx)
-        if "error" in check_this_ctx:
-            return check_this_ctx
-
         # get farm plant list
         plant_list_arr = await self.db.economy_farm_get_list_plants()
         plant_list_names = [name['plant_name'].lower() for name in plant_list_arr]
@@ -1902,12 +1868,7 @@ class Economy(commands.Cog):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
-
     async def eco_collect(self, ctx, what):
-        check_this_ctx = await self.check_guild(ctx)
-        if "error" in check_this_ctx:
-            return check_this_ctx
-
         try:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking what you are collecting..."
             await ctx.response.send_message(msg)
@@ -2024,12 +1985,7 @@ class Economy(commands.Cog):
         if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
             self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
 
-
     async def eco_dairy(self, ctx, member):
-        check_this_ctx = await self.check_guild(ctx)
-        if "error" in check_this_ctx:
-            return check_this_ctx
-
         try:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your dairy cattle..."
             await ctx.response.send_message(msg)
@@ -2127,10 +2083,6 @@ class Economy(commands.Cog):
                 await logchanbot(traceback.format_exc())
 
     async def eco_chicken(self, ctx, member):
-        check_this_ctx = await self.check_guild(ctx)
-        if "error" in check_this_ctx:
-            return check_this_ctx
-
         try:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your chicken farm..."
             await ctx.response.send_message(msg)
@@ -2217,10 +2169,6 @@ class Economy(commands.Cog):
                 traceback.print_exc(file=sys.stdout)
 
     async def eco_farm(self, ctx, member):
-        check_this_ctx = await self.check_guild(ctx)
-        if "error" in check_this_ctx:
-            return check_this_ctx
-
         try:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your farm..."
             await ctx.response.send_message(msg)
@@ -2314,10 +2262,6 @@ class Economy(commands.Cog):
                 await logchanbot(traceback.format_exc())
 
     async def eco_saltfarm(self, ctx, member):
-        check_this_ctx = await self.check_guild(ctx)
-        if "error" in check_this_ctx:
-            return check_this_ctx
-
         try:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your salt farm..."
             await ctx.response.send_message(msg)
@@ -2415,10 +2359,6 @@ class Economy(commands.Cog):
                 await logchanbot(traceback.format_exc())
 
     async def eco_harvest(self, ctx):
-        check_this_ctx = await self.check_guild(ctx)
-        if "error" in check_this_ctx:
-            return check_this_ctx
-
         if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you are ongoing with one **game economy** play."
             await ctx.response.send_message(msg)
@@ -2472,10 +2412,6 @@ class Economy(commands.Cog):
 
 
     async def eco_fishing(self, ctx):
-        check_this_ctx = await self.check_guild(ctx)
-        if "error" in check_this_ctx:
-            return check_this_ctx
-
         try:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your fishing tools..."
             await ctx.response.send_message(msg)
@@ -2609,10 +2545,6 @@ class Economy(commands.Cog):
             self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
 
     async def eco_woodcutting(self, ctx):
-        check_this_ctx = await self.check_guild(ctx)
-        if "error" in check_this_ctx:
-            return check_this_ctx
-
         try:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your tool..."
             await ctx.response.send_message(msg)
@@ -2669,10 +2601,6 @@ class Economy(commands.Cog):
             self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
 
     async def eco_search(self, ctx):
-        check_this_ctx = await self.check_guild(ctx)
-        if "error" in check_this_ctx:
-            return check_this_ctx
-
         try:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your search..."
             await ctx.response.send_message(msg)
@@ -2737,10 +2665,6 @@ class Economy(commands.Cog):
 
 
     async def eco_eat(self, ctx):
-        check_this_ctx = await self.check_guild(ctx)
-        if "error" in check_this_ctx:
-            return check_this_ctx
-
         if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you are ongoing with one **game economy** play."
             await ctx.response.send_message(msg)

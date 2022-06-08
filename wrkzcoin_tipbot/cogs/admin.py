@@ -9,7 +9,7 @@ from attrdict import AttrDict
 from io import BytesIO
 import random
 
-import aiohttp, asyncio
+import aiohttp
 from mnemonic import Mnemonic
 
 import aiomysql

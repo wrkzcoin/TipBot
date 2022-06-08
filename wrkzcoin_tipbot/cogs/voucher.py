@@ -2,7 +2,6 @@ import sys, traceback
 import qrcode
 import time
 from io import BytesIO
-import asyncio
 
 import disnake
 from disnake.ext import commands

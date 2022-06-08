@@ -1,4 +1,3 @@
-import asyncio
 import aiohttp
 import sys
 import time

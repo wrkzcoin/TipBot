@@ -509,6 +509,9 @@ class database_economy():
                         sql = """ INSERT INTO discord_economy_salt_farm_ownership (`user_id`, `guild_id`, `bought_date`, `credit_cost`, `possible_collect_date`) 
                                   VALUES (%s, %s, %s, %s, %s) """
                         await cur.execute(sql, (user_id, guild_id, int(time.time()), credit, int(time.time())+self.eco_salt_collecting_time))
+                    elif what.upper() == "SALT FARM":
+                        sql = """ UPDATE discord_economy_userinfo SET `numb_salt_farm`=`numb_salt_farm`+%s, `credit`=`credit`+%s WHERE `user_id`=%s """
+                        await cur.execute(sql, (item_nos, credit, user_id,))
                     elif what.upper() == "CHICKEN" or what == "🐔":
                         sql = """ UPDATE discord_economy_userinfo SET `numb_chicken`=`numb_chicken`+%s, `credit`=`credit`+%s WHERE `user_id`=%s """
                         await cur.execute(sql, (item_nos, credit, user_id,))

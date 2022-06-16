@@ -5767,12 +5767,6 @@ class Wallet(commands.Cog):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
-        # offline can not take
-        if ctx.author.status == disnake.Status.offline:
-            msg = f"{EMOJI_RED_NO} {ctx.author.mention} Offline status cannot claim faucet."
-            await ctx.edit_original_message(content=msg)
-            return
-
         # check if account locked
         account_lock = await alert_if_userlock(ctx, 'take')
         if account_lock:

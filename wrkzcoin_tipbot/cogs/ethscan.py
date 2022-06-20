@@ -218,7 +218,10 @@ class EthScan(commands.Cog):
             height = await store.get_latest_stored_scanning_height_erc(net_name)
             local_height = await store.erc_get_block_number(url)
             try:
-                redis_utils.redis_conn.set(f'{config.redis.prefix+config.redis.daemon_height}{net_name}', str(local_height))
+                if local_height and local_height > 0:
+                    redis_utils.redis_conn.set(f'{config.redis.prefix+config.redis.daemon_height}{net_name}', str(local_height))
+                else:
+                    return
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot(traceback.format_exc())
@@ -229,7 +232,7 @@ class EthScan(commands.Cog):
             # To height
             to_block = local_height
             to_bloc_str = None
-            if local_height - reddit_blocks > height:
+            if local_height and local_height - reddit_blocks > height:
                 to_block = height + reddit_blocks
                 to_bloc_str = hex(to_block)
             else:

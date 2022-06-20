@@ -1217,7 +1217,7 @@ async def sql_check_pending_move_deposit_erc20(url: str, net_name: str, deposit_
     global pool
     topBlock = await erc_get_block_number(url, block_timeout)
     if topBlock is None:
-        print('Can not get top block.')
+        print(f'Can not get top block {url} - {net_name}.')
         return
     
     list_pending = await sql_get_pending_move_deposit_erc20(net_name)

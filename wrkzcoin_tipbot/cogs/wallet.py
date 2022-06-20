@@ -48,6 +48,8 @@ import ssl
 from eth_utils import is_hex_address # Check hex only
 from terminaltables import AsciiTable
 
+from cachetools import TTLCache
+
 import store
 import cn_addressvalidation
 
@@ -1372,6 +1374,7 @@ class Wallet(commands.Cog):
 
         # DB
         self.pool = None
+        self.ttlcache = TTLCache(maxsize=1024, ttl=60.0)
 
 
     async def openConnection(self):
@@ -2702,6 +2705,14 @@ class Wallet(commands.Cog):
                 notify_list = await store.sql_get_pending_notification_users_erc20(SERVER_BOT)
                 if len(notify_list) > 0:
                     for each_notify in notify_list:
+                        try:
+                            key = "notify_new_tx_erc20_{}_{}_{}".format(each_notify['token_name'], each_notify['user_id'], each_notify['txn'])
+                            if self.ttlcache[key] == key:
+                                continue
+                            else:
+                                self.ttlcache[key] = key
+                        except Exception as e:
+                            pass
                         is_notify_failed = False
                         member = self.bot.get_user(int(each_notify['user_id']))
                         if member:
@@ -2729,6 +2740,14 @@ class Wallet(commands.Cog):
                 notify_list = await store.sql_get_pending_notification_users_trc20(SERVER_BOT)
                 if notify_list and len(notify_list) > 0:
                     for each_notify in notify_list:
+                        try:
+                            key = "notify_new_tx_trc20_{}_{}_{}".format(each_notify['token_name'], each_notify['user_id'], each_notify['txn'])
+                            if self.ttlcache[key] == key:
+                                continue
+                            else:
+                                self.ttlcache[key] = key
+                        except Exception as e:
+                            pass
                         is_notify_failed = False
                         member = self.bot.get_user(int(each_notify['user_id']))
                         if member:
@@ -2765,6 +2784,14 @@ class Wallet(commands.Cog):
                             if coin_family in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR", "BTC", "CHIA", "NANO"]:
                                 user_tx = await store.sql_get_userwallet_by_paymentid(eachTx['payment_id'], eachTx['coin_name'], coin_family)
                                 if user_tx and user_tx['user_server'] == SERVER_BOT and user_tx['user_id'].isdigit():
+                                    try:
+                                        key = "notify_new_tx_{}_{}_{}".format(eachTx['coin_name'], user_tx['user_id'], eachTx['txid'])
+                                        if self.ttlcache[key] == key:
+                                            continue
+                                        else:
+                                            self.ttlcache[key] = key
+                                    except Exception as e:
+                                        pass
                                     user_found = self.bot.get_user(int(user_tx['user_id']))
                                     if user_found:
                                         is_notify_failed = False
@@ -2855,6 +2882,14 @@ class Wallet(commands.Cog):
                                             coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
                                             user_tx = await store.sql_get_userwallet_by_paymentid(eachTx['payment_id'], eachTx['coin_name'], coin_family)
                                             if user_tx and user_tx['user_server'] == SERVER_BOT and user_tx['user_id'].isdigit():
+                                                try:
+                                                    key = "notify_new_tx_noconfirm_{}_{}_{}".format(eachTx['coin_name'], user_tx['user_id'], eachTx['txid'])
+                                                    if self.ttlcache[key] == key:
+                                                        continue
+                                                    else:
+                                                        self.ttlcache[key] = key
+                                                except Exception as e:
+                                                    pass
                                                 user_found = self.bot.get_user(int(user_tx['user_id']))
                                                 if user_found:
                                                     try:
@@ -2919,6 +2954,14 @@ class Wallet(commands.Cog):
                                 if eachTx['user_id']:
                                     if not eachTx['user_id'].isdigit():
                                         continue
+                                    try:
+                                        key = "notify_new_tx_{}_{}_{}".format(eachTx['coin_name'], eachTx['user_id'], eachTx['txid'])
+                                        if self.ttlcache[key] == key:
+                                            continue
+                                        else:
+                                            self.ttlcache[key] = key
+                                    except Exception as e:
+                                        pass
                                     member = self.bot.get_user(int(eachTx['user_id']))
                                     if member is not None:
                                         coin_decimal = getattr(getattr(self.bot.coin_list, eachTx['coin_name']), "decimal")
@@ -3150,7 +3193,7 @@ class Wallet(commands.Cog):
                     await client.close()
                     return balance['result']
             except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                pass
             return None
 
         async def move_wallet_balance(url: str, sender_hex_key: str, atomic_amount: int):
@@ -4659,15 +4702,22 @@ class Wallet(commands.Cog):
             if COIN_NAME == "HNT":
                 address_memo = wallet_address.split()
                 qr_address = '{"type":"payment","address":"'+address_memo[0]+'","memo":"'+address_memo[2]+'"}'
+
             try:
                 gen_qr_address = await self.generate_qr_address(qr_address)
                 address_path = qr_address.replace('{', '_').replace('}', '_').replace(':', '_').replace('"', "_").replace(',', "_").replace(' ', "_")
-                embed.set_thumbnail(url=config.storage.deposit_url + address_path + ".png")
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
                 
             plain_msg = '{}#{} Your deposit address: ```{}```'.format(ctx.author.name, ctx.author.discriminator, wallet_address)
-            embed.add_field(name="Your Deposit Address", value="`{}`".format(wallet_address), inline=False)
+            
+            if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"] and getattr(getattr(self.bot.coin_list, COIN_NAME), "split_main_paymentid") ==1: # split main and integrated address
+                embed.add_field(name="Main Address", value="`{}`".format(get_deposit['main_address']), inline=False)
+                embed.add_field(name="PaymentID (Must include)", value="`{}`".format(get_deposit['paymentid']), inline=False)
+            else:
+                embed.add_field(name="Your Deposit Address", value="`{}`".format(wallet_address), inline=False)
+                embed.set_thumbnail(url=config.storage.deposit_url + address_path + ".png")
+                
             if getattr(getattr(self.bot.coin_list, COIN_NAME), "explorer_link") and len(getattr(getattr(self.bot.coin_list, COIN_NAME), "explorer_link")) > 0:
                 embed.add_field(name="Other links", value="[{}]({})".format("Explorer", getattr(getattr(self.bot.coin_list, COIN_NAME), "explorer_link")), inline=False)
             

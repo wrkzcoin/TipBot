@@ -88,6 +88,7 @@ class Faucet(commands.Cog):
                 async with conn.cursor() as cur:
                     sql = """ SELECT `reward_for`, `coin_name`, `reward_amount`
                               FROM `coin_bot_reward_setting` 
+                              WHERE `enable`=1 
                               ORDER BY `coin_name` """
                     await cur.execute(sql, ())
                     result = await cur.fetchall()
@@ -5592,7 +5593,7 @@ class Wallet(commands.Cog):
 
             reward_list_default = []
             link_list = []
-            for key in ["topgg", "discordbotlist", "botsfordiscord", "discordlistspace"]:
+            for key in ["topgg", "discordbotlist", "botsfordiscord"]:
                 reward_list = []
                 for each in list_coin_sets[key]:
                     for k, v in each.items():

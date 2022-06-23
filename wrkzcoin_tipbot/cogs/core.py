@@ -1,6 +1,6 @@
 import sys, traceback
 from datetime import datetime, timedelta
-
+import asyncio
 import disnake
 from disnake.ext import commands
 
@@ -17,6 +17,32 @@ class Core(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    # Setting command
+    @commands.has_permissions(manage_channels=True)
+    @commands.guild_only()
+    @commands.slash_command(description="Clear TipBot's 100 messages")
+    async def clearbotmessages(self, ctx):
+        count = 0
+        try:
+            messages = await ctx.channel.history(limit=100).flatten()
+            if messages and len(messages) > 0:
+                await logchanbot(f"[CLEARBOTMSG] in guild {ctx.guild.name} / {ctx.guild.id} by {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.id} in channel #{ctx.channel.name}.")
+                await ctx.response.send_message("Loading messages...", ephemeral=True)
+                for each in messages:
+                    # Delete bot's own message
+                    if each.author == self.bot.user:
+                        count += 1
+                        try:
+                            await each.delete()
+                        except Exception as e:
+                            traceback.print_exc(file=sys.stdout)
+                            await asyncio.sleep(4.0)
+                await ctx.edit_original_message(content=f'{ctx.author.mention}, Found {str(count)} message(s) in {ctx.channel.mention} and deleted.')
+                await logchanbot(f"[CLEARBOTMSG] in guild {ctx.guild.name} / {ctx.guild.id} by {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.id} in channel #{ctx.channel.name} completed with {str(count)} message(s).")
+            else:
+                await ctx.response.send_message("There is no message by me or anymore.", ephemeral=True)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
 
     @commands.user_command()
     async def ping(self, ctx):
@@ -212,7 +238,7 @@ class Core(commands.Cog):
                 "usage": "/guild <commands>",
                 "desc": "Various guild's command. Type to show them all.", 
                 "related": ["guildtip"],
-                "subcmd": ["createraffle", "raffle", "balance", "votereward", "deposit", "topgg", "mdeposit", "faucetclaim", "info"]
+                "subcmd": ["createraffle", "raffle", "balance", "votereward", "deposit", "topgg", "mdeposit", "faucetclaim", "activedrop", "info"]
             },
             "mdeposit": {
                 "usage": "/mdeposit <coin>",
@@ -327,6 +353,12 @@ class Core(commands.Cog):
                 "desc": "Various twitter commands.", 
                 "related": [],
                 "subcmd": ["rt_reward", "linkme", "unlinkme", "deposit", "balances", "listsub", "tip", "subscribe", "unsubscribe"]
+            },
+            "tiptalker": {
+                "usage": "/tiptalker <amount> <coin/token> <duration> <#channel> [@role]",
+                "desc": "Let TipBot do airdrop every <duration> (from your guild's balance). Set amount to 0 to disable it.", 
+                "related": ["guild", "guild balance", "guild deposit"],
+                "subcmd": []
             }
         }
         basic_help_deposit = """

@@ -5,6 +5,7 @@ import time
 import traceback
 from datetime import datetime
 import random
+import json
 
 import uuid
 from decimal import Decimal
@@ -51,10 +52,13 @@ class Guild(commands.Cog):
         self.raffle_ongoing = []
         self.raffle_to_win = []
         self.raffle_opened_to_ongoing = []
+        
+        # activedrop/tiptalker task
+        self.check_tiptalker_drop.start()
 
         # DB
         self.pool = None
-        self.ttlcache = TTLCache(maxsize=100, ttl=30.0)
+        self.ttlcache = TTLCache(maxsize=4096, ttl=60.0)
 
     async def openConnection(self):
         try:
@@ -381,6 +385,179 @@ class Guild(commands.Cog):
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
 
+    @tasks.loop(seconds=60.0)
+    async def check_tiptalker_drop(self):
+        def seconds_str_days(time: float):
+            day = time // (24 * 3600)
+            time = time % (24 * 3600)
+            hour = time // 3600
+            time %= 3600
+            minutes = time // 60
+            time %= 60
+            seconds = time
+            return "{:02d} day(s) {:02d}:{:02d}:{:02d}".format(day, hour, minutes, seconds)
+
+        time_lap = 10 # seconds
+        await self.bot.wait_until_ready()
+        await asyncio.sleep(time_lap)
+        try:
+            # Get list active drop in guilds
+            list_activedrop = await self.get_activedrop()
+            if len(list_activedrop) > 0:
+                for each_drop in list_activedrop:
+                    COIN_NAME = each_drop['tiptallk_coin']
+                    net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
+                    type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
+                    deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
+                    coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+                    contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
+                    token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
+                    usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
+                    key = "guild_activedrop_{}".format( each_drop['serverid'] )
+                    try:
+                        if self.ttlcache[key] == key:
+                            continue # next
+                        else:
+                            self.ttlcache[key] = key
+                    except Exception as e:
+                        pass
+                    lap_str = seconds_str_days( each_drop['tiptalk_duration'] )
+                    get_guild = self.bot.get_guild(int(each_drop['serverid']))
+                    get_channel = self.bot.get_channel( int(each_drop['tiptalk_channel']) )
+                    if get_guild is None:
+                        continue
+                    if get_channel is None:
+                        continue
+                    try:
+                        get_bot = get_guild.get_member( self.bot.user.id )
+                        if not get_bot.guild_permissions.send_messages:
+                            await logchanbot(f"[ACTIVEDROP] in guild {get_guild.name} / {get_guild.id} I have no permission to send message. Skipped.")
+                            continue
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+
+                    # check last drop
+                    last_drop = await self.get_last_activedrop_guild( each_drop['serverid'] )
+                    role = None
+                    if last_drop is None or (last_drop is not None and int(time.time()) - last_drop['spread_time'] >= each_drop['tiptalk_duration'] ):
+                        # let's spread tiptalker
+                        message_talker = await store.sql_get_messages( each_drop['serverid'], each_drop['tiptalk_channel'], each_drop['tiptalk_duration'], None)
+                        msg = ""
+                        msg_no_embed = ""
+                        list_receivers = []
+                        if len(message_talker) == 0:
+                            # Tell, there is 0 tip talkers..
+                            msg = f"There is 0 active talkers in the last {lap_str}."
+                        else:
+                            if each_drop['tiptalk_role_id'] is not None:
+                                role = disnake.utils.get(get_guild.roles, id=int(each_drop['tiptalk_role_id']))
+
+                            # Check guild's balance
+                            User_WalletAPI = WalletAPI(self.bot)
+                            get_deposit = await User_WalletAPI.sql_get_userwallet(each_drop['serverid'], COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                            if get_deposit is None:
+                                get_deposit = await User_WalletAPI.sql_register_user(each_drop['serverid'], COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 1)
+
+                            wallet_address = get_deposit['balance_wallet_address']
+                            if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                                wallet_address = get_deposit['paymentid']
+
+                            height = None
+                            try:
+                                if type_coin in ["ERC-20", "TRC-20"]:
+                                    height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
+                                else:
+                                    height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
+                            except Exception as e:
+                                traceback.print_exc(file=sys.stdout)
+
+                            userdata_balance = await self.user_balance(each_drop['serverid'], COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+                            actual_balance = float(userdata_balance['adjust'])
+                            
+                            if actual_balance < float(each_drop['tiptalk_amount']):
+                                msg = f"Guild {get_guild.name} runs out of {COIN_NAME}'s balance. Please deposit with `/guild deposit` command."
+                                msg_no_embed = msg
+                                await logchanbot(f"[ACTIVEDROP] in guild {get_guild.name} / {get_guild.id} runs out of {COIN_NAME} balance.")
+                                # add to DB
+                                await self.insert_new_activedrop_guild( each_drop['serverid'], get_guild.name, each_drop['tiptalk_channel'], COIN_NAME, coin_decimal, 0.0, 0.0, 0, None, None, int(time.time()) )
+                            else:
+                                list_receiver_names = []
+                                for member_id in message_talker:
+                                    try:
+                                        member = get_guild.get_member( int(member_id) )
+                                        if (member and member in get_guild.members and role and hasattr(member, "roles") and role in member.roles) or (role is None and member and member in get_guild.members):
+                                            user_to = await User_WalletAPI.sql_get_userwallet(str(member_id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                                            if user_to is None:
+                                                user_to = await User_WalletAPI.sql_register_user(str(member_id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
+                                            try:
+                                                list_receivers.append(str(member_id))
+                                                list_receiver_names.append("{}#{}".format(member.name, member.discriminator))
+                                            except Exception as e:
+                                                traceback.print_exc(file=sys.stdout)
+                                                await logchanbot(traceback.format_exc())
+                                                print('Failed creating wallet for activedrop for userid: {}'.format(member_id))
+                                    except Exception as e:
+                                        traceback.print_exc(file=sys.stdout)
+                                        await logchanbot(traceback.format_exc())
+                                if len(list_receivers) == 0:
+                                    msg = f"There is 0 active talkers in the last {lap_str}."
+                                    # add to DB
+                                    await self.insert_new_activedrop_guild( each_drop['serverid'], get_guild.name, each_drop['tiptalk_channel'], COIN_NAME, coin_decimal, each_drop['tiptalk_amount'], each_drop['tiptalk_amount'], len(list_receivers), None, None, int(time.time()) )
+                                    # No need to message, just pass
+                                    continue
+                                else:
+                                    equivalent_usd = ""
+                                    amount_in_usd = 0.0
+                                    total_amount_in_usd = 0.0
+                                    amount = each_drop['tiptalk_amount']/len(list_receivers)
+                                    if usd_equivalent_enable == 1:
+                                        native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
+                                        COIN_NAME_FOR_PRICE = COIN_NAME
+                                        if native_token_name:
+                                            COIN_NAME_FOR_PRICE = native_token_name
+                                        if COIN_NAME_FOR_PRICE in self.bot.token_hints:
+                                            id = self.bot.token_hints[COIN_NAME_FOR_PRICE]['ticker_name']
+                                            per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+                                        else:
+                                            per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
+                                        if per_unit and per_unit > 0:
+                                            amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
+                                            if amount_in_usd > 0.0001:
+                                                equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
+                                    try:
+                                        # add to DB
+                                        await self.insert_new_activedrop_guild( each_drop['serverid'], get_guild.name, each_drop['tiptalk_channel'], COIN_NAME, coin_decimal, each_drop['tiptalk_amount'], each_drop['tiptalk_amount']/len(list_receivers), len(list_receivers), json.dumps(list_receivers), json.dumps(list_receiver_names), int(time.time()) )
+                                        tiptalk = await store.sql_user_balance_mv_multiple( each_drop['serverid'], list_receivers, each_drop['serverid'], each_drop['tiptalk_channel'], each_drop['tiptalk_amount']/len(list_receivers), COIN_NAME, "TIPTALK", coin_decimal, SERVER_BOT, contract, float(amount_in_usd), None )
+                                        list_mentioned = [f"<@{each}>" for each in list_receivers]
+                                        msg = ", ".join(list_mentioned) + f" active talker(s) in the last {lap_str}."
+                                        msg_no_embed = ", ".join(list_receiver_names) + " got {} {} each. Next drop in {}.".format(num_format_coin(each_drop['tiptalk_amount']/len(list_receivers) if len(list_receivers) > 0 else each_drop['tiptalk_amount'], COIN_NAME, coin_decimal, False), COIN_NAME, seconds_str(each_drop['tiptalk_duration']))
+                                        if len(msg) > 999:
+                                            verb = "is"
+                                            if len(list_receivers) > 0:
+                                                verb = "are"
+                                            msg = f"There {verb} {str(len(list_receivers))} active talker(s) in the last {lap_str}."
+                                            msg_no_embed = msg + " Each got {} {}. Next drop in {}. You can disable it by /tiptalker and set amount 0.".format(num_format_coin(each_drop['tiptalk_amount']/len(list_receivers) if len(list_receivers) > 0 else each_drop['tiptalk_amount'], COIN_NAME, coin_decimal, False), COIN_NAME, seconds_str(each_drop['tiptalk_duration']))
+                                    except Exception as e:
+                                        traceback.print_exc(file=sys.stdout)
+                                        await logchanbot(traceback.format_exc())
+                        if len(msg) > 0:
+                            embed = disnake.Embed(title = "ACTIVEDROP/TALKER {}".format( get_guild.name ), description="Keep on chatting in <#{}>".format(each_drop['tiptalk_channel']), timestamp=datetime.now())
+                            embed.add_field(name="RECEIVER(s): {}".format(len(list_receivers)), value=msg, inline=False)
+                            embed.add_field(name="TOTAL", value="{} {}".format(num_format_coin(each_drop['tiptalk_amount'], COIN_NAME, coin_decimal, False), COIN_NAME), inline=False)
+                            embed.add_field(name="EACH", value="{} {}".format(num_format_coin(each_drop['tiptalk_amount']/len(list_receivers) if len(list_receivers) > 0 else each_drop['tiptalk_amount'], COIN_NAME, coin_decimal, False), COIN_NAME), inline=False)
+                            if each_drop['tiptalk_role_id'] and role:
+                                embed.add_field(name="ROLE", value=role.name, inline=False)
+                            embed.add_field(name="NEXT DROP", value=seconds_str(each_drop['tiptalk_duration']), inline=False)
+                            embed.set_footer(text="You can disable it by /tiptalker and set amount 0.")
+                            if get_channel and len(list_receivers) > 0:
+                                try:
+                                    await get_channel.send(embed=embed)
+                                except Exception as e:
+                                    await get_channel.send(content=msg_no_embed)
+                                await logchanbot(f"[ACTIVEDROP] in guild {get_guild.name} / {get_guild.id} to {str(len(list_receivers))} for total of {num_format_coin(each_drop['tiptalk_amount'], COIN_NAME, coin_decimal, False)} {COIN_NAME}.")
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        await asyncio.sleep(time_lap)
 
     @tasks.loop(seconds=60.0)
     async def check_raffle_status(self):
@@ -887,6 +1064,64 @@ class Guild(commands.Cog):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         return 0
+
+    async def update_activedrop(self, guild_id: str, amount: float=0, coin_name: str=None, duration: int=3600, channel: str=None, role_id: str=None):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ UPDATE discord_server SET `tiptalk_amount`=%s, `tiptallk_coin`=%s, `tiptalk_channel`=%s, `tiptalk_duration`=%s, `tiptalk_role_id`=%s 
+                              WHERE `serverid`=%s LIMIT 1 """
+                    await cur.execute(sql, ( amount, coin_name.upper() if coin_name else None, channel, duration, role_id, guild_id  ))
+                    await conn.commit()
+                    return cur.rowcount
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return 0
+
+    async def get_activedrop(self):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM discord_server  
+                              WHERE `tiptalk_amount`>0 """
+                    await cur.execute(sql, ())
+                    result = await cur.fetchall()
+                    if result and len(result) > 0: return result
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return []
+
+    async def get_last_activedrop_guild(self, guild_id):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM discord_tiptalker  
+                              WHERE `guild_id`=%s ORDER BY `id` DESC LIMIT 1 """
+                    await cur.execute(sql, ( guild_id ))
+                    result = await cur.fetchone()
+                    if result: return result
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
+    async def insert_new_activedrop_guild(self, guild_id: str, guild_name: str, channel_id: str, token_name: str, token_decimal: int, total_amount: float, each_amount: float, numb_receivers: int, list_receivers_id: str, list_receivers_name: str, spread_time: int):
+        try:	
+            await self.openConnection()	
+            async with self.pool.acquire() as conn:	
+                async with conn.cursor() as cur:	
+                    sql = """ INSERT INTO discord_tiptalker (`guild_id`, `guild_name`, `channel_id`, `token_name`, 
+                              `token_decimal`, `total_amount`, `each_amount`, `numb_receivers`, `list_receivers_id`, `list_receivers_name`, spread_time) 	
+                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """	
+                    await cur.execute(sql, ( guild_id, guild_name, channel_id, token_name.upper(), token_decimal, total_amount,
+                                            each_amount, numb_receivers, list_receivers_id, list_receivers_name, spread_time ))
+                    await conn.commit()	
+                    return True	
+        except Exception as e:	
+            await logchanbot(traceback.format_exc())	
+        return False
 
     @commands.guild_only()
     @commands.bot_has_permissions(send_messages=True)
@@ -1989,6 +2224,192 @@ class Guild(commands.Cog):
                 await ctx.response.send_message(msg, ephemeral=True)
             return
 
+    @commands.has_permissions(administrator=True)
+    @guild.sub_command(
+        usage="guild activedrop <amount> <coin/token> <duration> <#channel> [@role]", 
+        options=[
+            Option('amount', 'amount', OptionType.string, required=True), 
+            Option('coin', 'coin', OptionType.string, required=True),
+            Option('duration', 'duration', OptionType.string, required=True, choices=[
+                OptionChoice("30 mn", "0.5H"),
+                OptionChoice("1 Hour", "1H"),
+                OptionChoice("2 Hours", "2H"),
+                OptionChoice("3 Hours", "3H"),
+                OptionChoice("4 Hours", "4H"),
+                OptionChoice("5 Hours", "5H"),
+                OptionChoice("6 Hours", "6H"),
+                OptionChoice("12 Hours", "12H"),
+                OptionChoice("24 Hours", "24H")
+            ]),
+            Option('channel', 'channel', OptionType.channel, required=True),
+            Option('role', 'role', OptionType.role, required=False)
+        ],
+        description="Let bot rains every interval to active chatter in a channel."
+    )
+    async def activedrop(
+        self,
+        ctx,
+        amount: str, 
+        coin: str,
+        duration: str,
+        channel: disnake.TextChannel,
+        role: disnake.Role=None
+    ):
+        await self.async_activedrop( ctx, amount, coin, duration, channel, role )
+    
+    
+    @commands.has_permissions(administrator=True)
+    @commands.guild_only()
+    @commands.slash_command(
+        usage="tiptalker <amount> <coin/token> <duration> <#channel> [@role]", 
+        options=[
+            Option('amount', 'amount', OptionType.string, required=True), 
+            Option('coin', 'coin', OptionType.string, required=True),
+            Option('duration', 'duration', OptionType.string, required=True, choices=[
+                OptionChoice("30 mn", "0.5H"),
+                OptionChoice("1 Hour", "1H"),
+                OptionChoice("2 Hours", "2H"),
+                OptionChoice("3 Hours", "3H"),
+                OptionChoice("4 Hours", "4H"),
+                OptionChoice("5 Hours", "5H"),
+                OptionChoice("6 Hours", "6H"),
+                OptionChoice("12 Hours", "12H"),
+                OptionChoice("24 Hours", "24H")
+            ]),
+            Option('channel', 'channel', OptionType.channel, required=True),
+            Option('role', 'role', OptionType.role, required=False)
+        ],
+        description="Let bot rains every interval to active chatter in a channel."
+    )
+    async def tiptalker(
+        self,
+        ctx,
+        amount: str, 
+        coin: str,
+        duration: str,
+        channel: disnake.TextChannel,
+        role: disnake.Role=None
+    ):
+        await self.async_activedrop( ctx, amount, coin, duration, channel, role )
+
+    async def async_activedrop(self, ctx, amount: str, coin: str, duration: str, channel: disnake.TextChannel, role: disnake.Role=None ):
+        original_duration = duration
+        COIN_NAME = coin.upper()
+        if not hasattr(self.bot.coin_list, COIN_NAME):
+            await ctx.response.send_message(f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.')
+            return
+
+        duration = duration.upper()
+        if duration not in ["0.5H", "1H", "2H", "3H", "4H", "5H", "6H", "12H", "24H"]:
+            await ctx.response.send_message(f'{ctx.author.mention}, accepted duration 0.5H to 6H.')
+            return
+        duration_s = int(float(duration.upper().replace("H", ""))*3600)
+        await ctx.response.send_message(f'{ctx.author.mention}, setting activedrop...')
+
+        net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
+        type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
+        deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
+        coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+        contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
+        token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
+        MinTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_min_tip")
+        MaxTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_max_tip")
+        usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
+        
+        Guild_WalletAPI = WalletAPI(self.bot)
+        get_deposit = await Guild_WalletAPI.sql_get_userwallet(str(ctx.guild.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+        if get_deposit is None:
+            get_deposit = await Guild_WalletAPI.sql_register_user(str(ctx.guild.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 1)
+
+        wallet_address = get_deposit['balance_wallet_address']
+        if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+            wallet_address = get_deposit['paymentid']
+
+        height = None
+        try:
+            if type_coin in ["ERC-20", "TRC-20"]:
+                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
+            else:
+                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+
+        userdata_balance = await self.user_balance(str(ctx.guild.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+        actual_balance = float(userdata_balance['adjust'])
+
+        amount = amount.replace(",", "")
+        serverinfo = None
+        # Process, only guild owner can process
+        try:
+            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            if serverinfo is None:
+                # Let's add some info if server return None
+                add_server_info = await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
+            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            msg = f'{ctx.author.mention}, internal error. Please report.'
+            await ctx.edit_original_message(content=msg)
+        # if amount <= 0, meaning disable
+        if amount.isdigit() and float(amount) <= 0 and serverinfo['tiptalk_amount'] > 0:
+            update_tiptalk = await self.update_activedrop(str(ctx.guild.id), 0.0, None, None, None, None)
+            msg = f'{ctx.author.mention}, disable activedrop/tiptalker in {ctx.guild.name}.'
+            await ctx.edit_original_message(content=msg)
+            return
+        elif amount.isdigit() and float(amount) <= 0 and serverinfo['tiptalk_amount'] == 0:
+            msg = f'{ctx.author.mention}, activedrop/tiptalker in {ctx.guild.name} is currently disable.'
+            await ctx.edit_original_message(content=msg)
+            return
+        amount = text_to_num(amount)
+        if amount is None:
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid given amount.'
+            await ctx.edit_original_message(content=msg)
+            return
+            
+        # We assume max reward by MaxTip / 10
+        elif amount < MinTip or amount > MaxTip / 10:
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, activedrop/tiptalker amount cannot be smaller than {num_format_coin(MinTip, COIN_NAME, coin_decimal, False)} {token_display} or bigger than {num_format_coin(MaxTip / 10, COIN_NAME, coin_decimal, False)} {token_display}.'
+            await ctx.edit_original_message(content=msg)
+            try:
+                await logchanbot(f'[{SERVER_BOT}] A user {ctx.author.name}#{ctx.author.discriminator} disable activedrop/tiptalker in guild {ctx.guild.name} / {ctx.guild.id}.')
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            return
+
+        # We assume at least guild need to have 100x of reward or depends on guild's population
+        elif amount*100 > actual_balance:
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, your guild needs to have at least 100x `active drop amount`. 100x rewards = {num_format_coin(amount*100, COIN_NAME, coin_decimal, False)} {token_display}. Check with `/guild balance`.'
+            await ctx.edit_original_message(content=msg)
+            return
+        else:
+            # Check channel
+            get_channel = self.bot.get_channel(int(channel.id))
+            channel_str = str(channel.id)
+            # Test message
+            msg = f"New guild's active drop set to `{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}` by {ctx.author.name}#{ctx.author.discriminator} and always rewards to active users in this channel every `{original_duration}`."
+            try:
+                await get_channel.send(msg)
+            except Exception as e:
+                msg = f'{ctx.author.mention}, failed to message channel {channel.mention}. Set active drop denied!'
+                await ctx.edit_original_message(content=msg)
+                traceback.print_exc(file=sys.stdout)
+                return
+            role_id = None
+            if role and str(role) not in ["@everyone", "@here"]:
+                get_role = disnake.utils.get(ctx.guild.roles, name=role.name)
+                if get_role:
+                    role_id = str(get_role.id)
+            update_tiptalk = await self.update_activedrop(str(ctx.guild.id), float(amount), COIN_NAME, duration_s, channel_str, role_id)
+            if update_tiptalk > 0:
+                msg = f'{ctx.author.mention}, successfully set activedrop/tiptalker in guild {ctx.guild.name} to {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display} for every {duration}.'
+                await ctx.edit_original_message(content=msg)
+                try:
+                    await logchanbot(f'[{SERVER_BOT}] A user {ctx.author.name}#{ctx.author.discriminator} set activedrop/tiptalker in guild {ctx.guild.name} / {ctx.guild.id} to {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display} for every {duration}.')
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+            else:
+                msg = f'{ctx.author.mention} internal error or nothing updated.'
+                await ctx.edit_original_message(content=msg)
 
     async def async_guild_info(self, ctx):
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
@@ -2018,6 +2439,8 @@ class Guild(commands.Cog):
             embed.add_field(name="Faucet {} {}".format(serverinfo['faucet_amount'], serverinfo['faucet_coin']), value="<#{}>".format(serverinfo['faucet_channel']), inline=True)
         if serverinfo['botchan']:
             embed.add_field(name="Bot Channel", value="<#{}>".format(serverinfo['botchan']), inline=True)
+        if serverinfo['tiptalk_channel'] and serverinfo['tiptalk_amount'] > 0 and serverinfo['tiptallk_coin']:
+            embed.add_field(name="TipTalk", value="`{} {} @ {}`".format(serverinfo['tiptalk_amount'], serverinfo['tiptallk_coin'], seconds_str(serverinfo['tiptalk_duration'])), inline=True)
         if serverinfo['economy_channel'] and serverinfo['enable_economy'] == "YES":
             embed.add_field(name="Economy Channel", value="<#{}>".format(serverinfo['economy_channel']), inline=True)
         if serverinfo['vote_reward_amount'] and serverinfo['vote_reward_coin'] and serverinfo['vote_reward_channel']:

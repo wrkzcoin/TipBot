@@ -218,6 +218,16 @@ class Events(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return 0
 
+    async def delete_discord_message(self, message_id, user_id):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ DELETE FROM discord_messages WHERE `message_id`=%s AND `user_id`=%s LIMIT 1 """
+                    await cur.execute(sql, ( message_id, user_id ))
+                    await conn.commit()
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
 
     @tasks.loop(seconds=20.0)
     async def process_saving_message(self):
@@ -486,6 +496,29 @@ class Events(commands.Cog):
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
 
+    @commands.Cog.listener()
+    async def on_message_delete(self, message):
+        # should ignore webhook message
+        if message is None:
+            return
+
+        if hasattr(message, "channel") and hasattr(message.channel, "id") and message.webhook_id:
+            return
+        
+        if hasattr(message, "channel") and hasattr(message.channel, "id") and message.author.bot == False and message.author != self.bot.user:
+            if message.id in self.message_id_list:
+                # saving_message
+                try:
+                    saving = await self.insert_discord_message(list(set(self.bot.message_list)))
+                    if saving > 0:
+                        self.bot.message_list = []
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+            # Try delete from database
+            try:
+                await self.delete_discord_message( str(message.id), str(message.author.id) )
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
 
     @commands.Cog.listener()
     async def on_button_click(self, inter):

@@ -1538,6 +1538,7 @@ class Guild(commands.Cog):
         coin_balance = {}
         coin_balance_usd = {}
         coin_balance_equivalent_usd = {}
+        Guild_WalletAPI = WalletAPI(self.bot)
         for each_token in mytokens:
             try:
                 COIN_NAME = each_token['coin_name']
@@ -1546,8 +1547,6 @@ class Guild(commands.Cog):
                 deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
                 coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
                 token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
-
-                Guild_WalletAPI = WalletAPI(self.bot)
                 get_deposit = await Guild_WalletAPI.sql_get_userwallet(str(ctx.guild.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
                 if get_deposit is None:
                     get_deposit = await Guild_WalletAPI.sql_register_user(str(ctx.guild.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 1)
@@ -1632,12 +1631,11 @@ class Guild(commands.Cog):
                         page.set_thumbnail(url=ctx.author.display_avatar)
                         page.set_footer(text="Use the reactions to flip pages.")
                     else:
-                        all_pages.append(page)
                         break
                 elif num_coins == len(coin_balance_list):
                     all_pages.append(page)
                     break
-
+                
             if len(all_pages) == 1:
                 await ctx.edit_original_message(content=None, embed=all_pages[0], view=RowButton_close_message())
             else:

@@ -1387,6 +1387,59 @@ class Wallet(commands.Cog):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
+    async def swaptoken_list(self):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `coin_swap_tokens` WHERE `enable`=%s """
+                    await cur.execute(sql, ( 1 ))
+                    result = await cur.fetchall()
+                    if result: return result
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return []
+
+    async def swaptoken_check(self, from_token: str, to_token: str):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `coin_swap_tokens` WHERE `enable`=%s AND `from_token`=%s AND `to_token`=%s LIMIT 1 """
+                    await cur.execute(sql, ( 1, from_token, to_token ))
+                    result = await cur.fetchone()
+                    if result: return result
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
+    async def swaptoken_purchase(self, list_tx):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ INSERT INTO user_balance_mv (`token_name`, `contract`, `from_userid`, `to_userid`, `guild_id`, `channel_id`, `real_amount`, `token_decimal`, `type`, `date`, `user_server`, `real_amount_usd`, `extra_message`) 
+                          VALUES (%s, %s, %s, %s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s, %s, %s, %s, %s, %s);
+                        
+                          INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, `balance`, `update_date`) 
+                          VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
+                          UPDATE 
+                          `balance`=`balance`+VALUES(`balance`), 
+                          `update_date`=VALUES(`update_date`);
+
+                          INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, `balance`, `update_date`) 
+                          VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
+                          UPDATE 
+                          `balance`=`balance`+VALUES(`balance`), 
+                          `update_date`=VALUES(`update_date`);
+                              """
+                    await cur.executemany(sql, list_tx)
+                    await conn.commit()
+                    return cur.rowcount
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return 0
+
     async def collect_claim_list(self, user_id: str, claim_type: str):
         try:
             await self.openConnection()
@@ -6163,6 +6216,211 @@ class Wallet(commands.Cog):
             await ctx.edit_original_message(content=msg)
     # End of Donate
 
+    # Swap Tokens
+    @commands.slash_command(description="Swap supporting tokens")
+    async def swaptokens(self, ctx):
+        pass
+
+    @swaptokens.sub_command(
+        usage="swaptokens disclaimer", 
+        description="Show /swaptokens's disclaimer."
+    )
+    async def disclaimer(
+        self, 
+        ctx
+    ):
+        msg = f"""{EMOJI_INFORMATION} Disclaimer: No warranty or guarantee is provided, expressed, or implied \
+when using this bot and any funds lost, mis-used or stolen in using this bot. TipBot and its dev does not affiliate with the swapped tokens."""
+        await ctx.response.send_message(msg)
+
+    @swaptokens.sub_command(
+        usage="swaptokens lists", 
+        description="Show /swaptokens's supported list."
+    )
+    async def lists(
+        self, 
+        ctx
+    ):
+        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, checking /swaptokens lists...'
+        await ctx.response.send_message(msg)
+        get_swap_list = await self.swaptoken_list()
+        if len(get_swap_list) > 0:
+            embed = disnake.Embed(title = "/swaptokens lists", timestamp=datetime.now())
+            for each in get_swap_list:
+                #embed.add_field(name="{}->{} | Ratio: {:,.2f} : {:,.2f}".format(each['from_token'], each['to_token'], each['amount_from'], each['amount_to']), value="```Max. allowed 24h: {} {}\nMax. allowed 24h/user: {} {}\nFee: {:,.0f}{}```".format(each['max_swap_per_24h_from_token_total'], each['from_token'], each['max_swap_per_24h_from_token_user'], each['from_token'], each['fee_percent_from'], "%"), inline=False)
+                embed.add_field(name="{}->{} | Ratio: {:,.2f} : {:,.2f}".format(each['from_token'], each['to_token'], each['amount_from'], each['amount_to']), value="```Fee: {:,.0f}{}```".format(each['fee_percent_from'], "%"), inline=False)
+            embed.set_footer(text="Requested by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
+            await ctx.edit_original_message(content=None, embed=embed)
+        else:
+            msg = f'{EMOJI_ERROR} {ctx.author.mention}, there is no supported token yet. Check again later!'
+            await ctx.edit_original_message(content=msg)
+
+    @swaptokens.sub_command(
+        usage="swaptokens purchase", 
+        options=[
+            Option('from_amount', 'from_amount', OptionType.string, required=True),
+            Option('from_token', 'from_token', OptionType.string, required=True),
+            Option('to_token', 'to_token', OptionType.string, required=True)
+        ],
+        description="Swap tokens / purchase"
+    )
+    async def purchase(
+        self, 
+        ctx,
+        from_amount: str,
+        from_token: str,
+        to_token: str
+    ):
+        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, checking /swaptokens purchase...'
+        await ctx.response.send_message(msg)
+        FROM_COIN = from_token.upper()
+        TO_COIN = to_token.upper()
+        # Check if available
+        check_list = await self.swaptoken_check(FROM_COIN, TO_COIN)
+        if check_list is None:
+            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, {FROM_COIN} to {TO_COIN} is not available. Please check with `/swaptokens lists`.'
+            await ctx.edit_original_message(content=msg)
+            return
+        else:
+            try:
+                creditor = check_list['account_creditor']
+                User_WalletAPI = WalletAPI(self.bot)
+
+                amount = from_amount.replace(",", "")
+                amount = text_to_num(amount)
+                if amount is None:
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid given from amount.'
+                    await ctx.edit_original_message(content=msg)
+                else:
+                    if amount <= 0:
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid given from amount.'
+                        await ctx.edit_original_message(content=msg)
+                        return
+
+                # Check balance user first
+                net_name = getattr(getattr(self.bot.coin_list, FROM_COIN), "net_name")
+                type_coin = getattr(getattr(self.bot.coin_list, FROM_COIN), "type")
+                get_deposit = await User_WalletAPI.sql_get_userwallet(str(ctx.author.id), FROM_COIN, net_name, type_coin, SERVER_BOT, 0)
+                deposit_confirm_depth = getattr(getattr(self.bot.coin_list, FROM_COIN), "deposit_confirm_depth")
+                MinTip = getattr(getattr(self.bot.coin_list, FROM_COIN), "real_min_tip")
+                MaxTip = getattr(getattr(self.bot.coin_list, FROM_COIN), "real_max_tip")
+                coin_decimal = getattr(getattr(self.bot.coin_list, FROM_COIN), "decimal")
+                token_display = getattr(getattr(self.bot.coin_list, FROM_COIN), "display_name")
+                amount = float(amount)
+                if amount < MinTip or amount > MaxTip:
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, amount must be between {MinTip} {FROM_COIN} and {MaxTip} {FROM_COIN}.'
+                    await ctx.edit_original_message(content=msg)
+                    return
+                if get_deposit is None:
+                    get_deposit = await User_WalletAPI.sql_register_user(str(ctx.author.id), FROM_COIN, net_name, type_coin, SERVER_BOT, 0, 1 if check_list['is_guild']==1 else 0)
+                wallet_address = get_deposit['balance_wallet_address']
+                if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                    wallet_address = get_deposit['paymentid']
+                height = None
+                try:
+                    if type_coin in ["ERC-20", "TRC-20"]:
+                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
+                    else:
+                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{FROM_COIN}').decode())
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), FROM_COIN, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+                actual_balance = float(userdata_balance['adjust'])
+                if actual_balance < amount:
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to /swaptokens **{num_format_coin(amount, FROM_COIN, coin_decimal, False)} {token_display}**. Having {num_format_coin(actual_balance, FROM_COIN, coin_decimal, False)} {token_display}.'
+                    await ctx.edit_original_message(content=msg)
+                    return
+
+                # Check TO_COIN balance creditor
+                amount_swapped = amount * check_list['amount_to'] / check_list['amount_from']
+                net_name = getattr(getattr(self.bot.coin_list, TO_COIN), "net_name")
+                type_coin = getattr(getattr(self.bot.coin_list, TO_COIN), "type")
+                get_deposit = await User_WalletAPI.sql_get_userwallet(creditor, TO_COIN, net_name, type_coin, SERVER_BOT, 0)
+                deposit_confirm_depth = getattr(getattr(self.bot.coin_list, TO_COIN), "deposit_confirm_depth")
+                coin_decimal = getattr(getattr(self.bot.coin_list, TO_COIN), "decimal")
+                token_display = getattr(getattr(self.bot.coin_list, TO_COIN), "display_name")
+                if get_deposit is None:
+                    get_deposit = await User_WalletAPI.sql_register_user(creditor, TO_COIN, net_name, type_coin, SERVER_BOT, 0, 1 if check_list['is_guild']==1 else 0)
+                wallet_address = get_deposit['balance_wallet_address']
+                if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                    wallet_address = get_deposit['paymentid']
+                height = None
+                try:
+                    if type_coin in ["ERC-20", "TRC-20"]:
+                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
+                    else:
+                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{TO_COIN}').decode())
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                creditor_balance = await store.sql_user_balance_single(creditor, TO_COIN, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+                actual_balance = float(creditor_balance['adjust'])
+                if actual_balance < amount_swapped:
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, creditor has insufficient balance to /swaptokens **{num_format_coin(amount_swapped, FROM_COIN, coin_decimal, False)} {token_display}**. Remaining only {num_format_coin(actual_balance, TO_COIN, coin_decimal, False)} {token_display}.'
+                    await ctx.edit_original_message(content=msg)
+                    try:
+                        msg_log = f"[SWAPTOKENS] - A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.id}  /swaptokens failed! Shortage of creditor's balance. Remaining only {num_format_coin(actual_balance, TO_COIN, coin_decimal, False)} {token_display}."
+                        await logchanbot(msg_log)
+                        if check_list['channel_log'] and check_list['channel_log'].isdigit():
+                            self.logchan_swap = self.bot.get_channel( int(check_list['channel_log']) )
+                            await self.logchan_swap.send(content=msg_log)
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                    return
+                else:
+                    # Do swap
+                    data_rows = []
+                    currentTs = int(time.time())
+                    fee_taker = str(config.discord.ownerID) # "460755304863498250" # str(config.discord.ownerID)
+                    # FROM_COIN
+                    contract_from = getattr(getattr(self.bot.coin_list, FROM_COIN), "contract")
+                    token_decimal_from = getattr(getattr(self.bot.coin_list, FROM_COIN), "decimal")
+                    guild_id = str(ctx.guild.id) if hasattr(ctx.guild, "id") else "DM"
+                    channel_id = str(ctx.channel.id) if hasattr(ctx.guild, "id") else "DM"
+                    tiptype = "SWAPTOKENS"
+                    user_server = SERVER_BOT
+                    real_amount_usd = 0.0 # Leave it 0
+                    extra_message = None
+                    amount_after_fee = amount*(1-check_list['fee_percent_from']/100)
+                    fee_from = amount*check_list['fee_percent_from']/100
+
+                    # Deduct amount from
+                    data_rows.append( ( FROM_COIN, contract_from, str(ctx.author.id), creditor, guild_id, channel_id, amount_after_fee, token_decimal_from, tiptype, currentTs, user_server, real_amount_usd, extra_message, str(ctx.author.id), FROM_COIN, user_server, -amount_after_fee, currentTs, creditor, FROM_COIN, user_server, amount_after_fee, currentTs, ) )
+                    # Fee to fee_taker
+                    if fee_from > 0:
+                        data_rows.append( ( FROM_COIN, contract_from, str(ctx.author.id), fee_taker, guild_id, channel_id, fee_from, token_decimal_from, tiptype, currentTs, user_server, real_amount_usd, extra_message, str(ctx.author.id), FROM_COIN, user_server, -fee_from, currentTs, fee_taker, FROM_COIN, user_server, fee_from, currentTs, ) )
+                    
+                    # Deduct from creditor
+                    contract_to = getattr(getattr(self.bot.coin_list, TO_COIN), "contract")
+                    token_decimal_to = getattr(getattr(self.bot.coin_list, TO_COIN), "decimal")
+                    amount_after_fee = amount_swapped*(1-check_list['fee_percent_to']/100)
+                    fee_to = amount_swapped*check_list['fee_percent_to']/100
+                    data_rows.append( ( TO_COIN, contract_to, creditor, str(ctx.author.id), guild_id, channel_id, amount_after_fee, token_decimal_to, tiptype, currentTs, user_server, real_amount_usd, extra_message, creditor, TO_COIN, user_server, -amount_after_fee, currentTs, str(ctx.author.id), TO_COIN, user_server, amount_after_fee, currentTs, ) )
+                    # Fee to fee_taker
+                    if fee_to > 0:
+                        data_rows.append( ( TO_COIN, contract_to, creditor, fee_taker, guild_id, channel_id, fee_to, token_decimal_to, tiptype, currentTs, user_server, real_amount_usd, extra_message, creditor, TO_COIN, user_server, -fee_to, currentTs, fee_taker, TO_COIN, user_server, fee_to, currentTs, ) )
+
+                    swap = await self.swaptoken_purchase( data_rows )
+                    if swap > 0:
+                        # If there is a log channel for this.
+                        try:
+                            msg_log = f"[SWAPTOKENS] - A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.id}  /swaptokens successfully from {num_format_coin(amount, FROM_COIN, token_decimal_from, False)} {FROM_COIN} to {num_format_coin(amount_swapped, TO_COIN, token_decimal_to, False)} {TO_COIN} [Fee: {num_format_coin(fee_to, TO_COIN, token_decimal_to, False)} {TO_COIN}].\nCREDITOR NEW BALANCE: {num_format_coin(float(creditor_balance['adjust'])-amount_swapped, TO_COIN, token_decimal_to, False)} {TO_COIN}."
+                            await logchanbot(msg_log)
+                            if check_list['channel_log'] and check_list['channel_log'].isdigit():
+                                self.logchan_swap = self.bot.get_channel( int(check_list['channel_log']) )
+                                await self.logchan_swap.send(content=msg_log)
+                        except Exception as e:
+                            traceback.print_exc(file=sys.stdout)
+                        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, successfully /swaptokens from **{num_format_coin(amount, FROM_COIN, token_decimal_from, False)} {FROM_COIN}** to **{num_format_coin(amount_swapped, TO_COIN, token_decimal_to, False)}** _{TO_COIN} [Fee: {num_format_coin(fee_to, TO_COIN, token_decimal_to, False)} {TO_COIN}]_. Thanks!'
+                        await ctx.edit_original_message(content=msg)
+                    else:
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, internal error, please report.'
+                        await ctx.edit_original_message(content=msg)
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, internal error, please report.'
+                await ctx.edit_original_message(content=msg)
+    # End of Swap Tokens
+        
     # Swap
     @commands.slash_command(
         usage='swap', 
@@ -6171,7 +6429,7 @@ class Wallet(commands.Cog):
             Option('from_token', 'from_token', OptionType.string, required=True),
             Option('to_token', 'to_token', OptionType.string, required=True)
         ],
-        description="Swap between supported token/coin."
+        description="Swap between supported token/coin (wrap/unwrap)."
     )
     async def swap(
         self, 

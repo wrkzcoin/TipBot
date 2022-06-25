@@ -2120,7 +2120,7 @@ class Tips(commands.Cog):
 
         get_deposit = await User_WalletAPI.sql_get_userwallet(str(id_tipper), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
         if get_deposit is None:
-            get_deposit = await User_WalletAPI.sql_register_user(str(id_tipper), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
+            get_deposit = await User_WalletAPI.sql_register_user(str(id_tipper), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 1 if if_guild else 0)
 
         wallet_address = get_deposit['balance_wallet_address']
         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -2348,7 +2348,7 @@ class Tips(commands.Cog):
 
         get_deposit = await User_WalletAPI.sql_get_userwallet(id_tipper, COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
         if get_deposit is None:
-            get_deposit = await User_WalletAPI.sql_register_user(id_tipper, COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
+            get_deposit = await User_WalletAPI.sql_register_user(id_tipper, COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 1 if if_guild else 0)
 
         wallet_address = get_deposit['balance_wallet_address']
         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:

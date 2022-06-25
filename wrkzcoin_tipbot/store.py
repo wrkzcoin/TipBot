@@ -22,7 +22,7 @@ from tronpy.providers.async_http import AsyncHTTPProvider
 from tronpy.exceptions import AddressNotFound, UnknownError
 from tronpy.keys import PrivateKey
 
-
+import httpx
 from httpx import AsyncClient, Timeout, Limits
 
 from web3 import Web3
@@ -856,8 +856,8 @@ async def trx_get_block_number(timeout: int = 64):
 
 async def trx_get_block_info(url: str, height: int, timeout: int=32):
     try:
-        _http_client = AsyncClient(limits=Limits(max_connections=100, max_keepalive_connections=20),
-                                   timeout=Timeout(timeout=10, connect=5, read=5))
+        _http_client = AsyncClient(limits=Limits(max_connections=10, max_keepalive_connections=5),
+                                   timeout=Timeout(timeout=30, connect=20, read=20))
         TronClient = AsyncTron(provider=AsyncHTTPProvider(url, client=_http_client))
         getBlock = await TronClient.get_block(height)
         await TronClient.close()
@@ -994,7 +994,8 @@ async def sql_check_minimum_deposit_erc20(url: str, net_name: str, coin: str, co
                 if real_deposited_balance < min_move_deposit:
                     balance_below_min += 1
                     # skip balance move below this
-                    # print("Skipped {}, {}. Having {}, minimum {}".format(TOKEN_NAME, each_address['balance_wallet_address'], real_deposited_balance, min_move_deposit))
+                    if real_deposited_balance > 0:
+                        print("Skipped {}, {}. Having {}, minimum {}".format(TOKEN_NAME, each_address['balance_wallet_address'], real_deposited_balance, min_move_deposit))
                     pass
                 # config.eth.MainAddress => each_address['balance_wallet_address']
                 else:
@@ -1372,8 +1373,8 @@ async def trx_check_minimum_deposit(coin: str, type_coin: str, contract: str, co
                     real_deposited_balance = deposited_balance-min_gas_tx
                     try:
                         tron_node = await handle_best_node("TRX")
-                        _http_client = AsyncClient(limits=Limits(max_connections=100, max_keepalive_connections=20),
-                                                   timeout=Timeout(timeout=10, connect=5, read=5))
+                        _http_client = AsyncClient(limits=Limits(max_connections=10, max_keepalive_connections=5),
+                                                   timeout=Timeout(timeout=30, connect=20, read=20))
                         TronClient = AsyncTron(provider=AsyncHTTPProvider(tron_node, client=_http_client))
                         txb = (
                             TronClient.trx.transfer(each_address['balance_wallet_address'], config.trc.MainAddress, int(real_deposited_balance*10**6))
@@ -1409,8 +1410,8 @@ async def trx_check_minimum_deposit(coin: str, type_coin: str, contract: str, co
                     if type_coin == "TRC-20":
                         try:
                             tron_node = await handle_best_node("TRX")
-                            _http_client = AsyncClient(limits=Limits(max_connections=100, max_keepalive_connections=20),
-                                                       timeout=Timeout(timeout=10, connect=5, read=5))
+                            _http_client = AsyncClient(limits=Limits(max_connections=10, max_keepalive_connections=5),
+                                                       timeout=Timeout(timeout=30, connect=20, read=20))
                             TronClient = AsyncTron(provider=AsyncHTTPProvider(tron_node, client=_http_client))
                             cntr = await TronClient.get_contract(contract)
                             precision = await cntr.functions.decimals()
@@ -1460,8 +1461,8 @@ async def trx_check_minimum_deposit(coin: str, type_coin: str, contract: str, co
                     elif type_coin == "TRC-10":
                         try:
                             tron_node = await handle_best_node("TRX")
-                            _http_client = AsyncClient(limits=Limits(max_connections=100, max_keepalive_connections=20),
-                                                       timeout=Timeout(timeout=10, connect=5, read=5))
+                            _http_client = AsyncClient(limits=Limits(max_connections=10, max_keepalive_connections=5),
+                                                       timeout=Timeout(timeout=30, connect=20, read=20))
                             TronClient = AsyncTron(provider=AsyncHTTPProvider(tron_node, client=_http_client))                            
                             balance = await trx_wallet_getbalance(each_address['balance_wallet_address'], TOKEN_NAME, coin_decimal, type_coin, contract)
                             # Check balance and Transfer gas to it
@@ -1542,8 +1543,8 @@ async def trx_get_tx_info(tx: str):
     timeout = 64
     try:
         tron_node = await handle_best_node("TRX")
-        _http_client = AsyncClient(limits=Limits(max_connections=100, max_keepalive_connections=20),
-                                   timeout=Timeout(timeout=10, connect=5, read=5))
+        _http_client = AsyncClient(limits=Limits(max_connections=10, max_keepalive_connections=5),
+                                   timeout=Timeout(timeout=30, connect=20, read=20))
         TronClient = AsyncTron(provider=AsyncHTTPProvider(tron_node, client=_http_client))
         getTx = await TronClient.get_transaction(tx)
         await TronClient.close()
@@ -1563,14 +1564,16 @@ async def trx_wallet_getbalance(address: str, coin: str, coin_decimal: int, type
     balance = 0.0
     try:
         tron_node = await handle_best_node("TRX")
-        _http_client = AsyncClient(limits=Limits(max_connections=100, max_keepalive_connections=20),
-                                   timeout=Timeout(timeout=10, connect=5, read=5))
+        _http_client = AsyncClient(limits=Limits(max_connections=10, max_keepalive_connections=5),
+                                   timeout=Timeout(timeout=30, connect=20, read=20))
         TronClient = AsyncTron(provider=AsyncHTTPProvider(tron_node, client=_http_client))
         if contract is None or TOKEN_NAME == "TRX":
             try:
                 balance = await TronClient.get_account_balance(address)
             except AddressNotFound:
                 balance = 0.0
+            except httpx.ConnectTimeout:
+                print(f"httpx.ConnectTimeout with {tron_node}")
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
         else:

@@ -441,7 +441,10 @@ class Guild(commands.Cog):
                     role = None
                     if last_drop is None or (last_drop is not None and int(time.time()) - last_drop['spread_time'] >= each_drop['tiptalk_duration'] ):
                         # let's spread tiptalker
-                        message_talker = await store.sql_get_messages( each_drop['serverid'], each_drop['tiptalk_channel'], each_drop['tiptalk_duration'], None)
+                        additional_time = 0
+                        if last_drop is not None and 300 > int(time.time()) - last_drop['spread_time'] - each_drop['tiptalk_duration'] > 0:
+                            additional_time = int(time.time()) - last_drop['spread_time'] - each_drop['tiptalk_duration']
+                        message_talker = await store.sql_get_messages( each_drop['serverid'], each_drop['tiptalk_channel'], each_drop['tiptalk_duration'] + additional_time, None)
                         msg = ""
                         msg_no_embed = ""
                         list_receivers = []
@@ -525,6 +528,10 @@ class Guild(commands.Cog):
                                             if amount_in_usd > 0.0001:
                                                 equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
                                     try:
+                                        # re-check last drop
+                                        last_drop_recheck = await self.get_last_activedrop_guild( each_drop['serverid'] )
+                                        if last_drop_recheck is not None and int(time.time()) - last_drop_recheck['spread_time'] < 60:
+                                            continue
                                         # add to DB
                                         await self.insert_new_activedrop_guild( each_drop['serverid'], get_guild.name, each_drop['tiptalk_channel'], COIN_NAME, coin_decimal, each_drop['tiptalk_amount'], each_drop['tiptalk_amount']/len(list_receivers), len(list_receivers), json.dumps(list_receivers), json.dumps(list_receiver_names), int(time.time()) )
                                         tiptalk = await store.sql_user_balance_mv_multiple( each_drop['serverid'], list_receivers, each_drop['serverid'], each_drop['tiptalk_channel'], each_drop['tiptalk_amount']/len(list_receivers), COIN_NAME, "TIPTALK", coin_decimal, SERVER_BOT, contract, float(amount_in_usd), None )
@@ -2402,9 +2409,14 @@ class Guild(commands.Cog):
             update_tiptalk = await self.update_activedrop(str(ctx.guild.id), float(amount), COIN_NAME, duration_s, channel_str, role_id)
             if update_tiptalk > 0:
                 msg = f'{ctx.author.mention}, successfully set activedrop/tiptalker in guild {ctx.guild.name} to {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display} for every {duration}.'
+                try:
+                    if serverinfo['tiptalk_channel'] and channel_str != serverinfo['tiptalk_channel']:
+                        msg += " You guild's previous /tiptalk set in channel <#{}> is deleted.".format( serverinfo['tiptalk_channel'] )
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
                 await ctx.edit_original_message(content=msg)
                 try:
-                    await logchanbot(f'[{SERVER_BOT}] A user {ctx.author.name}#{ctx.author.discriminator} set activedrop/tiptalker in guild {ctx.guild.name} / {ctx.guild.id} to {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display} for every {duration}.')
+                    await logchanbot(f'[{SERVER_BOT}] A user {ctx.author.name}#{ctx.author.discriminator} set activedrop/tiptalker in guild {ctx.guild.name} / {ctx.guild.id} to {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display} for every {duration} in channel #{ctx.channel.name}.')
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
             else:

@@ -2282,7 +2282,7 @@ class Tips(commands.Cog):
                 tip_type = "TIPS"
             if int(id_tipper) not in self.bot.TX_IN_PROCESS:
                 self.bot.TX_IN_PROCESS.append(int(id_tipper))
-            tips = await store.sql_user_balance_mv_multiple(id_tipper, memids, str(ctx.guild.id), str(ctx.channel.id), amount, COIN_NAME, tip_type, coin_decimal, SERVER_BOT, contract, float(amount_in_usd), None)
+            tips = await store.sql_user_balance_mv_multiple(id_tipper, memids, str(ctx.guild.id), str(ctx.channel.id), amount, COIN_NAME, tip_type, coin_decimal, SERVER_BOT, contract, float(amount_in_usd), "By {}#{} / {}".format(ctx.author.name, ctx.author.discriminator, ctx.author.id) if if_guild else None) # if_guild, put extra message as who execute command
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
@@ -2324,8 +2324,6 @@ class Tips(commands.Cog):
                             await member.send(msg)
                         except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                             pass
-
-
 
     # Multiple tip
     async def multiple_tip_talker(self, ctx, amount: str, coin: str, coin_dict, list_talker, if_guild: bool = False):
@@ -2532,7 +2530,7 @@ class Tips(commands.Cog):
         try:
             if int(id_tipper) not in self.bot.TX_IN_PROCESS:
                 self.bot.TX_IN_PROCESS.append(int(id_tipper))
-            tiptalk = await store.sql_user_balance_mv_multiple(id_tipper, list_receivers, str(ctx.guild.id), str(ctx.channel.id), amount, COIN_NAME, "TIPTALK", coin_decimal, SERVER_BOT, contract, float(amount_in_usd), None)
+            tiptalk = await store.sql_user_balance_mv_multiple(id_tipper, list_receivers, str(ctx.guild.id), str(ctx.channel.id), amount, COIN_NAME, "TIPTALK", coin_decimal, SERVER_BOT, contract, float(amount_in_usd), "By {}#{} / {}".format(ctx.author.name, ctx.author.discriminator, ctx.author.id) if if_guild else None) # if_guild, put extra message as who execute command
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
@@ -2614,7 +2612,6 @@ class Tips(commands.Cog):
                     await ctx.followup.send(msg)
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
-
 
     # End of Tip Normal
 

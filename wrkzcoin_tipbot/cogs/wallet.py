@@ -1387,6 +1387,19 @@ class Wallet(commands.Cog):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
+    async def collect_claim_list(self, user_id: str, claim_type: str):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `user_balance_mv` WHERE `from_userid`=%s AND `type`=%s """
+                    await cur.execute(sql, ( user_id, claim_type ))
+                    result = await cur.fetchall()
+                    if result: return result
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return []
+
     async def check_withdraw_coin_address(self, coin_family: str, address: str):
         try:
             await self.openConnection()
@@ -5610,6 +5623,29 @@ class Wallet(commands.Cog):
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
             await ctx.response.send_message(embed=embed, view=RowButton_row_close_any_message())
+            return
+        elif token.upper() in ["LISTS", "LIST"]:
+            get_claim_lists = await self.collect_claim_list( str(self.bot.user.id), "BOTVOTE" )
+            if len(get_claim_lists) > 0:
+                coin_list = {}
+                vote_with_coin = {}
+                nos_vote = 0
+                for each in get_claim_lists:
+                    nos_vote += 1
+                    if each['token_name'] not in coin_list:
+                        coin_list[each['token_name']] = each['real_amount']
+                        vote_with_coin[each['token_name']] = 1
+                    else:
+                        coin_list[each['token_name']] += each['real_amount']
+                        vote_with_coin[each['token_name']] += 1
+                coin_list_values = []
+                for k, v in coin_list.items():
+                    coin_list_values.append("{:,.4f} {} - {:,.0f} time(s)".format(v, k, vote_with_coin[k]))
+                    
+                embed = disnake.Embed(title=f'Vote claim stats', timestamp=datetime.now())
+                embed.add_field(name="Total Vote", value="```{}```".format("\n".join(coin_list_values)), inline=False)
+                embed.set_footer(text="Requested by: {}#{} | Total votes: {:,.0f}".format( ctx.author.name, ctx.author.discriminator, nos_vote ))
+                await ctx.response.send_message(embed=embed, view=RowButton_row_close_any_message())
             return
         else:
             COIN_NAME = token.upper()

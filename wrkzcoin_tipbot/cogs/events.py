@@ -297,7 +297,7 @@ class Events(commands.Cog):
                 async with conn.cursor() as cur:
                     coin_list = {}
                     coin_list_name = []
-                    sql = """ SELECT * FROM `coin_settings` """
+                    sql = """ SELECT * FROM `coin_settings` WHERE `enable`=1 """
                     await cur.execute(sql, ())
                     result = await cur.fetchall()
                     if result and len(result) > 0:
@@ -317,7 +317,7 @@ class Events(commands.Cog):
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     coin_list_name = []
-                    sql = """ SELECT `coin_name` FROM `coin_settings` """
+                    sql = """ SELECT `coin_name` FROM `coin_settings` WHERE `enable`=1 """
                     await cur.execute(sql, ())
                     result = await cur.fetchall()
                     if result and len(result) > 0:
@@ -400,13 +400,12 @@ class Events(commands.Cog):
             await logchanbot(traceback.format_exc())
         return None
 
-
     async def get_faucet_coin_list(self):
         try:
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT `coin_name` FROM `coin_settings` WHERE `enable_faucet`=%s """
+                    sql = """ SELECT `coin_name` FROM `coin_settings` WHERE  WHERE `enable`=1 AND `enable_faucet`=%s """
                     await cur.execute(sql, (1))
                     result = await cur.fetchall()
                     if result and len(result) > 0:

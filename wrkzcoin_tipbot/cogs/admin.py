@@ -405,7 +405,7 @@ class Admin(commands.Cog):
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     coin_list = {}
-                    sql = """ SELECT * FROM `coin_settings` """
+                    sql = """ SELECT * FROM `coin_settings` WHERE `enable`=1 """
                     await cur.execute(sql, ())
                     result = await cur.fetchall()
                     if result and len(result) > 0:

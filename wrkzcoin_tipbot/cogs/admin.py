@@ -50,6 +50,8 @@ class Admin(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        self.wallet_api = WalletAPI(self.bot)
+
         # DB
         self.pool = None
 
@@ -902,9 +904,8 @@ class Admin(commands.Cog):
                     sum_user = 0
                     sum_unfound_balance = 0.0
                     sum_unfound_user = 0
-                    User_WalletAPI = WalletAPI(self.bot)
                     for each_user_id in all_user_id:
-                        get_deposit = await User_WalletAPI.sql_get_userwallet(each_user_id['user_id'], COIN_NAME, net_name, type_coin, each_user_id['user_server'], each_user_id['chat_id'] if each_user_id['chat_id'] else 0)
+                        get_deposit = await self.wallet_api.sql_get_userwallet(each_user_id['user_id'], COIN_NAME, net_name, type_coin, each_user_id['user_server'], each_user_id['chat_id'] if each_user_id['chat_id'] else 0)
                         if get_deposit is None:
                             continue
                         wallet_address = get_deposit['balance_wallet_address']
@@ -983,10 +984,9 @@ class Admin(commands.Cog):
             coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
             token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
-            User_WalletAPI = WalletAPI(self.bot)
-            get_deposit = await User_WalletAPI.sql_get_userwallet(member_id, COIN_NAME, net_name, type_coin, user_server, 0)
+            get_deposit = await self.wallet_api.sql_get_userwallet(member_id, COIN_NAME, net_name, type_coin, user_server, 0)
             if get_deposit is None:
-                get_deposit = await User_WalletAPI.sql_register_user(member_id, COIN_NAME, net_name, type_coin, user_server, 0, 0)
+                get_deposit = await self.wallet_api.sql_register_user(member_id, COIN_NAME, net_name, type_coin, user_server, 0, 0)
             wallet_address = get_deposit['balance_wallet_address']
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                 wallet_address = get_deposit['paymentid']
@@ -1051,8 +1051,7 @@ class Admin(commands.Cog):
                 await ctx.reply(msg)
                 return
 
-            User_WalletAPI = WalletAPI(self.bot)
-            get_deposit = await User_WalletAPI.sql_get_userwallet(member_id, COIN_NAME, net_name, type_coin, user_server, 0)
+            get_deposit = await self.wallet_api.sql_get_userwallet(member_id, COIN_NAME, net_name, type_coin, user_server, 0)
             if get_deposit is None:
                 msg = f'{ctx.author.mention}, {member_id} not exist with server `{user_server}` in our DB.'
                 await ctx.reply(msg)
@@ -1109,10 +1108,10 @@ class Admin(commands.Cog):
                 coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
                 token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
                 usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
-                User_WalletAPI = WalletAPI(self.bot)
-                get_deposit = await User_WalletAPI.sql_get_userwallet(member_id, COIN_NAME, net_name, type_coin, user_server, 0)
+                self.wallet_api = WalletAPI(self.bot)
+                get_deposit = await self.wallet_api.sql_get_userwallet(member_id, COIN_NAME, net_name, type_coin, user_server, 0)
                 if get_deposit is None:
-                    get_deposit = await User_WalletAPI.sql_register_user(member_id, COIN_NAME, net_name, type_coin, user_server, 0, 0)
+                    get_deposit = await self.wallet_api.sql_register_user(member_id, COIN_NAME, net_name, type_coin, user_server, 0, 0)
                 wallet_address = get_deposit['balance_wallet_address']
                 if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                     wallet_address = get_deposit['paymentid']

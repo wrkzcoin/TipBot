@@ -28,6 +28,8 @@ class Twitter(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        self.wallet_api = WalletAPI(self.bot)
+
         redis_utils.openRedis()
         self.botLogChan = None
 
@@ -49,8 +51,7 @@ class Twitter(commands.Cog):
         self, 
         address: str
     ):
-        User_WalletAPI = WalletAPI(self.bot)
-        return await User_WalletAPI.generate_qr_address(address)
+        return await self.wallet_api.generate_qr_address(address)
 
     async def openConnection(self):
         try:
@@ -881,11 +882,9 @@ class Twitter(commands.Cog):
         MinTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_min_tip")
         MaxTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_max_tip")
         usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
-        
-        Guild_WalletAPI = WalletAPI(self.bot)
-        get_deposit = await Guild_WalletAPI.sql_get_userwallet(str(ctx.guild.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+        get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.guild.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
         if get_deposit is None:
-            get_deposit = await Guild_WalletAPI.sql_register_user(str(ctx.guild.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 1)
+            get_deposit = await self.wallet_api.sql_register_user(str(ctx.guild.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 1)
 
         wallet_address = get_deposit['balance_wallet_address']
         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -1168,11 +1167,9 @@ class Twitter(commands.Cog):
                     # token_info = getattr(self.bot.coin_list, COIN_NAME)
                     token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
                     contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
-                    User_WalletAPI = WalletAPI(self.bot)
-                    
-                    get_deposit = await User_WalletAPI.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                    get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
                     if get_deposit is None:
-                        get_deposit = await User_WalletAPI.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
+                        get_deposit = await self.wallet_api.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
 
                     wallet_address = get_deposit['balance_wallet_address']
                     if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -1271,10 +1268,9 @@ class Twitter(commands.Cog):
                     tip = None
                     if ctx.author.id not in self.bot.TX_IN_PROCESS:
                         self.bot.TX_IN_PROCESS.append(ctx.author.id)
-                    Tip_WalletAPI = WalletAPI(self.bot)
-                    user_to = await User_WalletAPI.sql_get_userwallet(get_user['discord_user_id'], COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                    user_to = await self.wallet_api.sql_get_userwallet(get_user['discord_user_id'], COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
                     if user_to is None:
-                        user_to = await User_WalletAPI.sql_register_user(get_user['discord_user_id'], COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                        user_to = await self.wallet_api.sql_register_user(get_user['discord_user_id'], COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
 
                     try:
                         guild_id = "DM"
@@ -1352,7 +1348,6 @@ class Twitter(commands.Cog):
         # Do the job
         try:
             user_server = "TWITTER"
-            User_WalletAPI = WalletAPI(self.bot)
             # Check if exist in DB..
             get_linkme = await self.twitter_linkme_get_user(str(ctx.author.id))
             if get_linkme is None:
@@ -1367,10 +1362,10 @@ class Twitter(commands.Cog):
                 twitter_id_str = get_linkme['id_str']
                 net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
                 type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
-                get_deposit = await User_WalletAPI.sql_get_userwallet(twitter_id_str, COIN_NAME, net_name, type_coin, user_server, 0)
+                get_deposit = await self.wallet_api.sql_get_userwallet(twitter_id_str, COIN_NAME, net_name, type_coin, user_server, 0)
                 coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
                 if get_deposit is None:
-                    get_deposit = await User_WalletAPI.sql_register_user(twitter_id_str, COIN_NAME, net_name, type_coin, user_server, 0, 0)
+                    get_deposit = await self.wallet_api.sql_register_user(twitter_id_str, COIN_NAME, net_name, type_coin, user_server, 0, 0)
                     
                 wallet_address = get_deposit['balance_wallet_address']
                 description = ""
@@ -1467,7 +1462,6 @@ class Twitter(commands.Cog):
             user_server = "TWITTER"
             for each_token in mytokens:
                 if each_token['enable_twitter'] != 1: continue
-                User_WalletAPI = WalletAPI(self.bot)
                 try:
                     COIN_NAME = each_token['coin_name']
                     type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
@@ -1476,9 +1470,9 @@ class Twitter(commands.Cog):
                     coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
                     token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
                     usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
-                    get_deposit = await User_WalletAPI.sql_get_userwallet(twitter_id_str, COIN_NAME, net_name, type_coin, user_server, 0)
+                    get_deposit = await self.wallet_api.sql_get_userwallet(twitter_id_str, COIN_NAME, net_name, type_coin, user_server, 0)
                     if get_deposit is None:
-                        get_deposit = await User_WalletAPI.sql_register_user(twitter_id_str, COIN_NAME, net_name, type_coin, user_server, 0, 0)
+                        get_deposit = await self.wallet_api.sql_register_user(twitter_id_str, COIN_NAME, net_name, type_coin, user_server, 0, 0)
                     wallet_address = get_deposit['balance_wallet_address']
                     if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                         wallet_address = get_deposit['paymentid']

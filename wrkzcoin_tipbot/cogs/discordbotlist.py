@@ -21,6 +21,7 @@ class DiscordBotList(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        self.wallet_api = WalletAPI(self.bot)
         self.reward_channel = 522190259333890058
 
 
@@ -115,13 +116,12 @@ class DiscordBotList(commands.Cog):
                                         if COIN_NAME is not None:
                                             insert_reward = await faucet.insert_reward(user_vote, "discordbotlist", amount, COIN_NAME, int(time.time()), SERVER_BOT)
                                             # Check balance of bot
-                                            User_WalletAPI = WalletAPI(self.bot)
                                             net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
                                             type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
                                             deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
-                                            user_from = await User_WalletAPI.sql_get_userwallet(str(config.discord.bot_id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                                            user_from = await self.wallet_api.sql_get_userwallet(str(config.discord.bot_id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
                                             if user_from is None:
-                                                user_from = await User_WalletAPI.sql_register_user(str(config.discord.bot_id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                                                user_from = await self.wallet_api.sql_register_user(str(config.discord.bot_id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
                                             wallet_address = user_from['balance_wallet_address']
                                             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                                                 wallet_address = user_from['paymentid']

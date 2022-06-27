@@ -27,6 +27,8 @@ class Trade(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        self.wallet_api = WalletAPI(self.bot)
+
         self.botLogChan = None
         self.enable_logchan = True
         redis_utils.openRedis()
@@ -214,10 +216,9 @@ class Trade(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
         # Get balance user
-        User_WalletAPI = WalletAPI(self.bot)
-        get_deposit = await User_WalletAPI.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+        get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
         if get_deposit is None:
-            get_deposit = await User_WalletAPI.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
+            get_deposit = await self.wallet_api.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
 
         wallet_address = get_deposit['balance_wallet_address']
         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -623,10 +624,9 @@ class Trade(commands.Cog):
                     net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
                     type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
                     deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
-                    User_WalletAPI = WalletAPI(self.bot)
-                    get_deposit = await User_WalletAPI.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                    get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
                     if get_deposit is None:
-                        get_deposit = await User_WalletAPI.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
+                        get_deposit = await self.wallet_api.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
 
                     wallet_address = get_deposit['balance_wallet_address']
                     if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:

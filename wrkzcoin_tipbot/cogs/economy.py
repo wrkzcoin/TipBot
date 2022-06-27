@@ -1127,6 +1127,8 @@ class Economy(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        self.wallet_api = WalletAPI(self.bot)
+
         redis_utils.openRedis()
         self.botLogChan = None
         self.db = database_economy(bot)
@@ -2797,15 +2799,13 @@ class Economy(commands.Cog):
                             # Get guild's balance not ctx.guild
                             played_guild = self.bot.get_guild(int(get_last_act['guild_id']))
                             # Check guild's balance:
-                            COIN_NAME = get_last_act['reward_coin_name'].upper()
-
-                            User_WalletAPI = WalletAPI(self.bot)                            
+                            COIN_NAME = get_last_act['reward_coin_name'].upper()                           
                             net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
                             type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
                             deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
-                            get_deposit = await User_WalletAPI.sql_get_userwallet(get_last_act['guild_id'], COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                            get_deposit = await self.wallet_api.sql_get_userwallet(get_last_act['guild_id'], COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
                             if get_deposit is None:
-                                get_deposit = await User_WalletAPI.sql_register_user(get_last_act['guild_id'], COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                                get_deposit = await self.wallet_api.sql_register_user(get_last_act['guild_id'], COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
                             wallet_address = get_deposit['balance_wallet_address']
                             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                                 wallet_address = get_deposit['paymentid']

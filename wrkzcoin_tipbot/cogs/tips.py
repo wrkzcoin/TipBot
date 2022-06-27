@@ -31,8 +31,9 @@ class FreeTip_Button(disnake.ui.View):
         super().__init__(timeout=timeout)
         self.ttlcache = TTLCache(maxsize=500, ttl=60.0)
         self.bot = bot
-        self.ctx = ctx
+        self.wallet_api = WalletAPI(self.bot)
 
+        self.ctx = ctx
 
     async def on_timeout(self):
         for child in self.children:
@@ -117,10 +118,9 @@ class FreeTip_Button(disnake.ui.View):
                     pass
             elif len(attend_list) > 0:
                 # re-check balance
-                User_WalletAPI = WalletAPI(self.bot)
-                get_deposit = await User_WalletAPI.sql_get_userwallet(get_freetip['from_userid'], COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                get_deposit = await self.wallet_api.sql_get_userwallet(get_freetip['from_userid'], COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
                 if get_deposit is None:
-                    get_deposit = await User_WalletAPI.sql_register_user(get_freetip['from_userid'], COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
+                    get_deposit = await self.wallet_api.sql_register_user(get_freetip['from_userid'], COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
 
                 wallet_address = get_deposit['balance_wallet_address']
                 if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -278,6 +278,8 @@ class Tips(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        self.wallet_api = WalletAPI(self.bot)
+
         redis_utils.openRedis()
         self.freetip_check.start()
         self.freetip_duration_min = 5
@@ -478,11 +480,9 @@ class Tips(commands.Cog):
         MaxTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_max_tip")
         usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
 
-        User_WalletAPI = WalletAPI(self.bot)
-
-        get_deposit = await User_WalletAPI.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+        get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
         if get_deposit is None:
-            get_deposit = await User_WalletAPI.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
+            get_deposit = await self.wallet_api.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
 
         wallet_address = get_deposit['balance_wallet_address']
         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -693,10 +693,9 @@ class Tips(commands.Cog):
         if rand_user is not None:
             if ctx.author.id not in self.bot.TX_IN_PROCESS:
                 self.bot.TX_IN_PROCESS.append(ctx.author.id)
-            Tip_WalletAPI = WalletAPI(self.bot)
-            user_to = await User_WalletAPI.sql_get_userwallet(str(rand_user.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+            user_to = await self.wallet_api.sql_get_userwallet(str(rand_user.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
             if user_to is None:
-                user_to = await User_WalletAPI.sql_register_user(str(rand_user.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                user_to = await self.wallet_api.sql_register_user(str(rand_user.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
 
             try:
                 tip = await store.sql_user_balance_mv_single(str(ctx.author.id), str(rand_user.id), str(ctx.guild.id), str(ctx.channel.id), amount, COIN_NAME, "RANDTIP", coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
@@ -807,11 +806,10 @@ class Tips(commands.Cog):
         # token_info = getattr(self.bot.coin_list, COIN_NAME)
         token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
         contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
-        User_WalletAPI = WalletAPI(self.bot)
         
-        get_deposit = await User_WalletAPI.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+        get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
         if get_deposit is None:
-            get_deposit = await User_WalletAPI.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
+            get_deposit = await self.wallet_api.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
 
         wallet_address = get_deposit['balance_wallet_address']
         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -1042,11 +1040,10 @@ class Tips(commands.Cog):
         # token_info = getattr(self.bot.coin_list, COIN_NAME)
         token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
         contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
-        User_WalletAPI = WalletAPI(self.bot)
         
-        get_deposit = await User_WalletAPI.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+        get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
         if get_deposit is None:
-            get_deposit = await User_WalletAPI.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
+            get_deposit = await self.wallet_api.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
 
         wallet_address = get_deposit['balance_wallet_address']
         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -1852,8 +1849,6 @@ class Tips(commands.Cog):
         list_tokens = []
         
         sum_in_usd = 0.0
-
-        User_WalletAPI = WalletAPI(self.bot)
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         amount_token = amount_list_to.split(",")
         for each_token in amount_token:
@@ -1898,9 +1893,9 @@ class Tips(commands.Cog):
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
 
-                        get_deposit = await User_WalletAPI.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                        get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
                         if get_deposit is None:
-                            get_deposit = await User_WalletAPI.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
+                            get_deposit = await self.wallet_api.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
 
                         wallet_address = get_deposit['balance_wallet_address']
                         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -1949,9 +1944,9 @@ class Tips(commands.Cog):
                                 has_amount_error = True
                                 break
                             else:
-                                get_deposit = await User_WalletAPI.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                                get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
                                 if get_deposit is None:
-                                    get_deposit = await User_WalletAPI.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
+                                    get_deposit = await self.wallet_api.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
 
                                 wallet_address = get_deposit['balance_wallet_address']
                                 if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -2116,11 +2111,9 @@ class Tips(commands.Cog):
         MaxTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_max_tip")
         usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
 
-        User_WalletAPI = WalletAPI(self.bot)
-
-        get_deposit = await User_WalletAPI.sql_get_userwallet(str(id_tipper), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+        get_deposit = await self.wallet_api.sql_get_userwallet(str(id_tipper), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
         if get_deposit is None:
-            get_deposit = await User_WalletAPI.sql_register_user(str(id_tipper), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 1 if if_guild else 0)
+            get_deposit = await self.wallet_api.sql_register_user(str(id_tipper), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 1 if if_guild else 0)
 
         wallet_address = get_deposit['balance_wallet_address']
         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -2344,11 +2337,9 @@ class Tips(commands.Cog):
         MinTip = float(coin_dict['real_min_tip'])
         MaxTip = float(coin_dict['real_max_tip'])
 
-        User_WalletAPI = WalletAPI(self.bot)
-
-        get_deposit = await User_WalletAPI.sql_get_userwallet(id_tipper, COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+        get_deposit = await self.wallet_api.sql_get_userwallet(id_tipper, COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
         if get_deposit is None:
-            get_deposit = await User_WalletAPI.sql_register_user(id_tipper, COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 1 if if_guild else 0)
+            get_deposit = await self.wallet_api.sql_register_user(id_tipper, COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 1 if if_guild else 0)
 
         wallet_address = get_deposit['balance_wallet_address']
         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -2440,9 +2431,9 @@ class Tips(commands.Cog):
             try:
                 member = self.bot.get_user(int(member_id))
                 if member and member in ctx.guild.members and ctx.author.id != member.id:
-                    user_to = await User_WalletAPI.sql_get_userwallet(str(member_id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                    user_to = await self.wallet_api.sql_get_userwallet(str(member_id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
                     if user_to is None:
-                        user_to = await User_WalletAPI.sql_register_user(str(member_id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
+                        user_to = await self.wallet_api.sql_register_user(str(member_id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
                     try:
                         list_receivers.append(str(member_id))
                     except Exception as e:

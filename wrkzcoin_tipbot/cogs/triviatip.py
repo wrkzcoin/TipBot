@@ -125,6 +125,8 @@ class TriviaTips(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        self.wallet_api = WalletAPI(self.bot)
+
         self.trivia_duration_min = 5
         self.trivia_duration_max = 45
 
@@ -168,10 +170,9 @@ class TriviaTips(commands.Cog):
             MinTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_min_tip")
             MaxTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_max_tip")
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
-            User_WalletAPI = WalletAPI(self.bot)
-            get_deposit = await User_WalletAPI.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+            get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
             if get_deposit is None:
-                get_deposit = await User_WalletAPI.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                get_deposit = await self.wallet_api.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
 
             wallet_address = get_deposit['balance_wallet_address']
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:

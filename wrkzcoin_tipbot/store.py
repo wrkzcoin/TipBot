@@ -666,21 +666,20 @@ async def sql_get_new_tx_table(notified: str = 'NO', failed_notify: str = 'NO'):
         await logchanbot(traceback.format_exc())
     return []
 
-
-async def sql_update_notify_tx_table(payment_id: str, owner_id: str, owner_name: str, notified: str = 'YES', failed_notify: str = 'NO'):
+async def sql_update_notify_tx_table(payment_id: str, owner_id: str, owner_name: str, notified: str = 'YES', failed_notify: str = 'NO', id: int=0):
     global pool
     try:
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 sql = """ UPDATE `discord_notify_new_tx` SET `owner_id`=%s, `owner_name`=%s, `notified`=%s, `failed_notify`=%s, 
-                          `notified_time`=%s WHERE `payment_id`=%s """
-                await cur.execute(sql, (owner_id, owner_name, notified, failed_notify, float("%.3f" % time.time()), payment_id,))
+                          `notified_time`=%s AND `notified_time` IS NULL WHERE `payment_id`=%s AND `id`=%s LIMIT 1 """
+                await cur.execute(sql, ( owner_id, owner_name, notified, failed_notify, float("%.3f" % time.time()), payment_id, id ))
                 await conn.commit()
-                return True
+                return cur.rowcount
     except Exception as e:
         await logchanbot(traceback.format_exc())
-    return False
+    return 0
 
 
 async def sql_get_userwallet_by_paymentid(paymentid: str, coin: str, coin_family: str):
@@ -995,8 +994,8 @@ async def sql_check_minimum_deposit_erc20(url: str, net_name: str, coin: str, co
                     balance_below_min += 1
                     # skip balance move below this
                     if real_deposited_balance > 0:
-                        print("Skipped {}, {}. Having {}, minimum {}".format(TOKEN_NAME, each_address['balance_wallet_address'], real_deposited_balance, min_move_deposit))
-                    pass
+                        # print("Skipped {}, {}. Having {}, minimum {}".format(TOKEN_NAME, each_address['balance_wallet_address'], real_deposited_balance, min_move_deposit))
+                        pass
                 # config.eth.MainAddress => each_address['balance_wallet_address']
                 else:
                     balance_above_min += 1
@@ -1290,7 +1289,6 @@ async def sql_update_erc_user_update_call_many_erc20(list_data):
         await logchanbot(traceback.format_exc())
     return 0
 
-
 async def sql_get_pending_notification_users_erc20(user_server: str='DISCORD'):
     global pool
     try:
@@ -1309,7 +1307,6 @@ async def sql_get_pending_notification_users_erc20(user_server: str='DISCORD'):
         await logchanbot(traceback.format_exc())
     return []
 
-
 async def sql_updating_pending_move_deposit_erc20(notified_confirmation: bool, failed_notification: bool, txn: str):
     global pool
     try:
@@ -1318,15 +1315,14 @@ async def sql_updating_pending_move_deposit_erc20(notified_confirmation: bool, f
             async with conn.cursor() as cur:
                 sql = """ UPDATE erc20_move_deposit 
                           SET `notified_confirmation`=%s, `failed_notification`=%s, `time_notified`=%s
-                          WHERE `txn`=%s """
+                          WHERE `txn`=%s AND `time_notified` IS NULL """
                 await cur.execute(sql, ('YES' if notified_confirmation else 'NO', 'YES' if failed_notification else 'NO', int(time.time()), txn))
                 await conn.commit()
-                return True
+                return cur.rowcount
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         await logchanbot(traceback.format_exc())
-    return None
-
+    return 0
 
 async def trx_check_minimum_deposit(coin: str, type_coin: str, contract: str, coin_decimal: int, min_move_deposit: float, min_gas_tx: float, fee_limit_trx: float, gas_ticker: str, move_gas_amount: float, chainId: str, real_deposit_fee: float, time_lap: int=0):
     global pool
@@ -1669,7 +1665,6 @@ async def trx_get_pending_move_deposit(option: str='PENDING'):
         await logchanbot(traceback.format_exc())
     return []
 
-
 async def sql_updating_pending_move_deposit_trc20(notified_confirmation: bool, failed_notification: bool, txn: str):
     global pool
     try:
@@ -1678,15 +1673,14 @@ async def sql_updating_pending_move_deposit_trc20(notified_confirmation: bool, f
             async with conn.cursor() as cur:
                 sql = """ UPDATE trc20_move_deposit 
                           SET `notified_confirmation`=%s, `failed_notification`=%s, `time_notified`=%s
-                          WHERE `txn`=%s """
+                          WHERE `txn`=%s AND `time_notified` IS NULL """
                 await cur.execute(sql, ('YES' if notified_confirmation else 'NO', 'YES' if failed_notification else 'NO', int(time.time()), txn))
                 await conn.commit()
-                return True
+                return cur.rowcount
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         await logchanbot(traceback.format_exc())
-    return None
-
+    return 0
 
 async def sql_get_all_trx_user(coin: str, called_Update: int=0):
     # Check update only who has recently called for balance

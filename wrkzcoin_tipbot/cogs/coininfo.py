@@ -138,7 +138,7 @@ class Coininfo(commands.Cog):
                         network['SOL'].append(COIN_NAME)
                     else:
                         network['Others'].append(COIN_NAME)
-            embed = disnake.Embed(title=f'Coin/Token list in TipBot', description="Currently, supported {} coins/tokens.".format(len(self.bot.coin_name_list)), timestamp=datetime.now())
+            embed = disnake.Embed(title=f'Coin/Token list in TipBot', description="Currently, [supported {} coins/tokens](https://coininfo.bot.tips/).".format(len(self.bot.coin_name_list)), timestamp=datetime.now())
             for k, v in network.items():
                 list_coins = ", ".join(v)
                 if k != "Others":
@@ -147,7 +147,7 @@ class Coininfo(commands.Cog):
             list_coins = ", ".join(network['Others'])
             embed.add_field(name="Other", value=f"```{list_coins}```", inline=False)
             embed.set_author(name=self.bot.user.name, icon_url=self.bot.user.display_avatar)
-            embed.set_footer(text=f"Requested by {ctx.author.name}#{ctx.author.discriminator}")
+            embed.set_footer(text=f"Requested by {ctx.author.name}#{ctx.author.discriminator} | Total: {str(len(self.bot.coin_name_list))} ")
             await ctx.response.send_message(embed=embed)
         else:
             await ctx.response.send_message(f'{ctx.author.mention}, loading, check back later.')

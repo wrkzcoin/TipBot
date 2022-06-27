@@ -26,6 +26,8 @@ class Events(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        self.wallet_api = WalletAPI(self.bot)
+
         self.ttlcache = TTLCache(maxsize=500, ttl=60.0)
         redis_utils.openRedis()
         self.process_saving_message.start()
@@ -686,13 +688,13 @@ class Events(commands.Cog):
                         all_food_in_guild[str(each_food['food_emoji'])] = each_food['food_id']
                 get_food_id = await db.economy_get_food_id(all_food_in_guild[name])
                 COIN_NAME = get_food_id['cost_coin_name'].upper()
-                User_WalletAPI = WalletAPI(self.bot)
+
                 net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
                 type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
                 deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
-                get_deposit = await User_WalletAPI.sql_get_userwallet(str(inter.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                get_deposit = await self.wallet_api.sql_get_userwallet(str(inter.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
                 if get_deposit is None:
-                    get_deposit = await User_WalletAPI.sql_register_user(str(inter.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                    get_deposit = await self.wallet_api.sql_register_user(str(inter.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
                     
                 if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                     wallet_address = get_deposit['paymentid']

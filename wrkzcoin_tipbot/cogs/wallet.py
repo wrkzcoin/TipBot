@@ -240,9 +240,11 @@ class WalletAPI(commands.Cog):
                 # passed test PGO, XMY
                 naming = config.redis.prefix + "_"+user_server+"_" + str(userID)
                 payload = f'"{naming}"'
+                if COIN_NAME in ["BTCZ", "VTC", "ZEC"]:
+                    payload = ''
+                elif COIN_NAME in ["HNS"]:
+                    payload='"default"'
                 address_call = await self.call_doge('getnewaddress', COIN_NAME, payload=payload)
-                if COIN_NAME in ["HNS"]:
-                    address_call = await self.call_doge('getnewaddress', COIN_NAME, payload='"default"')
                 reg_address = {}
                 reg_address['address'] = address_call
                 payload = f'"{address_call}"'
@@ -573,7 +575,7 @@ class WalletAPI(commands.Cog):
         
         url = getattr(getattr(self.bot.coin_list, COIN_NAME), "wallet_address")
         # print(url, method_name)
-        if method_name == "getblockchaininfo": # daemon
+        if method_name == "getblockchaininfo" or method_name == "getinfo": # daemon
             url = getattr(getattr(self.bot.coin_list, COIN_NAME), "daemon_address")
         try:
             async with aiohttp.ClientSession() as session:
@@ -1314,7 +1316,7 @@ class Wallet(commands.Cog):
     def __init__(self, bot):
         self.enable_logchan = True
         self.bot = bot
-        self.WalletAPI = WalletAPI(self.bot)
+        self.wallet_api = WalletAPI(self.bot)
         
         self.botLogChan = None
         
@@ -1353,10 +1355,6 @@ class Wallet(commands.Cog):
         self.swap_pair = {"WRKZ-BWRKZ": 1, "BWRKZ-WRKZ": 1, "WRKZ-XWRKZ": 1, "XWRKZ-WRKZ": 1, "DEGO-WDEGO": 0.001, "WDEGO-DEGO": 1000, "PGO-WPGO": 1, "WPGO-PGO": 1}
         # Donate
         self.donate_to = 386761001808166912 #pluton#8888
-        
-        # avoid duplicated tx
-        self.notified_pending_tx = []
-        self.notified_tx = []
 
         # update ada wallet sync status
         self.update_ada_wallets_sync.start()
@@ -2406,7 +2404,7 @@ class Wallet(commands.Cog):
                                                         await logchanbot(f'[{user_server}] A user {tw_user} sucessfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}')
                                                         continue
                                                 elif type_coin == "NANO":
-                                                    valid_address = await self.WalletAPI.nano_validate_address(COIN_NAME, address)
+                                                    valid_address = await self.wallet_api.nano_validate_address(COIN_NAME, address)
                                                     if not valid_address == True:
                                                         response = f"Address: {address} is invalid."
                                                         await update_bot_response(each_msg['text'], response, each_msg['id'])
@@ -2414,7 +2412,7 @@ class Wallet(commands.Cog):
                                                     else:
                                                         try:
                                                             main_address = getattr(getattr(self.bot.coin_list, COIN_NAME), "MainAddress")
-                                                            SendTx = await self.WalletAPI.send_external_nano(main_address, each_msg['sender_id'], amount, address, COIN_NAME, coin_decimal)
+                                                            SendTx = await self.wallet_api.send_external_nano(main_address, each_msg['sender_id'], amount, address, COIN_NAME, coin_decimal)
                                                             if SendTx:
                                                                 fee_txt = "\nWithdrew fee/node: `0.00 {}`.".format(COIN_NAME)
                                                                 SendTx_hash = SendTx['block']
@@ -2427,7 +2425,7 @@ class Wallet(commands.Cog):
                                                         except Exception as e:
                                                             await logchanbot(traceback.format_exc())
                                                 elif type_coin == "CHIA":
-                                                    SendTx = await self.WalletAPI.send_external_xch(each_msg['sender_id'], amount, address, COIN_NAME, coin_decimal, tx_fee, NetFee, user_server)
+                                                    SendTx = await self.wallet_api.send_external_xch(each_msg['sender_id'], amount, address, COIN_NAME, coin_decimal, tx_fee, NetFee, user_server)
                                                     if SendTx:
                                                         fee_txt = "\nWithdrew fee/node: `{} {}`.".format(num_format_coin(NetFee, COIN_NAME, coin_decimal, False), COIN_NAME)
                                                         response = f'You withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`{fee_txt}'
@@ -2441,7 +2439,7 @@ class Wallet(commands.Cog):
                                                         main_address = getattr(getattr(self.bot.coin_list, COIN_NAME), "MainAddress")
                                                         coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
                                                         password = decrypt_string(getattr(getattr(self.bot.coin_list, COIN_NAME), "walletkey"))
-                                                        SendTx = await self.WalletAPI.send_external_hnt(each_msg['sender_id'], wallet_host, password, main_address, address, amount, coin_decimal, user_server, COIN_NAME, NetFee, 32)
+                                                        SendTx = await self.wallet_api.send_external_hnt(each_msg['sender_id'], wallet_host, password, main_address, address, amount, coin_decimal, user_server, COIN_NAME, NetFee, 32)
                                                         if SendTx:
                                                             fee_txt = "\nWithdrew fee/node: `{} {}`.".format(num_format_coin(NetFee, COIN_NAME, coin_decimal, False), COIN_NAME)
                                                             response = f'You withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`{fee_txt}'
@@ -2461,7 +2459,7 @@ class Wallet(commands.Cog):
                                                         coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
                                                         fee_limit = getattr(getattr(self.bot.coin_list, COIN_NAME), "fee_limit")
                                                         # Use fee limit as NetFee
-                                                        SendTx = await self.WalletAPI.send_external_ada(each_msg['sender_id'], amount, coin_decimal, user_server, COIN_NAME, fee_limit, address, 60)
+                                                        SendTx = await self.wallet_api.send_external_ada(each_msg['sender_id'], amount, coin_decimal, user_server, COIN_NAME, fee_limit, address, 60)
                                                         if "status" in SendTx and SendTx['status'] == "pending":
                                                             tx_hash = SendTx['id']
                                                             fee = SendTx['fee']['quantity']/10**coin_decimal + fee_limit
@@ -2515,7 +2513,7 @@ class Wallet(commands.Cog):
                                                         coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
                                                         asset_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "header")
                                                         policy_id = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
-                                                        SendTx = await self.WalletAPI.send_external_ada_asset(each_msg['sender_id'], amount, coin_decimal, user_server, COIN_NAME, NetFee, address, asset_name, policy_id, 60)
+                                                        SendTx = await self.wallet_api.send_external_ada_asset(each_msg['sender_id'], amount, coin_decimal, user_server, COIN_NAME, NetFee, address, asset_name, policy_id, 60)
                                                         if "status" in SendTx and SendTx['status'] == "pending":
                                                             tx_hash = SendTx['id']
                                                             gas_coin_msg = ""
@@ -2539,7 +2537,7 @@ class Wallet(commands.Cog):
                                                         continue
                                                 elif type_coin == "SOL" or type_coin == "SPL":
                                                     tx_fee = getattr(getattr(self.bot.coin_list, COIN_NAME), "tx_fee")
-                                                    SendTx = await self.WalletAPI.send_external_sol(self.bot.erc_node_list['SOL'], each_msg['sender_id'], amount, address, COIN_NAME, coin_decimal, tx_fee, NetFee, user_server)
+                                                    SendTx = await self.wallet_api.send_external_sol(self.bot.erc_node_list['SOL'], each_msg['sender_id'], amount, address, COIN_NAME, coin_decimal, tx_fee, NetFee, user_server)
                                                     if SendTx:
                                                         fee_txt = "\nWithdrew fee/node: `{} {}`.".format(num_format_coin(NetFee, COIN_NAME, coin_decimal, False), COIN_NAME)
                                                         response = f'You withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`{fee_txt}'
@@ -2549,7 +2547,7 @@ class Wallet(commands.Cog):
                                                     else:
                                                         await logchanbot(f'[{user_server}] [FAILED] A user {tw_user} failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                                                 elif type_coin == "BTC":
-                                                    SendTx = await self.WalletAPI.send_external_doge(each_msg['sender_id'], amount, address, COIN_NAME, 0, NetFee, user_server) # tx_fee=0
+                                                    SendTx = await self.wallet_api.send_external_doge(each_msg['sender_id'], amount, address, COIN_NAME, 0, NetFee, user_server) # tx_fee=0
                                                     if SendTx:
                                                         fee_txt = "\nWithdrew fee/node: `{} {}`.".format(num_format_coin(NetFee, COIN_NAME, coin_decimal, False), COIN_NAME)
                                                         response = f'You withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`{fee_txt}'
@@ -2564,7 +2562,7 @@ class Wallet(commands.Cog):
                                                     wallet_address = getattr(getattr(self.bot.coin_list, COIN_NAME), "wallet_address")
                                                     header = getattr(getattr(self.bot.coin_list, COIN_NAME), "header")
                                                     is_fee_per_byte = getattr(getattr(self.bot.coin_list, COIN_NAME), "is_fee_per_byte")
-                                                    SendTx = await self.WalletAPI.send_external_xmr(type_coin, main_address, each_msg['sender_id'], amount, address, COIN_NAME, coin_decimal, tx_fee, NetFee, is_fee_per_byte, mixin, user_server, wallet_address, header, None) # paymentId: None (end)
+                                                    SendTx = await self.wallet_api.send_external_xmr(type_coin, main_address, each_msg['sender_id'], amount, address, COIN_NAME, coin_decimal, tx_fee, NetFee, is_fee_per_byte, mixin, user_server, wallet_address, header, None) # paymentId: None (end)
                                                     if SendTx:
                                                         fee_txt = "\nWithdrew fee/node: `{} {}`.".format(num_format_coin(NetFee, COIN_NAME, coin_decimal, False), COIN_NAME)
                                                         response = f'You withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`{fee_txt}'
@@ -2655,16 +2653,15 @@ class Wallet(commands.Cog):
                                             twitter_link = serverinfo['rt_link']
                                             COIN_NAME = serverinfo['rt_reward_coin']
                                             # Check balance of guild
-                                            User_WalletAPI = WalletAPI(self.bot)
                                             net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
                                             type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
                                             deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
                                             coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
                                             contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
                                             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
-                                            user_from = await User_WalletAPI.sql_get_userwallet(each_reward['guild_id'], COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                                            user_from = await self.wallet_api.sql_get_userwallet(each_reward['guild_id'], COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
                                             if user_from is None:
-                                                user_from = await User_WalletAPI.sql_register_user(each_reward['guild_id'], COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                                                user_from = await self.wallet_api.sql_register_user(each_reward['guild_id'], COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
                                             wallet_address = user_from['balance_wallet_address']
                                             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                                                 wallet_address = user_from['paymentid']
@@ -2783,16 +2780,15 @@ class Wallet(commands.Cog):
                         is_notify_failed = False
                         member = self.bot.get_user(int(each_notify['user_id']))
                         if member:
-                            if each_notify['txn'] in self.notified_tx: continue
-                            msg = "You got a new deposit confirmed: ```" + "Amount: {} {}".format(num_format_coin(each_notify['real_amount'], each_notify['token_name'], each_notify['token_decimal'], False), each_notify['token_name']) + "```"
-                            self.notified_tx.append(each_notify['txn'])
-                            try:
-                                await member.send(msg)
-                            except (disnake.Forbidden, disnake.errors.Forbidden) as e:
-                                is_notify_failed = True
-                            except Exception as e:
-                                traceback.print_exc(file=sys.stdout)
                             update_status = await store.sql_updating_pending_move_deposit_erc20(True, is_notify_failed, each_notify['txn'])
+                            if update_status > 0:
+                                msg = "You got a new deposit confirmed: ```" + "Amount: {} {}".format(num_format_coin(each_notify['real_amount'], each_notify['token_name'], each_notify['token_decimal'], False), each_notify['token_name']) + "```"
+                                try:
+                                    await member.send(msg)
+                                except (disnake.Forbidden, disnake.errors.Forbidden) as e:
+                                    is_notify_failed = True
+                                except Exception as e:
+                                    traceback.print_exc(file=sys.stdout)
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
             await asyncio.sleep(time_lap)
@@ -2818,16 +2814,15 @@ class Wallet(commands.Cog):
                         is_notify_failed = False
                         member = self.bot.get_user(int(each_notify['user_id']))
                         if member:
-                            if each_notify['txn'] in self.notified_tx: continue
-                            msg = "You got a new deposit confirmed: ```" + "Amount: {} {}".format(num_format_coin(each_notify['real_amount'], each_notify['token_name'], each_notify['token_decimal'], False), each_notify['token_name']) + "```"
-                            self.notified_tx.append(each_notify['txn'])
-                            try:
-                                await member.send(msg)
-                            except (disnake.Forbidden, disnake.errors.Forbidden) as e:
-                                is_notify_failed = True
-                            except Exception as e:
-                                traceback.print_exc(file=sys.stdout)
                             update_status = await store.sql_updating_pending_move_deposit_trc20(True, is_notify_failed, each_notify['txn'])
+                            if update_status > 0:
+                                msg = "You got a new deposit confirmed: ```" + "Amount: {} {}".format(num_format_coin(each_notify['real_amount'], each_notify['token_name'], each_notify['token_decimal'], False), each_notify['token_name']) + "```"
+                                try:
+                                    await member.send(msg)
+                                except (disnake.Forbidden, disnake.errors.Forbidden) as e:
+                                    is_notify_failed = True
+                                except Exception as e:
+                                    traceback.print_exc(file=sys.stdout)
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
             await asyncio.sleep(time_lap)
@@ -2859,50 +2854,48 @@ class Wallet(commands.Cog):
                                             self.ttlcache[key] = key
                                     except Exception as e:
                                         pass
+                                    is_notify_failed = False
                                     user_found = self.bot.get_user(int(user_tx['user_id']))
                                     if user_found:
-                                        is_notify_failed = False
-                                        try:
-                                            msg = None
-                                            if coin_family == "NANO":
-                                                msg = "You got a new deposit: ```" + "Coin: {}\nAmount: {}".format(eachTx['coin_name'], num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False)) + "```"   
-                                            elif coin_family != "BTC":
-                                                if eachTx['txid'] in self.notified_tx: continue
-                                                msg = "You got a new deposit confirmed: ```" + "Coin: {}\nTx: {}\nAmount: {}\nHeight: {:,.0f}".format(eachTx['coin_name'], eachTx['txid'], num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False), eachTx['height']) + "```"
-                                                self.notified_tx.append(eachTx['txid'])
-                                            else:
-                                                if eachTx['txid'] in self.notified_tx: continue
-                                                msg = "You got a new deposit confirmed: ```" + "Coin: {}\nTx: {}\nAmount: {}\nBlock Hash: {}".format(eachTx['coin_name'], eachTx['txid'], num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False), eachTx['blockhash']) + "```"
-                                                self.notified_tx.append(eachTx['txid'])
-                                            await user_found.send(msg)
-                                        except (disnake.Forbidden, disnake.errors.Forbidden, disnake.errors.HTTPException) as e:
-                                            is_notify_failed = True
-                                            pass
-                                        except Exception as e:
-                                            traceback.print_exc(file=sys.stdout)
-                                        update_notify_tx = await store.sql_update_notify_tx_table(eachTx['payment_id'], user_tx['user_id'], user_found.name, 'YES', 'NO' if is_notify_failed == False else 'YES')
-                                    else:
-                                        # try to find if it is guild
-                                        guild_found = self.bot.get_guild(int(user_tx['user_id']))
-                                        if guild_found: user_found = self.bot.get_user(guild_found.owner.id)
-                                        if guild_found and user_found:
-                                            is_notify_failed = False
+                                        update_notify_tx = await store.sql_update_notify_tx_table(eachTx['payment_id'], user_tx['user_id'], user_found.name, 'YES', 'NO' if is_notify_failed == False else 'YES', eachTx['id'])
+                                        if update_notify_tx > 0:
                                             try:
                                                 msg = None
                                                 if coin_family == "NANO":
-                                                    msg = "Your guild `{}` got a new deposit: ```" + "Coin: {}\nAmount: {}".format(guild_found.name, eachTx['coin_name'], num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False)) + "```"   
+                                                    msg = "You got a new deposit: ```" + "Coin: {}\nAmount: {}".format(eachTx['coin_name'], num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False)) + "```"   
                                                 elif coin_family != "BTC":
-                                                    msg = "Your guild `{}` got a new deposit confirmed: ```" + "Coin: {}\nTx: {}\nAmount: {}\nHeight: {:,.0f}".format(guild_found.name, eachTx['coin_name'], eachTx['txid'], num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False), eachTx['height']) + "```"                         
+                                                    msg = "You got a new deposit confirmed: ```" + "Coin: {}\nTx: {}\nAmount: {}\nHeight: {:,.0f}".format(eachTx['coin_name'], eachTx['txid'], num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False), eachTx['height']) + "```"
                                                 else:
-                                                    msg = "Your guild `{}` got a new deposit confirmed: ```" + "Coin: {}\nTx: {}\nAmount: {}\nBlock Hash: {}".format(guild_found.name, eachTx['coin_name'], eachTx['txid'], num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False), eachTx['blockhash']) + "```"
+                                                    msg = "You got a new deposit confirmed: ```" + "Coin: {}\nTx: {}\nAmount: {}\nBlock Hash: {}".format(eachTx['coin_name'], eachTx['txid'], num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False), eachTx['blockhash']) + "```"
                                                 await user_found.send(msg)
                                             except (disnake.Forbidden, disnake.errors.Forbidden, disnake.errors.HTTPException) as e:
                                                 is_notify_failed = True
                                                 pass
                                             except Exception as e:
                                                 traceback.print_exc(file=sys.stdout)
-                                                await logchanbot(traceback.format_exc())
-                                            update_notify_tx = await store.sql_update_notify_tx_table(eachTx['payment_id'], user_tx['user_id'], guild_found.name, 'YES', 'NO' if is_notify_failed == False else 'YES')
+                                    else:
+                                        # try to find if it is guild
+                                        guild_found = self.bot.get_guild(int(user_tx['user_id']))
+                                        if guild_found: user_found = self.bot.get_user(guild_found.owner.id)
+                                        if guild_found and user_found:
+                                            update_notify_tx = await store.sql_update_notify_tx_table(eachTx['payment_id'], user_tx['user_id'], guild_found.name, 'YES', 'NO' if is_notify_failed == False else 'YES', eachTx['id'])
+                                            if update_notify_tx > 0:
+                                                is_notify_failed = False
+                                                try:
+                                                    msg = None
+                                                    if coin_family == "NANO":
+                                                        msg = "Your guild `{}` got a new deposit: ```" + "Coin: {}\nAmount: {}".format(guild_found.name, eachTx['coin_name'], num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False)) + "```"   
+                                                    elif coin_family != "BTC":
+                                                        msg = "Your guild `{}` got a new deposit confirmed: ```" + "Coin: {}\nTx: {}\nAmount: {}\nHeight: {:,.0f}".format(guild_found.name, eachTx['coin_name'], eachTx['txid'], num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False), eachTx['height']) + "```"                         
+                                                    else:
+                                                        msg = "Your guild `{}` got a new deposit confirmed: ```" + "Coin: {}\nTx: {}\nAmount: {}\nBlock Hash: {}".format(guild_found.name, eachTx['coin_name'], eachTx['txid'], num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False), eachTx['blockhash']) + "```"
+                                                    await user_found.send(msg)
+                                                except (disnake.Forbidden, disnake.errors.Forbidden, disnake.errors.HTTPException) as e:
+                                                    is_notify_failed = True
+                                                    pass
+                                                except Exception as e:
+                                                    traceback.print_exc(file=sys.stdout)
+                                                    await logchanbot(traceback.format_exc())
                                         else:
                                             #print('Can not find user id {} to notification tx: {}'.format(user_tx['user_id'], eachTx['txid']))
                                             pass
@@ -2940,10 +2933,9 @@ class Wallet(commands.Cog):
                                         except Exception as e:
                                             traceback.print_exc(file=sys.stdout)
                                         if eachTx is None: continue
-
-                                        if eachTx['txid'] in self.notified_pending_tx: continue
                                         COIN_NAME = eachTx['coin_name']
                                         coin_family = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
+                                        redis_utils.redis_conn.lpush(key_tx_no_confirmed_sent, tx)
                                         if eachTx and coin_family in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR", "BTC", "CHIA"]:
                                             get_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
                                             coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
@@ -2959,6 +2951,7 @@ class Wallet(commands.Cog):
                                                     pass
                                                 user_found = self.bot.get_user(int(user_tx['user_id']))
                                                 if user_found:
+                                                    
                                                     try:
                                                         msg = None
                                                         confirmation_number_txt = "{} needs {} confirmations.".format(eachTx['coin_name'], get_confirm_depth)
@@ -2967,11 +2960,8 @@ class Wallet(commands.Cog):
                                                         else:
                                                             msg = "You got a new **pending** deposit: ```" + "Coin: {}\nTx: {}\nAmount: {}\nBlock Hash: {}\n{}".format(eachTx['coin_name'], eachTx['txid'], num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False), eachTx['blockhash'], confirmation_number_txt) + "```"
                                                         await user_found.send(msg)
-                                                        self.notified_pending_tx.append(eachTx['txid'])
                                                     except (disnake.Forbidden, disnake.errors.Forbidden, disnake.errors.HTTPException) as e:
                                                         pass
-                                                    # TODO:
-                                                    redis_utils.redis_conn.lpush(key_tx_no_confirmed_sent, tx)
                                                 else:
                                                     # try to find if it is guild
                                                     guild_found = self.bot.get_guild(int(user_tx['user_id']))
@@ -2989,12 +2979,9 @@ class Wallet(commands.Cog):
                                                             pass
                                                         except Exception as e:
                                                             traceback.print_exc(file=sys.stdout)
-                                                        redis_utils.redis_conn.lpush(key_tx_no_confirmed_sent, tx)
                                                     else:
                                                         # print('Can not find user id {} to notification **pending** tx: {}'.format(user_tx['user_id'], eachTx['txid']))
                                                         pass
-                                        else:
-                                            redis_utils.redis_conn.lpush(key_tx_no_confirmed_sent, tx)
                                 except Exception as e:
                                     traceback.print_exc(file=sys.stdout)
                     except Exception as e:
@@ -3783,7 +3770,7 @@ class Wallet(commands.Cog):
                         "max_height": height
                     }
                     
-                    get_transfers = await self.WalletAPI.call_aiohttp_wallet_xmr_bcn('get_transfers', COIN_NAME, payload=payload)
+                    get_transfers = await self.wallet_api.call_aiohttp_wallet_xmr_bcn('get_transfers', COIN_NAME, payload=payload)
                     if get_transfers and len(get_transfers) >= 1 and 'in' in get_transfers:
                         try:
                             await self.openConnection()
@@ -3860,7 +3847,10 @@ class Wallet(commands.Cog):
                     if getattr(getattr(self.bot.coin_list, COIN_NAME), "is_maintenance") == 1 or getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_deposit") == 0:
                         await asyncio.sleep(10.0)
                         continue
-                    gettopblock = await self.WalletAPI.call_doge('getblockchaininfo', COIN_NAME)
+                    if getattr(getattr(self.bot.coin_list, COIN_NAME), "use_getinfo_btc") == 1:
+                        gettopblock = await self.wallet_api.call_doge('getinfo', COIN_NAME)
+                    else:
+                        gettopblock = await self.wallet_api.call_doge('getblockchaininfo', COIN_NAME)
                     height = int(gettopblock['blocks'])
                     try:
                         redis_utils.redis_conn.set(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}', str(height))
@@ -3878,7 +3868,7 @@ class Wallet(commands.Cog):
                         payload = '"*", 200, 0'
                     elif COIN_NAME in ["HNS"]:
                         payload = '"default"'
-                    get_transfers = await self.WalletAPI.call_doge('listtransactions', COIN_NAME, payload=payload)
+                    get_transfers = await self.wallet_api.call_doge('listtransactions', COIN_NAME, payload=payload)
                     if get_transfers and len(get_transfers) >= 1:
                         try:
                             await self.openConnection()
@@ -3985,7 +3975,7 @@ class Wallet(commands.Cog):
                     get_min_deposit_amount = int(getattr(getattr(self.bot.coin_list, COIN_NAME), "real_min_deposit") * 10**coin_decimal)
 
                     payload = {'wallet_id': 1}
-                    list_tx = await self.WalletAPI.call_xch('get_transactions', COIN_NAME, payload=payload)
+                    list_tx = await self.wallet_api.call_xch('get_transactions', COIN_NAME, payload=payload)
                     if 'success' in list_tx and list_tx['transactions'] and len(list_tx['transactions']) > 0:
                         get_transfers =  list_tx['transactions']
                         if get_transfers and len(get_transfers) >= 1:
@@ -4076,7 +4066,7 @@ class Wallet(commands.Cog):
                     start = time.time()
                     timeout = 16
                     try:
-                        gettopblock = await self.WalletAPI.call_nano(COIN_NAME, payload='{ "action": "block_count" }')
+                        gettopblock = await self.wallet_api.call_nano(COIN_NAME, payload='{ "action": "block_count" }')
                         if gettopblock and 'count' in gettopblock:
                             height = int(gettopblock['count'])
                             # store in redis
@@ -4086,7 +4076,7 @@ class Wallet(commands.Cog):
                                 traceback.print_exc(file=sys.stdout)
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
-                    get_balance = await self.WalletAPI.nano_get_wallet_balance_elements(COIN_NAME)
+                    get_balance = await self.wallet_api.nano_get_wallet_balance_elements(COIN_NAME)
                     all_user_info = await store.sql_nano_get_user_wallets(COIN_NAME)
                     all_deposit_address = {}
                     all_deposit_address_keys = []
@@ -4104,7 +4094,7 @@ class Wallet(commands.Cog):
                                     # let's move balance to main_address
                                     try:
                                         main_address = getattr(getattr(self.bot.coin_list, COIN_NAME), "MainAddress")
-                                        move_to_deposit = await self.WalletAPI.nano_sendtoaddress(address, main_address, int(balance['balance']), COIN_NAME) # atomic
+                                        move_to_deposit = await self.wallet_api.nano_sendtoaddress(address, main_address, int(balance['balance']), COIN_NAME) # atomic
                                         # add to DB
                                         if move_to_deposit:
                                             try:
@@ -4506,7 +4496,7 @@ class Wallet(commands.Cog):
             'firstBlockIndex': firstBlockIndex if firstBlockIndex > 0 else 1,
             'blockCount': blockCount,
             }
-        result = await self.WalletAPI.call_aiohttp_wallet_xmr_bcn('getTransactions', COIN_NAME, time_out=time_out, payload=payload)
+        result = await self.wallet_api.call_aiohttp_wallet_xmr_bcn('getTransactions', COIN_NAME, time_out=time_out, payload=payload)
         if result and 'items' in result:
             return result['items']
         return []
@@ -4677,17 +4667,14 @@ class Wallet(commands.Cog):
         self, 
         address: str
     ):
-        User_WalletAPI = WalletAPI(self.bot)
-        return await User_WalletAPI.generate_qr_address(address)
+        return await self.wallet_api.generate_qr_address(address)
 
     async def sql_get_userwallet(self, userID, coin: str, netname: str, type_coin: str, user_server: str = 'DISCORD', chat_id: int = 0):
-        User_WalletAPI = WalletAPI(self.bot)
-        return await User_WalletAPI.sql_get_userwallet(userID, coin, netname, type_coin, user_server, chat_id)
+        return await self.wallet_api.sql_get_userwallet(userID, coin, netname, type_coin, user_server, chat_id)
 
 
     async def sql_register_user(self, userID, coin: str, netname: str, type_coin: str, user_server: str, chat_id: int = 0, is_discord_guild: int=0):
-        User_WalletAPI = WalletAPI(self.bot)
-        return await User_WalletAPI.sql_register_user(userID, coin, netname, type_coin, user_server, chat_id, is_discord_guild)
+        return await self.wallet_api.sql_register_user(userID, coin, netname, type_coin, user_server, chat_id, is_discord_guild)
 
 
     async def get_all_net_names(self):
@@ -5361,7 +5348,7 @@ class Wallet(commands.Cog):
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
                 elif type_coin == "NANO":
-                    valid_address = await self.WalletAPI.nano_validate_address(COIN_NAME, address)
+                    valid_address = await self.wallet_api.nano_validate_address(COIN_NAME, address)
                     if not valid_address == True:
                         msg = f"{EMOJI_RED_NO} Address: `{address}` is invalid."
                         await ctx.edit_original_message(content=msg)
@@ -5371,7 +5358,7 @@ class Wallet(commands.Cog):
                             self.bot.TX_IN_PROCESS.append(ctx.author.id)
                             try:
                                 main_address = getattr(getattr(self.bot.coin_list, COIN_NAME), "MainAddress")
-                                SendTx = await self.WalletAPI.send_external_nano(main_address, str(ctx.author.id), amount, address, COIN_NAME, coin_decimal)
+                                SendTx = await self.wallet_api.send_external_nano(main_address, str(ctx.author.id), amount, address, COIN_NAME, coin_decimal)
                                 if SendTx:
                                     fee_txt = "\nWithdrew fee/node: `0.00 {}`.".format(COIN_NAME)
                                     SendTx_hash = SendTx['block']
@@ -5391,7 +5378,7 @@ class Wallet(commands.Cog):
                 elif type_coin == "CHIA":
                     if ctx.author.id not in self.bot.TX_IN_PROCESS:
                         self.bot.TX_IN_PROCESS.append(ctx.author.id)
-                        SendTx = await self.WalletAPI.send_external_xch(str(ctx.author.id), amount, address, COIN_NAME, coin_decimal, tx_fee, NetFee, SERVER_BOT)
+                        SendTx = await self.wallet_api.send_external_xch(str(ctx.author.id), amount, address, COIN_NAME, coin_decimal, tx_fee, NetFee, SERVER_BOT)
                         if SendTx:
                             fee_txt = "\nWithdrew fee/node: `{} {}`.".format(num_format_coin(NetFee, COIN_NAME, coin_decimal, False), COIN_NAME)
                             await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} successfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
@@ -5412,7 +5399,7 @@ class Wallet(commands.Cog):
                         main_address = getattr(getattr(self.bot.coin_list, COIN_NAME), "MainAddress")
                         coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
                         password = decrypt_string(getattr(getattr(self.bot.coin_list, COIN_NAME), "walletkey"))
-                        SendTx = await self.WalletAPI.send_external_hnt(str(ctx.author.id), wallet_host, password, main_address, address, amount, coin_decimal, SERVER_BOT, COIN_NAME, NetFee, 32)
+                        SendTx = await self.wallet_api.send_external_hnt(str(ctx.author.id), wallet_host, password, main_address, address, amount, coin_decimal, SERVER_BOT, COIN_NAME, NetFee, 32)
                         if SendTx:
                             fee_txt = "\nWithdrew fee/node: `{} {}`.".format(num_format_coin(NetFee, COIN_NAME, coin_decimal, False), COIN_NAME)
                             await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} successfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
@@ -5437,7 +5424,7 @@ class Wallet(commands.Cog):
                             coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
                             fee_limit = getattr(getattr(self.bot.coin_list, COIN_NAME), "fee_limit")
                             # Use fee limit as NetFee
-                            SendTx = await self.WalletAPI.send_external_ada(str(ctx.author.id), amount, coin_decimal, SERVER_BOT, COIN_NAME, fee_limit, address, 60)
+                            SendTx = await self.wallet_api.send_external_ada(str(ctx.author.id), amount, coin_decimal, SERVER_BOT, COIN_NAME, fee_limit, address, 60)
                             if "status" in SendTx and SendTx['status'] == "pending":
                                 tx_hash = SendTx['id']
                                 fee = SendTx['fee']['quantity']/10**coin_decimal + fee_limit
@@ -5491,7 +5478,7 @@ class Wallet(commands.Cog):
                             coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
                             asset_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "header")
                             policy_id = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
-                            SendTx = await self.WalletAPI.send_external_ada_asset(str(ctx.author.id), amount, coin_decimal, SERVER_BOT, COIN_NAME, NetFee, address, asset_name, policy_id, 60)
+                            SendTx = await self.wallet_api.send_external_ada_asset(str(ctx.author.id), amount, coin_decimal, SERVER_BOT, COIN_NAME, NetFee, address, asset_name, policy_id, 60)
                             if "status" in SendTx and SendTx['status'] == "pending":
                                 tx_hash = SendTx['id']
                                 gas_coin_msg = ""
@@ -5522,7 +5509,7 @@ class Wallet(commands.Cog):
                     if ctx.author.id not in self.bot.TX_IN_PROCESS:
                         self.bot.TX_IN_PROCESS.append(ctx.author.id)
                         tx_fee = getattr(getattr(self.bot.coin_list, COIN_NAME), "tx_fee")
-                        SendTx = await self.WalletAPI.send_external_sol(self.bot.erc_node_list['SOL'], str(ctx.author.id), amount, address, COIN_NAME, coin_decimal, tx_fee, NetFee, SERVER_BOT)
+                        SendTx = await self.wallet_api.send_external_sol(self.bot.erc_node_list['SOL'], str(ctx.author.id), amount, address, COIN_NAME, coin_decimal, tx_fee, NetFee, SERVER_BOT)
                         if SendTx:
                             fee_txt = "\nWithdrew fee/node: `{} {}`.".format(num_format_coin(NetFee, COIN_NAME, coin_decimal, False), COIN_NAME)
                             msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`{fee_txt}'
@@ -5539,7 +5526,7 @@ class Wallet(commands.Cog):
                 elif type_coin == "BTC":
                     if ctx.author.id not in self.bot.TX_IN_PROCESS:
                         self.bot.TX_IN_PROCESS.append(ctx.author.id)
-                        SendTx = await self.WalletAPI.send_external_doge(str(ctx.author.id), amount, address, COIN_NAME, 0, NetFee, SERVER_BOT) # tx_fee=0
+                        SendTx = await self.wallet_api.send_external_doge(str(ctx.author.id), amount, address, COIN_NAME, 0, NetFee, SERVER_BOT) # tx_fee=0
                         if SendTx:
                             fee_txt = "\nWithdrew fee/node: `{} {}`.".format(num_format_coin(NetFee, COIN_NAME, coin_decimal, False), COIN_NAME)
                             msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`{fee_txt}'
@@ -5561,7 +5548,7 @@ class Wallet(commands.Cog):
                         wallet_address = getattr(getattr(self.bot.coin_list, COIN_NAME), "wallet_address")
                         header = getattr(getattr(self.bot.coin_list, COIN_NAME), "header")
                         is_fee_per_byte = getattr(getattr(self.bot.coin_list, COIN_NAME), "is_fee_per_byte")
-                        SendTx = await self.WalletAPI.send_external_xmr(type_coin, main_address, str(ctx.author.id), amount, address, COIN_NAME, coin_decimal, tx_fee, NetFee, is_fee_per_byte, mixin, SERVER_BOT, wallet_address, header, None) # paymentId: None (end)
+                        SendTx = await self.wallet_api.send_external_xmr(type_coin, main_address, str(ctx.author.id), amount, address, COIN_NAME, coin_decimal, tx_fee, NetFee, is_fee_per_byte, mixin, SERVER_BOT, wallet_address, header, None) # paymentId: None (end)
                         if SendTx:
                             fee_txt = "\nWithdrew fee/node: `{} {}`.".format(num_format_coin(NetFee, COIN_NAME, coin_decimal, False), COIN_NAME)
                             msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`{fee_txt}'
@@ -6097,11 +6084,9 @@ class Wallet(commands.Cog):
             await ctx.response.send_message(f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to send a donation message...", ephemeral=True)
             return
 
-        User_WalletAPI = WalletAPI(self.bot)
-
-        get_deposit = await User_WalletAPI.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+        get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
         if get_deposit is None:
-            get_deposit = await User_WalletAPI.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
+            get_deposit = await self.wallet_api.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
 
         wallet_address = get_deposit['balance_wallet_address']
         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -6284,8 +6269,6 @@ when using this bot and any funds lost, mis-used or stolen in using this bot. Ti
         else:
             try:
                 creditor = check_list['account_creditor']
-                User_WalletAPI = WalletAPI(self.bot)
-
                 amount = from_amount.replace(",", "")
                 amount = text_to_num(amount)
                 if amount is None:
@@ -6300,7 +6283,7 @@ when using this bot and any funds lost, mis-used or stolen in using this bot. Ti
                 # Check balance user first
                 net_name = getattr(getattr(self.bot.coin_list, FROM_COIN), "net_name")
                 type_coin = getattr(getattr(self.bot.coin_list, FROM_COIN), "type")
-                get_deposit = await User_WalletAPI.sql_get_userwallet(str(ctx.author.id), FROM_COIN, net_name, type_coin, SERVER_BOT, 0)
+                get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), FROM_COIN, net_name, type_coin, SERVER_BOT, 0)
                 deposit_confirm_depth = getattr(getattr(self.bot.coin_list, FROM_COIN), "deposit_confirm_depth")
                 MinTip = getattr(getattr(self.bot.coin_list, FROM_COIN), "real_min_tip")
                 MaxTip = getattr(getattr(self.bot.coin_list, FROM_COIN), "real_max_tip")
@@ -6312,7 +6295,7 @@ when using this bot and any funds lost, mis-used or stolen in using this bot. Ti
                     await ctx.edit_original_message(content=msg)
                     return
                 if get_deposit is None:
-                    get_deposit = await User_WalletAPI.sql_register_user(str(ctx.author.id), FROM_COIN, net_name, type_coin, SERVER_BOT, 0, 1 if check_list['is_guild']==1 else 0)
+                    get_deposit = await self.wallet_api.sql_register_user(str(ctx.author.id), FROM_COIN, net_name, type_coin, SERVER_BOT, 0, 1 if check_list['is_guild']==1 else 0)
                 wallet_address = get_deposit['balance_wallet_address']
                 if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                     wallet_address = get_deposit['paymentid']
@@ -6335,12 +6318,12 @@ when using this bot and any funds lost, mis-used or stolen in using this bot. Ti
                 amount_swapped = amount * check_list['amount_to'] / check_list['amount_from']
                 net_name = getattr(getattr(self.bot.coin_list, TO_COIN), "net_name")
                 type_coin = getattr(getattr(self.bot.coin_list, TO_COIN), "type")
-                get_deposit = await User_WalletAPI.sql_get_userwallet(creditor, TO_COIN, net_name, type_coin, SERVER_BOT, 0)
+                get_deposit = await self.wallet_api.sql_get_userwallet(creditor, TO_COIN, net_name, type_coin, SERVER_BOT, 0)
                 deposit_confirm_depth = getattr(getattr(self.bot.coin_list, TO_COIN), "deposit_confirm_depth")
                 coin_decimal = getattr(getattr(self.bot.coin_list, TO_COIN), "decimal")
                 token_display = getattr(getattr(self.bot.coin_list, TO_COIN), "display_name")
                 if get_deposit is None:
-                    get_deposit = await User_WalletAPI.sql_register_user(creditor, TO_COIN, net_name, type_coin, SERVER_BOT, 0, 1 if check_list['is_guild']==1 else 0)
+                    get_deposit = await self.wallet_api.sql_register_user(creditor, TO_COIN, net_name, type_coin, SERVER_BOT, 0, 1 if check_list['is_guild']==1 else 0)
                 wallet_address = get_deposit['balance_wallet_address']
                 if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                     wallet_address = get_deposit['paymentid']
@@ -6403,7 +6386,7 @@ when using this bot and any funds lost, mis-used or stolen in using this bot. Ti
                     if swap > 0:
                         # If there is a log channel for this.
                         try:
-                            msg_log = f"[SWAPTOKENS] - A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.id}  /swaptokens successfully from {num_format_coin(amount, FROM_COIN, token_decimal_from, False)} {FROM_COIN} to {num_format_coin(amount_swapped, TO_COIN, token_decimal_to, False)} {TO_COIN} [Fee: {num_format_coin(fee_to, TO_COIN, token_decimal_to, False)} {TO_COIN}].\nCREDITOR NEW BALANCE: {num_format_coin(float(creditor_balance['adjust'])-amount_swapped, TO_COIN, token_decimal_to, False)} {TO_COIN}."
+                            msg_log = f"[SWAPTOKENS] - A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.id}  /swaptokens successfully from {num_format_coin(amount, FROM_COIN, token_decimal_from, False)} {FROM_COIN} to {num_format_coin(amount_swapped, TO_COIN, token_decimal_to, False)} {TO_COIN} [Fee: {num_format_coin(fee_to, TO_COIN, token_decimal_to, False)} {TO_COIN}].\nCREDITOR ID: {creditor} NEW BALANCE: {num_format_coin(float(creditor_balance['adjust'])-amount_swapped, TO_COIN, token_decimal_to, False)} {TO_COIN}."
                             await logchanbot(msg_log)
                             if check_list['channel_log'] and check_list['channel_log'].isdigit():
                                 self.logchan_swap = self.bot.get_channel( int(check_list['channel_log']) )
@@ -6478,10 +6461,9 @@ when using this bot and any funds lost, mis-used or stolen in using this bot. Ti
                 contract = getattr(getattr(self.bot.coin_list, FROM_COIN), "contract")
                 to_contract = getattr(getattr(self.bot.coin_list, TO_COIN), "contract")
                 to_coin_decimal = getattr(getattr(self.bot.coin_list, TO_COIN), "decimal")
-                User_WalletAPI = WalletAPI(self.bot)
-                get_deposit = await User_WalletAPI.sql_get_userwallet(str(ctx.author.id), FROM_COIN, net_name, type_coin, SERVER_BOT, 0)
+                get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), FROM_COIN, net_name, type_coin, SERVER_BOT, 0)
                 if get_deposit is None:
-                    get_deposit = await User_WalletAPI.sql_register_user(str(ctx.author.id), FROM_COIN, net_name, type_coin, SERVER_BOT, 0, 0)
+                    get_deposit = await self.wallet_api.sql_register_user(str(ctx.author.id), FROM_COIN, net_name, type_coin, SERVER_BOT, 0, 0)
 
                 wallet_address = get_deposit['balance_wallet_address']
                 if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:

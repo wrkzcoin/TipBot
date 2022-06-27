@@ -19,6 +19,8 @@ class BotBalance(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        self.wallet_api = WalletAPI(self.bot)
+
         redis_utils.openRedis()
         self.botLogChan = None
         self.enable_logchan = True
@@ -56,11 +58,9 @@ class BotBalance(commands.Cog):
             deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
             coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
-
-            Bot_WalletAPI = WalletAPI(self.bot)
-            get_deposit = await Bot_WalletAPI.sql_get_userwallet(str(member.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+            get_deposit = await self.wallet_api.sql_get_userwallet(str(member.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
             if get_deposit is None:
-                get_deposit = await Bot_WalletAPI.sql_register_user(str(member.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
+                get_deposit = await self.wallet_api.sql_register_user(str(member.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
 
             wallet_address = get_deposit['balance_wallet_address']
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:

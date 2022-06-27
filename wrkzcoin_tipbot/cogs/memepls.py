@@ -161,6 +161,8 @@ class TipOtherCoin(disnake.ui.Modal):
         self.meme_web_path = "https://tipbot-static.wrkz.work/discordtip_v2_meme/"
         self.ctx = ctx
         self.bot = bot
+        self.wallet_api = WalletAPI(self.bot)
+
         self.meme_id = meme_id
         self.owner_userid = owner_userid
         self.get_meme = get_meme
@@ -224,11 +226,9 @@ class TipOtherCoin(disnake.ui.Modal):
         MinTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_min_tip")
         MaxTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_max_tip")
         usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
-        User_WalletAPI = WalletAPI(self.bot)
-
-        get_deposit = await User_WalletAPI.sql_get_userwallet(str(interaction.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+        get_deposit = await self.wallet_api.sql_get_userwallet(str(interaction.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
         if get_deposit is None:
-            get_deposit = await User_WalletAPI.sql_register_user(str(interaction.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
+            get_deposit = await self.wallet_api.sql_register_user(str(interaction.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
 
         wallet_address = get_deposit['balance_wallet_address']
         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -283,10 +283,9 @@ class TipOtherCoin(disnake.ui.Modal):
 
         if interaction.author.id not in self.bot.TX_IN_PROCESS:
             self.bot.TX_IN_PROCESS.append(interaction.author.id)
-        Tip_WalletAPI = WalletAPI(self.bot)
-        user_to = await User_WalletAPI.sql_get_userwallet(self.owner_userid, COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+        user_to = await self.wallet_api.sql_get_userwallet(self.owner_userid, COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
         if user_to is None:
-            user_to = await User_WalletAPI.sql_register_user(self.owner_userid, COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+            user_to = await self.wallet_api.sql_register_user(self.owner_userid, COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
         try:
             guild_id = "DM"
             channel_id = "DM"
@@ -328,6 +327,8 @@ class MemeTip_Button(disnake.ui.View):
         super().__init__(timeout=timeout)
         redis_utils.openRedis()
         self.bot = bot
+        self.wallet_api = WalletAPI(self.bot)
+
         self.ctx = ctx
         self.meme_id = meme_id
         self.owner_userid = owner_userid
@@ -365,11 +366,9 @@ class MemeTip_Button(disnake.ui.View):
             MinTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_min_tip")
             MaxTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_max_tip")
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
-            User_WalletAPI = WalletAPI(self.bot)
-
-            get_deposit = await User_WalletAPI.sql_get_userwallet(str(interaction.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+            get_deposit = await self.wallet_api.sql_get_userwallet(str(interaction.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
             if get_deposit is None:
-                get_deposit = await User_WalletAPI.sql_register_user(str(interaction.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
+                get_deposit = await self.wallet_api.sql_register_user(str(interaction.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
 
             wallet_address = get_deposit['balance_wallet_address']
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -424,10 +423,9 @@ class MemeTip_Button(disnake.ui.View):
 
             if interaction.author.id not in self.bot.TX_IN_PROCESS:
                 self.bot.TX_IN_PROCESS.append(interaction.author.id)
-            Tip_WalletAPI = WalletAPI(self.bot)
-            user_to = await User_WalletAPI.sql_get_userwallet(self.owner_userid, COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+            user_to = await self.wallet_api.sql_get_userwallet(self.owner_userid, COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
             if user_to is None:
-                user_to = await User_WalletAPI.sql_register_user(self.owner_userid, COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                user_to = await self.wallet_api.sql_register_user(self.owner_userid, COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
             try:
                 guild_id = "DM"
                 channel_id = "DM"
@@ -489,11 +487,9 @@ class MemeTip_Button(disnake.ui.View):
             MinTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_min_tip")
             MaxTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_max_tip")
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
-            User_WalletAPI = WalletAPI(self.bot)
-
-            get_deposit = await User_WalletAPI.sql_get_userwallet(str(interaction.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+            get_deposit = await self.wallet_api.sql_get_userwallet(str(interaction.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
             if get_deposit is None:
-                get_deposit = await User_WalletAPI.sql_register_user(str(interaction.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
+                get_deposit = await self.wallet_api.sql_register_user(str(interaction.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
 
             wallet_address = get_deposit['balance_wallet_address']
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -548,10 +544,9 @@ class MemeTip_Button(disnake.ui.View):
 
             if interaction.author.id not in self.bot.TX_IN_PROCESS:
                 self.bot.TX_IN_PROCESS.append(interaction.author.id)
-            Tip_WalletAPI = WalletAPI(self.bot)
-            user_to = await User_WalletAPI.sql_get_userwallet(self.owner_userid, COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+            user_to = await self.wallet_api.sql_get_userwallet(self.owner_userid, COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
             if user_to is None:
-                user_to = await User_WalletAPI.sql_register_user(self.owner_userid, COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                user_to = await self.wallet_api.sql_register_user(self.owner_userid, COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
             try:
                 guild_id = "DM"
                 channel_id = "DM"
@@ -612,11 +607,9 @@ class MemeTip_Button(disnake.ui.View):
             MinTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_min_tip")
             MaxTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_max_tip")
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
-            User_WalletAPI = WalletAPI(self.bot)
-
-            get_deposit = await User_WalletAPI.sql_get_userwallet(str(interaction.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+            get_deposit = await self.wallet_api.sql_get_userwallet(str(interaction.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
             if get_deposit is None:
-                get_deposit = await User_WalletAPI.sql_register_user(str(interaction.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
+                get_deposit = await self.wallet_api.sql_register_user(str(interaction.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
 
             wallet_address = get_deposit['balance_wallet_address']
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -671,10 +664,9 @@ class MemeTip_Button(disnake.ui.View):
 
             if interaction.author.id not in self.bot.TX_IN_PROCESS:
                 self.bot.TX_IN_PROCESS.append(interaction.author.id)
-            Tip_WalletAPI = WalletAPI(self.bot)
-            user_to = await User_WalletAPI.sql_get_userwallet(self.owner_userid, COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+            user_to = await self.wallet_api.sql_get_userwallet(self.owner_userid, COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
             if user_to is None:
-                user_to = await User_WalletAPI.sql_register_user(self.owner_userid, COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                user_to = await self.wallet_api.sql_register_user(self.owner_userid, COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
             try:
                 guild_id = "DM"
                 channel_id = "DM"
@@ -735,11 +727,9 @@ class MemeTip_Button(disnake.ui.View):
             MinTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_min_tip")
             MaxTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_max_tip")
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
-            User_WalletAPI = WalletAPI(self.bot)
-
-            get_deposit = await User_WalletAPI.sql_get_userwallet(str(interaction.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+            get_deposit = await self.wallet_api.sql_get_userwallet(str(interaction.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
             if get_deposit is None:
-                get_deposit = await User_WalletAPI.sql_register_user(str(interaction.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
+                get_deposit = await self.wallet_api.sql_register_user(str(interaction.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
 
             wallet_address = get_deposit['balance_wallet_address']
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -794,10 +784,9 @@ class MemeTip_Button(disnake.ui.View):
 
             if interaction.author.id not in self.bot.TX_IN_PROCESS:
                 self.bot.TX_IN_PROCESS.append(interaction.author.id)
-            Tip_WalletAPI = WalletAPI(self.bot)
-            user_to = await User_WalletAPI.sql_get_userwallet(self.owner_userid, COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+            user_to = await self.wallet_api.sql_get_userwallet(self.owner_userid, COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
             if user_to is None:
-                user_to = await User_WalletAPI.sql_register_user(self.owner_userid, COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                user_to = await self.wallet_api.sql_register_user(self.owner_userid, COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
             try:
                 guild_id = "DM"
                 channel_id = "DM"
@@ -918,6 +907,8 @@ class MemePls(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        self.wallet_api = WalletAPI(self.bot)
+
         self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
         self.enable_logchan = True
         self.meme_accept = ["image/jpeg", "image/gif", "image/png"]

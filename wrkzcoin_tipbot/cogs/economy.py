@@ -1228,7 +1228,7 @@ class Economy(commands.Cog):
             elif get_userinfo['numb_cow'] >= self.eco_max_cow_level[str(get_userinfo['dairy_farm_level'])] and (item_name.upper() == "COW" or item_name == "🐄"):
                 await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you have maximum number of cows already.")
                 return
-            elif get_userinfo['numb_salt_field'] >= self.eco_max_cow_level[str(get_userinfo['salt_farm_level'])] and item_name.upper() == "SALT FIELD":
+            elif get_userinfo['numb_salt_field'] >= self.eco_max_salt_farm_level[str(get_userinfo['salt_farm_level'])] and item_name.upper() == "SALT FIELD":
                 await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you have maximum number of salt field already.")
                 return
             elif get_userinfo['numb_market'] >= config.economy.max_market_per_user and (item_name.upper() == "MARKET" or item_name == "🛒"):

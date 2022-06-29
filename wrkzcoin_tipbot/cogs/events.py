@@ -405,7 +405,7 @@ class Events(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT `coin_name` FROM `coin_settings` WHERE  WHERE `enable`=1 AND `enable_faucet`=%s """
+                    sql = """ SELECT `coin_name` FROM `coin_settings` WHERE `enable`=1 AND `enable_faucet`=%s """
                     await cur.execute(sql, (1))
                     result = await cur.fetchall()
                     if result and len(result) > 0:

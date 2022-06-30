@@ -143,6 +143,9 @@ class DexScan(commands.Cog):
                                 if usd_equivalent_dex == 1:
                                     if COIN_NAME in self.bot.token_hints:
                                         id = self.bot.token_hints[COIN_NAME]['ticker_name']
+                                        if id not in self.bot.coin_paprika_id_list:
+                                            self.bot.coin_paprika_id_list[id] = {}
+                                        self.bot.coin_paprika_id_list[id]['name'] = self.bot.token_hints[COIN_NAME]['name']
                                         self.bot.coin_paprika_id_list[id]['price_usd'] = float(get_price)
                                     else:
                                         self.bot.coin_paprika_symbol_list[COIN_NAME]['price_usd'] = float(get_price)

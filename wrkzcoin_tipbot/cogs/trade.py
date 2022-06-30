@@ -28,6 +28,7 @@ class Trade(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.wallet_api = WalletAPI(self.bot)
+        self.min_ratio = 0.0000000001
 
         self.botLogChan = None
         self.enable_logchan = True
@@ -253,7 +254,7 @@ class Trade(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        if sell_amount / buy_amount < config.trade.Min_Ratio or buy_amount / sell_amount < config.trade.Min_Ratio:
+        if sell_amount / buy_amount < self.min_ratio or buy_amount / sell_amount < self.min_ratio:
             msg = f"{ctx.author.mention}, ratio buy/sell rate is so low."
             await ctx.edit_original_message(content=msg)
             return

@@ -625,8 +625,8 @@ async def get_coin_settings(coin_type: str=None):
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ SELECT * FROM `coin_settings` WHERE `is_maintenance`=%s """ + sql_coin_type
-                await cur.execute(sql, (0))
+                sql = """ SELECT * FROM `coin_settings` WHERE `is_maintenance`=0 AND `enable`=1 """ + sql_coin_type
+                await cur.execute(sql,)
                 result = await cur.fetchall()
                 if result: return result
     except Exception as e:

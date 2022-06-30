@@ -64,6 +64,26 @@ class Admin(commands.Cog):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
+    async def get_coin_list_name(self, including_disable: bool=False):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    coin_list_name = []
+                    sql = """ SELECT `coin_name` FROM `coin_settings` WHERE `enable`=1 """
+                    if including_disable == True:
+                        sql = """ SELECT `coin_name` FROM `coin_settings` """
+                    await cur.execute(sql, ())
+                    result = await cur.fetchall()
+                    if result and len(result) > 0:
+                        for each in result:
+                            coin_list_name.append(each['coin_name'])
+                        return coin_list_name
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return None
+
     async def user_balance(self, userID: str, coin: str, address: str, coin_family: str, top_block: int, confirmed_depth: int=0, user_server: str = 'DISCORD'):
         # address: TRTL/BCN/XMR = paymentId
         TOKEN_NAME = coin.upper()
@@ -477,11 +497,10 @@ class Admin(commands.Cog):
             await logchanbot(traceback.format_exc())
         return []
 
-
     async def enable_disable_coin(self, coin: str, what: str, toggle: int):
         COIN_NAME = coin.upper()
         what = what.lower()
-        if what not in ["withdraw", "deposit", "tip"]:
+        if what not in ["withdraw", "deposit", "tip", "enable"]:
             return 0
         if what == "withdraw":
             what = "enable_withdraw"
@@ -489,6 +508,8 @@ class Admin(commands.Cog):
             what = "enable_deposit"
         elif what == "tip":
             what = "enable_tip"
+        elif what == "enable":
+            what = "enable"
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
@@ -1305,6 +1326,57 @@ class Admin(commands.Cog):
             coin_list_name = await self.get_coin_list_name()
             if coin_list_name:
                 self.bot.coin_name_list = coin_list_name
+
+    @commands.is_owner()
+    @admin.command(hidden=True, usage='enablecoin <coin>', description='Enable/Disable a coin')
+    async def enablecoin(self, ctx, coin: str):
+        COIN_NAME = coin.upper()
+        command = "enable"
+        if hasattr(self.bot.coin_list, COIN_NAME):
+            is_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "enable")
+            new_value = 1
+            new_text = "enable"
+            if is_enable == 1:
+                new_value = 0
+                new_text = "disable"
+            toggle = await self.enable_disable_coin(COIN_NAME, command, new_value)
+            if toggle > 0:
+                msg = f"{ctx.author.mention}, **{COIN_NAME}** `{command}` is `{new_text}` now."
+                await ctx.reply(msg)
+            else:
+                msg = f"{ctx.author.mention}, **{COIN_NAME}** `{command}` is `{new_text}` failed to update."
+                await ctx.reply(msg)
+            coin_list = await self.get_coin_setting()
+            if coin_list:
+                self.bot.coin_list = coin_list
+            coin_list_name = await self.get_coin_list_name()
+            if coin_list_name:
+                self.bot.coin_name_list = coin_list_name
+        else:
+            try:
+                coin_list = await self.get_coin_list_name(True)
+                if COIN_NAME not in coin_list:
+                    msg = f"{ctx.author.mention}, **{COIN_NAME}** not exist in our setting DB."
+                    await ctx.reply(msg)
+                    return
+                else:
+                    new_value = 1
+                    toggle = await self.enable_disable_coin(COIN_NAME, command, new_value)
+                    if toggle > 0:
+                        msg = f"{ctx.author.mention}, **{COIN_NAME}** `{command}` is enable now."
+                        await ctx.reply(msg)
+                        # Update
+                        coin_list = await self.get_coin_setting()
+                        if coin_list:
+                            self.bot.coin_list = coin_list
+                        coin_list_name = await self.get_coin_list_name()
+                        if coin_list_name:
+                            self.bot.coin_name_list = coin_list_name
+                    else:
+                        msg = f"{ctx.author.mention}, **{COIN_NAME}** `{command}` is `{new_text}` failed to update."
+                        await ctx.reply(msg)
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
 
     @commands.is_owner()
     @admin.command(hidden=True, usage='deposit  <coin>', description='Enable/Disable deposit for a coin')

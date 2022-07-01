@@ -944,44 +944,5 @@ class Events(commands.Cog):
         add_server_info = await store.sql_updateinfo_by_server(str(guild.id), "status", "REMOVED")
         await self.botLogChan.send(f'Bot was removed from guild {guild.name} / {guild.id}. Total guilds: {len(self.bot.guilds)}')
 
-    @commands.Cog.listener()
-    async def on_reaction_add(self, reaction, user):
-        # If bot react, ignore.
-        if user.id == self.bot.user.id:
-            return
-
-
-    @commands.Cog.listener()
-    async def on_raw_reaction_add(self, payload):
-        if payload.guild_id is None:
-            return  # Reaction is on a private message
-        """Handle a reaction add."""
-        try:
-            emoji_partial = str(payload.emoji)
-            message_id = payload.message_id
-            channel_id = payload.channel_id
-            user_id = payload.user_id
-            guild = self.bot.get_guild(payload.guild_id)
-            channel = self.bot.get_channel(channel_id)
-            if not channel:
-                return
-            if isinstance(channel, disnake.DMChannel):
-                return
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-            await Bot.logchanbot(traceback.format_exc())
-            return
-        message = None
-        author = None
-        if message_id:
-            try:
-                message = await channel.fetch_message(message_id)
-                author = message.author
-            except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
-                # No message found
-                return
-            member = self.bot.get_user(user_id)
-
-
 def setup(bot):
     bot.add_cog(Events(bot))

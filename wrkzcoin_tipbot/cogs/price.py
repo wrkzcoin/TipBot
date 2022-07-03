@@ -19,7 +19,6 @@ class Price(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-
     async def async_price(self, ctx, amount: str=None, token: str=None):
         if self.bot.coin_paprika_symbol_list is None:
             msg = f"{ctx.author.mention}, data is not available yet. Please try again soon!"
@@ -142,7 +141,9 @@ class Price(commands.Cog):
                 name = self.bot.coin_paprika_id_list[id]['name']
             else:
                 per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME]['price_usd']
-                name = self.bot.coin_paprika_symbol_list[COIN_NAME]['name']
+                name = COIN_NAME
+                if 'name' in self.bot.coin_paprika_symbol_list[COIN_NAME]:
+                    name = self.bot.coin_paprika_symbol_list[COIN_NAME]['name']
             try:
                 total_price = float(amount)*per_unit
                 total_price_str = ""
@@ -156,12 +157,18 @@ class Price(commands.Cog):
                     total_price_str = "{:.4f}".format(total_price)
                 else:
                     total_price_str = "{:.8f}".format(total_price)
-
-                update_date = self.bot.coin_paprika_symbol_list[COIN_NAME]['last_updated'].replace(tzinfo=datetime.timezone.utc)
+                update_date = datetime.datetime.now()
+                try:
+                    update_date = self.bot.coin_paprika_symbol_list[COIN_NAME]['last_updated'].replace(tzinfo=datetime.timezone.utc)
+                except Exception as e:
+                    pass
                 embed = disnake.Embed(title="PRICE CHECK", description=f'**{COIN_NAME}** | _{name}_', timestamp=update_date)
                 embed.add_field(name="Price", value="```{} {} = {} {}```".format(amount_old, COIN_NAME, total_price_str, "USD"), inline=False)
                 embed.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
-                embed.set_footer(text="Credit: https://api.coinpaprika.com/")
+                if COIN_NAME in self.bot.coin_price_dex:
+                    embed.set_footer(text=f"Credit: DEX from {self.bot.coin_price_dex_from[COIN_NAME]}")
+                else:
+                    embed.set_footer(text="Credit: https://api.coinpaprika.com/")
                 try:
                     if type(ctx) == disnake.ApplicationCommandInteraction:
                         await ctx.response.send_message(embed=embed, view=RowButton_row_close_any_message())

@@ -184,6 +184,9 @@ bot.coin_paprika_symbol_list = None
 bot.coin_coingecko_id_list = None
 bot.coin_coingecko_symbol_list = None
 
+bot.coin_price_dex = []
+bot.coin_price_dex_from = {}
+
 bot.TX_IN_PROCESS = []
 bot.LOG_CHAN = config.discord.logchan
 bot.MINGPOOLSTAT_IN_PROCESS = []
@@ -204,7 +207,9 @@ bot.erc_node_list = {
     "TLOS": config.default_endpoints.tlos,
     "AVAX": config.default_endpoints.avax, 
     "TRX": config.Tron_Node.fullnode,
-    "SOL": config.default_endpoints.sol
+    "SOL": config.default_endpoints.sol,
+    "CELO": config.default_endpoints.celo,
+    "ONE": config.default_endpoints.one
     }
 
 
@@ -389,7 +394,7 @@ def num_format_coin(amount, coin: str, coin_decimal: int, atomic: bool=False):
             amount_str = '{:,.10f}'.format(amount)
         elif amount < 0.000001:
             amount_str = '{:,.8f}'.format(amount)
-        elif amount < 0.0001:
+        elif amount < 0.00001:
             amount_str = '{:,.7f}'.format(amount)
         elif amount < 0.01:
             amount_str = '{:,.6f}'.format(amount)
@@ -402,7 +407,6 @@ def num_format_coin(amount, coin: str, coin_decimal: int, atomic: bool=False):
         else:
             amount_str = '{:,.2f}'.format(amount)
     return amount_str.rstrip('0').rstrip('.') if '.' in amount_str else amount_str 
-
 
 def randomString(stringLength=8):
     letters = string.ascii_lowercase

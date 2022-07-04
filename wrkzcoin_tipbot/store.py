@@ -743,9 +743,9 @@ async def sql_get_userwallet_by_paymentid(paymentid: str, coin: str, coin_family
                     result = await cur.fetchone()
                 elif coin_family == "XLM":
                     # if doge family, address is paymentid
-                    sql = """ SELECT * FROM `xlm_user` WHERE `main_address`=%s AND `memo`=%s AND `coin_name`=%s LIMIT 1 """
+                    sql = """ SELECT * FROM `xlm_user` WHERE `main_address`=%s AND `memo`=%s LIMIT 1 """
                     address_memo = paymentid.split()
-                    await cur.execute(sql, (address_memo[0], address_memo[2], COIN_NAME))
+                    await cur.execute(sql, (address_memo[0], address_memo[2]))
                     result = await cur.fetchone()
                 elif coin_family == "ADA":
                     # if ADA family, address is paymentid

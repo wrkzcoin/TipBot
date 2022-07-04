@@ -224,15 +224,7 @@ class Trade(commands.Cog):
         wallet_address = get_deposit['balance_wallet_address']
         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
             wallet_address = get_deposit['paymentid']
-        height = None
-        try:
-            if type_coin in ["ERC-20", "TRC-20"]:
-                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
-            else:
-                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-
+        height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
         userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
         actual_balance = float(userdata_balance['adjust'])
         if sell_amount > actual_balance:
@@ -632,15 +624,7 @@ class Trade(commands.Cog):
                     wallet_address = get_deposit['balance_wallet_address']
                     if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                         wallet_address = get_deposit['paymentid']
-                    height = None
-                    try:
-                        if type_coin in ["ERC-20", "TRC-20"]:
-                            height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
-                        else:
-                            height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
-                    except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
-
+                    height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
                     userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
                     actual_balance = float(userdata_balance['adjust'])
 

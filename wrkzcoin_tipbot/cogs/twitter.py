@@ -831,7 +831,7 @@ class Twitter(commands.Cog):
             # Let's add some info if server return None
             add_server_info = await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
             serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
-        if serverinfo and serverinfo['is_premium'] == 0:
+        if serverinfo and serverinfo['alllow_rt_reward'] == 0:
             msg = f'{ctx.author.mention}, not available in public right now. You can request pluton#8888 to allow this for your guild.'
             await ctx.edit_original_message(content=msg)
             return
@@ -890,15 +890,7 @@ class Twitter(commands.Cog):
         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
             wallet_address = get_deposit['paymentid']
 
-        height = None
-        try:
-            if type_coin in ["ERC-20", "TRC-20"]:
-                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
-            else:
-                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-
+        height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
         userdata_balance = await store.sql_user_balance_single(str(ctx.guild.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
         actual_balance = float(userdata_balance['adjust'])
 
@@ -1181,15 +1173,7 @@ class Twitter(commands.Cog):
                         await ctx.edit_original_message(content=msg)
                         return
 
-                    height = None
-                    try:
-                        if type_coin in ["ERC-20", "TRC-20"]:
-                            height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
-                        else:
-                            height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
-                    except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
-
+                    height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
                     # check if amount is all
                     all_amount = False
                     if not amount.isdigit() and amount.upper() == "ALL":
@@ -1476,22 +1460,15 @@ class Twitter(commands.Cog):
                     wallet_address = get_deposit['balance_wallet_address']
                     if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                         wallet_address = get_deposit['paymentid']
-                    height = None
+                    height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
                     try:
-                        if type_coin in ["ERC-20", "TRC-20"]:
-                            # Add update for future call
-                            try:
-                                if type_coin == "ERC-20":
-                                    update_call = await store.sql_update_erc20_user_update_call(twitter_id_str)
-                                elif type_coin == "TRC-10" or type_coin == "TRC-20":
-                                    update_call = await store.sql_update_trc20_user_update_call(twitter_id_str)
-                                elif type_coin == "SOL" or type_coin == "SPL":
-                                    update_call = await store.sql_update_sol_user_update_call(twitter_id_str)
-                            except Exception as e:
-                                traceback.print_exc(file=sys.stdout)
-                            height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
-                        else:
-                            height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
+                        # Add update for future call
+                        if type_coin == "ERC-20":
+                            update_call = await store.sql_update_erc20_user_update_call(twitter_id_str)
+                        elif type_coin == "TRC-10" or type_coin == "TRC-20":
+                            update_call = await store.sql_update_trc20_user_update_call(twitter_id_str)
+                        elif type_coin == "SOL" or type_coin == "SPL":
+                            update_call = await store.sql_update_sol_user_update_call(twitter_id_str)
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
                     if num_coins == 0 or num_coins % per_page == 0:

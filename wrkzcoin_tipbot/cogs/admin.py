@@ -933,15 +933,7 @@ class Admin(commands.Cog):
                 deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
                 coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
                 token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
-                height = None
-                try:
-                    if type_coin in ["ERC-20", "TRC-20"]:
-                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
-                    else:
-                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
-                except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
-                        
+                height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)                        
                 all_user_id = await self.sql_get_all_userid_by_coin(COIN_NAME)
                 time_start = int(time.time())
                 list_users = [m.id for m in self.bot.get_all_members()]
@@ -1040,22 +1032,18 @@ class Admin(commands.Cog):
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                 wallet_address = get_deposit['paymentid']
 
-            height = None
+            height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
             try:
-                if type_coin in ["ERC-20", "TRC-20"]:
-                    # Add update for future call
-                    try:
-                        if type_coin == "ERC-20":
-                            update_call = await store.sql_update_erc20_user_update_call(member_id)
-                        elif type_coin == "TRC-10" or type_coin == "TRC-20":
-                            update_call = await store.sql_update_trc20_user_update_call(member_id)
-                        elif type_coin == "SOL" or type_coin == "SPL":
-                            update_call = await store.sql_update_sol_user_update_call(member_id)
-                    except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
-                    height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
-                else:
-                    height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
+                # Add update for future call
+                try:
+                    if type_coin == "ERC-20":
+                        update_call = await store.sql_update_erc20_user_update_call(member_id)
+                    elif type_coin == "TRC-10" or type_coin == "TRC-20":
+                        update_call = await store.sql_update_trc20_user_update_call(member_id)
+                    elif type_coin == "SOL" or type_coin == "SPL":
+                        update_call = await store.sql_update_sol_user_update_call(member_id)
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
                 userdata_balance = await self.user_balance(member_id, COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, user_server)
                 total_balance = userdata_balance['adjust']
                 balance_str = "UserId: {}\n{}{} Details:\n{}".format(member_id, total_balance, COIN_NAME, json.dumps(userdata_balance))
@@ -1165,22 +1153,15 @@ class Admin(commands.Cog):
                 if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                     wallet_address = get_deposit['paymentid']
 
-                height = None
+                height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
                 try:
-                    if type_coin in ["ERC-20", "TRC-20"]:
-                        # Add update for future call
-                        try:
-                            if type_coin == "ERC-20":
-                                update_call = await store.sql_update_erc20_user_update_call(member_id)
-                            elif type_coin == "TRC-10" or type_coin == "TRC-20":
-                                update_call = await store.sql_update_trc20_user_update_call(member_id)
-                            elif type_coin == "SOL" or type_coin == "SPL":
-                                update_call = await store.sql_update_sol_user_update_call(member_id)
-                        except Exception as e:
-                            traceback.print_exc(file=sys.stdout)
-                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
-                    else:
-                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
+                    # Add update for future call
+                    if type_coin == "ERC-20":
+                        update_call = await store.sql_update_erc20_user_update_call(member_id)
+                    elif type_coin == "TRC-10" or type_coin == "TRC-20":
+                        update_call = await store.sql_update_trc20_user_update_call(member_id)
+                    elif type_coin == "SOL" or type_coin == "SPL":
+                        update_call = await store.sql_update_sol_user_update_call(member_id)
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
 

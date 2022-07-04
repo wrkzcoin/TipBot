@@ -183,15 +183,7 @@ class TriviaTips(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        height = None
-        try:
-            if type_coin in ["ERC-20", "TRC-20"]:
-                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
-            else:
-                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-
+        height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
         # check if amount is all
         all_amount = False
         if not amount.isdigit() and amount.upper() == "ALL":

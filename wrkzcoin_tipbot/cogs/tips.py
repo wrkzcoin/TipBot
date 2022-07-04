@@ -126,15 +126,7 @@ class FreeTip_Button(disnake.ui.View):
                 if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                     wallet_address = get_deposit['paymentid']
 
-                height = None
-                try:
-                    if type_coin in ["ERC-20", "TRC-20"]:
-                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
-                    else:
-                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
-                except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
-
+                height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
                 userdata_balance = await store.sql_user_balance_single(get_freetip['from_userid'], COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
                 actual_balance = float(userdata_balance['adjust'])
         
@@ -494,15 +486,7 @@ class Tips(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        height = None
-        try:
-            if type_coin in ["ERC-20", "TRC-20"]:
-                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
-            else:
-                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-
+        height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
         # check if amount is all
         all_amount = False
         if not amount.isdigit() and amount.upper() == "ALL":
@@ -821,15 +805,7 @@ class Tips(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        height = None
-        try:
-            if type_coin in ["ERC-20", "TRC-20"]:
-                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
-            else:
-                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-
+        height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
         # check if amount is all
         all_amount = False
         if not amount.isdigit() and amount.upper() == "ALL":
@@ -1055,15 +1031,7 @@ class Tips(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        height = None
-        try:
-            if type_coin in ["ERC-20", "TRC-20"]:
-                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
-            else:
-                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-
+        height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
         # check if amount is all
         all_amount = False
         if not amount.isdigit() and amount.upper() == "ALL":
@@ -1877,16 +1845,7 @@ class Tips(commands.Cog):
                             contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
                             list_coin_decimal[COIN_NAME] = coin_decimal
                             list_contract[COIN_NAME] = contract
-
-                            height = None
-                            try:
-                                if type_coin in ["ERC-20", "TRC-20"]:
-                                    height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
-                                else:
-                                    height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
-                            except Exception as e:
-                                traceback.print_exc(file=sys.stdout)
-
+                            height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
                             get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
                             if get_deposit is None:
                                 get_deposit = await self.wallet_api.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
@@ -2115,16 +2074,7 @@ class Tips(commands.Cog):
         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
             wallet_address = get_deposit['paymentid']
 
-
-        height = None
-        try:
-            if type_coin in ["ERC-20", "TRC-20"]:
-                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
-            else:
-                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-
+        height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
         userdata_balance = await store.sql_user_balance_single(id_tipper, COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
         actual_balance = float(userdata_balance['adjust'])
         # Check if tx in progress
@@ -2132,15 +2082,6 @@ class Tips(commands.Cog):
             msg = f'{EMOJI_ERROR} {ctx.author.mention}, another tx in progress.'
             await ctx.edit_original_message(content=msg)
             return
-
-        height = None
-        try:
-            if type_coin in ["ERC-20", "TRC-20"]:
-                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
-            else:
-                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
 
         # check if amount is all
         all_amount = False
@@ -2347,15 +2288,7 @@ class Tips(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        height = None
-        try:
-            if type_coin in ["ERC-20", "TRC-20"]:
-                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
-            else:
-                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-
+        height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
         # check if amount is all
         all_amount = False
         if not amount.isdigit() and amount.upper() == "ALL":

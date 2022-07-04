@@ -55,7 +55,7 @@ from stellar_sdk import (
     Server,
     AiohttpClient,
     Asset,
-    Keypair,
+    Keypair as Stella_Keypair,
     Network,
     ServerAsync,
     TransactionBuilder,
@@ -159,9 +159,25 @@ class Faucet(commands.Cog):
 class WalletAPI(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+
+        redis_utils.openRedis()
         # DB
         self.pool = None
 
+    def get_block_height(self, type_coin: str, coin: str, net_name: str=None):
+        height = None
+        COIN_NAME = coin.upper()
+        try:
+            if type_coin in ["ERC-20", "TRC-20"]:
+                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
+            elif type_coin == "XLM":
+                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{type_coin}').decode())
+            else:
+                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return height
+                                                
     async def openConnection(self):
         try:
             if self.pool is None:
@@ -449,8 +465,8 @@ class WalletAPI(commands.Cog):
                         if result: return result
                     elif type_coin.upper() == "XLM":
                         sql = """ SELECT * FROM `xlm_user` WHERE `user_id`=%s 
-                                  AND `coin_name`=%s AND `user_server`=%s LIMIT 1 """
-                        await cur.execute(sql, (str(userID), COIN_NAME, user_server))
+                                  AND `user_server`=%s LIMIT 1 """
+                        await cur.execute(sql, (str(userID), user_server))
                         result = await cur.fetchone()
                         if result: return result
                     elif type_coin.upper() == "ADA":
@@ -1136,9 +1152,28 @@ class WalletAPI(commands.Cog):
             await logchanbot(traceback.format_exc())
         return None
 
-    async def send_external_xlm(self, url: str, withdraw_keypair: str, user_id: str, amount: float, to_address: str, coin_decimal: int, user_server: str, coin: str, withdraw_fee: float, time_out=32):
+    async def check_xlm_asset(self, url: str, asset_name: str, issuer: str, to_address: str, user_id: str, user_server: str):
+        found = False
+        try:
+            async with ServerAsync(
+                horizon_url=url, client=AiohttpClient()
+            ) as server:
+                account = await server.accounts().account_id(to_address).call()
+                if 'balances' in account and len(account['balances']) > 0:
+                    for each_balance in account['balances']:
+                        if 'asset_code' in each_balance and 'asset_issuer' in each_balance and "{}XLM".format(each_balance['asset_code']) == asset_name and issuer == each_balance['asset_issuer']:
+                            found = True
+                            break
+        except Exception as e:
+            await logchanbot(f"[{user_server}] [XLM]: Failed /withdraw by {user_id}. Account not found for address: {to_address} / asset_name: {asset_name}.")
+        return found
+
+    async def send_external_xlm(self, url: str, withdraw_keypair: str, user_id: str, amount: float, to_address: str, coin_decimal: int, user_server: str, coin: str, withdraw_fee: float, asset_ticker: str=None, asset_issuer: str=None, time_out=32):
         COIN_NAME = coin.upper()
-        tipbot_keypair = Keypair.from_secret(withdraw_keypair)
+        asset_sending = Asset.native()
+        if COIN_NAME != "XLM":
+            asset_sending = Asset(asset_ticker, asset_issuer)
+        tipbot_keypair = Stella_Keypair.from_secret(withdraw_keypair)
         async with ServerAsync(
             horizon_url=url, client=AiohttpClient()
         ) as server:
@@ -1151,7 +1186,7 @@ class WalletAPI(commands.Cog):
                     base_fee=base_fee,
                 )
                 #.add_text_memo("Hello, Stellar!")
-                .append_payment_op(to_address, Asset.native(), str(truncate(amount, 6)))
+                .append_payment_op(to_address, asset_sending, str(truncate(amount, 6)))
                 .set_timeout(30)
                 .build()
             )
@@ -2100,15 +2135,7 @@ class Wallet(commands.Cog):
                                         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                                             wallet_address = get_deposit['paymentid']
 
-                                        height = None
-                                        try:
-                                            if type_coin in ["ERC-20", "TRC-20"]:
-                                                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
-                                            else:
-                                                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
-                                        except Exception as e:
-                                            traceback.print_exc(file=sys.stdout)
-
+                                        height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
                                         userdata_balance = await store.sql_user_balance_single(str(each_resp['twitter_user_id']), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, "TWITTER")
                                         actual_balance = float(userdata_balance['adjust'])
                                         if amount > MaxTip or amount < MinTip or amount > actual_balance:
@@ -2277,14 +2304,7 @@ class Wallet(commands.Cog):
                                             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                                                 wallet_address = get_deposit['paymentid']
 
-                                            height = None
-                                            try:
-                                                if type_coin in ["ERC-20", "TRC-20"]:
-                                                    height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
-                                                else:
-                                                    height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
-                                            except Exception as e:
-                                                traceback.print_exc(file=sys.stdout)
+                                            height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
                                         userdata_balance = await self.user_balance(each_msg['sender_id'], COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, "TWITTER")
                                         total_balance = userdata_balance['adjust']
                                         if total_balance == 0:
@@ -2354,14 +2374,7 @@ class Wallet(commands.Cog):
                                             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                                                 wallet_address = get_deposit['paymentid']
 
-                                            height = None
-                                            try:
-                                                if type_coin in ["ERC-20", "TRC-20"]:
-                                                    height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
-                                                else:
-                                                    height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
-                                            except Exception as e:
-                                                traceback.print_exc(file=sys.stdout)
+                                            height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
                                             if height is None:
                                                 # can not pull height, continue
                                                 await logchanbot(f"[{user_server}] - Execute withdraw for `{tw_user}` but can not pull height of {COIN_NAME}.")
@@ -2761,14 +2774,7 @@ class Wallet(commands.Cog):
                                         wallet_address = user_from['balance_wallet_address']
                                         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                                             wallet_address = user_from['paymentid']
-                                        height = None
-                                        try:
-                                            if type_coin in ["ERC-20", "TRC-20"]:
-                                                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
-                                            else:
-                                                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
-                                        except Exception as e:
-                                            traceback.print_exc(file=sys.stdout)
+                                        height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
 
                                         # height can be None
                                         userdata_balance = await store.sql_user_balance_single(each_reward['guild_id'], COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
@@ -2814,8 +2820,12 @@ class Wallet(commands.Cog):
                                                               """
                                                     await cur.execute(sql, ( each_discord_user, "YES", "YES", int(time.time()), each_reward['id'] ) )
                                                     await conn.commit()
+                                                    if cur.rowcount == 0:
+                                                        # Skip to next..
+                                                        continue
                                                 except Exception as e:
                                                     traceback.print_exc(file=sys.stdout)
+                                                    continue
                                                 tip = await store.sql_user_balance_mv_single(each_reward['guild_id'], each_discord_user, "TWITTER", "TWITTER", amount, COIN_NAME, "RETWEET", coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
                                                 if member is not None:
                                                     msg = f"Thank you for RT <{twitter_link}>. You just got a reward of {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}."
@@ -3316,6 +3326,7 @@ class Wallet(commands.Cog):
         timeout = 30
         # Get status
         COIN_NAME = "XLM"
+        coin_family = COIN_NAME
         coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
         try:
             async def get_xlm_transactions(endpoint: str, account_addr: str):
@@ -3323,7 +3334,7 @@ class Wallet(commands.Cog):
                     horizon_url=endpoint, client=AiohttpClient()
                 ) as server:
                     # get a list of transactions submitted by a particular account
-                    transactions = await server.transactions().for_account(account_id=account_addr).call()
+                    transactions = await server.transactions().for_account(account_id=account_addr).order(desc=True).limit(50).call()
                     if len(transactions["_embedded"]["records"]) > 0:
                         return transactions["_embedded"]["records"]
                     return []
@@ -3386,16 +3397,23 @@ class Wallet(commands.Cog):
                                                     destination = Payment.destination.account_id
                                                     asset_type = Payment.asset.type
                                                     asset_code = Payment.asset.code
+                                                    asset_issuer = None
+                                                    if hasattr(Payment.asset, "issuer"):
+                                                        issuer = Payment.asset.issuer
+                                                        if hasattr(self.bot.coin_list, "{}XLM".format(asset_code)):
+                                                            # Change COIN_NAME to asset
+                                                            COIN_NAME = "{}XLM".format(asset_code)
+                                                        else:
+                                                            # Skip to next
+                                                            continue
                                                     amount = float(Payment.amount)
                                                     if destination != main_address: continue
-                                                    if asset_type != "native": continue # TODO: If other asset, check this
-                                                    if asset_code not in ["XLM"]: continue
-                                                    coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), asset_code)
+                                                    if asset_type not in ["native", "credit_alphanum4"]: continue # TODO: If other asset, check this
+                                                    if asset_code not in ["XLM", "USDC"]: continue
                                                 except:
                                                     continue
                                             fee = float(transaction_envelope.transaction.fee) / 10000000 # atomic
                                             height = each_tx['ledger']
-                                            coin_family = "XLM"
                                             user_memo = None
                                             user_id = None
                                             if 'memo' in each_tx and 'memo_type' in each_tx and each_tx['memo_type'] == "text" and len(each_tx['memo'].strip()) == 8:
@@ -3403,7 +3421,6 @@ class Wallet(commands.Cog):
                                                 if user_memo is not None and user_memo['user_id'] is not None:
                                                     user_id = user_memo['user_id']
                                             if amount > 0:
-                                                print("XLM: 44444")
                                                 await self.openConnection()
                                                 async with self.pool.acquire() as conn:
                                                     async with conn.cursor() as cur:
@@ -4992,7 +5009,11 @@ class Wallet(commands.Cog):
                 description = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_note")
             if getattr(getattr(self.bot.coin_list, COIN_NAME), "real_deposit_fee") and getattr(getattr(self.bot.coin_list, COIN_NAME), "real_deposit_fee") > 0:
                 real_min_deposit = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_min_deposit")
-                fee_txt = " You must deposit at least {} {} to cover fees needed to credit your account. This fee will be deducted from your deposit amount.".format(num_format_coin(real_min_deposit, COIN_NAME, coin_decimal, False), token_display)
+                real_deposit_fee = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_deposit_fee")
+                real_deposit_fee_text = ""
+                if real_deposit_fee > 0:
+                    real_deposit_fee_text = " {} {}".format(num_format_coin(real_deposit_fee, COIN_NAME, coin_decimal, False), token_display)
+                fee_txt = " You must deposit at least {} {} to cover fees needed to credit your account. The fee{} will be deducted from your deposit amount.".format(num_format_coin(real_min_deposit, COIN_NAME, coin_decimal, False), token_display, real_deposit_fee_text)
             embed = disnake.Embed(title=f'Deposit for {ctx.author.name}#{ctx.author.discriminator}', description=description + fee_txt, timestamp=datetime.fromtimestamp(int(time.time())))
             embed.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
             qr_address = wallet_address
@@ -5099,15 +5120,7 @@ class Wallet(commands.Cog):
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                 wallet_address = get_deposit['paymentid']
 
-            height = None
-            try:
-                if type_coin in ["ERC-20", "TRC-20"]:
-                    height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
-                else:
-                    height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
-            except Exception as e:
-                traceback.print_exc(file=sys.stdout)
-
+            height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
             description = ""
             token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
             embed = disnake.Embed(title=f'Balance for {ctx.author.name}#{ctx.author.discriminator}', timestamp=datetime.fromtimestamp(int(time.time())))
@@ -5223,22 +5236,15 @@ class Wallet(commands.Cog):
                     wallet_address = get_deposit['balance_wallet_address']
                     if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                         wallet_address = get_deposit['paymentid']
-                    height = None
+                    height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
                     try:
-                        if type_coin in ["ERC-20", "TRC-20"]:
-                            # Add update for future call
-                            try:
-                                if type_coin == "ERC-20":
-                                    update_call = await store.sql_update_erc20_user_update_call(str(ctx.author.id))
-                                elif type_coin == "TRC-10" or type_coin == "TRC-20":
-                                    update_call = await store.sql_update_trc20_user_update_call(str(ctx.author.id))
-                                elif type_coin == "SOL" or type_coin == "SPL":
-                                    update_call = await store.sql_update_sol_user_update_call(str(ctx.author.id))
-                            except Exception as e:
-                                traceback.print_exc(file=sys.stdout)
-                            height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
-                        else:
-                            height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
+                        # Add update for future call
+                        if type_coin == "ERC-20":
+                            update_call = await store.sql_update_erc20_user_update_call(str(ctx.author.id))
+                        elif type_coin == "TRC-10" or type_coin == "TRC-20":
+                            update_call = await store.sql_update_trc20_user_update_call(str(ctx.author.id))
+                        elif type_coin == "SOL" or type_coin == "SPL":
+                            update_call = await store.sql_update_sol_user_update_call(str(ctx.author.id))
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
                     if num_coins == 0 or num_coins % per_page == 0:
@@ -5438,14 +5444,7 @@ class Wallet(commands.Cog):
                 await ctx.edit_original_message(content=msg)
                 return
 
-            height = None
-            try:
-                if type_coin in ["ERC-20", "TRC-20"]:
-                    height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
-                else:
-                    height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
-            except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+            height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
             if height is None:
                 msg = f'{ctx.author.mention}, **{COIN_NAME}** cannot pull information from network. Try again later.'
                 await ctx.edit_original_message(content=msg)
@@ -5574,6 +5573,10 @@ class Wallet(commands.Cog):
                             await logchanbot(f'[{SERVER_BOT}] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} sucessfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}')
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
+                    else:
+                        msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.'
+                        await ctx.edit_original_message(content=msg)
+                        await logchanbot(f'[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                 elif type_coin in ["TRC-20", "TRC-10"]:
                     # TODO: validate address
                     SendTx = None
@@ -5603,6 +5606,10 @@ class Wallet(commands.Cog):
                             await logchanbot(f'[{SERVER_BOT}] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} sucessfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}')
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
+                    else:
+                        msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.'
+                        await ctx.edit_original_message(content=msg)
+                        await logchanbot(f'[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                 elif type_coin == "NANO":
                     valid_address = await self.wallet_api.nano_validate_address(COIN_NAME, address)
                     if not valid_address == True:
@@ -5622,6 +5629,8 @@ class Wallet(commands.Cog):
                                     await ctx.edit_original_message(content=msg)
                                     await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} successfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                                 else:
+                                    msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.'
+                                    await ctx.edit_original_message(content=msg)
                                     await logchanbot(f'[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                             except Exception as e:
                                 await logchanbot(traceback.format_exc())
@@ -5641,6 +5650,8 @@ class Wallet(commands.Cog):
                             msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`{fee_txt}'
                             await ctx.edit_original_message(content=msg)
                         else:
+                            msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.'
+                            await ctx.edit_original_message(content=msg)
                             await logchanbot(f'[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                         self.bot.TX_IN_PROCESS.remove(ctx.author.id)
                     else:
@@ -5662,6 +5673,8 @@ class Wallet(commands.Cog):
                             msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`{fee_txt}'
                             await ctx.edit_original_message(content=msg)
                         else:
+                            msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.'
+                            await ctx.edit_original_message(content=msg)
                             await logchanbot(f'[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                         self.bot.TX_IN_PROCESS.remove(ctx.author.id)
                     else:
@@ -5670,21 +5683,36 @@ class Wallet(commands.Cog):
                         await ctx.edit_original_message(content=msg)
                         return
                 elif type_coin == "XLM":
+                    url = getattr(getattr(self.bot.coin_list, COIN_NAME), "http_address")
+                    main_address = getattr(getattr(self.bot.coin_list, COIN_NAME), "MainAddress")
+                    if address == main_address:
+                        # can not send
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address `{address}`.'
+                        await ctx.edit_original_message(content=msg)
+                        return
+                    if COIN_NAME != "XLM": # in case of asset
+                        issuer = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
+                        check_asset = await self.wallet_api.check_xlm_asset(url, COIN_NAME, issuer, address, str(ctx.author.id), SERVER_BOT)
+                        if check_asset == False:
+                            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address `{address}`. The destination account may not trust the asset you are attempting to send!'
+                            await ctx.edit_original_message(content=msg)
+                            return
                     if ctx.author.id not in self.bot.TX_IN_PROCESS:
                         self.bot.TX_IN_PROCESS.append(ctx.author.id)
                         wallet_host = getattr(getattr(self.bot.coin_list, COIN_NAME), "wallet_address")
-                        main_address = getattr(getattr(self.bot.coin_list, COIN_NAME), "MainAddress")
                         coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
-                        password = decrypt_string(getattr(getattr(self.bot.coin_list, COIN_NAME), "walletkey"))
-                        url = getattr(getattr(self.bot.coin_list, COIN_NAME), "http_address")
                         withdraw_keypair = decrypt_string(getattr(getattr(self.bot.coin_list, COIN_NAME), "walletkey"))
-                        SendTx = await self.wallet_api.send_external_xlm(url, withdraw_keypair, str(ctx.author.id), amount, address, coin_decimal, SERVER_BOT, COIN_NAME, NetFee, 32)
+                        asset_ticker = getattr(getattr(self.bot.coin_list, COIN_NAME), "header")
+                        asset_issuer = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
+                        SendTx = await self.wallet_api.send_external_xlm(url, withdraw_keypair, str(ctx.author.id), amount, address, coin_decimal, SERVER_BOT, COIN_NAME, NetFee, asset_ticker, asset_issuer, 32)
                         if SendTx:
                             fee_txt = "\nWithdrew fee/node: `{} {}`.".format(num_format_coin(NetFee, COIN_NAME, coin_decimal, False), COIN_NAME)
                             await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} successfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                             msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`{fee_txt}'
                             await ctx.edit_original_message(content=msg)
                         else:
+                            msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.'
+                            await ctx.edit_original_message(content=msg)
                             await logchanbot(f'[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                         self.bot.TX_IN_PROCESS.remove(ctx.author.id)
                     else:
@@ -5795,6 +5823,8 @@ class Wallet(commands.Cog):
                             await ctx.edit_original_message(content=msg)
                             await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} successfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                         else:
+                            msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.'
+                            await ctx.edit_original_message(content=msg)
                             await logchanbot(f'[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                         self.bot.TX_IN_PROCESS.remove(ctx.author.id)
                     else:
@@ -5812,6 +5842,8 @@ class Wallet(commands.Cog):
                             await ctx.edit_original_message(content=msg)
                             await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} successfully withdrew {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                         else:
+                            msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.'
+                            await ctx.edit_original_message(content=msg)
                             await logchanbot(f'[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                         self.bot.TX_IN_PROCESS.remove(ctx.author.id)
                     else:
@@ -5834,6 +5866,8 @@ class Wallet(commands.Cog):
                             await ctx.edit_original_message(content=msg)
                             await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} successfully executed withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                         else:
+                            msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.'
+                            await ctx.edit_original_message(content=msg)
                             await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} failed to execute to withdraw {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}{equivalent_usd}.')
                         self.bot.TX_IN_PROCESS.remove(ctx.author.id)
                     else:
@@ -6025,15 +6059,7 @@ class Wallet(commands.Cog):
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                 wallet_address = get_deposit['paymentid']
 
-            height = None
-            try:
-                if type_coin in ["ERC-20", "TRC-20"]:
-                    height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
-                else:
-                    height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
-            except Exception as e:
-                traceback.print_exc(file=sys.stdout)
- 
+            height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
             try:
                 userdata_balance = await self.user_balance(str(self.bot.user.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
                 actual_balance = float(userdata_balance['adjust'])
@@ -6223,15 +6249,7 @@ class Wallet(commands.Cog):
         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
             wallet_address = get_deposit['paymentid']
 
-        height = None
-        try:
-            if type_coin in ["ERC-20", "TRC-20"]:
-                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
-            else:
-                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-
+        height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
         userdata_balance = await self.user_balance(str(self.bot.user.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
         actual_balance = float(userdata_balance['adjust'])
 
@@ -6377,15 +6395,7 @@ class Wallet(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        height = None
-        try:
-            if type_coin in ["ERC-20", "TRC-20"]:
-                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
-            else:
-                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-
+        height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
         # check if amount is all
         all_amount = False
         if not amount.isdigit() and amount.upper() == "ALL":
@@ -6578,14 +6588,7 @@ when using this bot and any funds lost, mis-used or stolen in using this bot. Ti
                 wallet_address = get_deposit['balance_wallet_address']
                 if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                     wallet_address = get_deposit['paymentid']
-                height = None
-                try:
-                    if type_coin in ["ERC-20", "TRC-20"]:
-                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
-                    else:
-                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{FROM_COIN}').decode())
-                except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
+                height = self.wallet_api.get_block_height(type_coin, FROM_COIN, net_name)
                 userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), FROM_COIN, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
                 actual_balance = float(userdata_balance['adjust'])
                 if actual_balance < amount:
@@ -6606,14 +6609,7 @@ when using this bot and any funds lost, mis-used or stolen in using this bot. Ti
                 wallet_address = get_deposit['balance_wallet_address']
                 if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                     wallet_address = get_deposit['paymentid']
-                height = None
-                try:
-                    if type_coin in ["ERC-20", "TRC-20"]:
-                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
-                    else:
-                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{TO_COIN}').decode())
-                except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
+                height = self.wallet_api.get_block_height(type_coin, TO_COIN, net_name)
                 creditor_balance = await store.sql_user_balance_single(creditor, TO_COIN, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
                 actual_balance = float(creditor_balance['adjust'])
                 if actual_balance < amount_swapped:
@@ -6754,14 +6750,7 @@ when using this bot and any funds lost, mis-used or stolen in using this bot. Ti
                     await ctx.edit_original_message(content=msg)
                     return
 
-                height = None
-                try:
-                    if type_coin in ["ERC-20", "TRC-20"]:
-                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
-                    else:
-                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{FROM_COIN}').decode())
-                except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
+                height = self.wallet_api.get_block_height(type_coin, FROM_COIN, net_name)
                 userdata_balance = await self.user_balance(str(ctx.author.id), FROM_COIN, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
                 actual_balance = float(userdata_balance['adjust'])
 

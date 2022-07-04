@@ -6,6 +6,7 @@ from disnake.enums import OptionType
 from disnake.app_commands import Option, OptionChoice
 import redis_utils
 from datetime import datetime
+from cogs.wallet import WalletAPI
 
 from config import config
 from Bot import num_format_coin
@@ -15,8 +16,8 @@ class Coininfo(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        self.wallet_api = WalletAPI(self.bot)
         redis_utils.openRedis()
-
 
     async def get_coininfo(
         self,
@@ -53,12 +54,8 @@ class Coininfo(commands.Cog):
         try:
             if getattr(getattr(self.bot.coin_list, COIN_NAME), "is_maintenance") != 1:
                 try:
-                    if type_coin in ["ERC-20", "TRC-20"]:
-                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
-                        if height: response_text += "Height: {:,.0f}".format(height) + "\n"
-                    else:
-                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
-                        if height: response_text += "Height: {:,.0f}".format(height) + "\n"
+                    height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
+                    if height: response_text += "Height: {:,.0f}".format(height) + "\n"
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
                     response_text += "Height: N/A (*)" + "\n"

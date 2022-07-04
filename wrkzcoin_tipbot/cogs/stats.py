@@ -285,11 +285,7 @@ class Stats(commands.Cog):
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
                 try:
-                    height = None
-                    if net_name is None:
-                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
-                    else:
-                        height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
+                    height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
                     if height:
                         embed.add_field(name="blockNumber", value="`{:,.0f}` | [Explorer Link]({})".format(height, explorer_link), inline=False)
                 except Exception as e:

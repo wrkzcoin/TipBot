@@ -203,14 +203,7 @@ class Voucher(commands.Cog):
             await ctx.response.send_message(msg)
             return
 
-        height = None
-        try:
-            if type_coin in ["ERC-20", "TRC-20"]:
-                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{net_name}').decode())
-            else:
-                height = int(redis_utils.redis_conn.get(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}').decode())
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+        height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
 
         # Numb voucher
         amount = amount.replace(",", "")

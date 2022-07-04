@@ -49,129 +49,120 @@ class EthScan(commands.Cog):
 
     @tasks.loop(seconds=10.0)
     async def fetch_trx_node(self):
-        while True:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(config.api_best_node.trx, headers={'Content-Type': 'application/json'}, timeout=5.0) as response:
-                    if response.status == 200:
-                        res_data = await response.read()
-                        res_data = res_data.decode('utf-8')
-                        # trx needs to fetch best node from their public
-                        self.bot.erc_node_list['TRX'] = res_data.replace('"', '')
-                    else:
-                        await logchanbot(f"Can not fetch best node for TRX.")
-            await asyncio.sleep(10.0)
+        async with aiohttp.ClientSession() as session:
+            async with session.get(config.api_best_node.trx, headers={'Content-Type': 'application/json'}, timeout=5.0) as response:
+                if response.status == 200:
+                    res_data = await response.read()
+                    res_data = res_data.decode('utf-8')
+                    # trx needs to fetch best node from their public
+                    self.bot.erc_node_list['TRX'] = res_data.replace('"', '')
+                else:
+                    await logchanbot(f"Can not fetch best node for TRX.")
+        await asyncio.sleep(10.0)
 
     @tasks.loop(seconds=10.0)
     async def fetch_bsc_node(self):
-        while True:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(config.api_best_node.bsc, headers={'Content-Type': 'application/json'}, timeout=5.0) as response:
-                    if response.status == 200:
-                        res_data = await response.read()
-                        res_data = res_data.decode('utf-8')
-                        # BSC needs to fetch best node from their public
-                        self.bot.erc_node_list['BSC'] = res_data.replace('"', '')
-                    else:
-                        await logchanbot(f"Can not fetch best node for BSC.")
-            await asyncio.sleep(10.0)
+        async with aiohttp.ClientSession() as session:
+            async with session.get(config.api_best_node.bsc, headers={'Content-Type': 'application/json'}, timeout=5.0) as response:
+                if response.status == 200:
+                    res_data = await response.read()
+                    res_data = res_data.decode('utf-8')
+                    # BSC needs to fetch best node from their public
+                    self.bot.erc_node_list['BSC'] = res_data.replace('"', '')
+                else:
+                    await logchanbot(f"Can not fetch best node for BSC.")
+        await asyncio.sleep(10.0)
 
     @tasks.loop(seconds=10.0)
     async def fetch_sol_node(self):
-        while True:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(config.api_best_node.sol, headers={'Content-Type': 'application/json'}, timeout=5.0) as response:
-                    if response.status == 200:
-                        res_data = await response.read()
-                        res_data = res_data.decode('utf-8')
-                        # SOL needs to fetch best node from their public
-                        self.bot.erc_node_list['SOL'] = res_data.replace('"', '')
-                    else:
-                        await logchanbot(f"Can not fetch best node for SOL.")
-            await asyncio.sleep(10.0)
+        async with aiohttp.ClientSession() as session:
+            async with session.get(config.api_best_node.sol, headers={'Content-Type': 'application/json'}, timeout=5.0) as response:
+                if response.status == 200:
+                    res_data = await response.read()
+                    res_data = res_data.decode('utf-8')
+                    # SOL needs to fetch best node from their public
+                    self.bot.erc_node_list['SOL'] = res_data.replace('"', '')
+                else:
+                    await logchanbot(f"Can not fetch best node for SOL.")
+        await asyncio.sleep(10.0)
 
     @tasks.loop(seconds=10.0)
     async def fetch_matic_node(self):
-        while True:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(config.api_best_node.matic, headers={'Content-Type': 'application/json'}, timeout=5.0) as response:
-                    if response.status == 200:
-                        res_data = await response.read()
-                        res_data = res_data.decode('utf-8')
-                        # MATIC needs to fetch best node from their public
-                        self.bot.erc_node_list['MATIC'] = res_data.replace('"', '')
-                    else:
-                        await logchanbot(f"Can not fetch best node for MATIC.")
-            await asyncio.sleep(10.0)
+        async with aiohttp.ClientSession() as session:
+            async with session.get(config.api_best_node.matic, headers={'Content-Type': 'application/json'}, timeout=5.0) as response:
+                if response.status == 200:
+                    res_data = await response.read()
+                    res_data = res_data.decode('utf-8')
+                    # MATIC needs to fetch best node from their public
+                    self.bot.erc_node_list['MATIC'] = res_data.replace('"', '')
+                else:
+                    await logchanbot(f"Can not fetch best node for MATIC.")
+        await asyncio.sleep(10.0)
 
     @tasks.loop(seconds=10.0)
     async def fetch_celo_node(self):
-        while True:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(config.api_best_node.celo, headers={'Content-Type': 'application/json'}, timeout=5.0) as response:
-                    if response.status == 200:
-                        res_data = await response.read()
-                        res_data = res_data.decode('utf-8')
-                        # CELO needs to fetch best node from their public
-                        self.bot.erc_node_list['CELO'] = res_data.replace('"', '')
-                    else:
-                        await logchanbot(f"Can not fetch best node for CELO.")
-            await asyncio.sleep(10.0)
+        async with aiohttp.ClientSession() as session:
+            async with session.get(config.api_best_node.celo, headers={'Content-Type': 'application/json'}, timeout=5.0) as response:
+                if response.status == 200:
+                    res_data = await response.read()
+                    res_data = res_data.decode('utf-8')
+                    # CELO needs to fetch best node from their public
+                    self.bot.erc_node_list['CELO'] = res_data.replace('"', '')
+                else:
+                    await logchanbot(f"Can not fetch best node for CELO.")
+        await asyncio.sleep(10.0)
 
     @tasks.loop(seconds=10.0)
     async def fetch_ftm_node(self):
-        while True:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(config.api_best_node.ftm, headers={'Content-Type': 'application/json'}, timeout=5.0) as response:
-                    if response.status == 200:
-                        res_data = await response.read()
-                        res_data = res_data.decode('utf-8')
-                        # FTM needs to fetch best node from their public
-                        self.bot.erc_node_list['FTM'] = res_data.replace('"', '')
-                    else:
-                        await logchanbot(f"Can not fetch best node for FTM.")
-            await asyncio.sleep(10.0)
+        async with aiohttp.ClientSession() as session:
+            async with session.get(config.api_best_node.ftm, headers={'Content-Type': 'application/json'}, timeout=5.0) as response:
+                if response.status == 200:
+                    res_data = await response.read()
+                    res_data = res_data.decode('utf-8')
+                    # FTM needs to fetch best node from their public
+                    self.bot.erc_node_list['FTM'] = res_data.replace('"', '')
+                else:
+                    await logchanbot(f"Can not fetch best node for FTM.")
+        await asyncio.sleep(10.0)
 
     @tasks.loop(seconds=10.0)
     async def fetch_avax_node(self):
-        while True:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(config.api_best_node.avax, headers={'Content-Type': 'application/json'}, timeout=5.0) as response:
-                    if response.status == 200:
-                        res_data = await response.read()
-                        res_data = res_data.decode('utf-8')
-                        # AVAX needs to fetch best node from their public
-                        self.bot.erc_node_list['AVAX'] = res_data.replace('"', '')
-                    else:
-                        await logchanbot(f"Can not fetch best node for AVAX.")
-            await asyncio.sleep(10.0)
+        async with aiohttp.ClientSession() as session:
+            async with session.get(config.api_best_node.avax, headers={'Content-Type': 'application/json'}, timeout=5.0) as response:
+                if response.status == 200:
+                    res_data = await response.read()
+                    res_data = res_data.decode('utf-8')
+                    # AVAX needs to fetch best node from their public
+                    self.bot.erc_node_list['AVAX'] = res_data.replace('"', '')
+                else:
+                    await logchanbot(f"Can not fetch best node for AVAX.")
+        await asyncio.sleep(10.0)
 
     @tasks.loop(seconds=10.0)
     async def fetch_xdai_node(self):
-        while True:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(config.api_best_node.xdai, headers={'Content-Type': 'application/json'}, timeout=5.0) as response:
-                    if response.status == 200:
-                        res_data = await response.read()
-                        res_data = res_data.decode('utf-8')
-                        # XDAI needs to fetch best node from their public
-                        self.bot.erc_node_list['XDAI'] = res_data.replace('"', '')
-                    else:
-                        await logchanbot(f"Can not fetch best node for XDAI.")
-            await asyncio.sleep(10.0)
+        async with aiohttp.ClientSession() as session:
+            async with session.get(config.api_best_node.xdai, headers={'Content-Type': 'application/json'}, timeout=5.0) as response:
+                if response.status == 200:
+                    res_data = await response.read()
+                    res_data = res_data.decode('utf-8')
+                    # XDAI needs to fetch best node from their public
+                    self.bot.erc_node_list['XDAI'] = res_data.replace('"', '')
+                else:
+                    await logchanbot(f"Can not fetch best node for XDAI.")
+        await asyncio.sleep(10.0)
 
     @tasks.loop(seconds=10.0)
     async def fetch_one_node(self):
-        while True:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(config.api_best_node.one, headers={'Content-Type': 'application/json'}, timeout=5.0) as response:
-                    if response.status == 200:
-                        res_data = await response.read()
-                        res_data = res_data.decode('utf-8')
-                        # ONE needs to fetch best node from their public
-                        self.bot.erc_node_list['ONE'] = res_data.replace('"', '')
-                    else:
-                        await logchanbot(f"Can not fetch best node for ONE.")
-            await asyncio.sleep(10.0)
+        async with aiohttp.ClientSession() as session:
+            async with session.get(config.api_best_node.one, headers={'Content-Type': 'application/json'}, timeout=5.0) as response:
+                if response.status == 200:
+                    res_data = await response.read()
+                    res_data = res_data.decode('utf-8')
+                    # ONE needs to fetch best node from their public
+                    self.bot.erc_node_list['ONE'] = res_data.replace('"', '')
+                else:
+                    await logchanbot(f"Can not fetch best node for ONE.")
+        await asyncio.sleep(10.0)
 
     @tasks.loop(seconds=60.0)
     async def remove_all_tx_ethscan(self):

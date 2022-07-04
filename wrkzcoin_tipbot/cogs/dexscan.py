@@ -128,44 +128,43 @@ class DexScan(commands.Cog):
     @tasks.loop(seconds=10.0)
     async def dex_price_loop(self):
         await self.bot.wait_until_ready()
-        while True:
-            bsc_node = await self.handle_best_node()
-            try:
-                get_list = await self.dex_get_list()
-                if get_list and len(get_list) > 0:
-                    for each_token in get_list:
-                        COIN_NAME = each_token['token_name']
-                        get_price = await self.getPrice_generic(bsc_node, each_token['contract'], each_token['wrapped_main_token'], each_token['usdt_contract'], each_token['lp_usdt_with_main_token'], each_token['lp_token_main_token'])
-                        if get_price and Decimal(get_price) > 0:
-                            get_price = Decimal(get_price)*Decimal(10**each_token['decimal'])/Decimal(10**18)
-                            insert = await self.dex_insert_price(each_token['token_name'], each_token['chain_id'], each_token['net_name'], each_token['contract'], each_token['source_from'], Decimal(get_price))
-                            if hasattr(self.bot.coin_list, COIN_NAME): 
-                                usd_equivalent_dex = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_dex")
-                                if usd_equivalent_dex == 1:
-                                    if COIN_NAME in self.bot.token_hints:
-                                        id = self.bot.token_hints[COIN_NAME]['ticker_name']
-                                        if id not in self.bot.coin_paprika_id_list:
-                                            self.bot.coin_paprika_id_list[id] = {}
-                                        self.bot.coin_paprika_id_list[id]['name'] = self.bot.token_hints[COIN_NAME]['name']
-                                        self.bot.coin_paprika_id_list[id]['price_usd'] = float(get_price)
-                                    else:
-                                        if COIN_NAME not in self.bot.coin_paprika_symbol_list: self.bot.coin_paprika_symbol_list[COIN_NAME] = {}
-                                        self.bot.coin_paprika_symbol_list[COIN_NAME]['price_usd'] = float(get_price)
-                            else:
-                                # COIN_NAME is not in Bot
+        bsc_node = await self.handle_best_node()
+        try:
+            get_list = await self.dex_get_list()
+            if get_list and len(get_list) > 0:
+                for each_token in get_list:
+                    COIN_NAME = each_token['token_name']
+                    get_price = await self.getPrice_generic(bsc_node, each_token['contract'], each_token['wrapped_main_token'], each_token['usdt_contract'], each_token['lp_usdt_with_main_token'], each_token['lp_token_main_token'])
+                    if get_price and Decimal(get_price) > 0:
+                        get_price = Decimal(get_price)*Decimal(10**each_token['decimal'])/Decimal(10**18)
+                        insert = await self.dex_insert_price(each_token['token_name'], each_token['chain_id'], each_token['net_name'], each_token['contract'], each_token['source_from'], Decimal(get_price))
+                        if hasattr(self.bot.coin_list, COIN_NAME): 
+                            usd_equivalent_dex = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_dex")
+                            if usd_equivalent_dex == 1:
                                 if COIN_NAME in self.bot.token_hints:
+                                    id = self.bot.token_hints[COIN_NAME]['ticker_name']
+                                    if id not in self.bot.coin_paprika_id_list:
+                                        self.bot.coin_paprika_id_list[id] = {}
                                     self.bot.coin_paprika_id_list[id]['name'] = self.bot.token_hints[COIN_NAME]['name']
                                     self.bot.coin_paprika_id_list[id]['price_usd'] = float(get_price)
                                 else:
                                     if COIN_NAME not in self.bot.coin_paprika_symbol_list: self.bot.coin_paprika_symbol_list[COIN_NAME] = {}
                                     self.bot.coin_paprika_symbol_list[COIN_NAME]['price_usd'] = float(get_price)
-                                if COIN_NAME not in self.bot.coin_price_dex:
-                                    self.bot.coin_price_dex.append(COIN_NAME)
-                                    self.bot.coin_price_dex_from[COIN_NAME] = each_token['source_from']
-                            await asyncio.sleep(each_token['sleep_after_fetched'])
-                await asyncio.sleep(30.0)
-            except Exception as e:
-                traceback.print_exc(file=sys.stdout)
+                        else:
+                            # COIN_NAME is not in Bot
+                            if COIN_NAME in self.bot.token_hints:
+                                self.bot.coin_paprika_id_list[id]['name'] = self.bot.token_hints[COIN_NAME]['name']
+                                self.bot.coin_paprika_id_list[id]['price_usd'] = float(get_price)
+                            else:
+                                if COIN_NAME not in self.bot.coin_paprika_symbol_list: self.bot.coin_paprika_symbol_list[COIN_NAME] = {}
+                                self.bot.coin_paprika_symbol_list[COIN_NAME]['price_usd'] = float(get_price)
+                            if COIN_NAME not in self.bot.coin_price_dex:
+                                self.bot.coin_price_dex.append(COIN_NAME)
+                                self.bot.coin_price_dex_from[COIN_NAME] = each_token['source_from']
+                        await asyncio.sleep(each_token['sleep_after_fetched'])
+            await asyncio.sleep(30.0)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
 
 def setup(bot):
     bot.add_cog(DexScan(bot))

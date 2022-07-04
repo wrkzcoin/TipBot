@@ -957,55 +957,54 @@ class Guild(commands.Cog):
     async def monitor_guild_reward_amount(self):
         time_lap = 10 # seconds
         await self.bot.wait_until_ready()
-        while True:
-            await asyncio.sleep(time_lap)
-            try:
-                await self.openConnection()
-                async with self.pool.acquire() as conn:
-                    async with conn.cursor() as cur:
-                        sql = """ SELECT * FROM `discord_server` WHERE `vote_reward_amount`>0 """
-                        await cur.execute(sql, )
-                        result = await cur.fetchall()
-                        if result and len(result) > 0:
-                            for each_guild in result:
-                                # Check guild's balance
-                                COIN_NAME = each_guild['vote_reward_coin']
-                                net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
-                                type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
-                                deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
-                                coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
-                                contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
-                                token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
-                                usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
+        await asyncio.sleep(time_lap)
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `discord_server` WHERE `vote_reward_amount`>0 """
+                    await cur.execute(sql, )
+                    result = await cur.fetchall()
+                    if result and len(result) > 0:
+                        for each_guild in result:
+                            # Check guild's balance
+                            COIN_NAME = each_guild['vote_reward_coin']
+                            net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
+                            type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
+                            deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
+                            coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+                            contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
+                            token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
+                            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
 
-                                get_deposit = await self.wallet_api.sql_get_userwallet(each_guild['serverid'], COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
-                                if get_deposit is None:
-                                    get_deposit = await self.wallet_api.sql_register_user(each_guild['serverid'], COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 1)
+                            get_deposit = await self.wallet_api.sql_get_userwallet(each_guild['serverid'], COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                            if get_deposit is None:
+                                get_deposit = await self.wallet_api.sql_register_user(each_guild['serverid'], COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 1)
 
-                                wallet_address = get_deposit['balance_wallet_address']
-                                if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
-                                    wallet_address = get_deposit['paymentid']
+                            wallet_address = get_deposit['balance_wallet_address']
+                            if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                                wallet_address = get_deposit['paymentid']
 
-                                height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
-                                userdata_balance = await self.user_balance(each_guild['serverid'], COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
-                                actual_balance = float(userdata_balance['adjust'])
-                                if actual_balance < 10*float(each_guild['vote_reward_amount']):
-                                    amount = 10*float(each_guild['vote_reward_amount'])
-                                    # Disable it
-                                    # Process, only guild owner can process
-                                    update_reward = await self.update_reward(each_guild['serverid'], actual_balance, COIN_NAME, True, None)
-                                    if update_reward > 0:
-                                        try:
-                                            guild_found = self.bot.get_guild(int(each_guild['serverid']))
-                                            user_found = self.bot.get_user(guild_found.owner.id)
-                                            if user_found is not None:
-                                                await user_found.send(f"Currently, your guild's balance of {COIN_NAME} is lower than 10x reward: {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}. Vote reward is disable.")
-                                        except Exception as e:
-                                            traceback.print_exc(file=sys.stdout)
-                                        await self.vote_logchan(f'[{SERVER_BOT}] Disable vote reward for {guild_found.name} / {guild_found.id}. Guild\'s balance below 10x: {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}.')
-            except Exception as e:
-                traceback.print_exc(file=sys.stdout)
-            await asyncio.sleep(time_lap)
+                            height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
+                            userdata_balance = await self.user_balance(each_guild['serverid'], COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+                            actual_balance = float(userdata_balance['adjust'])
+                            if actual_balance < 10*float(each_guild['vote_reward_amount']):
+                                amount = 10*float(each_guild['vote_reward_amount'])
+                                # Disable it
+                                # Process, only guild owner can process
+                                update_reward = await self.update_reward(each_guild['serverid'], actual_balance, COIN_NAME, True, None)
+                                if update_reward > 0:
+                                    try:
+                                        guild_found = self.bot.get_guild(int(each_guild['serverid']))
+                                        user_found = self.bot.get_user(guild_found.owner.id)
+                                        if user_found is not None:
+                                            await user_found.send(f"Currently, your guild's balance of {COIN_NAME} is lower than 10x reward: {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}. Vote reward is disable.")
+                                    except Exception as e:
+                                        traceback.print_exc(file=sys.stdout)
+                                    await self.vote_logchan(f'[{SERVER_BOT}] Disable vote reward for {guild_found.name} / {guild_found.id}. Guild\'s balance below 10x: {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}.')
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        await asyncio.sleep(time_lap)
 
 
 

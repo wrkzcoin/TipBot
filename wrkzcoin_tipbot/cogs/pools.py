@@ -55,33 +55,32 @@ class Pools(commands.Cog):
     async def get_miningpool_coinlist(self):
         time_lap = 5 # seconds
         await self.bot.wait_until_ready()
-        while True:
-            await asyncio.sleep(time_lap)
-            try:
-                async with aiohttp.ClientSession() as cs:
-                    async with cs.get(config.miningpoolstat.coinlist_link+"??timestamp="+str(int(time.time())), timeout=config.miningpoolstat.timeout) as r:
-                        if r.status == 200:
-                            res_data = await r.read()
-                            res_data = res_data.decode('utf-8')
-                            res_data = res_data.replace("var coin_list = ", "").replace(";", "")
-                            decoded_data = json.loads(res_data)
-                            key = config.redis.prefix + ":MININGPOOL:"
-                            key_hint = config.redis.prefix + ":MININGPOOL:SHORTNAME:"
-                            if decoded_data and len(decoded_data) > 0:
-                                # print(decoded_data)
-                                redis_utils.openRedis()
-                                for kc, cat in decoded_data.items():
-                                    if not isinstance(cat, int) and not isinstance(cat, str):
-                                        for k, v in cat.items():
-                                            # Should have no expire.
-                                            redis_utils.redis_conn.set((key+k).upper(), json.dumps(v))
-                                            redis_utils.redis_conn.set((key_hint+v['s']).upper(), k.upper())
-            except asyncio.TimeoutError:
-                print('TIMEOUT: Fetching from miningpoolstats')
-            except Exception:
-                traceback.print_exc(file=sys.stdout)
-                await logchanbot(traceback.format_exc())
-            await asyncio.sleep(time_lap)
+        await asyncio.sleep(time_lap)
+        try:
+            async with aiohttp.ClientSession() as cs:
+                async with cs.get(config.miningpoolstat.coinlist_link+"??timestamp="+str(int(time.time())), timeout=config.miningpoolstat.timeout) as r:
+                    if r.status == 200:
+                        res_data = await r.read()
+                        res_data = res_data.decode('utf-8')
+                        res_data = res_data.replace("var coin_list = ", "").replace(";", "")
+                        decoded_data = json.loads(res_data)
+                        key = config.redis.prefix + ":MININGPOOL:"
+                        key_hint = config.redis.prefix + ":MININGPOOL:SHORTNAME:"
+                        if decoded_data and len(decoded_data) > 0:
+                            # print(decoded_data)
+                            redis_utils.openRedis()
+                            for kc, cat in decoded_data.items():
+                                if not isinstance(cat, int) and not isinstance(cat, str):
+                                    for k, v in cat.items():
+                                        # Should have no expire.
+                                        redis_utils.redis_conn.set((key+k).upper(), json.dumps(v))
+                                        redis_utils.redis_conn.set((key_hint+v['s']).upper(), k.upper())
+        except asyncio.TimeoutError:
+            print('TIMEOUT: Fetching from miningpoolstats')
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        await asyncio.sleep(time_lap)
 
     async def get_miningpoolstat_coin(
         self, 

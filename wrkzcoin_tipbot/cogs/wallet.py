@@ -165,6 +165,7 @@ class WalletAPI(commands.Cog):
         self.pool = None
 
     def get_block_height(self, type_coin: str, coin: str, net_name: str=None):
+        redis_utils.openRedis()
         height = None
         COIN_NAME = coin.upper()
         try:
@@ -328,7 +329,7 @@ class WalletAPI(commands.Cog):
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     try:
-                        if netname and netname not in ["TRX"]:
+                        if netname and type_coin == "ERC-20":
                             sql = """ INSERT INTO `erc20_user` (`user_id`, `user_id_erc20`, `type`, `balance_wallet_address`, `address_ts`, 
                                       `seed`, `create_dump`, `private_key`, `public_key`, `xprivate_key`, `xpublic_key`, 
                                       `called_Update`, `user_server`, `chat_id`, `is_discord_guild`) 
@@ -421,7 +422,7 @@ class WalletAPI(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    if netname and netname not in ["TRX"]:
+                    if netname and type_coin == "ERC-20":
                         sql = """ SELECT * FROM `erc20_user` WHERE `user_id`=%s 
                                   AND `user_id_erc20`=%s AND `user_server`=%s LIMIT 1 """
                         await cur.execute(sql, (str(userID), user_id_erc20, user_server))
@@ -482,7 +483,6 @@ class WalletAPI(commands.Cog):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         return None
-
 
     async def call_nano(self, coin: str, payload: str) -> Dict:
         timeout = 100
@@ -1483,11 +1483,10 @@ class Wallet(commands.Cog):
         self.pool = None
         self.ttlcache = TTLCache(maxsize=1024, ttl=60.0)
 
-
     async def openConnection(self):
         try:
             if self.pool is None:
-                self.pool = await aiomysql.create_pool(host=config.mysql.host, port=3306, minsize=4, maxsize=8, 
+                self.pool = await aiomysql.create_pool(host=config.mysql.host, port=3306, minsize=8, maxsize=16, 
                                                        user=config.mysql.user, password=config.mysql.password,
                                                        db=config.mysql.db, cursorclass=DictCursor, autocommit=True)
         except Exception as e:
@@ -1626,7 +1625,6 @@ class Wallet(commands.Cog):
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     # moving tip + / -
-                    start = time.time()
                     sql = """ SELECT `balance` AS mv_balance 
                               FROM `user_balance_mv_data` 
                               WHERE `user_id`=%s AND `token_name`=%s AND `user_server`=%s LIMIT 1 """
@@ -5220,6 +5218,7 @@ class Wallet(commands.Cog):
             num_coins = 0
             per_page = 8
             await ctx.response.send_message(f"{ctx.author.mention} balance loading...", ephemeral=True)
+            bstart = time.time()
             for each_token in mytokens:
                 try:
                     COIN_NAME = each_token['coin_name']
@@ -5229,7 +5228,6 @@ class Wallet(commands.Cog):
                     coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
                     token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
                     usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
-
                     get_deposit = await self.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
                     if get_deposit is None:
                         get_deposit = await self.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)

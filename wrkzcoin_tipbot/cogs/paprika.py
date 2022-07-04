@@ -142,89 +142,88 @@ class Paprika(commands.Cog):
     async def fetch_paprika_pricelist(self):
         time_lap = 1800 # seconds
         await self.bot.wait_until_ready()
-        while True:
-            await asyncio.sleep(time_lap)
-            url = "https://api.coinpaprika.com/v1/tickers"
-            try:
-                async with aiohttp.ClientSession() as cs:
-                    async with cs.get(url, timeout=30) as r:
-                        res_data = await r.read()
-                        res_data = res_data.decode('utf-8')
-                        decoded_data = json.loads(res_data)
-                        update_time = int(time.time())
-                        update_date = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
-                        if len(decoded_data) > 0:
-                            update_list = []
-                            insert_list = []
-                            for each_coin in decoded_data:
-                                try:
-                                    quote_usd = each_coin['quotes']['USD']
-                                    ath_date = None
+        await asyncio.sleep(time_lap)
+        url = "https://api.coinpaprika.com/v1/tickers"
+        try:
+            async with aiohttp.ClientSession() as cs:
+                async with cs.get(url, timeout=30) as r:
+                    res_data = await r.read()
+                    res_data = res_data.decode('utf-8')
+                    decoded_data = json.loads(res_data)
+                    update_time = int(time.time())
+                    update_date = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
+                    if len(decoded_data) > 0:
+                        update_list = []
+                        insert_list = []
+                        for each_coin in decoded_data:
+                            try:
+                                quote_usd = each_coin['quotes']['USD']
+                                ath_date = None
 
-                                    if quote_usd['ath_date'] and "." in quote_usd['ath_date']:
-                                        ath_date = datetime.datetime.strptime(quote_usd['ath_date'], '%Y-%m-%dT%H:%M:%S.%fZ')
-                                    elif quote_usd['ath_date'] and "." not in quote_usd['ath_date']:
-                                        ath_date = datetime.datetime.strptime(quote_usd['ath_date'], '%Y-%m-%dT%H:%M:%SZ')
+                                if quote_usd['ath_date'] and "." in quote_usd['ath_date']:
+                                    ath_date = datetime.datetime.strptime(quote_usd['ath_date'], '%Y-%m-%dT%H:%M:%S.%fZ')
+                                elif quote_usd['ath_date'] and "." not in quote_usd['ath_date']:
+                                    ath_date = datetime.datetime.strptime(quote_usd['ath_date'], '%Y-%m-%dT%H:%M:%SZ')
 
-                                    if "." in each_coin['last_updated']:
-                                        last_updated = datetime.datetime.strptime(each_coin['last_updated'], '%Y-%m-%dT%H:%M:%S.%fZ')
-                                    else:
-                                        last_updated = datetime.datetime.strptime(each_coin['last_updated'], '%Y-%m-%dT%H:%M:%SZ')
-                                    update_list.append((each_coin['id'], each_coin['symbol'], each_coin['name'], each_coin['rank'], each_coin['circulating_supply'], each_coin['total_supply'], each_coin['max_supply'], quote_usd['price'], update_time, last_updated, quote_usd['price'], quote_usd['volume_24h'], quote_usd['volume_24h_change_24h'], quote_usd['market_cap'], quote_usd['market_cap_change_24h'], quote_usd['percent_change_15m'], quote_usd['percent_change_30m'], quote_usd['percent_change_1h'], quote_usd['percent_change_6h'], quote_usd['percent_change_12h'], quote_usd['percent_change_24h'], quote_usd['percent_change_7d'], quote_usd['percent_change_30d'], quote_usd['percent_change_1y'], quote_usd['ath_price'], ath_date, quote_usd['percent_from_price_ath']))
+                                if "." in each_coin['last_updated']:
+                                    last_updated = datetime.datetime.strptime(each_coin['last_updated'], '%Y-%m-%dT%H:%M:%S.%fZ')
+                                else:
+                                    last_updated = datetime.datetime.strptime(each_coin['last_updated'], '%Y-%m-%dT%H:%M:%SZ')
+                                update_list.append((each_coin['id'], each_coin['symbol'], each_coin['name'], each_coin['rank'], each_coin['circulating_supply'], each_coin['total_supply'], each_coin['max_supply'], quote_usd['price'], update_time, last_updated, quote_usd['price'], quote_usd['volume_24h'], quote_usd['volume_24h_change_24h'], quote_usd['market_cap'], quote_usd['market_cap_change_24h'], quote_usd['percent_change_15m'], quote_usd['percent_change_30m'], quote_usd['percent_change_1h'], quote_usd['percent_change_6h'], quote_usd['percent_change_12h'], quote_usd['percent_change_24h'], quote_usd['percent_change_7d'], quote_usd['percent_change_30d'], quote_usd['percent_change_1y'], quote_usd['ath_price'], ath_date, quote_usd['percent_from_price_ath']))
 
-                                    insert_list.append((each_coin['id'], each_coin['rank'], each_coin['circulating_supply'], each_coin['total_supply'], each_coin['max_supply'], quote_usd['price'], update_time, last_updated, quote_usd['price'], quote_usd['volume_24h'], quote_usd['volume_24h_change_24h'], quote_usd['market_cap'], quote_usd['market_cap_change_24h'], quote_usd['percent_change_15m'], quote_usd['percent_change_30m'], quote_usd['percent_change_1h'], quote_usd['percent_change_6h'], quote_usd['percent_change_12h'], quote_usd['percent_change_24h'], quote_usd['percent_change_7d'], quote_usd['percent_change_30d'], quote_usd['percent_change_1y'], quote_usd['ath_price'], ath_date, quote_usd['percent_from_price_ath'],  update_time))
-                                except Exception as e:
-                                    traceback.print_exc(file=sys.stdout)
-                            if len(update_list) or len(insert_list) > 0:
-                                try:
-                                    await store.openConnection()
-                                    async with store.pool.acquire() as conn:
-                                        async with conn.cursor() as cur:
-                                            sql = """ INSERT INTO coin_paprika_list (`id`, `symbol`, `name`, `rank`, `circulating_supply`, `total_supply`, `max_supply`, `price_usd`, `price_time`, `last_updated`, `quotes_USD_price`, `quotes_USD_volume_24h`, `quotes_USD_volume_24h_change_24h`, `quotes_USD_market_cap`, `quotes_USD_market_cap_change_24h`, `quotes_USD_percent_change_15m`, `quotes_USD_percent_change_30m`, `quotes_USD_percent_change_1h`, `quotes_USD_percent_change_6h`, `quotes_USD_percent_change_12h`, `quotes_USD_percent_change_24h`, `quotes_USD_percent_change_7d`, `quotes_USD_percent_change_30d`, `quotes_USD_percent_change_1y`, `quotes_USD_ath_price`, `quotes_USD_ath_date`, `quotes_USD_percent_from_price_ath`) 
-                                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) ON DUPLICATE KEY 
-                                                      UPDATE 
-                                                      `rank`=VALUES(`rank`), 
-                                                      `circulating_supply`=VALUES(`circulating_supply`), 
-                                                      `total_supply`=VALUES(`total_supply`), 
-                                                      `max_supply`=VALUES(`max_supply`), 
-                                                      `price_usd`=VALUES(`price_usd`), 
-                                                      `price_time`=VALUES(`price_time`), 
-                                                      `last_updated`=VALUES(`last_updated`), 
-                                                      `quotes_USD_price`=VALUES(`quotes_USD_price`), 
-                                                      `quotes_USD_volume_24h`=VALUES(`quotes_USD_volume_24h`), 
-                                                      `quotes_USD_volume_24h_change_24h`=VALUES(`quotes_USD_volume_24h_change_24h`), 
-                                                      `quotes_USD_market_cap`=VALUES(`quotes_USD_market_cap`), 
-                                                      `quotes_USD_market_cap_change_24h`=VALUES(`quotes_USD_market_cap_change_24h`), 
-                                                      `quotes_USD_percent_change_15m`=VALUES(`quotes_USD_percent_change_15m`), 
-                                                      `quotes_USD_percent_change_30m`=VALUES(`quotes_USD_percent_change_30m`), 
-                                                      `quotes_USD_percent_change_1h`=VALUES(`quotes_USD_percent_change_1h`), 
-                                                      `quotes_USD_percent_change_6h`=VALUES(`quotes_USD_percent_change_6h`), 
-                                                      `quotes_USD_percent_change_12h`=VALUES(`quotes_USD_percent_change_12h`), 
-                                                      `quotes_USD_percent_change_24h`=VALUES(`quotes_USD_percent_change_24h`), 
-                                                      `quotes_USD_percent_change_7d`=VALUES(`quotes_USD_percent_change_7d`), 
-                                                      `quotes_USD_percent_change_30d`=VALUES(`quotes_USD_percent_change_30d`), 
-                                                      `quotes_USD_percent_change_1y`=VALUES(`quotes_USD_percent_change_1y`), 
-                                                      `quotes_USD_ath_price`=VALUES(`quotes_USD_ath_price`), 
-                                                      `quotes_USD_ath_date`=VALUES(`quotes_USD_ath_date`), 
-                                                      `quotes_USD_percent_from_price_ath`=VALUES(`quotes_USD_percent_from_price_ath`)
-                                                   """
-                                            await cur.executemany(sql, update_list)
-                                            await conn.commit()
-                                            update_list = []
+                                insert_list.append((each_coin['id'], each_coin['rank'], each_coin['circulating_supply'], each_coin['total_supply'], each_coin['max_supply'], quote_usd['price'], update_time, last_updated, quote_usd['price'], quote_usd['volume_24h'], quote_usd['volume_24h_change_24h'], quote_usd['market_cap'], quote_usd['market_cap_change_24h'], quote_usd['percent_change_15m'], quote_usd['percent_change_30m'], quote_usd['percent_change_1h'], quote_usd['percent_change_6h'], quote_usd['percent_change_12h'], quote_usd['percent_change_24h'], quote_usd['percent_change_7d'], quote_usd['percent_change_30d'], quote_usd['percent_change_1y'], quote_usd['ath_price'], ath_date, quote_usd['percent_from_price_ath'],  update_time))
+                            except Exception as e:
+                                traceback.print_exc(file=sys.stdout)
+                        if len(update_list) or len(insert_list) > 0:
+                            try:
+                                await store.openConnection()
+                                async with store.pool.acquire() as conn:
+                                    async with conn.cursor() as cur:
+                                        sql = """ INSERT INTO coin_paprika_list (`id`, `symbol`, `name`, `rank`, `circulating_supply`, `total_supply`, `max_supply`, `price_usd`, `price_time`, `last_updated`, `quotes_USD_price`, `quotes_USD_volume_24h`, `quotes_USD_volume_24h_change_24h`, `quotes_USD_market_cap`, `quotes_USD_market_cap_change_24h`, `quotes_USD_percent_change_15m`, `quotes_USD_percent_change_30m`, `quotes_USD_percent_change_1h`, `quotes_USD_percent_change_6h`, `quotes_USD_percent_change_12h`, `quotes_USD_percent_change_24h`, `quotes_USD_percent_change_7d`, `quotes_USD_percent_change_30d`, `quotes_USD_percent_change_1y`, `quotes_USD_ath_price`, `quotes_USD_ath_date`, `quotes_USD_percent_from_price_ath`) 
+                                                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) ON DUPLICATE KEY 
+                                                  UPDATE 
+                                                  `rank`=VALUES(`rank`), 
+                                                  `circulating_supply`=VALUES(`circulating_supply`), 
+                                                  `total_supply`=VALUES(`total_supply`), 
+                                                  `max_supply`=VALUES(`max_supply`), 
+                                                  `price_usd`=VALUES(`price_usd`), 
+                                                  `price_time`=VALUES(`price_time`), 
+                                                  `last_updated`=VALUES(`last_updated`), 
+                                                  `quotes_USD_price`=VALUES(`quotes_USD_price`), 
+                                                  `quotes_USD_volume_24h`=VALUES(`quotes_USD_volume_24h`), 
+                                                  `quotes_USD_volume_24h_change_24h`=VALUES(`quotes_USD_volume_24h_change_24h`), 
+                                                  `quotes_USD_market_cap`=VALUES(`quotes_USD_market_cap`), 
+                                                  `quotes_USD_market_cap_change_24h`=VALUES(`quotes_USD_market_cap_change_24h`), 
+                                                  `quotes_USD_percent_change_15m`=VALUES(`quotes_USD_percent_change_15m`), 
+                                                  `quotes_USD_percent_change_30m`=VALUES(`quotes_USD_percent_change_30m`), 
+                                                  `quotes_USD_percent_change_1h`=VALUES(`quotes_USD_percent_change_1h`), 
+                                                  `quotes_USD_percent_change_6h`=VALUES(`quotes_USD_percent_change_6h`), 
+                                                  `quotes_USD_percent_change_12h`=VALUES(`quotes_USD_percent_change_12h`), 
+                                                  `quotes_USD_percent_change_24h`=VALUES(`quotes_USD_percent_change_24h`), 
+                                                  `quotes_USD_percent_change_7d`=VALUES(`quotes_USD_percent_change_7d`), 
+                                                  `quotes_USD_percent_change_30d`=VALUES(`quotes_USD_percent_change_30d`), 
+                                                  `quotes_USD_percent_change_1y`=VALUES(`quotes_USD_percent_change_1y`), 
+                                                  `quotes_USD_ath_price`=VALUES(`quotes_USD_ath_price`), 
+                                                  `quotes_USD_ath_date`=VALUES(`quotes_USD_ath_date`), 
+                                                  `quotes_USD_percent_from_price_ath`=VALUES(`quotes_USD_percent_from_price_ath`)
+                                               """
+                                        await cur.executemany(sql, update_list)
+                                        await conn.commit()
+                                        update_list = []
 
-                                            sql = """ INSERT INTO coin_paprika_list_history (`id`, `rank`, `circulating_supply`, `total_supply`, `max_supply`, `price_usd`, `price_time`, `price_date`, `quotes_USD_price`, `quotes_USD_volume_24h`, `quotes_USD_volume_24h_change_24h`, `quotes_USD_market_cap`, `quotes_USD_market_cap_change_24h`, `quotes_USD_percent_change_15m`, `quotes_USD_percent_change_30m`, `quotes_USD_percent_change_1h`, `quotes_USD_percent_change_6h`, `quotes_USD_percent_change_12h`, `quotes_USD_percent_change_24h`, `quotes_USD_percent_change_7d`, `quotes_USD_percent_change_30d`, `quotes_USD_percent_change_1y`, `quotes_USD_ath_price`, `quotes_USD_ath_date`, `quotes_USD_percent_from_price_ath`, `inserted_date`) 
-                                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                                            await cur.executemany(sql, insert_list)
-                                            await conn.commit()
-                                            insert_list = []
-                                except Exception as e:
-                                    traceback.print_exc(file=sys.stdout)
-                                    # print(insert_list[-1])
-            except asyncio.TimeoutError:
-                print('TIMEOUT: Fetching from coingecko price')
-            except Exception:
-                traceback.print_exc(file=sys.stdout)
-            await asyncio.sleep(time_lap)
+                                        sql = """ INSERT INTO coin_paprika_list_history (`id`, `rank`, `circulating_supply`, `total_supply`, `max_supply`, `price_usd`, `price_time`, `price_date`, `quotes_USD_price`, `quotes_USD_volume_24h`, `quotes_USD_volume_24h_change_24h`, `quotes_USD_market_cap`, `quotes_USD_market_cap_change_24h`, `quotes_USD_percent_change_15m`, `quotes_USD_percent_change_30m`, `quotes_USD_percent_change_1h`, `quotes_USD_percent_change_6h`, `quotes_USD_percent_change_12h`, `quotes_USD_percent_change_24h`, `quotes_USD_percent_change_7d`, `quotes_USD_percent_change_30d`, `quotes_USD_percent_change_1y`, `quotes_USD_ath_price`, `quotes_USD_ath_date`, `quotes_USD_percent_from_price_ath`, `inserted_date`) 
+                                                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                        await cur.executemany(sql, insert_list)
+                                        await conn.commit()
+                                        insert_list = []
+                            except Exception as e:
+                                traceback.print_exc(file=sys.stdout)
+                                # print(insert_list[-1])
+        except asyncio.TimeoutError:
+            print('TIMEOUT: Fetching from coingecko price')
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        await asyncio.sleep(time_lap)
 
 
     async def paprika_coin(

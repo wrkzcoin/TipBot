@@ -164,6 +164,192 @@ class WalletAPI(commands.Cog):
         # DB
         self.pool = None
 
+    async def get_coin_balance(self, coin: str):
+        balance = 0.0
+        COIN_NAME = coin.upper()
+        type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
+        coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+        display_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
+        contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
+        net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
+        if type_coin == "ERC-20":
+            main_balance = await store.http_wallet_getbalance(self.bot.erc_node_list[net_name], config.eth.MainAddress, COIN_NAME, contract)
+            balance = float(main_balance / 10**coin_decimal)
+        elif type_coin in ["TRC-20", "TRC-10"]:
+            main_balance = await store.trx_wallet_getbalance(config.trc.MainAddress, COIN_NAME, coin_decimal, type_coin, contract)
+            if main_balance:
+                # already divided decimal
+                balance = main_balance
+        elif type_coin == "TRTL-API":
+            key = getattr(getattr(self.bot.coin_list, COIN_NAME), "header")
+            method = "/balance"
+            headers = {
+                'X-API-KEY': key,
+                'Content-Type': 'application/json'
+            }
+            url = getattr(getattr(self.bot.coin_list, COIN_NAME), "wallet_address")
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url + method, headers=headers, timeout=32) as response:
+                        json_resp = await response.json()
+                        if response.status == 200 or response.status == 201:
+                            balance = float(Decimal(json_resp['unlocked'])/Decimal(10**coin_decimal))
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+        elif type_coin == "TRTL-SERVICE":
+            url = getattr(getattr(self.bot.coin_list, COIN_NAME), "wallet_address")
+            json_data = {"jsonrpc":"2.0", "id":1, "password":"passw0rd", "method":"getBalance", "params":{}}
+            headers = {
+                'Content-Type': 'application/json'
+            }
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(url, json=json_data, headers=headers, timeout=32) as response:
+                        if response.status == 200:
+                            res_data = await response.read()
+                            res_data = res_data.decode('utf-8')
+                            decoded_data = json.loads(res_data)
+                            json_resp = decoded_data
+                            balance = float(Decimal(json_resp['result']['availableBalance'])/Decimal(10**coin_decimal))
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+        elif type_coin == "XMR":
+            url = getattr(getattr(self.bot.coin_list, COIN_NAME), "wallet_address")
+            json_data = {"jsonrpc":"2.0", "id":"0", "method":"get_balance", "params":{"account_index": 0,"address_indices":[]}}
+            headers = {
+                'Content-Type': 'application/json'
+            }
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(url, json=json_data, headers=headers, timeout=32) as response:
+                        if response.status == 200:
+                            res_data = await response.read()
+                            res_data = res_data.decode('utf-8')
+                            decoded_data = json.loads(res_data)
+                            json_resp = decoded_data
+                            balance = float(Decimal(json_resp['result']['balance'])/Decimal(10**coin_decimal))
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+        elif type_coin == "BTC":
+            url = getattr(getattr(self.bot.coin_list, COIN_NAME), "daemon_address")
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(url, data='{"jsonrpc": "1.0", "id":"'+str(uuid.uuid4())+'", "method": "getbalance", "params": [] }', timeout=32) as response:
+                        if response.status == 200:
+                            res_data = await response.read()
+                            res_data = res_data.decode('utf-8')
+                            decoded_data = json.loads(res_data)
+                            json_resp = decoded_data
+                            balance = float(Decimal(json_resp['result']))
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+        elif type_coin == "CHIA":
+            headers = {
+                'Content-Type': 'application/json'
+            }
+            json_data = {
+                "wallet_id": 1
+            }
+            try:
+                url = getattr(getattr(self.bot.coin_list, COIN_NAME), "rpchost") + '/' + "get_wallet_balance"
+                ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+                ssl_context.load_cert_chain(getattr(getattr(self.bot.coin_list, COIN_NAME), "cert_path"), getattr(getattr(self.bot.coin_list, COIN_NAME), "key_path"))
+                async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
+                    async with session.post(url, json=json_data, headers=headers, timeout=32, ssl=ssl_context) as response:
+                        if response.status == 200:
+                            res_data = await response.read()
+                            res_data = res_data.decode('utf-8')
+                            decoded_data = json.loads(res_data)['wallet_balance']
+                            balance = float(Decimal(decoded_data['spendable_balance'])/Decimal(10**coin_decimal))
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+        elif type_coin == "NANO":
+            url = getattr(getattr(self.bot.coin_list, COIN_NAME), "rpchost")
+            main_address = getattr(getattr(self.bot.coin_list, COIN_NAME), "MainAddress")
+            headers = {
+                'Content-Type': 'application/json'
+            }
+            json_data = {
+                "action": "account_balance",
+                "account": main_address
+            }
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(url, headers=headers, json=json_data, timeout=32) as response:
+                        if response.status == 200:
+                            res_data = await response.read()
+                            res_data = res_data.decode('utf-8')
+                            decoded_data = json.loads(res_data)
+                            json_resp = decoded_data
+                            balance = float(Decimal(json_resp['balance'])/Decimal(10**coin_decimal))
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+        elif type_coin == "SOL":
+            async def fetch_wallet_balance(url: str, address: str):
+                # url: is endpoint
+                try:
+                    client = Sol_AsyncClient(url)
+                    balance = await client.get_balance(PublicKey(address))
+                    if 'result' in balance:
+                        await client.close()
+                        return balance['result']
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                return None
+            try:
+                get_balance = await fetch_wallet_balance(self.bot.erc_node_list['SOL'], config.sol.MainAddress)
+                if 'context' in get_balance and 'value' in get_balance: 
+                    balance = float(get_balance['value']/10**coin_decimal)
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+        elif type_coin == "XLM":
+            balance = 0.0
+            url = getattr(getattr(self.bot.coin_list, COIN_NAME), "http_address")
+            issuer = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
+            main_address = getattr(getattr(self.bot.coin_list, COIN_NAME), "MainAddress")
+            try:
+                async with ServerAsync(
+                    horizon_url=url, client=AiohttpClient()
+                ) as server:
+                    account = await server.accounts().account_id(main_address).call()
+                    if 'balances' in account and len(account['balances']) > 0:
+                        for each_balance in account['balances']:
+                            if COIN_NAME == "XLM" and each_balance['asset_type'] == "native":
+                                balance = float(each_balance['balance'])
+                                break
+                            elif 'asset_code' in each_balance and 'asset_issuer' in each_balance and "{}XLM".format(each_balance['asset_code']) == COIN_NAME and issuer == each_balance['asset_issuer']:
+                                balance = float(each_balance['balance'])
+                                break
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+        elif type_coin == "HNT":
+            try:
+                main_address = getattr(getattr(self.bot.coin_list, COIN_NAME), "MainAddress")
+                wallet_host = getattr(getattr(self.bot.coin_list, COIN_NAME), "wallet_address")
+                headers = {
+                    'Content-Type': 'application/json'
+                }
+                json_data = {
+                    "jsonrpc": "2.0",
+                    "id": "1",
+                    "method": "account_get",
+                    "params": {
+                        "address": main_address
+                    }
+                }
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(wallet_host, headers=headers, json=json_data, timeout=32) as response:
+                        if response.status == 200:
+                            res_data = await response.read()
+                            res_data = res_data.decode('utf-8')
+                            decoded_data = json.loads(res_data)
+                            json_resp = decoded_data
+                            if 'result' in json_resp:
+                                balance = json_resp['result']['balance']/10**coin_decimal
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+        return balance
+
     def get_block_height(self, type_coin: str, coin: str, net_name: str=None):
         redis_utils.openRedis()
         height = None
@@ -1460,7 +1646,7 @@ class Wallet(commands.Cog):
         self.notify_new_confirmed_xlm.start()
 
         # Swap
-        self.swap_pair = {"WRKZ-BWRKZ": 1, "BWRKZ-WRKZ": 1, "WRKZ-XWRKZ": 1, "XWRKZ-WRKZ": 1, "DEGO-WDEGO": 0.001, "WDEGO-DEGO": 1000, "PGO-WPGO": 1, "WPGO-PGO": 1}
+        self.swap_pair = {"WRKZ-BWRKZ": 1, "BWRKZ-WRKZ": 1, "WRKZ-XWRKZ": 1, "XWRKZ-WRKZ": 1, "DEGO-WDEGO": 0.001, "WDEGO-DEGO": 1000, "PGO-WPGO": 1, "WPGO-PGO": 1, "CDS-PCDS": 1, "PCDS-CDS": 1}
         # Donate
         self.donate_to = 386761001808166912 #pluton#8888
 
@@ -6758,8 +6944,21 @@ when using this bot and any funds lost, mis-used or stolen in using this bot. Ti
                     return
                 elif amount > actual_balance:
                     msg = f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to swap **{num_format_coin(amount, FROM_COIN, coin_decimal, False)} {token_display}**.'
-                    await ctx.redit_original_message(content=msg)
+                    await ctx.edit_original_message(content=msg)
                     return
+
+                try:
+                    # test get main balance of TO_COIN
+                    balance = await self.wallet_api.get_coin_balance(TO_COIN)
+                    if balance < to_amount:
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention} insufficient liquidity to swap **{num_format_coin(amount, FROM_COIN, coin_decimal, False)} {token_display}** to {TO_COIN}.'
+                        await ctx.edit_original_message(content=msg)
+                        await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} wanted to swap from `{num_format_coin(amount, FROM_COIN, coin_decimal, False)} {FROM_COIN} to {num_format_coin(to_amount, TO_COIN, to_coin_decimal, False)} {TO_COIN}` but shortage of liquidity. Having only `{num_format_coin(balance, TO_COIN, to_coin_decimal, False)} {TO_COIN}`.')
+                        return
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(traceback.format_exc())
+
                 if ctx.author.id not in self.bot.TX_IN_PROCESS:
                     self.bot.TX_IN_PROCESS.append(ctx.author.id)
                     try:
@@ -6777,7 +6976,6 @@ when using this bot and any funds lost, mis-used or stolen in using this bot. Ti
                     await ctx.edit_original_message(content=msg)
                     return
     # End of Swap
-
 
 def setup(bot):
     bot.add_cog(Wallet(bot))

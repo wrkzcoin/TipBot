@@ -176,7 +176,7 @@ class EthScan(commands.Cog):
 
 
     # Token contract only, not user's address
-    @tasks.loop(seconds=20.0)
+    @tasks.loop(seconds=30.0)
     async def pull_trc20_scanning(self):
         await asyncio.sleep(2.0)
         # Get all contracts of ETH type and update to coin_ethscan_setting
@@ -187,10 +187,10 @@ class EthScan(commands.Cog):
                     await self.fetch_txes_trc(each_contract['coin_name'], each_contract['contract'])
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
-
+        await asyncio.sleep(10.0)
 
     # Token contract only, not user's address
-    @tasks.loop(seconds=20.0)
+    @tasks.loop(seconds=30.0)
     async def pull_erc20_scanning(self):
         await asyncio.sleep(2.0)
         # Get all contracts of ETH type and update to coin_ethscan_setting
@@ -409,7 +409,6 @@ class EthScan(commands.Cog):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
-
     async def fetch_txes_trc(self, coin: str, contract: str, timeout: int=64):
         COIN_NAME = coin.upper()
         net_name = "TRX"
@@ -511,7 +510,7 @@ class EthScan(commands.Cog):
                                         if update_height is None:
                                             print(f"to_block {str(to_block)} No tx for `erc_contract_scan` for net_name {net_name}")
                             elif response.status == 400:
-                                await asyncio.sleep(3.0)
+                                await asyncio.sleep(5.0)
                                 return
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)

@@ -10,7 +10,7 @@ import asyncio
 import disnake
 from disnake.ext import commands, tasks
 from disnake.enums import OptionType
-from disnake.app_commands import Option
+from disnake.app_commands import Option, OptionChoice
 
 from disnake import ActionRow, Button
 from disnake.enums import ButtonStyle
@@ -1097,10 +1097,13 @@ class Tips(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-
         listMembers = []
         if user.upper() == "ANY" or user.upper() == "ALL":
             listMembers = [member for member in ctx.guild.members]
+        elif user.upper() == "ONLINE_EXCEPT_NO_NOTIFICATION":
+            listMembers = [member for member in ctx.guild.members if str(member.id) not in notifyList and member.status != disnake.Status.offline and member.bot is False]
+        elif user.upper() == "ALL_EXCEPT_NO_NOTIFICATION":
+            listMembers = [member for member in ctx.guild.members if str(member.id) not in notifyList]
         else:
             listMembers = [member for member in ctx.guild.members if member.status != disnake.Status.offline and member.bot is False]
         if len(listMembers) == 0:
@@ -1125,10 +1128,9 @@ class Tips(commands.Cog):
                 memids.append(str(member.id))
 
         if len(memids) == 0:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, no users...'
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, no users for such condition...'
             await ctx.edit_original_message(content=msg)
             return
-
 
         amountDiv = truncate(amount / len(memids), 8)
 
@@ -1253,8 +1255,6 @@ class Tips(commands.Cog):
             except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                 pass
 
-
-
     @commands.guild_only()
     @commands.bot_has_permissions(send_messages=True)
     @commands.slash_command(
@@ -1262,7 +1262,13 @@ class Tips(commands.Cog):
         options=[
             Option('amount', 'amount', OptionType.string, required=True), 
             Option('token', 'token', OptionType.string, required=True),  
-            Option('user', 'user option (ONLINE or ALL)', OptionType.string, required=False)
+            Option('user', 'user option (ONLINE or ALL)', OptionType.string, required=False, choices=[
+                OptionChoice("ONLINE", "ONLINE"),
+                OptionChoice("ONLINE EXCEPT FOR NO NOTIFICATION", "ONLINE_EXCEPT_NO_NOTIFICATION"),
+                OptionChoice("ALL EXCEPT FOR NO NOTIFICATION", "ALL_EXCEPT_NO_NOTIFICATION"),
+                OptionChoice("ALL", "ALL")
+            ]
+            )
         ],
         description="Tip all online user"
     )

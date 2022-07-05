@@ -498,15 +498,13 @@ class Admin(commands.Cog):
                         result = await cur.fetchall()
                         if result: return result
                     elif type_coin.upper() == "ERC-20":
-                        sql = """ SELECT * FROM `erc20_user` 
-                                  WHERE `token_name`=%s """
-                        await cur.execute(sql, (COIN_NAME))
+                        sql = """ SELECT * FROM `erc20_user` """
+                        await cur.execute(sql,)
                         result = await cur.fetchall()
                         if result: return result
                     elif type_coin.upper() == "TRC-20":
-                        sql = """ SELECT * FROM `trc20_user` 
-                                  WHERE `token_name`=%s """
-                        await cur.execute(sql, (COIN_NAME))
+                        sql = """ SELECT * FROM `trc20_user` """
+                        await cur.execute(sql,)
                         result = await cur.fetchall()
                         if result: return result
                     elif type_coin.upper() == "HNT":
@@ -517,6 +515,11 @@ class Admin(commands.Cog):
                         if result: return result
                     elif type_coin.upper() == "ADA":
                         sql = """ SELECT * FROM `ada_user` """
+                        await cur.execute(sql,)
+                        result = await cur.fetchall()
+                        if result: return result
+                    elif type_coin.upper() == "XLM":
+                        sql = """ SELECT * FROM `xlm_user` """
                         await cur.execute(sql,)
                         result = await cur.fetchall()
                         if result: return result
@@ -938,6 +941,7 @@ class Admin(commands.Cog):
                 time_start = int(time.time())
                 list_users = [m.id for m in self.bot.get_all_members()]
                 list_guilds = [g.id for g in self.bot.guilds]
+                already_checked = []
                 if len(all_user_id) > 0:
                     msg = f'{ctx.author.mention}, {EMOJI_INFORMATION} **{COIN_NAME}** there are total {str(len(all_user_id))} user records. Wait a big while...'
                     await ctx.reply(msg)
@@ -946,6 +950,10 @@ class Admin(commands.Cog):
                     sum_unfound_balance = 0.0
                     sum_unfound_user = 0
                     for each_user_id in all_user_id:
+                        if each_user_id['user_id'] in already_checked:
+                            continue
+                        else:
+                            already_checked.append(each_user_id['user_id'])
                         get_deposit = await self.wallet_api.sql_get_userwallet(each_user_id['user_id'], COIN_NAME, net_name, type_coin, each_user_id['user_server'], each_user_id['chat_id'] if each_user_id['chat_id'] else 0)
                         if get_deposit is None:
                             continue

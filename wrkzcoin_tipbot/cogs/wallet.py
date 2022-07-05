@@ -6884,28 +6884,24 @@ when using this bot and any funds lost, mis-used or stolen in using this bot. Ti
         FROM_COIN = from_token.upper()
         TO_COIN = to_token.upper()
         PAIR_NAME = FROM_COIN + "-" + TO_COIN
+        
+        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, checking /swap ...'
+        await ctx.response.send_message(msg)
+        
         if PAIR_NAME not in self.swap_pair:
             msg = f'{EMOJI_RED_NO}, {ctx.author.mention} `{PAIR_NAME}` is not available.'
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
         else:
             amount = from_amount.replace(",", "")
             amount = text_to_num(amount)
             if amount is None:
-                msg = f'{EMOJI_RED_NO} {ctx.author.mention} Invalid given amount.'
-                await ctx.response.send_message(msg)
+                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid given amount.'
+                await ctx.edit_original_message(content=msg)
             else:
                 if amount <= 0:
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, Invalid given amount.'
-                    await ctx.response.send_message(msg)
-                    return
-
-                try:
-                    msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing swap check...'
-                    await ctx.response.send_message(msg)
-                except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
-                    await ctx.response.send_message(f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to swap check message...", ephemeral=True)
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid given amount.'
+                    await ctx.edit_original_message(content=msg)
                     return
 
                 amount = float(amount)
@@ -6950,8 +6946,8 @@ when using this bot and any funds lost, mis-used or stolen in using this bot. Ti
                 try:
                     # test get main balance of TO_COIN
                     balance = await self.wallet_api.get_coin_balance(TO_COIN)
-                    if balance < to_amount:
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention} insufficient liquidity to swap **{num_format_coin(amount, FROM_COIN, coin_decimal, False)} {token_display}** to {TO_COIN}.'
+                    if balance/5 < to_amount: # We allow 20% to swap
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention} insufficient liquidity to swap **{num_format_coin(amount, FROM_COIN, coin_decimal, False)} {token_display}** to {TO_COIN}. Try lower the amount of `{FROM_COIN}`.'
                         await ctx.edit_original_message(content=msg)
                         await logchanbot(f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} wanted to swap from `{num_format_coin(amount, FROM_COIN, coin_decimal, False)} {FROM_COIN} to {num_format_coin(to_amount, TO_COIN, to_coin_decimal, False)} {TO_COIN}` but shortage of liquidity. Having only `{num_format_coin(balance, TO_COIN, to_coin_decimal, False)} {TO_COIN}`.')
                         return

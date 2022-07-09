@@ -348,14 +348,13 @@ class Events(commands.Cog):
             await logchanbot(traceback.format_exc())
         return None
 
-
     # coin_paprika_list
     async def get_coin_paprika_list(self):
         try:
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `coin_paprika_list` """
+                    sql = """ SELECT * FROM `coin_paprika_list` WHERE `enable`=1 """
                     await cur.execute(sql, ())
                     result = await cur.fetchall()
                     if result and len(result) > 0:

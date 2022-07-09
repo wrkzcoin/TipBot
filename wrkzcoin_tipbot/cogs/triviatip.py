@@ -270,7 +270,6 @@ class TriviaTips(commands.Cog):
 
         if duration_s == 0:
             # Skip message
-            # msg = await ctx.reply(f'{ctx.author.mention} Invalid time given. Please use time format: XXs. I take default: {default_duration}s.')
             duration_s = default_duration
             # Just info, continue
         elif duration_s < self.trivia_duration_min or duration_s > self.trivia_duration_max:

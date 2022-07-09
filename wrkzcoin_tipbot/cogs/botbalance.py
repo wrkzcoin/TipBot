@@ -34,23 +34,19 @@ class BotBalance(commands.Cog):
     async def bot_bal(self, ctx, member, token: str):
         if member.bot == False:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention} Only for bot!!"
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.response.send_message(msg)
             return
 
         COIN_NAME = token.upper()
         # Token name check
         if not hasattr(self.bot.coin_list, COIN_NAME):
             msg = f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.'
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.response.send_message(msg)
             return
         # End token name check
 
+        msg = f'{ctx.author.mention}, checking {member.mention}\'s balance.'
+        await ctx.response.send_message(msg)
         # Do the job
         try:
             net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
@@ -96,10 +92,7 @@ class BotBalance(commands.Cog):
                 embed.add_field(name="Token/Coin {}{}".format(token_display, equivalent_usd), value="```Available: {} {}```".format(num_format_coin(total_balance, COIN_NAME, coin_decimal, False), token_display), inline=False)
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(embed=embed, ephemeral=False)
-            else:
-                await ctx.reply(embed=embed, view=RowButton_row_close_any_message())
+            await ctx.edit_original_message(content=None, embed=embed)
             # Add update for future call
             try:
                 if type_coin == "ERC-20":

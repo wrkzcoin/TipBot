@@ -89,7 +89,8 @@ redis_pool = None
 redis_conn = None
 redis_expired = 120
 
-logging.basicConfig(level=logging.INFO)
+#logging.basicConfig(filename='debug-log-{}'.format(datetime.today().strftime('%Y-%m-%d_%H-%M-%S')), level=logging.DEBUG)
+logging.basicConfig(filename='info-log-{}'.format(datetime.today().strftime('%Y-%m-%d_%H-%M-%S')), level=logging.INFO)
 
 SERVER_BOT = "DISCORD"
 
@@ -164,7 +165,7 @@ async def get_prefix(bot, message):
 intents = disnake.Intents.default()
 intents.members = True
 intents.presences = True
-bot = AutoShardedBot(command_prefix=get_prefix, owner_id=config.discord.ownerID, intents=intents, sync_commands=True)
+bot = AutoShardedBot(shard_count=2, command_prefix=get_prefix, owner_id=config.discord.ownerID, intents=intents, sync_commands=True)
 bot.remove_command('help')
 
 bot.owner_id = config.discord.ownerID

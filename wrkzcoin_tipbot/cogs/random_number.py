@@ -23,7 +23,7 @@ class RandomNumber(commands.Cog):
         number_string: str=None
     ):
         rand_numb = None
-        respond = f'{EMOJI_RED_NO} {ctx.author.mention} Invalid range given. Example, use: `rand 1-50`'
+        respond = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid range given. Example, use: `rand 1-50`'
         if number_string is None:
             rand_numb = rand.randint(1, 100)
             respond = '{} Random number: **{:,}**'.format(ctx.author.mention, rand_numb)
@@ -41,13 +41,7 @@ class RandomNumber(commands.Cog):
                         respond = '{} Random number: **{:,}**'.format(ctx.author.mention, rand_numb)
                 except ValueError:
                     pass
-        try:
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                msg = await ctx.response.send_message(respond)
-            else:
-                msg = await ctx.reply(respond)
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+        await ctx.response.send_message(respond)
 
 
     @commands.slash_command(

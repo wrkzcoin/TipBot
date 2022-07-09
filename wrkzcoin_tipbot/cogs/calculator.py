@@ -11,7 +11,6 @@ from Bot import EMOJI_INFORMATION, EMOJI_ERROR
 
 
 class Calculator(commands.Cog):
-
     def __init__(self, bot):
         self.bot = bot
 
@@ -19,10 +18,7 @@ class Calculator(commands.Cog):
     async def async_calc(self, ctx, eval_string: str=None):
         if eval_string is None:
             msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, Example: `cal 2+3+4/2`'
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.response.send_message(msg)
         else:
             eval_string_original = eval_string
             eval_string = eval_string.replace(",", "")
@@ -34,23 +30,14 @@ class Calculator(commands.Cog):
             if all([c.isdigit() or c in supported_function for c in test_string]):
                 try:
                     result = numexpr.evaluate(eval_string).item()
-                    msg = f'{EMOJI_INFORMATION} {ctx.author.mention} result of `{eval_string_original}`:```{result}```'
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
-                except Exception as e:
-                    msg = f'{EMOJI_ERROR} {ctx.author.mention} I can not find the result for `{eval_string_original}`.'
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(msg)
-                    else:
-                        await ctx.reply(msg)
-            else:
-                msg = f'{EMOJI_ERROR} {ctx.author.mention} Unsupported usage for `{eval_string_original}`.'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
+                    msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, result of `{eval_string_original}`:```{result}```'
                     await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
+                except Exception as e:
+                    msg = f'{EMOJI_ERROR} {ctx.author.mention}, I can not find the result for `{eval_string_original}`.'
+                    await ctx.response.send_message(msg)
+            else:
+                msg = f'{EMOJI_ERROR} {ctx.author.mention}, unsupported usage for `{eval_string_original}`.'
+                await ctx.response.send_message(msg)
 
 
     @commands.slash_command(

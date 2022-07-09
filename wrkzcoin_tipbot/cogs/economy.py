@@ -1780,6 +1780,9 @@ class Economy(commands.Cog):
 
     async def eco_plant(self, ctx, plant_name):
         # get farm plant list
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your farm and seeds..."
+        await ctx.response.send_message(msg)
+
         plant_list_arr = await self.db.economy_farm_get_list_plants()
         plant_list_names = [name['plant_name'].lower() for name in plant_list_arr]
 
@@ -2913,19 +2916,11 @@ class Economy(commands.Cog):
             if self.enable_logchan:
                 await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried **/economy** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
             msg = f"{ctx.author.mention}, economy game is not available in this guild yet. Please request TipBot dev team if you want to add with your customization."
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
-            return
+            await ctx.response.send_message(msg)
         elif serverinfo and 'enable_economy' in serverinfo and serverinfo['enable_economy'] == "YES" and serverinfo['economy_channel'] and int(serverinfo['economy_channel']) != ctx.channel.id:
             EcoChan = self.bot.get_channel(int(serverinfo['economy_channel']))
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, {EcoChan.mention} is the economy channel!!!"
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
-            return
+            await ctx.response.send_message(msg)
 
 
     @eco.sub_command(
@@ -3048,12 +3043,6 @@ class Economy(commands.Cog):
         ctx, 
         plant_name: str
     ):
-        try:
-            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your farm and seeds..."
-            await ctx.response.send_message(msg)
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-            return
         eco_plant = await self.eco_plant(ctx, plant_name)
         if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO: self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
 

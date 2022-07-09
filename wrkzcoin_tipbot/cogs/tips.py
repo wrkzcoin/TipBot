@@ -1461,7 +1461,7 @@ class Tips(commands.Cog):
                         try:
                             time_given = int(time_second)
                         except ValueError:
-                            await ctx.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid time given check.')
+                            await ctx.edit_original_message(content=f'{EMOJI_RED_NO} {ctx.author.mention} Invalid time given check.')
                             return
                         if time_given:
                             if time_given < 5 * 60 or time_given > 30 * 24 * 60 * 60:
@@ -1696,7 +1696,7 @@ class Tips(commands.Cog):
                         try:
                             time_given = int(time_second)
                         except ValueError:
-                            await ctx.reply(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid time given check.')
+                            await ctx.edit_original_message(content=f'{EMOJI_RED_NO} {ctx.author.mention}, invalid time given check.')
                             return
                         if time_given:
                             if time_given < 5 * 60 or time_given > 30 * 24 * 60 * 60:

@@ -5226,7 +5226,10 @@ class Wallet(commands.Cog):
             else:
                 embed.add_field(name="Your Deposit Address", value="`{}`".format(wallet_address), inline=False)
                 embed.set_thumbnail(url=config.storage.deposit_url + address_path + ".png")
-                
+
+            if getattr(getattr(self.bot.coin_list, COIN_NAME), "related_coins"):
+                embed.add_field(name="Related Coins", value="```{}```".format(getattr(getattr(self.bot.coin_list, COIN_NAME), "related_coins")), inline=False)
+
             if getattr(getattr(self.bot.coin_list, COIN_NAME), "explorer_link") and len(getattr(getattr(self.bot.coin_list, COIN_NAME), "explorer_link")) > 0:
                 embed.add_field(name="Other links", value="[{}]({})".format("Explorer", getattr(getattr(self.bot.coin_list, COIN_NAME), "explorer_link")), inline=False)
             

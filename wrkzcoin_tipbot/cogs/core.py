@@ -44,6 +44,7 @@ class Core(commands.Cog):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
+
     @commands.user_command()
     async def ping(self, ctx):
         await ctx.response.send_message(f"Pong! ({self.bot.latency*1000}ms)", ephemeral=True)
@@ -52,10 +53,7 @@ class Core(commands.Cog):
     async def async_uptime(self, ctx):
         uptime_seconds = round((datetime.now() - self.bot.start_time).total_seconds())
         msg = f"Current Uptime: {'{:0>8}'.format(str(timedelta(seconds=uptime_seconds)))}"
-        if type(ctx) == disnake.ApplicationCommandInteraction:
-            await ctx.response.send_message(content=msg)
-        else:
-            await ctx.reply(content=msg)
+        await ctx.response.send_message(content=msg)
 
 
     @commands.slash_command(

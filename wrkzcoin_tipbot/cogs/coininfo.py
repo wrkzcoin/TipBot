@@ -27,10 +27,7 @@ class Coininfo(commands.Cog):
         COIN_NAME = coin.upper()
         if not hasattr(self.bot.coin_list, COIN_NAME):
             msg = f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.'
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.response.send_message(msg)
             return
 
         confim_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
@@ -94,10 +91,7 @@ class Coininfo(commands.Cog):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         response_text += "```"
-        if type(ctx) == disnake.ApplicationCommandInteraction:
-            await ctx.response.send_message(content=response_text)
-        else:
-            await ctx.reply(content=response_text)
+        await ctx.response.send_message(content=response_text)
 
 
     @commands.slash_command(usage="coininfo <coin>",

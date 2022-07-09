@@ -71,10 +71,7 @@ class Userinfo(commands.Cog):
         embed.add_field(name="Created", value=str(member.created_at.strftime("%d-%b-%Y") + ': ' + timeago.format(member.created_at, datetime.utcnow().astimezone())))
         embed.set_thumbnail(url=member.display_avatar)
         embed.set_footer(text="Requested by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
-        if type(ctx) == disnake.ApplicationCommandInteraction:
-            await ctx.response.send_message(embed=embed)
-        else:
-            await ctx.reply(embed=embed)
+        await ctx.response.send_message(embed=embed)
 
 
     @commands.user_command(name="UserInfo")  # optional

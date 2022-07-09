@@ -34,10 +34,7 @@ class Price(commands.Cog):
 
         if amount is None and token is None:
             msg = f"{ctx.author.mention}, invalid command usage!"
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.response.send_message(msg)
             return
         if amount is not None and amount.upper().endswith(tuple(coin_paprika_symbol_list)) and token is None:
             # amount is something like 10,0.0BTC [Possible]
@@ -46,7 +43,13 @@ class Price(commands.Cog):
                 amount_tmp = amount_tmp[0]
                 token_tmp = amount.replace(amount_tmp, "")
                 if token_tmp.upper().strip() not in coin_paprika_symbol_list:
-                    if hasattr(self.bot.coin_list, token_tmp.upper()):
+                    # Check dex 1st
+                    if token_tmp.upper() in self.bot.coin_price_dex:
+                        COIN_NAME = token_tmp.upper()
+                        token_list = [COIN_NAME]
+                        amount_old = amount
+                        amount = amount_tmp[0]
+                    elif hasattr(self.bot.coin_list, token_tmp.upper()):
                         native_token_name = getattr(getattr(self.bot.coin_list, token_tmp.upper()), "native_token_name")
                         if native_token_name:
                             COIN_NAME = native_token_name
@@ -55,10 +58,7 @@ class Price(commands.Cog):
                             amount = amount_tmp[0]
                     else:
                         msg = f"I can not find price of `{token_tmp.upper()}`."
-                        if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.response.send_message(msg)
-                        else:
-                            await ctx.reply(msg)
+                        await ctx.response.send_message(msg)
                         return
                 else:
                     amount_old = amount
@@ -67,24 +67,18 @@ class Price(commands.Cog):
                     amount = amount_tmp.replace(",", "")
                     amount = text_to_num(amount)
                     if amount is None:
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention} Invalid given amount.'
-                        if type(ctx) == disnake.ApplicationCommandInteraction:
-                            await ctx.response.send_message(msg)
-                        else:
-                            await ctx.reply(msg)
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid given amount.'
+                        await ctx.response.send_message(msg)
                         return
-            elif amount.upper() in coin_paprika_symbol_list:
+            elif amount.upper() in self.bot.coin_price_dex or amount.upper() in coin_paprika_symbol_list:
                 # token only
                 COIN_NAME = amount.upper()
                 token_list = [COIN_NAME]
                 amount_old = 1
                 amount = 1
             else:
-                msg = f'{EMOJI_RED_NO} {ctx.author.mention} Invalid given coin name or amount.'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
+                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid given coin name or amount.'
+                await ctx.response.send_message(msg)
                 return
 
         elif amount is not None and token is not None:
@@ -93,11 +87,8 @@ class Price(commands.Cog):
             amount = amount.replace(",", "")
             amount = text_to_num(amount)
             if amount is None:
-                msg = f'{EMOJI_RED_NO} {ctx.author.mention} Invalid given amount.'
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(msg)
-                else:
-                    await ctx.reply(msg)
+                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid given amount.'
+                await ctx.response.send_message(msg)
                 return
             COIN_NAME = token.upper()
             token_list = [COIN_NAME]
@@ -134,7 +125,7 @@ class Price(commands.Cog):
                 amount_old = 1
                 amount = 1
 
-        if len(token_list) == 1 and COIN_NAME in self.bot.coin_paprika_symbol_list:
+        if len(token_list) == 1 and (COIN_NAME in self.bot.coin_paprika_symbol_list or COIN_NAME in self.bot.coin_price_dex):
             if COIN_NAME in self.bot.token_hints:
                 id = self.bot.token_hints[COIN_NAME]['ticker_name']
                 per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
@@ -159,7 +150,8 @@ class Price(commands.Cog):
                     total_price_str = "{:.8f}".format(total_price)
                 update_date = datetime.datetime.now()
                 try:
-                    update_date = self.bot.coin_paprika_symbol_list[COIN_NAME]['last_updated'].replace(tzinfo=datetime.timezone.utc)
+                    if COIN_NAME not in self.bot.coin_price_dex:
+                        update_date = self.bot.coin_paprika_symbol_list[COIN_NAME]['last_updated'].replace(tzinfo=datetime.timezone.utc)
                 except Exception as e:
                     pass
                 embed = disnake.Embed(title="PRICE CHECK", description=f'**{COIN_NAME}** | _{name}_', timestamp=update_date)
@@ -170,10 +162,7 @@ class Price(commands.Cog):
                 else:
                     embed.set_footer(text="Credit: https://api.coinpaprika.com/")
                 try:
-                    if type(ctx) == disnake.ApplicationCommandInteraction:
-                        await ctx.response.send_message(embed=embed, view=RowButton_row_close_any_message())
-                    else:
-                        await ctx.reply(embed=embed, view=RowButton_row_close_any_message())
+                    await ctx.response.send_message(embed=embed, view=RowButton_row_close_any_message())
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
             except Exception as e:

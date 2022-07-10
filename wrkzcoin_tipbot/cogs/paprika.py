@@ -123,7 +123,10 @@ class Paprika(commands.Cog):
         self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
         redis_utils.openRedis()
         self.fetch_paprika_pricelist.start()
-        
+        # purge old data
+        self.paprika_purge_old_data.start()
+        self.old_data_age = 7*24*3600 # max. 1 week old
+
         # enable trade-view
         # Example: https://coinpaprika.com/trading-view/wrkz-wrkzcoin
         self.tradeview = True
@@ -137,6 +140,17 @@ class Paprika(commands.Cog):
         if self.botLogChan is None:
             self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
 
+    @tasks.loop(seconds=60.0)
+    async def paprika_purge_old_data(self):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ DELETE FROM `coin_paprika_list_history` WHERE `inserted_date` < (NOW() - """+str(self.old_data_age)+""") LIMIT 100000 """
+                    await cur.execute(sql,)
+                    await conn.commit()
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
 
     @tasks.loop(seconds=3600)
     async def fetch_paprika_pricelist(self):

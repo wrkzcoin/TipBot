@@ -27,6 +27,9 @@ class CoinGecko(commands.Cog):
 
         self.fetch_gecko_coinlist.start()
         self.fetch_gecko_pricelist.start()
+        # purge old data
+        self.gecko_purge_old_data.start()
+        self.old_data_age = 7 # max. 1 week old
 
 
     # This token hints is priority
@@ -45,6 +48,17 @@ class CoinGecko(commands.Cog):
             await logchanbot(traceback.format_exc())
         return []
 
+    @tasks.loop(seconds=60.0)
+    async def gecko_purge_old_data(self):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ DELETE FROM `coin_coingecko_price_history` WHERE `price_date` < (NOW() - INTERVAL """+str(self.old_data_age)+""" DAY) LIMIT 100000 """
+                    await cur.execute(sql,)
+                    await conn.commit()
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
 
     @tasks.loop(seconds=60.0)
     async def fetch_gecko_coinlist(self):

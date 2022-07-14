@@ -123,9 +123,6 @@ class Paprika(commands.Cog):
         self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
         redis_utils.openRedis()
         self.fetch_paprika_pricelist.start()
-        # purge old data
-        self.paprika_purge_old_data.start()
-        self.old_data_age = 7*24*3600 # max. 1 week old
 
         # enable trade-view
         # Example: https://coinpaprika.com/trading-view/wrkz-wrkzcoin
@@ -139,18 +136,6 @@ class Paprika(commands.Cog):
     async def bot_log(self):
         if self.botLogChan is None:
             self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
-
-    @tasks.loop(seconds=60.0)
-    async def paprika_purge_old_data(self):
-        try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
-                async with conn.cursor() as cur:
-                    sql = """ DELETE FROM `coin_paprika_list_history` WHERE `inserted_date` < (NOW() - """+str(self.old_data_age)+""") LIMIT 100000 """
-                    await cur.execute(sql,)
-                    await conn.commit()
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
 
     @tasks.loop(seconds=3600)
     async def fetch_paprika_pricelist(self):
@@ -168,7 +153,6 @@ class Paprika(commands.Cog):
                     update_date = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
                     if len(decoded_data) > 0:
                         update_list = []
-                        insert_list = []
                         for each_coin in decoded_data:
                             try:
                                 quote_usd = each_coin['quotes']['USD']
@@ -184,11 +168,9 @@ class Paprika(commands.Cog):
                                 else:
                                     last_updated = datetime.datetime.strptime(each_coin['last_updated'], '%Y-%m-%dT%H:%M:%SZ')
                                 update_list.append((each_coin['id'], each_coin['symbol'], each_coin['name'], each_coin['rank'], each_coin['circulating_supply'], each_coin['total_supply'], each_coin['max_supply'], quote_usd['price'], update_time, last_updated, quote_usd['price'], quote_usd['volume_24h'], quote_usd['volume_24h_change_24h'], quote_usd['market_cap'], quote_usd['market_cap_change_24h'], quote_usd['percent_change_15m'], quote_usd['percent_change_30m'], quote_usd['percent_change_1h'], quote_usd['percent_change_6h'], quote_usd['percent_change_12h'], quote_usd['percent_change_24h'], quote_usd['percent_change_7d'], quote_usd['percent_change_30d'], quote_usd['percent_change_1y'], quote_usd['ath_price'], ath_date, quote_usd['percent_from_price_ath']))
-
-                                insert_list.append((each_coin['id'], each_coin['rank'], each_coin['circulating_supply'], each_coin['total_supply'], each_coin['max_supply'], quote_usd['price'], update_time, last_updated, quote_usd['price'], quote_usd['volume_24h'], quote_usd['volume_24h_change_24h'], quote_usd['market_cap'], quote_usd['market_cap_change_24h'], quote_usd['percent_change_15m'], quote_usd['percent_change_30m'], quote_usd['percent_change_1h'], quote_usd['percent_change_6h'], quote_usd['percent_change_12h'], quote_usd['percent_change_24h'], quote_usd['percent_change_7d'], quote_usd['percent_change_30d'], quote_usd['percent_change_1y'], quote_usd['ath_price'], ath_date, quote_usd['percent_from_price_ath'],  update_time))
                             except Exception as e:
                                 traceback.print_exc(file=sys.stdout)
-                        if len(update_list) or len(insert_list) > 0:
+                        if len(update_list) > 0:
                             try:
                                 await store.openConnection()
                                 async with store.pool.acquire() as conn:
@@ -224,15 +206,8 @@ class Paprika(commands.Cog):
                                         await cur.executemany(sql, update_list)
                                         await conn.commit()
                                         update_list = []
-
-                                        sql = """ INSERT INTO coin_paprika_list_history (`id`, `rank`, `circulating_supply`, `total_supply`, `max_supply`, `price_usd`, `price_time`, `price_date`, `quotes_USD_price`, `quotes_USD_volume_24h`, `quotes_USD_volume_24h_change_24h`, `quotes_USD_market_cap`, `quotes_USD_market_cap_change_24h`, `quotes_USD_percent_change_15m`, `quotes_USD_percent_change_30m`, `quotes_USD_percent_change_1h`, `quotes_USD_percent_change_6h`, `quotes_USD_percent_change_12h`, `quotes_USD_percent_change_24h`, `quotes_USD_percent_change_7d`, `quotes_USD_percent_change_30d`, `quotes_USD_percent_change_1y`, `quotes_USD_ath_price`, `quotes_USD_ath_date`, `quotes_USD_percent_from_price_ath`, `inserted_date`) 
-                                                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                                        await cur.executemany(sql, insert_list)
-                                        await conn.commit()
-                                        insert_list = []
                             except Exception as e:
                                 traceback.print_exc(file=sys.stdout)
-                                # print(insert_list[-1])
         except asyncio.TimeoutError:
             print('TIMEOUT: Fetching from coingecko price')
         except Exception:

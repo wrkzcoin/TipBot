@@ -301,7 +301,7 @@ class Tool(commands.Cog):
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
                 await ctx.edit_original_message(content=f'{ctx.author.mention}, internal error. The media file could be too big or text too long. Please reduce your text length.')
-                await logchanbot(f"[TRANSLATE] {ctx.author.name}#{ctx.author.discriminator} failed to get translation with {to_lang} ```{text}```")
+                await logchanbot(f"[TRANSLATE] {ctx.author.name}#{ctx.author.discriminator} failed to get translation with {to_lang} ```{input_text}```")
 
 
     # For each subcommand you can specify individual options and other parameters,

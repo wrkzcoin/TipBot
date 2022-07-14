@@ -252,10 +252,8 @@ class WalletAPI(commands.Cog):
             }
             try:
                 url = getattr(getattr(self.bot.coin_list, COIN_NAME), "rpchost") + '/' + "get_wallet_balance"
-                ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-                ssl_context.load_cert_chain(getattr(getattr(self.bot.coin_list, COIN_NAME), "cert_path"), getattr(getattr(self.bot.coin_list, COIN_NAME), "key_path"))
-                async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
-                    async with session.post(url, json=json_data, headers=headers, timeout=32, ssl=ssl_context) as response:
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(url, json=json_data, headers=headers, timeout=32) as response:
                         if response.status == 200:
                             res_data = await response.read()
                             res_data = res_data.decode('utf-8')
@@ -746,10 +744,8 @@ class WalletAPI(commands.Cog):
             data = payload
         url = getattr(getattr(self.bot.coin_list, COIN_NAME), "rpchost") + '/' + method_name.lower()
         try:
-            ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-            ssl_context.load_cert_chain(getattr(getattr(self.bot.coin_list, COIN_NAME), "cert_path"), getattr(getattr(self.bot.coin_list, COIN_NAME), "key_path"))
-            async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
-                async with session.post(url, json=data, headers=headers, timeout=timeout, ssl=ssl_context) as response:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, json=data, headers=headers, timeout=timeout) as response:
                     if response.status == 200:
                         res_data = await response.read()
                         res_data = res_data.decode('utf-8')
@@ -838,7 +834,7 @@ class WalletAPI(commands.Cog):
             comment = user_from
             comment_to = to_address
             payload = f'"{to_address}", {amount}, "{comment}", "{comment_to}", false'
-            if COIN_NAME in ["PGO"]:
+            if COIN_NAME in ["PGO", "PIVX"]:
                 payload = f'"{to_address}", {amount}, "{comment}", "{comment_to}"'
             txHash = await self.call_doge('sendtoaddress', COIN_NAME, payload=payload)
             if txHash is not None:
@@ -1912,7 +1908,7 @@ class Wallet(commands.Cog):
                         else:
                             tx_expense = 0
 
-                        if TOKEN_NAME not in ["PGO"]:
+                        if TOKEN_NAME not in ["PGO", "PIVX"]:
                             sql = """ SELECT SUM(amount) AS incoming_tx 
                                       FROM `doge_get_transfers` 
                                       WHERE `address`=%s AND `coin_name`=%s AND (`category` = %s or `category` = %s) AND `confirmations`>=%s AND `amount`>0 """
@@ -3327,136 +3323,137 @@ class Wallet(commands.Cog):
         timeout = 30
         COIN_NAME = "HNT"
         coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
-        try:
-            # get height
+        if getattr(getattr(self.bot.coin_list, COIN_NAME), "is_maintenance") == 0 and getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_deposit") == 1:
             try:
-                headers = {
-                    'Content-Type': 'application/json',
-                }
-                json_data = {
-                    "jsonrpc": "2.0",
-                    "id": "1",
-                    "method": "block_height"
-                }
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(getattr(getattr(self.bot.coin_list, COIN_NAME), "wallet_address"), headers=headers, json=json_data, timeout=timeout) as response:
-                        if response.status == 200:
-                            res_data = await response.read()
-                            res_data = res_data.decode('utf-8')
-                            decoded_data = json.loads(res_data)
-                            if 'result' in decoded_data:
-                                height = int(decoded_data['result'])
-                                try:
-                                    redis_utils.redis_conn.set(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}', str(height))
-                                except Exception as e:
-                                    traceback.print_exc(file=sys.stdout)
-            except Exception as e:
-                traceback.print_exc(file=sys.stdout)
-            async def fetch_api(url, timeout):
+                # get height
                 try:
                     headers = {
-                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36'
+                        'Content-Type': 'application/json',
+                    }
+                    json_data = {
+                        "jsonrpc": "2.0",
+                        "id": "1",
+                        "method": "block_height"
                     }
                     async with aiohttp.ClientSession() as session:
-                        async with session.get(url, headers=headers, timeout=timeout) as response:
+                        async with session.post(getattr(getattr(self.bot.coin_list, COIN_NAME), "wallet_address"), headers=headers, json=json_data, timeout=timeout) as response:
                             if response.status == 200:
                                 res_data = await response.read()
                                 res_data = res_data.decode('utf-8')
                                 decoded_data = json.loads(res_data)
-                                return decoded_data
-                except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
-                return None
-
-            async def get_tx_incoming():
-                try:
-                    await self.openConnection()
-                    async with self.pool.acquire() as conn:
-                        async with conn.cursor() as cur:
-                            sql = """ SELECT * FROM `hnt_get_transfers` """
-                            await cur.execute(sql,)
-                            result = await cur.fetchall()
-                            if result: return result
-                except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
-                return []
-            # Get list of tx from API:
-            main_address = getattr(getattr(self.bot.coin_list, COIN_NAME), "MainAddress")
-            url = getattr(getattr(self.bot.coin_list, COIN_NAME), "rpchost") + "accounts/"+main_address+"/roles"
-            fetch_data = await fetch_api(url, timeout)
-            incoming = [] ##payments
-            if fetch_data is not None and 'data' in fetch_data:
-                # Check if len data is 0
-                if len(fetch_data['data']) == 0 and 'cursor' in fetch_data:
-                    url2 = getattr(getattr(self.bot.coin_list, COIN_NAME), "rpchost") + "accounts/"+main_address+"/roles/?cursor="+fetch_data['cursor']
-                    # get with cursor
-                    fetch_data_2 = await fetch_api(url2, timeout)
-                    if fetch_data_2 is not None and 'data' in fetch_data_2:
-                        if len(fetch_data_2['data']) > 0:
-                            for each_item in fetch_data_2['data']:
-                                incoming.append(each_item)
-                elif len(fetch_data['data']) > 0 and 'cursor' in fetch_data:
-                    for each_item in fetch_data['data']:
-                        incoming.append(each_item)
-                    url2 = getattr(getattr(self.bot.coin_list, COIN_NAME), "rpchost") + "accounts/"+main_address+"/roles/?cursor="+fetch_data['cursor']
-                    # get with cursor
-                    fetch_data_2 = await fetch_api(url2, timeout)
-                    if fetch_data_2 is not None and 'data' in fetch_data_2:
-                        if len(fetch_data_2['data']) > 0:
-                            for each_item in fetch_data_2['data']:
-                                incoming.append(each_item)
-                elif len(fetch_data['data']) > 0:
-                    for each_item in fetch_data['data']:
-                        incoming.append(each_item)
-            if len(incoming) > 0:
-                get_incoming_tx = await get_tx_incoming()
-                list_existing_tx = []
-                if len(get_incoming_tx) > 0:
-                    list_existing_tx = [each['txid'] for each in get_incoming_tx]
-                for each_tx in incoming:
-                    tx_hash = each_tx['hash']
-                    if tx_hash in list_existing_tx:
-                        # Go to next
-                        continue
-                    amount = 0.0
-                    url_tx = getattr(getattr(self.bot.coin_list, COIN_NAME), "rpchost") + "transactions/" + tx_hash
-                    fetch_tx = await fetch_api(url_tx, timeout)
-                    if 'data' in fetch_tx:
-                        height = fetch_tx['data']['height']
-                        blockTime = fetch_tx['data']['time']
-                        fee = fetch_tx['data']['fee'] / 10**coin_decimal
-                        payer = fetch_tx['data']['payer']
-                        if 'payer' in fetch_tx['data'] and fetch_tx['data'] == main_address:
-                            continue
-                        if 'payments' in fetch_tx['data'] and len(fetch_tx['data']['payments']) > 0:
-                            for each_payment in fetch_tx['data']['payments']:
-                                if each_payment['payee'] == main_address:
-                                    amount = each_payment['amount'] / 10**coin_decimal
-                                    memo = base64.b64decode(each_payment['memo']).decode()
+                                if 'result' in decoded_data:
+                                    height = int(decoded_data['result'])
                                     try:
-                                        coin_family = "HNT"
-                                        user_memo = None
-                                        user_id = None
-                                        if len(memo) == 8:
-                                            user_memo = await store.sql_get_userwallet_by_paymentid("{} MEMO: {}".format(main_address, memo), COIN_NAME, coin_family)
-                                            if user_memo is not None and user_memo['user_id']:
-                                                user_id = user_memo['user_id']
-                                        await self.openConnection()
-                                        async with self.pool.acquire() as conn:
-                                            async with conn.cursor() as cur:
-                                                sql = """ INSERT INTO `hnt_get_transfers` (`coin_name`, `user_id`, `txid`, `height`, `timestamp`, 
-                                                          `amount`, `fee`, `decimal`, `address`, `memo`, 
-                                                          `payer`, `time_insert`, `user_server`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                                                await cur.execute(sql, (COIN_NAME, user_id, tx_hash, height, blockTime, amount, fee, 
-                                                                        coin_decimal, each_payment['payee'], memo, payer, int(time.time()), user_memo['user_server'] if user_memo else None ))
-                                                await conn.commit()
+                                        redis_utils.redis_conn.set(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}', str(height))
                                     except Exception as e:
                                         traceback.print_exc(file=sys.stdout)
-                                        await logchanbot(traceback.format_exc())
-        except asyncio.TimeoutError:
-            print('TIMEOUT: COIN: {} - timeout {}'.format(COIN_NAME, timeout))
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                async def fetch_api(url, timeout):
+                    try:
+                        headers = {
+                        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36'
+                        }
+                        async with aiohttp.ClientSession() as session:
+                            async with session.get(url, headers=headers, timeout=timeout) as response:
+                                if response.status == 200:
+                                    res_data = await response.read()
+                                    res_data = res_data.decode('utf-8')
+                                    decoded_data = json.loads(res_data)
+                                    return decoded_data
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                    return None
+
+                async def get_tx_incoming():
+                    try:
+                        await self.openConnection()
+                        async with self.pool.acquire() as conn:
+                            async with conn.cursor() as cur:
+                                sql = """ SELECT * FROM `hnt_get_transfers` """
+                                await cur.execute(sql,)
+                                result = await cur.fetchall()
+                                if result: return result
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                    return []
+                # Get list of tx from API:
+                main_address = getattr(getattr(self.bot.coin_list, COIN_NAME), "MainAddress")
+                url = getattr(getattr(self.bot.coin_list, COIN_NAME), "rpchost") + "accounts/"+main_address+"/roles"
+                fetch_data = await fetch_api(url, timeout)
+                incoming = [] ##payments
+                if fetch_data is not None and 'data' in fetch_data:
+                    # Check if len data is 0
+                    if len(fetch_data['data']) == 0 and 'cursor' in fetch_data:
+                        url2 = getattr(getattr(self.bot.coin_list, COIN_NAME), "rpchost") + "accounts/"+main_address+"/roles/?cursor="+fetch_data['cursor']
+                        # get with cursor
+                        fetch_data_2 = await fetch_api(url2, timeout)
+                        if fetch_data_2 is not None and 'data' in fetch_data_2:
+                            if len(fetch_data_2['data']) > 0:
+                                for each_item in fetch_data_2['data']:
+                                    incoming.append(each_item)
+                    elif len(fetch_data['data']) > 0 and 'cursor' in fetch_data:
+                        for each_item in fetch_data['data']:
+                            incoming.append(each_item)
+                        url2 = getattr(getattr(self.bot.coin_list, COIN_NAME), "rpchost") + "accounts/"+main_address+"/roles/?cursor="+fetch_data['cursor']
+                        # get with cursor
+                        fetch_data_2 = await fetch_api(url2, timeout)
+                        if fetch_data_2 is not None and 'data' in fetch_data_2:
+                            if len(fetch_data_2['data']) > 0:
+                                for each_item in fetch_data_2['data']:
+                                    incoming.append(each_item)
+                    elif len(fetch_data['data']) > 0:
+                        for each_item in fetch_data['data']:
+                            incoming.append(each_item)
+                if len(incoming) > 0:
+                    get_incoming_tx = await get_tx_incoming()
+                    list_existing_tx = []
+                    if len(get_incoming_tx) > 0:
+                        list_existing_tx = [each['txid'] for each in get_incoming_tx]
+                    for each_tx in incoming:
+                        tx_hash = each_tx['hash']
+                        if tx_hash in list_existing_tx:
+                            # Go to next
+                            continue
+                        amount = 0.0
+                        url_tx = getattr(getattr(self.bot.coin_list, COIN_NAME), "rpchost") + "transactions/" + tx_hash
+                        fetch_tx = await fetch_api(url_tx, timeout)
+                        if 'data' in fetch_tx:
+                            height = fetch_tx['data']['height']
+                            blockTime = fetch_tx['data']['time']
+                            fee = fetch_tx['data']['fee'] / 10**coin_decimal
+                            payer = fetch_tx['data']['payer']
+                            if 'payer' in fetch_tx['data'] and fetch_tx['data'] == main_address:
+                                continue
+                            if 'payments' in fetch_tx['data'] and len(fetch_tx['data']['payments']) > 0:
+                                for each_payment in fetch_tx['data']['payments']:
+                                    if each_payment['payee'] == main_address:
+                                        amount = each_payment['amount'] / 10**coin_decimal
+                                        memo = base64.b64decode(each_payment['memo']).decode()
+                                        try:
+                                            coin_family = "HNT"
+                                            user_memo = None
+                                            user_id = None
+                                            if len(memo) == 8:
+                                                user_memo = await store.sql_get_userwallet_by_paymentid("{} MEMO: {}".format(main_address, memo), COIN_NAME, coin_family)
+                                                if user_memo is not None and user_memo['user_id']:
+                                                    user_id = user_memo['user_id']
+                                            await self.openConnection()
+                                            async with self.pool.acquire() as conn:
+                                                async with conn.cursor() as cur:
+                                                    sql = """ INSERT INTO `hnt_get_transfers` (`coin_name`, `user_id`, `txid`, `height`, `timestamp`, 
+                                                              `amount`, `fee`, `decimal`, `address`, `memo`, 
+                                                              `payer`, `time_insert`, `user_server`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                                    await cur.execute(sql, (COIN_NAME, user_id, tx_hash, height, blockTime, amount, fee, 
+                                                                            coin_decimal, each_payment['payee'], memo, payer, int(time.time()), user_memo['user_server'] if user_memo else None ))
+                                                    await conn.commit()
+                                        except Exception as e:
+                                            traceback.print_exc(file=sys.stdout)
+                                            await logchanbot(traceback.format_exc())
+            except asyncio.TimeoutError:
+                print('TIMEOUT: COIN: {} - timeout {}'.format(COIN_NAME, timeout))
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
         await asyncio.sleep(time_lap)
 
     @tasks.loop(seconds=60.0)
@@ -3512,115 +3509,116 @@ class Wallet(commands.Cog):
         COIN_NAME = "XLM"
         coin_family = COIN_NAME
         coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
-        try:
-            async def get_xlm_transactions(endpoint: str, account_addr: str):
-                async with ServerAsync(
-                    horizon_url=endpoint, client=AiohttpClient()
-                ) as server:
-                    # get a list of transactions submitted by a particular account
-                    transactions = await server.transactions().for_account(account_id=account_addr).order(desc=True).limit(50).call()
-                    if len(transactions["_embedded"]["records"]) > 0:
-                        return transactions["_embedded"]["records"]
+        if getattr(getattr(self.bot.coin_list, COIN_NAME), "is_maintenance") == 0 and getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_deposit") == 1:
+            try:
+                async def get_xlm_transactions(endpoint: str, account_addr: str):
+                    async with ServerAsync(
+                        horizon_url=endpoint, client=AiohttpClient()
+                    ) as server:
+                        # get a list of transactions submitted by a particular account
+                        transactions = await server.transactions().for_account(account_id=account_addr).order(desc=True).limit(50).call()
+                        if len(transactions["_embedded"]["records"]) > 0:
+                            return transactions["_embedded"]["records"]
+                        return []
+
+                async def get_tx_incoming():
+                    try:
+                        await self.openConnection()
+                        async with self.pool.acquire() as conn:
+                            async with conn.cursor() as cur:
+                                sql = """ SELECT * FROM `xlm_get_transfers` """
+                                await cur.execute(sql,)
+                                result = await cur.fetchall()
+                                if result: return result
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
                     return []
 
-            async def get_tx_incoming():
+                headers = {
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36'
+                }
+                # get status
+                url = getattr(getattr(self.bot.coin_list, COIN_NAME), "http_address")
+                main_address = getattr(getattr(self.bot.coin_list, COIN_NAME), "MainAddress")
                 try:
-                    await self.openConnection()
-                    async with self.pool.acquire() as conn:
-                        async with conn.cursor() as cur:
-                            sql = """ SELECT * FROM `xlm_get_transfers` """
-                            await cur.execute(sql,)
-                            result = await cur.fetchall()
-                            if result: return result
+                    async with aiohttp.ClientSession() as session:
+                        async with session.get(url, headers=headers, timeout=timeout) as response:
+                            if response.status == 200:
+                                res_data = await response.read()
+                                res_data = res_data.decode('utf-8')
+                                decoded_data = json.loads(res_data)
+                                if 'history_latest_ledger' in decoded_data:
+                                    height = decoded_data['history_latest_ledger']
+                                    try:
+                                        redis_utils.redis_conn.set(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}', str(height))
+                                        # if there are other asset, set them all here
+                                    except Exception as e:
+                                        traceback.print_exc(file=sys.stdout)
+                                    get_transactions = await get_xlm_transactions(url, main_address)
+                                    if len(get_transactions) > 0:
+                                        get_incoming_tx = await get_tx_incoming()
+                                        list_existing_tx = []
+                                        if len(get_incoming_tx) > 0:
+                                            list_existing_tx = [each['txid'] for each in get_incoming_tx]
+                                        for each_tx in get_transactions:
+                                            try:
+                                                amount = 0
+                                                tx_hash = each_tx['hash']
+                                                if tx_hash in list_existing_tx:
+                                                    # Skip
+                                                    continue
+                                                if 'successful' in each_tx and each_tx['successful'] != True:
+                                                    # Skip
+                                                    continue
+                                                transaction_envelope = parse_transaction_envelope_from_xdr(
+                                                    each_tx['envelope_xdr'], Network.PUBLIC_NETWORK_PASSPHRASE
+                                                )
+                                                for Payment in transaction_envelope.transaction.operations:
+                                                    try:
+                                                        destination = Payment.destination.account_id
+                                                        asset_type = Payment.asset.type
+                                                        asset_code = Payment.asset.code
+                                                        asset_issuer = None
+                                                        if hasattr(Payment.asset, "issuer"):
+                                                            issuer = Payment.asset.issuer
+                                                            if hasattr(self.bot.coin_list, "{}XLM".format(asset_code)):
+                                                                # Change COIN_NAME to asset
+                                                                COIN_NAME = "{}XLM".format(asset_code)
+                                                            else:
+                                                                # Skip to next
+                                                                continue
+                                                        amount = float(Payment.amount)
+                                                        if destination != main_address: continue
+                                                        if asset_type not in ["native", "credit_alphanum4"]: continue # TODO: If other asset, check this
+                                                        if asset_code not in ["XLM", "USDC"]: continue
+                                                    except:
+                                                        continue
+                                                fee = float(transaction_envelope.transaction.fee) / 10000000 # atomic
+                                                height = each_tx['ledger']
+                                                user_memo = None
+                                                user_id = None
+                                                if 'memo' in each_tx and 'memo_type' in each_tx and each_tx['memo_type'] == "text" and len(each_tx['memo'].strip()) == 8:
+                                                    user_memo = await store.sql_get_userwallet_by_paymentid("{} MEMO: {}".format(main_address, each_tx['memo'].strip()), COIN_NAME, coin_family)
+                                                    if user_memo is not None and user_memo['user_id'] is not None:
+                                                        user_id = user_memo['user_id']
+                                                if amount > 0:
+                                                    await self.openConnection()
+                                                    async with self.pool.acquire() as conn:
+                                                        async with conn.cursor() as cur:
+                                                            sql = """ INSERT INTO `xlm_get_transfers` (`coin_name`, `user_id`, `txid`, `height`, `amount`, `fee`, `decimal`, `address`, `memo`, `time_insert`, `user_server`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                                            await cur.execute(sql, (COIN_NAME, user_id, tx_hash, height, amount, fee, 
+                                                                                    coin_decimal, main_address, each_tx['memo'].strip() if 'memo' in each_tx else None, int(time.time()), user_memo['user_server'] if user_memo else None ))
+                                                            await conn.commit()
+                                            except Exception as e:
+                                                traceback.print_exc(file=sys.stdout)
+                            else:
+                                await logchanbot(f'[XLM] failed to update balance with: {url} got {str(response.status)}')
+                                await asyncio.sleep(30.0)
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
-                return []
-
-            headers = {
-                'Content-Type': 'application/json',
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36'
-            }
-            # get status
-            url = getattr(getattr(self.bot.coin_list, COIN_NAME), "http_address")
-            main_address = getattr(getattr(self.bot.coin_list, COIN_NAME), "MainAddress")
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(url, headers=headers, timeout=timeout) as response:
-                        if response.status == 200:
-                            res_data = await response.read()
-                            res_data = res_data.decode('utf-8')
-                            decoded_data = json.loads(res_data)
-                            if 'history_latest_ledger' in decoded_data:
-                                height = decoded_data['history_latest_ledger']
-                                try:
-                                    redis_utils.redis_conn.set(f'{config.redis.prefix+config.redis.daemon_height}{COIN_NAME}', str(height))
-                                    # if there are other asset, set them all here
-                                except Exception as e:
-                                    traceback.print_exc(file=sys.stdout)
-                                get_transactions = await get_xlm_transactions(url, main_address)
-                                if len(get_transactions) > 0:
-                                    get_incoming_tx = await get_tx_incoming()
-                                    list_existing_tx = []
-                                    if len(get_incoming_tx) > 0:
-                                        list_existing_tx = [each['txid'] for each in get_incoming_tx]
-                                    for each_tx in get_transactions:
-                                        try:
-                                            amount = 0
-                                            tx_hash = each_tx['hash']
-                                            if tx_hash in list_existing_tx:
-                                                # Skip
-                                                continue
-                                            if 'successful' in each_tx and each_tx['successful'] != True:
-                                                # Skip
-                                                continue
-                                            transaction_envelope = parse_transaction_envelope_from_xdr(
-                                                each_tx['envelope_xdr'], Network.PUBLIC_NETWORK_PASSPHRASE
-                                            )
-                                            for Payment in transaction_envelope.transaction.operations:
-                                                try:
-                                                    destination = Payment.destination.account_id
-                                                    asset_type = Payment.asset.type
-                                                    asset_code = Payment.asset.code
-                                                    asset_issuer = None
-                                                    if hasattr(Payment.asset, "issuer"):
-                                                        issuer = Payment.asset.issuer
-                                                        if hasattr(self.bot.coin_list, "{}XLM".format(asset_code)):
-                                                            # Change COIN_NAME to asset
-                                                            COIN_NAME = "{}XLM".format(asset_code)
-                                                        else:
-                                                            # Skip to next
-                                                            continue
-                                                    amount = float(Payment.amount)
-                                                    if destination != main_address: continue
-                                                    if asset_type not in ["native", "credit_alphanum4"]: continue # TODO: If other asset, check this
-                                                    if asset_code not in ["XLM", "USDC"]: continue
-                                                except:
-                                                    continue
-                                            fee = float(transaction_envelope.transaction.fee) / 10000000 # atomic
-                                            height = each_tx['ledger']
-                                            user_memo = None
-                                            user_id = None
-                                            if 'memo' in each_tx and 'memo_type' in each_tx and each_tx['memo_type'] == "text" and len(each_tx['memo'].strip()) == 8:
-                                                user_memo = await store.sql_get_userwallet_by_paymentid("{} MEMO: {}".format(main_address, each_tx['memo'].strip()), COIN_NAME, coin_family)
-                                                if user_memo is not None and user_memo['user_id'] is not None:
-                                                    user_id = user_memo['user_id']
-                                            if amount > 0:
-                                                await self.openConnection()
-                                                async with self.pool.acquire() as conn:
-                                                    async with conn.cursor() as cur:
-                                                        sql = """ INSERT INTO `xlm_get_transfers` (`coin_name`, `user_id`, `txid`, `height`, `amount`, `fee`, `decimal`, `address`, `memo`, `time_insert`, `user_server`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                                                        await cur.execute(sql, (COIN_NAME, user_id, tx_hash, height, amount, fee, 
-                                                                                coin_decimal, main_address, each_tx['memo'].strip() if 'memo' in each_tx else None, int(time.time()), user_memo['user_server'] if user_memo else None ))
-                                                        await conn.commit()
-                                        except Exception as e:
-                                            traceback.print_exc(file=sys.stdout)
-                        else:
-                            await logchanbot(f'[XLM] failed to update balance with: {url} got {str(response.status)}')
-                            await asyncio.sleep(30.0)
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
         await asyncio.sleep(time_lap)
 
     @tasks.loop(seconds=60.0)
@@ -4308,7 +4306,7 @@ class Wallet(commands.Cog):
                     get_min_deposit_amount = int(getattr(getattr(self.bot.coin_list, COIN_NAME), "real_min_deposit") * 10**coin_decimal)
 
                     payload = '"*", 100, 0'
-                    if COIN_NAME in ["PGO"]:
+                    if COIN_NAME in ["PGO", "PIVX"]:
                         payload = '"*", 200, 0'
                     elif COIN_NAME in ["HNS"]:
                         payload = '"default"'
@@ -4338,7 +4336,7 @@ class Wallet(commands.Cog):
                                                     user_paymentId = await store.sql_get_userwallet_by_paymentid( tx['address'], COIN_NAME, getattr(getattr(self.bot.coin_list, COIN_NAME), "type") )
                                                     u_server = None
                                                     if user_paymentId: u_server = user_paymentId['user_server']
-                                                    if COIN_NAME in ["PGO"]:
+                                                    if COIN_NAME in ["PGO", "PIVX"]:
                                                         # generate from mining
                                                         if tx['category'] == 'receive' and 'generated' not in tx:
                                                             sql = """ INSERT IGNORE INTO `doge_get_transfers` (`coin_name`, `txid`, `blockhash`, `address`, `blocktime`, `amount`, `fee`, `confirmations`, `category`, `time_insert`, `user_server`) 
@@ -4367,7 +4365,7 @@ class Wallet(commands.Cog):
                                             except Exception as e:
                                                 traceback.print_exc(file=sys.stdout)
                                         if get_confirm_depth > int(tx['confirmations']) > 0 and tx['amount'] >= get_min_deposit_amount:
-                                            if COIN_NAME in ["PGO"] and tx['category'] == 'receive' and 'generated' in tx and tx['amount'] > 0:
+                                            if COIN_NAME in ["PGO", "PIVX"] and tx['category'] == 'receive' and 'generated' in tx and tx['amount'] > 0:
                                                 continue
                                             # add notify to redis and alert deposit. Can be clean later?
                                             if config.notify_new_tx.enable_new_no_confirm == 1:
@@ -4431,11 +4429,15 @@ class Wallet(commands.Cog):
                                         await cur.execute(sql, (COIN_NAME))
                                         result = await cur.fetchall()
                                         d = [i['txid'] for i in result]
+                                        dheight = ["{}{}".format(i['height'], i['address']) for i in result]
                                         # print('=================='+COIN_NAME+'===========')
                                         # print(d)
                                         # print('=================='+COIN_NAME+'===========')
                                         list_balance_user = {}
                                         for tx in get_transfers:
+                                            if "{}{}".format(tx['confirmed_at_height'], tx['to_address']) in dheight:
+                                                # skip
+                                                continue
                                             # add to balance only confirmation depth meet
                                             if height >= get_confirm_depth + int(tx['confirmed_at_height']) and tx['amount'] >= get_min_deposit_amount:
                                                 if 'to_address' in tx and tx['to_address'] in list_balance_user and tx['amount'] > 0:
@@ -5069,12 +5071,10 @@ class Wallet(commands.Cog):
                 traceback.print_exc(file=sys.stdout)
             return None
         elif coin_family == "CHIA":
-            ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-            ssl_context.load_cert_chain(getattr(getattr(self.bot.coin_list, COIN_NAME), "cert_path"), getattr(getattr(self.bot.coin_list, COIN_NAME), "key_path"))
             url = getattr(getattr(self.bot.coin_list, COIN_NAME), "daemon_address") + '/get_blockchain_state'
             try:
-                async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
-                    async with session.post(url, timeout=timeout, json={}, ssl=ssl_context) as response:
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(url, timeout=timeout, json={}) as response:
                         if response.status == 200:
                             res_data = await response.json()
                             return res_data['blockchain_state']['peak']

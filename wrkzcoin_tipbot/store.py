@@ -2,6 +2,8 @@ from typing import List, Dict
 from datetime import datetime
 import time, json
 import aiohttp, asyncio, aiomysql
+import pymysql.cursors
+
 from aiomysql.cursors import DictCursor
 from discord_webhook import DiscordWebhook
 import disnake
@@ -42,9 +44,9 @@ redis_conn = None
 redis_expired = 10
 pool = None
 pool_netmon = None
+conn = None
 
 sys.path.append("..")
-
 
 def init():
     global redis_pool
@@ -58,7 +60,6 @@ def openRedis():
             redis_conn = redis.Redis(connection_pool=redis_pool)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-
 
 async def openConnection():
     global pool

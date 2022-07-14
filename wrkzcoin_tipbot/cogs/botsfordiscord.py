@@ -203,7 +203,15 @@ class BFDBotVote(commands.Cog):
         await self.bot.wait_until_ready()
         await self.site.start()
 
-    def __unload(self):
+    async def cog_load(self):
+        # Automatically called when the cog is loaded
+        # with the added benefit of being async!
+
+        # Ensure the task is started when the cog is loaded,
+        # and only after the bot is ready.
+        await self.bot.wait_until_ready()
+
+    def cog_unload(self):
         asyncio.ensure_future(self.site.stop())
 
 

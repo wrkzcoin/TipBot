@@ -949,6 +949,7 @@ class Admin(commands.Cog):
                     sum_user = 0
                     sum_unfound_balance = 0.0
                     sum_unfound_user = 0
+                    negative_users = []
                     for each_user_id in all_user_id:
                         if each_user_id['user_id'] in already_checked:
                             continue
@@ -962,6 +963,8 @@ class Admin(commands.Cog):
                             wallet_address = get_deposit['paymentid']
                         userdata_balance = await self.user_balance(each_user_id['user_id'], COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, each_user_id['user_server'])
                         total_balance = userdata_balance['adjust']
+                        if total_balance < 0:
+                            negative_users.append(negative_users)
                         sum_balance += total_balance
                         sum_user += 1
                         try:
@@ -1000,6 +1003,9 @@ class Admin(commands.Cog):
                     msg_checkcoin += "Total balance: " + num_format_coin(sum_balance, COIN_NAME, coin_decimal, False) + " " + COIN_NAME + "\n"
                     msg_checkcoin += "Total user/guild not found (discord): " + str(sum_unfound_user) + "\n"
                     msg_checkcoin += "Total balance not found (discord): " + num_format_coin(sum_unfound_balance, COIN_NAME, coin_decimal, False) + " " + COIN_NAME + "\n"
+                    if len(negative_users) > 0:
+                        msg_checkcoin += "Negative balance: " + str(len(negative_users)) + "\n"
+                        msg_checkcoin += "Negative users: " + ", ".join(negative_users)
                     msg_checkcoin += "Time token: {}s".format(duration)
                     msg_checkcoin += "```"
                     if len(msg_checkcoin) > 1000:
@@ -1493,12 +1499,18 @@ class Admin(commands.Cog):
             await ctx.reply(f'{ctx.author.mention}, only with ERC-20 and TRC-20.')
             return
         elif token.upper() == "ERC-20":
-            w = await self.create_address_eth()
-            await ctx.reply(f'{ctx.author.mention}, ```{str(w)}```', view=RowButton_row_close_any_message())
+            try:
+                w = await self.create_address_eth()
+                await ctx.reply(f'{ctx.author.mention}, ```{str(w)}```', view=RowButton_row_close_any_message())
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
             return
         elif token.upper() == "TRC-20":
-            w = await self.create_address_trx()
-            await ctx.reply(f'{ctx.author.mention}, ```{str(w)}```', view=RowButton_row_close_any_message())
+            try:
+                w = await self.create_address_trx()
+                await ctx.reply(f'{ctx.author.mention}, ```{str(w)}```', view=RowButton_row_close_any_message())
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
             return
 
 

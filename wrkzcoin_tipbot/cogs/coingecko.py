@@ -27,10 +27,6 @@ class CoinGecko(commands.Cog):
 
         self.fetch_gecko_coinlist.start()
         self.fetch_gecko_pricelist.start()
-        # purge old data
-        self.gecko_purge_old_data.start()
-        self.old_data_age = 7 # max. 1 week old
-
 
     # This token hints is priority
     async def get_coingecko_list_db(self):
@@ -47,18 +43,6 @@ class CoinGecko(commands.Cog):
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return []
-
-    @tasks.loop(seconds=60.0)
-    async def gecko_purge_old_data(self):
-        try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
-                async with conn.cursor() as cur:
-                    sql = """ DELETE FROM `coin_coingecko_price_history` WHERE `price_date` < (NOW() - INTERVAL """+str(self.old_data_age)+""" DAY) LIMIT 100000 """
-                    await cur.execute(sql,)
-                    await conn.commit()
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
 
     @tasks.loop(seconds=60.0)
     async def fetch_gecko_coinlist(self):
@@ -98,7 +82,6 @@ class CoinGecko(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         await asyncio.sleep(time_lap)
 
-
     @tasks.loop(seconds=1200.0)
     async def fetch_gecko_pricelist(self):
         time_lap = 600 # seconds
@@ -127,11 +110,9 @@ class CoinGecko(commands.Cog):
                                     update_date = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
                                     if len(decoded_data) > 0:
                                         update_list = []
-                                        insert_list = []
                                         for k, v in decoded_data.items():
                                             if 'usd' in v:
                                                 update_list.append((v['usd'], update_time, update_date.strftime('%Y-%m-%d %H:%M:%S'), k))
-                                                insert_list.append((k, v['usd'], update_time, update_date.strftime('%Y-%m-%d %H:%M:%S')))
                                         try:
                                             await store.openConnection()
                                             async with store.pool.acquire() as conn:
@@ -142,11 +123,6 @@ class CoinGecko(commands.Cog):
 
                                                     chunk = []
                                                     chunk_str = ""
-                                                    sql = """ INSERT INTO coin_coingecko_price_history (`id`, `price_usd`, `price_time`, `price_date`) 
-                                                              VALUES (%s, %s, %s, %s) """
-                                                    await cur.executemany(sql, insert_list)
-                                                    await conn.commit()
-                                                    insert_list = []
                                         except Exception as e:
                                             traceback.print_exc(file=sys.stdout)
                         except asyncio.TimeoutError:
@@ -162,8 +138,6 @@ class CoinGecko(commands.Cog):
     async def bot_log(self):
         if self.botLogChan is None:
             self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
-
-
 
 def setup(bot):
     bot.add_cog(CoinGecko(bot))

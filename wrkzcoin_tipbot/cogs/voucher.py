@@ -339,17 +339,113 @@ class Voucher(commands.Cog):
         # If it is a batch or not
         if voucher_numb > 1: 
             for i in range(voucher_numb):
+                try:
+                    secret_string = str(uuid.uuid4())
+                    unique_filename = str(uuid.uuid4())
+                    # loop voucher_numb times
+                    # do some QR code
+                    qr = qrcode.QRCode(
+                        version=1,
+                        error_correction=qrcode.constants.ERROR_CORRECT_L,
+                        box_size=10,
+                        border=2,
+                    )
+                    qrstring = self.voucher_url + "/claim/" + secret_string # config
+                    qr.add_data(qrstring)
+                    qr.make(fit=True)
+                    qr_img = qr.make_image(fill_color="black", back_color="white")
+                    qr_img = qr_img.resize((280, 280))
+                    qr_img = qr_img.convert("RGBA")
+
+                    #Logo
+                    try:
+                        box = (115,115,165,165)
+                        qr_img.crop(box)
+                        region = logo
+                        region = region.resize((box[2] - box[0], box[3] - box[1]))
+                        qr_img.paste(region,box)
+                    except Exception as e: 
+                        await logchanbot(traceback.format_exc())
+                    # Image Frame on which we want to paste  
+                    img_frame.paste(qr_img, (100, 150)) 
+
+                    # amount font
+                    try:
+                        msg = num_format_coin(voucher_each, COIN_NAME, coin_decimal, False) + COIN_NAME
+                        W, H = (1123,644)
+                        draw =  ImageDraw.Draw(img_frame)
+                        myFont = ImageFont.truetype(self.pathfont, 44)
+                        w, h = myFont.getsize(msg)
+                        draw.text((250-w/2,275+125+h), msg, fill="black",font=myFont)
+
+                        # Instruction to claim
+                        myFont = ImageFont.truetype(self.pathfont, 36)
+                        msg_claim = "SCAN TO CLAIM IT!"
+                        w, h = myFont.getsize(msg_claim)
+                        draw.text((250-w/2,275+125+h+60), msg_claim, fill="black",font=myFont)
+
+                        # comment part
+                        comment_txt = "COMMENT: " + comment_str.upper()
+                        myFont = ImageFont.truetype(self.pathfont, 24)
+                        w, h = myFont.getsize(comment_txt)
+                        draw.text((561-w/2,275+125+h+120), comment_txt, fill="black",font=myFont)
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
+                    voucher_make = None
+                    try:
+                        img_frame.save(self.path_voucher_create + unique_filename + ".png")
+                        if ctx.author.id not in self.bot.TX_IN_PROCESS:
+                            self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                            try:
+                                voucher_make = await self.sql_send_to_voucher(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator), voucher_each, fee_voucher_amount, comment_str, secret_string, unique_filename + ".png", COIN_NAME, coin_decimal, contract, per_unit_usd, SERVER_BOT)
+                            except Exception as e:
+                                traceback.print_exc(file=sys.stdout)
+                                await logchanbot(traceback.format_exc())
+                            self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+                        else:
+                            # reject and tell to wait
+                            msg = f'{EMOJI_RED_NO} {ctx.author.mention} You have another tx in process. Please wait it to finish.'
+                            await ctx.response.send_message(msg)
+                            return
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
+
+                    if voucher_make:             
+                        try:
+                            await ctx.author.send(f'New Voucher Link ({i+1} of {voucher_numb}): {qrstring}\n'
+                                '```'
+                                f'Amount: {num_format_coin(voucher_each, COIN_NAME, coin_decimal, False)} {COIN_NAME}\n'
+                                f'Voucher Fee (Incl. network fee): {num_format_coin(fee_voucher_amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}\n'
+                                f'Voucher comment: {comment_str}```')
+                        except Exception as e:
+                            traceback.print_exc(file=sys.stdout)
+                    else:
+                        msg = f'{EMOJI_ERROR} {ctx.author.mention}, error voucher creation!'
+                        await ctx.response.send_message(msg)
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(traceback.format_exc())
+            if voucher_make is not None and hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
+                msg = f'{ctx.author.mention}, new vouchers sent to your DM.'
+                await ctx.response.send_message(msg)
+            elif voucher_make is not None:
+                msg = f'{ctx.author.mention}, thank you for using our TipBot!'
+                await ctx.response.send_message(msg)
+            await tmp_msg.delete()
+        elif voucher_numb == 1:
+            try:
+                # do some QR code
                 secret_string = str(uuid.uuid4())
                 unique_filename = str(uuid.uuid4())
-                # loop voucher_numb times
-                # do some QR code
                 qr = qrcode.QRCode(
                     version=1,
                     error_correction=qrcode.constants.ERROR_CORRECT_L,
                     box_size=10,
                     border=2,
                 )
-                qrstring = self.voucher_url + "/claim/" + secret_string # config
+                qrstring = self.voucher_url + "/claim/" + secret_string
                 qr.add_data(qrstring)
                 qr.make(fit=True)
                 qr_img = qr.make_image(fill_color="black", back_color="white")
@@ -363,18 +459,21 @@ class Voucher(commands.Cog):
                     region = logo
                     region = region.resize((box[2] - box[0], box[3] - box[1]))
                     qr_img.paste(region,box)
-                except Exception as e: 
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
-                # Image Frame on which we want to paste  
+                # Image Frame on which we want to paste 
                 img_frame.paste(qr_img, (100, 150)) 
 
                 # amount font
                 try:
-                    msg = num_format_coin(voucher_each, COIN_NAME, coin_decimal, False) + COIN_NAME
+                    msg = str(num_format_coin(voucher_each, COIN_NAME, coin_decimal, False)) + COIN_NAME
                     W, H = (1123,644)
                     draw =  ImageDraw.Draw(img_frame)
                     myFont = ImageFont.truetype(self.pathfont, 44)
+                    # w, h = draw.textsize(msg, font=myFont)
                     w, h = myFont.getsize(msg)
+                    # draw.text(((W-w)/2,(H-h)/2), msg, fill="black",font=myFont)
                     draw.text((250-w/2,275+125+h), msg, fill="black",font=myFont)
 
                     # Instruction to claim
@@ -391,132 +490,50 @@ class Voucher(commands.Cog):
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
-                img_frame.save(self.path_voucher_create + unique_filename + ".png")
-                if ctx.author.id not in self.bot.TX_IN_PROCESS:
-                    self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                # Saved in the same relative location 
+                voucher_make = None
+                try:
+                    img_frame.save(self.path_voucher_create + unique_filename + ".png")
+                    if ctx.author.id not in self.bot.TX_IN_PROCESS:
+                        self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                        try:
+                            voucher_make = await self.sql_send_to_voucher(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator), voucher_each, fee_voucher_amount, comment_str, secret_string, unique_filename + ".png", COIN_NAME, coin_decimal, contract, per_unit_usd, SERVER_BOT)
+                        except Exception as e:
+                            traceback.print_exc(file=sys.stdout)
+                            await logchanbot(traceback.format_exc())
+                        self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+                    else:
+                        # reject and tell to wait
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
+                        await ctx.response.send_message(msg)
+                        return
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot(traceback.format_exc())
+
+                if voucher_make:
                     try:
-                        voucher_make = await self.sql_send_to_voucher(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator), voucher_each, fee_voucher_amount, comment_str, secret_string, unique_filename + ".png", COIN_NAME, coin_decimal, contract, per_unit_usd, SERVER_BOT)
+                        msg = await ctx.author.send(f'New Voucher Link: {qrstring}\n'
+                                '```'
+                                f'Amount: {num_format_coin(voucher_each, COIN_NAME, coin_decimal, False)} {COIN_NAME}\n'
+                                f'Voucher Fee (Incl. network fee): {num_format_coin(fee_voucher_amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}\n'
+                                f'Voucher comment: {comment_str}```')
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
                         await logchanbot(traceback.format_exc())
-                    self.bot.TX_IN_PROCESS.remove(ctx.author.id)
-                else:
-                    # reject and tell to wait
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention} You have another tx in process. Please wait it to finish.'
-                    await ctx.response.send_message(msg)
-                    return
-                    
-                if voucher_make:             
-                    try:
-                        await ctx.author.send(f'New Voucher Link ({i+1} of {voucher_numb}): {qrstring}\n'
-                            '```'
-                            f'Amount: {num_format_coin(voucher_each, COIN_NAME, coin_decimal, False)} {COIN_NAME}\n'
-                            f'Voucher Fee (Incl. network fee): {num_format_coin(fee_voucher_amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}\n'
-                            f'Voucher comment: {comment_str}```')
-                    except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
                 else:
                     msg = f'{EMOJI_ERROR} {ctx.author.mention}, error voucher creation!'
                     await ctx.response.send_message(msg)
-            if voucher_make is not None and hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
-                msg = f'{ctx.author.mention}, new vouchers sent to your DM.'
-                await ctx.response.send_message(msg)
-            elif voucher_make is not None:
-                msg = f'{ctx.author.mention}, thank you for using our TipBot!'
-                await ctx.response.send_message(msg)
-            await tmp_msg.delete()
-        elif voucher_numb == 1:
-            # do some QR code
-            secret_string = str(uuid.uuid4())
-            unique_filename = str(uuid.uuid4())
-            qr = qrcode.QRCode(
-                version=1,
-                error_correction=qrcode.constants.ERROR_CORRECT_L,
-                box_size=10,
-                border=2,
-            )
-            qrstring = self.voucher_url + "/claim/" + secret_string
-            qr.add_data(qrstring)
-            qr.make(fit=True)
-            qr_img = qr.make_image(fill_color="black", back_color="white")
-            qr_img = qr_img.resize((280, 280))
-            qr_img = qr_img.convert("RGBA")
-
-            #Logo
-            try:
-                box = (115,115,165,165)
-                qr_img.crop(box)
-                region = logo
-                region = region.resize((box[2] - box[0], box[3] - box[1]))
-                qr_img.paste(region,box)
+                if voucher_make is not None and hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
+                    msg = f'{ctx.author.mention}, new vouchers sent to your DM.'
+                    await ctx.response.send_message(msg)
+                elif voucher_make is not None:
+                    msg = f'{ctx.author.mention}, thank you for using our TipBot!'
+                    await ctx.response.send_message(msg)
+                await tmp_msg.delete()
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot(traceback.format_exc())
-            # Image Frame on which we want to paste 
-            img_frame.paste(qr_img, (100, 150)) 
-
-            # amount font
-            try:
-                msg = str(num_format_coin(voucher_each, COIN_NAME, coin_decimal, False)) + COIN_NAME
-                W, H = (1123,644)
-                draw =  ImageDraw.Draw(img_frame)
-                myFont = ImageFont.truetype(self.pathfont, 44)
-                # w, h = draw.textsize(msg, font=myFont)
-                w, h = myFont.getsize(msg)
-                # draw.text(((W-w)/2,(H-h)/2), msg, fill="black",font=myFont)
-                draw.text((250-w/2,275+125+h), msg, fill="black",font=myFont)
-
-                # Instruction to claim
-                myFont = ImageFont.truetype(self.pathfont, 36)
-                msg_claim = "SCAN TO CLAIM IT!"
-                w, h = myFont.getsize(msg_claim)
-                draw.text((250-w/2,275+125+h+60), msg_claim, fill="black",font=myFont)
-
-                # comment part
-                comment_txt = "COMMENT: " + comment_str.upper()
-                myFont = ImageFont.truetype(self.pathfont, 24)
-                w, h = myFont.getsize(comment_txt)
-                draw.text((561-w/2,275+125+h+120), comment_txt, fill="black",font=myFont)
-            except Exception as e:
-                traceback.print_exc(file=sys.stdout)
-                await logchanbot(traceback.format_exc())
-            # Saved in the same relative location 
-            img_frame.save(self.path_voucher_create + unique_filename + ".png")
-            if ctx.author.id not in self.bot.TX_IN_PROCESS:
-                self.bot.TX_IN_PROCESS.append(ctx.author.id)
-                try:
-                    voucher_make = await self.sql_send_to_voucher(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator), voucher_each, fee_voucher_amount, comment_str, secret_string, unique_filename + ".png", COIN_NAME, coin_decimal, contract, per_unit_usd, SERVER_BOT)
-                except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
-                    await logchanbot(traceback.format_exc())
-                self.bot.TX_IN_PROCESS.remove(ctx.author.id)
-            else:
-                # reject and tell to wait
-                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
-                await ctx.response.send_message(msg)
-                return
-
-            if voucher_make:
-                try:
-                    msg = await ctx.author.send(f'New Voucher Link: {qrstring}\n'
-                            '```'
-                            f'Amount: {num_format_coin(voucher_each, COIN_NAME, coin_decimal, False)} {COIN_NAME}\n'
-                            f'Voucher Fee (Incl. network fee): {num_format_coin(fee_voucher_amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}\n'
-                            f'Voucher comment: {comment_str}```')
-                except Exception as e:
-                    traceback.print_exc(file=sys.stdout)
-                    await logchanbot(traceback.format_exc())
-            else:
-                msg = f'{EMOJI_ERROR} {ctx.author.mention}, error voucher creation!'
-                await ctx.response.send_message(msg)
-            if voucher_make is not None and hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
-                msg = f'{ctx.author.mention}, new vouchers sent to your DM.'
-                await ctx.response.send_message(msg)
-            elif voucher_make is not None:
-                msg = f'{ctx.author.mention}, thank you for using our TipBot!'
-                await ctx.response.send_message(msg)
-            await tmp_msg.delete()
-
 
     @voucher.sub_command(
         usage="voucher unclaim", 

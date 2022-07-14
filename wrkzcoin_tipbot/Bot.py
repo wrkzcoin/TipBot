@@ -19,7 +19,7 @@ import re
 import redis
 import disnake
 from disnake.ext import commands
-from disnake.ext.commands import AutoShardedBot, when_mentioned_or
+from disnake.ext.commands import AutoShardedBot, when_mentioned
 from disnake import ActionRow, Button
 from disnake.enums import ButtonStyle
 
@@ -52,7 +52,6 @@ from cryptography.fernet import Fernet
 from discord_webhook import DiscordWebhook
 import store
 from config import config
-
 
 
 async def get_token_list():
@@ -140,32 +139,13 @@ async def logchanbot(content: str):
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
 
-
-# Steal from https://github.com/cree-py/RemixBot/blob/master/bot.py#L49
-async def get_prefix(bot, message):
-    """Gets the prefix for the guild"""
-    pre_cmd = config.discord.prefixCmd
-    if isinstance(message.channel, disnake.DMChannel):
-        extras = [pre_cmd, '?', '.', '+', '!', '-']
-        return when_mentioned_or(*extras)(bot, message)
-
-    serverinfo = await store.sql_info_by_server(str(message.guild.id))
-    if serverinfo is None:
-        # Let's add some info if guild return None
-        add_server_info = await store.sql_addinfo_by_server(str(message.guild.id), message.guild.name, config.discord.prefixCmd, config.discord.default_coin, False)
-        serverinfo = await store.sql_info_by_server(str(message.guild.id))
-    if serverinfo and 'prefix' in serverinfo:
-        pre_cmd = serverinfo['prefix']
-    else:
-        pre_cmd = config.discord.prefixCmd
-    extras = [pre_cmd, '!', '.', '/']
-    return when_mentioned_or(*extras)(bot, message)
-
+# get shard count by statistic
+shard_number = 2
 
 intents = disnake.Intents.default()
 intents.members = True
 intents.presences = True
-bot = AutoShardedBot(shard_count=2, command_prefix=get_prefix, owner_id=config.discord.ownerID, intents=intents, sync_commands=True)
+bot = AutoShardedBot(shard_count=shard_number, command_prefix=when_mentioned, owner_id=config.discord.ownerID, intents=intents, sync_commands=True)
 bot.remove_command('help')
 
 bot.owner_id = config.discord.ownerID

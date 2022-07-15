@@ -3,7 +3,7 @@ import traceback
 from datetime import datetime
 
 import disnake
-from disnake.ext import commands
+from disnake.ext import commands, tasks
 import time
 from attrdict import AttrDict
 from io import BytesIO
@@ -51,6 +51,10 @@ class Admin(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.wallet_api = WalletAPI(self.bot)
+        self.local_db_extra = None
+        self.pool_local_db_extra = None
+        self.old_message_data_age = 3*30*24*3600 # max. 3 months
+        self.auto_purge_old_message.start()
 
         # DB
         self.pool = None
@@ -63,6 +67,70 @@ class Admin(commands.Cog):
                                                        db=config.mysql.db, cursorclass=DictCursor, autocommit=True)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
+
+    async def openConnection_extra(self):
+        if self.local_db_extra is None:
+            await self.get_local_db_extra_auth()
+        if self.local_db_extra is not None:
+            try:
+                if self.pool_local_db_extra is None:
+                    self.pool_local_db_extra = await aiomysql.create_pool(host=self.local_db_extra['dbhost'], port=3306, minsize=2, maxsize=4, 
+                                                user=self.local_db_extra['dbuser'], password=self.local_db_extra['dbpass'],
+                                                db=self.local_db_extra['dbname'], cursorclass=DictCursor, autocommit=True)
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+
+    async def get_local_db_extra_auth(self):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `bot_settings` WHERE `name`=%s LIMIT 1 """
+                    await cur.execute(sql, ( 'local_db_extra' ))
+                    result = await cur.fetchone()
+                    if result:
+                        self.local_db_extra = json.loads(decrypt_string(result['value']))
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return None
+
+    async def purge_msg(self, number_msg: int=10000):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `discord_messages` WHERE `message_time`< (NOW() - """+str(self.old_message_data_age)+""") LIMIT """+str(number_msg)
+                    await cur.execute(sql,)
+                    result = await cur.fetchall()
+                    if result and len(result) > 0:
+                        # Insert to extra DB and delete
+                        data_rows = []
+                        delete_ids = []
+                        for each in result:
+                            data_rows.append( ( each['id'], each['serverid'], each['server_name'], each['channel_id'], each['channel_name'], each['user_id'], each['message_author'], each['message_id'], each['message_time'] ) )
+                            delete_ids.append( each['id'] )
+                        await self.openConnection_extra()
+                        async with self.pool_local_db_extra.acquire() as conn_extra:
+                            async with conn_extra.cursor() as cur_extra:
+                                sql = """ INSERT INTO `discord_messages` (`id`, `serverid`, `server_name`, `channel_id`, `channel_name`, `user_id`, `message_author`, `message_id`, `message_time`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """               
+                                await cur_extra.executemany( sql, data_rows )
+                                await conn_extra.commit()
+                                inserted = cur_extra.rowcount
+                                if inserted > 0:
+                                    # Delete from message
+                                    await store.openConnection()
+                                    async with store.pool.acquire() as conn:
+                                        async with conn.cursor() as cur:
+                                            sql = " DELETE FROM `discord_messages` WHERE `id` IN (%s)" % ",".join(["%s"] * len(delete_ids))
+                                            await cur.execute(sql, tuple(delete_ids) )
+                                            await conn.commit()
+                                            deleted = cur.rowcount
+                                            return deleted
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return 0
 
     async def get_coin_list_name(self, including_disable: bool=False):
         try:
@@ -1122,6 +1190,40 @@ class Admin(commands.Cog):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
+
+    @tasks.loop(seconds=60.0)
+    async def auto_purge_old_message(self):
+        numbers = 5000
+        try:
+            purged_items = await self.purge_msg(numbers)
+            if purged_items > 0:
+                print(f"{datetime.now():%Y-%m-%d-%H-%M-%S} auto_purge_old_message: {str(purged_items)}")
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+
+    @commands.is_owner()
+    @admin.command(hidden=True, usage='purge <item> <number>', description='Purge some items')
+    async def purge(self, ctx, item: str, numbers: int=100):
+        item = item.upper()
+        if item not in ["MESSAGE"]:
+            msg = f'{ctx.author.mention}, nothing to do. ITEM not exist!'
+            await ctx.reply(msg)
+            return
+        elif item == "MESSAGE":
+            # purgeg message
+            if numbers <= 0 or numbers >= 10**6:
+                msg = f'{ctx.author.mention}, nothing to do with <=0 or a million.'
+                await ctx.reply(msg)
+            else:
+                start = time.time()
+                purged_items = await self.purge_msg(numbers)
+                if purged_items >= 0:
+                    msg = f'{ctx.author.mention}, successfully purged `{item}` {str(purged_items)}. Time taken: {str(time.time()-start)}s..'
+                    await ctx.reply(msg)
+                else:
+                    msg = f'{ctx.author.mention}, internal error.'
+                    await ctx.reply(msg)
+            return
 
 
     @commands.is_owner()

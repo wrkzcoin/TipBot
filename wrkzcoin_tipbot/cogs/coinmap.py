@@ -6,7 +6,7 @@ from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
-from selenium.webdriver.firefox.options import Options
+from selenium.webdriver.chrome.options import Options
 from PIL import Image
 from io import BytesIO
 import os.path
@@ -36,6 +36,7 @@ def get_coin360( display_id: str):
         display = Display(visible=0, size=(1366, 768))
         display.start()
 
+        options = webdriver.ChromeOptions()
         options = Options()
         options.add_argument('--no-sandbox') # Bypass OS security model
         options.add_argument('--disable-gpu')  # applicable to windows os only
@@ -45,9 +46,9 @@ def get_coin360( display_id: str):
         userAgent = config.selenium_setting.user_agent
         options.add_argument(f'user-agent={userAgent}')
         options.add_argument("--user-data-dir=chrome-data")
-        options.headless = False
+        options.headless = True
 
-        driver = webdriver.Firefox(options=options)
+        driver = webdriver.Chrome(options=options)
         driver.set_window_position(0, 0)
         driver.set_window_size(config.selenium_setting.win_w, config.selenium_setting.win_h)
 

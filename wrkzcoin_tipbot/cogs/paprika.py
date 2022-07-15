@@ -15,7 +15,7 @@ from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
-from selenium.webdriver.firefox.options import Options
+from selenium.webdriver.chrome.options import Options
 from PIL import Image
 from io import BytesIO
 import os.path
@@ -35,7 +35,7 @@ from config import config
 # https://api.coinpaprika.com/#tag/Tags/paths/~1tags~1{tag_id}/get
 
 def get_trade_view_by_id( display_id: str, web_url: str, id_coin: str, saved_path: str, option: str=None ):
-    timeout = 10
+    timeout = 20
     return_to = None
     file_name = "tradeview_{}_image_{}_{}.png".format( id_coin, datetime.datetime.now().strftime("%Y-%m-%d-%H-%M"), option.lower() if option else "" ) #
     file_path = saved_path + file_name
@@ -56,9 +56,9 @@ def get_trade_view_by_id( display_id: str, web_url: str, id_coin: str, saved_pat
         userAgent = config.selenium_setting.user_agent
         options.add_argument(f'user-agent={userAgent}')
         options.add_argument("--user-data-dir=chrome-data")
-        options.headless = False
+        options.headless = True
 
-        driver = webdriver.Firefox(options=options)
+        driver = webdriver.Chrome(options=options)
         driver.set_window_position(0, 0)
         driver.set_window_size(config.selenium_setting.win_w, config.selenium_setting.win_h)
 
@@ -69,18 +69,18 @@ def get_trade_view_by_id( display_id: str, web_url: str, id_coin: str, saved_pat
         WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((By.CLASS_NAME, "chart-container-border")))
 
         if option is None:
-            time.sleep(3.0)
+            time.sleep(5.0)
             # https://stackoverflow.com/questions/8900073/webdriver-screenshot
             # now that we have the preliminary stuff out of the way time to get that image :D
             # element = driver.find_element_by_class_name( "js-rootresizer__contents" ) # find part of the page you want image of
             
             # driver.switch_to.default_content()
             driver.switch_to.default_content()
-            element = driver.find_element_by_id( "tv_chart_container" )
+            element = driver.find_element( By.ID, "tv_chart_container" )
             # Updated switch back to default
         # https://stackoverflow.com/questions/43489391/python-selenium-data-style-name
         elif option.lower() in ["1d", "7d", "1m", "1q", "1y", "5y"]:
-            time.sleep(3.0)
+            time.sleep(5.0)
             ## elements = driver.find_elements_by_xpath("//div[@data-name=date-ranges-tabs]")
             ## elements = driver.find_elements_by_xpath("//div[contains(@class, 'sliderRow')]")
             # element = driver.find_element_by_xpath("//*[starts-with(@class, 'sliderRow-') and contains(@data-name, 'date-ranges-tabs')]")
@@ -92,9 +92,9 @@ def get_trade_view_by_id( display_id: str, web_url: str, id_coin: str, saved_pat
                     each_i.click()
                     found = True
                     break
-            time.sleep(3.0)
+            time.sleep(5.0)
             driver.switch_to.default_content()
-            element = driver.find_element_by_id( "tv_chart_container" )
+            element = driver.find_element( By.ID, "tv_chart_container" )
         location = element.location
         size = element.size
         png = driver.get_screenshot_as_png() # saves screenshot of entire page

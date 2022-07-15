@@ -703,7 +703,7 @@ async def sql_update_notify_tx_table(payment_id: str, owner_id: str, owner_name:
             async with conn.cursor() as cur:
                 sql = """ UPDATE `discord_notify_new_tx` SET `owner_id`=%s, `owner_name`=%s, `notified`=%s, `failed_notify`=%s, 
                           `notified_time`=%s AND `notified_time` IS NULL WHERE `payment_id`=%s AND `id`=%s LIMIT 1 """
-                await cur.execute(sql, ( owner_id, owner_name, notified, failed_notify, float("%.3f" % time.time()), payment_id, id ))
+                await cur.execute(sql, ( owner_id, owner_name, notified, failed_notify, int(time.time()), payment_id, id ))
                 await conn.commit()
                 return cur.rowcount
     except Exception as e:

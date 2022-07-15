@@ -1,33 +1,26 @@
+import random
+import re
 import sys
 import time
 import traceback
 from datetime import datetime
-import random
-import re
 from decimal import Decimal
+from typing import Dict
 
 import disnake
-from disnake.ext import commands, tasks
-from disnake import ActionRow, Button
-
-from disnake.enums import OptionType
-from disnake.app_commands import Option
-
-from disnake.enums import ButtonStyle
-import copy
-from typing import List, Dict
-
 import store
-from Bot import num_format_coin, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_ARROW_RIGHTHOOK, EMOJI_MONEYFACE, NOTIFICATION_OFF_CMD, EMOJI_SPEAK, EMOJI_BELL, EMOJI_BELL_SLASH, EMOJI_HOURGLASS_NOT_DONE, EMOJI_INFORMATION, EMOJI_PARTY, SERVER_BOT, seconds_str, RowButton_close_message, RowButton_row_close_any_message, text_to_num, truncate
-from config import config
-import redis_utils
-
+from Bot import num_format_coin, logchanbot, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_INFORMATION, SERVER_BOT, text_to_num, \
+    truncate
 from cogs.wallet import WalletAPI
+from disnake.app_commands import Option
+from disnake.enums import ButtonStyle
+from disnake.enums import OptionType
+from disnake.ext import commands
 
 
 class MyTriviaBtn(disnake.ui.Button):
     def __init__(self, label, _style, _custom_id):
-        super().__init__(label=label, style=_style, custom_id= _custom_id)
+        super().__init__(label=label, style=_style, custom_id=_custom_id)
 
 
 class TriviaButton(disnake.ui.View):
@@ -42,10 +35,9 @@ class TriviaButton(disnake.ui.View):
         self.coin_list = coin_list
         self.ctx = ctx
         for name in answer_list:
-            custom_id = "trivia_answers_"+str(i)
+            custom_id = "trivia_answers_" + str(i)
             self.add_item(MyTriviaBtn(name, ButtonStyle.green, custom_id))
             i += 1
-
 
     async def on_timeout(self):
         i = 0
@@ -60,7 +52,7 @@ class TriviaButton(disnake.ui.View):
         try:
             original_message = await self.ctx.original_message()
             get_triviatip = await store.get_discord_triviatip_by_msgid(str(original_message.id))
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             return
 
@@ -71,19 +63,23 @@ class TriviaButton(disnake.ui.View):
         if get_triviatip['status'] == "ONGOING":
             answered_msg_id = await store.get_responders_by_message_id(str(self.message.id))
             amount = get_triviatip['real_amount']
-            COIN_NAME = get_triviatip['token_name']
+            coin_name = get_triviatip['token_name']
             correct_answer = get_triviatip['button_correct_answer']
             owner_displayname = get_triviatip['from_owner_name']
-            coin_decimal = getattr(getattr(self.coin_list, COIN_NAME), "decimal")
-            contract = getattr(getattr(self.coin_list, COIN_NAME), "contract")
-            token_display = getattr(getattr(self.coin_list, COIN_NAME), "display_name")
-            usd_equivalent_enable = getattr(getattr(self.coin_list, COIN_NAME), "usd_equivalent_enable")
+            coin_decimal = getattr(getattr(self.coin_list, coin_name), "decimal")
+            contract = getattr(getattr(self.coin_list, coin_name), "contract")
+            token_display = getattr(getattr(self.coin_list, coin_name), "display_name")
+            usd_equivalent_enable = getattr(getattr(self.coin_list, coin_name), "usd_equivalent_enable")
             # get question from db:
             question = await store.get_q_db(get_triviatip['question_id'])
             total_answer = answered_msg_id['total']
 
-            indiv_amount_str = num_format_coin(truncate(amount / len(answered_msg_id['right_ids']), 4), COIN_NAME, coin_decimal, False) if len(answered_msg_id['right_ids']) > 0 else num_format_coin(truncate(amount, 4), COIN_NAME, coin_decimal, False)
-            indiv_amount = truncate(amount / len(answered_msg_id['right_ids']), 4) if len(answered_msg_id['right_ids']) > 0 else truncate(amount, 4)
+            indiv_amount_str = num_format_coin(truncate(amount / len(answered_msg_id['right_ids']), 4), coin_name,
+                                               coin_decimal, False) if len(
+                answered_msg_id['right_ids']) > 0 else num_format_coin(truncate(amount, 4), coin_name, coin_decimal,
+                                                                       False)
+            indiv_amount = truncate(amount / len(answered_msg_id['right_ids']), 4) if len(
+                answered_msg_id['right_ids']) > 0 else truncate(amount, 4)
 
             attend_list_id_right = answered_msg_id['right_ids']
             amount_in_usd = 0.0
@@ -103,23 +99,37 @@ class TriviaButton(disnake.ui.View):
                     each_amount_in_usd = per_unit * float(indiv_amount)
                     total_equivalent_usd = " ~ {:,.4f} USD".format(each_amount_in_usd)
 
-            embed = disnake.Embed(title=f"⁉️ Trivia Tip {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display} - {total_equivalent_usd} Total answer {total_answer}", description=get_triviatip['question_content'], timestamp=datetime.fromtimestamp(get_triviatip['trivia_endtime']))
-            embed.add_field(name="Category (credit: {})".format(question['credit']), value=question['category'], inline=False)
+            embed = disnake.Embed(
+                title=f"⁉️ Trivia Tip {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} - {total_equivalent_usd} Total answer {total_answer}",
+                description=get_triviatip['question_content'],
+                timestamp=datetime.fromtimestamp(get_triviatip['trivia_endtime']))
+            embed.add_field(name="Category (credit: {})".format(question['credit']), value=question['category'],
+                            inline=False)
             embed.add_field(name="Correct answer", value=get_triviatip['button_correct_answer'], inline=False)
-            embed.add_field(name="Correct ( {} )".format(len(answered_msg_id['right_ids'])), value="{}".format(" | ".join(answered_msg_id['right_names']) if len(answered_msg_id['right_names']) > 0 else "N/A"), inline=False)
-            embed.add_field(name="Incorrect ( {} )".format(len(answered_msg_id['wrong_ids'])), value="{}".format(" | ".join(answered_msg_id['wrong_names']) if len(answered_msg_id['wrong_names']) > 0 else "N/A"), inline=False)
+            embed.add_field(name="Correct ( {} )".format(len(answered_msg_id['right_ids'])), value="{}".format(
+                " | ".join(answered_msg_id['right_names']) if len(answered_msg_id['right_names']) > 0 else "N/A"),
+                            inline=False)
+            embed.add_field(name="Incorrect ( {} )".format(len(answered_msg_id['wrong_ids'])), value="{}".format(
+                " | ".join(answered_msg_id['wrong_names']) if len(answered_msg_id['wrong_names']) > 0 else "N/A"),
+                            inline=False)
             if len(answered_msg_id['right_ids']) > 0:
                 embed.add_field(name='Each Winner Receives:', value=f"{indiv_amount_str} {token_display}", inline=True)
             embed.set_footer(text=f"Trivia tip by {owner_displayname}")
 
             if len(answered_msg_id['right_ids']) > 0:
-                trivia_tipping = await store.sql_user_balance_mv_multiple(get_triviatip['from_userid'], answered_msg_id['right_ids'], get_triviatip['guild_id'], get_triviatip['channel_id'], float(indiv_amount), COIN_NAME, "TRIVIATIP", coin_decimal, SERVER_BOT, contract, float(each_amount_in_usd), None)
+                trivia_tipping = await store.sql_user_balance_mv_multiple(get_triviatip['from_userid'],
+                                                                          answered_msg_id['right_ids'],
+                                                                          get_triviatip['guild_id'],
+                                                                          get_triviatip['channel_id'],
+                                                                          float(indiv_amount), coin_name, "TRIVIATIP",
+                                                                          coin_decimal, SERVER_BOT, contract,
+                                                                          float(each_amount_in_usd), None)
             # Change status
             change_status = await store.discord_triviatip_update(get_triviatip['message_id'], "COMPLETED")
             await original_message.edit(embed=embed, view=self)
         else:
             await original_message.edit(view=self)
- 
+
 
 class TriviaTips(commands.Cog):
 
@@ -131,84 +141,88 @@ class TriviaTips(commands.Cog):
         self.trivia_duration_max = 45
 
     async def async_triviatip(self, ctx, amount: str, token: str, duration: str):
-        COIN_NAME = token.upper()
+        coin_name = token.upper()
 
         # Token name check
-        if not hasattr(self.bot.coin_list, COIN_NAME):
-            msg = f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.'
+        if not hasattr(self.bot.coin_list, coin_name):
+            msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
             await ctx.response.send_message(msg)
             return
         # End token name check
 
         try:
             await ctx.response.send_message(f"{ctx.author.mention}, Trivia Tip preparation... ")
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute a trivia message...", ephemeral=True)
+            await ctx.response.send_message(
+                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute a trivia message...", ephemeral=True)
             return
 
         # Check if there is many airdrop/mathtip/triviatip
         try:
-            count_ongoing = await store.discord_freetip_ongoing( str(ctx.author.id), "ONGOING" )
+            count_ongoing = await store.discord_freetip_ongoing(str(ctx.author.id), "ONGOING")
             if count_ongoing >= 3:
                 msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, you still have some ongoing tips. Please wait for them to complete first!'
                 await ctx.edit_original_message(content=msg)
                 return
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
         # End of ongoing check
 
         try:
-            token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
-            contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
+            token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
+            contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
 
-            net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
-            type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
-            deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
-            coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+            net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+            type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+            deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+            coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
 
-            MinTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_min_tip")
-            MaxTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_max_tip")
-            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
-            get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+            MinTip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
+            MaxTip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
+            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
+            get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), coin_name, net_name, type_coin,
+                                                                   SERVER_BOT, 0)
             if get_deposit is None:
-                get_deposit = await self.wallet_api.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                get_deposit = await self.wallet_api.sql_register_user(str(ctx.author.id), coin_name, net_name,
+                                                                      type_coin, SERVER_BOT, 0)
 
             wallet_address = get_deposit['balance_wallet_address']
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                 wallet_address = get_deposit['paymentid']
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, some internal error. Please try again."
             await ctx.edit_original_message(content=msg)
             return
 
-        height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
+        height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
         # check if amount is all
         all_amount = False
         if not amount.isdigit() and amount.upper() == "ALL":
             all_amount = True
-            userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+            userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), coin_name, wallet_address,
+                                                                   type_coin, height, deposit_confirm_depth, SERVER_BOT)
             amount = float(userdata_balance['adjust'])
         # If $ is in amount, let's convert to coin/token
-        elif "$" in amount[-1] or "$" in amount[0]: # last is $
+        elif "$" in amount[-1] or "$" in amount[0]:  # last is $
             # Check if conversion is allowed for this coin.
             amount = amount.replace(",", "").replace("$", "")
             if usd_equivalent_enable == 0:
-                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{COIN_NAME}`."
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{coin_name}`."
                 await ctx.edit_original_message(content=msg)
                 return
             else:
-                native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
-                COIN_NAME_FOR_PRICE = COIN_NAME
+                native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
+                coin_name_for_price = coin_name
                 if native_token_name:
-                    COIN_NAME_FOR_PRICE = native_token_name
+                    coin_name_for_price = native_token_name
                 per_unit = None
-                if COIN_NAME_FOR_PRICE in self.bot.token_hints:
-                    id = self.bot.token_hints[COIN_NAME_FOR_PRICE]['ticker_name']
+                if coin_name_for_price in self.bot.token_hints:
+                    id = self.bot.token_hints[coin_name_for_price]['ticker_name']
                     per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
                 else:
-                    per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
+                    per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
                 if per_unit and per_unit > 0:
                     amount = float(Decimal(amount) / Decimal(per_unit))
                 else:
@@ -252,9 +266,10 @@ class TriviaTips(commands.Cog):
                 time_string = time_string.replace("mins", "mn")
                 time_string = time_string.replace("min", "mn")
                 time_string = time_string.replace("mn", "mn")
-                mult = {'h': 60*60, 'mn': 60, 's': 1}
-                duration_in_second = sum(int(num) * mult.get(val, 1) for num, val in re.findall('(\d+)(\w+)', time_string))
-            except Exception as e:
+                mult = {'h': 60 * 60, 'mn': 60, 's': 1}
+                duration_in_second = sum(
+                    int(num) * mult.get(val, 1) for num, val in re.findall('(\d+)(\w+)', time_string))
+            except Exception:
                 traceback.print_exc(file=sys.stdout)
             return duration_in_second
 
@@ -262,7 +277,7 @@ class TriviaTips(commands.Cog):
         duration_s = 0
         try:
             duration_s = hms_to_seconds(duration)
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid duration.'
             await ctx.edit_original_message(content=msg)
@@ -295,16 +310,17 @@ class TriviaTips(commands.Cog):
             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, internal error, please report.'
             await ctx.edit_original_message(content=msg)
             return
- 
-        userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+
+        userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), coin_name, wallet_address, type_coin,
+                                                               height, deposit_confirm_depth, SERVER_BOT)
         actual_balance = float(userdata_balance['adjust'])
 
         if amount > MaxTip or amount < MinTip:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than **{num_format_coin(MaxTip, COIN_NAME, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(MinTip, COIN_NAME, coin_decimal, False)} {token_display}**.'
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than **{num_format_coin(MaxTip, coin_name, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(MinTip, coin_name, coin_decimal, False)} {token_display}**.'
             await ctx.edit_original_message(content=msg)
             return
         elif amount > actual_balance:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to do a trivia tip of **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}**.'
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to do a trivia tip of **{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**.'
             await ctx.edit_original_message(content=msg)
             return
 
@@ -315,15 +331,15 @@ class TriviaTips(commands.Cog):
         total_in_usd = 0.0
         per_unit = None
         if usd_equivalent_enable == 1:
-            native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
-            COIN_NAME_FOR_PRICE = COIN_NAME
+            native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
+            coin_name_for_price = coin_name
             if native_token_name:
-                COIN_NAME_FOR_PRICE = native_token_name
-            if COIN_NAME_FOR_PRICE in self.bot.token_hints:
-                id = self.bot.token_hints[COIN_NAME_FOR_PRICE]['ticker_name']
+                coin_name_for_price = native_token_name
+            if coin_name_for_price in self.bot.token_hints:
+                id = self.bot.token_hints[coin_name_for_price]['ticker_name']
                 per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
             else:
-                per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
+                per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
             if per_unit and per_unit > 0:
                 total_in_usd = float(Decimal(amount) * Decimal(per_unit))
                 if total_in_usd >= 0.0001:
@@ -331,12 +347,15 @@ class TriviaTips(commands.Cog):
 
         trivia_end = int(time.time()) + duration_s
         owner_displayname = "{}#{}".format(ctx.author.name, ctx.author.discriminator)
-        embed = disnake.Embed(title=f"⁉️ Trivia Tip {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display} {equivalent_usd}", description=rand_q['question'], timestamp=datetime.fromtimestamp(trivia_end))
+        embed = disnake.Embed(
+            title=f"⁉️ Trivia Tip {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} {equivalent_usd}",
+            description=rand_q['question'], timestamp=datetime.fromtimestamp(trivia_end))
         embed.add_field(name="Category (credit: {})".format(rand_q['credit']), value=rand_q['category'], inline=False)
         embed.add_field(name="Answering", value="None", inline=False)
         embed.set_footer(text=f"Trivia tip by {owner_displayname}")
         if rand_q and rand_q['type'] == "MULTIPLE":
-            answers = [rand_q['correct_answer'], rand_q['incorrect_answer_1'], rand_q['incorrect_answer_2'], rand_q['incorrect_answer_3']]
+            answers = [rand_q['correct_answer'], rand_q['incorrect_answer_1'], rand_q['incorrect_answer_2'],
+                       rand_q['incorrect_answer_3']]
             random.shuffle(answers)
             index_answer = answers.index(rand_q['correct_answer'])
 
@@ -344,9 +363,15 @@ class TriviaTips(commands.Cog):
                 view = TriviaButton(ctx, answers, index_answer, duration_s, self.bot.coin_list)
                 view.message = await ctx.original_message()
                 # Insert to trivia ongoing list
-                insert_trivia = await store.insert_discord_triviatip(COIN_NAME, contract, str(ctx.author.id), owner_displayname, str(view.message.id), rand_q['question'], rand_q['id'], rand_q['correct_answer'], str(ctx.guild.id), str(ctx.channel.id), amount, total_in_usd, equivalent_usd, per_unit, coin_decimal, trivia_end, net_name, "ONGOING")
+                insert_trivia = await store.insert_discord_triviatip(coin_name, contract, str(ctx.author.id),
+                                                                     owner_displayname, str(view.message.id),
+                                                                     rand_q['question'], rand_q['id'],
+                                                                     rand_q['correct_answer'], str(ctx.guild.id),
+                                                                     str(ctx.channel.id), amount, total_in_usd,
+                                                                     equivalent_usd, per_unit, coin_decimal, trivia_end,
+                                                                     net_name, "ONGOING")
                 await ctx.edit_original_message(content=None, embed=embed, view=view)
-            except Exception as e:
+            except Exception:
                 traceback.print_exc(file=sys.stdout)
         elif rand_q and rand_q['type'] == "BOOLEAN":
             answers = [rand_q['correct_answer'], rand_q['incorrect_answer_1']]
@@ -356,18 +381,23 @@ class TriviaTips(commands.Cog):
                 view = TriviaButton(ctx, answers, index_answer, duration_s, self.bot.coin_list)
                 view.message = await ctx.original_message()
                 # Insert to trivia ongoing list
-                insert_trivia = await store.insert_discord_triviatip(COIN_NAME, contract, str(ctx.author.id), owner_displayname, str(view.message.id), rand_q['question'], rand_q['id'], rand_q['correct_answer'], str(ctx.guild.id), str(ctx.channel.id), amount, total_in_usd, equivalent_usd, per_unit, coin_decimal, trivia_end, net_name, "ONGOING")
+                insert_trivia = await store.insert_discord_triviatip(coin_name, contract, str(ctx.author.id),
+                                                                     owner_displayname, str(view.message.id),
+                                                                     rand_q['question'], rand_q['id'],
+                                                                     rand_q['correct_answer'], str(ctx.guild.id),
+                                                                     str(ctx.channel.id), amount, total_in_usd,
+                                                                     equivalent_usd, per_unit, coin_decimal, trivia_end,
+                                                                     net_name, "ONGOING")
                 await ctx.edit_original_message(content=None, embed=embed, view=view)
-            except Exception as e:
+            except Exception:
                 traceback.print_exc(file=sys.stdout)
         if ctx.author.id in self.bot.TX_IN_PROCESS:
             self.bot.TX_IN_PROCESS.remove(ctx.author.id)
 
-
     @commands.guild_only()
     @commands.bot_has_permissions(send_messages=True)
     @commands.slash_command(
-        usage='triviatip <amount> <token> <duration>', 
+        usage='triviatip <amount> <token> <duration>',
         options=[
             Option('amount', 'amount', OptionType.string, required=True),
             Option('token', 'token', OptionType.string, required=True),
@@ -376,11 +406,11 @@ class TriviaTips(commands.Cog):
         description="Spread trivia tip"
     )
     async def triviatip(
-        self, 
-        ctx, 
-        amount: str, 
-        token: str, 
-        duration: str
+            self,
+            ctx,
+            amount: str,
+            token: str,
+            duration: str
     ):
         await self.async_triviatip(ctx, amount, token, duration)
 

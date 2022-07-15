@@ -16,7 +16,8 @@ import aiomysql
 from aiomysql.cursors import DictCursor
 
 from config import config
-from Bot import logchanbot, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_INFORMATION, num_format_coin, seconds_str, RowButton_row_close_any_message, SERVER_BOT, createBox
+from Bot import logchanbot, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_INFORMATION, num_format_coin, \
+    seconds_str, RowButtonRowCloseAnyMessage, SERVER_BOT, createBox
 
 import store
 from cogs.wallet import WalletAPI
@@ -31,10 +32,10 @@ class MyEcoBtn(disnake.ui.Button):
 class EconomyButton(disnake.ui.View):
     message: disnake.Message
 
-    def __init__(self, item_list, userID: str, action: str, timeout: float):
+    def __init__(self, item_list, user_id: str, action: str, timeout: float):
         super().__init__(timeout=timeout)
         for name in item_list:
-            custom_id = "economy_{}_".format(userID) + action + "_"  + name
+            custom_id = "economy_{}_".format(user_id) + action + "_"  + name
             self.add_item(MyEcoBtn(name, ButtonStyle.green, custom_id))
 
     async def on_timeout(self):
@@ -59,7 +60,7 @@ class database_economy():
                 self.pool = await aiomysql.create_pool(host=config.mysql.host, port=3306, minsize=8, maxsize=16, 
                                                        user=config.mysql.user, password=config.mysql.password,
                                                        db=config.mysql.db, cursorclass=DictCursor, autocommit=True)
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
 
 
@@ -83,7 +84,7 @@ class database_economy():
                         return result
                     else:
                         return result
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return None
@@ -103,22 +104,22 @@ class database_economy():
                         await cur.execute(sql, (user_id,))
                         result = await cur.fetchone()
                         if result: return result
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return None
 
     async def economy_get_user_activities_duration(self, user_id: str, duration: int=3600):
-        lapDuration = int(time.time()) - duration
+        lap_duration = int(time.time()) - duration
         try:
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM discord_economy_activities WHERE `user_id` = %s AND `status`=%s AND `started`>%s ORDER BY `started` DESC """
-                    await cur.execute(sql, (user_id, 'COMPLETED', lapDuration,))
+                    await cur.execute(sql, (user_id, 'COMPLETED', lap_duration,))
                     result = await cur.fetchall()
                     if result: return result
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return []
@@ -138,7 +139,7 @@ class database_economy():
                         await cur.execute(sql, (guild_id, 1))
                         result = await cur.fetchall()
                         if result: return result
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return None
@@ -152,7 +153,7 @@ class database_economy():
                     await cur.execute(sql, (work_id))
                     result = await cur.fetchone()
                     if result: return result
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return None
@@ -168,7 +169,7 @@ class database_economy():
                     await cur.execute(sql, (user_id, guild_id, work_id, int(time.time()), duration_in_second, reward_coin_name, reward_amount, fee_amount, reward_decimal, exp, health, energy))
                     await conn.commit()
                     return True
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return None
@@ -187,7 +188,7 @@ class database_economy():
                     await cur.execute(sql, (exp, health, energy, user_id,))
                     await conn.commit()
                     return True
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return None
@@ -207,7 +208,7 @@ class database_economy():
                         await cur.execute(sql, (guild_id,))
                         result = await cur.fetchall()
                         if result: return result
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return None
@@ -270,7 +271,7 @@ class database_economy():
                     await cur.execute(sql, ( cost_coin_name, contract, user_id, "ECONOMY", guild_id, channel_id, fee_amount, real_amount_usd, cost_decimal, "ECONOMY", currentTs, user_server, user_id, cost_coin_name, user_server, -fee_amount, currentTs, "ECONOMY", cost_coin_name, user_server, fee_amount, currentTs ))
                     await conn.commit()
                     return True
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return None
@@ -285,37 +286,37 @@ class database_economy():
                     await cur.execute(sql, (food_id))
                     result = await cur.fetchone()
                     if result: return result
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return None
 
     async def economy_get_guild_eating_list_record(self, guild_id: str, duration: int=3600):
-        lapDuration = int(time.time()) - duration
+        lap_duration = int(time.time()) - duration
         try:
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM discord_economy_eating WHERE `guild_id` = %s AND `date`>%s ORDER BY `date` DESC """
-                    await cur.execute(sql, (guild_id, lapDuration,))
+                    await cur.execute(sql, (guild_id, lap_duration,))
                     result = await cur.fetchall()
                     if result: return result
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return None
 
     async def economy_get_user_eating_list_record(self, user_id: str, duration: int=3600):
-        lapDuration = int(time.time()) - duration
+        lap_duration = int(time.time()) - duration
         try:
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM discord_economy_eating WHERE `user_id` = %s AND `date`>%s ORDER BY `date` DESC """
-                    await cur.execute(sql, (user_id, lapDuration,))
+                    await cur.execute(sql, (user_id, lap_duration,))
                     result = await cur.fetchall()
                     if result: return result
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return None
@@ -329,7 +330,7 @@ class database_economy():
                     await cur.execute(sql, ('YES'))
                     result = await cur.fetchall()
                     if result: return result
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return []
@@ -354,22 +355,22 @@ class database_economy():
                     await cur.execute(sql, (item_id,))
                     await conn.commit()
                     return True
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return None
 
     async def economy_get_user_searched_item_list_record(self, user_id: str, duration: int=3600):
-        lapDuration = int(time.time()) - duration
+        lap_duration = int(time.time()) - duration
         try:
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM discord_economy_secret_findings WHERE `user_id` = %s AND `date`>%s ORDER BY `date` DESC """
-                    await cur.execute(sql, (user_id, lapDuration,))
+                    await cur.execute(sql, (user_id, lap_duration,))
                     result = await cur.fetchall()
                     if result: return result
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return []
@@ -393,7 +394,7 @@ class database_economy():
                         await cur.execute(sql, (user_id, 'NO', 'YES', count_what))
                         result = await cur.fetchone()
                         if result: return result
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return []
@@ -408,7 +409,7 @@ class database_economy():
                     await cur.execute(sql, (item_id))
                     result = await cur.fetchone()
                     if result: return result
-        except Exception as e:
+        except Exception:
             await logchanbot(traceback.format_exc())
         return None
 
@@ -429,7 +430,7 @@ class database_economy():
                         await cur.execute(sql, (gained_health, user_id,))
                     await conn.commit()
                     return True
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return None
@@ -443,7 +444,7 @@ class database_economy():
                     await cur.execute(sql, (item_name, item_name))
                     result = await cur.fetchone()
                     if result: return result
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return None
@@ -457,7 +458,7 @@ class database_economy():
                     await cur.execute(sql,)
                     result = await cur.fetchall()
                     if result: return result
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return []
@@ -528,7 +529,7 @@ class database_economy():
                     await cur.execute(sql, (item_id, user_id, guild_id, credit, int(time.time()),))
                     await conn.commit()
                     return True
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return None
@@ -543,7 +544,7 @@ class database_economy():
                     await cur.execute(sql,)
                     result = await cur.fetchall()
                     if result: return result
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return []
@@ -572,7 +573,7 @@ class database_economy():
                     await cur.executemany(sql, fishing_id_arr)
                     await conn.commit()
                     return True
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return None
@@ -589,7 +590,7 @@ class database_economy():
                     await cur.execute(sql, (user_id, 'NO', 'YES'))
                     result = await cur.fetchall()
                     if result: return result
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return []
@@ -611,7 +612,7 @@ class database_economy():
                     await cur.execute(sql, ('YES', int(time.time()), fish_id, user_id, 'NO', 'YES'))
                     await conn.commit()
                     return True
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return None
@@ -640,7 +641,7 @@ class database_economy():
                     await cur.executemany(sql, fishing_sold)
                     await conn.commit()
                     return True
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return None
@@ -659,7 +660,7 @@ class database_economy():
                     await cur.execute(sql, (energy_loss, exp_gained, user_id,))
                     await conn.commit()
                     return True
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return None
@@ -677,7 +678,7 @@ class database_economy():
                     await cur.execute(sql, (energy_loss, user_id,))
                     await conn.commit()
                     return True
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return None
@@ -696,7 +697,7 @@ class database_economy():
                     await cur.execute(sql, (user_id, 'NO'))
                     result2 = await cur.fetchone()
                     if result and result2: return {'timber_nos': result['tree_numbers'], 'timber_vol': result['timbers'], 'leaf_nos': result2['tree_numbers'], 'leaf_kg': result2['leaves']}
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return []
@@ -710,7 +711,7 @@ class database_economy():
                     await cur.execute(sql,)
                     result = await cur.fetchall()
                     if result: return result
-        except Exception as e:
+        except Exception:
             await logchanbot(traceback.format_exc())
         return []
 
@@ -725,7 +726,7 @@ class database_economy():
                     result = await cur.fetchone()
                     if 'COUNT(*)' in result:
                         return int(result['COUNT(*)'])
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return 0
@@ -744,7 +745,7 @@ class database_economy():
                     await cur.execute(sql, ('YES', 'NO', user_id))
                     result = await cur.fetchall()
                     if result: return result
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return []
@@ -761,7 +762,7 @@ class database_economy():
                     await cur.execute(sql, (user_id, 'NO'))
                     result = await cur.fetchall()
                     if result: return result
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return []
@@ -802,7 +803,7 @@ class database_economy():
                         await cur.execute(sql, (plant_id,))
                         await conn.commit()
                         return True                
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return None
@@ -819,7 +820,7 @@ class database_economy():
                     await cur.executemany(sql, list_update)
                     await conn.commit()
                     return True
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return None
@@ -837,7 +838,7 @@ class database_economy():
                     await cur.execute(sql, ('YES', int(time.time()), plant_id, user_id, 'NO', 'YES'))
                     await conn.commit()
                     return True
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return None
@@ -851,7 +852,7 @@ class database_economy():
                     await cur.execute(sql, (user_id))
                     result = await cur.fetchall()
                     if result: return result
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return []
@@ -878,7 +879,7 @@ class database_economy():
                     await cur.executemany(sql, list_update)
                     await conn.commit()
                     return True
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return None
@@ -892,7 +893,7 @@ class database_economy():
                     await cur.execute(sql, (user_id, 'NO'))
                     result = await cur.fetchall()
                     if result: return result
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return []
@@ -914,7 +915,7 @@ class database_economy():
                     await cur.executemany(sql, list_update)
                     await conn.commit()
                     return True
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return None
@@ -929,7 +930,7 @@ class database_economy():
                     await cur.execute(sql, (user_id))
                     result = await cur.fetchall()
                     if result: return result
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return []
@@ -956,7 +957,7 @@ class database_economy():
                     await cur.executemany(sql, list_update)
                     await conn.commit()
                     return True
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return None
@@ -970,7 +971,7 @@ class database_economy():
                     await cur.execute(sql, (user_id, 'NO'))
                     result = await cur.fetchall()
                     if result: return result
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return []
@@ -992,7 +993,7 @@ class database_economy():
                     await cur.executemany( sql, list_update )
                     await conn.commit()
                     return True
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return None
@@ -1008,7 +1009,7 @@ class database_economy():
                     await cur.execute(sql, (user_id))
                     result = await cur.fetchall()
                     if result: return result
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return []
@@ -1035,7 +1036,7 @@ class database_economy():
                     await cur.executemany(sql, list_update)
                     await conn.commit()
                     return True
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return None
@@ -1049,7 +1050,7 @@ class database_economy():
                     await cur.execute(sql, (user_id, 'NO'))
                     result = await cur.fetchall()
                     if result: return result
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return []
@@ -1071,7 +1072,7 @@ class database_economy():
                     await cur.executemany(sql, list_update)
                     await conn.commit()
                     return True
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return None
@@ -1086,7 +1087,7 @@ class database_economy():
                     await cur.execute(sql, ( level_inc, credit_cost, user_id ))
                     await conn.commit()
                     return True
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return None
@@ -1101,7 +1102,7 @@ class database_economy():
                     await cur.execute(sql, ( level_inc, credit_cost, add_energy, user_id ))
                     await conn.commit()
                     return True
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return None
@@ -1116,7 +1117,7 @@ class database_economy():
                     await cur.execute(sql,)
                     result = await cur.fetchall()
                     if result: return result
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return []
@@ -1179,7 +1180,7 @@ class Economy(commands.Cog):
         try:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking buying items.."
             await ctx.response.send_message(msg)
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             return
 
@@ -1325,7 +1326,7 @@ class Economy(commands.Cog):
                                 update_item = None
                                 try:
                                     update_item = await self.db.discord_economy_userinfo_what(str(ctx.guild.id), str(ctx.author.id), get_shop_item['id'], item_name, add_item_numbers, -credit_cost)
-                                except Exception as e:
+                                except Exception:
                                     traceback.print_exc(file=sys.stdout)
                                     await logchanbot(traceback.format_exc())
                                 item_desc = get_shop_item['item_name'] + " " + get_shop_item['item_emoji'] + " x" + str(add_item_numbers)
@@ -1338,7 +1339,7 @@ class Economy(commands.Cog):
                         else:
                             await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention} item `{item_name}` is not available.")
                             return
-                except Exception as e:
+                except Exception:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
                 if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO: self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
@@ -1516,7 +1517,7 @@ class Economy(commands.Cog):
                         msg = f"{ctx.author.name}#{ctx.author.discriminator}, You do not have milk to sell!"
                         await ctx.edit_original_message(content=msg)
                         return
-                except Exception as e:
+                except Exception:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
             elif item_name.strip().upper() == "SALT":
@@ -1553,7 +1554,7 @@ class Economy(commands.Cog):
                         msg = f"{ctx.author.name}#{ctx.author.discriminator}, You do not have salt to sell!"
                         await ctx.edit_original_message(content=msg)
                         return
-                except Exception as e:
+                except Exception:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
             elif item_name.strip().upper() == "EGG":
@@ -1590,14 +1591,14 @@ class Economy(commands.Cog):
                         msg = f"{ctx.author.name}#{ctx.author.discriminator}, You do not have chicken egg(s) to sell!"
                         await ctx.edit_original_message(content=msg)
                         return
-                except Exception as e:
+                except Exception:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
             else:
                 msg = f"{ctx.author.name}#{ctx.author.discriminator}, not valid to sell `{item_name}` or you do not have it!"
                 await ctx.edit_original_message(content=msg)
                 return
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
@@ -1607,7 +1608,7 @@ class Economy(commands.Cog):
         try:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking info..."
             await ctx.response.send_message(content=msg)
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             return
 
@@ -1681,7 +1682,7 @@ class Economy(commands.Cog):
         try:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking backpack items.."
             await ctx.response.send_message(msg)
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             return
 
@@ -1722,7 +1723,7 @@ class Economy(commands.Cog):
                             self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                         await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention} You do not have anything in your backpack.")
                         return
-            except Exception as e:
+            except Exception:
                 if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
                     self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                 traceback.print_exc(file=sys.stdout)
@@ -1733,7 +1734,7 @@ class Economy(commands.Cog):
         try:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking lumber storage.."
             await ctx.response.send_message(msg)
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             return
 
@@ -1748,14 +1749,14 @@ class Economy(commands.Cog):
             else:
                 await ctx.edit_original_message(content=f"{member.name}#{member.discriminator}, not having timber/leaves!")
                 return
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
 
     async def eco_fish(self, ctx, member):
         try:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking fish storage.."
             await ctx.response.send_message(msg)
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             return
 
@@ -1775,7 +1776,7 @@ class Economy(commands.Cog):
             else:
                 await ctx.edit_original_message(content=f"{member.name}#{member.discriminator}, not having fish! Please do `/eco fishing`.")
                 return
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
 
     async def eco_plant(self, ctx, plant_name):
@@ -1816,7 +1817,7 @@ class Economy(commands.Cog):
                 if get_userinfo['tree_seed'] < will_plant:
                     will_plant = get_userinfo['tree_seed']
             check_planting_nos = await self.db.economy_farm_user_planting_check_max(str(ctx.author.id))
-            if check_planting_nos + will_plant > self.eco_max_plant_level[str(get_userinfo['farm_level'])] and has_tractor == True:
+            if check_planting_nos + will_plant > self.eco_max_plant_level[str(get_userinfo['farm_level'])] and has_tractor is True:
                 will_plant = self.eco_max_plant_level[str(get_userinfo['farm_level'])] - check_planting_nos
             # If health less than 50%, stop
             if get_userinfo['health_current']/get_userinfo['health_total'] < 0.5:
@@ -1873,14 +1874,14 @@ class Economy(commands.Cog):
                                                                    selected_crop['credit_per_item'], exp_gained, energy_loss, will_plant)
                 if insert_item:
                     await ctx.edit_original_message(content=f'{with_tractor}{EMOJI_INFORMATION} {ctx.author.mention} Nice! You have planted `{will_plant}` {crop_name} in your farm. You gained `{str(exp_gained*will_plant)}` planting experience and used `{str(energy_loss)}` energy. You have {str(check_planting_nos+will_plant)} crop(s) in your farm now.')
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
 
     async def eco_collect(self, ctx, what):
         try:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking what you are collecting..."
             await ctx.response.send_message(msg)
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             return
 
@@ -1928,7 +1929,7 @@ class Economy(commands.Cog):
                 else:
                     msg = f"{ctx.author.mention}, you do not have any cow."
                     await ctx.edit_original_message(content=msg)
-            except Exception as e:
+            except Exception:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot(traceback.format_exc())
         elif what == "EGG":
@@ -1956,7 +1957,7 @@ class Economy(commands.Cog):
                 else:
                     msg = f"{ctx.author.mention}, you do not have any chicken."
                     await ctx.edit_original_message(content=msg)
-            except Exception as e:
+            except Exception:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot(traceback.format_exc())
         elif what == "SALT":
@@ -1984,7 +1985,7 @@ class Economy(commands.Cog):
                 else:
                     msg = f"{ctx.author.mention}, you do not have any salt field."
                     await ctx.edit_original_message(content=msg)
-            except Exception as e:
+            except Exception:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot(traceback.format_exc())
         else:
@@ -1997,7 +1998,7 @@ class Economy(commands.Cog):
         try:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your dairy cattle..."
             await ctx.response.send_message(msg)
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             return
 
@@ -2080,13 +2081,13 @@ class Economy(commands.Cog):
                     if get_raw_milk and len(get_raw_milk) > 0:
                         qty_raw_milk = sum(each['collected_qty'] for each in get_raw_milk)
                         e.add_field(name="Raw Milk Available", value=cow_emoji + " x" +str(len(get_raw_milk)) + "={:,.2f}".format(qty_raw_milk), inline=False)
-                except Exception as e:
+                except Exception:
                     traceback.print_exc(file=sys.stdout)
                 e.set_footer(text=f"Requested by {ctx.author.name}#{ctx.author.discriminator}")
                 e.set_thumbnail(url=member.display_avatar)
                 msg = await ctx.edit_original_message(content=None, embed=e)
                 
-            except Exception as e:
+            except Exception:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot(traceback.format_exc())
 
@@ -2094,7 +2095,7 @@ class Economy(commands.Cog):
         try:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your chicken farm..."
             await ctx.response.send_message(msg)
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             return
 
@@ -2168,19 +2169,19 @@ class Economy(commands.Cog):
                     if get_eggs and len(get_eggs) > 0:
                         qty_eggs = sum(each['collected_qty'] for each in get_eggs)
                         e.add_field(name="Egg Available", value=chicken_emoji + " x" +str(len(get_eggs)) + "={:,.0f}".format(qty_eggs), inline=False)
-                except Exception as e:
+                except Exception:
                     traceback.print_exc(file=sys.stdout)
                 e.set_footer(text=f"Requested by {ctx.author.name}#{ctx.author.discriminator}")
                 e.set_thumbnail(url=member.display_avatar)
                 msg = await ctx.edit_original_message(content=None, embed=e)
-            except Exception as e:
+            except Exception:
                 traceback.print_exc(file=sys.stdout)
 
     async def eco_farm(self, ctx, member):
         try:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your farm..."
             await ctx.response.send_message(msg)
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             return
 
@@ -2260,12 +2261,12 @@ class Economy(commands.Cog):
                         for each_item in get_user_harvested_crops:
                             harvested_lists += each_item['plant_name'] + " " + each_item['plant_emoji'] + " x" +str(each_item['numbers']) + "={:,.0f}".format(each_item['total_products']) + "\n"
                         e.add_field(name="Harvest Available", value=harvested_lists, inline=False)
-                except Exception as e:
+                except Exception:
                     traceback.print_exc(file=sys.stdout)
                 e.set_footer(text=f"Requested by {ctx.author.name}#{ctx.author.discriminator}")
                 e.set_thumbnail(url=member.display_avatar)
                 msg = await ctx.edit_original_message(content=None, embed=e)
-            except Exception as e:
+            except Exception:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot(traceback.format_exc())
 
@@ -2273,7 +2274,7 @@ class Economy(commands.Cog):
         try:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your salt farm..."
             await ctx.response.send_message(msg)
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             return
 
@@ -2356,13 +2357,13 @@ class Economy(commands.Cog):
                     if get_raw_salt and len(get_raw_salt) > 0:
                         qty_raw_salt = sum(each['collected_qty'] for each in get_raw_salt)
                         e.add_field(name="Raw Salt Available", value=salt_farm_emoji + " x" +str(len(get_raw_salt)) + "={:,.2f}".format(qty_raw_salt), inline=False)
-                except Exception as e:
+                except Exception:
                     traceback.print_exc(file=sys.stdout)
                 e.set_footer(text=f"Requested by {ctx.author.name}#{ctx.author.discriminator}")
                 e.set_thumbnail(url=member.display_avatar)
                 msg = await ctx.edit_original_message(content=None, embed=e)
                 
-            except Exception as e:
+            except Exception:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot(traceback.format_exc())
 
@@ -2375,7 +2376,7 @@ class Economy(commands.Cog):
         try:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your farm..."
             await ctx.response.send_message(msg)
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             return
 
@@ -2412,7 +2413,7 @@ class Economy(commands.Cog):
             else:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you do not have any plant for harvesting yet. Please plant them!"
                 await ctx.edit_original_message(content=msg)
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
@@ -2423,7 +2424,7 @@ class Economy(commands.Cog):
         try:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your fishing tools..."
             await ctx.response.send_message(msg)
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             return
 
@@ -2445,7 +2446,7 @@ class Economy(commands.Cog):
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention} You too much in storage (max. {max_storage}kg). Please sell some of them!"
                     await ctx.edit_original_message(content=msg)
                     return
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
 
@@ -2486,7 +2487,7 @@ class Economy(commands.Cog):
             try:
                 loop_exp = math.floor(math.log10(fishing_exp**0.75)) - 1
                 if loop_exp < 0: loop_exp = 0
-            except Exception as e:
+            except Exception:
                 traceback.print_exc(file=sys.stdout)
 
             selected_item_list = []
@@ -2546,7 +2547,7 @@ class Economy(commands.Cog):
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, there is no fish."
                 await ctx.edit_original_message(content=msg)
                 return
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
@@ -2556,7 +2557,7 @@ class Economy(commands.Cog):
         try:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your tool..."
             await ctx.response.send_message(msg)
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             return
 
@@ -2599,10 +2600,10 @@ class Economy(commands.Cog):
                 insert_woodcut = await self.db.economy_insert_woodcutting(str(ctx.author.id), str(ctx.guild.id), timber_volume, leaf_kg, energy_loss)
                 if insert_woodcut:
                     await ctx.edit_original_message(content=f'{EMOJI_INFORMATION} {ctx.author.mention} You cut a tree. You got `{timber_volume}m3` of timber, `{leaf_kg}kg` of leaves. You used `{energy_loss}` energy.')
-            except Exception as e:
+            except Exception:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot(traceback.format_exc())
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
@@ -2612,7 +2613,7 @@ class Economy(commands.Cog):
         try:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your search..."
             await ctx.response.send_message(msg)
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             return
 
@@ -2658,7 +2659,7 @@ class Economy(commands.Cog):
                         if selected_item['item_gem'] and selected_item['item_gem'] > 0:
                             item_info += " with {:,.0f} gem(s)".format(selected_item['item_gem'])
                         await ctx.edit_original_message(content=f'{EMOJI_INFORMATION} {ctx.author.mention} Nice! You have found a box and with {item_info} inside. You put it into your backpack.')
-                except Exception as e:
+                except Exception:
                     traceback.print_exc(file=sys.stdout)
             else:
                 # Get empty box
@@ -2666,7 +2667,7 @@ class Economy(commands.Cog):
                 insert_item = await self.db.economy_insert_secret_findings(8, str(ctx.author.id), str(ctx.guild.id), 0, 0, 0, False)
                 if insert_item:
                     await ctx.edit_original_message(content=f'{EMOJI_INFORMATION} {ctx.author.mention} You found an empty box. Good luck next time!')
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
         if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
             self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
@@ -2681,7 +2682,7 @@ class Economy(commands.Cog):
         try:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your meal orders..."
             await ctx.response.send_message(msg)
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             return
 
@@ -2717,9 +2718,9 @@ class Economy(commands.Cog):
                 all_food_in_guild = {}
                 if get_foodlist_guild and len(get_foodlist_guild) > 0:
                     for each_food in get_foodlist_guild:
-                        COIN_NAME = each_food['cost_coin_name']
-                        coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
-                        e.add_field(name=each_food['food_name'] + " " + each_food['food_emoji'], value="```Energy: {} / Cost: {}{}```".format(each_food['gained_energy'], num_format_coin(each_food['cost_expense_amount'], COIN_NAME, coin_decimal, False), each_food['cost_coin_name']), inline=False)
+                        coin_name = each_food['cost_coin_name']
+                        coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+                        e.add_field(name=each_food['food_name'] + " " + each_food['food_emoji'], value="```Energy: {} / Cost: {}{}```".format(each_food['gained_energy'], num_format_coin(each_food['cost_expense_amount'], coin_name, coin_decimal, False), each_food['cost_coin_name']), inline=False)
                         all_food_in_guild[str(each_food['food_emoji'])] = each_food['food_id']
                     e.set_footer(text=f"User {ctx.author.name}#{ctx.author.discriminator}")
                     e.set_thumbnail(url=ctx.author.display_avatar)                    
@@ -2781,9 +2782,9 @@ class Economy(commands.Cog):
                     if get_worklist_guild and len(get_worklist_guild) > 0:
                         for each_work in get_worklist_guild:
                             plus_minus = "+" if each_work['reward_expense_amount'] > 0 else ""
-                            COIN_NAME = each_work['reward_coin_name']
-                            coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
-                            reward_string = plus_minus + num_format_coin(each_work['reward_expense_amount'], COIN_NAME, coin_decimal, False) + " " + COIN_NAME
+                            coin_name = each_work['reward_coin_name']
+                            coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+                            reward_string = plus_minus + num_format_coin(each_work['reward_expense_amount'], coin_name, coin_decimal, False) + " " + coin_name
                             e.add_field(name=each_work['work_name'] + " " + each_work['work_emoji'] + " ( Duration: {}) | {}".format(seconds_str(each_work['duration_in_second']), reward_string), value="```Exp: {}xp / Energy: {} / Health: {}```".format(each_work['exp_gained_loss'], each_work['energy_loss'], each_work['health_loss']), inline=False)
                             all_work_in_guild[str(each_work['work_emoji'])] = each_work['work_id']
                         e.set_footer(text=f"User {ctx.author.name}#{ctx.author.discriminator}")
@@ -2802,32 +2803,32 @@ class Economy(commands.Cog):
                             # Get guild's balance not ctx.guild
                             played_guild = self.bot.get_guild(int(get_last_act['guild_id']))
                             # Check guild's balance:
-                            COIN_NAME = get_last_act['reward_coin_name'].upper()                           
-                            net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
-                            type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
-                            deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
-                            get_deposit = await self.wallet_api.sql_get_userwallet(get_last_act['guild_id'], COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                            coin_name = get_last_act['reward_coin_name'].upper()                           
+                            net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+                            type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+                            deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+                            get_deposit = await self.wallet_api.sql_get_userwallet(get_last_act['guild_id'], coin_name, net_name, type_coin, SERVER_BOT, 0)
                             if get_deposit is None:
-                                get_deposit = await self.wallet_api.sql_register_user(get_last_act['guild_id'], COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                                get_deposit = await self.wallet_api.sql_register_user(get_last_act['guild_id'], coin_name, net_name, type_coin, SERVER_BOT, 0)
                             wallet_address = get_deposit['balance_wallet_address']
                             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                                 wallet_address = get_deposit['paymentid']
 
-                            height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
+                            height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                             # height can be None
-                            userdata_balance = await store.sql_user_balance_single(get_last_act['guild_id'], COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+                            userdata_balance = await store.sql_user_balance_single(get_last_act['guild_id'], coin_name, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
                             total_balance = userdata_balance['adjust']
 
                             # Negative check
                             try:
                                 if total_balance < 0:
-                                    msg_negative = 'Negative balance detected:\Guild: '+str(get_last_act['guild_id'])+'\nCoin: '+COIN_NAME+'\nBalance: '+str(total_balance)
+                                    msg_negative = 'Negative balance detected:\Guild: '+str(get_last_act['guild_id'])+'\nCoin: '+coin_name+'\nBalance: '+str(total_balance)
                                     await logchanbot(msg_negative)
-                            except Exception as e:
+                            except Exception:
                                 await logchanbot(traceback.format_exc())
                             # End negative check
                             if get_last_act['reward_amount'] > total_balance:
-                                await logchanbot(str(get_last_act['guild_id']) + f' runs out of balance for coin {COIN_NAME}. Stop rewarding.')
+                                await logchanbot(str(get_last_act['guild_id']) + f' runs out of balance for coin {coin_name}. Stop rewarding.')
                                 msg = f"{EMOJI_ERROR} {ctx.author.mention}, this guild runs out of balance to give reward."
                                 await ctx.edit_original_message(content=msg)
                                 return
@@ -2843,12 +2844,12 @@ class Economy(commands.Cog):
                                 if update_work:
                                     completed_task = 'You completed task #{}\n'.format(get_last_act['id'])
                                     completed_task += 'Gained Exp: {}\n'.format(get_last_act['exp'])
-                                    COIN_NAME = get_last_act['reward_coin_name']
-                                    coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
-                                    contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
-                                    usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
+                                    coin_name = get_last_act['reward_coin_name']
+                                    coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+                                    contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+                                    usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
                                     if get_last_act['reward_amount'] and get_last_act['reward_amount'] > 0:
-                                        completed_task += 'Reward Coin: {}{}\n'.format(num_format_coin(get_last_act['reward_amount'], COIN_NAME, coin_decimal, False), get_last_act['reward_coin_name'])
+                                        completed_task += 'Reward Coin: {}{}\n'.format(num_format_coin(get_last_act['reward_amount'], coin_name, coin_decimal, False), get_last_act['reward_coin_name'])
                                     if get_last_act['health'] and get_last_act['health'] > 0:
                                         completed_task += 'Gained Health: {}\n'.format(get_last_act['health'])
                                     if get_last_act['energy'] and get_last_act['energy'] > 0:
@@ -2858,19 +2859,19 @@ class Economy(commands.Cog):
 
                                     amount_in_usd = 0.0
                                     if usd_equivalent_enable == 1:
-                                        native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
-                                        COIN_NAME_FOR_PRICE = COIN_NAME
+                                        native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
+                                        coin_name_for_price = coin_name
                                         if native_token_name:
-                                            COIN_NAME_FOR_PRICE = native_token_name
-                                        if COIN_NAME_FOR_PRICE in self.bot.token_hints:
-                                            id = self.bot.token_hints[COIN_NAME_FOR_PRICE]['ticker_name']
+                                            coin_name_for_price = native_token_name
+                                        if coin_name_for_price in self.bot.token_hints:
+                                            id = self.bot.token_hints[coin_name_for_price]['ticker_name']
                                             per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
                                         else:
-                                            per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
+                                            per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
                                         if per_unit and per_unit > 0:
                                             amount_in_usd = float(Decimal(per_unit) * Decimal(get_last_act['reward_amount']))
 
-                                    reward = await store.sql_user_balance_mv_single(get_last_act['guild_id'], str(ctx.author.id), str(ctx.guild.id), str(ctx.channel.id), get_last_act['reward_amount'], COIN_NAME, 'ECONOMY', coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
+                                    reward = await store.sql_user_balance_mv_single(get_last_act['guild_id'], str(ctx.author.id), str(ctx.guild.id), str(ctx.channel.id), get_last_act['reward_amount'], coin_name, 'ECONOMY', coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
                                     await ctx.edit_original_message(content=f'{EMOJI_INFORMATION} {ctx.author.mention} ```{completed_task}```')
                                 else:
                                     msg = f"{EMOJI_ERROR} {ctx.author.mention}, internal error."
@@ -3194,7 +3195,7 @@ class Economy(commands.Cog):
             self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
         try:
             eco_work = await self.eco_work(ctx)
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
         if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
             self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)

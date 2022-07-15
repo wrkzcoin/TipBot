@@ -8,7 +8,7 @@ from disnake.enums import OptionType
 from disnake.app_commands import Option
 
 from Bot import logchanbot
-from utils import MenuPage
+from cogs.utils import MenuPage
 
 
 class Core(commands.Cog):
@@ -34,14 +34,14 @@ class Core(commands.Cog):
                         count += 1
                         try:
                             await each.delete()
-                        except Exception as e:
+                        except Exception:
                             traceback.print_exc(file=sys.stdout)
                             await asyncio.sleep(4.0)
                 await ctx.edit_original_message(content=f'{ctx.author.mention}, Found {str(count)} message(s) in {ctx.channel.mention} and deleted.')
                 await logchanbot(f"[CLEARBOTMSG] in guild {ctx.guild.name} / {ctx.guild.id} by {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.id} in channel #{ctx.channel.name} completed with {str(count)} message(s).")
             else:
                 await ctx.response.send_message("There is no message by me or anymore.", ephemeral=True)
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
 
 
@@ -405,13 +405,13 @@ You can withdraw with command `/withdraw amount coin address`. We recommend you 
             try:
                 if len(slash_help[cmd]['subcmd']) > 0:
                     sub_command = ", ".join(slash_help[cmd]['subcmd'])
-            except Exception as e:
+            except Exception:
                 traceback.print_exc(file=sys.stdout)
             # related
             try:
                 if len(slash_help[cmd]['related']) > 0:
                     command_related = ", ".join(slash_help[cmd]['related'])
-            except Exception as e:
+            except Exception:
                 traceback.print_exc(file=sys.stdout)
             embed = disnake.Embed(
                 colour=disnake.Colour.random(),

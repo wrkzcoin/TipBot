@@ -1,27 +1,19 @@
-import asyncio
-import datetime
-import difflib
-import re
-from enum import Enum
-import sys, traceback
+import sys
+import traceback
+from typing import List
 
 import disnake
-import numpy as np
-from disnake.embeds import _EmptyEmbed
-from disnake.ext.commands import BadArgument, Converter
+from disnake.ext import commands
 
-from disnake import ActionRow, Button, ButtonStyle
-from disnake.enums import OptionType
-from disnake.app_commands import Option, OptionChoice
-from typing import List
-from Bot import RowButton_row_close_any_message
+import store
+from Bot import RowButtonRowCloseAnyMessage
 
 
 # Defines a simple paginator of buttons for the embed.
 class MenuPage(disnake.ui.View):
     message: disnake.Message
 
-    def __init__(self, inter, embeds: List[disnake.Embed], timeout: float=60):
+    def __init__(self, inter, embeds: List[disnake.Embed], timeout: float = 60):
         super().__init__(timeout=timeout)
         self.inter = inter
 
@@ -33,7 +25,7 @@ class MenuPage(disnake.ui.View):
 
         # Disables previous page button by default.
         self.prev_page.disabled = True
-        
+
         self.first_page.disabled = True
 
         if isinstance(self.inter.channel, disnake.DMChannel):
@@ -43,21 +35,19 @@ class MenuPage(disnake.ui.View):
         for i, embed in enumerate(self.embeds):
             embed.set_footer(text=f"Page {i + 1} of {len(self.embeds)}")
 
-
     async def on_timeout(self):
         for child in self.children:
             if isinstance(child, disnake.ui.Button):
                 child.disabled = True
 
         if type(self.inter) == disnake.ApplicationCommandInteraction:
-            await self.inter.edit_original_message(view=RowButton_row_close_any_message())
+            await self.inter.edit_original_message(view=RowButtonRowCloseAnyMessage())
         else:
             if self.message:
                 try:
-                    await self.message.edit(view=RowButton_row_close_any_message())
+                    await self.message.edit(view=RowButtonRowCloseAnyMessage())
                 except Exception as e:
                     pass
-
 
     @disnake.ui.button(label="⏪", style=disnake.ButtonStyle.red)
     async def first_page(self, button: disnake.ui.Button, interaction: disnake.MessageInteraction):
@@ -69,7 +59,7 @@ class MenuPage(disnake.ui.View):
 
         # Gets the embed object.
         embed = self.embeds[self.embed_count]
-        
+
         self.last_page.disabled = False
 
         # Enables the next page button and disables the previous page button if we're on the first embed.
@@ -79,7 +69,6 @@ class MenuPage(disnake.ui.View):
             self.first_page.disabled = True
 
         await interaction.response.edit_message(embed=embed, view=self)
-
 
     @disnake.ui.button(label="◀️", style=disnake.ButtonStyle.red)
     async def prev_page(self, button: disnake.ui.Button, interaction: disnake.MessageInteraction):
@@ -91,7 +80,7 @@ class MenuPage(disnake.ui.View):
 
         # Gets the embed object.
         embed = self.embeds[self.embed_count]
-        
+
         self.last_page.disabled = False
 
         # Enables the next page button and disables the previous page button if we're on the first embed.
@@ -107,7 +96,7 @@ class MenuPage(disnake.ui.View):
     async def remove(self, button: disnake.ui.Button, interaction: disnake.MessageInteraction):
         if interaction.author != self.inter.author:
             return
-        #await interaction.response.edit_message(view=None)
+        # await interaction.response.edit_message(view=None)
         try:
             if type(self.inter) == disnake.ApplicationCommandInteraction:
                 await interaction.delete_original_message()
@@ -129,7 +118,7 @@ class MenuPage(disnake.ui.View):
 
         # Enables the previous page button and disables the next page button if we're on the last embed.
         self.prev_page.disabled = False
-        
+
         self.first_page.disabled = False
 
         if self.embed_count == len(self.embeds) - 1:
@@ -137,7 +126,6 @@ class MenuPage(disnake.ui.View):
             self.last_page.disabled = True
 
         await interaction.response.edit_message(embed=embed, view=self)
-
 
     @disnake.ui.button(label="⏩", style=disnake.ButtonStyle.green)
     async def last_page(self, button: disnake.ui.Button, interaction: disnake.MessageInteraction):
@@ -148,7 +136,7 @@ class MenuPage(disnake.ui.View):
 
         # Gets the embed object.
         embed = self.embeds[self.embed_count]
-        
+
         self.first_page.disabled = False
 
         # Enables the previous page button and disables the next page button if we're on the last embed.
@@ -159,3 +147,27 @@ class MenuPage(disnake.ui.View):
 
         await interaction.response.edit_message(embed=embed, view=self)
 
+
+class Utils(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+
+    async def get_bot_settings(self):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `bot_settings` """
+                    await cur.execute(sql, )
+                    result = await cur.fetchall()
+                    res = {}
+                    for each in result:
+                        res[each['name']] = each['value']
+                    return res
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
+
+def setup(bot):
+    bot.add_cog(Utils(bot))

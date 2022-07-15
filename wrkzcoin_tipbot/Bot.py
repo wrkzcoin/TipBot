@@ -1,64 +1,48 @@
 import asyncio
 # Eth wallet py
-import datetime
 import json
 import logging
-import math
 import os
-# for randomString
-import random
-import string
-import sys, traceback
-import time
-import click
-from datetime import datetime
-
-from decimal import Decimal
-import re
-# redis
-import redis
-import disnake
-from disnake.ext import commands
-from disnake.ext.commands import AutoShardedBot, when_mentioned
-from disnake import ActionRow, Button
-from disnake.enums import ButtonStyle
-
-# linedraw
-from linedraw.linedraw import *
-from cairosvg import svg2png
-
-from io import BytesIO
-
 ###
 import os.path
-import uuid
-from PIL import Image, ImageDraw, ImageFont
-# For eval
-import contextlib
-import io
-
-# For hash file in case already have
-import hashlib
-
-import numpy as np
-# ascii table
-from terminaltables import AsciiTable
+# for randomString
+import random
+import re
+import string
+import sys
+import traceback
+from datetime import datetime
+from decimal import Decimal
 
 import base58
-
+import click
+import disnake
+# redis
+import redis
 # Encrypt
 from cryptography.fernet import Fernet
-
 from discord_webhook import DiscordWebhook
+from disnake.enums import ButtonStyle
+from disnake.ext import commands
+from disnake.ext.commands import AutoShardedBot, when_mentioned
+
 import store
 from config import config
+# linedraw
+from linedraw.linedraw import *
+
+
+# For eval
+# For hash file in case already have
+# ascii table
 
 
 async def get_token_list():
     return await store.get_all_token()
 
+
 # Defines a simple view of row buttons.
-class RowButton_close_message(disnake.ui.View):
+class RowButtonCloseMessage(disnake.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
@@ -66,20 +50,20 @@ class RowButton_close_message(disnake.ui.View):
 
     @disnake.ui.button(label="❎ Close", style=ButtonStyle.blurple, custom_id="close_message")
     async def row_close_message(
-        self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
+            self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
     ):
-        #await interaction.response.send_message("This is the first button.")
+        # await interaction.response.send_message("This is the first button.")
         pass
 
 
 # Defines a simple view of row buttons.
-class RowButton_row_close_any_message(disnake.ui.View):
+class RowButtonRowCloseAnyMessage(disnake.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
     @disnake.ui.button(label="❎ Close", style=ButtonStyle.green, custom_id="close_any_message")
     async def row_close_message(
-        self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
+            self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
     ):
         pass
 
@@ -88,7 +72,7 @@ redis_pool = None
 redis_conn = None
 redis_expired = 120
 
-#logging.basicConfig(filename='debug-log-{}'.format(datetime.today().strftime('%Y-%m-%d_%H-%M-%S')), level=logging.DEBUG)
+# logging.basicConfig(filename='debug-log-{}'.format(datetime.today().strftime('%Y-%m-%d_%H-%M-%S')), level=logging.DEBUG)
 logging.basicConfig(filename='info-log-{}'.format(datetime.today().strftime('%Y-%m-%d_%H-%M-%S')), level=logging.INFO)
 
 SERVER_BOT = "DISCORD"
@@ -117,6 +101,7 @@ NOTIFICATION_OFF_CMD = 'Type: `/notifytip off` to turn off this notification.'
 DEFAULT_TICKER = "WRKZ"
 MSG_LOCKED_ACCOUNT = "Your account is locked. Please contact pluton#8888 in WrkzCoin discord."
 
+
 def init():
     global redis_pool
     print("PID %d: initializing redis pool..." % os.getpid())
@@ -134,10 +119,12 @@ def openRedis():
 
 async def logchanbot(content: str):
     try:
-        webhook = DiscordWebhook(url=config.discord.webhook_url, content=f'```{disnake.utils.escape_markdown(content)}```')
+        webhook = DiscordWebhook(url=config.discord.webhook_url,
+                                 content=f'```{disnake.utils.escape_markdown(content)}```')
         webhook.execute()
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
+
 
 # get shard count by statistic
 shard_number = 2
@@ -145,7 +132,8 @@ shard_number = 2
 intents = disnake.Intents.default()
 intents.members = True
 intents.presences = True
-bot = AutoShardedBot(shard_count=shard_number, command_prefix=when_mentioned, owner_id=config.discord.ownerID, intents=intents, sync_commands=True)
+bot = AutoShardedBot(shard_count=shard_number, command_prefix=when_mentioned, owner_id=config.discord.ownerID,
+                     intents=intents, sync_commands=True)
 bot.remove_command('help')
 
 bot.owner_id = config.discord.ownerID
@@ -172,26 +160,25 @@ bot.TX_IN_PROCESS = []
 bot.LOG_CHAN = config.discord.logchan
 bot.MINGPOOLSTAT_IN_PROCESS = []
 bot.GAME_INTERACTIVE_ECO = []
-bot.GAME_INTERACTIVE_PRGORESS = []
-bot.GAME_SLOT_IN_PRGORESS = []
+bot.GAME_INTERACTIVE_PROGRESS = []
+bot.GAME_SLOT_IN_PROGRESS = []
 bot.GAME_MAZE_IN_PROCESS = []
-bot.GAME_DICE_IN_PRGORESS = []
+bot.GAME_DICE_IN_PROGRESS = []
 bot.GAME_RAFFLE_QUEUE = []
 
-
 bot.erc_node_list = {
-    "FTM": config.default_endpoints.ftm, 
-    "BSC": config.default_endpoints.bsc, 
-    "MATIC": config.default_endpoints.matic, 
-    "xDai": config.default_endpoints.xdai, 
+    "FTM": config.default_endpoints.ftm,
+    "BSC": config.default_endpoints.bsc,
+    "MATIC": config.default_endpoints.matic,
+    "xDai": config.default_endpoints.xdai,
     "ETH": config.default_endpoints.eth,
     "TLOS": config.default_endpoints.tlos,
-    "AVAX": config.default_endpoints.avax, 
+    "AVAX": config.default_endpoints.avax,
     "TRX": config.Tron_Node.fullnode,
     "SOL": config.default_endpoints.sol,
     "CELO": config.default_endpoints.celo,
     "ONE": config.default_endpoints.one
-    }
+}
 
 
 @bot.command(usage="load <cog>")
@@ -204,6 +191,7 @@ async def load(ctx, extension):
         await ctx.send('{} has been loaded.'.format(extension.capitalize()))
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
+
 
 @bot.command(usage="unload <cog>")
 @disnake.ext.commands.is_owner()
@@ -245,11 +233,11 @@ async def add_msg_redis(msg: str, delete_temp: bool = False):
 
 async def store_message_list():
     while True:
-        interval_msg_list = 15 # in second
+        interval_msg_list = 15  # in second
         try:
             openRedis()
             key = config.redis.prefix + ":MSG"
-            if redis_conn and redis_conn.llen(key) > 0 :
+            if redis_conn and redis_conn.llen(key) > 0:
                 temp_msg_list = []
                 for each in redis_conn.lrange(key, 0, -1):
                     temp_msg_list.append(tuple(json.loads(each)))
@@ -288,7 +276,7 @@ def human_format(num):
 def text_to_num(text):
     text = text.upper()
     try:
-        text=Decimal(text)
+        text = Decimal(text)
         return text
     except Exception:
         pass
@@ -300,7 +288,7 @@ def text_to_num(text):
         test_ = text
         test_ = test_.upper().replace("K", "").replace("B", "").replace("M", "").replace(",", "")
         try:
-            test_=Decimal(test_)
+            test_ = Decimal(test_)
         except Exception:
             return None
 
@@ -308,15 +296,15 @@ def text_to_num(text):
         million = val.count("M")
         billion = val.count("B")
         if (thousand > 0 and million > 0) or (thousand > 0 and billion > 0) \
-        or (million > 0 and billion > 0):
+                or (million > 0 and billion > 0):
             # Invalid
             return None
         elif thousand > 0:
-            amount += Decimal(num) * (10**3)**thousand
+            amount += Decimal(num) * (10 ** 3) ** thousand
         elif million > 0:
-            amount += Decimal(num) * (10**6)**million
+            amount += Decimal(num) * (10 ** 6) ** million
         elif billion > 0:
-            amount += Decimal(num) * (10**9)**billion
+            amount += Decimal(num) * (10 ** 9) ** billion
     return amount
 
 
@@ -331,13 +319,13 @@ def seconds_str(time: float):
     return "{:02d}:{:02d}:{:02d}".format(hour, minutes, seconds)
 
 
-def num_format_coin(amount, coin: str, coin_decimal: int, atomic: bool=False):
-    COIN_NAME = coin.upper() 
+def num_format_coin(amount, coin: str, coin_decimal: int, atomic: bool = False):
+    COIN_NAME = coin.upper()
     if amount == 0:
         return "0.0"
 
-    if atomic == True:
-        amount = amount / int(10**coin_decimal)
+    if atomic:
+        amount = amount / int(10 ** coin_decimal)
         amount_str = 'Invalid.'
         if coin_decimal == 0:
             amount_test = '{:,f}'.format(float(('%f' % amount).rstrip('0').rstrip('.')))
@@ -357,7 +345,7 @@ def num_format_coin(amount, coin: str, coin_decimal: int, atomic: bool=False):
                 amount_str = amount_test
         elif coin_decimal < 18:
             amount = truncate(amount, 8)
-            amount_test = '{:,f}'.format(float(('%f' % (amount)).rstrip('0').rstrip('.')))
+            amount_test = '{:,f}'.format(float(('%f' % amount).rstrip('0').rstrip('.')))
             if '.' in amount_test and len(amount_test.split('.')[1]) > 5:
                 amount_str = '{:,.8f}'.format(amount)
             else:
@@ -365,11 +353,11 @@ def num_format_coin(amount, coin: str, coin_decimal: int, atomic: bool=False):
         else:
             # > 10**18
             amount = truncate(amount, 8)
-            amount_test = '{:,f}'.format(float(('%f' % (amount)).rstrip('0').rstrip('.')))
+            amount_test = '{:,f}'.format(float(('%f' % amount).rstrip('0').rstrip('.')))
             if '.' in amount_test and len(amount_test.split('.')[1]) > 8:
                 amount_str = '{:,.8f}'.format(amount)
             else:
-                amount_str =  amount_test
+                amount_str = amount_test
     else:
         if amount < 0.00000001:
             amount_str = '{:,.10f}'.format(amount)
@@ -387,7 +375,8 @@ def num_format_coin(amount, coin: str, coin_decimal: int, atomic: bool=False):
             amount_str = '{:,.3f}'.format(amount)
         else:
             amount_str = '{:,.2f}'.format(amount)
-    return amount_str.rstrip('0').rstrip('.') if '.' in amount_str else amount_str 
+    return amount_str.rstrip('0').rstrip('.') if '.' in amount_str else amount_str
+
 
 def randomString(stringLength=8):
     letters = string.ascii_lowercase
@@ -413,7 +402,7 @@ def base58_to_hex(base58_string):
 
 
 async def get_guild_prefix(ctx):
-    if isinstance(ctx.channel, disnake.DMChannel) == True:
+    if isinstance(ctx.channel, disnake.DMChannel):
         return config.discord.prefixCmd
     else:
         return config.discord.slashPrefix
@@ -440,19 +429,19 @@ def decrypt_string(decrypted: str):
 
 
 ## https://github.com/MrJacob12/StringProgressBar
-def createBox(value, maxValue, size, show_percentage: bool=False):
+def createBox(value, maxValue, size, show_percentage: bool = False):
     percentage = value / maxValue
     progress = round((size * percentage))
     emptyProgress = size - progress
-        
+
     progressText = '█'
     emptyProgressText = '—'
     percentageText = str(round(percentage * 100)) + '%'
 
     if show_percentage:
-        bar = '[' + progressText*progress + emptyProgressText*emptyProgress + ']' + percentageText
+        bar = '[' + progressText * progress + emptyProgressText * emptyProgress + ']' + percentageText
     else:
-        bar = '[' + progressText*progress + emptyProgressText*emptyProgress + ']'
+        bar = '[' + progressText * progress + emptyProgressText * emptyProgress + ']'
     return bar
 
 
@@ -468,9 +457,10 @@ async def alert_if_userlock(ctx, cmd: str):
         traceback.print_exc(file=sys.stdout)
     return None
 
+
 # json.dumps for turple
 def remap_keys(mapping):
-    return [{'key':k, 'value': v} for k, v in mapping.items()]
+    return [{'key': k, 'value': v} for k, v in mapping.items()]
 
 
 @click.command()
@@ -480,6 +470,7 @@ def main():
             bot.load_extension(f'cogs.{filename[:-3]}')
 
     bot.run(config.discord.token, reconnect=True)
+
 
 if __name__ == '__main__':
     main()

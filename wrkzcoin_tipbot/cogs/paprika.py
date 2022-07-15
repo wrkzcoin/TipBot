@@ -34,10 +34,11 @@ from config import config
 
 # https://api.coinpaprika.com/#tag/Tags/paths/~1tags~1{tag_id}/get
 
-def get_trade_view_by_id( display_id: str, web_url: str, id_coin: str, saved_path: str, option: str=None ):
+def get_trade_view_by_id(display_id: str, web_url: str, id_coin: str, saved_path: str, option: str = None):
     timeout = 20
     return_to = None
-    file_name = "tradeview_{}_image_{}_{}.png".format( id_coin, datetime.datetime.now().strftime("%Y-%m-%d-%H-%M"), option.lower() if option else "" ) #
+    file_name = "tradeview_{}_image_{}_{}.png".format(id_coin, datetime.datetime.now().strftime("%Y-%m-%d-%H-%M"),
+                                                      option.lower() if option else "")  #
     file_path = saved_path + file_name
     if os.path.exists(file_path):
         return file_name
@@ -48,9 +49,9 @@ def get_trade_view_by_id( display_id: str, web_url: str, id_coin: str, saved_pat
         # Wait for 20s
 
         options = Options()
-        options.add_argument('--no-sandbox') # Bypass OS security model
+        options.add_argument('--no-sandbox')  # Bypass OS security model
         options.add_argument('--disable-gpu')  # applicable to windows os only
-        options.add_argument('start-maximized') # 
+        options.add_argument('start-maximized')  #
         options.add_argument('disable-infobars')
         options.add_argument("--disable-extensions")
         userAgent = config.selenium_setting.user_agent
@@ -62,21 +63,23 @@ def get_trade_view_by_id( display_id: str, web_url: str, id_coin: str, saved_pat
         driver.set_window_position(0, 0)
         driver.set_window_size(config.selenium_setting.win_w, config.selenium_setting.win_h)
 
-        driver.get( web_url )
-        WebDriverWait(driver, timeout).until(EC.frame_to_be_available_and_switch_to_it((By.CSS_SELECTOR,"iframe[id^='tradingview']")))
+        driver.get(web_url)
+        WebDriverWait(driver, timeout).until(
+            EC.frame_to_be_available_and_switch_to_it((By.CSS_SELECTOR, "iframe[id^='tradingview']")))
         ## WebDriverWait(driver, timeout).until(EC.presence_of_element_located((By.ID, "tv_chart_container")))
         WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((By.CLASS_NAME, "chart-markup-table")))
-        WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((By.CLASS_NAME, "chart-container-border")))
+        WebDriverWait(driver, timeout).until(
+            EC.visibility_of_element_located((By.CLASS_NAME, "chart-container-border")))
 
         if option is None:
             time.sleep(5.0)
             # https://stackoverflow.com/questions/8900073/webdriver-screenshot
             # now that we have the preliminary stuff out of the way time to get that image :D
             # element = driver.find_element_by_class_name( "js-rootresizer__contents" ) # find part of the page you want image of
-            
+
             # driver.switch_to.default_content()
             driver.switch_to.default_content()
-            element = driver.find_element( By.ID, "tv_chart_container" )
+            element = driver.find_element(By.ID, "tv_chart_container")
             # Updated switch back to default
         # https://stackoverflow.com/questions/43489391/python-selenium-data-style-name
         elif option.lower() in ["1d", "7d", "1m", "1q", "1y", "5y"]:
@@ -94,27 +97,28 @@ def get_trade_view_by_id( display_id: str, web_url: str, id_coin: str, saved_pat
                     break
             time.sleep(5.0)
             driver.switch_to.default_content()
-            element = driver.find_element( By.ID, "tv_chart_container" )
+            element = driver.find_element(By.ID, "tv_chart_container")
         location = element.location
         size = element.size
-        png = driver.get_screenshot_as_png() # saves screenshot of entire page
+        png = driver.get_screenshot_as_png()  # saves screenshot of entire page
 
-        im = Image.open(BytesIO(png)) # uses PIL library to open image in memory
+        im = Image.open(BytesIO(png))  # uses PIL library to open image in memory
         left = location['x']
         top = location['y']
         right = location['x'] + size['width']
         bottom = location['y'] + size['height']
 
-        im = im.crop((left, top, right, bottom)) # defines crop points        
-        im.save(file_path) # saves new cropped image
-        driver.close() # closes the driver
+        im = im.crop((left, top, right, bottom))  # defines crop points
+        im.save(file_path)  # saves new cropped image
+        driver.close()  # closes the driver
         return_to = file_name
-    except Exception as e:
+    except Exception:
         traceback.print_exc(file=sys.stdout)
     finally:
         display.stop()
-        
+
     return return_to
+
 
 class Paprika(commands.Cog):
 
@@ -132,14 +136,13 @@ class Paprika(commands.Cog):
         self.tradeview_static_png = "https://tipbot-static.wrkz.work/discordtip_v2_paprika_tradeview/"
         self.display_list = [f":{str(i)}" for i in range(100, 200)]
 
-
     async def bot_log(self):
         if self.botLogChan is None:
             self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
 
     @tasks.loop(seconds=3600)
     async def fetch_paprika_pricelist(self):
-        time_lap = 1800 # seconds
+        time_lap = 1800  # seconds
         await self.bot.wait_until_ready()
         await asyncio.sleep(time_lap)
         url = "https://api.coinpaprika.com/v1/tickers"
@@ -159,16 +162,30 @@ class Paprika(commands.Cog):
                                 ath_date = None
 
                                 if quote_usd['ath_date'] and "." in quote_usd['ath_date']:
-                                    ath_date = datetime.datetime.strptime(quote_usd['ath_date'], '%Y-%m-%dT%H:%M:%S.%fZ')
+                                    ath_date = datetime.datetime.strptime(quote_usd['ath_date'],
+                                                                          '%Y-%m-%dT%H:%M:%S.%fZ')
                                 elif quote_usd['ath_date'] and "." not in quote_usd['ath_date']:
                                     ath_date = datetime.datetime.strptime(quote_usd['ath_date'], '%Y-%m-%dT%H:%M:%SZ')
 
                                 if "." in each_coin['last_updated']:
-                                    last_updated = datetime.datetime.strptime(each_coin['last_updated'], '%Y-%m-%dT%H:%M:%S.%fZ')
+                                    last_updated = datetime.datetime.strptime(each_coin['last_updated'],
+                                                                              '%Y-%m-%dT%H:%M:%S.%fZ')
                                 else:
-                                    last_updated = datetime.datetime.strptime(each_coin['last_updated'], '%Y-%m-%dT%H:%M:%SZ')
-                                update_list.append((each_coin['id'], each_coin['symbol'], each_coin['name'], each_coin['rank'], each_coin['circulating_supply'], each_coin['total_supply'], each_coin['max_supply'], quote_usd['price'], update_time, last_updated, quote_usd['price'], quote_usd['volume_24h'], quote_usd['volume_24h_change_24h'], quote_usd['market_cap'], quote_usd['market_cap_change_24h'], quote_usd['percent_change_15m'], quote_usd['percent_change_30m'], quote_usd['percent_change_1h'], quote_usd['percent_change_6h'], quote_usd['percent_change_12h'], quote_usd['percent_change_24h'], quote_usd['percent_change_7d'], quote_usd['percent_change_30d'], quote_usd['percent_change_1y'], quote_usd['ath_price'], ath_date, quote_usd['percent_from_price_ath']))
-                            except Exception as e:
+                                    last_updated = datetime.datetime.strptime(each_coin['last_updated'],
+                                                                              '%Y-%m-%dT%H:%M:%SZ')
+                                update_list.append((each_coin['id'], each_coin['symbol'], each_coin['name'],
+                                                    each_coin['rank'], each_coin['circulating_supply'],
+                                                    each_coin['total_supply'], each_coin['max_supply'],
+                                                    quote_usd['price'], update_time, last_updated, quote_usd['price'],
+                                                    quote_usd['volume_24h'], quote_usd['volume_24h_change_24h'],
+                                                    quote_usd['market_cap'], quote_usd['market_cap_change_24h'],
+                                                    quote_usd['percent_change_15m'], quote_usd['percent_change_30m'],
+                                                    quote_usd['percent_change_1h'], quote_usd['percent_change_6h'],
+                                                    quote_usd['percent_change_12h'], quote_usd['percent_change_24h'],
+                                                    quote_usd['percent_change_7d'], quote_usd['percent_change_30d'],
+                                                    quote_usd['percent_change_1y'], quote_usd['ath_price'], ath_date,
+                                                    quote_usd['percent_from_price_ath']))
+                            except Exception:
                                 traceback.print_exc(file=sys.stdout)
                         if len(update_list) > 0:
                             try:
@@ -206,7 +223,7 @@ class Paprika(commands.Cog):
                                         await cur.executemany(sql, update_list)
                                         await conn.commit()
                                         update_list = []
-                            except Exception as e:
+                            except Exception:
                                 traceback.print_exc(file=sys.stdout)
         except asyncio.TimeoutError:
             print('TIMEOUT: Fetching from coingecko price')
@@ -214,21 +231,20 @@ class Paprika(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         await asyncio.sleep(time_lap)
 
-
     async def paprika_coin(
-        self, 
-        ctx, 
-        coin: str,
-        option: str
+            self,
+            ctx,
+            coin: str,
+            option: str
     ):
 
         try:
             await ctx.response.send_message(f"{EMOJI_HOURGLASS_NOT_DONE} {ctx.author.mention}, checking coinpaprika..")
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             return
 
-        COIN_NAME = coin.upper()
+        coin_name = coin.upper()
         key = config.redis.prefix_paprika + coin.upper()
         # Get from redis
         try:
@@ -237,15 +253,16 @@ class Paprika(commands.Cog):
                 msg = f"{ctx.author.mention}, {response_text}"
                 await ctx.edit_original_message(content=msg)
                 # fetch tradeview image
-                if self.tradeview == True:
+                if self.tradeview is True:
                     try:
-                        if COIN_NAME in self.bot.token_hints:
-                            id = self.bot.token_hints[COIN_NAME]['ticker_name']
-                        elif COIN_NAME in self.bot.token_hint_names:
-                            id = self.bot.token_hint_names[COIN_NAME]['ticker_name']
+                        if coin_name in self.bot.token_hints:
+                            id = self.bot.token_hints[coin_name]['ticker_name']
+                        elif coin_name in self.bot.token_hint_names:
+                            id = self.bot.token_hint_names[coin_name]['ticker_name']
                         else:
                             if redis_utils.redis_conn.exists(config.redis.prefix_paprika + "COINSLIST"):
-                                j = json.loads(redis_utils.redis_conn.get(config.redis.prefix_paprika + "COINSLIST").decode())
+                                j = json.loads(
+                                    redis_utils.redis_conn.get(config.redis.prefix_paprika + "COINSLIST").decode())
                             else:
                                 link = 'https://api.coinpaprika.com/v1/coins'
                                 async with aiohttp.ClientSession() as session:
@@ -254,22 +271,27 @@ class Paprika(commands.Cog):
                                             j = await resp.json()
                                             # add to redis coins list
                                             try:
-                                                redis_utils.redis_conn.set(config.redis.prefix_paprika + "COINSLIST", json.dumps(j), ex=config.redis.default_time_coinlist)
-                                            except Exception as e:
+                                                redis_utils.redis_conn.set(config.redis.prefix_paprika + "COINSLIST",
+                                                                           json.dumps(j),
+                                                                           ex=config.redis.default_time_coinlist)
+                                            except Exception:
                                                 traceback.format_exc()
                                             # end add to redis
-                            if COIN_NAME.isdigit():
+                            if coin_name.isdigit():
                                 for i in j:
-                                    if int(COIN_NAME) == int(i['rank']):
+                                    if int(coin_name) == int(i['rank']):
                                         id = i['id']
                             else:
                                 for i in j:
-                                    if COIN_NAME.lower() == i['name'].lower() or COIN_NAME.lower() == i['symbol'].lower():
-                                        id = i['id'] #i['name']
+                                    if coin_name.lower() == i['name'].lower() or coin_name.lower() == i[
+                                        'symbol'].lower():
+                                        id = i['id']  # i['name']
                         if len(self.display_list) > 2:
                             display_id = random.choice(self.display_list)
                             self.display_list.remove(display_id)
-                            fetch_tradeview = functools.partial(get_trade_view_by_id, display_id, self.tradeview_url + id, id, self.tradeview_path, option )
+                            fetch_tradeview = functools.partial(get_trade_view_by_id, display_id,
+                                                                self.tradeview_url + id, id, self.tradeview_path,
+                                                                option)
                             self.display_list.append(display_id)
                             tv_image = await self.bot.loop.run_in_executor(None, fetch_tradeview)
                             if tv_image:
@@ -280,20 +302,20 @@ class Paprika(commands.Cog):
                                 e.set_image(url=self.tradeview_static_png + tv_image)
                                 e.set_footer(text=f"Requested by {ctx.author.name}#{ctx.author.discriminator}")
                                 await ctx.edit_original_message(content=None, embed=e)
-                    except Exception as e:
+                    except Exception:
                         traceback.format_exc()
                 return
-        except Exception as e:
+        except Exception:
             traceback.format_exc()
             await logchanbot(traceback.format_exc())
             msg = f"{ctx.author.mention}, internal error from cache."
             await ctx.edit_original_message(content=msg)
             return
 
-        if COIN_NAME in self.bot.token_hints:
-            id = self.bot.token_hints[COIN_NAME]['ticker_name']
-        elif COIN_NAME in self.bot.token_hint_names:
-            id = self.bot.token_hint_names[COIN_NAME]['ticker_name']
+        if coin_name in self.bot.token_hints:
+            id = self.bot.token_hints[coin_name]['ticker_name']
+        elif coin_name in self.bot.token_hint_names:
+            id = self.bot.token_hint_names[coin_name]['ticker_name']
         else:
             if redis_utils.redis_conn.exists(config.redis.prefix_paprika + "COINSLIST"):
                 j = json.loads(redis_utils.redis_conn.get(config.redis.prefix_paprika + "COINSLIST").decode())
@@ -305,18 +327,19 @@ class Paprika(commands.Cog):
                             j = await resp.json()
                             # add to redis coins list
                             try:
-                                redis_utils.redis_conn.set(config.redis.prefix_paprika + "COINSLIST", json.dumps(j), ex=config.redis.default_time_coinlist)
-                            except Exception as e:
+                                redis_utils.redis_conn.set(config.redis.prefix_paprika + "COINSLIST", json.dumps(j),
+                                                           ex=config.redis.default_time_coinlist)
+                            except Exception:
                                 traceback.format_exc()
                             # end add to redis
-            if COIN_NAME.isdigit():
+            if coin_name.isdigit():
                 for i in j:
-                    if int(COIN_NAME) == int(i['rank']):
+                    if int(coin_name) == int(i['rank']):
                         id = i['id']
             else:
                 for i in j:
-                    if COIN_NAME.lower() == i['name'].lower() or COIN_NAME.lower() == i['symbol'].lower():
-                        id = i['id'] #i['name']
+                    if coin_name.lower() == i['name'].lower() or coin_name.lower() == i['symbol'].lower():
+                        id = i['id']  # i['name']
         try:
             async with aiohttp.ClientSession() as session:
                 url = 'https://api.coinpaprika.com/v1/tickers/{}'.format(id)
@@ -324,7 +347,7 @@ class Paprika(commands.Cog):
                     if resp.status == 200:
                         j = await resp.json()
                         if 'error' in j and j['error'] == 'id not found':
-                            msg = f"{ctx.author.mention}, can not get data **{COIN_NAME}** from paprika."
+                            msg = f"{ctx.author.mention}, can not get data **{coin_name}** from paprika."
                             await ctx.edit_original_message(content=msg)
                             return
                         if float(j['quotes']['USD']['price']) > 100:
@@ -335,23 +358,29 @@ class Paprika(commands.Cog):
                             trading_at = "${:.4f}".format(float(j['quotes']['USD']['price']))
                         else:
                             trading_at = "${:.8f}".format(float(j['quotes']['USD']['price']))
-                        response_text = "{} ({}) is #{} by marketcap (${:,.2f}), trading at {} with a 24h vol of ${:,.2f}. It's changed {}% over 24h, {}% over 7d, {}% over 30d, and {}% over 1y with an ath of ${} on {}.".format(j['name'], j['symbol'], j['rank'], float(j['quotes']['USD']['market_cap']), trading_at, float(j['quotes']['USD']['volume_24h']), j['quotes']['USD']['percent_change_24h'], j['quotes']['USD']['percent_change_7d'], j['quotes']['USD']['percent_change_30d'], j['quotes']['USD']['percent_change_1y'], j['quotes']['USD']['ath_price'], j['quotes']['USD']['ath_date'])
+                        response_text = "{} ({}) is #{} by marketcap (${:,.2f}), trading at {} with a 24h vol of ${:,.2f}. It's changed {}% over 24h, {}% over 7d, {}% over 30d, and {}% over 1y with an ath of ${} on {}.".format(
+                            j['name'], j['symbol'], j['rank'], float(j['quotes']['USD']['market_cap']), trading_at,
+                            float(j['quotes']['USD']['volume_24h']), j['quotes']['USD']['percent_change_24h'],
+                            j['quotes']['USD']['percent_change_7d'], j['quotes']['USD']['percent_change_30d'],
+                            j['quotes']['USD']['percent_change_1y'], j['quotes']['USD']['ath_price'],
+                            j['quotes']['USD']['ath_date'])
                         try:
                             redis_utils.redis_conn.set(key, response_text, ex=config.redis.default_time_paprika)
-                        except Exception as e:
+                        except Exception:
                             traceback.format_exc()
                             await logchanbot(traceback.format_exc())
                         await ctx.edit_original_message(content=f"{ctx.author.mention}, {response_text}")
                         # fetch tradeview image
-                        if self.tradeview == True:
+                        if self.tradeview is True:
                             try:
-                                if COIN_NAME in self.bot.token_hints:
-                                    id = self.bot.token_hints[COIN_NAME]['ticker_name']
-                                elif COIN_NAME in self.bot.token_hint_names:
-                                    id = self.bot.token_hint_names[COIN_NAME]['ticker_name']
+                                if coin_name in self.bot.token_hints:
+                                    id = self.bot.token_hints[coin_name]['ticker_name']
+                                elif coin_name in self.bot.token_hint_names:
+                                    id = self.bot.token_hint_names[coin_name]['ticker_name']
                                 else:
                                     if redis_utils.redis_conn.exists(config.redis.prefix_paprika + "COINSLIST"):
-                                        j = json.loads(redis_utils.redis_conn.get(config.redis.prefix_paprika + "COINSLIST").decode())
+                                        j = json.loads(redis_utils.redis_conn.get(
+                                            config.redis.prefix_paprika + "COINSLIST").decode())
                                     else:
                                         link = 'https://api.coinpaprika.com/v1/coins'
                                         async with aiohttp.ClientSession() as session:
@@ -360,22 +389,27 @@ class Paprika(commands.Cog):
                                                     j = await resp.json()
                                                     # add to redis coins list
                                                     try:
-                                                        redis_utils.redis_conn.set(config.redis.prefix_paprika + "COINSLIST", json.dumps(j), ex=config.redis.default_time_coinlist)
-                                                    except Exception as e:
+                                                        redis_utils.redis_conn.set(
+                                                            config.redis.prefix_paprika + "COINSLIST", json.dumps(j),
+                                                            ex=config.redis.default_time_coinlist)
+                                                    except Exception:
                                                         traceback.format_exc()
                                                     # end add to redis
-                                    if COIN_NAME.isdigit():
+                                    if coin_name.isdigit():
                                         for i in j:
-                                            if int(COIN_NAME) == int(i['rank']):
+                                            if int(coin_name) == int(i['rank']):
                                                 id = i['id']
                                     else:
                                         for i in j:
-                                            if COIN_NAME.lower() == i['name'].lower() or COIN_NAME.lower() == i['symbol'].lower():
-                                                id = i['id'] #i['name']
+                                            if coin_name.lower() == i['name'].lower() or coin_name.lower() == i[
+                                                'symbol'].lower():
+                                                id = i['id']  # i['name']
                                 if len(self.display_list) > 2:
                                     display_id = random.choice(self.display_list)
                                     self.display_list.remove(display_id)
-                                    fetch_tradeview = functools.partial(get_trade_view_by_id, display_id, self.tradeview_url + id, id, self.tradeview_path, option )
+                                    fetch_tradeview = functools.partial(get_trade_view_by_id, display_id,
+                                                                        self.tradeview_url + id, id,
+                                                                        self.tradeview_path, option)
                                     self.display_list.append(display_id)
                                     tv_image = await self.bot.loop.run_in_executor(None, fetch_tradeview)
                                     if tv_image:
@@ -386,12 +420,13 @@ class Paprika(commands.Cog):
                                         e.set_image(url=self.tradeview_static_png + tv_image)
                                         e.set_footer(text=f"Requested by {ctx.author.name}#{ctx.author.discriminator}")
                                         await ctx.edit_original_message(content=None, embed=e)
-                            except Exception as e:
+                            except Exception:
                                 traceback.format_exc()
                     else:
-                        await ctx.edit_original_message(content=f"{ctx.author.mention}, can not get data **{COIN_NAME}** from paprika.")
+                        await ctx.edit_original_message(
+                            content=f"{ctx.author.mention}, can not get data **{coin_name}** from paprika.")
                     return
-        except Exception as e:
+        except Exception:
             traceback.format_exc()
         await ctx.edit_original_message(content=f"{ctx.author.mention}, no paprika only salt.")
 
@@ -409,12 +444,12 @@ class Paprika(commands.Cog):
                             ],
                             description="Check coin at Paprika.")
     async def paprika(
-        self, 
-        ctx, 
-        coin: str,
-        range_choice: str=None
+            self,
+            ctx,
+            coin: str,
+            range_choice: str = None
     ):
-        get_pap = await self.paprika_coin( ctx, coin, range_choice )
+        get_pap = await self.paprika_coin(ctx, coin, range_choice)
 
 
 def setup(bot):

@@ -1,28 +1,24 @@
-import sys, traceback
-import timeago
-import disnake
-from disnake.ext import commands
-
+import sys
+import traceback
 from datetime import datetime
 
+import disnake
+import timeago
+from disnake.app_commands import Option
 from disnake.enums import OptionType
-from disnake.app_commands import Option, OptionChoice
+from disnake.ext import commands
 
-from config import config
-from Bot import truncate, SERVER_BOT
 import store
+from Bot import SERVER_BOT
 
 
 class Userinfo(commands.Cog):
-
     def __init__(self, bot):
         self.bot = bot
 
-
-    async def sql_user_get_tipstat(self, userID: str, user_server: str = 'DISCORD'):
-        global pool
+    async def sql_user_get_tipstat(self, user_id: str, user_server: str = 'DISCORD'):
         user_server = user_server.upper()
-        user_stat =  {'tx_out': 0, 'tx_in': 0, 'ex_tip_usd': 0.0, 'in_tip_usd': 0.0, 'faucet_claimed': 0}
+        user_stat = {'tx_out': 0, 'tx_in': 0, 'ex_tip_usd': 0.0, 'in_tip_usd': 0.0, 'faucet_claimed': 0}
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
@@ -32,13 +28,16 @@ class Userinfo(commands.Cog):
                              (SELECT SUM(real_amount_usd) FROM user_balance_mv WHERE `from_userid`=%s AND `user_server`=%s) AS ex_tip_usd,
                              (SELECT SUM(real_amount_usd) FROM user_balance_mv WHERE `to_userid`=%s AND `user_server`=%s) AS in_tip_usd,
                              (SELECT COUNT(*) FROM discord_faucet WHERE `claimed_user`=%s) AS faucet_claimed """
-                    await cur.execute(sql, ( userID, user_server, userID, user_server, userID, user_server, userID, user_server, userID ))
+                    await cur.execute(sql, (
+                    user_id, user_server, user_id, user_server, user_id, user_server, user_id, user_server, user_id))
                     result = await cur.fetchone()
-                    if result: user_stat =  {'tx_out': result['ex_tip'], 'tx_in': result['in_tip'], 'ex_tip_usd': float(result['ex_tip_usd']) if result['ex_tip_usd'] else 0.0, 'in_tip_usd': float(result['in_tip_usd']) if result['in_tip_usd'] else 0.0, 'faucet_claimed': result['faucet_claimed']}
-        except Exception as e:
+                    if result: user_stat = {'tx_out': result['ex_tip'], 'tx_in': result['in_tip'],
+                                            'ex_tip_usd': float(result['ex_tip_usd']) if result['ex_tip_usd'] else 0.0,
+                                            'in_tip_usd': float(result['in_tip_usd']) if result['in_tip_usd'] else 0.0,
+                                            'faucet_claimed': result['faucet_claimed']}
+        except Exception:
             traceback.print_exc(file=sys.stdout)
         return user_stat
-
 
     async def get_userinfo(self, ctx, member):
         tip_text = "N/A"
@@ -59,20 +58,29 @@ class Userinfo(commands.Cog):
                 elif ratio_tip >= 5:
                     tip_text = "CryptoTip AirDropper"
 
-        embed = disnake.Embed(title="{}'s info".format(member.name), description="Total faucet claim {}".format(tipstat['faucet_claimed']), timestamp=datetime.now())
+        embed = disnake.Embed(title="{}'s info".format(member.name),
+                              description="Total faucet claim {}".format(tipstat['faucet_claimed']),
+                              timestamp=datetime.now())
         embed.add_field(name="Name", value="{}#{}".format(member.name, member.discriminator), inline=True)
         embed.add_field(name="Display Name", value=member.display_name, inline=True)
         embed.add_field(name="ID", value=member.id, inline=True)
         embed.add_field(name="Status", value=member.status, inline=True)
         embed.add_field(name="Highest role", value=member.top_role)
-        embed.add_field(name="Tip In/Out", value="{}/{} - {}".format('{:,}'.format(tipstat['tx_in']), '{:,}'.format(tipstat['tx_out']), tip_text), inline=False)
-        embed.add_field(name="$ In/Out", value="{}/{}".format('{:,.2f}'.format(tipstat['in_tip_usd']), '{:,.2f}'.format(tipstat['ex_tip_usd']), tip_text), inline=False)
-        embed.add_field(name="Joined", value=str(member.joined_at.strftime("%d-%b-%Y") + ': ' + timeago.format(member.joined_at, datetime.utcnow().astimezone())))
-        embed.add_field(name="Created", value=str(member.created_at.strftime("%d-%b-%Y") + ': ' + timeago.format(member.created_at, datetime.utcnow().astimezone())))
+        embed.add_field(name="Tip In/Out",
+                        value="{}/{} - {}".format('{:,}'.format(tipstat['tx_in']), '{:,}'.format(tipstat['tx_out']),
+                                                  tip_text), inline=False)
+        embed.add_field(name="$ In/Out", value="{}/{}".format('{:,.2f}'.format(tipstat['in_tip_usd']),
+                                                              '{:,.2f}'.format(tipstat['ex_tip_usd']), tip_text),
+                        inline=False)
+        embed.add_field(name="Joined", value=str(
+            member.joined_at.strftime("%d-%b-%Y") + ': ' + timeago.format(member.joined_at,
+                                                                          datetime.utcnow().astimezone())))
+        embed.add_field(name="Created", value=str(
+            member.created_at.strftime("%d-%b-%Y") + ': ' + timeago.format(member.created_at,
+                                                                           datetime.utcnow().astimezone())))
         embed.set_thumbnail(url=member.display_avatar)
         embed.set_footer(text="Requested by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
         await ctx.response.send_message(embed=embed)
-
 
     @commands.user_command(name="UserInfo")  # optional
     async def user_info(self, ctx: disnake.ApplicationCommandInteraction, user: disnake.User):
@@ -94,19 +102,28 @@ class Userinfo(commands.Cog):
                 elif ratio_tip >= 5:
                     tip_text = "CryptoTip AirDropper"
 
-        embed = disnake.Embed(title="{}'s info".format(user.name), description="Total faucet claim {}".format(tipstat['faucet_claimed']), timestamp=datetime.now())
+        embed = disnake.Embed(title="{}'s info".format(user.name),
+                              description="Total faucet claim {}".format(tipstat['faucet_claimed']),
+                              timestamp=datetime.now())
         embed.add_field(name="Name", value="{}#{}".format(user.name, user.discriminator), inline=True)
         embed.add_field(name="Display Name", value=user.display_name, inline=True)
         embed.add_field(name="ID", value=user.id, inline=True)
-        embed.add_field(name="Tip In/Out", value="{}/{} - {}".format('{:,}'.format(tipstat['tx_in']), '{:,}'.format(tipstat['tx_out']), tip_text), inline=False)
-        embed.add_field(name="$ In/Out", value="{}/{}".format('{:,.2f}'.format(tipstat['in_tip_usd']), '{:,.2f}'.format(tipstat['ex_tip_usd']), tip_text), inline=False)
+        embed.add_field(name="Tip In/Out",
+                        value="{}/{} - {}".format('{:,}'.format(tipstat['tx_in']), '{:,}'.format(tipstat['tx_out']),
+                                                  tip_text), inline=False)
+        embed.add_field(name="$ In/Out", value="{}/{}".format('{:,.2f}'.format(tipstat['in_tip_usd']),
+                                                              '{:,.2f}'.format(tipstat['ex_tip_usd']), tip_text),
+                        inline=False)
         if hasattr(user, "joined_at"):
-            embed.add_field(name="Joined", value=str(user.joined_at.strftime("%d-%b-%Y") + ': ' + timeago.format(user.joined_at, datetime.utcnow().astimezone())))
-        embed.add_field(name="Created", value=str(user.created_at.strftime("%d-%b-%Y") + ': ' + timeago.format(user.created_at, datetime.utcnow().astimezone())))
+            embed.add_field(name="Joined", value=str(
+                user.joined_at.strftime("%d-%b-%Y") + ': ' + timeago.format(user.joined_at,
+                                                                            datetime.utcnow().astimezone())))
+        embed.add_field(name="Created", value=str(
+            user.created_at.strftime("%d-%b-%Y") + ': ' + timeago.format(user.created_at,
+                                                                         datetime.utcnow().astimezone())))
         embed.set_thumbnail(url=user.display_avatar)
         embed.set_footer(text="Requested by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
         await ctx.response.send_message(embed=embed)
-
 
     @commands.guild_only()
     @commands.slash_command(usage="userinfo <member>",
@@ -115,12 +132,12 @@ class Userinfo(commands.Cog):
                             ],
                             description="Get user information.")
     async def userinfo(
-        self, 
-        ctx, 
-        user: disnake.Member=None
+            self,
+            ctx,
+            user: disnake.Member = None
     ):
-        if user is None: user=ctx.author
-        get_stat = await self.get_userinfo(ctx, user)
+        if user is None: user = ctx.author
+        await self.get_userinfo(ctx, user)
 
 
 def setup(bot):

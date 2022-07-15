@@ -1,21 +1,15 @@
-import sys, traceback
-
-import disnake
-from disnake.ext import commands
-from disnake.enums import OptionType
-from disnake.app_commands import Option, OptionChoice
 import numexpr
-
-from config import config
 from Bot import EMOJI_INFORMATION, EMOJI_ERROR
+from disnake.app_commands import Option
+from disnake.enums import OptionType
+from disnake.ext import commands
 
 
 class Calculator(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-
-    async def async_calc(self, ctx, eval_string: str=None):
+    async def async_calc(self, ctx, eval_string: str = None):
         if eval_string is None:
             msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, Example: `cal 2+3+4/2`'
             await ctx.response.send_message(msg)
@@ -32,13 +26,12 @@ class Calculator(commands.Cog):
                     result = numexpr.evaluate(eval_string).item()
                     msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, result of `{eval_string_original}`:```{result}```'
                     await ctx.response.send_message(msg)
-                except Exception as e:
+                except Exception:
                     msg = f'{EMOJI_ERROR} {ctx.author.mention}, I can not find the result for `{eval_string_original}`.'
                     await ctx.response.send_message(msg)
             else:
                 msg = f'{EMOJI_ERROR} {ctx.author.mention}, unsupported usage for `{eval_string_original}`.'
                 await ctx.response.send_message(msg)
-
 
     @commands.slash_command(
         usage="cal <expression>",
@@ -48,22 +41,9 @@ class Calculator(commands.Cog):
         description="Do some math."
     )
     async def cal(
-        self, 
-        ctx, 
-        eval_string: str = None
-    ):
-        await self.async_calc(ctx, eval_string)
-
-
-    @commands.command(
-        usage="cal <expression>", 
-        aliases=['cal', 'calc', 'calculate'], 
-        description="Do some math."
-    )
-    async def _cal(
-        self, 
-        ctx, 
-        eval_string: str = None
+            self,
+            ctx,
+            eval_string: str = None
     ):
         await self.async_calc(ctx, eval_string)
 

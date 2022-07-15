@@ -1,20 +1,15 @@
+import datetime
+import json
 import sys
+import time
 import traceback
 
-import json
-import aiohttp, asyncio
-import disnake
+import aiohttp
+import asyncio
+import store
+from Bot import logchanbot
 from disnake.ext import commands, tasks
 
-from disnake.enums import OptionType
-from disnake.app_commands import Option, OptionChoice
-import time
-import datetime
-
-from Bot import EMOJI_CHART_DOWN, EMOJI_ERROR, EMOJI_RED_NO, logchanbot
-import store
-
-from config import config
 
 # https://www.coingecko.com/en/api/documentation
 
@@ -39,7 +34,7 @@ class CoinGecko(commands.Cog):
                     result = await cur.fetchall()
                     if result and len(result) > 0:
                         return [each['id'] for each in result]
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return []
@@ -72,7 +67,7 @@ class CoinGecko(commands.Cog):
                                                   VALUES (%s, %s, %s) """
                                         await cur.executemany(sql, insert_list)
                                         await conn.commit()
-                            except Exception as e:
+                            except Exception:
                                 traceback.print_exc(file=sys.stdout)
                         else:
                             await asyncio.sleep(60.0)
@@ -123,7 +118,7 @@ class CoinGecko(commands.Cog):
 
                                                     chunk = []
                                                     chunk_str = ""
-                                        except Exception as e:
+                                        except Exception:
                                             traceback.print_exc(file=sys.stdout)
                         except asyncio.TimeoutError:
                             print('TIMEOUT: Fetching from coingecko price')

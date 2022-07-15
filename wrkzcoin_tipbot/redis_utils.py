@@ -1,11 +1,14 @@
 # redis
+import os
+import sys
+import traceback
+
 import redis
-import traceback, os, sys
-from config import config
 
 redis_pool = None
 redis_conn = None
 redis_expired = 120
+
 
 def init():
     global redis_pool
@@ -20,5 +23,3 @@ def openRedis():
             redis_conn = redis.Redis(connection_pool=redis_pool)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-
-

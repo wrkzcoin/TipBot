@@ -22,21 +22,20 @@ from disnake.app_commands import Option, OptionChoice
 from discord_webhook import DiscordWebhook
 
 import store
-from Bot import get_token_list, num_format_coin, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_ARROW_RIGHTHOOK, SERVER_BOT, RowButton_close_message, RowButton_row_close_any_message, human_format, text_to_num, truncate, NOTIFICATION_OFF_CMD, DEFAULT_TICKER, seconds_str
+from Bot import get_token_list, num_format_coin, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, \
+    EMOJI_RED_NO, EMOJI_ARROW_RIGHTHOOK, SERVER_BOT, RowButtonCloseMessage, \
+    RowButtonRowCloseAnyMessage, human_format, text_to_num, truncate, \
+    NOTIFICATION_OFF_CMD, DEFAULT_TICKER, seconds_str
 
 from config import config
 from cogs.wallet import WalletAPI
-import redis_utils
-from utils import MenuPage
+from cogs.utils import MenuPage
 
 
 class Guild(commands.Cog):
-
     def __init__(self, bot):
         self.bot = bot
         self.wallet_api = WalletAPI(self.bot)
-
-        redis_utils.openRedis()
         self.botLogChan = None
         self.enable_logchan = True
 
@@ -68,7 +67,7 @@ class Guild(commands.Cog):
                 self.pool = await aiomysql.create_pool(host=config.mysql.host, port=3306, minsize=8, maxsize=16, 
                                                        user=config.mysql.user, password=config.mysql.password,
                                                        db=config.mysql.db, cursorclass=DictCursor, autocommit=True)
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
 
     async def bot_log(self):
@@ -87,15 +86,15 @@ class Guild(commands.Cog):
                     await cur.execute(sql, ( guild_id, userId, "GUILDFAUCET", user_server))
                     result = await cur.fetchone()
                     if result: return result
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return None
 
 
-    async def user_balance(self, userID: str, coin: str, address: str, coin_family: str, top_block: int, confirmed_depth: int=0, user_server: str = 'DISCORD'):
+    async def user_balance(self, user_id: str, coin: str, address: str, coin_family: str, top_block: int, confirmed_depth: int=0, user_server: str = 'DISCORD'):
         # address: TRTL/BCN/XMR = paymentId
-        TOKEN_NAME = coin.upper()
+        token_name = coin.upper()
         user_server = user_server.upper()
         if top_block is None:
             # If we can not get top block, confirm after 20mn. This is second not number of block
@@ -111,7 +110,7 @@ class Guild(commands.Cog):
                     # moving tip + / -
                     start = time.time()
                     sql = """ SELECT `balance` AS mv_balance FROM `user_balance_mv_data` WHERE `user_id`=%s AND `token_name` = %s AND `user_server` = %s LIMIT 1 """
-                    await cur.execute(sql, (userID, TOKEN_NAME, user_server))
+                    await cur.execute(sql, (user_id, token_name, user_server))
                     result = await cur.fetchone()
                     if result:
                         mv_balance = result['mv_balance']
@@ -120,7 +119,7 @@ class Guild(commands.Cog):
                     # pending airdrop
                     sql = """ SELECT SUM(real_amount) AS airdropping FROM `discord_airdrop_tmp` WHERE `from_userid`=%s 
                               AND `token_name` = %s AND `status`=%s """
-                    await cur.execute(sql, (userID, TOKEN_NAME, "ONGOING"))
+                    await cur.execute(sql, (user_id, token_name, "ONGOING"))
                     result = await cur.fetchone()
                     if result:
                         airdropping = result['airdropping']
@@ -130,7 +129,7 @@ class Guild(commands.Cog):
                     # pending mathtip
                     sql = """ SELECT SUM(real_amount) AS mathtip FROM `discord_mathtip_tmp` WHERE `from_userid`=%s 
                               AND `token_name` = %s AND `status`=%s """
-                    await cur.execute(sql, (userID, TOKEN_NAME, "ONGOING"))
+                    await cur.execute(sql, (user_id, token_name, "ONGOING"))
                     result = await cur.fetchone()
                     if result:
                         mathtip = result['mathtip']
@@ -140,7 +139,7 @@ class Guild(commands.Cog):
                     # pending triviatip
                     sql = """ SELECT SUM(real_amount) AS triviatip FROM `discord_triviatip_tmp` WHERE `from_userid`=%s 
                               AND `token_name` = %s AND `status`=%s """
-                    await cur.execute(sql, (userID, TOKEN_NAME, "ONGOING"))
+                    await cur.execute(sql, (user_id, token_name, "ONGOING"))
                     result = await cur.fetchone()
                     if result:
                         triviatip = result['triviatip']
@@ -151,7 +150,7 @@ class Guild(commands.Cog):
                     sql = """ SELECT SUM(amount_sell) AS open_order FROM open_order WHERE `coin_sell`=%s AND `userid_sell`=%s 
                               AND `status`=%s
                           """
-                    await cur.execute(sql, (TOKEN_NAME, userID, 'OPEN'))
+                    await cur.execute(sql, (token_name, user_id, 'OPEN'))
                     result = await cur.fetchone()
                     if result:
                         open_order = result['open_order']
@@ -162,7 +161,7 @@ class Guild(commands.Cog):
                     sql = """ SELECT SUM(amount) AS raffle_fee FROM guild_raffle_entries WHERE `coin_name`=%s AND `user_id`=%s  
                               AND `user_server`=%s AND `status`=%s
                           """
-                    await cur.execute(sql, (TOKEN_NAME, userID, user_server, 'REGISTERED'))
+                    await cur.execute(sql, (token_name, user_id, user_server, 'REGISTERED'))
                     result = await cur.fetchone()
                     raffle_fee = 0.0
                     if result and ('raffle_fee' in result) and result['raffle_fee']:
@@ -171,7 +170,7 @@ class Guild(commands.Cog):
                     # Each coin
                     if coin_family in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                         sql = """ SELECT SUM(amount+withdraw_fee) AS tx_expense FROM `cn_external_tx` WHERE `user_id`=%s AND `coin_name` = %s AND `user_server` = %s AND `crediting`=%s """
-                        await cur.execute(sql, ( userID, TOKEN_NAME, user_server, "YES" ))
+                        await cur.execute(sql, ( user_id, token_name, user_server, "YES" ))
                         result = await cur.fetchone()
                         if result:
                             tx_expense = result['tx_expense']
@@ -181,11 +180,11 @@ class Guild(commands.Cog):
                         if top_block is None:
                             sql = """ SELECT SUM(amount) AS incoming_tx FROM `cn_get_transfers` WHERE `payment_id`=%s AND `coin_name` = %s 
                                       AND `amount`>0 AND `time_insert`< %s """
-                            await cur.execute(sql, ( address, TOKEN_NAME, int(time.time())-nos_block )) # seconds
+                            await cur.execute(sql, ( address, token_name, int(time.time())-nos_block )) # seconds
                         else:
                             sql = """ SELECT SUM(amount) AS incoming_tx FROM `cn_get_transfers` WHERE `payment_id`=%s AND `coin_name` = %s 
                                       AND `amount`>0 AND `height`< %s """
-                            await cur.execute(sql, ( address, TOKEN_NAME, nos_block ))
+                            await cur.execute(sql, ( address, token_name, nos_block ))
                         result = await cur.fetchone()
                         if result and result['incoming_tx']:
                             incoming_tx = result['incoming_tx']
@@ -193,7 +192,7 @@ class Guild(commands.Cog):
                             incoming_tx = 0
                     elif coin_family == "BTC":
                         sql = """ SELECT SUM(amount+withdraw_fee) AS tx_expense FROM `doge_external_tx` WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s AND `crediting`=%s """
-                        await cur.execute(sql, ( userID, TOKEN_NAME, user_server, "YES" ))
+                        await cur.execute(sql, ( user_id, token_name, user_server, "YES" ))
                         result = await cur.fetchone()
                         if result:
                             tx_expense = result['tx_expense']
@@ -202,7 +201,7 @@ class Guild(commands.Cog):
 
                         sql = """ SELECT SUM(amount) AS incoming_tx FROM `doge_get_transfers` WHERE `address`=%s AND `coin_name` = %s AND (`category` = %s or `category` = %s) 
                                   AND `confirmations`>=%s AND `amount`>0 """
-                        await cur.execute(sql, (address, TOKEN_NAME, 'receive', 'generate', confirmed_depth))
+                        await cur.execute(sql, (address, token_name, 'receive', 'generate', confirmed_depth))
                         result = await cur.fetchone()
                         if result and result['incoming_tx']:
                             incoming_tx = result['incoming_tx']
@@ -210,7 +209,7 @@ class Guild(commands.Cog):
                             incoming_tx = 0
                     elif coin_family == "NANO":
                         sql = """ SELECT SUM(amount) AS tx_expense FROM `nano_external_tx` WHERE `user_id`=%s AND `coin_name` = %s AND `user_server`=%s AND `crediting`=%s """
-                        await cur.execute(sql, ( userID, TOKEN_NAME, user_server, "YES" ))
+                        await cur.execute(sql, ( user_id, token_name, user_server, "YES" ))
                         result = await cur.fetchone()
                         if result:
                             tx_expense = result['tx_expense']
@@ -219,7 +218,7 @@ class Guild(commands.Cog):
 
                         sql = """ SELECT SUM(amount) AS incoming_tx FROM `nano_move_deposit` WHERE `user_id`=%s AND `coin_name` = %s 
                                   AND `amount`>0 AND `time_insert`< %s AND `user_server`=%s """
-                        await cur.execute(sql, ( userID, TOKEN_NAME, int(time.time())-confirmed_inserted, user_server ))
+                        await cur.execute(sql, ( user_id, token_name, int(time.time())-confirmed_inserted, user_server ))
                         result = await cur.fetchone()
                         if result and result['incoming_tx']:
                             incoming_tx = result['incoming_tx']
@@ -227,7 +226,7 @@ class Guild(commands.Cog):
                             incoming_tx = 0
                     elif coin_family == "CHIA":
                         sql = """ SELECT SUM(amount+withdraw_fee) AS tx_expense FROM `xch_external_tx` WHERE `user_id`=%s AND `coin_name` = %s AND `user_server` = %s AND `crediting`=%s """
-                        await cur.execute(sql, ( userID, TOKEN_NAME, user_server, "YES" ))
+                        await cur.execute(sql, ( user_id, token_name, user_server, "YES" ))
                         result = await cur.fetchone()
                         if result:
                             tx_expense = result['tx_expense']
@@ -237,11 +236,11 @@ class Guild(commands.Cog):
                         if top_block is None:
                             sql = """ SELECT SUM(amount) AS incoming_tx FROM `xch_get_transfers` WHERE `address`=%s AND `coin_name` = %s 
                                       AND `amount`>0 AND `time_insert`< %s """
-                            await cur.execute(sql, (address, TOKEN_NAME, nos_block)) # seconds
+                            await cur.execute(sql, (address, token_name, nos_block)) # seconds
                         else:
                             sql = """ SELECT SUM(amount) AS incoming_tx FROM `xch_get_transfers` WHERE `address`=%s AND `coin_name` = %s 
                                       AND `amount`>0 AND `height`<%s """
-                            await cur.execute(sql, (address, TOKEN_NAME, nos_block))
+                            await cur.execute(sql, (address, token_name, nos_block))
                         result = await cur.fetchone()
                         if result and result['incoming_tx']:
                             incoming_tx = result['incoming_tx']
@@ -251,7 +250,7 @@ class Guild(commands.Cog):
                         # When sending tx out, (negative)
                         sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense FROM `erc20_external_tx` 
                                   WHERE `user_id`=%s AND `token_name` = %s AND `crediting`=%s """
-                        await cur.execute(sql, ( userID, TOKEN_NAME, "YES" ))
+                        await cur.execute(sql, ( user_id, token_name, "YES" ))
                         result = await cur.fetchone()
                         if result:
                             tx_expense = result['tx_expense']
@@ -261,7 +260,7 @@ class Guild(commands.Cog):
                         # in case deposit fee -real_deposit_fee
                         sql = """ SELECT SUM(real_amount-real_deposit_fee) AS incoming_tx FROM `erc20_move_deposit` WHERE `user_id`=%s 
                                   AND `token_name` = %s AND `confirmed_depth`> %s AND `status`=%s """
-                        await cur.execute(sql, (userID, TOKEN_NAME, confirmed_depth, "CONFIRMED"))
+                        await cur.execute(sql, (user_id, token_name, confirmed_depth, "CONFIRMED"))
                         result = await cur.fetchone()
                         if result:
                             incoming_tx = result['incoming_tx']
@@ -271,7 +270,7 @@ class Guild(commands.Cog):
                         # When sending tx out, (negative)
                         sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense FROM `trc20_external_tx` 
                                   WHERE `user_id`=%s AND `token_name` = %s AND `crediting`=%s AND `sucess`=%s """
-                        await cur.execute(sql, ( userID, TOKEN_NAME, "YES", 1 ))
+                        await cur.execute(sql, ( user_id, token_name, "YES", 1 ))
                         result = await cur.fetchone()
                         if result:
                             tx_expense = result['tx_expense']
@@ -281,7 +280,7 @@ class Guild(commands.Cog):
                         # in case deposit fee -real_deposit_fee
                         sql = """ SELECT SUM(real_amount-real_deposit_fee) AS incoming_tx FROM `trc20_move_deposit` WHERE `user_id`=%s 
                                   AND `token_name` = %s AND `confirmed_depth`> %s AND `status`=%s """
-                        await cur.execute(sql, (userID, TOKEN_NAME, confirmed_depth, "CONFIRMED"))
+                        await cur.execute(sql, (user_id, token_name, confirmed_depth, "CONFIRMED"))
                         result = await cur.fetchone()
                         if result:
                             incoming_tx = result['incoming_tx']
@@ -289,7 +288,7 @@ class Guild(commands.Cog):
                             incoming_tx = 0
                     elif coin_family == "HNT":
                         sql = """ SELECT SUM(amount+withdraw_fee) AS tx_expense FROM `hnt_external_tx` WHERE `user_id`=%s AND `coin_name` = %s AND `user_server` = %s AND `crediting`=%s """
-                        await cur.execute(sql, ( userID, TOKEN_NAME, user_server, "YES" ))
+                        await cur.execute(sql, ( user_id, token_name, user_server, "YES" ))
                         result = await cur.fetchone()
                         if result:
                             tx_expense = result['tx_expense']
@@ -301,11 +300,11 @@ class Guild(commands.Cog):
                         if top_block is None:
                             sql = """ SELECT SUM(amount) AS incoming_tx FROM `hnt_get_transfers` WHERE `address`=%s AND `memo`=%s AND `coin_name` = %s 
                                       AND `amount`>0 AND `time_insert`< %s """
-                            await cur.execute(sql, (address_memo[0], address_memo[2], TOKEN_NAME, nos_block)) # TODO: split to address, memo
+                            await cur.execute(sql, (address_memo[0], address_memo[2], token_name, nos_block)) # TODO: split to address, memo
                         else:
                             sql = """ SELECT SUM(amount) AS incoming_tx FROM `hnt_get_transfers` WHERE `address`=%s AND `memo`=%s AND `coin_name` = %s 
                                       AND `amount`>0 AND `height`<%s """
-                            await cur.execute(sql, (address_memo[0], address_memo[2], TOKEN_NAME, nos_block)) # TODO: split to address, memo
+                            await cur.execute(sql, (address_memo[0], address_memo[2], token_name, nos_block)) # TODO: split to address, memo
                         result = await cur.fetchone()
                         if result and result['incoming_tx']:
                             incoming_tx = result['incoming_tx']
@@ -313,7 +312,7 @@ class Guild(commands.Cog):
                             incoming_tx = 0
                     elif coin_family == "XLM":
                         sql = """ SELECT SUM(amount+withdraw_fee) AS tx_expense FROM `xlm_external_tx` WHERE `user_id`=%s AND `coin_name` = %s AND `user_server` = %s AND `crediting`=%s """
-                        await cur.execute(sql, ( userID, TOKEN_NAME, user_server, "YES" ))
+                        await cur.execute(sql, ( user_id, token_name, user_server, "YES" ))
                         result = await cur.fetchone()
                         if result:
                             tx_expense = result['tx_expense']
@@ -325,11 +324,11 @@ class Guild(commands.Cog):
                         if top_block is None:
                             sql = """ SELECT SUM(amount) AS incoming_tx FROM `xlm_get_transfers` WHERE `address`=%s AND `memo`=%s AND `coin_name` = %s 
                                       AND `amount`>0 AND `time_insert`< %s """
-                            await cur.execute(sql, (address_memo[0], address_memo[2], TOKEN_NAME, nos_block)) # TODO: split to address, memo
+                            await cur.execute(sql, (address_memo[0], address_memo[2], token_name, nos_block)) # TODO: split to address, memo
                         else:
                             sql = """ SELECT SUM(amount) AS incoming_tx FROM `xlm_get_transfers` WHERE `address`=%s AND `memo`=%s AND `coin_name` = %s 
                                       AND `amount`>0 AND `height`<%s """
-                            await cur.execute(sql, (address_memo[0], address_memo[2], TOKEN_NAME, nos_block)) # TODO: split to address, memo
+                            await cur.execute(sql, (address_memo[0], address_memo[2], token_name, nos_block)) # TODO: split to address, memo
                         result = await cur.fetchone()
                         if result and result['incoming_tx']:
                             incoming_tx = result['incoming_tx']
@@ -339,7 +338,7 @@ class Guild(commands.Cog):
                         sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense 
                                   FROM `ada_external_tx` 
                                   WHERE `user_id`=%s AND `coin_name` = %s AND `user_server` = %s AND `crediting`=%s """
-                        await cur.execute(sql, ( userID, TOKEN_NAME, user_server, "YES" ))
+                        await cur.execute(sql, ( user_id, token_name, user_server, "YES" ))
                         result = await cur.fetchone()
                         if result:
                             tx_expense = result['tx_expense']
@@ -350,13 +349,13 @@ class Guild(commands.Cog):
                             sql = """ SELECT SUM(amount) AS incoming_tx 
                                       FROM `ada_get_transfers` WHERE `output_address`=%s AND `direction`=%s AND `coin_name`=%s 
                                       AND `amount`>0 AND `time_insert`< %s """
-                            await cur.execute(sql, ( address, "incoming", TOKEN_NAME, nos_block ))
+                            await cur.execute(sql, ( address, "incoming", token_name, nos_block ))
                         else:
                             sql = """ SELECT SUM(amount) AS incoming_tx 
                                       FROM `ada_get_transfers` 
                                       WHERE `output_address`=%s AND `direction`=%s AND `coin_name`=%s 
                                       AND `amount`>0 AND `inserted_at_height`<%s """
-                            await cur.execute(sql, ( address, "incoming", TOKEN_NAME, nos_block ))
+                            await cur.execute(sql, ( address, "incoming", token_name, nos_block ))
                         result = await cur.fetchone()
                         if result and result['incoming_tx']:
                             incoming_tx = result['incoming_tx']
@@ -366,7 +365,7 @@ class Guild(commands.Cog):
                         # When sending tx out, (negative)
                         sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense FROM `sol_external_tx` 
                                   WHERE `user_id`=%s AND `coin_name` = %s AND `crediting`=%s """
-                        await cur.execute(sql, ( userID, TOKEN_NAME, "YES" ))
+                        await cur.execute(sql, ( user_id, token_name, "YES" ))
                         result = await cur.fetchone()
                         if result:
                             tx_expense = result['tx_expense']
@@ -376,7 +375,7 @@ class Guild(commands.Cog):
                         # in case deposit fee -real_deposit_fee
                         sql = """ SELECT SUM(real_amount-real_deposit_fee) AS incoming_tx FROM `sol_move_deposit` WHERE `user_id`=%s 
                                   AND `token_name` = %s AND `confirmed_depth`> %s AND `status`=%s """
-                        await cur.execute(sql, (userID, TOKEN_NAME, confirmed_depth, "CONFIRMED"))
+                        await cur.execute(sql, (user_id, token_name, confirmed_depth, "CONFIRMED"))
                         result = await cur.fetchone()
                         if result:
                             incoming_tx = result['incoming_tx']
@@ -402,12 +401,12 @@ class Guild(commands.Cog):
                 # Negative check
                 try:
                     if balance['adjust'] < 0:
-                        msg_negative = 'Negative balance detected:\nServer:'+user_server+'\nUser: '+userID+'\nToken: '+TOKEN_NAME+'\nBalance: '+str(balance['adjust'])
+                        msg_negative = 'Negative balance detected:\nServer:'+user_server+'\nUser: '+user_id+'\nToken: '+token_name+'\nBalance: '+str(balance['adjust'])
                         await logchanbot(msg_negative)
-                except Exception as e:
+                except Exception:
                     traceback.print_exc(file=sys.stdout)
                 return balance
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
 
@@ -431,21 +430,21 @@ class Guild(commands.Cog):
             list_activedrop = await self.get_activedrop()
             if len(list_activedrop) > 0:
                 for each_drop in list_activedrop:
-                    COIN_NAME = each_drop['tiptallk_coin']
-                    net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
-                    type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
-                    deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
-                    coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
-                    contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
-                    token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
-                    usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
+                    coin_name = each_drop['tiptallk_coin']
+                    net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+                    type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+                    deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+                    coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+                    contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+                    token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
+                    usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
                     key = "guild_activedrop_{}".format( each_drop['serverid'] )
                     try:
                         if self.ttlcache[key] == key:
                             continue # next
                         else:
                             self.ttlcache[key] = key
-                    except Exception as e:
+                    except Exception:
                         pass
                     lap_str = seconds_str_days( each_drop['tiptalk_duration'] )
                     get_guild = self.bot.get_guild(int(each_drop['serverid']))
@@ -459,7 +458,7 @@ class Guild(commands.Cog):
                         if not get_bot.guild_permissions.send_messages:
                             await logchanbot(f"[ACTIVEDROP] in guild {get_guild.name} / {get_guild.id} I have no permission to send message. Skipped.")
                             continue
-                    except Exception as e:
+                    except Exception:
                         traceback.print_exc(file=sys.stdout)
 
                     # check last drop
@@ -482,47 +481,47 @@ class Guild(commands.Cog):
                                 role = disnake.utils.get(get_guild.roles, id=int(each_drop['tiptalk_role_id']))
 
                             # Check guild's balance
-                            get_deposit = await self.wallet_api.sql_get_userwallet(each_drop['serverid'], COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                            get_deposit = await self.wallet_api.sql_get_userwallet(each_drop['serverid'], coin_name, net_name, type_coin, SERVER_BOT, 0)
                             if get_deposit is None:
-                                get_deposit = await self.wallet_api.sql_register_user(each_drop['serverid'], COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 1)
+                                get_deposit = await self.wallet_api.sql_register_user(each_drop['serverid'], coin_name, net_name, type_coin, SERVER_BOT, 0, 1)
 
                             wallet_address = get_deposit['balance_wallet_address']
                             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                                 wallet_address = get_deposit['paymentid']
 
-                            height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
-                            userdata_balance = await self.user_balance(each_drop['serverid'], COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+                            height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                            userdata_balance = await self.user_balance(each_drop['serverid'], coin_name, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
                             actual_balance = float(userdata_balance['adjust'])
                             
                             if actual_balance < float(each_drop['tiptalk_amount']):
-                                msg = f"Guild {get_guild.name} runs out of {COIN_NAME}'s balance. Please deposit with `/guild deposit` command."
+                                msg = f"Guild {get_guild.name} runs out of {coin_name}'s balance. Please deposit with `/guild deposit` command."
                                 msg_no_embed = msg
-                                await logchanbot(f"[ACTIVEDROP] in guild {get_guild.name} / {get_guild.id} runs out of {COIN_NAME} balance.")
+                                await logchanbot(f"[ACTIVEDROP] in guild {get_guild.name} / {get_guild.id} runs out of {coin_name} balance.")
                                 # add to DB
-                                await self.insert_new_activedrop_guild( each_drop['serverid'], get_guild.name, each_drop['tiptalk_channel'], COIN_NAME, coin_decimal, 0.0, 0.0, 0, None, None, int(time.time()) )
+                                await self.insert_new_activedrop_guild( each_drop['serverid'], get_guild.name, each_drop['tiptalk_channel'], coin_name, coin_decimal, 0.0, 0.0, 0, None, None, int(time.time()) )
                             else:
                                 list_receiver_names = []
                                 for member_id in message_talker:
                                     try:
                                         member = get_guild.get_member( int(member_id) )
                                         if (member and member in get_guild.members and role and hasattr(member, "roles") and role in member.roles) or (role is None and member and member in get_guild.members):
-                                            user_to = await self.wallet_api.sql_get_userwallet(str(member_id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                                            user_to = await self.wallet_api.sql_get_userwallet(str(member_id), coin_name, net_name, type_coin, SERVER_BOT, 0)
                                             if user_to is None:
-                                                user_to = await self.wallet_api.sql_register_user(str(member_id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
+                                                user_to = await self.wallet_api.sql_register_user(str(member_id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0)
                                             try:
                                                 list_receivers.append(str(member_id))
                                                 list_receiver_names.append("{}#{}".format(member.name, member.discriminator))
-                                            except Exception as e:
+                                            except Exception:
                                                 traceback.print_exc(file=sys.stdout)
                                                 await logchanbot(traceback.format_exc())
                                                 print('Failed creating wallet for activedrop for userid: {}'.format(member_id))
-                                    except Exception as e:
+                                    except Exception:
                                         traceback.print_exc(file=sys.stdout)
                                         await logchanbot(traceback.format_exc())
                                 if len(list_receivers) == 0:
                                     msg = f"There is 0 active talkers in the last {lap_str}."
                                     # add to DB
-                                    await self.insert_new_activedrop_guild( each_drop['serverid'], get_guild.name, each_drop['tiptalk_channel'], COIN_NAME, coin_decimal, each_drop['tiptalk_amount'], each_drop['tiptalk_amount'], len(list_receivers), None, None, int(time.time()) )
+                                    await self.insert_new_activedrop_guild( each_drop['serverid'], get_guild.name, each_drop['tiptalk_channel'], coin_name, coin_decimal, each_drop['tiptalk_amount'], each_drop['tiptalk_amount'], len(list_receivers), None, None, int(time.time()) )
                                     # No need to message, just pass
                                     continue
                                 else:
@@ -531,15 +530,15 @@ class Guild(commands.Cog):
                                     total_amount_in_usd = 0.0
                                     amount = each_drop['tiptalk_amount']/len(list_receivers)
                                     if usd_equivalent_enable == 1:
-                                        native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
-                                        COIN_NAME_FOR_PRICE = COIN_NAME
+                                        native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
+                                        coin_name_for_price = coin_name
                                         if native_token_name:
-                                            COIN_NAME_FOR_PRICE = native_token_name
-                                        if COIN_NAME_FOR_PRICE in self.bot.token_hints:
-                                            id = self.bot.token_hints[COIN_NAME_FOR_PRICE]['ticker_name']
+                                            coin_name_for_price = native_token_name
+                                        if coin_name_for_price in self.bot.token_hints:
+                                            id = self.bot.token_hints[coin_name_for_price]['ticker_name']
                                             per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
                                         else:
-                                            per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
+                                            per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
                                         if per_unit and per_unit > 0:
                                             amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                                             if amount_in_usd > 0.0001:
@@ -550,25 +549,25 @@ class Guild(commands.Cog):
                                         if last_drop_recheck is not None and int(time.time()) - last_drop_recheck['spread_time'] < 60:
                                             continue
                                         # add to DB
-                                        await self.insert_new_activedrop_guild( each_drop['serverid'], get_guild.name, each_drop['tiptalk_channel'], COIN_NAME, coin_decimal, each_drop['tiptalk_amount'], each_drop['tiptalk_amount']/len(list_receivers), len(list_receivers), json.dumps(list_receivers), json.dumps(list_receiver_names), int(time.time()) )
-                                        tiptalk = await store.sql_user_balance_mv_multiple( each_drop['serverid'], list_receivers, each_drop['serverid'], each_drop['tiptalk_channel'], each_drop['tiptalk_amount']/len(list_receivers), COIN_NAME, "TIPTALK", coin_decimal, SERVER_BOT, contract, float(amount_in_usd), None )
+                                        await self.insert_new_activedrop_guild( each_drop['serverid'], get_guild.name, each_drop['tiptalk_channel'], coin_name, coin_decimal, each_drop['tiptalk_amount'], each_drop['tiptalk_amount']/len(list_receivers), len(list_receivers), json.dumps(list_receivers), json.dumps(list_receiver_names), int(time.time()) )
+                                        tiptalk = await store.sql_user_balance_mv_multiple( each_drop['serverid'], list_receivers, each_drop['serverid'], each_drop['tiptalk_channel'], each_drop['tiptalk_amount']/len(list_receivers), coin_name, "TIPTALK", coin_decimal, SERVER_BOT, contract, float(amount_in_usd), None )
                                         list_mentioned = [f"<@{each}>" for each in list_receivers]
                                         msg = ", ".join(list_mentioned) + f" active talker(s) in the last {lap_str}."
-                                        msg_no_embed = ", ".join(list_receiver_names) + " got {} {} each. Next drop in {}.".format(num_format_coin(each_drop['tiptalk_amount']/len(list_receivers) if len(list_receivers) > 0 else each_drop['tiptalk_amount'], COIN_NAME, coin_decimal, False), COIN_NAME, seconds_str(each_drop['tiptalk_duration']))
+                                        msg_no_embed = ", ".join(list_receiver_names) + " got {} {} each. Next drop in {}.".format(num_format_coin(each_drop['tiptalk_amount']/len(list_receivers) if len(list_receivers) > 0 else each_drop['tiptalk_amount'], coin_name, coin_decimal, False), coin_name, seconds_str(each_drop['tiptalk_duration']))
                                         if len(msg) > 999:
                                             verb = "is"
                                             if len(list_receivers) > 0:
                                                 verb = "are"
                                             msg = f"There {verb} {str(len(list_receivers))} active talker(s) in the last {lap_str}."
-                                            msg_no_embed = msg + " Each got {} {}. Next drop in {}. You can disable it by /tiptalker and set amount 0.".format(num_format_coin(each_drop['tiptalk_amount']/len(list_receivers) if len(list_receivers) > 0 else each_drop['tiptalk_amount'], COIN_NAME, coin_decimal, False), COIN_NAME, seconds_str(each_drop['tiptalk_duration']))
-                                    except Exception as e:
+                                            msg_no_embed = msg + " Each got {} {}. Next drop in {}. You can disable it by /tiptalker and set amount 0.".format(num_format_coin(each_drop['tiptalk_amount']/len(list_receivers) if len(list_receivers) > 0 else each_drop['tiptalk_amount'], coin_name, coin_decimal, False), coin_name, seconds_str(each_drop['tiptalk_duration']))
+                                    except Exception:
                                         traceback.print_exc(file=sys.stdout)
                                         await logchanbot(traceback.format_exc())
                         if len(msg) > 0:
                             embed = disnake.Embed(title = "ACTIVEDROP/TALKER {}".format( get_guild.name ), description="Keep on chatting in <#{}>".format(each_drop['tiptalk_channel']), timestamp=datetime.now())
                             embed.add_field(name="RECEIVER(s): {}".format(len(list_receivers)), value=msg, inline=False)
-                            embed.add_field(name="TOTAL", value="{} {}".format(num_format_coin(each_drop['tiptalk_amount'], COIN_NAME, coin_decimal, False), COIN_NAME), inline=False)
-                            embed.add_field(name="EACH", value="{} {}".format(num_format_coin(each_drop['tiptalk_amount']/len(list_receivers) if len(list_receivers) > 0 else each_drop['tiptalk_amount'], COIN_NAME, coin_decimal, False), COIN_NAME), inline=False)
+                            embed.add_field(name="TOTAL", value="{} {}".format(num_format_coin(each_drop['tiptalk_amount'], coin_name, coin_decimal, False), coin_name), inline=False)
+                            embed.add_field(name="EACH", value="{} {}".format(num_format_coin(each_drop['tiptalk_amount']/len(list_receivers) if len(list_receivers) > 0 else each_drop['tiptalk_amount'], coin_name, coin_decimal, False), coin_name), inline=False)
                             if each_drop['tiptalk_role_id'] and role:
                                 embed.add_field(name="ROLE", value=role.name, inline=False)
                             embed.add_field(name="NEXT DROP", value=seconds_str(each_drop['tiptalk_duration']), inline=False)
@@ -576,10 +575,10 @@ class Guild(commands.Cog):
                             if get_channel and len(list_receivers) > 0:
                                 try:
                                     await get_channel.send(embed=embed)
-                                except Exception as e:
+                                except Exception:
                                     await get_channel.send(content=msg_no_embed)
-                                await logchanbot(f"[ACTIVEDROP] in guild {get_guild.name} / {get_guild.id} to {str(len(list_receivers))} for total of {num_format_coin(each_drop['tiptalk_amount'], COIN_NAME, coin_decimal, False)} {COIN_NAME}.")
-        except Exception as e:
+                                await logchanbot(f"[ACTIVEDROP] in guild {get_guild.name} / {get_guild.id} to {str(len(list_receivers))} for total of {num_format_coin(each_drop['tiptalk_amount'], coin_name, coin_decimal, False)} {coin_name}.")
+        except Exception:
             traceback.print_exc(file=sys.stdout)
         await asyncio.sleep(time_lap)
 
@@ -600,7 +599,7 @@ class Guild(commands.Cog):
                             continue # next
                         else:
                             self.ttlcache[key] = key
-                    except Exception as e:
+                    except Exception:
                         pass
                     # loop each raffle
                     try:
@@ -644,7 +643,7 @@ class Guild(commands.Cog):
                                                     for each_user in list_raffle_id['entries']:
                                                         list_ping.append("<@{}>".format(each_user['user_id']))
                                                     await raffle_chan.send(", ".join(list_ping))
-                                                except Exception as e:
+                                                except Exception:
                                                     traceback.print_exc(file=sys.stdout)
                                                     await logchanbot(traceback.format_exc()) 
                                         await logchanbot(msg_raffle)
@@ -655,23 +654,23 @@ class Guild(commands.Cog):
                                     else:
                                         await logchanbot(f"Internal error to {msg_raffle}")
                         elif each_raffle['status'] == "ONGOING":
-                            COIN_NAME = each_raffle['coin_name']
+                            coin_name = each_raffle['coin_name']
                             serverinfo = await store.sql_info_by_server(each_raffle['guild_id'])
-                            coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
-                            contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
-                            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
+                            coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+                            contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+                            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
                             unit_price_usd = 0.0
                             if usd_equivalent_enable == 1:
-                                native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
-                                COIN_NAME_FOR_PRICE = COIN_NAME
+                                native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
+                                coin_name_for_price = coin_name
                                 if native_token_name:
-                                    COIN_NAME_FOR_PRICE = native_token_name
-                                if COIN_NAME_FOR_PRICE in self.bot.token_hints:
-                                    id = self.bot.token_hints[COIN_NAME_FOR_PRICE]['ticker_name']
+                                    coin_name_for_price = native_token_name
+                                if coin_name_for_price in self.bot.token_hints:
+                                    id = self.bot.token_hints[coin_name_for_price]['ticker_name']
                                     per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
                                     if per_unit > 0: unit_price_usd = per_unit
                                 else:
-                                    per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
+                                    per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
                                     if per_unit > 0: unit_price_usd = per_unit
                             if each_raffle['ending_ts'] < int(time.time()):
                                 if each_raffle['id'] in self.raffle_to_win:
@@ -729,16 +728,16 @@ class Guild(commands.Cog):
                                     list_losers.remove(user_entries_id[winner_3])
                                     won_amounts.append(float(total_reward) * self.raffle_pot_fee)
                                     # channel_id = RAFFLE
-                                    update_status = await self.raffle_update_id(each_raffle['id'], 'COMPLETED', COIN_NAME, list_winners, won_amounts, list_losers, float(each_raffle['amount']), coin_decimal, unit_price_usd, contract, each_raffle['guild_id'], "RAFFLE")
+                                    update_status = await self.raffle_update_id(each_raffle['id'], 'COMPLETED', coin_name, list_winners, won_amounts, list_losers, float(each_raffle['amount']), coin_decimal, unit_price_usd, contract, each_raffle['guild_id'], "RAFFLE")
                                     embed = disnake.Embed(title = "RAFFLE #{} / {}".format(each_raffle['id'], each_raffle['guild_name']), timestamp=datetime.fromtimestamp(int(time.time())))
-                                    embed.add_field(name="ENTRY FEE", value="{} {}".format(num_format_coin(each_raffle['amount'], COIN_NAME, coin_decimal, False), COIN_NAME), inline=True)
-                                    embed.add_field(name="1st WINNER: {}".format(winner_1_name), value="{} {}".format(num_format_coin(won_amounts[0], COIN_NAME, coin_decimal, False), COIN_NAME), inline=False)
-                                    embed.add_field(name="2nd WINNER: {}".format(winner_2_name), value="{} {}".format(num_format_coin(won_amounts[1], COIN_NAME, coin_decimal, False), COIN_NAME), inline=False)
-                                    embed.add_field(name="3rd WINNER: {}".format(winner_3_name), value="{} {}".format(num_format_coin(won_amounts[2], COIN_NAME, coin_decimal, False), COIN_NAME), inline=False)
+                                    embed.add_field(name="ENTRY FEE", value="{} {}".format(num_format_coin(each_raffle['amount'], coin_name, coin_decimal, False), coin_name), inline=True)
+                                    embed.add_field(name="1st WINNER: {}".format(winner_1_name), value="{} {}".format(num_format_coin(won_amounts[0], coin_name, coin_decimal, False), coin_name), inline=False)
+                                    embed.add_field(name="2nd WINNER: {}".format(winner_2_name), value="{} {}".format(num_format_coin(won_amounts[1], coin_name, coin_decimal, False), coin_name), inline=False)
+                                    embed.add_field(name="3rd WINNER: {}".format(winner_3_name), value="{} {}".format(num_format_coin(won_amounts[2], coin_name, coin_decimal, False), coin_name), inline=False)
                                     embed.set_footer(text="Raffle for {} by {}".format(each_raffle['guild_name'], each_raffle['created_username']))
                                     
                                     msg_raffle = "**Completed raffle #{} in guild {}! Winner entries: #1: {}, #2: {}, #3: {}**\n".format(each_raffle['id'], each_raffle['guild_name'], winner_1_name, winner_2_name, winner_3_name)
-                                    msg_raffle += "```Three winners get reward of #1: {}{}, #2: {}{}, #3: {}{}```".format(num_format_coin(won_amounts[0], COIN_NAME, coin_decimal, False), COIN_NAME, num_format_coin(won_amounts[1], COIN_NAME, coin_decimal, False), COIN_NAME, num_format_coin(won_amounts[2], COIN_NAME, coin_decimal, False), COIN_NAME)
+                                    msg_raffle += "```Three winners get reward of #1: {}{}, #2: {}{}, #3: {}{}```".format(num_format_coin(won_amounts[0], coin_name, coin_decimal, False), coin_name, num_format_coin(won_amounts[1], coin_name, coin_decimal, False), coin_name, num_format_coin(won_amounts[2], coin_name, coin_decimal, False), coin_name)
                                     if serverinfo['raffle_channel']:
                                         raffle_chan = self.bot.get_channel(int(serverinfo['raffle_channel']))
                                         if raffle_chan:
@@ -756,13 +755,13 @@ class Guild(commands.Cog):
                                                     await logchanbot(f"[Discord]/Raffle can not message to {user_found.name}#{user_found.discriminator} about winning raffle.")
                                             else:
                                                 await logchanbot('[Discord]/Raffle Can not find entry id: {}'.format(each_entry))
-                                        except Exception as e:
+                                        except Exception:
                                             traceback.print_exc(file=sys.stdout)
                                             await logchanbot(traceback.format_exc())
-                    except Exception as e:
+                    except Exception:
                         traceback.print_exc(file=sys.stdout)
                         await logchanbot(traceback.format_exc())
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
         await asyncio.sleep(time_lap)
 
@@ -829,7 +828,7 @@ class Guild(commands.Cog):
                             await cur.executemany(sql, values_list)
                             await conn.commit()
                             return True	
-        except Exception as e:	
+        except Exception:	
             await logchanbot(traceback.format_exc())	
         return False
 
@@ -845,7 +844,7 @@ class Guild(commands.Cog):
                     await cur.execute(sql, ('CANCELLED', raffle_id))
                     await conn.commit()	
                     return True	
-        except Exception as e:	
+        except Exception:	
             await logchanbot(traceback.format_exc())	
         return False
 
@@ -861,7 +860,7 @@ class Guild(commands.Cog):
                     await cur.execute(sql, (user_server))
                     result = await cur.fetchall()
                     if result: return result
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())	
         return None
@@ -896,7 +895,7 @@ class Guild(commands.Cog):
                             result['entries'] = None
                             result['user_joined'] = False
                     return result
-        except Exception as e:	
+        except Exception:	
             await logchanbot(traceback.format_exc())	
         return None
 
@@ -912,12 +911,12 @@ class Guild(commands.Cog):
                     await cur.execute(sql, (guild, user_server))
                     result = await cur.fetchone()
                     if result: return result
-        except Exception as e:	
+        except Exception:	
             await logchanbot(traceback.format_exc())	
         return None
 
     async def raffle_insert_new_entry(self, raffle_id: int, guild_id: str, amount: float, decimal: int, coin: str, user_id: str, user_name: str, user_server: str='DISCORD'):
-        COIN_NAME = coin.upper()
+        coin_name = coin.upper()
         user_server = user_server.upper()  
         try:	
             await self.openConnection()	
@@ -926,16 +925,16 @@ class Guild(commands.Cog):
                     sql = """ INSERT INTO guild_raffle_entries (`raffle_id`, `guild_id`, `amount`, `decimal`, 
                               `coin_name`, `user_id`, `user_name`, `entry_ts`, `user_server`) 	
                               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """	
-                    await cur.execute(sql, (raffle_id, guild_id, amount, decimal, COIN_NAME, user_id,
+                    await cur.execute(sql, (raffle_id, guild_id, amount, decimal, coin_name, user_id,
                                             user_name, int(time.time()), user_server,))
                     await conn.commit()	
                     return True	
-        except Exception as e:	
+        except Exception:	
             await logchanbot(traceback.format_exc())	
         return False
 
     async def raffle_insert_new(self, guild_id: str, guild_name: str, amount: float, decimal: int, coin: str, created_userid: str, created_username: str, created_ts: int, ending_ts: str, user_server: str='DISCORD'):
-        COIN_NAME = coin.upper()
+        coin_name = coin.upper()
         user_server = user_server.upper()  
         try:	
             await self.openConnection()	
@@ -944,11 +943,11 @@ class Guild(commands.Cog):
                     sql = """ INSERT INTO guild_raffle (`guild_id`, `guild_name`, `amount`, `decimal`, 
                               `coin_name`, `created_userid`, `created_username`, `created_ts`, `ending_ts`, `user_server`) 	
                               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """	
-                    await cur.execute(sql, (guild_id, guild_name, amount, decimal, COIN_NAME, created_userid,
+                    await cur.execute(sql, (guild_id, guild_name, amount, decimal, coin_name, created_userid,
                                             created_username, created_ts, ending_ts, user_server,))
                     await conn.commit()	
                     return True	
-        except Exception as e:	
+        except Exception:	
             await logchanbot(traceback.format_exc())	
         return False
 
@@ -968,41 +967,41 @@ class Guild(commands.Cog):
                     if result and len(result) > 0:
                         for each_guild in result:
                             # Check guild's balance
-                            COIN_NAME = each_guild['vote_reward_coin']
-                            net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
-                            type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
-                            deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
-                            coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
-                            contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
-                            token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
-                            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
+                            coin_name = each_guild['vote_reward_coin']
+                            net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+                            type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+                            deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+                            coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+                            contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+                            token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
+                            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
 
-                            get_deposit = await self.wallet_api.sql_get_userwallet(each_guild['serverid'], COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                            get_deposit = await self.wallet_api.sql_get_userwallet(each_guild['serverid'], coin_name, net_name, type_coin, SERVER_BOT, 0)
                             if get_deposit is None:
-                                get_deposit = await self.wallet_api.sql_register_user(each_guild['serverid'], COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 1)
+                                get_deposit = await self.wallet_api.sql_register_user(each_guild['serverid'], coin_name, net_name, type_coin, SERVER_BOT, 0, 1)
 
                             wallet_address = get_deposit['balance_wallet_address']
                             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                                 wallet_address = get_deposit['paymentid']
 
-                            height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
-                            userdata_balance = await self.user_balance(each_guild['serverid'], COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+                            height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                            userdata_balance = await self.user_balance(each_guild['serverid'], coin_name, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
                             actual_balance = float(userdata_balance['adjust'])
                             if actual_balance < 10*float(each_guild['vote_reward_amount']):
                                 amount = 10*float(each_guild['vote_reward_amount'])
                                 # Disable it
                                 # Process, only guild owner can process
-                                update_reward = await self.update_reward(each_guild['serverid'], actual_balance, COIN_NAME, True, None)
+                                update_reward = await self.update_reward(each_guild['serverid'], actual_balance, coin_name, True, None)
                                 if update_reward > 0:
                                     try:
                                         guild_found = self.bot.get_guild(int(each_guild['serverid']))
                                         user_found = self.bot.get_user(guild_found.owner.id)
                                         if user_found is not None:
-                                            await user_found.send(f"Currently, your guild's balance of {COIN_NAME} is lower than 10x reward: {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}. Vote reward is disable.")
-                                    except Exception as e:
+                                            await user_found.send(f"Currently, your guild's balance of {coin_name} is lower than 10x reward: {num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}. Vote reward is disable.")
+                                    except Exception:
                                         traceback.print_exc(file=sys.stdout)
-                                    await self.vote_logchan(f'[{SERVER_BOT}] Disable vote reward for {guild_found.name} / {guild_found.id}. Guild\'s balance below 10x: {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}.')
-        except Exception as e:
+                                    await self.vote_logchan(f'[{SERVER_BOT}] Disable vote reward for {guild_found.name} / {guild_found.id}. Guild\'s balance below 10x: {num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}.')
+        except Exception:
             traceback.print_exc(file=sys.stdout)
         await asyncio.sleep(time_lap)
 
@@ -1012,7 +1011,7 @@ class Guild(commands.Cog):
         try:
             webhook = DiscordWebhook(url=config.topgg.topgg_votehook, content=content)
             webhook.execute()
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
 
     async def guild_find_by_key(self, guild_id: str, secret: str):
@@ -1024,7 +1023,7 @@ class Guild(commands.Cog):
                     await cur.execute(sql, ( guild_id ))
                     result = await cur.fetchone()
                     if result: return result[secret]
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
         return None
 
@@ -1037,7 +1036,7 @@ class Guild(commands.Cog):
                     await cur.execute(sql, (key, guild_id))
                     await conn.commit()
                     return cur.rowcount
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
         return None
 
@@ -1046,7 +1045,7 @@ class Guild(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    if disable == True:
+                    if disable is True:
                         sql = """ UPDATE discord_server SET `vote_reward_amount`=%s, `vote_reward_coin`=%s, `vote_reward_channel`=%s WHERE `serverid`=%s LIMIT 1 """
                         await cur.execute(sql, ( None, None, guild_id, None ))
                         await conn.commit()
@@ -1056,7 +1055,7 @@ class Guild(commands.Cog):
                         await cur.execute(sql, ( amount, coin_name.upper(), channel, guild_id  ))
                         await conn.commit()
                         return cur.rowcount
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
         return 0
 
@@ -1065,7 +1064,7 @@ class Guild(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    if disable == True:
+                    if disable is True:
                         sql = """ UPDATE discord_server SET `faucet_amount`=%s, `faucet_coin`=%s, `faucet_channel`=%s, `faucet_duration`=%s WHERE `serverid`=%s LIMIT 1 """
                         await cur.execute(sql, ( None, None, None, None, guild_id ))
                         await conn.commit()
@@ -1075,7 +1074,7 @@ class Guild(commands.Cog):
                         await cur.execute(sql, ( amount, coin_name.upper(), channel, duration, guild_id  ))
                         await conn.commit()
                         return cur.rowcount
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
         return 0
 
@@ -1089,7 +1088,7 @@ class Guild(commands.Cog):
                     await cur.execute(sql, ( amount, coin_name.upper() if coin_name else None, channel, duration, role_id, guild_id  ))
                     await conn.commit()
                     return cur.rowcount
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
         return 0
 
@@ -1103,7 +1102,7 @@ class Guild(commands.Cog):
                     await cur.execute(sql, ())
                     result = await cur.fetchall()
                     if result and len(result) > 0: return result
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
         return []
 
@@ -1117,7 +1116,7 @@ class Guild(commands.Cog):
                     await cur.execute(sql, ( guild_id ))
                     result = await cur.fetchone()
                     if result: return result
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
         return None
 
@@ -1133,7 +1132,7 @@ class Guild(commands.Cog):
                                             each_amount, numb_receivers, list_receivers_id, list_receivers_name, spread_time ))
                     await conn.commit()	
                     return True	
-        except Exception as e:	
+        except Exception:	
             await logchanbot(traceback.format_exc())	
         return False
 
@@ -1202,30 +1201,30 @@ class Guild(commands.Cog):
 
         try:
             await ctx.response.send_message(f"{ctx.author.mention}, execute raffle command... ")
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await ctx.response.send_message(f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute raffle command message...", ephemeral=True)
             return
 
-        COIN_NAME = coin.upper()
-        enable_raffle = getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_raffle")
+        coin_name = coin.upper()
+        enable_raffle = getattr(getattr(self.bot.coin_list, coin_name), "enable_raffle")
 
-        net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
-        type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
-        deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
-        coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
-        contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
-        token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
-        MinTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_min_tip")
-        MaxTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_max_tip")
-        usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
+        net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+        type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+        deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+        coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+        contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+        token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
+        MinTip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
+        MaxTip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
+        usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
 
-        if not hasattr(self.bot.coin_list, COIN_NAME):
-            await ctx.edit_original_message(content=f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.')
+        if not hasattr(self.bot.coin_list, coin_name):
+            await ctx.edit_original_message(content=f'{ctx.author.mention}, **{coin_name}** does not exist with us.')
             return
 
         if enable_raffle != 1:
-            await ctx.edit_original_message(content=f'{ctx.author.mention}, **{COIN_NAME}** not available for raffle.')
+            await ctx.edit_original_message(content=f'{ctx.author.mention}, **{coin_name}** not available for raffle.')
             return
 
         duration_accepted = ["1H", "2H", "3H", "4H", "5H", "6H", "12H", "1D", "2D", "3D", "4D", "5D", "6D", "7D"]
@@ -1242,11 +1241,11 @@ class Guild(commands.Cog):
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, your guild needs to have at least: {str(self.raffle_min_useronline)} users online!"
                 await ctx.edit_original_message(content=msg)
                 return
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
 
         if amount < MinTip or amount > MaxTip:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention} amount has to be between `{num_format_coin(MinTip, COIN_NAME, coin_decimal, False)} {token_display}` and `{num_format_coin(MaxTip, COIN_NAME, coin_decimal, False)} {token_display}`.'
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention} amount has to be between `{num_format_coin(MinTip, coin_name, coin_decimal, False)} {token_display}` and `{num_format_coin(MaxTip, coin_name, coin_decimal, False)} {token_display}`.'
             await ctx.edit_original_message(content=msg)
             return
 
@@ -1278,16 +1277,16 @@ class Guild(commands.Cog):
                 return
             try:
                 start_ts = int(time.time())
-                message_raffle = "{}#{} created a raffle for **{} {}** in guild `{}`. Raffle in **{}**.".format(ctx.author.name, ctx.author.discriminator, num_format_coin(amount, COIN_NAME, coin_decimal, False), COIN_NAME, ctx.guild.name, duration)
+                message_raffle = "{}#{} created a raffle for **{} {}** in guild `{}`. Raffle in **{}**.".format(ctx.author.name, ctx.author.discriminator, num_format_coin(amount, coin_name, coin_decimal, False), coin_name, ctx.guild.name, duration)
                 try:
                     await ctx.edit_original_message(content=message_raffle)
-                    insert_raffle = await self.raffle_insert_new(str(ctx.guild.id), ctx.guild.name, amount, coin_decimal, COIN_NAME, str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator), start_ts, start_ts+duration_in_s, SERVER_BOT)
+                    insert_raffle = await self.raffle_insert_new(str(ctx.guild.id), ctx.guild.name, amount, coin_decimal, coin_name, str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator), start_ts, start_ts+duration_in_s, SERVER_BOT)
                     await logchanbot(message_raffle)
                     return
-                except Exception as e:
+                except Exception:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(f"Failed to message raffle creation in guild {ctx.guild.name} / {ctx.guild.id} ")
-            except Exception as e:
+            except Exception:
                 traceback.print_exc(file=sys.stdout)
 
 
@@ -1331,7 +1330,7 @@ class Guild(commands.Cog):
 
         try:
             await ctx.response.send_message(f"{ctx.author.mention}, execute raffle command... ")
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await ctx.response.send_message(f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute raffle command message...", ephemeral=True)
             return
@@ -1349,19 +1348,19 @@ class Guild(commands.Cog):
                 await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, there is no information of current raffle yet!")
                 return
         try:
-            if ctx.author.bot == True:
+            if ctx.author.bot is True:
                 await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, Bot is not allowed!")
                 return
-        except Exception as e:
+        except Exception:
             pass
 
-        COIN_NAME = get_raffle['coin_name']
-        coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+        coin_name = get_raffle['coin_name']
+        coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
         if subc == "INFO":
             try:
                 ending_ts = datetime.fromtimestamp(int(get_raffle['ending_ts']))
                 embed = disnake.Embed(title = "RAFFLE #{} / {}".format(get_raffle['id'], ctx.guild.name), timestamp=ending_ts)
-                embed.add_field(name="ENTRY FEE", value="{} {}".format(num_format_coin(get_raffle['amount'], COIN_NAME, coin_decimal, False), COIN_NAME), inline=True)
+                embed.add_field(name="ENTRY FEE", value="{} {}".format(num_format_coin(get_raffle['amount'], coin_name, coin_decimal, False), coin_name), inline=True)
                 create_ts = datetime.fromtimestamp(int(get_raffle['created_ts'])).strftime("%Y-%m-%d %H:%M:%S")
                 create_ts_ago = str(timeago.format(create_ts, datetime.fromtimestamp(int(time.time()))))
                 embed.add_field(name="CREATED", value=create_ts_ago, inline=True)
@@ -1372,7 +1371,7 @@ class Guild(commands.Cog):
                         for each_user in list_raffle_id['entries']:
                             list_ping.append(each_user['user_name'])
                         embed.add_field(name="PARTICIPANT LIST", value=", ".join(list_ping), inline=False)
-                    embed.add_field(name="RAFFLE JAR", value=num_format_coin(len(list_raffle_id['entries'])*float(get_raffle['amount']), COIN_NAME, coin_decimal, False)+" "+COIN_NAME, inline=True)
+                    embed.add_field(name="RAFFLE JAR", value=num_format_coin(len(list_raffle_id['entries'])*float(get_raffle['amount']), coin_name, coin_decimal, False)+" "+coin_name, inline=True)
                 else:
                     embed.add_field(name="PARTICIPANTS", value="0", inline=True)
                 embed.add_field(name="STATUS", value=get_raffle['status'], inline=True)
@@ -1392,7 +1391,7 @@ class Guild(commands.Cog):
                         embed.add_field(name="WHEN", value=seconds_str_days(int(get_raffle['ending_ts'])-int(time.time())), inline=False)
                 embed.set_footer(text="Raffle for {} by {}".format(ctx.guild.name, get_raffle['created_username']))
                 await ctx.edit_original_message(content=None, embed=embed)
-            except Exception as e:
+            except Exception:
                 traceback.print_exc(file=sys.stdout)
         elif subc == "CANCEL":
             if not ctx.author.guild_permissions.manage_channels:
@@ -1440,27 +1439,27 @@ class Guild(commands.Cog):
                             await ctx.edit_original_message(content=msg)
                             return
                         else:
-                            COIN_NAME = get_raffle['coin_name']
-                            net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
-                            type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
-                            coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
-                            deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
+                            coin_name = get_raffle['coin_name']
+                            net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+                            type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+                            coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+                            deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
 
-                            user_entry = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                            user_entry = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0)
                             if user_entry is None:
-                                user_entry = await self.wallet_api.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
+                                user_entry = await self.wallet_api.sql_register_user(str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0)
 
                             wallet_address = user_entry['balance_wallet_address']
                             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                                 wallet_address = user_entry['paymentid']
 
-                            height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
-                            userdata_balance = await self.user_balance(str(ctx.author.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+                            height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                            userdata_balance = await self.user_balance(str(ctx.author.id), coin_name, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
                             actual_balance = float(userdata_balance['adjust'])
 
                             if actual_balance < get_raffle['amount']:
-                                fee_str = num_format_coin(get_raffle['amount'], COIN_NAME, get_raffle['decimal'], False) + " " + COIN_NAME
-                                having_str = num_format_coin(actual_balance, COIN_NAME, get_raffle['decimal'], False) + " " + COIN_NAME
+                                fee_str = num_format_coin(get_raffle['amount'], coin_name, get_raffle['decimal'], False) + " " + coin_name
+                                having_str = num_format_coin(actual_balance, coin_name, get_raffle['decimal'], False) + " " + coin_name
                                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to join raffle entry. Fee: {fee_str}, having: {having_str}."
                                 await ctx.edit_original_message(content=msg)
                                 return
@@ -1477,13 +1476,13 @@ class Guild(commands.Cog):
                                 note_entry = num_format_coin(get_raffle['amount'], get_raffle['coin_name'], get_raffle['decimal'], False) + " " + get_raffle['coin_name'] + " is deducted from your balance."
                                 msg = f'{ctx.author.mention}, successfully registered your Entry for raffle #**{raffle_id}** in {ctx.guild.name}! {note_entry}'
                                 await ctx.edit_original_message(content=msg)
-                            except Exception as e:
+                            except Exception:
                                 traceback.print_exc(file=sys.stdout)
                             ## remove QUEUE: reply
                             if ctx.author.id in self.bot.GAME_RAFFLE_QUEUE:
                                 self.bot.GAME_RAFFLE_QUEUE.remove(ctx.author.id)
                             return
-                except Exception as e:
+                except Exception:
                     traceback.print_exc(file=sys.stdout)
         elif subc == "CHECK":
             if get_raffle is None:
@@ -1510,7 +1509,7 @@ class Guild(commands.Cog):
                         msg = f'{ctx.author.mention}, current raffle #{raffle_id} for guild {ctx.guild.name} is **CANCELLED**!'
                         await ctx.edit_original_message(content=msg)
                         return
-                except Exception as e:
+                except Exception:
                     traceback.print_exc(file=sys.stdout)
         elif subc == "LAST":
             if get_raffle is None:
@@ -1538,52 +1537,52 @@ class Guild(commands.Cog):
         coin_balance_equivalent_usd = {}
         for each_token in mytokens:
             try:
-                COIN_NAME = each_token['coin_name']
-                type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
-                net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
-                deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
-                coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
-                token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
-                get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.guild.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                coin_name = each_token['coin_name']
+                type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+                net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+                deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+                coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+                token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
+                get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0)
                 if get_deposit is None:
-                    get_deposit = await self.wallet_api.sql_register_user(str(ctx.guild.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 1)
+                    get_deposit = await self.wallet_api.sql_register_user(str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 1)
                 wallet_address = get_deposit['balance_wallet_address']
                 if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                     wallet_address = get_deposit['paymentid']
 
-                height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
+                height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                 # height can be None
-                userdata_balance = await self.user_balance(str(ctx.guild.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+                userdata_balance = await self.user_balance(str(ctx.guild.id), coin_name, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
                 total_balance = userdata_balance['adjust']
                 if total_balance > 0:
                     has_none_balance = False
-                    coin_balance_list[COIN_NAME] = "{} {}".format(num_format_coin(total_balance, COIN_NAME, coin_decimal, False), token_display)
-                    coin_balance[COIN_NAME] = total_balance
-                    usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
-                    coin_balance_usd[COIN_NAME] = 0.0
-                    coin_balance_equivalent_usd[COIN_NAME] = ""
+                    coin_balance_list[coin_name] = "{} {}".format(num_format_coin(total_balance, coin_name, coin_decimal, False), token_display)
+                    coin_balance[coin_name] = total_balance
+                    usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
+                    coin_balance_usd[coin_name] = 0.0
+                    coin_balance_equivalent_usd[coin_name] = ""
                     if usd_equivalent_enable == 1:
-                        native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
-                        COIN_NAME_FOR_PRICE = COIN_NAME
+                        native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
+                        coin_name_for_price = coin_name
                         if native_token_name:
-                            COIN_NAME_FOR_PRICE = native_token_name
+                            coin_name_for_price = native_token_name
                         per_unit = None
-                        if COIN_NAME_FOR_PRICE in self.bot.token_hints:
-                            id = self.bot.token_hints[COIN_NAME_FOR_PRICE]['ticker_name']
+                        if coin_name_for_price in self.bot.token_hints:
+                            id = self.bot.token_hints[coin_name_for_price]['ticker_name']
                             per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
                         else:
-                            per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
+                            per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
                         if per_unit and per_unit > 0:
-                            coin_balance_usd[COIN_NAME] = float(Decimal(total_balance) * Decimal(per_unit))
-                            total_all_balance_usd += coin_balance_usd[COIN_NAME]
-                            if coin_balance_usd[COIN_NAME] >= 0.01:
-                                coin_balance_equivalent_usd[COIN_NAME] = " ~ {:,.2f}$".format(coin_balance_usd[COIN_NAME])
-                            elif coin_balance_usd[COIN_NAME] >= 0.0001:
-                                coin_balance_equivalent_usd[COIN_NAME] = " ~ {:,.4f}$".format(coin_balance_usd[COIN_NAME])
-            except Exception as e:
+                            coin_balance_usd[coin_name] = float(Decimal(total_balance) * Decimal(per_unit))
+                            total_all_balance_usd += coin_balance_usd[coin_name]
+                            if coin_balance_usd[coin_name] >= 0.01:
+                                coin_balance_equivalent_usd[coin_name] = " ~ {:,.2f}$".format(coin_balance_usd[coin_name])
+                            elif coin_balance_usd[coin_name] >= 0.0001:
+                                coin_balance_equivalent_usd[coin_name] = " ~ {:,.4f}$".format(coin_balance_usd[coin_name])
+            except Exception:
                 traceback.print_exc(file=sys.stdout)
 
-        if has_none_balance == True:
+        if has_none_balance is True:
             msg = f'{ctx.author.mention}, this guild does not have any balance.'
             await ctx.edit_original_message(content=msg)
             return
@@ -1626,13 +1625,13 @@ class Guild(commands.Cog):
                     break
                 
             if len(all_pages) == 1:
-                await ctx.edit_original_message(content=None, embed=all_pages[0], view=RowButton_close_message())
+                await ctx.edit_original_message(content=None, embed=all_pages[0], view=RowButtonCloseMessage())
             else:
                 view = None
                 try:
                     view = MenuPage(ctx, all_pages, timeout=30)
                     view.message = await ctx.edit_original_message(content=None, embed=all_pages[0], view=view)
-                except Exception as e:
+                except Exception:
                     msg = f'{ctx.author.mention}, internal error when checking /guild balance. Try again later. If problem still persists, contact TipBot dev.'
                     await ctx.edit_original_message(content=msg)
                     traceback.print_exc(file=sys.stdout)
@@ -1656,31 +1655,31 @@ class Guild(commands.Cog):
         coin: str,
         channel: disnake.TextChannel
     ):
-        COIN_NAME = coin.upper()
-        if not hasattr(self.bot.coin_list, COIN_NAME):
-            await ctx.response.send_message(f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.')
+        coin_name = coin.upper()
+        if not hasattr(self.bot.coin_list, coin_name):
+            await ctx.response.send_message(f'{ctx.author.mention}, **{coin_name}** does not exist with us.')
             return
 
-        net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
-        type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
-        deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
-        coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
-        contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
-        token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
-        MinTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_min_tip")
-        MaxTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_max_tip")
-        usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
+        net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+        type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+        deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+        coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+        contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+        token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
+        MinTip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
+        MaxTip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
+        usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
 
-        get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.guild.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+        get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0)
         if get_deposit is None:
-            get_deposit = await self.wallet_api.sql_register_user(str(ctx.guild.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 1)
+            get_deposit = await self.wallet_api.sql_register_user(str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 1)
 
         wallet_address = get_deposit['balance_wallet_address']
         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
             wallet_address = get_deposit['paymentid']
 
-        height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
-        userdata_balance = await self.user_balance(str(ctx.guild.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+        height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+        userdata_balance = await self.user_balance(str(ctx.guild.id), coin_name, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
         actual_balance = float(userdata_balance['adjust'])
 
         amount = amount.replace(",", "")
@@ -1691,17 +1690,17 @@ class Guild(commands.Cog):
             return
         # We assume max reward by MaxTip / 10
         elif amount < MinTip or amount > MaxTip / 10:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, reward cannot be smaller than {num_format_coin(MinTip, COIN_NAME, coin_decimal, False)} {token_display} or bigger than {num_format_coin(MaxTip / 10, COIN_NAME, coin_decimal, False)} {token_display}.'
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, reward cannot be smaller than {num_format_coin(MinTip, coin_name, coin_decimal, False)} {token_display} or bigger than {num_format_coin(MaxTip / 10, coin_name, coin_decimal, False)} {token_display}.'
             await ctx.response.send_message(msg, ephemeral=True)
             return
         # We assume at least guild need to have 100x of reward or depends on guild's population
         elif amount*100 > actual_balance:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, your guild needs to have at least 100x reward balance. 100x rewards = {num_format_coin(amount*100, COIN_NAME, coin_decimal, False)} {token_display}. Check with `/guild balance`.'
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, your guild needs to have at least 100x reward balance. 100x rewards = {num_format_coin(amount*100, coin_name, coin_decimal, False)} {token_display}. Check with `/guild balance`.'
             await ctx.response.send_message(msg, ephemeral=True)
             return
         elif amount*len(ctx.guild.members) > actual_balance:
             population = len(ctx.guild.members)
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention} you need to have at least {str(population)}x reward balance. {str(population)}x rewards = {num_format_coin(amount*population, COIN_NAME, coin_decimal, False)} {token_display}.'
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention} you need to have at least {str(population)}x reward balance. {str(population)}x rewards = {num_format_coin(amount*population, coin_name, coin_decimal, False)} {token_display}.'
             await ctx.response.send_message(msg, ephemeral=True)
             return
         else:
@@ -1709,10 +1708,10 @@ class Guild(commands.Cog):
             get_channel = self.bot.get_channel(int(channel.id))
             channel_str = str(channel.id)
             # Test message
-            msg = f"New vote reward set to {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display} by {ctx.author.name}#{ctx.author.discriminator} and message here."
+            msg = f"New vote reward set to {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} by {ctx.author.name}#{ctx.author.discriminator} and message here."
             try:
                 await get_channel.send(msg)
-            except Exception as e:
+            except Exception:
                 msg = f'{ctx.author.mention}, failed to message channel {channel.mention}. Set reward denied!'
                 await ctx.response.send_message(msg, ephemeral=True)
                 traceback.print_exc(file=sys.stdout)
@@ -1724,17 +1723,17 @@ class Guild(commands.Cog):
                 if serverinfo is None:
                     # Let's add some info if server return None
                     add_server_info = await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
-            except Exception as e:
+            except Exception:
                 msg = f'{ctx.author.mention}, internal error. Please report.'
                 await ctx.response.send_message(msg, ephemeral=True)
                 traceback.print_exc(file=sys.stdout)
-            update_reward = await self.update_reward(str(ctx.guild.id), float(amount), COIN_NAME, False, channel_str)
+            update_reward = await self.update_reward(str(ctx.guild.id), float(amount), coin_name, False, channel_str)
             if update_reward > 0:
-                msg = f'{ctx.author.mention} Successfully set reward for voting in guild {ctx.guild.name} to {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}.'
+                msg = f'{ctx.author.mention} Successfully set reward for voting in guild {ctx.guild.name} to {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}.'
                 await ctx.response.send_message(msg, ephemeral=True)
                 try:
-                    await self.vote_logchan(f'[{SERVER_BOT}] A user {ctx.author.name}#{ctx.author.discriminator} set a vote reward in guild {ctx.guild.name} / {ctx.guild.id} to {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}.')
-                except Exception as e:
+                    await self.vote_logchan(f'[{SERVER_BOT}] A user {ctx.author.name}#{ctx.author.discriminator} set a vote reward in guild {ctx.guild.name} / {ctx.guild.id} to {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}.')
+                except Exception:
                     traceback.print_exc(file=sys.stdout)
             else:
                 msg = f'{ctx.author.mention}, internal error or nothing updated.'
@@ -1756,56 +1755,56 @@ class Guild(commands.Cog):
         amount: str, 
         coin: str
     ):
-        COIN_NAME = coin.upper()
-        if not hasattr(self.bot.coin_list, COIN_NAME):
-            await ctx.response.send_message(f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.')
+        coin_name = coin.upper()
+        if not hasattr(self.bot.coin_list, coin_name):
+            await ctx.response.send_message(f'{ctx.author.mention}, **{coin_name}** does not exist with us.')
             return
         # Do the job
         try:
-            net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
-            type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
-            deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
-            coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
-            contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
-            token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
-            MinTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_min_tip")
-            MaxTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_max_tip")
-            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
+            net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+            type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+            deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+            coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+            contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+            token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
+            MinTip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
+            MaxTip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
+            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
 
-            get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+            get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0)
             if get_deposit is None:
-                get_deposit = await self.wallet_api.sql_register_user(str(ctx.author.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 0)
+                get_deposit = await self.wallet_api.sql_register_user(str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0)
 
             wallet_address = get_deposit['balance_wallet_address']
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                 wallet_address = get_deposit['paymentid']
 
-            height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
+            height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
             # check if amount is all
             all_amount = False
             if not amount.isdigit() and amount.upper() == "ALL":
                 all_amount = True
-                userdata_balance = await self.user_balance(str(ctx.author.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+                userdata_balance = await self.user_balance(str(ctx.author.id), coin_name, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
                 amount = float(userdata_balance['adjust'])
             # If $ is in amount, let's convert to coin/token
             elif "$" in amount[-1] or "$" in amount[0]: # last is $
                 # Check if conversion is allowed for this coin.
                 amount = amount.replace(",", "").replace("$", "")
                 if usd_equivalent_enable == 0:
-                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{COIN_NAME}`."
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{coin_name}`."
                     await ctx.response.send_message(msg)
                     return
                 else:
-                    native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
-                    COIN_NAME_FOR_PRICE = COIN_NAME
+                    native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
+                    coin_name_for_price = coin_name
                     if native_token_name:
-                        COIN_NAME_FOR_PRICE = native_token_name
+                        coin_name_for_price = native_token_name
                     per_unit = None
-                    if COIN_NAME_FOR_PRICE in self.bot.token_hints:
-                        id = self.bot.token_hints[COIN_NAME_FOR_PRICE]['ticker_name']
+                    if coin_name_for_price in self.bot.token_hints:
+                        id = self.bot.token_hints[coin_name_for_price]['ticker_name']
                         per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
                     else:
-                        per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
+                        per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
                     if per_unit and per_unit > 0:
                         amount = float(Decimal(amount) / Decimal(per_unit))
                     else:
@@ -1819,21 +1818,21 @@ class Guild(commands.Cog):
                     await ctx.response.send_message(f'{EMOJI_RED_NO} {ctx.author.mention} Invalid given amount.')
                     return
             # end of check if amount is all
-            userdata_balance = await self.user_balance(str(ctx.author.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+            userdata_balance = await self.user_balance(str(ctx.author.id), coin_name, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
             actual_balance = Decimal(userdata_balance['adjust'])
             amount = Decimal(amount)
             if amount <= 0:
-                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please topup more {COIN_NAME}'
+                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please topup more {coin_name}'
                 await ctx.response.send_message(msg)
                 return
                 
             if amount > actual_balance:
-                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to deposit {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}.'
+                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to deposit {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}.'
                 await ctx.response.send_message(msg, ephemeral=True)
                 return
 
             elif amount < MinTip or amount > MaxTip:
-                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, transaction cannot be smaller than {num_format_coin(MinTip, COIN_NAME, coin_decimal, False)} {token_display} or bigger than {num_format_coin(MaxTip, COIN_NAME, coin_decimal, False)} {token_display}.'
+                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, transaction cannot be smaller than {num_format_coin(MinTip, coin_name, coin_decimal, False)} {token_display} or bigger than {num_format_coin(MaxTip, coin_name, coin_decimal, False)} {token_display}.'
                 await ctx.response.send_message(msg, ephemeral=True)
                 return
 
@@ -1841,15 +1840,15 @@ class Guild(commands.Cog):
             amount_in_usd = 0.0
             per_unit = None
             if usd_equivalent_enable == 1:
-                native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
-                COIN_NAME_FOR_PRICE = COIN_NAME
+                native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
+                coin_name_for_price = coin_name
                 if native_token_name:
-                    COIN_NAME_FOR_PRICE = native_token_name
-                if COIN_NAME_FOR_PRICE in self.bot.token_hints:
-                    id = self.bot.token_hints[COIN_NAME_FOR_PRICE]['ticker_name']
+                    coin_name_for_price = native_token_name
+                if coin_name_for_price in self.bot.token_hints:
+                    id = self.bot.token_hints[coin_name_for_price]['ticker_name']
                     per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
                 else:
-                    per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
+                    per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
                 if per_unit and per_unit > 0:
                     amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                     if amount_in_usd > 0.0001:
@@ -1862,10 +1861,10 @@ class Guild(commands.Cog):
             else:
                 self.bot.TX_IN_PROCESS.append(ctx.author.id)
                 try:
-                    tip = await store.sql_user_balance_mv_single(str(ctx.author.id), str(ctx.guild.id), str(ctx.guild.id), str(ctx.channel.id), amount, COIN_NAME, 'GUILDDEPOSIT', coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
+                    tip = await store.sql_user_balance_mv_single(str(ctx.author.id), str(ctx.guild.id), str(ctx.guild.id), str(ctx.channel.id), amount, coin_name, 'GUILDDEPOSIT', coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
                     if tip:
                         try:
-                            msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention} **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}**{equivalent_usd} was transferred to {ctx.guild.name}.'
+                            msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention} **{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}**{equivalent_usd} was transferred to {ctx.guild.name}.'
                             await ctx.response.send_message(msg)
                         except (disnake.Forbidden, disnake.errors.Forbidden, disnake.errors.HTTPException) as e:
                             pass
@@ -1875,14 +1874,14 @@ class Guild(commands.Cog):
                             notifyList = await store.sql_get_tipnotify()
                             if str(guild_found.owner.id) not in notifyList:
                                 try:
-                                    await user_found.send(f'Your guild **{ctx.guild.name}** got a deposit of **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}**{equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator} in `#{ctx.channel.name}`\n{NOTIFICATION_OFF_CMD}')
+                                    await user_found.send(f'Your guild **{ctx.guild.name}** got a deposit of **{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}**{equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator} in `#{ctx.channel.name}`\n{NOTIFICATION_OFF_CMD}')
                                 except (disnake.Forbidden, disnake.errors.Forbidden, disnake.errors.HTTPException) as e:
                                     pass
-                except Exception as e:
+                except Exception:
                     traceback.print_exc(file=sys.stdout)
                 if ctx.author.id in self.bot.TX_IN_PROCESS:
                     self.bot.TX_IN_PROCESS.remove(ctx.author.id)
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
 
 
@@ -1912,18 +1911,18 @@ class Guild(commands.Cog):
             if insert_key:
                 try:
                     await ctx.response.send_message(f'Your guild {ctx.guild.name}\'s topgg key: `{random_string}`\nWebook URL: `{config.topgg.guild_vote_url}`', ephemeral=True)
-                except Exception as e:
+                except Exception:
                     traceback.print_exc(file=sys.stdout)
             else:
                 try:
                     await ctx.response.send_message(f'Internal error! Please report!', ephemeral=True)
-                except Exception as e:
+                except Exception:
                     traceback.print_exc(file=sys.stdout)
         elif get_guild_by_key and resetkey == "NO":
             # Just display
             try:
                 await ctx.response.send_message(f'Your guild {ctx.guild.name}\'s topgg key: `{get_guild_by_key}`\nWebook URL: `{config.topgg.guild_vote_url}`', ephemeral=True)
-            except Exception as e:
+            except Exception:
                 traceback.print_exc(file=sys.stdout)
         elif get_guild_by_key and resetkey == "YES":
             # Update a new key and say to it. Do not forget to update
@@ -1932,12 +1931,12 @@ class Guild(commands.Cog):
             if insert_key:
                 try:
                     await ctx.response.send_message(f'Your guild {ctx.guild.name}\'s topgg updated key: `{random_string}`\nWebook URL: `{config.topgg.guild_vote_url}`', ephemeral=True)
-                except Exception as e:
+                except Exception:
                     traceback.print_exc(file=sys.stdout)
             else:
                 try:
                     await ctx.response.send_message(f'Internal error! Please report!', ephemeral=True)
-                except Exception as e:
+                except Exception:
                     traceback.print_exc(file=sys.stdout)
 
 
@@ -1967,18 +1966,18 @@ class Guild(commands.Cog):
             if insert_key:
                 try:
                     await ctx.response.send_message(f'Your guild {ctx.guild.name}\'s discordlist key: `{random_string}`\nWebook URL: `{config.discordlist.guild_vote_url}`', ephemeral=True)
-                except Exception as e:
+                except Exception:
                     traceback.print_exc(file=sys.stdout)
             else:
                 try:
                     await ctx.response.send_message(f'Internal error! Please report!', ephemeral=True)
-                except Exception as e:
+                except Exception:
                     traceback.print_exc(file=sys.stdout)
         elif get_guild_by_key and resetkey == "NO":
             # Just display
             try:
                 await ctx.response.send_message(f'Your guild {ctx.guild.name}\'s discordlist key: `{get_guild_by_key}`\nWebook URL: `{config.discordlist.guild_vote_url}`', ephemeral=True)
-            except Exception as e:
+            except Exception:
                 traceback.print_exc(file=sys.stdout)
         elif get_guild_by_key and resetkey == "YES":
             # Update a new key and say to it. Do not forget to update
@@ -1987,69 +1986,69 @@ class Guild(commands.Cog):
             if insert_key:
                 try:
                     await ctx.response.send_message(f'Your guild {ctx.guild.name}\'s discordlist updated key: `{random_string}`\nWebook URL: `{config.discordlist.guild_vote_url}`', ephemeral=True)
-                except Exception as e:
+                except Exception:
                     traceback.print_exc(file=sys.stdout)
             else:
                 try:
                     await ctx.response.send_message(f'Internal error! Please report!', ephemeral=True)
-                except Exception as e:
+                except Exception:
                     traceback.print_exc(file=sys.stdout)
 
 
     # Guild deposit
     async def async_mdeposit(self, ctx, token: str=None, plain: str=None):
-        COIN_NAME = None
+        coin_name = None
         if token is None:
             await ctx.response.send_message(f'{ctx.author.mention}, token name is missing.')
             return
         else:
-            COIN_NAME = token.upper()
+            coin_name = token.upper()
             # print(self.bot.coin_list)
-            if not hasattr(self.bot.coin_list, COIN_NAME):
-                await ctx.response.send_message(f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.')
+            if not hasattr(self.bot.coin_list, coin_name):
+                await ctx.response.send_message(f'{ctx.author.mention}, **{coin_name}** does not exist with us.')
                 return
             else:
-                if getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_deposit") == 0:
-                    await ctx.response.send_message(f'{ctx.author.mention}, **{COIN_NAME}** deposit disable.')
+                if getattr(getattr(self.bot.coin_list, coin_name), "enable_deposit") == 0:
+                    await ctx.response.send_message(f'{ctx.author.mention}, **{coin_name}** deposit disable.')
                     return
                     
         # Do the job
         try:
-            net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
-            type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
-            get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.guild.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+            net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+            type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+            get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0)
             if get_deposit is None:
-                get_deposit = await self.wallet_api.sql_register_user(str(ctx.guild.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 1)
+                get_deposit = await self.wallet_api.sql_register_user(str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 1)
                 
             wallet_address = get_deposit['balance_wallet_address']
             description = ""
             fee_txt = ""
             guild_note = " This is guild's deposit address and NOT YOURS."
-            token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
-            if getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_note") and len(getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_note")) > 0:
-                description = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_note")
-            if getattr(getattr(self.bot.coin_list, COIN_NAME), "real_deposit_fee") and getattr(getattr(self.bot.coin_list, COIN_NAME), "real_deposit_fee") > 0:
-                fee_txt = " **{} {}** will be deducted from your deposit when it reaches minimum. ".format(getattr(getattr(self.bot.coin_list, COIN_NAME), "real_deposit_fee"), token_display)
+            token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
+            if getattr(getattr(self.bot.coin_list, coin_name), "deposit_note") and len(getattr(getattr(self.bot.coin_list, coin_name), "deposit_note")) > 0:
+                description = getattr(getattr(self.bot.coin_list, coin_name), "deposit_note")
+            if getattr(getattr(self.bot.coin_list, coin_name), "real_deposit_fee") and getattr(getattr(self.bot.coin_list, coin_name), "real_deposit_fee") > 0:
+                fee_txt = " **{} {}** will be deducted from your deposit when it reaches minimum. ".format(getattr(getattr(self.bot.coin_list, coin_name), "real_deposit_fee"), token_display)
             embed = disnake.Embed(title=f'Deposit for guild {ctx.guild.name}', description=description + fee_txt + guild_note, timestamp=datetime.fromtimestamp(int(time.time())))
             embed.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
             try:
                 gen_qr_address = await self.wallet_api.generate_qr_address(wallet_address)
                 embed.set_thumbnail(url=config.storage.deposit_url + wallet_address + ".png")
-            except Exception as e:
+            except Exception:
                 traceback.print_exc(file=sys.stdout)
             plain_msg = 'Guild {} deposit address: ```{}```'.format(ctx.guild.name, wallet_address)
             embed.add_field(name="Guild {}".format(ctx.guild.name), value="`{}`".format(wallet_address), inline=False)
-            if getattr(getattr(self.bot.coin_list, COIN_NAME), "explorer_link") and len(getattr(getattr(self.bot.coin_list, COIN_NAME), "explorer_link")) > 0:
-                embed.add_field(name="Other links", value="[{}]({})".format("Explorer", getattr(getattr(self.bot.coin_list, COIN_NAME), "explorer_link")), inline=False)
+            if getattr(getattr(self.bot.coin_list, coin_name), "explorer_link") and len(getattr(getattr(self.bot.coin_list, coin_name), "explorer_link")) > 0:
+                embed.add_field(name="Other links", value="[{}]({})".format("Explorer", getattr(getattr(self.bot.coin_list, coin_name), "explorer_link")), inline=False)
             embed.set_footer(text="Use: deposit plain (for plain text)")
             try:
                 if plain and plain.lower() == 'plain' or plain.lower() == 'text':
-                    await ctx.response.send_message(plain_msg, view=RowButton_row_close_any_message())
+                    await ctx.response.send_message(plain_msg, view=RowButtonRowCloseAnyMessage())
                 else:
-                    await ctx.response.send_message(embed=embed, view=RowButton_row_close_any_message())
+                    await ctx.response.send_message(embed=embed, view=RowButtonRowCloseAnyMessage())
             except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                 traceback.print_exc(file=sys.stdout)
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
 
 
@@ -2090,9 +2089,9 @@ class Guild(commands.Cog):
         duration: str,
         channel: disnake.TextChannel
     ):
-        COIN_NAME = coin.upper()
-        if not hasattr(self.bot.coin_list, COIN_NAME):
-            await ctx.response.send_message(f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.')
+        coin_name = coin.upper()
+        if not hasattr(self.bot.coin_list, coin_name):
+            await ctx.response.send_message(f'{ctx.author.mention}, **{coin_name}** does not exist with us.')
             return
 
         duration_s = 12*3600
@@ -2109,26 +2108,26 @@ class Guild(commands.Cog):
         elif duration == "24H":
             duration_s = 24*3600
 
-        net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
-        type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
-        deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
-        coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
-        contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
-        token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
-        MinTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_min_tip")
-        MaxTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_max_tip")
-        usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
+        net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+        type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+        deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+        coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+        contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+        token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
+        MinTip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
+        MaxTip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
+        usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
 
-        get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.guild.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+        get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0)
         if get_deposit is None:
-            get_deposit = await self.wallet_api.sql_register_user(str(ctx.guild.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 1)
+            get_deposit = await self.wallet_api.sql_register_user(str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 1)
 
         wallet_address = get_deposit['balance_wallet_address']
         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
             wallet_address = get_deposit['paymentid']
 
-        height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
-        userdata_balance = await self.user_balance(str(ctx.guild.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+        height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+        userdata_balance = await self.user_balance(str(ctx.guild.id), coin_name, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
         actual_balance = float(userdata_balance['adjust'])
 
         amount = amount.replace(",", "")
@@ -2139,17 +2138,17 @@ class Guild(commands.Cog):
             return
         # We assume max reward by MaxTip / 10
         elif amount < MinTip or amount > MaxTip / 10:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, faucet cannot be smaller than {num_format_coin(MinTip, COIN_NAME, coin_decimal, False)} {token_display} or bigger than {num_format_coin(MaxTip / 10, COIN_NAME, coin_decimal, False)} {token_display}.'
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, faucet cannot be smaller than {num_format_coin(MinTip, coin_name, coin_decimal, False)} {token_display} or bigger than {num_format_coin(MaxTip / 10, coin_name, coin_decimal, False)} {token_display}.'
             await ctx.response.send_message(msg, ephemeral=True)
             return
         # We assume at least guild need to have 100x of reward or depends on guild's population
         elif amount*100 > actual_balance:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, your guild needs to have at least 100x reward balance. 100x rewards = {num_format_coin(amount*100, COIN_NAME, coin_decimal, False)} {token_display}. Check with `/guild balance`.'
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, your guild needs to have at least 100x reward balance. 100x rewards = {num_format_coin(amount*100, coin_name, coin_decimal, False)} {token_display}. Check with `/guild balance`.'
             await ctx.response.send_message(msg, ephemeral=True)
             return
         elif amount*len(ctx.guild.members) > actual_balance:
             population = len(ctx.guild.members)
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you need to have at least {str(population)}x reward balance. {str(population)}x rewards = {num_format_coin(amount*population, COIN_NAME, coin_decimal, False)} {token_display}.'
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you need to have at least {str(population)}x reward balance. {str(population)}x rewards = {num_format_coin(amount*population, coin_name, coin_decimal, False)} {token_display}.'
             await ctx.response.send_message(msg, ephemeral=True)
             return
         else:
@@ -2157,10 +2156,10 @@ class Guild(commands.Cog):
             get_channel = self.bot.get_channel(int(channel.id))
             channel_str = str(channel.id)
             # Test message
-            msg = f"New guild /faucet set to {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display} by {ctx.author.name}#{ctx.author.discriminator} and message here."
+            msg = f"New guild /faucet set to {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} by {ctx.author.name}#{ctx.author.discriminator} and message here."
             try:
                 await get_channel.send(msg)
-            except Exception as e:
+            except Exception:
                 msg = f'{ctx.author.mention}, failed to message channel {channel.mention}. Set faucet denied!'
                 await ctx.response.send_message(msg, ephemeral=True)
                 traceback.print_exc(file=sys.stdout)
@@ -2172,18 +2171,18 @@ class Guild(commands.Cog):
                 if serverinfo is None:
                     # Let's add some info if server return None
                     add_server_info = await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
-            except Exception as e:
+            except Exception:
                 traceback.print_exc(file=sys.stdout)
                 msg = f'{ctx.author.mention}, internal error. Please report.'
                 await ctx.response.send_message(msg, ephemeral=True)
 
-            update_faucet = await self.update_faucet(str(ctx.guild.id), float(amount), COIN_NAME, duration_s, False, channel_str)
+            update_faucet = await self.update_faucet(str(ctx.guild.id), float(amount), coin_name, duration_s, False, channel_str)
             if update_faucet > 0:
-                msg = f'{ctx.author.mention} Successfully faucet in guild {ctx.guild.name} to {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display} for every {duration}.'
+                msg = f'{ctx.author.mention} Successfully faucet in guild {ctx.guild.name} to {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} for every {duration}.'
                 await ctx.response.send_message(msg)
                 try:
-                    await logchanbot(f'[{SERVER_BOT}] A user {ctx.author.name}#{ctx.author.discriminator} set /faucet in guild {ctx.guild.name} / {ctx.guild.id} to {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display} for every {duration}.')
-                except Exception as e:
+                    await logchanbot(f'[{SERVER_BOT}] A user {ctx.author.name}#{ctx.author.discriminator} set /faucet in guild {ctx.guild.name} / {ctx.guild.id} to {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} for every {duration}.')
+                except Exception:
                     traceback.print_exc(file=sys.stdout)
             else:
                 msg = f'{ctx.author.mention} internal error or nothing updated.'
@@ -2260,9 +2259,9 @@ class Guild(commands.Cog):
 
     async def async_activedrop(self, ctx, amount: str, coin: str, duration: str, channel: disnake.TextChannel, role: disnake.Role=None ):
         original_duration = duration
-        COIN_NAME = coin.upper()
-        if not hasattr(self.bot.coin_list, COIN_NAME):
-            await ctx.response.send_message(f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.')
+        coin_name = coin.upper()
+        if not hasattr(self.bot.coin_list, coin_name):
+            await ctx.response.send_message(f'{ctx.author.mention}, **{coin_name}** does not exist with us.')
             return
 
         duration = duration.upper()
@@ -2272,26 +2271,26 @@ class Guild(commands.Cog):
         duration_s = int(float(duration.upper().replace("H", ""))*3600)
         await ctx.response.send_message(f'{ctx.author.mention}, setting activedrop...')
 
-        net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
-        type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
-        deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
-        coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
-        contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
-        token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
-        MinTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_min_tip")
-        MaxTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_max_tip")
-        usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
+        net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+        type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+        deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+        coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+        contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+        token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
+        MinTip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
+        MaxTip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
+        usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
 
-        get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.guild.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+        get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0)
         if get_deposit is None:
-            get_deposit = await self.wallet_api.sql_register_user(str(ctx.guild.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 1)
+            get_deposit = await self.wallet_api.sql_register_user(str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 1)
 
         wallet_address = get_deposit['balance_wallet_address']
         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
             wallet_address = get_deposit['paymentid']
 
-        height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
-        userdata_balance = await self.user_balance(str(ctx.guild.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+        height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+        userdata_balance = await self.user_balance(str(ctx.guild.id), coin_name, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
         actual_balance = float(userdata_balance['adjust'])
 
         amount = amount.replace(",", "")
@@ -2303,7 +2302,7 @@ class Guild(commands.Cog):
                 # Let's add some info if server return None
                 add_server_info = await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
             serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             msg = f'{ctx.author.mention}, internal error. Please report.'
             await ctx.edit_original_message(content=msg)
@@ -2325,17 +2324,17 @@ class Guild(commands.Cog):
             
         # We assume max reward by MaxTip / 10
         elif amount < MinTip or amount > MaxTip / 10:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, activedrop/tiptalker amount cannot be smaller than {num_format_coin(MinTip, COIN_NAME, coin_decimal, False)} {token_display} or bigger than {num_format_coin(MaxTip / 10, COIN_NAME, coin_decimal, False)} {token_display}.'
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, activedrop/tiptalker amount cannot be smaller than {num_format_coin(MinTip, coin_name, coin_decimal, False)} {token_display} or bigger than {num_format_coin(MaxTip / 10, coin_name, coin_decimal, False)} {token_display}.'
             await ctx.edit_original_message(content=msg)
             try:
                 await logchanbot(f'[{SERVER_BOT}] A user {ctx.author.name}#{ctx.author.discriminator} disable activedrop/tiptalker in guild {ctx.guild.name} / {ctx.guild.id}.')
-            except Exception as e:
+            except Exception:
                 traceback.print_exc(file=sys.stdout)
             return
 
         # We assume at least guild need to have 100x of reward or depends on guild's population
         elif amount*100 > actual_balance:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, your guild needs to have at least 100x `active drop amount`. 100x rewards = {num_format_coin(amount*100, COIN_NAME, coin_decimal, False)} {token_display}. Check with `/guild balance`.'
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, your guild needs to have at least 100x `active drop amount`. 100x rewards = {num_format_coin(amount*100, coin_name, coin_decimal, False)} {token_display}. Check with `/guild balance`.'
             await ctx.edit_original_message(content=msg)
             return
         else:
@@ -2343,10 +2342,10 @@ class Guild(commands.Cog):
             get_channel = self.bot.get_channel(int(channel.id))
             channel_str = str(channel.id)
             # Test message
-            msg = f"New guild's active drop set to `{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}` by {ctx.author.name}#{ctx.author.discriminator} and always rewards to active users in this channel every `{original_duration}`."
+            msg = f"New guild's active drop set to `{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}` by {ctx.author.name}#{ctx.author.discriminator} and always rewards to active users in this channel every `{original_duration}`."
             try:
                 await get_channel.send(msg)
-            except Exception as e:
+            except Exception:
                 msg = f'{ctx.author.mention}, failed to message channel {channel.mention}. Set active drop denied!'
                 await ctx.edit_original_message(content=msg)
                 traceback.print_exc(file=sys.stdout)
@@ -2356,18 +2355,18 @@ class Guild(commands.Cog):
                 get_role = disnake.utils.get(ctx.guild.roles, name=role.name)
                 if get_role:
                     role_id = str(get_role.id)
-            update_tiptalk = await self.update_activedrop(str(ctx.guild.id), float(amount), COIN_NAME, duration_s, channel_str, role_id)
+            update_tiptalk = await self.update_activedrop(str(ctx.guild.id), float(amount), coin_name, duration_s, channel_str, role_id)
             if update_tiptalk > 0:
-                msg = f'{ctx.author.mention}, successfully set activedrop/tiptalker in guild {ctx.guild.name} to {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display} for every {duration}.'
+                msg = f'{ctx.author.mention}, successfully set activedrop/tiptalker in guild {ctx.guild.name} to {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} for every {duration}.'
                 try:
                     if serverinfo['tiptalk_channel'] and channel_str != serverinfo['tiptalk_channel']:
                         msg += " You guild's previous /tiptalk set in channel <#{}> is deleted.".format( serverinfo['tiptalk_channel'] )
-                except Exception as e:
+                except Exception:
                     traceback.print_exc(file=sys.stdout)
                 await ctx.edit_original_message(content=msg)
                 try:
-                    await logchanbot(f'[{SERVER_BOT}] A user {ctx.author.name}#{ctx.author.discriminator} set activedrop/tiptalker in guild {ctx.guild.name} / {ctx.guild.id} to {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display} for every {duration} in channel #{ctx.channel.name}.')
-                except Exception as e:
+                    await logchanbot(f'[{SERVER_BOT}] A user {ctx.author.name}#{ctx.author.discriminator} set activedrop/tiptalker in guild {ctx.guild.name} / {ctx.guild.id} to {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} for every {duration} in channel #{ctx.channel.name}.')
+                except Exception:
                     traceback.print_exc(file=sys.stdout)
             else:
                 msg = f'{ctx.author.mention} internal error or nothing updated.'
@@ -2393,7 +2392,7 @@ class Guild(commands.Cog):
             embed.add_field(name="Statistics", value=m_statistics, inline=False)
             if ctx.guild.icon:
                 embed.set_thumbnail(url=str(ctx.guild.icon))
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
         if serverinfo['tiponly'] is not None:
             embed.add_field(name="Allowed Coins (Tip)", value="{}".format(serverinfo['tiponly']), inline=True)
@@ -2438,7 +2437,7 @@ class Guild(commands.Cog):
     ):
         await self.bot_log()
         # bot check in the first place
-        if ctx.author.bot == True:
+        if ctx.author.bot is True:
             if self.enable_logchan:
                 await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} (Bot) using **/faucet** {ctx.guild.name} / {ctx.guild.id}')
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, Bot is not allowed using this."
@@ -2459,7 +2458,7 @@ class Guild(commands.Cog):
                     msg = f'{EMOJI_RED_NO} {ctx.author.mention}, {channel.mention} is the faucet channel!!!'
                     await ctx.response.send_message(msg)
                     return
-                except Exception as e:
+                except Exception:
                     traceback.print_exc(file=sys.stdout)
             if serverinfo and serverinfo['enable_faucet'] == "NO":
                 if self.enable_logchan:
@@ -2467,18 +2466,18 @@ class Guild(commands.Cog):
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, **/faucet** in this guild is disable."
                 await ctx.response.send_message(msg)
                 return
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             return
         # end of channel check
 
         if serverinfo['faucet_coin'] and serverinfo['faucet_amount'] > 0 and serverinfo['faucet_duration'] is not None:
-            COIN_NAME = serverinfo['faucet_coin']
+            coin_name = serverinfo['faucet_coin']
             amount = serverinfo['faucet_amount']
             duration = serverinfo['faucet_duration']
 
-            if not hasattr(self.bot.coin_list, COIN_NAME):
-                msg = f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.'
+            if not hasattr(self.bot.coin_list, coin_name):
+                msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
                 await ctx.response.send_message(msg)
                 return
 
@@ -2491,27 +2490,27 @@ class Guild(commands.Cog):
                 return
             else:
                 # OK claim
-                net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
-                type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
-                deposit_confirm_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
-                coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
-                contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
-                token_display = getattr(getattr(self.bot.coin_list, COIN_NAME), "display_name")
+                net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+                type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+                deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+                coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+                contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+                token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
 
-                MinTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_min_tip")
-                MaxTip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_max_tip")
-                usd_equivalent_enable = getattr(getattr(self.bot.coin_list, COIN_NAME), "usd_equivalent_enable")
+                MinTip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
+                MaxTip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
+                usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
 
-                get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.guild.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0)
+                get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0)
                 if get_deposit is None:
-                    get_deposit = await self.wallet_api.sql_register_user(str(ctx.guild.id), COIN_NAME, net_name, type_coin, SERVER_BOT, 0, 1)
+                    get_deposit = await self.wallet_api.sql_register_user(str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 1)
 
                 wallet_address = get_deposit['balance_wallet_address']
                 if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                     wallet_address = get_deposit['paymentid']
 
-                height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
-                userdata_balance = await store.sql_user_balance_single(str(ctx.guild.id), COIN_NAME, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+                height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                userdata_balance = await store.sql_user_balance_single(str(ctx.guild.id), coin_name, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
                 actual_balance = float(userdata_balance['adjust'])
                 # Check if tx in progress
                 if ctx.guild.id in self.bot.TX_IN_PROCESS:
@@ -2520,31 +2519,31 @@ class Guild(commands.Cog):
                     return
 
                 if amount <= 0:
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please topup guild more {COIN_NAME}'
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please topup guild more {coin_name}'
                     await ctx.response.send_message(msg)
                     return
 
                 if amount > actual_balance:
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, guild has insufficient balance for {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {token_display}.'
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, guild has insufficient balance for {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}.'
                     await ctx.response.send_message(msg, ephemeral=True)
                     return
                 elif amount < MinTip or amount > MaxTip:
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, transaction cannot be smaller than {num_format_coin(MinTip, COIN_NAME, coin_decimal, False)} {token_display} or bigger than {num_format_coin(MaxTip, COIN_NAME, coin_decimal, False)} {token_display}.'
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, transaction cannot be smaller than {num_format_coin(MinTip, coin_name, coin_decimal, False)} {token_display} or bigger than {num_format_coin(MaxTip, coin_name, coin_decimal, False)} {token_display}.'
                     await ctx.response.send_message(msg, ephemeral=True)
                     return
 
                 equivalent_usd = ""
                 amount_in_usd = 0.0
                 if usd_equivalent_enable == 1:
-                    native_token_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "native_token_name")
-                    COIN_NAME_FOR_PRICE = COIN_NAME
+                    native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
+                    coin_name_for_price = coin_name
                     if native_token_name:
-                        COIN_NAME_FOR_PRICE = native_token_name
-                    if COIN_NAME_FOR_PRICE in self.bot.token_hints:
-                        id = self.bot.token_hints[COIN_NAME_FOR_PRICE]['ticker_name']
+                        coin_name_for_price = native_token_name
+                    if coin_name_for_price in self.bot.token_hints:
+                        id = self.bot.token_hints[coin_name_for_price]['ticker_name']
                         per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
                     else:
-                        per_unit = self.bot.coin_paprika_symbol_list[COIN_NAME_FOR_PRICE]['price_usd']
+                        per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
                     if per_unit and per_unit > 0:
                         amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                         if amount_in_usd > 0.0001:
@@ -2552,12 +2551,12 @@ class Guild(commands.Cog):
                 if ctx.guild.id not in self.bot.TX_IN_PROCESS:
                     self.bot.TX_IN_PROCESS.append(ctx.guild.id)
                     try:
-                        tip = await store.sql_user_balance_mv_single(str(ctx.guild.id), str(ctx.author.id), str(ctx.guild.id), str(ctx.channel.id), amount, COIN_NAME, 'GUILDFAUCET', coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
+                        tip = await store.sql_user_balance_mv_single(str(ctx.guild.id), str(ctx.author.id), str(ctx.guild.id), str(ctx.channel.id), amount, coin_name, 'GUILDFAUCET', coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
                         if tip:
-                            msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention} got a faucet of **{num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME}**{equivalent_usd} from `{ctx.guild.name}`. Other reward command `/take` and `/claim`. Invite me to your guild? Click on my name and "Add to Server".'
+                            msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention} got a faucet of **{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}**{equivalent_usd} from `{ctx.guild.name}`. Other reward command `/take` and `/claim`. Invite me to your guild? Click on my name and "Add to Server".'
                             await ctx.response.send_message(msg)
-                            await logchanbot(f'[Discord] User {ctx.author.name}#{ctx.author.discriminator} claimed guild /faucet {num_format_coin(amount, COIN_NAME, coin_decimal, False)} {COIN_NAME} in guild {ctx.guild.name}/{ctx.guild.id}.')
-                    except Exception as e:
+                            await logchanbot(f'[Discord] User {ctx.author.name}#{ctx.author.discriminator} claimed guild /faucet {num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name} in guild {ctx.guild.name}/{ctx.guild.id}.')
+                    except Exception:
                         traceback.print_exc(file=sys.stdout)
                     if ctx.guild.id in self.bot.TX_IN_PROCESS:
                         self.bot.TX_IN_PROCESS.remove(ctx.guild.id)
@@ -2794,7 +2793,7 @@ class Guild(commands.Cog):
                     await ctx.response.send_message(msg)
                     if self.enable_logchan:
                         await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} change bot channel {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.')
-            except Exception as e:
+            except Exception:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot(traceback.format_exc())
         else:
@@ -2834,7 +2833,7 @@ class Guild(commands.Cog):
                     await ctx.response.send_message(msg)
                     if self.enable_logchan:
                         await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} change economy game channel {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.')
-            except Exception as e:
+            except Exception:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot(traceback.format_exc())
         else:
@@ -2912,7 +2911,7 @@ class Guild(commands.Cog):
                             if self.enable_logchan:
                                 await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} changed game **{game}** in channel {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.')
                             return
-                    except Exception as e:
+                    except Exception:
                         traceback.print_exc(file=sys.stdout)
                         await logchanbot(traceback.format_exc())
                 else:

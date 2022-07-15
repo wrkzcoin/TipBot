@@ -1,26 +1,19 @@
-import sys, traceback
 import random as rand
 
-import disnake
-from disnake.ext import commands
-
-from disnake.enums import OptionType
-from disnake.app_commands import Option
-
-from config import config
 from Bot import EMOJI_RED_NO
+from disnake.app_commands import Option
+from disnake.enums import OptionType
+from disnake.ext import commands
 
 
 class RandomNumber(commands.Cog):
-
     def __init__(self, bot):
         self.bot = bot
 
-
     async def rand_number(
-        self,
-        ctx,
-        number_string: str=None
+            self,
+            ctx,
+            number_string: str = None
     ):
         rand_numb = None
         respond = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid range given. Example, use: `rand 1-50`'
@@ -43,7 +36,6 @@ class RandomNumber(commands.Cog):
                     pass
         await ctx.response.send_message(respond)
 
-
     @commands.slash_command(
         usage="rand [1-100]",
         options=[
@@ -52,24 +44,11 @@ class RandomNumber(commands.Cog):
         description="Generate a random number with TipBot."
     )
     async def rand(
-        self, 
-        ctx, 
-        range_number: str=None
+            self,
+            ctx,
+            range_number: str = None
     ):
         await self.rand_number(ctx, range_number)
-
-
-    @commands.command(
-        usage="random [1-100]", 
-        aliases=['random', 'rand'], 
-        description="Generate a random number with TipBot."
-    )
-    async def _rand(
-        self, 
-        ctx, 
-        randstring: str = None
-    ):
-        await self.rand_number(ctx, randstring)
 
 
 def setup(bot):

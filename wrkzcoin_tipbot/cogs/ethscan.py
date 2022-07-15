@@ -50,7 +50,8 @@ class EthScan(commands.Cog):
     @tasks.loop(seconds=10.0)
     async def fetch_trx_node(self):
         async with aiohttp.ClientSession() as session:
-            async with session.get(config.api_best_node.trx, headers={'Content-Type': 'application/json'}, timeout=5.0) as response:
+            async with session.get(config.api_best_node.trx, headers={'Content-Type': 'application/json'},
+                                   timeout=5.0) as response:
                 if response.status == 200:
                     res_data = await response.read()
                     res_data = res_data.decode('utf-8')
@@ -63,7 +64,8 @@ class EthScan(commands.Cog):
     @tasks.loop(seconds=10.0)
     async def fetch_bsc_node(self):
         async with aiohttp.ClientSession() as session:
-            async with session.get(config.api_best_node.bsc, headers={'Content-Type': 'application/json'}, timeout=5.0) as response:
+            async with session.get(config.api_best_node.bsc, headers={'Content-Type': 'application/json'},
+                                   timeout=5.0) as response:
                 if response.status == 200:
                     res_data = await response.read()
                     res_data = res_data.decode('utf-8')
@@ -76,7 +78,8 @@ class EthScan(commands.Cog):
     @tasks.loop(seconds=10.0)
     async def fetch_sol_node(self):
         async with aiohttp.ClientSession() as session:
-            async with session.get(config.api_best_node.sol, headers={'Content-Type': 'application/json'}, timeout=5.0) as response:
+            async with session.get(config.api_best_node.sol, headers={'Content-Type': 'application/json'},
+                                   timeout=5.0) as response:
                 if response.status == 200:
                     res_data = await response.read()
                     res_data = res_data.decode('utf-8')
@@ -89,7 +92,8 @@ class EthScan(commands.Cog):
     @tasks.loop(seconds=10.0)
     async def fetch_matic_node(self):
         async with aiohttp.ClientSession() as session:
-            async with session.get(config.api_best_node.matic, headers={'Content-Type': 'application/json'}, timeout=5.0) as response:
+            async with session.get(config.api_best_node.matic, headers={'Content-Type': 'application/json'},
+                                   timeout=5.0) as response:
                 if response.status == 200:
                     res_data = await response.read()
                     res_data = res_data.decode('utf-8')
@@ -102,7 +106,8 @@ class EthScan(commands.Cog):
     @tasks.loop(seconds=10.0)
     async def fetch_celo_node(self):
         async with aiohttp.ClientSession() as session:
-            async with session.get(config.api_best_node.celo, headers={'Content-Type': 'application/json'}, timeout=5.0) as response:
+            async with session.get(config.api_best_node.celo, headers={'Content-Type': 'application/json'},
+                                   timeout=5.0) as response:
                 if response.status == 200:
                     res_data = await response.read()
                     res_data = res_data.decode('utf-8')
@@ -115,7 +120,8 @@ class EthScan(commands.Cog):
     @tasks.loop(seconds=10.0)
     async def fetch_ftm_node(self):
         async with aiohttp.ClientSession() as session:
-            async with session.get(config.api_best_node.ftm, headers={'Content-Type': 'application/json'}, timeout=5.0) as response:
+            async with session.get(config.api_best_node.ftm, headers={'Content-Type': 'application/json'},
+                                   timeout=5.0) as response:
                 if response.status == 200:
                     res_data = await response.read()
                     res_data = res_data.decode('utf-8')
@@ -128,7 +134,8 @@ class EthScan(commands.Cog):
     @tasks.loop(seconds=10.0)
     async def fetch_avax_node(self):
         async with aiohttp.ClientSession() as session:
-            async with session.get(config.api_best_node.avax, headers={'Content-Type': 'application/json'}, timeout=5.0) as response:
+            async with session.get(config.api_best_node.avax, headers={'Content-Type': 'application/json'},
+                                   timeout=5.0) as response:
                 if response.status == 200:
                     res_data = await response.read()
                     res_data = res_data.decode('utf-8')
@@ -141,7 +148,8 @@ class EthScan(commands.Cog):
     @tasks.loop(seconds=10.0)
     async def fetch_xdai_node(self):
         async with aiohttp.ClientSession() as session:
-            async with session.get(config.api_best_node.xdai, headers={'Content-Type': 'application/json'}, timeout=5.0) as response:
+            async with session.get(config.api_best_node.xdai, headers={'Content-Type': 'application/json'},
+                                   timeout=5.0) as response:
                 if response.status == 200:
                     res_data = await response.read()
                     res_data = res_data.decode('utf-8')
@@ -154,7 +162,8 @@ class EthScan(commands.Cog):
     @tasks.loop(seconds=10.0)
     async def fetch_one_node(self):
         async with aiohttp.ClientSession() as session:
-            async with session.get(config.api_best_node.one, headers={'Content-Type': 'application/json'}, timeout=5.0) as response:
+            async with session.get(config.api_best_node.one, headers={'Content-Type': 'application/json'},
+                                   timeout=5.0) as response:
                 if response.status == 200:
                     res_data = await response.read()
                     res_data = res_data.decode('utf-8')
@@ -168,12 +177,12 @@ class EthScan(commands.Cog):
     async def remove_all_tx_ethscan(self):
         await asyncio.sleep(5.0)
         try:
-            remove_old_tx_erc20 = await store.contract_tx_remove_after("ERC-20", 48*3600) # 48hrs , any type will remove from erc20 table
-            remove_old_tx_trc20 = await store.contract_tx_remove_after("TRC-20", 48*3600) # 48hrs
-        except Exception as e:
+            remove_old_tx_erc20 = await store.contract_tx_remove_after("ERC-20",
+                                                                       48 * 3600)  # 48hrs , any type will remove from erc20 table
+            remove_old_tx_trc20 = await store.contract_tx_remove_after("TRC-20", 48 * 3600)  # 48hrs
+        except Exception:
             traceback.print_exc(file=sys.stdout)
         await asyncio.sleep(5.0)
-
 
     # Token contract only, not user's address
     @tasks.loop(seconds=30.0)
@@ -185,7 +194,7 @@ class EthScan(commands.Cog):
             for each_contract in trc_contracts:
                 try:
                     await self.fetch_txes_trc(each_contract['coin_name'], each_contract['contract'])
-                except Exception as e:
+                except Exception:
                     traceback.print_exc(file=sys.stdout)
         await asyncio.sleep(10.0)
 
@@ -206,17 +215,16 @@ class EthScan(commands.Cog):
                 else:
                     if each_c['contract']:
                         contracts[each_c['net_name']].append(each_c['contract'])
-            
+
             # Update contract list setting
             for k, v in contracts.items():
                 try:
                     if k in net_names and net_names[k]['enable'] == 1:
                         await self.update_scan_setting(k, v)
                         await self.fetch_txes(self.bot.erc_node_list[k], k, v, net_names[k]['scanned_from_height'])
-                except Exception as e:
+                except Exception:
                     traceback.print_exc(file=sys.stdout)
             await asyncio.sleep(10.0)
-
 
     async def get_all_contracts(self, type_token: str):
         # type_token: ERC-20, TRC-20
@@ -228,11 +236,10 @@ class EthScan(commands.Cog):
                     await cur.execute(sql, (type_token,))
                     result = await cur.fetchall()
                     if result and len(result) > 0: return result
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return []
-
 
     async def get_all_net_names(self):
         try:
@@ -247,11 +254,10 @@ class EthScan(commands.Cog):
                         for each in result:
                             net_names[each['net_name']] = each
                         return net_names
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return {}
-
 
     async def update_scan_setting(self, net_name: str, contracts):
         try:
@@ -262,13 +268,12 @@ class EthScan(commands.Cog):
                     await cur.execute(sql, (",".join(contracts), net_name))
                     await conn.commit()
                     return True
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return None
 
-
-    async def fetch_txes(self, url: str, net_name: str, contracts, scanned_from_height: int, timeout: int=64):
+    async def fetch_txes(self, url: str, net_name: str, contracts, scanned_from_height: int, timeout: int = 64):
         # contracts: List
         try:
             # get all addresses in DB
@@ -288,10 +293,11 @@ class EthScan(commands.Cog):
             local_height = await store.erc_get_block_number(url)
             try:
                 if local_height and local_height > 0:
-                    redis_utils.redis_conn.set(f'{config.redis.prefix+config.redis.daemon_height}{net_name}', str(local_height))
+                    redis_utils.redis_conn.set(f'{config.redis.prefix + config.redis.daemon_height}{net_name}',
+                                               str(local_height))
                 else:
                     return
-            except Exception as e:
+            except Exception:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot(traceback.format_exc())
 
@@ -323,13 +329,14 @@ class EthScan(commands.Cog):
                 if to_block - height > reddit_blocks - 1:
                     # print("{} eth_getLogs {} from: {} to: {}".format(net_name, contract, height, to_block))
                     pass
-                data = '{"jsonrpc":"2.0","method":"eth_getLogs","params":[{"fromBlock": "'+fromHeight+'", "toBlock": "'+to_bloc_str+'", "address": '+contract+'}],"id":0}'
+                data = '{"jsonrpc":"2.0","method":"eth_getLogs","params":[{"fromBlock": "' + fromHeight + '", "toBlock": "' + to_bloc_str + '", "address": ' + contract + '}],"id":0}'
                 if net_name == "xDai":
                     # xDai need camel case
-                    data = '{"jsonrpc":"2.0","method":"eth_getLogs","params":[{"FromBlock": "'+fromHeight+'", "ToBlock": "'+to_bloc_str+'", "Address": '+contract+'}],"id":0}'
+                    data = '{"jsonrpc":"2.0","method":"eth_getLogs","params":[{"FromBlock": "' + fromHeight + '", "ToBlock": "' + to_bloc_str + '", "Address": ' + contract + '}],"id":0}'
                 try:
                     async with aiohttp.ClientSession(connector=TCPConnector(ssl=False)) as session:
-                        async with session.post(url, headers={'Content-Type': 'application/json'}, json=json.loads(data), timeout=timeout) as response:
+                        async with session.post(url, headers={'Content-Type': 'application/json'},
+                                                json=json.loads(data), timeout=timeout) as response:
                             if response.status == 200:
                                 res_data = await response.read()
                                 res_data = res_data.decode('utf-8')
@@ -356,66 +363,80 @@ class EthScan(commands.Cog):
                                                     blockTime = self.blockTime[str(int(each['blockNumber'], 16))]
                                                 else:
                                                     try:
-                                                        get_blockinfo = await store.erc_get_block_info(url, int(each['blockNumber'], 16))
+                                                        get_blockinfo = await store.erc_get_block_info(url, int(
+                                                            each['blockNumber'], 16))
                                                         if get_blockinfo:
                                                             blockTime = int(get_blockinfo['timestamp'], 16)
-                                                            self.blockTime[str(int(each['blockNumber'], 16))] = blockTime
-                                                    except Exception as e:
+                                                            self.blockTime[
+                                                                str(int(each['blockNumber'], 16))] = blockTime
+                                                    except Exception:
                                                         traceback.print_exc(file=sys.stdout)
-                                                key = "{}_{}_{}_{}".format(each['address'], int(each['blockNumber'], 16), each['transactionHash'], from_addr, to_addr)
+                                                key = "{}_{}_{}_{}".format(each['address'],
+                                                                           int(each['blockNumber'], 16),
+                                                                           each['transactionHash'], from_addr, to_addr)
+
                                                 def lower_txes(txHash_unique):
                                                     return [x.lower() for x in txHash_unique]
-                                                
+
                                                 uniq_txes = functools.partial(lower_txes, txHash_unique)
                                                 txHash_unique = await self.bot.loop.run_in_executor(None, uniq_txes)
 
                                                 if key.lower() not in txHash_unique:
                                                     txHash_unique.append(key)
                                                     try:
-                                                        rows.append((net_name, each['address'], json.dumps(each['topics']), from_addr, to_addr, int(each['blockNumber'], 16), blockTime,  each['transactionHash'], key))
-                                                    except Exception as e:
+                                                        rows.append((net_name, each['address'],
+                                                                     json.dumps(each['topics']), from_addr, to_addr,
+                                                                     int(each['blockNumber'], 16), blockTime,
+                                                                     each['transactionHash'], key))
+                                                    except Exception:
                                                         traceback.print_exc(file=sys.stdout)
                                                     # print("{} Append row {}".format(net_name, len(rows)))
                                         # print("{} Got {} row(s)".format(net_name, len(rows)))
                                         if len(rows) > 0:
                                             # insert data
-                                            #print(rows[-1])
+                                            # print(rows[-1])
                                             insert_data = await store.get_monit_contract_tx_insert_erc(rows)
                                             # if insert_data == 0:
-                                                # print(f"Failed to insert minting to `erc_contract_scan` for net_name {net_name}")
+                                            # print(f"Failed to insert minting to `erc_contract_scan` for net_name {net_name}")
                                             # else:
-                                                # print(f"Insert {insert_data} minting to `erc_contract_scan` for net_name {net_name}")
-                                            update_height = await store.get_monit_scanning_net_name_update_height(net_name, to_block)
+                                            # print(f"Insert {insert_data} minting to `erc_contract_scan` for net_name {net_name}")
+                                            update_height = await store.get_monit_scanning_net_name_update_height(
+                                                net_name, to_block)
                                             if update_height is None:
-                                                print(f"to_block {str(to_block)} No tx for `erc_contract_scan` for net_name {net_name}")
+                                                print(
+                                                    f"to_block {str(to_block)} No tx for `erc_contract_scan` for net_name {net_name}")
                                         elif len(rows) == 0:
                                             # Update height to DB
-                                            update_height = await store.get_monit_scanning_net_name_update_height(net_name, to_block)
+                                            update_height = await store.get_monit_scanning_net_name_update_height(
+                                                net_name, to_block)
                                             if update_height is None:
-                                                print(f"to_block {str(to_block)} No tx for `erc_contract_scan` for net_name {net_name}")
+                                                print(
+                                                    f"to_block {str(to_block)} No tx for `erc_contract_scan` for net_name {net_name}")
                                         ##return records
                                     elif len(records) == 0:
                                         # Update height to DB
-                                        update_height = await store.get_monit_scanning_net_name_update_height(net_name, to_block)
+                                        update_height = await store.get_monit_scanning_net_name_update_height(net_name,
+                                                                                                              to_block)
                                         if update_height is None:
-                                            print(f"to_block {str(to_block)} No tx for `erc_contract_scan` for net_name {net_name}")
+                                            print(
+                                                f"to_block {str(to_block)} No tx for `erc_contract_scan` for net_name {net_name}")
                             elif response.status == 400:
                                 await asyncio.sleep(3.0)
                                 return
-                except Exception as e:
+                except Exception:
                     traceback.print_exc(file=sys.stdout)
-            except Exception as e:
+            except Exception:
                 traceback.print_exc(file=sys.stdout)
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
 
-    async def fetch_txes_trc(self, coin: str, contract: str, timeout: int=64):
-        COIN_NAME = coin.upper()
+    async def fetch_txes_trc(self, coin: str, contract: str, timeout: int = 64):
+        coin_name = coin.upper()
         net_name = "TRX"
         try:
             # get all addresses in DB
             all_addresses_in_db = await store.get_all_coin_token_addresses()
-            
+
             txHash_unique = []
             list_tx = await store.get_txscan_stored_list_erc(net_name)
             if len(list_tx['txHash_unique']) > 0:
@@ -427,26 +448,34 @@ class EthScan(commands.Cog):
             last_timestamp = await store.get_latest_stored_scanning_height_erc(net_name, contract)
 
             local_height = await store.trx_get_block_number(timeout)
+            if local_height == 0:
+                await asyncio.sleep(5.0)
+                return
+
             try:
-                redis_utils.redis_conn.set(f'{config.redis.prefix+config.redis.daemon_height}{net_name}', str(local_height))
-            except Exception as e:
+                redis_utils.redis_conn.set(f'{config.redis.prefix + config.redis.daemon_height}{net_name}',
+                                           str(local_height))
+            except Exception:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot(traceback.format_exc())
             try:
-                url = "https://api.trongrid.io/v1/contracts/"+contract+"/events?event_name=Transfer&only_confirmed=true&order_by=block_timestamp,desc&limit=200"
+                url = "https://api.trongrid.io/v1/contracts/" + contract + "/events?event_name=Transfer&only_confirmed=true&order_by=block_timestamp,desc&limit=200"
                 if last_timestamp:
-                    url = "https://api.trongrid.io/v1/contracts/"+contract+"/events?event_name=Transfer&only_confirmed=true&order_by=block_timestamp,desc&limit=200&min_block_timestamp="+str(last_timestamp*1000)
+                    url = "https://api.trongrid.io/v1/contracts/" + contract + "/events?event_name=Transfer&only_confirmed=true&order_by=block_timestamp,desc&limit=200&min_block_timestamp=" + str(
+                        last_timestamp * 1000)
                 try:
                     async with aiohttp.ClientSession() as session:
-                        async with session.get(url, headers={'Content-Type': 'application/json', 'TRON-PRO-API-KEY': config.Tron_Node.trongrid_api}, timeout=timeout) as response:
+                        async with session.get(url, headers={'Content-Type': 'application/json',
+                                                             'TRON-PRO-API-KEY': config.Tron_Node.trongrid_api},
+                                               timeout=timeout) as response:
                             if response.status == 200:
                                 res_data = await response.read()
                                 res_data = res_data.decode('utf-8')
                                 decoded_data = json.loads(res_data)
-                                if decoded_data and 'success' in decoded_data and decoded_data['success'] == True:
+                                if decoded_data and 'success' in decoded_data and decoded_data['success'] is True:
                                     records = decoded_data['data']
                                     if len(records) > 0:
-                                        # print("{} / {} Got {} record(s).".format(net_name, COIN_NAME, len(records))) # For later debug
+                                        # print("{} / {} Got {} record(s).".format(net_name, coin_name, len(records))) # For later debug
                                         pass
                                     if len(records) > 0:
                                         to_block = int(records[0]['block_timestamp'] / 1000)
@@ -463,61 +492,75 @@ class EthScan(commands.Cog):
                                                         blockTime = self.blockTime[str(each['block_number'])]
                                                     else:
                                                         try:
-                                                            get_blockinfo = await store.trx_get_block_info(self.bot.erc_node_list['TRX'], each['block_number'])
+                                                            get_blockinfo = await store.trx_get_block_info(
+                                                                self.bot.erc_node_list['TRX'], each['block_number'])
                                                             if get_blockinfo:
                                                                 blockTime = int(get_blockinfo['timestamp'] / 1000)
                                                                 self.blockTime[str(each['block_number'])] = blockTime
-                                                        except Exception as e:
+                                                        except Exception:
                                                             traceback.print_exc(file=sys.stdout)
-                                                except Exception as e:
+                                                except Exception:
                                                     traceback.print_exc(file=sys.stdout)
                                                     continue
-                                                key = "{}_{}_{}_{}".format(each['contract_address'], each['block_number'], each['transaction_id'], from_addr, to_addr)
+                                                key = "{}_{}_{}_{}".format(each['contract_address'],
+                                                                           each['block_number'], each['transaction_id'],
+                                                                           from_addr, to_addr)
+
                                                 def lower_txes(txHash_unique):
                                                     return [x.lower() for x in txHash_unique]
-                                                
+
                                                 uniq_txes = functools.partial(lower_txes, txHash_unique)
                                                 txHash_unique = await self.bot.loop.run_in_executor(None, uniq_txes)
 
                                                 if key.lower() not in txHash_unique:
                                                     txHash_unique.append(key)
                                                     try:
-                                                        rows.append((net_name, each['contract_address'], from_addr, to_addr, each['block_number'], blockTime,  each['transaction_id'], key))
-                                                    except Exception as e:
+                                                        rows.append((net_name, each['contract_address'], from_addr,
+                                                                     to_addr, each['block_number'], blockTime,
+                                                                     each['transaction_id'], key))
+                                                    except Exception:
                                                         traceback.print_exc(file=sys.stdout)
                                                     # print("{} Append row {}".format(net_name, len(rows)))
-                                        # print("{} / {} Got {} row(s)".format(net_name, COIN_NAME, len(rows)))
+                                        # print("{} / {} Got {} row(s)".format(net_name, coin_name, len(rows)))
                                         if len(rows) > 0:
                                             # insert data
-                                            #print(rows[-1])
+                                            # print(rows[-1])
                                             insert_data = await store.get_monit_contract_tx_insert_trc(rows)
                                             # if insert_data == 0:
-                                                # print(f"Failed to insert minting to `erc_contract_scan` for net_name {net_name}")
+                                            # print(f"Failed to insert minting to `erc_contract_scan` for net_name {net_name}")
                                             # else:
-                                                # print(f"Insert {insert_data} minting to `erc_contract_scan` for net_name {net_name}")
-                                            update_height = await store.get_monit_scanning_net_name_update_height(net_name, to_block, COIN_NAME)
+                                            # print(f"Insert {insert_data} minting to `erc_contract_scan` for net_name {net_name}")
+                                            update_height = await store.get_monit_scanning_net_name_update_height(
+                                                net_name, to_block, coin_name)
                                             if update_height is None:
-                                                print(f"to_block {str(to_block)} No tx for `erc_contract_scan` for net_name {net_name}")
+                                                print(
+                                                    f"to_block {str(to_block)} No tx for `erc_contract_scan` for net_name {net_name}")
                                         elif len(rows) == 0:
                                             # Update height to DB
-                                            update_height = await store.get_monit_scanning_net_name_update_height(net_name, to_block, COIN_NAME)
+                                            update_height = await store.get_monit_scanning_net_name_update_height(
+                                                net_name, to_block, coin_name)
                                             if update_height is None:
-                                                print(f"to_block {str(to_block)} No tx for `erc_contract_scan` for net_name {net_name}")
+                                                print(
+                                                    f"to_block {str(to_block)} No tx for `erc_contract_scan` for net_name {net_name}")
                                         ##return records
                                     elif len(records) == 0:
                                         # Update height to DB
-                                        update_height = await store.get_monit_scanning_net_name_update_height(net_name, to_block, COIN_NAME)
+                                        update_height = await store.get_monit_scanning_net_name_update_height(net_name,
+                                                                                                              to_block,
+                                                                                                              coin_name)
                                         if update_height is None:
-                                            print(f"to_block {str(to_block)} No tx for `erc_contract_scan` for net_name {net_name}")
+                                            print(
+                                                f"to_block {str(to_block)} No tx for `erc_contract_scan` for net_name {net_name}")
                             elif response.status == 400:
                                 await asyncio.sleep(5.0)
                                 return
-                except Exception as e:
+                except Exception:
                     traceback.print_exc(file=sys.stdout)
-            except Exception as e:
+            except Exception:
                 traceback.print_exc(file=sys.stdout)
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
+
 
 def setup(bot):
     bot.add_cog(EthScan(bot))

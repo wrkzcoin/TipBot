@@ -1,20 +1,17 @@
 import sys
 import traceback
 
-from attrdict import AttrDict
-
-import disnake
-from disnake.ext import commands
-from Bot import RowButton_row_close_any_message, num_format_coin, logchanbot
 import store
+from Bot import logchanbot
+from attrdict import AttrDict
 from config import config
+from disnake.ext import commands
 
 
 class CoinSetting(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-
 
     async def get_coin_setting(self):
         try:
@@ -29,7 +26,7 @@ class CoinSetting(commands.Cog):
                         for each in result:
                             coin_list[each['coin_name']] = each
                         return AttrDict(coin_list)
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return None
@@ -47,7 +44,7 @@ class CoinSetting(commands.Cog):
                         for each in result:
                             coin_list_name.append(each['coin_name'])
                         return coin_list_name
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return None
@@ -70,7 +67,7 @@ class CoinSetting(commands.Cog):
                         self.bot.token_hints = hints
                         self.bot.token_hint_names = hint_names
                         return True
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return None
@@ -85,13 +82,13 @@ class CoinSetting(commands.Cog):
                     result = await cur.fetchall()
                     if result and len(result) > 0:
                         return [each['coin_name'] for each in result]
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return None
 
     @commands.command(hidden=True, usage="config", description="Reload coin setting")
-    async def config(self, ctx, cmd: str=None):
+    async def config(self, ctx, cmd: str = None):
         if config.discord.owner != ctx.author.id:
             await ctx.reply(f"{ctx.author.mention}, permission denied...")
             await logchanbot(f"{ctx.author.name}#{ctx.author.discriminator} tried to use `{ctx.command}`.")
@@ -107,7 +104,7 @@ class CoinSetting(commands.Cog):
                 coin_list_name = await self.get_coin_list_name()
                 if coin_list_name:
                     self.bot.coin_name_list = coin_list_name
-                
+
                 faucet_coins = await self.get_faucet_coin_list()
                 if faucet_coins:
                     self.bot.faucet_coins = faucet_coins
@@ -120,7 +117,7 @@ class CoinSetting(commands.Cog):
                 await logchanbot(f"{ctx.author.name}#{ctx.author.discriminator} reloaded `{cmd}`.")
             else:
                 await ctx.reply(f"{ctx.author.mention}, unknown command. Available for reload `coinlist`")
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
 
 

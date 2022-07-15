@@ -42,7 +42,7 @@ class Tool(commands.Cog):
                 self.pool = await aiomysql.create_pool(host=config.mysql.host, port=3306, minsize=2, maxsize=4, 
                                                        user=config.mysql.user, password=config.mysql.password,
                                                        db=config.mysql.db, cursorclass=DictCursor, autocommit=True)
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
 
     async def sql_add_tts(self, user_id: str, user_name: str, msg_content: str, lang: str, tts_mp3: str, user_server: str='DISCORD'):
@@ -56,7 +56,7 @@ class Tool(commands.Cog):
                     await cur.execute(sql, (user_id, user_name, msg_content, lang, int(time.time()), tts_mp3, user_server))
                     await conn.commit()
                     return True
-        except Exception as e:
+        except Exception:
             await logchanbot(traceback.format_exc())
         return False
 
@@ -71,7 +71,7 @@ class Tool(commands.Cog):
                     await cur.execute(sql, (user_id, user_name, original, translated, to_lang, int(time.time()), media_file, user_server))
                     await conn.commit()
                     return True
-        except Exception as e:
+        except Exception:
             await logchanbot(traceback.format_exc())
         return False
 
@@ -123,7 +123,7 @@ class Tool(commands.Cog):
                     random_mp3_name = time.strftime("%Y%m%d-%H%M_") + str(uuid.uuid4()) + ".mp3"
                     tts.save(self.tts_path + random_mp3_name)
                     return random_mp3_name
-                except Exception as e:
+                except Exception:
                     traceback.print_exc(file=sys.stdout)
 
             try:
@@ -133,7 +133,7 @@ class Tool(commands.Cog):
                 await ctx.edit_original_message(content="{}".format(ctx.author.mention), file=file)
                 await self.sql_add_tts(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator), \
                             input_text, 'en', voice_file, SERVER_BOT)
-            except Exception as e:
+            except Exception:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot(traceback.format_exc())
         return
@@ -285,7 +285,7 @@ class Tool(commands.Cog):
                     process_video.wait(timeout=20000) # 20s waiting
                     os.remove(self.tts_path + random_mp3_name)
                     return {'file': random_mp4_name, 'original': input_text, 'translated': translated, 'to_lang': to_lang}
-                except Exception as e:
+                except Exception:
                     traceback.print_exc(file=sys.stdout)
                 return None
             try:
@@ -298,7 +298,7 @@ class Tool(commands.Cog):
                                 input_text, voice_file['translated'], to_lang, voice_file['file'], SERVER_BOT)
                 else:
                     await ctx.edit_original_message(content=f'{ctx.author.mention}, internal error.')
-            except Exception as e:
+            except Exception:
                 traceback.print_exc(file=sys.stdout)
                 await ctx.edit_original_message(content=f'{ctx.author.mention}, internal error. The media file could be too big or text too long. Please reduce your text length.')
                 await logchanbot(f"[TRANSLATE] {ctx.author.name}#{ctx.author.discriminator} failed to get translation with {to_lang} ```{input_text}```")
@@ -322,7 +322,7 @@ class Tool(commands.Cog):
             member = ctx.author
         try:
             msg = await ctx.response.send_message(f'Avatar image for {member.mention}:\n{str(member.display_avatar)}')
-        except Exception as e:
+        except Exception:
             await logchanbot(traceback.format_exc())
 
 

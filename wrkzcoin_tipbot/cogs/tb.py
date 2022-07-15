@@ -1,38 +1,34 @@
-import sys, os
-import asyncio, aiohttp
+import aiohttp
+import asyncio
+import functools
+# For hash file in case already have
+import hashlib
+import os
+import os.path
 import re
 import sys
 import time
 import traceback
-from datetime import datetime
-import random
-import functools
-import cv2
-from PIL import Image
-from io import BytesIO
-import os.path
 import uuid
+from datetime import datetime
+from io import BytesIO
 
+import cv2
 import disnake
-from disnake.ext import commands
-
-from disnake.enums import OptionType
-from disnake.app_commands import Option, OptionChoice
 import numpy as np
-# For hash file in case already have
-import hashlib
-
 import store
-from Bot import logchanbot, SERVER_BOT, EMOJI_RED_NO, RowButton_row_close_any_message, EMOJI_INFORMATION
+from Bot import logchanbot, SERVER_BOT, EMOJI_RED_NO, RowButtonRowCloseAnyMessage, EMOJI_INFORMATION
+from PIL import Image
+from cairosvg import svg2png
+from config import config
+from disnake.app_commands import Option
+from disnake.enums import OptionType
+from disnake.ext import commands
 # linedraw
 from linedraw.linedraw import *
-from cairosvg import svg2png
-
 # tb
 from tb.tbfun import action as tb_action
-import store
 
-from config import config
 
 class Tb(commands.Cog):
 
@@ -40,14 +36,14 @@ class Tb(commands.Cog):
         self.bot = bot
 
     async def sql_add_tbfun(
-        self, 
-        user_id: str, 
-        user_name: str, 
-        channel_id: str, 
-        guild_id: str, 
-        guild_name: str, 
-        funcmd: str, 
-        user_server: str='DISCORD'
+            self,
+            user_id: str,
+            user_name: str,
+            channel_id: str,
+            guild_id: str,
+            guild_name: str,
+            funcmd: str,
+            user_server: str = 'DISCORD'
     ):
         try:
             await store.openConnection()
@@ -56,25 +52,26 @@ class Tb(commands.Cog):
                     sql = """ INSERT INTO `discord_tbfun` (`user_id`, `user_name`, `channel_id`, `guild_id`, `guild_name`, 
                               `funcmd`, `time`, `user_server`)
                               VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
-                    await cur.execute(sql, (user_id, user_name, channel_id, guild_id, guild_name, funcmd, int(time.time()), user_server))
+                    await cur.execute(sql, (
+                    user_id, user_name, channel_id, guild_id, guild_name, funcmd, int(time.time()), user_server))
                     await conn.commit()
                     return True
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
         return False
 
-
     async def tb_draw(
-        self,
-        ctx,
-        user_avatar: str
+            self,
+            ctx,
+            user_avatar: str
     ):
         try:
             msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
             await ctx.response.send_message(msg)
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute tb command...", ephemeral=True)
+            await ctx.response.send_message(
+                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute tb command...", ephemeral=True)
             return
         try:
             timeout = 12
@@ -102,13 +99,16 @@ class Tb(commands.Cog):
                         e.set_image(url=draw_link)
                         e.set_footer(text=f"Draw requested by {ctx.author.name}#{ctx.author.discriminator}")
                         await ctx.edit_original_message(content=None, embed=e)
-                        await self.sql_add_tbfun(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator), str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'DRAW', SERVER_BOT)
-                    except Exception as e:
+                        await self.sql_add_tbfun(str(ctx.author.id),
+                                                 '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
+                                                 str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'DRAW',
+                                                 SERVER_BOT)
+                    except Exception:
                         traceback.print_exc(file=sys.stdout)
                     return
 
                 img = Image.open(BytesIO(res_data)).convert("RGBA")
-                
+
                 def async_sketch_image(img, svg, png_out):
                     width = 4000
                     height = 4000
@@ -122,7 +122,7 @@ class Tb(commands.Cog):
                     imageBox = png_image.getbbox()
                     # crop transparent
                     cropped = png_image.crop(imageBox)
-                    
+
                     # saved replaced old PNG image
                     cropped.save(png_out)
 
@@ -134,28 +134,31 @@ class Tb(commands.Cog):
                     e.set_image(url=draw_link)
                     e.set_footer(text=f"Draw requested by {ctx.author.name}#{ctx.author.discriminator}")
                     await ctx.edit_original_message(content=None, embed=e)
-                    await self.sql_add_tbfun(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator), str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'DRAW', SERVER_BOT)
-                except Exception as e:
+                    await self.sql_add_tbfun(str(ctx.author.id),
+                                             '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
+                                             str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'DRAW', SERVER_BOT)
+                except Exception:
                     traceback.print_exc(file=sys.stdout)
             else:
                 msg = f'{EMOJI_RED_NO} {ctx.author.mention}, internal error.'
                 await ctx.edit_original_message(content=msg)
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
 
-
     async def tb_sketchme(
-        self,
-        ctx,
-        user_avatar: str
+            self,
+            ctx,
+            user_avatar: str
     ):
         try:
             msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
             await ctx.response.send_message(msg)
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute tb command...", ephemeral=True)
+            await ctx.response.send_message(
+                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute tb command...", ephemeral=True)
             return
+
         def create_line_drawing_image(img):
             kernel = np.array([
                 [1, 1, 1, 1, 1],
@@ -163,7 +166,7 @@ class Tb(commands.Cog):
                 [1, 1, 1, 1, 1],
                 [1, 1, 1, 1, 1],
                 [1, 1, 1, 1, 1],
-                ], np.uint8)
+            ], np.uint8)
             img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             img_dilated = cv2.dilate(img_gray, kernel, iterations=1)
             img_diff = cv2.absdiff(img_dilated, img_gray)
@@ -195,8 +198,11 @@ class Tb(commands.Cog):
                         e.set_image(url=draw_link)
                         e.set_footer(text=f"Sketchme requested by {ctx.author.name}#{ctx.author.discriminator}")
                         await ctx.edit_original_message(content=None, embed=e)
-                        await self.sql_add_tbfun(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator), str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SKETCHME', SERVER_BOT)
-                    except Exception as e:
+                        await self.sql_add_tbfun(str(ctx.author.id),
+                                                 '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
+                                                 str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SKETCHME',
+                                                 SERVER_BOT)
+                    except Exception:
                         await logchanbot(traceback.format_exc())
                     return
 
@@ -220,27 +226,30 @@ class Tb(commands.Cog):
                         e.set_image(url=draw_link)
                         e.set_footer(text=f"Sketchme requested by {ctx.author.name}#{ctx.author.discriminator}")
                         msg = await ctx.edit_original_message(content=None, embed=e)
-                        await self.sql_add_tbfun(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator), str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SKETCHME', SERVER_BOT)
-                    except Exception as e:
+                        await self.sql_add_tbfun(str(ctx.author.id),
+                                                 '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
+                                                 str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SKETCHME',
+                                                 SERVER_BOT)
+                    except Exception:
                         await logchanbot(traceback.format_exc())
                 except asyncio.TimeoutError:
                     return
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
 
-
     async def tb_punch(
-        self,
-        ctx,
-        user1: str,
-        user2: str
+            self,
+            ctx,
+            user1: str,
+            user2: str
     ):
         try:
             msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
             await ctx.response.send_message(msg)
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute tb command...", ephemeral=True)
+            await ctx.response.send_message(
+                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute tb command...", ephemeral=True)
             return
         try:
             action = "PUNCH"
@@ -252,23 +261,24 @@ class Tb(commands.Cog):
                 e.set_image(url=config.fun.fun_img_www + os.path.basename(fun_image))
                 e.set_footer(text=f"{action} requested by {ctx.author.name}#{ctx.author.discriminator}")
                 await ctx.edit_original_message(content=None, embed=e)
-                await self.sql_add_tbfun(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator), str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, action, SERVER_BOT)
-        except Exception as e:
+                await self.sql_add_tbfun(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
+                                         str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, action, SERVER_BOT)
+        except Exception:
             traceback.print_exc(file=sys.stdout)
 
-
     async def tb_spank(
-        self,
-        ctx,
-        user1: str,
-        user2: str
+            self,
+            ctx,
+            user1: str,
+            user2: str
     ):
         try:
             msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
             await ctx.response.send_message(msg)
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute tb command...", ephemeral=True)
+            await ctx.response.send_message(
+                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute tb command...", ephemeral=True)
             return
         try:
             action = "SPANK"
@@ -280,23 +290,24 @@ class Tb(commands.Cog):
                 e.set_image(url=config.fun.fun_img_www + os.path.basename(fun_image))
                 e.set_footer(text=f"{action} requested by {ctx.author.name}#{ctx.author.discriminator}")
                 await ctx.edit_original_message(content=None, embed=e)
-                await self.sql_add_tbfun(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator), str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, action, SERVER_BOT)
-        except Exception as e:
+                await self.sql_add_tbfun(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
+                                         str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, action, SERVER_BOT)
+        except Exception:
             traceback.print_exc(file=sys.stdout)
 
-
     async def tb_slap(
-        self,
-        ctx,
-        user1: str,
-        user2: str
+            self,
+            ctx,
+            user1: str,
+            user2: str
     ):
         try:
             msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
             await ctx.response.send_message(msg)
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute tb command...", ephemeral=True)
+            await ctx.response.send_message(
+                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute tb command...", ephemeral=True)
             return
         try:
             action = "SLAP"
@@ -308,23 +319,24 @@ class Tb(commands.Cog):
                 e.set_image(url=config.fun.fun_img_www + os.path.basename(fun_image))
                 e.set_footer(text=f"{action} requested by {ctx.author.name}#{ctx.author.discriminator}")
                 await ctx.edit_original_message(content=None, embed=e)
-                await self.sql_add_tbfun(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator), str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, action, SERVER_BOT)
-        except Exception as e:
+                await self.sql_add_tbfun(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
+                                         str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, action, SERVER_BOT)
+        except Exception:
             traceback.print_exc(file=sys.stdout)
 
-
     async def tb_praise(
-        self,
-        ctx,
-        user1: str,
-        user2: str
+            self,
+            ctx,
+            user1: str,
+            user2: str
     ):
         try:
             msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
             await ctx.response.send_message(msg)
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute tb command...", ephemeral=True)
+            await ctx.response.send_message(
+                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute tb command...", ephemeral=True)
             return
         try:
             action = "PRAISE"
@@ -336,23 +348,24 @@ class Tb(commands.Cog):
                 e.set_image(url=config.fun.fun_img_www + os.path.basename(fun_image))
                 e.set_footer(text=f"{action} requested by {ctx.author.name}#{ctx.author.discriminator}")
                 await ctx.edit_original_message(content=None, embed=e)
-                await self.sql_add_tbfun(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator), str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, action, SERVER_BOT)
-        except Exception as e:
+                await self.sql_add_tbfun(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
+                                         str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, action, SERVER_BOT)
+        except Exception:
             traceback.print_exc(file=sys.stdout)
 
-
     async def tb_shoot(
-        self,
-        ctx,
-        user1: str,
-        user2: str
+            self,
+            ctx,
+            user1: str,
+            user2: str
     ):
         try:
             msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
             await ctx.response.send_message(msg)
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute tb command...", ephemeral=True)
+            await ctx.response.send_message(
+                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute tb command...", ephemeral=True)
             return
         try:
             action = "SHOOT"
@@ -364,23 +377,24 @@ class Tb(commands.Cog):
                 e.set_image(url=config.fun.fun_img_www + os.path.basename(fun_image))
                 e.set_footer(text=f"{action} requested by {ctx.author.name}#{ctx.author.discriminator}")
                 await ctx.edit_original_message(content=None, embed=e)
-                await self.sql_add_tbfun(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator), str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, action, SERVER_BOT)
-        except Exception as e:
+                await self.sql_add_tbfun(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
+                                         str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, action, SERVER_BOT)
+        except Exception:
             traceback.print_exc(file=sys.stdout)
 
-
     async def tb_kick(
-        self,
-        ctx,
-        user1: str,
-        user2: str
+            self,
+            ctx,
+            user1: str,
+            user2: str
     ):
         try:
             msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
             await ctx.response.send_message(msg)
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute tb command...", ephemeral=True)
+            await ctx.response.send_message(
+                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute tb command...", ephemeral=True)
             return
         try:
             action = "KICK"
@@ -392,23 +406,24 @@ class Tb(commands.Cog):
                 e.set_image(url=config.fun.fun_img_www + os.path.basename(fun_image))
                 e.set_footer(text=f"{action} requested by {ctx.author.name}#{ctx.author.discriminator}")
                 await ctx.edit_original_message(content=None, embed=e)
-                await self.sql_add_tbfun(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator), str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, action, SERVER_BOT)
-        except Exception as e:
+                await self.sql_add_tbfun(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
+                                         str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, action, SERVER_BOT)
+        except Exception:
             traceback.print_exc(file=sys.stdout)
 
-
     async def tb_fistbump(
-        self,
-        ctx,
-        user1: str,
-        user2: str
+            self,
+            ctx,
+            user1: str,
+            user2: str
     ):
         try:
             msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
             await ctx.response.send_message(msg)
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute tb command...", ephemeral=True)
+            await ctx.response.send_message(
+                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute tb command...", ephemeral=True)
             return
         try:
             action = "FISTBUMP"
@@ -420,23 +435,24 @@ class Tb(commands.Cog):
                 e.set_image(url=config.fun.fun_img_www + os.path.basename(fun_image))
                 e.set_footer(text=f"{action} requested by {ctx.author.name}#{ctx.author.discriminator}")
                 await ctx.edit_original_message(content=None, embed=e)
-                await self.sql_add_tbfun(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator), str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, action, SERVER_BOT)
-        except Exception as e:
+                await self.sql_add_tbfun(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
+                                         str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, action, SERVER_BOT)
+        except Exception:
             traceback.print_exc(file=sys.stdout)
 
-
     async def tb_dance(
-        self,
-        ctx,
-        user1: str,
-        user2: str # Not used
+            self,
+            ctx,
+            user1: str,
+            user2: str  # Not used
     ):
         try:
             msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
             await ctx.response.send_message(msg)
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute tb command...", ephemeral=True)
+            await ctx.response.send_message(
+                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute tb command...", ephemeral=True)
             return
         try:
             action = "DANCE"
@@ -448,23 +464,24 @@ class Tb(commands.Cog):
                 e.set_image(url=config.fun.fun_img_www + os.path.basename(fun_image))
                 e.set_footer(text=f"{action} requested by {ctx.author.name}#{ctx.author.discriminator}")
                 await ctx.edit_original_message(content=None, embed=e)
-                await self.sql_add_tbfun(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator), str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, action, SERVER_BOT)
-        except Exception as e:
+                await self.sql_add_tbfun(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
+                                         str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, action, SERVER_BOT)
+        except Exception:
             await logchanbot(traceback.format_exc())
         return
 
-
     async def tb_getemoji(
-        self,
-        ctx,
-        emoji: str
+            self,
+            ctx,
+            emoji: str
     ):
         try:
             msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
             await ctx.response.send_message(msg)
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute tb command...", ephemeral=True)
+            await ctx.response.send_message(
+                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute tb command...", ephemeral=True)
             return
         emoji_url = None
         timeout = 12
@@ -478,7 +495,7 @@ class Tb(commands.Cog):
                         async with session.get(link, timeout=timeout) as response:
                             if response.status == 200 or response.status == 201:
                                 emoji_url = link
-                except Exception as e:
+                except Exception:
                     traceback.print_exc(file=sys.stdout)
             if emoji_url is None:
                 custom_emojis = re.findall(r'<a:\w*:\d*>', emoji)
@@ -490,76 +507,73 @@ class Tb(commands.Cog):
                             async with session.get(link, timeout=timeout) as response:
                                 if response.status == 200 or response.status == 201:
                                     emoji_url = link
-                    except Exception as e:
+                    except Exception:
                         traceback.print_exc(file=sys.stdout)
             if emoji_url is None:
                 msg = f'{ctx.author.mention}, I could not get that emoji image or it is a unicode text and not supported.'
                 await ctx.edit_original_message(content=msg)
             else:
                 try:
-                    await ctx.edit_original_message(content=f'{ctx.author.mention} {emoji_url}', view=RowButton_row_close_any_message())
+                    await ctx.edit_original_message(content=f'{ctx.author.mention} {emoji_url}',
+                                                    view=RowButtonRowCloseAnyMessage())
                 except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
                     traceback.print_exc(file=sys.stdout)
             return
-        except Exception as e:
+        except Exception:
             msg = f'{ctx.author.mention}, internal error for getting emoji.'
             await ctx.edit_original_message(content=msg)
             traceback.print_exc(file=sys.stdout)
-
 
     @commands.guild_only()
     @commands.slash_command(description="Some fun commands.")
     async def tb(self, ctx):
         pass
 
-
     @tb.sub_command(
-        usage="tb draw", 
+        usage="tb draw",
         options=[
             Option('member', 'member', OptionType.user, required=False)
         ],
         description="Use TipBot to draw someone's avatar."
     )
     async def draw(
-        self, 
-        ctx,
-        member: disnake.Member = None
+            self,
+            ctx,
+            member: disnake.Member = None
     ):
         user_avatar = str(ctx.author.display_avatar)
         if member:
             user_avatar = str(member.display_avatar)
         await self.tb_draw(ctx, user_avatar)
 
-
     @tb.sub_command(
-        usage="tb sketchme", 
+        usage="tb sketchme",
         options=[
             Option('member', 'member', OptionType.user, required=False)
         ],
         description="Use TipBot to sketch someone's avatar."
     )
     async def sketchme(
-        self, 
-        ctx,
-        member: disnake.Member = None
+            self,
+            ctx,
+            member: disnake.Member = None
     ):
         user_avatar = str(ctx.author.display_avatar)
         if member:
             user_avatar = str(member.display_avatar)
         await self.tb_sketchme(ctx, user_avatar)
 
-
     @tb.sub_command(
-        usage="tb spank", 
+        usage="tb spank",
         options=[
             Option('member', 'member', OptionType.user, required=False)
         ],
         description="Use TipBot to spank someone."
     )
     async def spank(
-        self, 
-        ctx,
-        member: disnake.Member = None
+            self,
+            ctx,
+            member: disnake.Member = None
     ):
         if member is None:
             user1 = str(self.bot.user.display_avatar)
@@ -570,18 +584,17 @@ class Tb(commands.Cog):
             if member == ctx.author: user1 = str(self.bot.user.display_avatar)
         await self.tb_spank(ctx, user1, user2)
 
-
     @tb.sub_command(
-        usage="tb punch", 
+        usage="tb punch",
         options=[
             Option('member', 'member', OptionType.user, required=False)
         ],
         description="Use TipBot to punch someone."
     )
     async def punch(
-        self, 
-        ctx,
-        member: disnake.Member = None
+            self,
+            ctx,
+            member: disnake.Member = None
     ):
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo and 'enable_nsfw' in serverinfo and serverinfo['enable_nsfw'] == "NO":
@@ -597,18 +610,17 @@ class Tb(commands.Cog):
             if member == ctx.author: user1 = str(self.bot.user.display_avatar)
         await self.tb_punch(ctx, user1, user2)
 
-
     @tb.sub_command(
-        usage="tb slap", 
+        usage="tb slap",
         options=[
             Option('member', 'member', OptionType.user, required=False)
         ],
         description="Use TipBot to slap someone."
     )
     async def slap(
-        self, 
-        ctx,
-        member: disnake.Member = None
+            self,
+            ctx,
+            member: disnake.Member = None
     ):
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo and 'enable_nsfw' in serverinfo and serverinfo['enable_nsfw'] == "NO":
@@ -624,18 +636,17 @@ class Tb(commands.Cog):
             if member == ctx.author: user1 = str(self.bot.user.display_avatar)
         await self.tb_slap(ctx, user1, user2)
 
-
     @tb.sub_command(
-        usage="tb praise", 
+        usage="tb praise",
         options=[
             Option('member', 'member', OptionType.user, required=False)
         ],
         description="Use TipBot to praise someone."
     )
     async def praise(
-        self, 
-        ctx,
-        member: disnake.Member = None
+            self,
+            ctx,
+            member: disnake.Member = None
     ):
         if member is None:
             user1 = str(self.bot.user.display_avatar)
@@ -646,18 +657,17 @@ class Tb(commands.Cog):
             if member == ctx.author: user1 = str(self.bot.user.display_avatar)
         await self.tb_praise(ctx, user1, user2)
 
-
     @tb.sub_command(
-        usage="tb shoot", 
+        usage="tb shoot",
         options=[
             Option('member', 'member', OptionType.user, required=False)
         ],
         description="Use TipBot to shoot someone."
     )
     async def shoot(
-        self, 
-        ctx,
-        member: disnake.Member = None
+            self,
+            ctx,
+            member: disnake.Member = None
     ):
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo and 'enable_nsfw' in serverinfo and serverinfo['enable_nsfw'] == "NO":
@@ -673,18 +683,17 @@ class Tb(commands.Cog):
             if member == ctx.author: user1 = str(self.bot.user.display_avatar)
         await self.tb_shoot(ctx, user1, user2)
 
-
     @tb.sub_command(
-        usage="tb kick", 
+        usage="tb kick",
         options=[
             Option('member', 'member', OptionType.user, required=False)
         ],
         description="Use TipBot to fun kick someone."
     )
     async def kick(
-        self, 
-        ctx,
-        member: disnake.Member = None
+            self,
+            ctx,
+            member: disnake.Member = None
     ):
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo and 'enable_nsfw' in serverinfo and serverinfo['enable_nsfw'] == "NO":
@@ -700,18 +709,17 @@ class Tb(commands.Cog):
             if member == ctx.author: user1 = str(self.bot.user.display_avatar)
         await self.tb_kick(ctx, user1, user2)
 
-
     @tb.sub_command(
-        usage="tb fistbump", 
+        usage="tb fistbump",
         options=[
             Option('member', 'member', OptionType.user, required=False)
         ],
         description="Use TipBot to fistbump someone."
     )
     async def fistbump(
-        self, 
-        ctx,
-        member: disnake.Member = None
+            self,
+            ctx,
+            member: disnake.Member = None
     ):
         if member is None:
             user1 = str(self.bot.user.display_avatar)
@@ -722,31 +730,29 @@ class Tb(commands.Cog):
             if member == ctx.author: user1 = str(self.bot.user.display_avatar)
         await self.tb_fistbump(ctx, user1, user2)
 
-
     @tb.sub_command(
-        usage="tb dance", 
+        usage="tb dance",
         description="Bean dance's style."
     )
     async def dance(
-        self, 
-        ctx
+            self,
+            ctx
     ):
         user1 = str(ctx.author.display_avatar)
         user2 = str(self.bot.user.display_avatar)
         await self.tb_dance(ctx, user1, user2)
 
-
     @tb.sub_command(
-        usage="tb getemoji <emoji>", 
+        usage="tb getemoji <emoji>",
         options=[
             Option('emoji', 'emoji', OptionType.string, required=True)
         ],
         description="Get emoji's url."
     )
     async def getemoji(
-        self, 
-        ctx,
-        emoji: str
+            self,
+            ctx,
+            emoji: str
     ):
         await self.tb_getemoji(ctx, emoji)
 

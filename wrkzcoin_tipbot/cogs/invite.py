@@ -1,6 +1,7 @@
 from disnake.ext import commands
 from config import config
 
+
 class Invite(commands.Cog):
     def __init__(self, bot):
         self.bot = bot

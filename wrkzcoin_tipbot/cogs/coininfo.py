@@ -1,15 +1,14 @@
-import sys, traceback
-import time, timeago
-import disnake
-from disnake.ext import commands
-from disnake.enums import OptionType
-from disnake.app_commands import Option, OptionChoice
-import redis_utils
+import sys
+import traceback
 from datetime import datetime
-from cogs.wallet import WalletAPI
 
-from config import config
+import disnake
 from Bot import num_format_coin
+from cogs.utils import Utils
+from cogs.wallet import WalletAPI
+from disnake.app_commands import Option
+from disnake.enums import OptionType
+from disnake.ext import commands
 
 
 class Coininfo(commands.Cog):
@@ -17,78 +16,78 @@ class Coininfo(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.wallet_api = WalletAPI(self.bot)
-        redis_utils.openRedis()
+        self.utils = Utils(self.bot)
 
     async def get_coininfo(
         self,
         ctx, 
         coin: str,
     ):
-        COIN_NAME = coin.upper()
-        if not hasattr(self.bot.coin_list, COIN_NAME):
-            msg = f'{ctx.author.mention}, **{COIN_NAME}** does not exist with us.'
+        coin_name = coin.upper()
+        if not hasattr(self.bot.coin_list, coin_name):
+            msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
             await ctx.response.send_message(msg)
             return
 
-        confim_depth = getattr(getattr(self.bot.coin_list, COIN_NAME), "deposit_confirm_depth")
-        coin_decimal = getattr(getattr(self.bot.coin_list, COIN_NAME), "decimal")
+        confim_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+        coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
 
-        Min_Tip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_min_tip")
-        Max_Tip = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_max_tip")
-        Min_Tx = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_min_tx")
-        Max_Tx = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_max_tx")
-        Fee_Tx = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_withdraw_fee")
-        type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
-        net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
-        deposit_fee = getattr(getattr(self.bot.coin_list, COIN_NAME), "real_deposit_fee")
+        Min_Tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
+        Max_Tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
+        Min_Tx = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tx")
+        Max_Tx = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tx")
+        Fee_Tx = getattr(getattr(self.bot.coin_list, coin_name), "real_withdraw_fee")
+        type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+        net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+        deposit_fee = getattr(getattr(self.bot.coin_list, coin_name), "real_deposit_fee")
         contract = None
-        if getattr(getattr(self.bot.coin_list, COIN_NAME), "contract") and len(getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")) > 4:
-            contract = getattr(getattr(self.bot.coin_list, COIN_NAME), "contract")
+        if getattr(getattr(self.bot.coin_list, coin_name), "contract") and len(getattr(getattr(self.bot.coin_list, coin_name), "contract")) > 4:
+            contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
         
 
-        response_text = "**[ COIN/TOKEN INFO {} ]**".format(COIN_NAME)
+        response_text = "**[ COIN/TOKEN INFO {} ]**".format(coin_name)
         response_text += "```"
         try:
-            if getattr(getattr(self.bot.coin_list, COIN_NAME), "is_maintenance") != 1:
+            if getattr(getattr(self.bot.coin_list, coin_name), "is_maintenance") != 1:
                 try:
-                    height = self.wallet_api.get_block_height(type_coin, COIN_NAME, net_name)
+                    height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                     if height: response_text += "Height: {:,.0f}".format(height) + "\n"
-                except Exception as e:
+                except Exception:
                     traceback.print_exc(file=sys.stdout)
                     response_text += "Height: N/A (*)" + "\n"
             response_text += "Confirmation: {} Blocks".format(confim_depth) + "\n"
             tip_deposit_withdraw_stat = ["ON", "ON", "ON"]
-            if  getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_tip") == 0:
+            if  getattr(getattr(self.bot.coin_list, coin_name), "enable_tip") == 0:
                 tip_deposit_withdraw_stat[0] = "OFF"
-            if  getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_deposit") == 0:
+            if  getattr(getattr(self.bot.coin_list, coin_name), "enable_deposit") == 0:
                 tip_deposit_withdraw_stat[1] = "OFF"
-            if  getattr(getattr(self.bot.coin_list, COIN_NAME), "enable_withdraw") == 0:
+            if  getattr(getattr(self.bot.coin_list, coin_name), "enable_withdraw") == 0:
                 tip_deposit_withdraw_stat[2] = "OFF"
             response_text += "Tipping / Depositing / Withdraw:\n   {} / {} / {}\n".format(tip_deposit_withdraw_stat[0], tip_deposit_withdraw_stat[1], tip_deposit_withdraw_stat[2])
-            get_tip_min_max = "Tip Min/Max:\n   " + num_format_coin(Min_Tip, COIN_NAME, coin_decimal, False) + " / " + num_format_coin(Max_Tip, COIN_NAME, coin_decimal, False) + " " + COIN_NAME
+            get_tip_min_max = "Tip Min/Max:\n   " + num_format_coin(Min_Tip, coin_name, coin_decimal, False) + " / " + num_format_coin(Max_Tip, coin_name, coin_decimal, False) + " " + coin_name
             response_text += get_tip_min_max + "\n"
-            get_tx_min_max = "Withdraw Min/Max:\n   " + num_format_coin(Min_Tx, COIN_NAME, coin_decimal, False) + " / " + num_format_coin(Max_Tx, COIN_NAME, coin_decimal, False) + " " + COIN_NAME
+            get_tx_min_max = "Withdraw Min/Max:\n   " + num_format_coin(Min_Tx, coin_name, coin_decimal, False) + " / " + num_format_coin(Max_Tx, coin_name, coin_decimal, False) + " " + coin_name
             response_text += get_tx_min_max + "\n"
 
             gas_coin_msg = ""
-            if getattr(getattr(self.bot.coin_list, COIN_NAME), "withdraw_use_gas_ticker") == 1:
-                GAS_COIN = getattr(getattr(self.bot.coin_list, COIN_NAME), "gas_ticker")
-                fee_limit = getattr(getattr(self.bot.coin_list, COIN_NAME), "fee_limit")
+            if getattr(getattr(self.bot.coin_list, coin_name), "withdraw_use_gas_ticker") == 1:
+                GAS_COIN = getattr(getattr(self.bot.coin_list, coin_name), "gas_ticker")
+                fee_limit = getattr(getattr(self.bot.coin_list, coin_name), "fee_limit")
                 if GAS_COIN and fee_limit > 0:
                     gas_coin_msg = " and a reserved {} {} (actual tx fee is less).".format(fee_limit, GAS_COIN)
-            if COIN_NAME == "ADA":
-                response_text += "Withdraw Tx reserved Node Fee: {} {} (actual tx fee is less).\n".format(num_format_coin(Fee_Tx, COIN_NAME, coin_decimal, False), COIN_NAME)
+            if coin_name == "ADA":
+                response_text += "Withdraw Tx reserved Node Fee: {} {} (actual tx fee is less).\n".format(num_format_coin(Fee_Tx, coin_name, coin_decimal, False), coin_name)
             else:
-                response_text += "Withdraw Tx Node Fee: {} {}{}\n".format(num_format_coin(Fee_Tx, COIN_NAME, coin_decimal, False), COIN_NAME, gas_coin_msg)
+                response_text += "Withdraw Tx Node Fee: {} {}{}\n".format(num_format_coin(Fee_Tx, coin_name, coin_decimal, False), coin_name, gas_coin_msg)
             if deposit_fee > 0:
-                response_text += "Deposit Tx Fee: {} {}\n".format(num_format_coin(deposit_fee, COIN_NAME, coin_decimal, False), COIN_NAME)
+                response_text += "Deposit Tx Fee: {} {}\n".format(num_format_coin(deposit_fee, coin_name, coin_decimal, False), coin_name)
 
             if type_coin in ["TRC-10", "TRC-20", "ERC-20"]:
                 if contract and len(contract) == 42:
                     response_text += "Contract:\n   {}\n".format(contract)
                 elif contract and len(contract) > 4:
                     response_text += "Contract/Token ID:\n   {}\n".format(contract)
-        except Exception as e:
+        except Exception:
             traceback.print_exc(file=sys.stdout)
         response_text += "```"
         await ctx.response.send_message(content=response_text)
@@ -113,22 +112,22 @@ class Coininfo(commands.Cog):
             network['Others'] = []
             network['ADA'] = []
             network['SOL'] = []
-            for COIN_NAME in self.bot.coin_name_list:
-                net_name = getattr(getattr(self.bot.coin_list, COIN_NAME), "net_name")
-                type_coin = getattr(getattr(self.bot.coin_list, COIN_NAME), "type")
+            for coin_name in self.bot.coin_name_list:
+                net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+                type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
                 if net_name is not None:
                     if net_name not in network:
                         network[net_name] = []
-                        network[net_name].append(COIN_NAME)
+                        network[net_name].append(coin_name)
                     else:
-                        network[net_name].append(COIN_NAME)
+                        network[net_name].append(coin_name)
                 else:
                     if type_coin == "ADA":
-                        network['ADA'].append(COIN_NAME)
+                        network['ADA'].append(coin_name)
                     elif type_coin == "SOL" or type_coin == "SPL":
-                        network['SOL'].append(COIN_NAME)
+                        network['SOL'].append(coin_name)
                     else:
-                        network['Others'].append(COIN_NAME)
+                        network['Others'].append(coin_name)
             embed = disnake.Embed(title=f'Coin/Token list in TipBot', description="Currently, [supported {} coins/tokens](https://coininfo.bot.tips/).".format(len(self.bot.coin_name_list)), timestamp=datetime.now())
             for k, v in network.items():
                 list_coins = ", ".join(v)
@@ -137,6 +136,11 @@ class Coininfo(commands.Cog):
             # Add Other last
             list_coins = ", ".join(network['Others'])
             embed.add_field(name="Other", value=f"```{list_coins}```", inline=False)
+            try:
+                bot_settings = await self.utils.get_bot_settings()
+                embed.add_field(name='Add Coin/Token', value=bot_settings['link_listing_form'], inline=False)
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
             embed.set_author(name=self.bot.user.name, icon_url=self.bot.user.display_avatar)
             embed.set_footer(text=f"Requested by {ctx.author.name}#{ctx.author.discriminator} | Total: {str(len(self.bot.coin_name_list))} ")
             await ctx.response.send_message(embed=embed)

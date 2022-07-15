@@ -1,15 +1,14 @@
-import disnake
-from disnake import TextInputStyle
+import time
 import traceback
 import uuid
-import time
 
-from disnake.ext import commands
-from disnake.enums import OptionType
-from disnake.app_commands import Option, OptionChoice
-from config import config
-from Bot import logchanbot
+import disnake
 import store
+from Bot import logchanbot
+from disnake import TextInputStyle
+from disnake.app_commands import Option, OptionChoice
+from disnake.enums import OptionType
+from disnake.ext import commands
 
 
 class FeedbackAdd(disnake.ui.Modal):
@@ -38,26 +37,28 @@ class FeedbackAdd(disnake.ui.Modal):
                 style=TextInputStyle.paragraph
             ),
         ]
-        super().__init__(title="Feedback/Request our TipBot", custom_id="modal_addtrivia_question", components=components)
-
+        super().__init__(title="Feedback/Request our TipBot", custom_id="modal_addtrivia_question",
+                         components=components)
 
     # Feedback
-    async def sql_feedback_add(self, user_id: str, user_name: str, feedback_id: str, topic: str, feedback_text: str, howto_contact_back: str):
+    async def sql_feedback_add(self, user_id: str, user_name: str, feedback_id: str, topic: str, feedback_text: str,
+                               howto_contact_back: str):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ INSERT INTO `discord_feedback` (`user_id`, `user_name`, `feedback_id`, `topic`, `feedback_text`, `feedback_date`, `howto_contact_back`)
                               VALUES (%s, %s, %s, %s, %s, %s, %s) """
-                    await cur.execute(sql, (user_id, user_name, feedback_id, topic, feedback_text, int(time.time()), howto_contact_back))
+                    await cur.execute(sql, (
+                        user_id, user_name, feedback_id, topic, feedback_text, int(time.time()), howto_contact_back))
                     await conn.commit()
                     return True
-        except Exception as e:
+        except Exception:
             await logchanbot(traceback.format_exc())
         return False
 
     async def callback(self, inter: disnake.ModalInteraction) -> None:
-        # Check if type of question is bool or multipe
+        # Check if type of question is bool or multiple
         topic = inter.text_values['topic_id'].strip()
         if topic == "":
             await inter.response.send_message("Topic is empty!", ephemeral=True)
@@ -73,12 +74,16 @@ class FeedbackAdd(disnake.ui.Modal):
 
         # We have enough data, let's add
         feedback_id = str(uuid.uuid4())
-        add = await self.sql_feedback_add(str(inter.author.id), '{}#{}'.format(inter.author.name, inter.author.discriminator), feedback_id, topic, desc_id, contact_id)
+        add = await self.sql_feedback_add(str(inter.author.id),
+                                          '{}#{}'.format(inter.author.name, inter.author.discriminator), feedback_id,
+                                          topic, desc_id, contact_id)
         if add:
-            await inter.response.send_message(f'{inter.author.mention} Thank you for your feedback / inquiry. Your feedback ref: **{feedback_id}**')
+            await inter.response.send_message(
+                f'{inter.author.mention} Thank you for your feedback / inquiry. Your feedback ref: **{feedback_id}**')
             try:
-                await logchanbot(f'[FEEDBACK] A user {inter.author.mention} / {inter.author.name}#{inter.author.discriminator} has submitted a feedback {feedback_id}')
-            except Exception as e:
+                await logchanbot(
+                    f'[FEEDBACK] A user {inter.author.mention} / {inter.author.name}#{inter.author.discriminator} has submitted a feedback {feedback_id}')
+            except Exception:
                 await logchanbot(traceback.format_exc())
         else:
             await inter.response.send_message(f"{inter.author.mention}, internal error, please report!")
@@ -89,9 +94,8 @@ class BotFeedback(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
 
-
     @commands.slash_command(
-        usage='feedback', 
+        usage='feedback',
         options=[
             Option('inquiry_type', 'inquiry_type', OptionType.string, required=True, choices=[
                 OptionChoice("General Help", "General Help"),
@@ -105,9 +109,9 @@ class BotFeedback(commands.Cog):
         description='Give feedback/comment/request'
     )
     async def feedback(
-        self, 
-        inter: disnake.AppCmdInter,
-        inquiry_type: str
+            self,
+            inter: disnake.AppCmdInter,
+            inquiry_type: str
     ) -> None:
         """Sends a Modal to create a new feedback."""
         await inter.response.send_modal(modal=FeedbackAdd(inquiry_type=inquiry_type))

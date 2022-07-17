@@ -2,6 +2,7 @@ import base64
 import functools
 import json
 import os
+import os.path
 import random
 import sys
 import time
@@ -4082,14 +4083,17 @@ class Wallet(commands.Cog):
                                                         asset_type = Payment.asset.type
                                                         asset_code = Payment.asset.code
                                                         asset_issuer = None
-                                                        if hasattr(Payment.asset, "issuer"):
-                                                            issuer = Payment.asset.issuer
-                                                            if hasattr(self.bot.coin_list, "{}XLM".format(asset_code)) and asset_code in ["USDC"]:
-                                                                # Change coin_name to asset
-                                                                coin_name = "{}XLM".format(asset_code)
-                                                            elif asset_code in ["USDC"]:
-                                                                # Skip to next
-                                                                continue
+                                                        if asset_type == "native":
+                                                            coin_name = "XLM"
+                                                        else:
+                                                            if hasattr(Payment.asset, "issuer"):
+                                                                issuer = Payment.asset.issuer
+                                                                for each_coin in self.bot.coin_name_list:
+                                                                    if asset_code == getattr(getattr(self.bot.coin_list, each_coin), "header"):
+                                                                        coin_name = getattr(getattr(self.bot.coin_list, each_coin), "coin_name")
+                                                                        break
+                                                        if not hasattr(self.bot.coin_list, coin_name):
+                                                            continue
                                                         amount = float(Payment.amount)
                                                         if destination != main_address: continue
                                                         # if asset_type not in ["native", "credit_alphanum4", "credit_alphanum12"]:
@@ -4097,9 +4101,9 @@ class Wallet(commands.Cog):
                                                         # Check all atrribute
                                                         all_xlm_coins = []
                                                         if self.bot.coin_name_list and len(self.bot.coin_name_list) > 0:
-                                                            for coin_name in self.bot.coin_name_list:
-                                                                ticker = getattr(getattr(self.bot.coin_list, coin_name), "header")
-                                                                if getattr(getattr(self.bot.coin_list, coin_name), "enable") == 1:
+                                                            for each_coin in self.bot.coin_name_list:
+                                                                ticker = getattr(getattr(self.bot.coin_list, each_coin), "header")
+                                                                if getattr(getattr(self.bot.coin_list, each_coin), "enable") == 1:
                                                                     all_xlm_coins.append(ticker)
                                                         if asset_code not in all_xlm_coins: continue
                                                     except:

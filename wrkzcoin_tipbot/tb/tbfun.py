@@ -6,6 +6,7 @@ import aiohttp
 from shutil import copyfile
 import os
 import os.path
+import hashlib
 
 from Bot import *
 from config import config

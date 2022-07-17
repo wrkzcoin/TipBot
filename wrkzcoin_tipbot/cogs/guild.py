@@ -2436,17 +2436,11 @@ class Guild(commands.Cog):
         ctx
     ):
         await self.bot_log()
-        # bot check in the first place
-        if ctx.author.bot is True:
-            if self.enable_logchan:
-                await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} (Bot) using **/faucet** {ctx.guild.name} / {ctx.guild.id}')
-            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, Bot is not allowed using this."
-            await ctx.response.send_message(msg)
-            return
-
+        msg = f'{ctx.author.mention}, checking guild\'s faucet...'
+        await ctx.response.send_message(msg)
         if ctx.author.id in self.bot.TX_IN_PROCESS:
             msg = f'{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress.'
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
 
         # check if bot channel is set:
@@ -2456,7 +2450,7 @@ class Guild(commands.Cog):
                 try:
                     channel = self.bot.get_channel(int(serverinfo['faucet_channel']))
                     msg = f'{EMOJI_RED_NO} {ctx.author.mention}, {channel.mention} is the faucet channel!!!'
-                    await ctx.response.send_message(msg)
+                    await ctx.edit_original_message(content=msg)
                     return
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
@@ -2464,107 +2458,111 @@ class Guild(commands.Cog):
                 if self.enable_logchan:
                     await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried **/faucet** in {ctx.guild.name} / {ctx.guild.id} which is disable.')
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, **/faucet** in this guild is disable."
-                await ctx.response.send_message(msg)
+                await ctx.edit_original_message(content=msg)
                 return
         except Exception:
             traceback.print_exc(file=sys.stdout)
             return
         # end of channel check
+        try:
+            if serverinfo['faucet_coin'] and serverinfo['faucet_amount'] > 0 and serverinfo['faucet_duration'] is not None:
+                coin_name = serverinfo['faucet_coin']
+                amount = serverinfo['faucet_amount']
+                duration = serverinfo['faucet_duration']
 
-        if serverinfo['faucet_coin'] and serverinfo['faucet_amount'] > 0 and serverinfo['faucet_duration'] is not None:
-            coin_name = serverinfo['faucet_coin']
-            amount = serverinfo['faucet_amount']
-            duration = serverinfo['faucet_duration']
-
-            if not hasattr(self.bot.coin_list, coin_name):
-                msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
-                await ctx.response.send_message(msg)
-                return
-
-            get_last_claim = await self.get_faucet_claim_user_guild( str(ctx.author.id), str(ctx.guild.id), SERVER_BOT )
-            if get_last_claim is not None and int(time.time()) - get_last_claim['date'] < duration:
-                last_duration = seconds_str( int(time.time()) - get_last_claim['date'] )
-                waiting_time = seconds_str( duration - int(time.time()) + get_last_claim['date'] )
-                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you just claimed in this guild `{ctx.guild.name}` last {last_duration} ago. Waiting time {waiting_time}."
-                await ctx.response.send_message(msg)
-                return
-            else:
-                # OK claim
-                net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
-                type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
-                deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
-                coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-                contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-                token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
-
-                MinTip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
-                MaxTip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
-                usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-
-                get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0)
-                if get_deposit is None:
-                    get_deposit = await self.wallet_api.sql_register_user(str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 1)
-
-                wallet_address = get_deposit['balance_wallet_address']
-                if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
-                    wallet_address = get_deposit['paymentid']
-
-                height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
-                userdata_balance = await store.sql_user_balance_single(str(ctx.guild.id), coin_name, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
-                actual_balance = float(userdata_balance['adjust'])
-                # Check if tx in progress
-                if ctx.guild.id in self.bot.TX_IN_PROCESS:
-                    msg = f'{EMOJI_ERROR} {ctx.author.mention}, another tx in progress with this guild.'
-                    await ctx.response.send_message(msg)
+                if not hasattr(self.bot.coin_list, coin_name):
+                    msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
+                    await ctx.edit_original_message(content=msg)
                     return
 
-                if amount <= 0:
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please topup guild more {coin_name}'
-                    await ctx.response.send_message(msg)
+                get_last_claim = await self.get_faucet_claim_user_guild( str(ctx.author.id), str(ctx.guild.id), SERVER_BOT )
+                if get_last_claim is not None and int(time.time()) - get_last_claim['date'] < duration:
+                    last_duration = seconds_str( int(time.time()) - get_last_claim['date'] )
+                    waiting_time = seconds_str( duration - int(time.time()) + get_last_claim['date'] )
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you just claimed in this guild `{ctx.guild.name}` last {last_duration} ago. Waiting time {waiting_time}."
+                    await ctx.edit_original_message(content=msg)
                     return
+                else:
+                    # OK claim
+                    net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+                    type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+                    deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+                    coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+                    contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+                    token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
 
-                if amount > actual_balance:
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, guild has insufficient balance for {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}.'
-                    await ctx.response.send_message(msg, ephemeral=True)
-                    return
-                elif amount < MinTip or amount > MaxTip:
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, transaction cannot be smaller than {num_format_coin(MinTip, coin_name, coin_decimal, False)} {token_display} or bigger than {num_format_coin(MaxTip, coin_name, coin_decimal, False)} {token_display}.'
-                    await ctx.response.send_message(msg, ephemeral=True)
-                    return
+                    MinTip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
+                    MaxTip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
+                    usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
 
-                equivalent_usd = ""
-                amount_in_usd = 0.0
-                if usd_equivalent_enable == 1:
-                    native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                    coin_name_for_price = coin_name
-                    if native_token_name:
-                        coin_name_for_price = native_token_name
-                    if coin_name_for_price in self.bot.token_hints:
-                        id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                        per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                    else:
-                        per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-                    if per_unit and per_unit > 0:
-                        amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
-                        if amount_in_usd > 0.0001:
-                            equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
-                if ctx.guild.id not in self.bot.TX_IN_PROCESS:
-                    self.bot.TX_IN_PROCESS.append(ctx.guild.id)
-                    try:
-                        tip = await store.sql_user_balance_mv_single(str(ctx.guild.id), str(ctx.author.id), str(ctx.guild.id), str(ctx.channel.id), amount, coin_name, 'GUILDFAUCET', coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
-                        if tip:
-                            msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention} got a faucet of **{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}**{equivalent_usd} from `{ctx.guild.name}`. Other reward command `/take` and `/claim`. Invite me to your guild? Click on my name and "Add to Server".'
-                            await ctx.response.send_message(msg)
-                            await logchanbot(f'[Discord] User {ctx.author.name}#{ctx.author.discriminator} claimed guild /faucet {num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name} in guild {ctx.guild.name}/{ctx.guild.id}.')
-                    except Exception:
-                        traceback.print_exc(file=sys.stdout)
+                    get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0)
+                    if get_deposit is None:
+                        get_deposit = await self.wallet_api.sql_register_user(str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 1)
+
+                    wallet_address = get_deposit['balance_wallet_address']
+                    if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                        wallet_address = get_deposit['paymentid']
+
+                    height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                    userdata_balance = await store.sql_user_balance_single(str(ctx.guild.id), coin_name, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+                    actual_balance = float(userdata_balance['adjust'])
+                    # Check if tx in progress
                     if ctx.guild.id in self.bot.TX_IN_PROCESS:
-                        self.bot.TX_IN_PROCESS.remove(ctx.guild.id)
-        else:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, this guild `{ctx.guild.name}` has no guild\'s faucet or internal error.'
-            await ctx.response.send_message(msg)
-            await logchanbot(f'[Discord] [ERROR] User {ctx.author.name}#{ctx.author.discriminator} claimed guild /faucet in guild {ctx.guild.name}/{ctx.guild.id}.')
-            return
+                        msg = f'{EMOJI_ERROR} {ctx.author.mention}, another tx in progress with this guild.'
+                        await ctx.edit_original_message(content=msg)
+                        return
+
+                    if amount <= 0:
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please topup guild with more **{coin_name}**. `/guild deposit`'
+                        await ctx.edit_original_message(content=msg)
+                        return
+
+                    if amount > actual_balance:
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, guild has insufficient balance for {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}.'
+                        await ctx.edit_original_message(content=msg)
+                        return
+                    elif amount < MinTip or amount > MaxTip:
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, transaction cannot be smaller than {num_format_coin(MinTip, coin_name, coin_decimal, False)} {token_display} or bigger than {num_format_coin(MaxTip, coin_name, coin_decimal, False)} {token_display}.'
+                        await ctx.edit_original_message(content=msg)
+                        return
+
+                    equivalent_usd = ""
+                    amount_in_usd = 0.0
+                    if usd_equivalent_enable == 1:
+                        native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
+                        coin_name_for_price = coin_name
+                        if native_token_name:
+                            coin_name_for_price = native_token_name
+                        if coin_name_for_price in self.bot.token_hints:
+                            id = self.bot.token_hints[coin_name_for_price]['ticker_name']
+                            per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+                        else:
+                            per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
+                        if per_unit and per_unit > 0:
+                            amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
+                            if amount_in_usd > 0.0001:
+                                equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
+                    if ctx.guild.id not in self.bot.TX_IN_PROCESS:
+                        self.bot.TX_IN_PROCESS.append(ctx.guild.id)
+                        try:
+                            tip = await store.sql_user_balance_mv_single(str(ctx.guild.id), str(ctx.author.id), str(ctx.guild.id), str(ctx.channel.id), amount, coin_name, 'GUILDFAUCET', coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
+                            if tip:
+                                msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention} got a faucet of **{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}**{equivalent_usd} from `{ctx.guild.name}`. Other reward command `/take` and `/claim`. Invite me to your guild? Click on my name and "Add to Server".'
+                                await ctx.edit_original_message(content=msg)
+                                await logchanbot(f'[Discord] User {ctx.author.name}#{ctx.author.discriminator} claimed guild /faucet {num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name} in guild {ctx.guild.name}/{ctx.guild.id}.')
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+                        if ctx.guild.id in self.bot.TX_IN_PROCESS:
+                            self.bot.TX_IN_PROCESS.remove(ctx.guild.id)
+            else:
+                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, this guild `{ctx.guild.name}` has no guild\'s faucet.'
+                await ctx.edit_original_message(content=msg)
+                await logchanbot(f'[Discord] [ERROR] User {ctx.author.name}#{ctx.author.discriminator} claimed guild /faucet in guild {ctx.guild.name}/{ctx.guild.id}.')
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, internal error.'
+            await ctx.edit_original_message(content=msg)
     # Guild deposit
 
     # Setting command

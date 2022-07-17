@@ -41,7 +41,7 @@ class Admin(commands.Cog):
         self.wallet_api = WalletAPI(self.bot)
         self.local_db_extra = None
         self.pool_local_db_extra = None
-        self.old_message_data_age = 3 * 30 * 24 * 3600  # max. 3 months
+        self.old_message_data_age = 30 * 24 * 3600  # max. 1 month
         self.auto_purge_old_message.start()
 
         # DB
@@ -50,7 +50,7 @@ class Admin(commands.Cog):
     async def openConnection(self):
         try:
             if self.pool is None:
-                self.pool = await aiomysql.create_pool(host=config.mysql.host, port=3306, minsize=8, maxsize=16,
+                self.pool = await aiomysql.create_pool(host=config.mysql.host, port=3306, minsize=2, maxsize=4,
                                                        user=config.mysql.user, password=config.mysql.password,
                                                        db=config.mysql.db, cursorclass=DictCursor, autocommit=True)
         except Exception:
@@ -86,17 +86,16 @@ class Admin(commands.Cog):
             await logchanbot(traceback.format_exc())
         return None
 
-    async def purge_msg(self, number_msg: int = 10000):
+    async def restore_msg(self, number_msg: int = 10000):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
-                async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `discord_messages` WHERE `message_time`< (NOW() - """ + str(
-                        self.old_message_data_age) + """) LIMIT """ + str(number_msg)
-                    await cur.execute(sql, )
-                    result = await cur.fetchall()
+            await self.openConnection_extra()
+            async with self.pool_local_db_extra.acquire() as conn_extra:
+                async with conn_extra.cursor() as cur_extra:
+                    sql = """ SELECT * FROM `discord_messages` ORDER BY `id` DESC LIMIT """ + str(number_msg)
+                    await cur_extra.execute(sql, )
+                    result = await cur_extra.fetchall()
                     if result and len(result) > 0:
-                        # Insert to extra DB and delete
+                        # Insert to original DB and delete
                         data_rows = []
                         delete_ids = []
                         for each in result:
@@ -104,24 +103,66 @@ class Admin(commands.Cog):
                                               each['channel_name'], each['user_id'], each['message_author'],
                                               each['message_id'], each['message_time']))
                             delete_ids.append(each['id'])
-                        await self.openConnection_extra()
-                        async with self.pool_local_db_extra.acquire() as conn_extra:
-                            async with conn_extra.cursor() as cur_extra:
+                        await store.openConnection()
+                        async with store.pool.acquire() as conn:
+                            async with conn.cursor() as cur:
                                 sql = """ INSERT INTO `discord_messages` (`id`, `serverid`, `server_name`, `channel_id`, `channel_name`, `user_id`, `message_author`, `message_id`, `message_time`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                                await cur_extra.executemany(sql, data_rows)
-                                await conn_extra.commit()
-                                inserted = cur_extra.rowcount
+                                await cur.executemany(sql, data_rows)
+                                await conn.commit()
+                                inserted = cur.rowcount
                                 if inserted > 0:
                                     # Delete from message
-                                    await store.openConnection()
-                                    async with store.pool.acquire() as conn:
-                                        async with conn.cursor() as cur:
+                                    await self.openConnection_extra()
+                                    async with self.pool_local_db_extra.acquire() as conn_extra:
+                                        async with conn_extra.cursor() as cur_extra:
                                             sql = " DELETE FROM `discord_messages` WHERE `id` IN (%s)" % ",".join(
                                                 ["%s"] * len(delete_ids))
-                                            await cur.execute(sql, tuple(delete_ids))
-                                            await conn.commit()
+                                            await cur_extra.execute(sql, tuple(delete_ids))
+                                            await conn_extra.commit()
                                             deleted = cur.rowcount
                                             return deleted
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return 0
+
+    async def purge_msg(self, number_msg: int = 1000):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `discord_messages` ORDER BY `id` ASC LIMIT """ + str(number_msg)
+                    await cur.execute(sql, )
+                    result = await cur.fetchall()
+                    if result and len(result) > 0:
+                        # Insert to extra DB and delete
+                        data_rows = []
+                        delete_ids = []
+                        for each in result:
+                            if each['message_time'] < int(time.time()) - self.old_message_data_age:
+                                data_rows.append((each['id'], each['serverid'], each['server_name'], each['channel_id'],
+                                                  each['channel_name'], each['user_id'], each['message_author'],
+                                                  each['message_id'], each['message_time']))
+                                delete_ids.append(each['id'])
+                        if len(data_rows) > 50:
+                            await self.openConnection_extra()
+                            async with self.pool_local_db_extra.acquire() as conn_extra:
+                                async with conn_extra.cursor() as cur_extra:
+                                    sql = """ INSERT INTO `discord_messages` (`id`, `serverid`, `server_name`, `channel_id`, `channel_name`, `user_id`, `message_author`, `message_id`, `message_time`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                    await cur_extra.executemany(sql, data_rows)
+                                    await conn_extra.commit()
+                                    inserted = cur_extra.rowcount
+                                    if inserted > 0:
+                                        # Delete from message
+                                        await store.openConnection()
+                                        async with store.pool.acquire() as conn:
+                                            async with conn.cursor() as cur:
+                                                sql = " DELETE FROM `discord_messages` WHERE `id` IN (%s)" % ",".join(
+                                                    ["%s"] * len(delete_ids))
+                                                await cur.execute(sql, tuple(delete_ids))
+                                                await conn.commit()
+                                                deleted = cur.rowcount
+                                                return deleted
         except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
@@ -1248,10 +1289,10 @@ class Admin(commands.Cog):
 
     @tasks.loop(seconds=60.0)
     async def auto_purge_old_message(self):
-        numbers = 5000
+        numbers = 1000
         try:
             purged_items = await self.purge_msg(numbers)
-            if purged_items > 0:
+            if purged_items > 50:
                 print(f"{datetime.now():%Y-%m-%d-%H-%M-%S} auto_purge_old_message: {str(purged_items)}")
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -1274,6 +1315,30 @@ class Admin(commands.Cog):
                 purged_items = await self.purge_msg(numbers)
                 if purged_items >= 0:
                     msg = f'{ctx.author.mention}, successfully purged `{item}` {str(purged_items)}. Time taken: {str(time.time() - start)}s..'
+                    await ctx.reply(msg)
+                else:
+                    msg = f'{ctx.author.mention}, internal error.'
+                    await ctx.reply(msg)
+            return
+
+    @commands.is_owner()
+    @admin.command(hidden=True, usage='restore <item> <number>', description='Purge some items')
+    async def restore(self, ctx, item: str, numbers: int = 100):
+        item = item.upper()
+        if item not in ["MESSAGE"]:
+            msg = f'{ctx.author.mention}, nothing to do. ITEM not exist!'
+            await ctx.reply(msg)
+            return
+        elif item == "MESSAGE":
+            # purgeg message
+            if numbers <= 0 or numbers >= 10 ** 6:
+                msg = f'{ctx.author.mention}, nothing to do with <=0 or a million.'
+                await ctx.reply(msg)
+            else:
+                start = time.time()
+                purged_items = await self.restore_msg(numbers)
+                if purged_items >= 0:
+                    msg = f'{ctx.author.mention}, successfully restored `{item}` {str(purged_items)}. Time taken: {str(time.time() - start)}s..'
                     await ctx.reply(msg)
                 else:
                     msg = f'{ctx.author.mention}, internal error.'

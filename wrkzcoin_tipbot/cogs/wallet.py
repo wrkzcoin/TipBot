@@ -4084,17 +4084,24 @@ class Wallet(commands.Cog):
                                                         asset_issuer = None
                                                         if hasattr(Payment.asset, "issuer"):
                                                             issuer = Payment.asset.issuer
-                                                            if hasattr(self.bot.coin_list, "{}XLM".format(asset_code)):
+                                                            if hasattr(self.bot.coin_list, "{}XLM".format(asset_code)) and asset_code in ["USDC"]:
                                                                 # Change coin_name to asset
                                                                 coin_name = "{}XLM".format(asset_code)
-                                                            else:
+                                                            elif asset_code in ["USDC"]:
                                                                 # Skip to next
                                                                 continue
                                                         amount = float(Payment.amount)
                                                         if destination != main_address: continue
-                                                        if asset_type not in ["native",
-                                                                              "credit_alphanum4"]: continue  # TODO: If other asset, check this
-                                                        if asset_code not in ["XLM", "USDC"]: continue
+                                                        # if asset_type not in ["native", "credit_alphanum4", "credit_alphanum12"]:
+                                                        #   continue  # TODO: If other asset, check this
+                                                        # Check all atrribute
+                                                        all_xlm_coins = []
+                                                        if self.bot.coin_name_list and len(self.bot.coin_name_list) > 0:
+                                                            for coin_name in self.bot.coin_name_list:
+                                                                ticker = getattr(getattr(self.bot.coin_list, coin_name), "header")
+                                                                if getattr(getattr(self.bot.coin_list, coin_name), "enable") == 1:
+                                                                    all_xlm_coins.append(ticker)
+                                                        if asset_code not in all_xlm_coins: continue
                                                     except:
                                                         continue
                                                 fee = float(transaction_envelope.transaction.fee) / 10000000  # atomic

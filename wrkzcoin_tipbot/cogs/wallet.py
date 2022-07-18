@@ -4086,10 +4086,11 @@ class Wallet(commands.Cog):
                                                         if asset_type == "native":
                                                             coin_name = "XLM"
                                                         else:
-                                                            if hasattr(Payment.asset, "issuer"):
-                                                                issuer = Payment.asset.issuer
+                                                            if hasattr(Payment.asset, "code") and hasattr(Payment.asset, "issuer"):
+                                                                asset_issuer = Payment.asset.issuer
                                                                 for each_coin in self.bot.coin_name_list:
-                                                                    if asset_code == getattr(getattr(self.bot.coin_list, each_coin), "header"):
+                                                                    if asset_code == getattr(getattr(self.bot.coin_list, each_coin), "header") \
+                                                                        and asset_issuer == getattr(getattr(self.bot.coin_list, each_coin), "contract"):
                                                                         coin_name = getattr(getattr(self.bot.coin_list, each_coin), "coin_name")
                                                                         break
                                                         if not hasattr(self.bot.coin_list, coin_name):

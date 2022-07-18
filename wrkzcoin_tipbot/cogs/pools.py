@@ -15,14 +15,15 @@ from Bot import logchanbot, RowButtonRowCloseAnyMessage, SERVER_BOT
 import store
 import redis_utils
 from cogs.utils import MenuPage
+from cogs.utils import Utils
 
 
 class Pools(commands.Cog):
-
     def __init__(self, bot):
         self.bot = bot
         redis_utils.openRedis()
         self.get_miningpool_coinlist.start()
+        self.utils = Utils(self.bot)
 
     async def sql_miningpoolstat_fetch(self, coin_name: str, user_id: str, user_name: str, requested_date: int, \
                                        respond_date: int, response: str, guild_id: str, guild_name: str,
@@ -55,6 +56,11 @@ class Pools(commands.Cog):
     async def get_miningpool_coinlist(self):
         time_lap = 5  # seconds
         await self.bot.wait_until_ready()
+        # Check if task recently run @bot_task_logs
+        task_name = "pools_get_miningpool_coinlist"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         await asyncio.sleep(time_lap)
         try:
             async with aiohttp.ClientSession() as cs:
@@ -81,7 +87,10 @@ class Pools(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
+
 
     async def get_miningpoolstat_coin(
             self,

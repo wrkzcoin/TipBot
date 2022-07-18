@@ -30,6 +30,7 @@ from tronpy import AsyncTron
 from tronpy.providers.async_http import AsyncHTTPProvider
 
 from cogs.utils import MenuPage
+from cogs.utils import Utils
 
 Account.enable_unaudited_hdwallet_features()
 
@@ -39,6 +40,7 @@ class Admin(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.wallet_api = WalletAPI(self.bot)
+        self.utils = Utils(self.bot)
         self.local_db_extra = None
         self.pool_local_db_extra = None
         self.old_message_data_age = 30 * 24 * 3600  # max. 1 month
@@ -1287,8 +1289,14 @@ class Admin(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+
     @tasks.loop(seconds=60.0)
     async def auto_purge_old_message(self):
+        # Check if task recently run @bot_task_logs
+        task_name = "admin_auto_purge_old_message"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         numbers = 1000
         try:
             purged_items = await self.purge_msg(numbers)
@@ -1296,6 +1304,9 @@ class Admin(commands.Cog):
                 print(f"{datetime.now():%Y-%m-%d-%H-%M-%S} auto_purge_old_message: {str(purged_items)}")
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
+
 
     @commands.is_owner()
     @admin.command(hidden=True, usage='purge <item> <number>', description='Purge some items')

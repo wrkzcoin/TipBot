@@ -169,5 +169,41 @@ class Utils(commands.Cog):
         return None
 
 
+    async def bot_task_logs_add(self, task_name: str, run_at: int):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ INSERT INTO `bot_task_logs` (`task_name`, `run_at`)
+                              VALUES (%s, %s)
+                              ON DUPLICATE KEY 
+                              UPDATE 
+                              `run_at`=VALUES(`run_at`)
+                              """
+                    await cur.execute(sql, (task_name, run_at))
+                    await conn.commit()
+                    return True
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
+
+    async def bot_task_logs_check(self, task_name: str):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `bot_task_logs` 
+                              WHERE `task_name`=%s ORDER BY `id` DESC LIMIT 1
+                              """
+                    await cur.execute(sql, task_name)
+                    result = await cur.fetchone()
+                    if result:
+                        return result
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
+
 def setup(bot):
     bot.add_cog(Utils(bot))

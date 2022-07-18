@@ -72,6 +72,25 @@ class CoinSetting(commands.Cog):
             await logchanbot(traceback.format_exc())
         return None
 
+    async def get_coin_alias_name(self):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `coin_alias_name` """
+                    await cur.execute(sql, ())
+                    result = await cur.fetchall()
+                    if result and len(result) > 0:
+                        alias_names = {}
+                        for each_item in result:
+                            alias_names[each_item['alt_name'].upper()] = each_item['coin_name']
+                        self.bot.coin_alias_names = alias_names
+                        return True
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return None
+
     async def get_faucet_coin_list(self):
         try:
             await store.openConnection()
@@ -113,6 +132,7 @@ class CoinSetting(commands.Cog):
                 await logchanbot(f"{ctx.author.name}#{ctx.author.discriminator} reloaded `{cmd}`.")
             elif cmd.lower() == "coinalias":
                 await self.get_token_hints()
+                await self.get_coin_alias_name()
                 await ctx.reply(f"{ctx.author.mention}, coin aliases reloaded...")
                 await logchanbot(f"{ctx.author.name}#{ctx.author.discriminator} reloaded `{cmd}`.")
             else:

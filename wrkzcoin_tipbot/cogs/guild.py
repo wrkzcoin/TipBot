@@ -30,12 +30,14 @@ from Bot import get_token_list, num_format_coin, logchanbot, EMOJI_ZIPPED_MOUTH,
 from config import config
 from cogs.wallet import WalletAPI
 from cogs.utils import MenuPage
+from cogs.utils import Utils
 
 
 class Guild(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.wallet_api = WalletAPI(self.bot)
+        self.utils = Utils(self.bot)
         self.botLogChan = None
         self.enable_logchan = True
 
@@ -424,6 +426,11 @@ class Guild(commands.Cog):
 
         time_lap = 10 # seconds
         await self.bot.wait_until_ready()
+        # Check if task recently run @bot_task_logs
+        task_name = "guild_check_tiptalker_drop"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         await asyncio.sleep(time_lap)
         try:
             # Get list active drop in guilds
@@ -580,13 +587,21 @@ class Guild(commands.Cog):
                                 await logchanbot(f"[ACTIVEDROP] in guild {get_guild.name} / {get_guild.id} to {str(len(list_receivers))} for total of {num_format_coin(each_drop['tiptalk_amount'], coin_name, coin_decimal, False)} {coin_name}.")
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
+
 
     @tasks.loop(seconds=60.0)
     async def check_raffle_status(self):
         time_lap = 10 # seconds
         to_close_fromopen = 300 # second
         await self.bot.wait_until_ready()
+        # Check if task recently run @bot_task_logs
+        task_name = "guild_check_raffle_status"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         await asyncio.sleep(time_lap)
         try:
             # Try DM user if they are winner, and if they are loser
@@ -763,6 +778,8 @@ class Guild(commands.Cog):
                         await logchanbot(traceback.format_exc())
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
 
 
@@ -956,6 +973,11 @@ class Guild(commands.Cog):
     async def monitor_guild_reward_amount(self):
         time_lap = 10 # seconds
         await self.bot.wait_until_ready()
+        # Check if task recently run @bot_task_logs
+        task_name = "guild_monitor_guild_reward_amount"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         await asyncio.sleep(time_lap)
         try:
             await self.openConnection()
@@ -1003,8 +1025,9 @@ class Guild(commands.Cog):
                                     await self.vote_logchan(f'[{SERVER_BOT}] Disable vote reward for {guild_found.name} / {guild_found.id}. Guild\'s balance below 10x: {num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}.')
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
-
 
 
     async def vote_logchan(self, content: str):

@@ -1,5 +1,6 @@
 import sys
 import traceback
+import time
 
 import aiohttp, asyncio
 from aiohttp import TCPConnector
@@ -12,6 +13,7 @@ import redis_utils
 from config import config
 import store
 from Bot import get_token_list, logchanbot, hex_to_base58, base58_to_hex
+from cogs.utils import Utils
 
 
 class EthScan(commands.Cog):
@@ -19,6 +21,7 @@ class EthScan(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         redis_utils.openRedis()
+        self.utils = Utils(self.bot)
 
         self.blockTime = {}
 
@@ -49,6 +52,11 @@ class EthScan(commands.Cog):
 
     @tasks.loop(seconds=10.0)
     async def fetch_trx_node(self):
+        # Check if task recently run @bot_task_logs
+        task_name = "ethscan_fetch_trx_node"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         async with aiohttp.ClientSession() as session:
             async with session.get(config.api_best_node.trx, headers={'Content-Type': 'application/json'},
                                    timeout=5.0) as response:
@@ -59,10 +67,18 @@ class EthScan(commands.Cog):
                     self.bot.erc_node_list['TRX'] = res_data.replace('"', '')
                 else:
                     await logchanbot(f"Can not fetch best node for TRX.")
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(10.0)
+
 
     @tasks.loop(seconds=10.0)
     async def fetch_bsc_node(self):
+        # Check if task recently run @bot_task_logs
+        task_name = "ethscan_fetch_bsc_node"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         async with aiohttp.ClientSession() as session:
             async with session.get(config.api_best_node.bsc, headers={'Content-Type': 'application/json'},
                                    timeout=5.0) as response:
@@ -73,10 +89,18 @@ class EthScan(commands.Cog):
                     self.bot.erc_node_list['BSC'] = res_data.replace('"', '')
                 else:
                     await logchanbot(f"Can not fetch best node for BSC.")
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(10.0)
+
 
     @tasks.loop(seconds=10.0)
     async def fetch_sol_node(self):
+        # Check if task recently run @bot_task_logs
+        task_name = "ethscan_fetch_sol_node"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         async with aiohttp.ClientSession() as session:
             async with session.get(config.api_best_node.sol, headers={'Content-Type': 'application/json'},
                                    timeout=5.0) as response:
@@ -87,10 +111,18 @@ class EthScan(commands.Cog):
                     self.bot.erc_node_list['SOL'] = res_data.replace('"', '')
                 else:
                     await logchanbot(f"Can not fetch best node for SOL.")
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(10.0)
+
 
     @tasks.loop(seconds=10.0)
     async def fetch_matic_node(self):
+        # Check if task recently run @bot_task_logs
+        task_name = "ethscan_fetch_matic_node"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         async with aiohttp.ClientSession() as session:
             async with session.get(config.api_best_node.matic, headers={'Content-Type': 'application/json'},
                                    timeout=5.0) as response:
@@ -101,10 +133,18 @@ class EthScan(commands.Cog):
                     self.bot.erc_node_list['MATIC'] = res_data.replace('"', '')
                 else:
                     await logchanbot(f"Can not fetch best node for MATIC.")
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(10.0)
+
 
     @tasks.loop(seconds=10.0)
     async def fetch_celo_node(self):
+        # Check if task recently run @bot_task_logs
+        task_name = "ethscan_fetch_celo_node"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         async with aiohttp.ClientSession() as session:
             async with session.get(config.api_best_node.celo, headers={'Content-Type': 'application/json'},
                                    timeout=5.0) as response:
@@ -115,10 +155,18 @@ class EthScan(commands.Cog):
                     self.bot.erc_node_list['CELO'] = res_data.replace('"', '')
                 else:
                     await logchanbot(f"Can not fetch best node for CELO.")
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(10.0)
+
 
     @tasks.loop(seconds=10.0)
     async def fetch_ftm_node(self):
+        # Check if task recently run @bot_task_logs
+        task_name = "ethscan_fetch_ftm_node"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         async with aiohttp.ClientSession() as session:
             async with session.get(config.api_best_node.ftm, headers={'Content-Type': 'application/json'},
                                    timeout=5.0) as response:
@@ -129,10 +177,18 @@ class EthScan(commands.Cog):
                     self.bot.erc_node_list['FTM'] = res_data.replace('"', '')
                 else:
                     await logchanbot(f"Can not fetch best node for FTM.")
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(10.0)
+
 
     @tasks.loop(seconds=10.0)
     async def fetch_avax_node(self):
+        # Check if task recently run @bot_task_logs
+        task_name = "ethscan_fetch_avax_node"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         async with aiohttp.ClientSession() as session:
             async with session.get(config.api_best_node.avax, headers={'Content-Type': 'application/json'},
                                    timeout=5.0) as response:
@@ -143,10 +199,18 @@ class EthScan(commands.Cog):
                     self.bot.erc_node_list['AVAX'] = res_data.replace('"', '')
                 else:
                     await logchanbot(f"Can not fetch best node for AVAX.")
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(10.0)
+
 
     @tasks.loop(seconds=10.0)
     async def fetch_xdai_node(self):
+        # Check if task recently run @bot_task_logs
+        task_name = "ethscan_fetch_xdai_node"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         async with aiohttp.ClientSession() as session:
             async with session.get(config.api_best_node.xdai, headers={'Content-Type': 'application/json'},
                                    timeout=5.0) as response:
@@ -157,10 +221,18 @@ class EthScan(commands.Cog):
                     self.bot.erc_node_list['XDAI'] = res_data.replace('"', '')
                 else:
                     await logchanbot(f"Can not fetch best node for XDAI.")
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(10.0)
+
 
     @tasks.loop(seconds=10.0)
     async def fetch_one_node(self):
+        # Check if task recently run @bot_task_logs
+        task_name = "ethscan_fetch_one_node"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         async with aiohttp.ClientSession() as session:
             async with session.get(config.api_best_node.one, headers={'Content-Type': 'application/json'},
                                    timeout=5.0) as response:
@@ -171,11 +243,19 @@ class EthScan(commands.Cog):
                     self.bot.erc_node_list['ONE'] = res_data.replace('"', '')
                 else:
                     await logchanbot(f"Can not fetch best node for ONE.")
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(10.0)
+
 
     @tasks.loop(seconds=60.0)
     async def remove_all_tx_ethscan(self):
         await asyncio.sleep(5.0)
+        # Check if task recently run @bot_task_logs
+        task_name = "ethscan_remove_all_tx_ethscan"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         try:
             remove_old_tx_erc20 = await store.contract_tx_remove_after("ERC-20",
                                                                        48 * 3600)  # 48hrs , any type will remove from erc20 table
@@ -183,11 +263,19 @@ class EthScan(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
         await asyncio.sleep(5.0)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
+
 
     # Token contract only, not user's address
     @tasks.loop(seconds=30.0)
     async def pull_trc20_scanning(self):
         await asyncio.sleep(2.0)
+        # Check if task recently run @bot_task_logs
+        task_name = "ethscan_pull_trc20_scanning"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         # Get all contracts of ETH type and update to coin_ethscan_setting
         trc_contracts = await self.get_all_contracts("TRC-20")
         if len(trc_contracts) > 0:
@@ -197,11 +285,19 @@ class EthScan(commands.Cog):
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
         await asyncio.sleep(10.0)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
+
 
     # Token contract only, not user's address
     @tasks.loop(seconds=30.0)
     async def pull_erc20_scanning(self):
         await asyncio.sleep(2.0)
+        # Check if task recently run @bot_task_logs
+        task_name = "ethscan_pull_erc20_scanning"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         # Get all contracts of ETH type and update to coin_ethscan_setting
         erc_contracts = await self.get_all_contracts("ERC-20")
         net_names = await self.get_all_net_names()
@@ -225,6 +321,9 @@ class EthScan(commands.Cog):
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
             await asyncio.sleep(10.0)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
+
 
     async def get_all_contracts(self, type_token: str):
         # type_token: ERC-20, TRC-20

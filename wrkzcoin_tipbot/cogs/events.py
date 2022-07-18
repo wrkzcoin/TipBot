@@ -16,12 +16,14 @@ from cogs.economy import database_economy
 from cogs.wallet import WalletAPI
 from config import config
 from disnake.ext import commands, tasks
+from cogs.utils import Utils
 
 
 class Events(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.wallet_api = WalletAPI(self.bot)
+        self.utils = Utils(self.bot)
 
         self.ttlcache = TTLCache(maxsize=500, ttl=60.0)
         self.process_saving_message.start()
@@ -237,6 +239,11 @@ class Events(commands.Cog):
     async def process_saving_message(self):
         time_lap = 10  # seconds
         await self.bot.wait_until_ready()
+        # Check if task recently run @bot_task_logs
+        task_name = "events_process_saving_message"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 2: # not running if less than 15s
+            return
         await asyncio.sleep(time_lap)
         if len(self.bot.message_list) > 0:
             # saving_message
@@ -246,34 +253,58 @@ class Events(commands.Cog):
                     self.bot.message_list = []
             except Exception:
                 traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
+
 
     @tasks.loop(seconds=60.0)
     async def reload_coin_paprika(self):
         time_lap = 60  # seconds
         await self.bot.wait_until_ready()
+        # Check if task recently run @bot_task_logs
+        task_name = "events_reload_coin_paprika"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         await asyncio.sleep(time_lap)
         try:
             await self.get_coin_paprika_list()
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
+
 
     @tasks.loop(seconds=60.0)
     async def reload_coingecko(self):
         time_lap = 60  # seconds
         await self.bot.wait_until_ready()
+        # Check if task recently run @bot_task_logs
+        task_name = "events_reload_coingecko"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         await asyncio.sleep(time_lap)
         try:
             await self.get_coingecko_list()
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
+
 
     @tasks.loop(seconds=3600.0)
     async def update_discord_stats(self):
         time_lap = 5.0  # seconds
         await self.bot.wait_until_ready()
+        # Check if task recently run @bot_task_logs
+        task_name = "events_update_discord_stats"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         await asyncio.sleep(time_lap)
         try:
             num_server = len(self.bot.guilds)
@@ -285,7 +316,10 @@ class Events(commands.Cog):
             await self.insert_new_stats(num_server, num_online, num_users, num_bots, num_tips, int(time.time()))
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
+
 
     async def get_coin_setting(self):
         try:

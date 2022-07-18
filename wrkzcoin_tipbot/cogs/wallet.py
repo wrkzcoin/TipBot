@@ -59,6 +59,7 @@ from Bot import num_format_coin, logchanbot, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_AR
     EMOJI_HOURGLASS_NOT_DONE, alert_if_userlock, MSG_LOCKED_ACCOUNT, EMOJI_MONEYFACE, EMOJI_INFORMATION
 from config import config
 from cogs.utils import MenuPage
+from cogs.utils import Utils
 
 Account.enable_unaudited_hdwallet_features()
 
@@ -1754,6 +1755,7 @@ class Wallet(commands.Cog):
         self.enable_logchan = True
         self.bot = bot
         self.wallet_api = WalletAPI(self.bot)
+        self.utils = Utils(self.bot)
 
         self.botLogChan = None
 
@@ -2383,7 +2385,11 @@ class Wallet(commands.Cog):
     async def monitoring_tweet_mentioned_command(self):
         time_lap = 15  # seconds
         await self.bot.wait_until_ready()
-
+        # Check if task recently run @bot_task_logs
+        task_name = "monitoring_tweet_mentioned_command"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         async def invalidate_mentioned(twitter_id: int):
             try:
                 await self.openConnection()
@@ -2560,13 +2566,20 @@ class Wallet(commands.Cog):
                                                         traceback.print_exc(file=sys.stdout)
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
+
 
     @tasks.loop(seconds=60.0)
     async def monitoring_tweet_command(self):
         time_lap = 15  # seconds
         await self.bot.wait_until_ready()
-
+        # Check if task recently run @bot_task_logs
+        task_name = "monitoring_tweet_command"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         async def update_bot_response(original_text: str, response: str, dm_id: int):
             try:
                 response_text = f"\"{original_text}\"" + "\n\n" + response
@@ -3243,13 +3256,20 @@ class Wallet(commands.Cog):
                                 await conn.commit()
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
+
 
     @tasks.loop(seconds=60.0)
     async def monitoring_rt_rewards(self):
         time_lap = 10  # seconds
         await self.bot.wait_until_ready()
-
+        # Check if task recently run @bot_task_logs
+        task_name = "monitoring_rt_rewards"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         await asyncio.sleep(time_lap)
         try:
             await self.openConnection()
@@ -3451,13 +3471,21 @@ class Wallet(commands.Cog):
                                 await conn.commit()
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
+
 
     # Notify user
     @tasks.loop(seconds=60.0)
     async def notify_new_confirmed_spendable_erc20(self):
         time_lap = 5  # seconds
         await self.bot.wait_until_ready()
+        # Check if task recently run @bot_task_logs
+        task_name = "notify_new_confirmed_spendable_erc20"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         await asyncio.sleep(time_lap)
         try:
             notify_list = await store.sql_get_pending_notification_users_erc20(SERVER_BOT)
@@ -3489,12 +3517,20 @@ class Wallet(commands.Cog):
                                 traceback.print_exc(file=sys.stdout)
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
+
 
     @tasks.loop(seconds=60.0)
     async def notify_new_confirmed_spendable_trc20(self):
         time_lap = 5  # seconds
         await self.bot.wait_until_ready()
+        # Check if task recently run @bot_task_logs
+        task_name = "notify_new_confirmed_spendable_trc20"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         await asyncio.sleep(time_lap)
         try:
             notify_list = await store.sql_get_pending_notification_users_trc20(SERVER_BOT)
@@ -3526,13 +3562,21 @@ class Wallet(commands.Cog):
                                 traceback.print_exc(file=sys.stdout)
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
+
 
     # Notify user
     @tasks.loop(seconds=60.0)
     async def notify_new_tx_user(self):
         time_lap = 5  # seconds
         await self.bot.wait_until_ready()
+        # Check if task recently run @bot_task_logs
+        task_name = "notify_new_tx_user"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         await asyncio.sleep(time_lap)
         try:
             pending_tx = await store.sql_get_new_tx_table('NO', 'NO')
@@ -3635,12 +3679,20 @@ class Wallet(commands.Cog):
                         traceback.print_exc(file=sys.stdout)
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
+
 
     @tasks.loop(seconds=60.0)
     async def notify_new_tx_user_noconfirmation(self):
         time_lap = 5  # seconds
         await self.bot.wait_until_ready()
+        # Check if task recently run @bot_task_logs
+        task_name = "notify_new_tx_user_noconfirmation"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         await asyncio.sleep(time_lap)
         try:
             if config.notify_new_tx.enable_new_no_confirm == 1:
@@ -3748,12 +3800,20 @@ class Wallet(commands.Cog):
                     traceback.print_exc(file=sys.stdout)
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
+
 
     @tasks.loop(seconds=60.0)
     async def notify_new_confirmed_hnt(self):
         time_lap = 20  # seconds
         await self.bot.wait_until_ready()
+        # Check if task recently run @bot_task_logs
+        task_name = "notify_new_confirmed_hnt"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         await asyncio.sleep(time_lap)
         try:
             await self.openConnection()
@@ -3795,12 +3855,20 @@ class Wallet(commands.Cog):
                                         await conn.commit()
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
+
 
     @tasks.loop(seconds=120.0)
     async def update_balance_hnt(self):
         time_lap = 20  # seconds
         await self.bot.wait_until_ready()
+        # Check if task recently run @bot_task_logs
+        task_name = "update_balance_hnt"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         await asyncio.sleep(time_lap)
         timeout = 30
         coin_name = "HNT"
@@ -3949,12 +4017,20 @@ class Wallet(commands.Cog):
                 print('TIMEOUT: COIN: {} - timeout {}'.format(coin_name, timeout))
             except Exception:
                 traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
+
 
     @tasks.loop(seconds=60.0)
     async def notify_new_confirmed_xlm(self):
         time_lap = 20  # seconds
         await self.bot.wait_until_ready()
+        # Check if task recently run @bot_task_logs
+        task_name = "notify_new_confirmed_xlm"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         await asyncio.sleep(time_lap)
         try:
             await self.openConnection()
@@ -3996,12 +4072,20 @@ class Wallet(commands.Cog):
                                         await conn.commit()
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
+
 
     @tasks.loop(seconds=120.0)
     async def update_balance_xlm(self):
         time_lap = 20  # seconds
         await self.bot.wait_until_ready()
+        # Check if task recently run @bot_task_logs
+        task_name = "update_balance_xlm"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         await asyncio.sleep(time_lap)
         timeout = 30
         # Get status
@@ -4142,13 +4226,20 @@ class Wallet(commands.Cog):
                     traceback.print_exc(file=sys.stdout)
             except Exception:
                 traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
+
 
     @tasks.loop(seconds=60.0)
     async def notify_new_confirmed_ada(self):
         time_lap = 20  # seconds
         await self.bot.wait_until_ready()
-
+        # Check if task recently run @bot_task_logs
+        task_name = "notify_new_confirmed_ada"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         await asyncio.sleep(time_lap)
         try:
             await self.openConnection()
@@ -4183,14 +4274,21 @@ class Wallet(commands.Cog):
                                             await conn.commit()
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
+
 
     @tasks.loop(seconds=30.0)
     async def update_sol_wallets_sync(self):
         time_lap = 30  # seconds
         coin_name = "SOL"
         await self.bot.wait_until_ready()
-
+        # Check if task recently run @bot_task_logs
+        task_name = "update_sol_wallets_sync"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         async def fetch_getEpochInfo(url: str, timeout: 12):
             data = '{"jsonrpc":"2.0", "method":"getEpochInfo", "id":1}'
             try:
@@ -4302,14 +4400,21 @@ class Wallet(commands.Cog):
                                 traceback.print_exc(file=sys.stdout)
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
+
 
     @tasks.loop(seconds=30.0)
     async def unlocked_move_pending_sol(self):
         time_lap = 30  # seconds
         coin_name = "SOL"
         await self.bot.wait_until_ready()
-
+        # Check if task recently run @bot_task_logs
+        task_name = "unlocked_move_pending_sol"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         async def fetch_getConfirmedTransaction(url: str, txn: str, timeout: 12):
             json_data = {
                 "jsonrpc": "2.0",
@@ -4395,13 +4500,20 @@ class Wallet(commands.Cog):
                                                     await conn.commit()
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
+
 
     @tasks.loop(seconds=60.0)
     async def update_ada_wallets_sync(self):
         time_lap = 30  # seconds
         await self.bot.wait_until_ready()
-
+        # Check if task recently run @bot_task_logs
+        task_name = "update_ada_wallets_sync"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         async def fetch_wallet_status(url, timeout):
             try:
                 headers = {
@@ -4562,12 +4674,20 @@ class Wallet(commands.Cog):
                                             traceback.print_exc(file=sys.stdout)
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
+
 
     @tasks.loop(seconds=60.0)
     async def update_balance_trtl_api(self):
         time_lap = 5  # seconds
         await self.bot.wait_until_ready()
+        # Check if task recently run @bot_task_logs
+        task_name = "update_balance_trtl_api"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         await asyncio.sleep(time_lap)
         try:
             # async def trtl_api_get_transfers(self, url: str, key: str, coin: str, height_start: int = None, height_end: int = None):
@@ -4691,13 +4811,20 @@ class Wallet(commands.Cog):
                                 # TODO: update balance cache
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
+
 
     @tasks.loop(seconds=60.0)
     async def update_balance_trtl_service(self):
         time_lap = 5  # seconds
         await self.bot.wait_until_ready()
-
+        # Check if task recently run @bot_task_logs
+        task_name = "update_balance_trtl_service"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         await asyncio.sleep(time_lap)
         try:
             list_trtl_service = await store.get_coin_settings("TRTL-SERVICE")
@@ -4816,13 +4943,20 @@ class Wallet(commands.Cog):
                     # TODO: update user balance
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
+
 
     @tasks.loop(seconds=60.0)
     async def update_balance_xmr(self):
         time_lap = 5  # seconds
         await self.bot.wait_until_ready()
-
+        # Check if task recently run @bot_task_logs
+        task_name = "update_balance_xmr"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         await asyncio.sleep(time_lap)
         try:
             list_xmr_api = await store.get_coin_settings("XMR")
@@ -4943,13 +5077,20 @@ class Wallet(commands.Cog):
                             traceback.print_exc(file=sys.stdout)
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
+
 
     @tasks.loop(seconds=60.0)
     async def update_balance_btc(self):
         time_lap = 5  # seconds
         await self.bot.wait_until_ready()
-
+        # Check if task recently run @bot_task_logs
+        task_name = "update_balance_btc"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         await asyncio.sleep(time_lap)
         try:
             # async def trtl_api_get_transfers(self, url: str, key: str, coin: str, height_start: int = None, height_end: int = None):
@@ -5098,13 +5239,20 @@ class Wallet(commands.Cog):
                     await asyncio.sleep(3.0)
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
+
 
     @tasks.loop(seconds=60.0)
     async def update_balance_chia(self):
         time_lap = 5  # seconds
         await self.bot.wait_until_ready()
-
+        # Check if task recently run @bot_task_logs
+        task_name = "update_balance_chia"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         await asyncio.sleep(time_lap)
         try:
             list_chia_api = await store.get_coin_settings("CHIA")
@@ -5231,13 +5379,20 @@ class Wallet(commands.Cog):
                                 traceback.print_exc(file=sys.stdout)
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
+
 
     @tasks.loop(seconds=60.0)
     async def update_balance_nano(self):
         time_lap = 5  # seconds
         await self.bot.wait_until_ready()
-
+        # Check if task recently run @bot_task_logs
+        task_name = "update_balance_nano"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         await asyncio.sleep(time_lap)
         try:
             updated = 0
@@ -5324,13 +5479,20 @@ class Wallet(commands.Cog):
                     await asyncio.sleep(4.0)
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
+
 
     @tasks.loop(seconds=60.0)
     async def update_balance_erc20(self):
         time_lap = 5  # seconds
         await self.bot.wait_until_ready()
-
+        # Check if task recently run @bot_task_logs
+        task_name = "update_balance_erc20"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         await asyncio.sleep(time_lap)
         try:
             erc_contracts = await self.get_all_contracts("ERC-20", False)
@@ -5360,13 +5522,20 @@ class Wallet(commands.Cog):
                         traceback.print_exc(file=sys.stdout)
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
+
 
     @tasks.loop(seconds=60.0)
     async def update_balance_trc20(self):
         time_lap = 5  # seconds
         await self.bot.wait_until_ready()
-
+        # Check if task recently run @bot_task_logs
+        task_name = "update_balance_trc20"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         await asyncio.sleep(time_lap)
         try:
             erc_contracts = await self.get_all_contracts("TRC-20", False)
@@ -5397,13 +5566,19 @@ class Wallet(commands.Cog):
                         traceback.print_exc(file=sys.stdout)
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
 
     @tasks.loop(seconds=60.0)
     async def unlocked_move_pending_erc20(self):
         time_lap = 5  # seconds
         await self.bot.wait_until_ready()
-
+        # Check if task recently run @bot_task_logs
+        task_name = "unlocked_move_pending_erc20"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         await asyncio.sleep(time_lap)
         try:
             erc_contracts = await self.get_all_contracts("ERC-20", False)
@@ -5419,13 +5594,19 @@ class Wallet(commands.Cog):
                         traceback.print_exc(file=sys.stdout)
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
 
     @tasks.loop(seconds=60.0)
     async def unlocked_move_pending_trc20(self):
         time_lap = 5  # seconds
         await self.bot.wait_until_ready()
-
+        # Check if task recently run @bot_task_logs
+        task_name = "unlocked_move_pending_trc20"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         await asyncio.sleep(time_lap)
         try:
             trc_contracts = await self.get_all_contracts("TRC-20", False)
@@ -5441,13 +5622,20 @@ class Wallet(commands.Cog):
                         traceback.print_exc(file=sys.stdout)
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
+
 
     @tasks.loop(seconds=60.0)
     async def update_balance_address_history_erc20(self):
         time_lap = 5  # seconds
         await self.bot.wait_until_ready()
-
+        # Check if task recently run @bot_task_logs
+        task_name = "update_balance_address_history_erc20"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         await asyncio.sleep(time_lap)
         try:
             erc_contracts = await self.get_all_contracts("ERC-20", False)
@@ -5469,7 +5657,10 @@ class Wallet(commands.Cog):
                         traceback.print_exc(file=sys.stdout)
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
+
 
     async def send_external_erc20(self, url: str, network: str, user_id: str, to_address: str, amount: float, coin: str,
                                   coin_decimal: int, real_withdraw_fee: float, user_server: str, chain_id: str = None,

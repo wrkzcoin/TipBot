@@ -22,6 +22,7 @@ from Bot import num_format_coin, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EM
     EMOJI_INFORMATION, EMOJI_PARTY, SERVER_BOT, seconds_str, text_to_num, truncate
 from config import config
 from cogs.wallet import WalletAPI
+from cogs.utils import Utils
 
 
 # Defines a simple view of row buttons.
@@ -299,6 +300,7 @@ class Tips(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.wallet_api = WalletAPI(self.bot)
+        self.utils = Utils(self.bot)
         self.freetip_check.start()
         self.freetip_duration_min = 5
         self.freetip_duration_max = 600
@@ -308,6 +310,11 @@ class Tips(commands.Cog):
         get_active_freetip = await store.get_active_discord_freetip(lap=120)
         get_inactive_freetip = await store.get_inactive_discord_freetip(lap=1200)
         await self.bot.wait_until_ready()
+        # Check if task recently run @bot_task_logs
+        task_name = "tips_freetip_check"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
 
         loop_next = 0
         if len(get_active_freetip) > 0:
@@ -437,6 +444,9 @@ class Tips(commands.Cog):
                             each_message_data['from_userid']))
 
                     # Notifytip
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
+
 
     async def async_notifytip(self, ctx, onoff: str):
         if onoff.upper() not in ["ON", "OFF"]:

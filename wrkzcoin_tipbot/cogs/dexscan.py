@@ -12,15 +12,18 @@ from config import config
 from disnake.ext import tasks, commands
 from web3 import Web3
 from web3.middleware import geth_poa_middleware
+from cogs.utils import Utils
 
 
 class DexScan(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        self.utils = Utils(self.bot)
         self.dex_price_loop.start()
         self.pool = None
         self.pool_netmon = None
+
 
     async def openConnection(self):
         try:
@@ -120,9 +123,15 @@ class DexScan(commands.Cog):
             await logchanbot(traceback.format_exc())
         return False
 
+
     @tasks.loop(seconds=10.0)
     async def dex_price_loop(self):
         await self.bot.wait_until_ready()
+        # Check if task recently run @bot_task_logs
+        task_name = "dexscan_dex_price_loop"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         bsc_node = await self.handle_best_node()
         try:
             get_list = await self.dex_get_list()
@@ -160,6 +169,9 @@ class DexScan(commands.Cog):
             await asyncio.sleep(30.0)
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
+
 
 def setup(bot):
     bot.add_cog(DexScan(bot))

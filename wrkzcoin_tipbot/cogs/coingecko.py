@@ -9,6 +9,7 @@ import asyncio
 import store
 from Bot import logchanbot
 from disnake.ext import commands, tasks
+from cogs.utils import Utils
 
 
 # https://www.coingecko.com/en/api/documentation
@@ -22,6 +23,8 @@ class CoinGecko(commands.Cog):
 
         self.fetch_gecko_coinlist.start()
         self.fetch_gecko_pricelist.start()
+        self.utils = Utils(self.bot)
+
 
     # This token hints is priority
     async def get_coingecko_list_db(self):
@@ -39,10 +42,16 @@ class CoinGecko(commands.Cog):
             await logchanbot(traceback.format_exc())
         return []
 
+
     @tasks.loop(seconds=60.0)
     async def fetch_gecko_coinlist(self):
         time_lap = 600 # seconds
         await self.bot.wait_until_ready()
+        # Check if task recently run @bot_task_logs
+        task_name = "fetch_gecko_coinlist"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         await asyncio.sleep(time_lap)
         url = "https://api.coingecko.com/api/v3/coins/list"
         try:
@@ -75,12 +84,20 @@ class CoinGecko(commands.Cog):
             print('TIMEOUT: Fetching from coingecko price')
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
+
 
     @tasks.loop(seconds=1200.0)
     async def fetch_gecko_pricelist(self):
         time_lap = 600 # seconds
         await self.bot.wait_until_ready()
+        # Check if task recently run @bot_task_logs
+        task_name = "fetch_gecko_pricelist"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         await asyncio.sleep(time_lap)
         try:
             existing_coinlist = await self.get_coingecko_list_db()
@@ -127,6 +144,8 @@ class CoinGecko(commands.Cog):
                             await asyncio.sleep(30.0)
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
 
 

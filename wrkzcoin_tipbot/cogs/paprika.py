@@ -28,8 +28,8 @@ from disnake.app_commands import Option, OptionChoice
 from Bot import EMOJI_CHART_DOWN, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_FLOPPY, logchanbot, EMOJI_HOURGLASS_NOT_DONE
 import redis_utils
 import store
-
 from config import config
+from cogs.utils import Utils
 
 
 # https://api.coinpaprika.com/#tag/Tags/paths/~1tags~1{tag_id}/get
@@ -127,6 +127,7 @@ class Paprika(commands.Cog):
         self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
         redis_utils.openRedis()
         self.fetch_paprika_pricelist.start()
+        self.utils = Utils(self.bot)
 
         # enable trade-view
         # Example: https://coinpaprika.com/trading-view/wrkz-wrkzcoin
@@ -144,6 +145,11 @@ class Paprika(commands.Cog):
     async def fetch_paprika_pricelist(self):
         time_lap = 1800  # seconds
         await self.bot.wait_until_ready()
+        # Check if task recently run @bot_task_logs
+        task_name = "fetch_paprika_pricelist"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
         await asyncio.sleep(time_lap)
         url = "https://api.coinpaprika.com/v1/tickers"
         try:
@@ -229,7 +235,10 @@ class Paprika(commands.Cog):
             print('TIMEOUT: Fetching from coingecko price')
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
+
 
     async def paprika_coin(
             self,

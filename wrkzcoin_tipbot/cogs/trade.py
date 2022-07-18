@@ -183,6 +183,10 @@ class Trade(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
+        if len(self.bot.coin_alias_names) > 0 and sell_ticker in self.bot.coin_alias_names:
+            sell_ticker = self.bot.coin_alias_names[sell_ticker]
+        if len(self.bot.coin_alias_names) > 0 and buy_ticker in self.bot.coin_alias_names:
+            buy_ticker = self.bot.coin_alias_names[buy_ticker]
         # Check if both coin with TipBot
         if not hasattr(self.bot.coin_list, sell_ticker):
             msg = f'{ctx.author.mention}, **{sell_ticker}** does not exist with us.'
@@ -368,6 +372,8 @@ class Trade(commands.Cog):
                 # assume it is a coin
                 coin_name = ticker.upper()
                 # Check if coin with TipBot
+                if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+                    coin_name = self.bot.coin_alias_names[coin_name]
                 if not hasattr(self.bot.coin_list, coin_name):
                     msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
                     await ctx.response.send_message(msg)
@@ -524,6 +530,8 @@ class Trade(commands.Cog):
                 # use coin name
                 coin_name = order_num.upper()
                 # Check if coin with TipBot
+                if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+                    coin_name = self.bot.coin_alias_names[coin_name]
                 if not hasattr(self.bot.coin_list, coin_name):
                     msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
                     await ctx.response.send_message(msg)
@@ -601,6 +609,8 @@ class Trade(commands.Cog):
             # ,buy trtl (example)
             coin_name = ref_number.upper()
             # Check if coin with TipBot
+            if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+                coin_name = self.bot.coin_alias_names[coin_name]
             if not hasattr(self.bot.coin_list, coin_name):
                 msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
                 await ctx.response.send_message(msg)
@@ -812,6 +822,8 @@ class Trade(commands.Cog):
             coin_name = coin.upper()
             if coin_name != "ALL":
                 # Check if coin with TipBot
+                if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+                    coin_name = self.bot.coin_alias_names[coin_name]
                 if not hasattr(self.bot.coin_list, coin_name):
                     msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
                     await ctx.response.send_message(msg)

@@ -1242,6 +1242,8 @@ class Guild(commands.Cog):
         MaxTip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
         usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
 
+        if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+            coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
             await ctx.edit_original_message(content=f'{ctx.author.mention}, **{coin_name}** does not exist with us.')
             return
@@ -1679,6 +1681,8 @@ class Guild(commands.Cog):
         channel: disnake.TextChannel
     ):
         coin_name = coin.upper()
+        if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+            coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
             await ctx.response.send_message(f'{ctx.author.mention}, **{coin_name}** does not exist with us.')
             return
@@ -1779,6 +1783,8 @@ class Guild(commands.Cog):
         coin: str
     ):
         coin_name = coin.upper()
+        if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+            coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
             await ctx.response.send_message(f'{ctx.author.mention}, **{coin_name}** does not exist with us.')
             return
@@ -2026,7 +2032,8 @@ class Guild(commands.Cog):
             return
         else:
             coin_name = token.upper()
-            # print(self.bot.coin_list)
+            if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+                coin_name = self.bot.coin_alias_names[coin_name]
             if not hasattr(self.bot.coin_list, coin_name):
                 await ctx.response.send_message(f'{ctx.author.mention}, **{coin_name}** does not exist with us.')
                 return
@@ -2113,6 +2120,8 @@ class Guild(commands.Cog):
         channel: disnake.TextChannel
     ):
         coin_name = coin.upper()
+        if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+            coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
             await ctx.response.send_message(f'{ctx.author.mention}, **{coin_name}** does not exist with us.')
             return
@@ -2283,6 +2292,8 @@ class Guild(commands.Cog):
     async def async_activedrop(self, ctx, amount: str, coin: str, duration: str, channel: disnake.TextChannel, role: disnake.Role=None ):
         original_duration = duration
         coin_name = coin.upper()
+        if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+            coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
             await ctx.response.send_message(f'{ctx.author.mention}, **{coin_name}** does not exist with us.')
             return
@@ -2492,7 +2503,8 @@ class Guild(commands.Cog):
                 coin_name = serverinfo['faucet_coin']
                 amount = serverinfo['faucet_amount']
                 duration = serverinfo['faucet_duration']
-
+                if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+                    coin_name = self.bot.coin_alias_names[coin_name]
                 if not hasattr(self.bot.coin_list, coin_name):
                     msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
                     await ctx.edit_original_message(content=msg)

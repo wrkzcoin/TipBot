@@ -143,7 +143,8 @@ class MathTips(commands.Cog):
 
     async def async_mathtip(self, ctx, amount: str, token: str, duration: str, math_exp: str = None):
         coin_name = token.upper()
-
+        if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+            coin_name = self.bot.coin_alias_names[coin_name]
         # Token name check
         if not hasattr(self.bot.coin_list, coin_name):
             msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'

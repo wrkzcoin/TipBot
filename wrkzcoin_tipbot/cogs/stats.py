@@ -66,6 +66,8 @@ class Stats(commands.Cog):
             return
         if coin:
             coin_name = coin.upper()
+            if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+                coin_name = self.bot.coin_alias_names[coin_name]
             if not hasattr(self.bot.coin_list, coin_name):
                 await ctx.edit_original_message(
                     content=f'{ctx.author.mention}, **{coin_name}** does not exist with us.')

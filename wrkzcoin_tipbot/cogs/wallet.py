@@ -6150,7 +6150,8 @@ class Wallet(commands.Cog):
             return
         else:
             coin_name = token.upper()
-            # print(self.bot.coin_list)
+            if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+                coin_name = self.bot.coin_alias_names[coin_name]
             if not hasattr(self.bot.coin_list, coin_name):
                 await ctx.response.send_message(f'{ctx.author.mention}, **{coin_name}** does not exist with us.')
                 return
@@ -6293,6 +6294,8 @@ class Wallet(commands.Cog):
             return
         else:
             coin_name = token.upper()
+            if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+                coin_name = self.bot.coin_alias_names[coin_name]
             if not hasattr(self.bot.coin_list, coin_name):
                 await ctx.response.send_message(f'{ctx.author.mention}, **{coin_name}** does not exist with us.')
                 return
@@ -6589,8 +6592,9 @@ class Wallet(commands.Cog):
     # Withdraw
     async def async_withdraw(self, ctx, amount: str, token: str, address: str):
         withdraw_tx_ephemeral = False
-
         coin_name = token.upper()
+        if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+            coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
             msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
             await ctx.response.send_message(msg)
@@ -7402,6 +7406,8 @@ class Wallet(commands.Cog):
         coin_name = random.choice(self.bot.faucet_coins)
         if info and info.upper() != "INFO":
             coin_name = info.upper()
+            if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+                coin_name = self.bot.coin_alias_names[coin_name]
             if not hasattr(self.bot.coin_list, coin_name):
                 msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
                 await ctx.edit_original_message(content=msg)
@@ -7665,6 +7671,8 @@ class Wallet(commands.Cog):
     ):
         coin_name = token.upper()
         # Token name check
+        if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+            coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
             msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
             await ctx.response.send_message(msg)

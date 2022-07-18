@@ -1071,6 +1071,8 @@ class Admin(commands.Cog):
     @admin.command(hidden=True, usage='auditcoin <coin name>', description='Audit coin\'s balance')
     async def auditcoin(self, ctx, coin: str):
         coin_name = coin.upper()
+        if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+            coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
             msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
             await ctx.reply(msg)
@@ -1190,6 +1192,8 @@ class Admin(commands.Cog):
         else:
             user_server = user_server.upper()
         try:
+            if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+                coin_name = self.bot.coin_alias_names[coin_name]
             if not hasattr(self.bot.coin_list, coin_name):
                 await ctx.reply(f'{ctx.author.mention}, **{coin_name}** does not exist with us.')
                 return
@@ -1246,6 +1250,8 @@ class Admin(commands.Cog):
             await ctx.reply(f"{ctx.author.mention}, invalid amount.")
             return
         coin_name = coin.upper()
+        if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+            coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
             msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
             await ctx.reply(msg)
@@ -1530,6 +1536,8 @@ class Admin(commands.Cog):
     async def withdraw(self, ctx, coin: str):
         coin_name = coin.upper()
         command = "withdraw"
+        if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+            coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
             msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
             await ctx.reply(msg)
@@ -1560,6 +1568,8 @@ class Admin(commands.Cog):
     async def tip(self, ctx, coin: str):
         coin_name = coin.upper()
         command = "tip"
+        if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+            coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
             msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
             await ctx.reply(msg)
@@ -1641,6 +1651,8 @@ class Admin(commands.Cog):
     async def deposit(self, ctx, coin: str):
         coin_name = coin.upper()
         command = "deposit"
+        if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+            coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
             msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
             await ctx.reply(msg)

@@ -227,6 +227,8 @@ class TipOtherCoin(disnake.ui.Modal):
 
         amount = float(amount)
         coin_name = coin_id.upper()
+        if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+            coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
             msg = f'{interaction.author.mention}, **{coin_name}** does not exist with us.'
             await interaction.edit_original_message(content=msg)

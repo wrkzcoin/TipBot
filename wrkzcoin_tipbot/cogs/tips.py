@@ -495,6 +495,8 @@ class Tips(commands.Cog):
     async def async_randtip(self, ctx, amount: str, token: str, rand_option: str = None):
         coin_name = token.upper()
         # Token name check
+        if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+            coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
             msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
             await ctx.response.send_message(msg)
@@ -812,7 +814,8 @@ class Tips(commands.Cog):
     # FreeTip
     async def async_freetip(self, ctx, amount: str, token: str, duration: str = None, comment: str = None):
         coin_name = token.upper()
-
+        if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+            coin_name = self.bot.coin_alias_names[coin_name]
         # Token name check
         if not hasattr(self.bot.coin_list, coin_name):
             msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
@@ -1070,6 +1073,8 @@ class Tips(commands.Cog):
     async def async_tipall(self, ctx, amount: str, token: str, user: str):
         coin_name = token.upper()
         # Token name check
+        if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+            coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
             msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
             await ctx.response.send_message(msg)
@@ -1390,6 +1395,8 @@ class Tips(commands.Cog):
     async def async_tip(self, ctx, amount: str, token: str, args):
         coin_name = token.upper()
         # Token name check
+        if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+            coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
             msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
             await ctx.response.send_message(msg)
@@ -1647,6 +1654,8 @@ class Tips(commands.Cog):
     async def async_gtip(self, ctx, amount: str, token: str, args):
         coin_name = token.upper()
         # Token name check
+        if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+            coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
             msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
             await ctx.response.send_message(msg)

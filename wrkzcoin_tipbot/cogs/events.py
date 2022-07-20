@@ -308,8 +308,8 @@ class Events(commands.Cog):
         await asyncio.sleep(time_lap)
         try:
             num_server = len(self.bot.guilds)
-            num_online = sum(1 for m in self.bot.get_all_members() if m.status == disnake.Status.online)
-            num_users = sum(1 for m in self.bot.get_all_members() if m.bot == False)
+            num_online = sum(1 for m in self.bot.get_all_members() if m.status != disnake.Status.offline)
+            num_users = sum(1 for m in self.bot.get_all_members())
             num_bots = sum(1 for m in self.bot.get_all_members() if m.bot == True)
             get_tipping_count = await self.get_tipping_count()
             num_tips = get_tipping_count['nos_tipping']
@@ -975,12 +975,12 @@ class Events(commands.Cog):
         await self.bot_log()
         try:
             num_server = len(self.bot.guilds)
-            num_online = sum(1 for m in self.bot.get_all_members() if m.status == disnake.Status.online)
-            num_users = sum(1 for m in self.bot.get_all_members() if m.bot == False)
+            total_online = sum(1 for m in self.bot.get_all_members() if m.status != disnake.Status.offline)
+            total_unique = len(self.bot.users)
             num_bots = sum(1 for m in self.bot.get_all_members() if m.bot == True)
             get_tipping_count = await self.get_tipping_count()
             num_tips = get_tipping_count['nos_tipping']
-            await self.insert_new_stats(num_server, num_online, num_users, num_bots, num_tips, int(time.time()))
+            await self.insert_new_stats(num_server, int(total_online), int(total_unique), int(num_bots), num_tips, int(time.time()))
             try:
                 if len(self.bot.guilds) > 0 and len(self.bot.guilds) % 10 == 0:
                     botdetails = disnake.Embed(title='About Me', description='')
@@ -991,12 +991,11 @@ class Events(commands.Cog):
                     botdetails.add_field(name='Servers:', value=len(self.bot.guilds), inline=True)
                     try:
                         botdetails.add_field(name="Online", value='{:,.0f}'.format(
-                            sum(1 for m in self.bot.get_all_members() if m.status == disnake.Status.online)),
-                                             inline=True)
+                            total_online), inline=True)
                         botdetails.add_field(name="Users", value='{:,.0f}'.format(
-                            sum(1 for m in self.bot.get_all_members() if m.bot == False)), inline=True)
+                            total_unique), inline=True)
                         botdetails.add_field(name="Bots", value='{:,.0f}'.format(
-                            sum(1 for m in self.bot.get_all_members() if m.bot == True)), inline=True)
+                            num_bots), inline=True)
                         botdetails.add_field(name="Tips", value='{:,.0f}'.format(get_tipping_count['nos_tipping']),
                                              inline=True)
                         botdetails.add_field(name="Wallets", value='{:,.0f}'.format(get_tipping_count['nos_user']),
@@ -1021,12 +1020,12 @@ class Events(commands.Cog):
         await self.bot_log()
         try:
             num_server = len(self.bot.guilds)
-            num_online = sum(1 for m in self.bot.get_all_members() if m.status == disnake.Status.online)
-            num_users = sum(1 for m in self.bot.get_all_members() if m.bot == False)
+            total_online = sum(1 for m in self.bot.get_all_members() if m.status != disnake.Status.offline)
+            total_unique = len(self.bot.users)
             num_bots = sum(1 for m in self.bot.get_all_members() if m.bot == True)
             get_tipping_count = await self.get_tipping_count()
             num_tips = get_tipping_count['nos_tipping']
-            await self.insert_new_stats(num_server, num_online, num_users, num_bots, num_tips, int(time.time()))
+            await self.insert_new_stats(num_server, total_online, total_unique, num_bots, num_tips, int(time.time()))
             try:
                 if len(self.bot.guilds) > 0 and len(self.bot.guilds) % 10 == 0:
                     botdetails = disnake.Embed(title='About Me', description='')
@@ -1037,12 +1036,11 @@ class Events(commands.Cog):
                     botdetails.add_field(name='Servers:', value=len(self.bot.guilds), inline=True)
                     try:
                         botdetails.add_field(name="Online", value='{:,.0f}'.format(
-                            sum(1 for m in self.bot.get_all_members() if m.status == disnake.Status.online)),
-                                             inline=True)
+                            total_online), inline=True)
                         botdetails.add_field(name="Users", value='{:,.0f}'.format(
-                            sum(1 for m in self.bot.get_all_members() if m.bot == False)), inline=True)
+                            total_unique), inline=True)
                         botdetails.add_field(name="Bots", value='{:,.0f}'.format(
-                            sum(1 for m in self.bot.get_all_members() if m.bot == True)), inline=True)
+                            num_bots), inline=True)
                         botdetails.add_field(name="Tips", value='{:,.0f}'.format(get_tipping_count['nos_tipping']),
                                              inline=True)
                         botdetails.add_field(name="Wallets", value='{:,.0f}'.format(get_tipping_count['nos_user']),

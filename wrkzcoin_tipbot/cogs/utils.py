@@ -1,12 +1,13 @@
 import sys
 import traceback
 from typing import List
+import time
 
 import disnake
 from disnake.ext import commands
 
 import store
-from Bot import RowButtonRowCloseAnyMessage
+from Bot import RowButtonRowCloseAnyMessage, logchanbot
 
 
 # Defines a simple paginator of buttons for the embed.
@@ -166,6 +167,30 @@ class Utils(commands.Cog):
                     return res
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        return None
+
+
+    async def update_user_balance_call(self, user_id: str, type_coin: str):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    if type_coin.upper() == "ERC-20":
+                        sql = """ UPDATE `erc20_user` SET `called_Update`=%s WHERE `user_id`=%s """
+                    elif type_coin.upper() == "TRC-10" or type_coin.upper() == "TRC-20":
+                        sql = """ UPDATE `trc20_user` SET `called_Update`=%s WHERE `user_id`=%s """
+                    elif type_coin.upper() == "SOL" or type_coin.upper() == "SPL":
+                        sql = """ UPDATE `sol_user` SET `called_Update`=%s WHERE `user_id`=%s """
+                    elif type_coin.upper() == "XTZ":
+                        sql = """ UPDATE `tezos_user` SET `called_Update`=%s WHERE `user_id`=%s """
+                    else:
+                        return
+                    await cur.execute(sql, (int(time.time()), user_id))
+                    await conn.commit()
+                    return True
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
         return None
 
 

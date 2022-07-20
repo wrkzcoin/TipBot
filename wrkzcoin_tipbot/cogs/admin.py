@@ -14,6 +14,9 @@ from io import BytesIO
 import aiohttp
 import aiomysql
 import disnake
+from disnake.app_commands import Option
+from disnake.enums import OptionType
+
 import store
 from Bot import num_format_coin, SERVER_BOT, logchanbot, encrypt_string, decrypt_string, \
     RowButtonRowCloseAnyMessage, EMOJI_INFORMATION, EMOJI_RED_NO
@@ -29,6 +32,9 @@ from pywallet import wallet as ethwallet
 from tronpy import AsyncTron
 from tronpy.providers.async_http import AsyncHTTPProvider
 
+from mnemonic import Mnemonic
+from pytezos.crypto.key import Key as XtzKey
+
 from cogs.utils import MenuPage
 from cogs.utils import Utils
 
@@ -36,7 +42,6 @@ Account.enable_unaudited_hdwallet_features()
 
 
 class Admin(commands.Cog):
-
     def __init__(self, bot):
         self.bot = bot
         self.wallet_api = WalletAPI(self.bot)
@@ -150,7 +155,9 @@ class Admin(commands.Cog):
                             await self.openConnection_extra()
                             async with self.pool_local_db_extra.acquire() as conn_extra:
                                 async with conn_extra.cursor() as cur_extra:
-                                    sql = """ INSERT INTO `discord_messages` (`id`, `serverid`, `server_name`, `channel_id`, `channel_name`, `user_id`, `message_author`, `message_id`, `message_time`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                    sql = """ INSERT INTO `discord_messages` (`id`, `serverid`, `server_name`, `channel_id`, `channel_name`, `user_id`, `message_author`, `message_id`, `message_time`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) 
+                                    ON DUPLICATE KEY UPDATE 
+                                    `message_time`=VALUES(`message_time`) """
                                     await cur_extra.executemany(sql, data_rows)
                                     await conn_extra.commit()
                                     inserted = cur_extra.rowcount
@@ -690,6 +697,27 @@ class Admin(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+
+    @commands.is_owner()
+    @commands.guild_only()
+    @commands.slash_command(
+        usage='say',
+        options=[
+            Option('text', 'text', OptionType.string, required=True)
+        ],
+        description="Let bot say something in text channel (Owner only)"
+    )
+    async def say(
+            self,
+            ctx,
+            text: str
+    ):
+        # let bot post some message (testing) etc.
+        await logchanbot(f"[TIPBOT SAY] {ctx.author.id} / {ctx.author.name}#{ctx.author.discriminator} asked to say ```{text}```")
+        await ctx.channel.send(text)
+        await ctx.response.send_message(f"Message sent!", ephemeral=True)
+
+
     @commands.is_owner()
     @commands.dm_only()
     @commands.group(
@@ -1216,12 +1244,7 @@ class Admin(commands.Cog):
             try:
                 # Add update for future call
                 try:
-                    if type_coin == "ERC-20":
-                        update_call = await store.sql_update_erc20_user_update_call(member_id)
-                    elif type_coin == "TRC-10" or type_coin == "TRC-20":
-                        update_call = await store.sql_update_trc20_user_update_call(member_id)
-                    elif type_coin == "SOL" or type_coin == "SPL":
-                        update_call = await store.sql_update_sol_user_update_call(member_id)
+                    await self.utils.update_user_balance_call(member_id, type_coin)
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                 userdata_balance = await self.user_balance(member_id, coin_name, wallet_address, type_coin, height,
@@ -1410,12 +1433,7 @@ class Admin(commands.Cog):
                 height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                 try:
                     # Add update for future call
-                    if type_coin == "ERC-20":
-                        update_call = await store.sql_update_erc20_user_update_call(member_id)
-                    elif type_coin == "TRC-10" or type_coin == "TRC-20":
-                        update_call = await store.sql_update_trc20_user_update_call(member_id)
-                    elif type_coin == "SOL" or type_coin == "SPL":
-                        update_call = await store.sql_update_sol_user_update_call(member_id)
+                    await self.utils.update_user_balance_call(member_id, type_coin)
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
 
@@ -1740,23 +1758,29 @@ class Admin(commands.Cog):
     @commands.is_owner()
     @admin.command(hidden=True, usage='create', description='Create an address')
     async def create(self, ctx, token: str):
-        if token.upper() not in ["ERC-20", "TRC-20"]:
+        if token.upper() not in ["ERC-20", "TRC-20", "XTZ"]:
             await ctx.reply(f'{ctx.author.mention}, only with ERC-20 and TRC-20.')
-            return
         elif token.upper() == "ERC-20":
             try:
                 w = await self.create_address_eth()
                 await ctx.reply(f'{ctx.author.mention}, ```{str(w)}```', view=RowButtonRowCloseAnyMessage())
             except Exception:
                 traceback.print_exc(file=sys.stdout)
-            return
         elif token.upper() == "TRC-20":
             try:
                 w = await self.create_address_trx()
                 await ctx.reply(f'{ctx.author.mention}, ```{str(w)}```', view=RowButtonRowCloseAnyMessage())
             except Exception:
                 traceback.print_exc(file=sys.stdout)
-            return
+        elif token.upper() == "XTZ":
+            try:
+                mnemo = Mnemonic("english")
+                words = str(mnemo.generate(strength=128))
+                key = XtzKey.from_mnemonic(mnemonic=words, passphrase="", email="")
+                await ctx.reply(f'{ctx.author.mention}, ```Pub: {key.public_key_hash()}\nSeed: {words}\nKey: {key.secret_key()}```', view=RowButtonRowCloseAnyMessage())
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+
 
     @commands.is_owner()
     @admin.command(

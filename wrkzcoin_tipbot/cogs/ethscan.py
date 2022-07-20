@@ -45,6 +45,8 @@ class EthScan(commands.Cog):
         self.fetch_xdai_node.start()
         # ONE best node
         self.fetch_one_node.start()
+        # XTZ best node
+        self.fetch_tezos_node.start()
 
         self.pull_trc20_scanning.start()
         self.pull_erc20_scanning.start()
@@ -57,8 +59,11 @@ class EthScan(commands.Cog):
         check_last_running = await self.utils.bot_task_logs_check(task_name)
         if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
             return
+        bot_settings = await self.utils.get_bot_settings()
+        if bot_settings is None:
+            return
         async with aiohttp.ClientSession() as session:
-            async with session.get(config.api_best_node.trx, headers={'Content-Type': 'application/json'},
+            async with session.get(bot_settings['api_best_node_trx'], headers={'Content-Type': 'application/json'},
                                    timeout=5.0) as response:
                 if response.status == 200:
                     res_data = await response.read()
@@ -79,8 +84,11 @@ class EthScan(commands.Cog):
         check_last_running = await self.utils.bot_task_logs_check(task_name)
         if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
             return
+        bot_settings = await self.utils.get_bot_settings()
+        if bot_settings is None:
+            return
         async with aiohttp.ClientSession() as session:
-            async with session.get(config.api_best_node.bsc, headers={'Content-Type': 'application/json'},
+            async with session.get(bot_settings['api_best_node_bsc'], headers={'Content-Type': 'application/json'},
                                    timeout=5.0) as response:
                 if response.status == 200:
                     res_data = await response.read()
@@ -101,8 +109,11 @@ class EthScan(commands.Cog):
         check_last_running = await self.utils.bot_task_logs_check(task_name)
         if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
             return
+        bot_settings = await self.utils.get_bot_settings()
+        if bot_settings is None:
+            return
         async with aiohttp.ClientSession() as session:
-            async with session.get(config.api_best_node.sol, headers={'Content-Type': 'application/json'},
+            async with session.get(bot_settings['api_best_node_sol'], headers={'Content-Type': 'application/json'},
                                    timeout=5.0) as response:
                 if response.status == 200:
                     res_data = await response.read()
@@ -123,8 +134,11 @@ class EthScan(commands.Cog):
         check_last_running = await self.utils.bot_task_logs_check(task_name)
         if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
             return
+        bot_settings = await self.utils.get_bot_settings()
+        if bot_settings is None:
+            return
         async with aiohttp.ClientSession() as session:
-            async with session.get(config.api_best_node.matic, headers={'Content-Type': 'application/json'},
+            async with session.get(bot_settings['api_best_node_matic'], headers={'Content-Type': 'application/json'},
                                    timeout=5.0) as response:
                 if response.status == 200:
                     res_data = await response.read()
@@ -145,8 +159,11 @@ class EthScan(commands.Cog):
         check_last_running = await self.utils.bot_task_logs_check(task_name)
         if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
             return
+        bot_settings = await self.utils.get_bot_settings()
+        if bot_settings is None:
+            return
         async with aiohttp.ClientSession() as session:
-            async with session.get(config.api_best_node.celo, headers={'Content-Type': 'application/json'},
+            async with session.get(bot_settings['api_best_node_celo'], headers={'Content-Type': 'application/json'},
                                    timeout=5.0) as response:
                 if response.status == 200:
                     res_data = await response.read()
@@ -167,8 +184,11 @@ class EthScan(commands.Cog):
         check_last_running = await self.utils.bot_task_logs_check(task_name)
         if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
             return
+        bot_settings = await self.utils.get_bot_settings()
+        if bot_settings is None:
+            return
         async with aiohttp.ClientSession() as session:
-            async with session.get(config.api_best_node.ftm, headers={'Content-Type': 'application/json'},
+            async with session.get(bot_settings['api_best_node_ftm'], headers={'Content-Type': 'application/json'},
                                    timeout=5.0) as response:
                 if response.status == 200:
                     res_data = await response.read()
@@ -189,8 +209,11 @@ class EthScan(commands.Cog):
         check_last_running = await self.utils.bot_task_logs_check(task_name)
         if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
             return
+        bot_settings = await self.utils.get_bot_settings()
+        if bot_settings is None:
+            return
         async with aiohttp.ClientSession() as session:
-            async with session.get(config.api_best_node.avax, headers={'Content-Type': 'application/json'},
+            async with session.get(bot_settings['api_best_node_avax'], headers={'Content-Type': 'application/json'},
                                    timeout=5.0) as response:
                 if response.status == 200:
                     res_data = await response.read()
@@ -211,8 +234,11 @@ class EthScan(commands.Cog):
         check_last_running = await self.utils.bot_task_logs_check(task_name)
         if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
             return
+        bot_settings = await self.utils.get_bot_settings()
+        if bot_settings is None:
+            return
         async with aiohttp.ClientSession() as session:
-            async with session.get(config.api_best_node.xdai, headers={'Content-Type': 'application/json'},
+            async with session.get(bot_settings['api_best_node_xdai'], headers={'Content-Type': 'application/json'},
                                    timeout=5.0) as response:
                 if response.status == 200:
                     res_data = await response.read()
@@ -233,8 +259,11 @@ class EthScan(commands.Cog):
         check_last_running = await self.utils.bot_task_logs_check(task_name)
         if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
             return
+        bot_settings = await self.utils.get_bot_settings()
+        if bot_settings is None:
+            return
         async with aiohttp.ClientSession() as session:
-            async with session.get(config.api_best_node.one, headers={'Content-Type': 'application/json'},
+            async with session.get(bot_settings['api_best_node_one'], headers={'Content-Type': 'application/json'},
                                    timeout=5.0) as response:
                 if response.status == 200:
                     res_data = await response.read()
@@ -243,6 +272,31 @@ class EthScan(commands.Cog):
                     self.bot.erc_node_list['ONE'] = res_data.replace('"', '')
                 else:
                     await logchanbot(f"Can not fetch best node for ONE.")
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
+        await asyncio.sleep(10.0)
+
+
+    @tasks.loop(seconds=10.0)
+    async def fetch_tezos_node(self):
+        # Check if task recently run @bot_task_logs
+        task_name = "ethscan_fetch_tezos_node"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
+        bot_settings = await self.utils.get_bot_settings()
+        if bot_settings is None:
+            return
+        async with aiohttp.ClientSession() as session:
+            async with session.get(bot_settings['api_best_node_xtz'], headers={'Content-Type': 'application/json'},
+                                   timeout=5.0) as response:
+                if response.status == 200:
+                    res_data = await response.read()
+                    res_data = res_data.decode('utf-8')
+                    # XTZ needs to fetch best node from their public
+                    self.bot.erc_node_list['XTZ'] = res_data.replace('"', '')
+                else:
+                    await logchanbot(f"Can not fetch best node for XTZ.")
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(10.0)

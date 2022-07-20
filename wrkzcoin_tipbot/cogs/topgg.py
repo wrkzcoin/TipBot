@@ -138,7 +138,7 @@ class TopGGVote(commands.Cog):
                                 # Check if user just vote less than 1h. Sometimes top.gg just push too fast multiple times.
                                 check_last_vote = await self.check_last_guild_vote(user_vote, "topgg", guild_id)
                                 if check_last_vote is not None and int(time.time()) - check_last_vote[
-                                    'date_voted'] < 3600:
+                                    'date_voted'] < 3600 and type_vote != "test":
                                     await self.vote_logchan(
                                         f'[{SERVER_BOT}] A user <@{user_vote}> voted for guild `{guild_id}` type `{type_vote}` but less than 1h.')
                                     return web.Response(text="Thank you!")
@@ -152,7 +152,7 @@ class TopGGVote(commands.Cog):
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
 
-                            if get_guild_by_key and get_guild_by_key == key:
+                            if get_guild_by_key and get_guild_by_key == key.strip():
                                 # Check if bot is in that guild, if not post in log chan vote
                                 guild = self.bot.get_guild(int(guild_id))
                                 get_guild = await self.guild_find_by_id(guild_id)
@@ -276,7 +276,7 @@ class TopGGVote(commands.Cog):
                             else:
                                 try:
                                     await self.vote_logchan(
-                                        f'[{SERVER_BOT}] A user <@{user_vote}> voted a guild `{guild_id}` type `{type_vote}` in top.gg but I am not in that guild or I cannot find it.')
+                                        f'[{SERVER_BOT}] A user <@{user_vote}> voted a guild `{guild_id}` type `{type_vote}` in top.gg but I am not in that guild or I cannot find it. Given key: `{key}`')
                                 except Exception:
                                     traceback.print_exc(file=sys.stdout)
                                 return web.Response(text="No such server by this key! Or not up to date!")

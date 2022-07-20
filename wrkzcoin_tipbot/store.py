@@ -446,6 +446,28 @@ async def sql_user_balance_single(user_id: str, coin: str, address: str, coin_fa
                         incoming_tx = result['incoming_tx']
                     else:
                         incoming_tx = 0
+                elif coin_family == "XTZ":
+                    # When sending tx out, (negative)
+                    sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense 
+                              FROM `tezos_external_tx` 
+                              WHERE `user_id`=%s AND `token_name`=%s AND `user_server`=%s AND `crediting`=%s """
+                    await cur.execute(sql, (user_id, token_name, user_server, "YES"))
+                    result = await cur.fetchone()
+                    if result:
+                        tx_expense = result['tx_expense']
+                    else:
+                        tx_expense = 0
+
+                    # in case deposit fee -real_deposit_fee
+                    sql = """ SELECT SUM(real_amount-real_deposit_fee) AS incoming_tx 
+                              FROM `tezos_move_deposit` 
+                              WHERE `user_id`=%s AND `token_name`=%s AND `confirmed_depth`> %s AND `user_server`=%s AND `status`=%s """
+                    await cur.execute(sql, (user_id, token_name, 0, user_server, "CONFIRMED"))  # confirmed_depth > 0
+                    result = await cur.fetchone()
+                    if result:
+                        incoming_tx = result['incoming_tx']
+                    else:
+                        incoming_tx = 0
                 elif coin_family == "TRC-20":
                     # When sending tx out, (negative)
                     sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense 
@@ -992,6 +1014,48 @@ async def sql_get_all_erc_user(type_coin_user: str, called_Update: int = 0):
         await logchanbot(traceback.format_exc())
     return []
 
+async def sql_get_all_tezos_user(type_coin_user: str, called_Update: int = 0):
+    # Check update only who has recently called for balance
+    # If called_Update = 3600, meaning who called balance for last 1 hr
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                if called_Update == 0:
+                    sql = """ SELECT `user_id`, `balance_wallet_address`, `type`, `seed`, `key`, `user_server` FROM `tezos_user` WHERE `type`=%s """
+                    await cur.execute(sql, (type_coin_user))
+                    result = await cur.fetchall()
+                    if result: return result
+                elif called_Update > 0:
+                    lap = int(time.time()) - called_Update
+                    sql = """ SELECT `user_id`, `balance_wallet_address`, `type`, `seed`, `key`, `user_server` FROM tezos_user 
+                              WHERE (`called_Update`>%s OR `is_discord_guild`=1) AND `type`=%s """
+                    await cur.execute(sql, (lap, type_coin_user))
+                    result = await cur.fetchall()
+                    if result: return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return []
+
+async def sql_recent_tezos_move_deposit(called_Update: int = 300):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                lap = int(time.time()) - called_Update
+                sql = """ SELECT * FROM `tezos_move_deposit` 
+                          WHERE `time_insert`>%s """
+                await cur.execute(sql, lap)
+                result = await cur.fetchall()
+                if result:
+                    return [each['balance_wallet_address'] for each in result]
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return []
 
 # TODO: this is for ERC-20 only
 async def http_wallet_getbalance(url: str, address: str, coin: str, contract: str = None, timeout: int = 64) -> int:
@@ -2236,54 +2300,6 @@ async def sql_user_balance_mv_multiple(user_from: str, user_tos, guild_id: str, 
         traceback.print_exc(file=sys.stdout)
         await logchanbot(traceback.format_exc())
     return False
-
-
-async def sql_update_erc20_user_update_call(user_id: str):
-    global pool
-    try:
-        await openConnection()
-        async with pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                sql = """ UPDATE `erc20_user` SET `called_Update`=%s WHERE `user_id`=%s """
-                await cur.execute(sql, (int(time.time()), user_id))
-                await conn.commit()
-                return True
-    except Exception as e:
-        traceback.print_exc(file=sys.stdout)
-        await logchanbot(traceback.format_exc())
-    return None
-
-
-async def sql_update_trc20_user_update_call(user_id: str):
-    global pool
-    try:
-        await openConnection()
-        async with pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                sql = """ UPDATE `trc20_user` SET `called_Update`=%s WHERE `user_id`=%s """
-                await cur.execute(sql, (int(time.time()), user_id))
-                await conn.commit()
-                return True
-    except Exception as e:
-        traceback.print_exc(file=sys.stdout)
-        await logchanbot(traceback.format_exc())
-    return None
-
-
-async def sql_update_sol_user_update_call(user_id: str):
-    global pool
-    try:
-        await openConnection()
-        async with pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                sql = """ UPDATE `sol_user` SET `called_Update`=%s WHERE `user_id`=%s """
-                await cur.execute(sql, (int(time.time()), user_id))
-                await conn.commit()
-                return True
-    except Exception as e:
-        traceback.print_exc(file=sys.stdout)
-        await logchanbot(traceback.format_exc())
-    return None
 
 
 async def trx_move_deposit_for_spendable(token_name: str, contract: str, user_id: str, balance_wallet_address: str,

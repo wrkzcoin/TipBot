@@ -10,13 +10,14 @@ from cogs.wallet import WalletAPI
 from disnake.app_commands import Option
 from disnake.enums import OptionType
 from disnake.ext import commands
+from cogs.utils import Utils
 
 
 class BotBalance(commands.Cog):
-
     def __init__(self, bot):
         self.bot = bot
         self.wallet_api = WalletAPI(self.bot)
+        self.utils = Utils(self.bot)
         self.botLogChan = None
         self.enable_logchan = True
 
@@ -98,12 +99,7 @@ class BotBalance(commands.Cog):
             await ctx.edit_original_message(content=None, embed=embed)
             # Add update for future call
             try:
-                if type_coin == "ERC-20":
-                    update_call = await store.sql_update_erc20_user_update_call(str(member.id))
-                elif type_coin == "TRC-10" or type_coin == "TRC-20":
-                    update_call = await store.sql_update_trc20_user_update_call(str(member.id))
-                elif type_coin == "SOL" or type_coin == "SPL":
-                    update_call = await store.sql_update_sol_user_update_call(str(member.id))
+                await self.utils.update_user_balance_call(str(member.id), type_coin)
             except Exception:
                 traceback.print_exc(file=sys.stdout)
         except Exception:

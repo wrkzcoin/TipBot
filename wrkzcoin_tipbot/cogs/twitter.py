@@ -1617,12 +1617,7 @@ class Twitter(commands.Cog):
                     height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                     try:
                         # Add update for future call
-                        if type_coin == "ERC-20":
-                            update_call = await store.sql_update_erc20_user_update_call(twitter_id_str)
-                        elif type_coin == "TRC-10" or type_coin == "TRC-20":
-                            update_call = await store.sql_update_trc20_user_update_call(twitter_id_str)
-                        elif type_coin == "SOL" or type_coin == "SPL":
-                            update_call = await store.sql_update_sol_user_update_call(twitter_id_str)
+                        await self.utils.update_user_balance_call(twitter_id_str, type_coin)
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
                     if num_coins == 0 or num_coins % per_page == 0:

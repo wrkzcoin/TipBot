@@ -382,6 +382,25 @@ class Events(commands.Cog):
             await logchanbot(traceback.format_exc())
         return None
 
+    async def get_coin_alias_name(self):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `coin_alias_name` """
+                    await cur.execute(sql, ())
+                    result = await cur.fetchall()
+                    if result and len(result) > 0:
+                        alias_names = {}
+                        for each_item in result:
+                            alias_names[each_item['alt_name'].upper()] = each_item['coin_name']
+                        self.bot.coin_alias_names = alias_names
+                        return True
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return None
+
     # coin_paprika_list
     async def get_coin_paprika_list(self):
         try:
@@ -448,14 +467,7 @@ class Events(commands.Cog):
         print(f'Shard {shard_id} connected')
 
     @commands.Cog.listener()
-    async def on_ready(self):
-        print('Logged in as')
-        print(self.bot.user.name)
-        print(self.bot.user.id)
-        print('------')
-        self.bot.start_time = datetime.datetime.now()
-        game = disnake.Game(name="prefix /")
-        await self.bot.change_presence(status=disnake.Status.online, activity=game)
+    async def on_connect(self):
         # Load coin setting
         try:
             coin_list = await self.get_coin_setting()
@@ -478,6 +490,8 @@ class Events(commands.Cog):
         try:
             await self.get_token_hints()
             print("token_hints loaded...")
+            await self.get_coin_alias_name()
+            print("coin_alias_name loaded...")
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -494,6 +508,17 @@ class Events(commands.Cog):
             print("get_coingecko_list loaded...")
         except Exception:
             traceback.print_exc(file=sys.stdout)
+
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        print('Logged in as')
+        print(self.bot.user.name)
+        print(self.bot.user.id)
+        print('------')
+        self.bot.start_time = datetime.datetime.now()
+        game = disnake.Game(name="prefix /")
+        await self.bot.change_presence(status=disnake.Status.online, activity=game)
         botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
         await botLogChan.send(f'I am back :)')
 

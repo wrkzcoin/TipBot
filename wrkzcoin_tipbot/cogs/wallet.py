@@ -396,8 +396,6 @@ class WalletAPI(commands.Cog):
                 traceback.print_exc(file=sys.stdout)
         return balance
 
-
-
     def get_block_height(self, type_coin: str, coin: str, net_name: str = None):
         redis_utils.openRedis()
         height = None
@@ -406,7 +404,7 @@ class WalletAPI(commands.Cog):
             if type_coin in ["ERC-20", "TRC-20"]:
                 height = int(redis_utils.redis_conn.get(
                     f'{config.redis.prefix + config.redis.daemon_height}{net_name}').decode())
-            elif type_coin == "XLM":
+            elif type_coin in ["XLM", "NEO"]:
                 height = int(redis_utils.redis_conn.get(
                     f'{config.redis.prefix + config.redis.daemon_height}{type_coin}').decode())
             else:
@@ -535,6 +533,14 @@ class WalletAPI(commands.Cog):
                 reg_address['privateKey'] = key_call
                 if reg_address['address'] and reg_address['privateKey']:
                     balance_address = reg_address
+            elif type_coin.upper() == "NEO":
+                address_call = await self.call_neo('getnewaddress', payload=[])
+                reg_address = {}
+                reg_address['address'] = address_call['result']
+                key_call = await self.call_neo('dumpprivkey', payload=[reg_address['address']])
+                reg_address['privateKey'] = key_call['result']
+                if reg_address['address'] and reg_address['privateKey']:
+                    balance_address = reg_address
             elif type_coin.upper() == "CHIA":
                 # passed test XFX
                 payload = {'wallet_id': 1, 'new_address': True}
@@ -646,6 +652,14 @@ class WalletAPI(commands.Cog):
                             encrypt_string(balance_address['privateKey']), user_server, chat_id, is_discord_guild))
                             await conn.commit()
                             return {'balance_wallet_address': balance_address['address']}
+                        elif type_coin.upper() == "NEO":
+                            sql = """ INSERT INTO `neo_user` (`user_id`, `balance_wallet_address`, `address_ts`, `privateKey`, `user_server`, `chat_id`, `is_discord_guild`) 
+                                      VALUES (%s, %s, %s, %s, %s, %s, %s) """
+                            await cur.execute(sql, (str(user_id), balance_address['address'], 
+                                                    int(time.time()), encrypt_string(balance_address['privateKey']), 
+                                                    user_server, chat_id, is_discord_guild))
+                            await conn.commit()
+                            return {'balance_wallet_address': balance_address['address']}
                         elif type_coin.upper() == "CHIA":
                             sql = """ INSERT INTO `xch_user` (`coin_name`, `user_id`, `user_id_coin`, `balance_wallet_address`, `address_ts`, `user_server`, `chat_id`, `is_discord_guild`) 
                                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
@@ -752,6 +766,12 @@ class WalletAPI(commands.Cog):
                         sql = """ SELECT * FROM `doge_user` WHERE `user_id`=%s 
                                   AND `coin_name`=%s AND `user_server`=%s LIMIT 1 """
                         await cur.execute(sql, (str(user_id), coin_name, user_server))
+                        result = await cur.fetchone()
+                        if result: return result
+                    elif type_coin.upper() == "NEO":
+                        sql = """ SELECT * FROM `neo_user` WHERE `user_id`=%s 
+                                  AND `user_server`=%s LIMIT 1 """
+                        await cur.execute(sql, (str(user_id), user_server))
                         result = await cur.fetchone()
                         if result: return result
                     elif type_coin.upper() == "CHIA":
@@ -914,6 +934,55 @@ class WalletAPI(commands.Cog):
         except Exception:
             await logchanbot(traceback.format_exc())
         return None
+
+    async def call_neo(self, method_name: str, payload) -> Dict:
+        timeout = 64
+        coin_name = "NEO"
+        try:
+            headers = {
+                'Content-Type': 'application/json'
+            }
+            data = {"jsonrpc": "1.0", "id": 1, "method": method_name, "params": payload}
+            url = getattr(getattr(self.bot.coin_list, coin_name), "wallet_address")
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, json=data, timeout=timeout) as response:
+                    if response.status == 200:
+                        return await response.json()
+                    else:
+                        print(f'call_neo returns {str(response.status)} with method {method_name}')
+        except asyncio.TimeoutError:
+            print('call_neo TIMEOUT: method_name: {} - timeout {}'.format(method_name, timeout))
+            await logchanbot(
+                'call_neo: method_name: {} - timeout {}'.format(method_name, timeout))
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+
+    async def send_external_neo(self, user_from: str, coin_decimal: int, contract: str, amount: float, \
+    to_address: str, coin_name: str, tx_fee: float, user_server: str):
+        user_server = user_server.upper()
+        coin_name = coin_name.upper()
+        try:
+            atomic_amount = int(amount*10**coin_decimal)
+            payload = [[{"asset": contract, "value": atomic_amount, "address": to_address}]]
+            result = await self.call_neo('sendmany', payload=payload)
+            if result is not None:
+                await self.openConnection()
+                async with self.pool.acquire() as conn:
+                    async with conn.cursor() as cur:
+                        sql = """ INSERT INTO neo_external_tx 
+                                  (`coin_name`, `user_id`, `coin_decimal`, `contract`, `real_amount`, 
+                                  `real_external_fee`, `to_address`, `date`, `tx_hash`, `tx_json`, `user_server`) 
+                                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                        await cur.execute(sql, (coin_name, user_from, coin_decimal, contract, 
+                                                amount, tx_fee, to_address, int(time.time()), 
+                                                result['result']['hash'], json.dumps(result['result']), user_server))
+                        await conn.commit()
+                        return result['result']['hash']
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return False
 
     async def call_doge(self, method_name: str, coin: str, payload: str = None) -> Dict:
         timeout = 64
@@ -2049,6 +2118,10 @@ class Wallet(commands.Cog):
         self.update_balance_xmr.start()
         # BTC
         self.update_balance_btc.start()
+        # NEO
+        self.update_balance_neo.start()
+        self.notify_new_confirmed_neo.start()
+
         # CHIA
         self.update_balance_chia.start()
         # ERC-20
@@ -2368,6 +2441,34 @@ class Wallet(commands.Cog):
                                 incoming_tx = result['incoming_tx']
                             else:
                                 incoming_tx = 0
+                    elif coin_family == "NEO":
+                        sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense 
+                                  FROM `neo_external_tx` 
+                                  WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s AND `crediting`=%s """
+                        await cur.execute(sql, (user_id, token_name, user_server, "YES"))
+                        result = await cur.fetchone()
+                        if result:
+                            tx_expense = result['tx_expense']
+                        else:
+                            tx_expense = 0
+
+                        if top_block is None:
+                            sql = """ SELECT SUM(amount) AS incoming_tx 
+                                      FROM `neo_get_transfers` 
+                                      WHERE `address`=%s 
+                                      AND `coin_name`=%s AND `category` = %s AND `time_insert`<=%s AND `amount`>0 """
+                            await cur.execute(sql, (address, token_name, 'received', int(time.time()) - nos_block))
+                        else:
+                            sql = """ SELECT SUM(amount) AS incoming_tx 
+                                      FROM `neo_get_transfers` 
+                                      WHERE `address`=%s 
+                                      AND `coin_name`=%s AND `category` = %s AND `confirmations`<=%s AND `amount`>0 """
+                            await cur.execute(sql, (address, token_name, 'received', nos_block))
+                        result = await cur.fetchone()
+                        if result and result['incoming_tx']:
+                            incoming_tx = result['incoming_tx']
+                        else:
+                            incoming_tx = 0
                     elif coin_family == "NANO":
                         sql = """ SELECT SUM(amount) AS tx_expense 
                                   FROM `nano_external_tx` 
@@ -5550,6 +5651,132 @@ class Wallet(commands.Cog):
 
 
     @tasks.loop(seconds=60.0)
+    async def update_balance_neo(self):
+        time_lap = 10  # seconds
+        # await self.bot.wait_until_ready()
+        # Check if task recently run @bot_task_logs
+        task_name = "update_balance_neo"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
+        await asyncio.sleep(time_lap)
+        coin_name = "NEO"
+        try:
+            gettopblock = await self.wallet_api.call_neo('getblockcount', payload=[]) 
+            try:
+                height = int(gettopblock['result'])
+                redis_utils.redis_conn.set(f'{config.redis.prefix + config.redis.daemon_height}{coin_name}',
+                                           str(height))
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+                await logchanbot(traceback.format_exc())
+                await asyncio.sleep(1.0)
+                return
+            list_user_addresses = await store.recent_balance_call_neo_user(7200) # last 2hrs
+            list_received_in_db = await store.neo_get_existing_tx()
+            all_neo_asset_hash = []
+            coin_name_by_assethash = {}
+            for each_coin in self.bot.coin_name_list:
+                if getattr(getattr(self.bot.coin_list, each_coin), "type") == "NEO" and \
+                    getattr(getattr(self.bot.coin_list, each_coin), "enable_deposit") != 0:
+                    assethash = getattr(getattr(self.bot.coin_list, each_coin), "contract")
+                    all_neo_asset_hash.append(assethash)
+                    coin_name_by_assethash[assethash] = getattr(getattr(self.bot.coin_list, each_coin), "coin_name")
+            if len(list_user_addresses) > 0:
+                data_rows = []
+                if getattr(getattr(self.bot.coin_list, coin_name), "enable_deposit") != 0:
+                    for each_address in list_user_addresses:
+                        try:
+                            get_transfers = await self.wallet_api.call_neo('getnep17transfers', payload=[each_address['balance_wallet_address'], 0])
+                            if 'result' in get_transfers and 'received' in get_transfers['result'] and len(get_transfers['result']['received']) > 0:
+                                for each_received in get_transfers['result']['received']:
+                                    if each_received['txhash'] not in list_received_in_db and \
+                                        each_received['assethash'] in all_neo_asset_hash:
+                                        coin_name = coin_name_by_assethash[each_received['assethash']]
+                                        coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+                                        real_min_deposit = getattr(getattr(self.bot.coin_list, coin_name), "real_min_deposit")
+                                        number_conf = height - each_received['blockindex']
+                                        get_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+                                        if number_conf <= get_confirm_depth:
+                                            continue
+                                        if real_min_deposit and int(each_received['amount'])/10**coin_decimal < real_min_deposit:
+                                            await logchanbot("{} tx hash: {} less than minimum deposit.".format(coin_name, each_received['txhash']))
+                                            continue
+                                        data_rows.append((each_address['user_id'], coin_name, coin_decimal, each_received['assethash'], 
+                                                          each_received['txhash'], each_address['balance_wallet_address'],
+                                                          each_received['timestamp'], each_received['blockindex'], 
+                                                          int(each_received['amount'])/10**coin_decimal, number_conf, 
+                                                          'received', int(time.time())))
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+                if len(data_rows) > 0:
+                    try:
+                        await self.openConnection()
+                        async with self.pool.acquire() as conn:
+                            async with conn.cursor() as cur:
+                                sql = """ INSERT INTO `neo_get_transfers` 
+                                          (`user_id`, `coin_name`, `coin_decimal`, `assethash`, `txhash`, `address`, 
+                                          `blocktime`, `blockindex`, `amount`, `confirmations`, 
+                                          `category`, `time_insert`) 
+                                           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                await cur.executemany(sql, data_rows)
+                                await conn.commit()
+                    except Exception:
+                        traceback.print_exc(file=sys.stdout)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
+        await asyncio.sleep(time_lap)
+
+    @tasks.loop(seconds=60.0)
+    async def notify_new_confirmed_neo(self):
+        time_lap = 20  # seconds
+        await self.bot.wait_until_ready()
+        # Check if task recently run @bot_task_logs
+        task_name = "notify_new_confirmed_neo"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
+        await asyncio.sleep(time_lap)
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `neo_get_transfers` WHERE `notified_confirmation`=%s AND `failed_notification`=%s AND `user_server`=%s """
+                    await cur.execute(sql, ("NO", "NO", SERVER_BOT))
+                    result = await cur.fetchall()
+                    if result and len(result) > 0:
+                        for eachTx in result:
+                            if eachTx['user_id']:
+                                if not eachTx['user_id'].isdigit():
+                                    continue
+                                coin_name = eachTx['coin_name']
+                                coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+                                if eachTx['user_id'].isdigit() and eachTx['user_server'] == SERVER_BOT:
+                                    member = self.bot.get_user(int(eachTx['user_id']))
+                                    if member is not None:
+                                        msg = "You got a new deposit (it could take a few minutes to credit): ```" + "Coin: {}\nTx: {}\nAmount: {}".format(
+                                            coin_name, eachTx['txhash'],
+                                            num_format_coin(eachTx['amount'], coin_name, coin_decimal, False)) + "```"
+                                        try:
+                                            await member.send(msg)
+                                            sql = """ UPDATE `neo_get_transfers` SET `notified_confirmation`=%s, `time_notified`=%s WHERE `txhash`=%s AND `coin_name`=%s LIMIT 1 """
+                                            await cur.execute(sql,
+                                                              ("YES", int(time.time()), eachTx['txhash'], coin_name))
+                                            await conn.commit()
+                                        except Exception:
+                                            traceback.print_exc(file=sys.stdout)
+                                            sql = """ UPDATE `neo_get_transfers` SET `notified_confirmation`=%s, `failed_notification`=%s WHERE `txhash`=%s AND `coin_name`=%s LIMIT 1 """
+                                            await cur.execute(sql, ("NO", "YES", eachTx['txhash'], coin_name))
+                                            await conn.commit()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
+        await asyncio.sleep(time_lap)
+
+    @tasks.loop(seconds=60.0)
     async def update_balance_chia(self):
         time_lap = 5  # seconds
         await self.bot.wait_until_ready()
@@ -5849,7 +6076,6 @@ class Wallet(commands.Cog):
                 'Content-Type': 'application/json'
             }
             try:
-                print("tezos_check_token_balances: {}".format(address))
                 async with aiohttp.ClientSession() as session:
                     async with session.get(url + "tokens/balances?account=" + address, headers=headers, timeout=timeout) as response:
                         json_resp = await response.json()
@@ -5857,7 +6083,6 @@ class Wallet(commands.Cog):
                             return json_resp
                         else:
                             print("tezos_check_token_balances: return {}".format(response.status))
-                            print(json_resp)
             except Exception:
                 traceback.print_exc(file=sys.stdout)
             return None
@@ -7880,6 +8105,30 @@ class Wallet(commands.Cog):
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
                         await ctx.edit_original_message(content=msg)
                         return
+                elif type_coin == "NEO":
+                    if ctx.author.id not in self.bot.TX_IN_PROCESS:
+                        self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                        contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+                        send_tx = await self.wallet_api.send_external_neo(str(ctx.author.id), coin_decimal, contract, amount, address,
+                                                                          coin_name, NetFee, SERVER_BOT)
+                        if send_tx:
+                            fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                                num_format_coin(NetFee, coin_name, coin_decimal, False), coin_name)
+                            msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}'
+                            await ctx.edit_original_message(content=msg)
+                            await logchanbot(
+                                f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} successfully withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd}.')
+                        else:
+                            msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.'
+                            await ctx.edit_original_message(content=msg)
+                            await logchanbot(
+                                f'[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd}.')
+                        self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+                    else:
+                        # reject and tell to wait
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
+                        await ctx.edit_original_message(content=msg)
+                        return
                 elif type_coin == "XMR" or type_coin == "TRTL-API" or type_coin == "TRTL-SERVICE" or type_coin == "BCN":
                     if ctx.author.id not in self.bot.TX_IN_PROCESS:
                         self.bot.TX_IN_PROCESS.append(ctx.author.id)
@@ -7888,15 +8137,15 @@ class Wallet(commands.Cog):
                         wallet_address = getattr(getattr(self.bot.coin_list, coin_name), "wallet_address")
                         header = getattr(getattr(self.bot.coin_list, coin_name), "header")
                         is_fee_per_byte = getattr(getattr(self.bot.coin_list, coin_name), "is_fee_per_byte")
-                        SendTx = await self.wallet_api.send_external_xmr(type_coin, main_address, str(ctx.author.id),
+                        send_tx = await self.wallet_api.send_external_xmr(type_coin, main_address, str(ctx.author.id),
                                                                          amount, address, coin_name, coin_decimal,
                                                                          tx_fee, NetFee, is_fee_per_byte, mixin,
                                                                          SERVER_BOT, wallet_address, header,
                                                                          None)  # paymentId: None (end)
-                        if SendTx:
+                        if send_tx:
                             fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
                                 num_format_coin(NetFee, coin_name, coin_decimal, False), coin_name)
-                            msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx}`{fee_txt}'
+                            msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}'
                             await ctx.edit_original_message(content=msg)
                             await logchanbot(
                                 f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} successfully executed withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd}.')

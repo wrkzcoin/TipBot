@@ -5,7 +5,7 @@ import sha3
 import sys
 from binascii import hexlify, unhexlify
 
-import ed25519
+import pyed25519
 
 # byte-oriented StringIO was moved to io.BytesIO in py3k
 try:
@@ -13,9 +13,9 @@ try:
 except ImportError:
     from StringIO import StringIO as BytesIO
 
-b = ed25519.b
-q = ed25519.q
-l = ed25519.l
+b = pyed25519.b
+q = pyed25519.q
+l = pyed25519.l
 
 
 # CN:

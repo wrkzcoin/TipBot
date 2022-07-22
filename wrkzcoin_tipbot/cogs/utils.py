@@ -183,6 +183,8 @@ class Utils(commands.Cog):
                         sql = """ UPDATE `sol_user` SET `called_Update`=%s WHERE `user_id`=%s """
                     elif type_coin.upper() == "XTZ":
                         sql = """ UPDATE `tezos_user` SET `called_Update`=%s WHERE `user_id`=%s """
+                    elif type_coin.upper() == "NEO":
+                        sql = """ UPDATE `neo_user` SET `called_Update`=%s WHERE `user_id`=%s """
                     else:
                         return
                     await cur.execute(sql, (int(time.time()), user_id))
@@ -192,7 +194,6 @@ class Utils(commands.Cog):
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return None
-
 
     async def bot_task_logs_add(self, task_name: str, run_at: int):
         try:

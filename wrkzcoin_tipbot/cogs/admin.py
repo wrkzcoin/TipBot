@@ -197,6 +197,7 @@ class Admin(commands.Cog):
             await logchanbot(traceback.format_exc())
         return None
 
+
     async def user_balance(self, user_id: str, coin: str, address: str, coin_family: str, top_block: int,
                            confirmed_depth: int = 0, user_server: str = 'DISCORD'):
         # address: TRTL/BCN/XMR = paymentId
@@ -336,6 +337,34 @@ class Admin(commands.Cog):
                                 incoming_tx = result['incoming_tx']
                             else:
                                 incoming_tx = 0
+                    elif coin_family == "NEO":
+                        sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense 
+                                  FROM `neo_external_tx` 
+                                  WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s AND `crediting`=%s """
+                        await cur.execute(sql, (user_id, token_name, user_server, "YES"))
+                        result = await cur.fetchone()
+                        if result:
+                            tx_expense = result['tx_expense']
+                        else:
+                            tx_expense = 0
+
+                        if top_block is None:
+                            sql = """ SELECT SUM(amount) AS incoming_tx 
+                                      FROM `neo_get_transfers` 
+                                      WHERE `address`=%s 
+                                      AND `coin_name`=%s AND `category` = %s AND `time_insert`<=%s AND `amount`>0 """
+                            await cur.execute(sql, (address, token_name, 'received', int(time.time()) - nos_block))
+                        else:
+                            sql = """ SELECT SUM(amount) AS incoming_tx 
+                                      FROM `neo_get_transfers` 
+                                      WHERE `address`=%s 
+                                      AND `coin_name`=%s AND `category` = %s AND `confirmations`<=%s AND `amount`>0 """
+                            await cur.execute(sql, (address, token_name, 'received', nos_block))
+                        result = await cur.fetchone()
+                        if result and result['incoming_tx']:
+                            incoming_tx = result['incoming_tx']
+                        else:
+                            incoming_tx = 0
                     elif coin_family == "NANO":
                         sql = """ SELECT SUM(amount) AS tx_expense 
                                   FROM `nano_external_tx` 
@@ -398,6 +427,28 @@ class Admin(commands.Cog):
                                   FROM `erc20_move_deposit` 
                                   WHERE `user_id`=%s AND `token_name`=%s AND `confirmed_depth`> %s AND `user_server`=%s AND `status`=%s """
                         await cur.execute(sql, (user_id, token_name, confirmed_depth, user_server, "CONFIRMED"))
+                        result = await cur.fetchone()
+                        if result:
+                            incoming_tx = result['incoming_tx']
+                        else:
+                            incoming_tx = 0
+                    elif coin_family == "XTZ":
+                        # When sending tx out, (negative)
+                        sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense 
+                                  FROM `tezos_external_tx` 
+                                  WHERE `user_id`=%s AND `token_name`=%s AND `user_server`=%s AND `crediting`=%s """
+                        await cur.execute(sql, (user_id, token_name, user_server, "YES"))
+                        result = await cur.fetchone()
+                        if result:
+                            tx_expense = result['tx_expense']
+                        else:
+                            tx_expense = 0
+
+                        # in case deposit fee -real_deposit_fee
+                        sql = """ SELECT SUM(real_amount-real_deposit_fee) AS incoming_tx 
+                                  FROM `tezos_move_deposit` 
+                                  WHERE `user_id`=%s AND `token_name`=%s AND `confirmed_depth`> %s AND `user_server`=%s AND `status`=%s """
+                        await cur.execute(sql, (user_id, token_name, 0, user_server, "CONFIRMED")) # confirmed_depth > 0
                         result = await cur.fetchone()
                         if result:
                             incoming_tx = result['incoming_tx']
@@ -536,24 +587,26 @@ class Admin(commands.Cog):
                             incoming_tx = 0
 
                 balance = {}
-                balance['adjust'] = 0
+                try:
+                    balance['adjust'] = 0
 
-                balance['mv_balance'] = float("%.6f" % mv_balance) if mv_balance else 0
+                    balance['mv_balance'] = float("%.6f" % mv_balance) if mv_balance else 0
 
-                balance['airdropping'] = float("%.6f" % airdropping) if airdropping else 0
-                balance['mathtip'] = float("%.6f" % mathtip) if mathtip else 0
-                balance['triviatip'] = float("%.6f" % triviatip) if triviatip else 0
+                    balance['airdropping'] = float("%.6f" % airdropping) if airdropping else 0
+                    balance['mathtip'] = float("%.6f" % mathtip) if mathtip else 0
+                    balance['triviatip'] = float("%.6f" % triviatip) if triviatip else 0
 
-                balance['tx_expense'] = float("%.6f" % tx_expense) if tx_expense else 0
-                balance['incoming_tx'] = float("%.6f" % incoming_tx) if incoming_tx else 0
+                    balance['tx_expense'] = float("%.6f" % tx_expense) if tx_expense else 0
+                    balance['incoming_tx'] = float("%.6f" % incoming_tx) if incoming_tx else 0
 
-                balance['open_order'] = float("%.6f" % open_order) if open_order else 0
-                balance['raffle_fee'] = float("%.6f" % raffle_fee) if raffle_fee else 0
+                    balance['open_order'] = float("%.6f" % open_order) if open_order else 0
+                    balance['raffle_fee'] = float("%.6f" % raffle_fee) if raffle_fee else 0
 
-                balance['adjust'] = float("%.6f" % (
-                        balance['mv_balance'] + balance['incoming_tx'] - balance['airdropping'] - balance[
-                    'mathtip'] - balance['triviatip'] - balance['tx_expense'] - balance['open_order'] - balance[
-                            'raffle_fee']))
+                    adjust = balance['mv_balance'] + balance['incoming_tx'] - balance['airdropping'] - balance['mathtip'] - balance['triviatip'] - balance['tx_expense'] - balance['open_order'] - balance['raffle_fee']
+                    balance['adjust'] = float("%.6f" % adjust)
+                except Exception:
+                    print("issue user_balance coin name: {}".format(token_name))
+                    traceback.print_exc(file=sys.stdout)
                 # Negative check
                 try:
                     if balance['adjust'] < 0:

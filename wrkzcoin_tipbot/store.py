@@ -379,6 +379,27 @@ async def sql_user_balance_single(user_id: str, coin: str, address: str, coin_fa
                             incoming_tx = result['incoming_tx']
                         else:
                             incoming_tx = 0
+                elif coin_family == "NEO":
+                    sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense 
+                              FROM `neo_external_tx` 
+                              WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s AND `crediting`=%s """
+                    await cur.execute(sql, (user_id, token_name, user_server, "YES"))
+                    result = await cur.fetchone()
+                    if result:
+                        tx_expense = result['tx_expense']
+                    else:
+                        tx_expense = 0
+
+                    sql = """ SELECT SUM(amount) AS incoming_tx 
+                              FROM `neo_get_transfers` 
+                              WHERE `address`=%s 
+                              AND `coin_name`=%s AND `category` = %s AND `confirmations`>=%s AND `amount`>0 """
+                    await cur.execute(sql, (address, token_name, 'received', confirmed_depth))
+                    result = await cur.fetchone()
+                    if result and result['incoming_tx']:
+                        incoming_tx = result['incoming_tx']
+                    else:
+                        incoming_tx = 0
                 elif coin_family == "NANO":
                     sql = """ SELECT SUM(amount) AS tx_expense 
                               FROM `nano_external_tx` 
@@ -1052,6 +1073,47 @@ async def sql_recent_tezos_move_deposit(called_Update: int = 300):
                 result = await cur.fetchall()
                 if result:
                     return [each['balance_wallet_address'] for each in result]
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return []
+
+async def recent_balance_call_neo_user(called_Update: int = 0):
+    # Check update only who has recently called for balance
+    # If called_Update = 3600, meaning who called balance for last 1 hr
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                if called_Update == 0:
+                    sql = """ SELECT `user_id`, `balance_wallet_address`, `privateKey`, `user_server` FROM `neo_user` """
+                    await cur.execute(sql,)
+                    result = await cur.fetchall()
+                    if result: return result
+                elif called_Update > 0:
+                    lap = int(time.time()) - called_Update
+                    sql = """ SELECT `user_id`, `balance_wallet_address`, `privateKey`, `user_server` FROM neo_user 
+                              WHERE (`called_Update`>%s OR `is_discord_guild`=1) """
+                    await cur.execute(sql, lap)
+                    result = await cur.fetchall()
+                    if result: return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return []
+
+async def neo_get_existing_tx():
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT `txhash` FROM `neo_get_transfers` """
+                await cur.execute(sql,)
+                result = await cur.fetchall()
+                if result:
+                    return [each['txhash'] for each in result]
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         await logchanbot(traceback.format_exc())

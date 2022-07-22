@@ -209,6 +209,34 @@ class Guild(commands.Cog):
                             incoming_tx = result['incoming_tx']
                         else:
                             incoming_tx = 0
+                    elif coin_family == "NEO":
+                        sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense 
+                                  FROM `neo_external_tx` 
+                                  WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s AND `crediting`=%s """
+                        await cur.execute(sql, (user_id, token_name, user_server, "YES"))
+                        result = await cur.fetchone()
+                        if result:
+                            tx_expense = result['tx_expense']
+                        else:
+                            tx_expense = 0
+
+                        if top_block is None:
+                            sql = """ SELECT SUM(amount) AS incoming_tx 
+                                      FROM `neo_get_transfers` 
+                                      WHERE `address`=%s 
+                                      AND `coin_name`=%s AND `category` = %s AND `time_insert`<=%s AND `amount`>0 """
+                            await cur.execute(sql, (address, token_name, 'received', int(time.time()) - nos_block))
+                        else:
+                            sql = """ SELECT SUM(amount) AS incoming_tx 
+                                      FROM `neo_get_transfers` 
+                                      WHERE `address`=%s 
+                                      AND `coin_name`=%s AND `category` = %s AND `confirmations`<=%s AND `amount`>0 """
+                            await cur.execute(sql, (address, token_name, 'received', nos_block))
+                        result = await cur.fetchone()
+                        if result and result['incoming_tx']:
+                            incoming_tx = result['incoming_tx']
+                        else:
+                            incoming_tx = 0
                     elif coin_family == "NANO":
                         sql = """ SELECT SUM(amount) AS tx_expense FROM `nano_external_tx` WHERE `user_id`=%s AND `coin_name` = %s AND `user_server`=%s AND `crediting`=%s """
                         await cur.execute(sql, ( user_id, token_name, user_server, "YES" ))

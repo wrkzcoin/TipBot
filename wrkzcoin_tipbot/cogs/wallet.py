@@ -55,6 +55,9 @@ from mnemonic import Mnemonic
 from pytezos.crypto.key import Key as XtzKey
 from pytezos import pytezos
 
+from bip_utils import Bip39SeedGenerator, Bip44Coins, Bip44
+import near_api
+
 import cn_addressvalidation
 import redis_utils
 import store
@@ -465,7 +468,13 @@ class WalletAPI(commands.Cog):
             balance_address = None
             main_address = None
 
-            if type_coin.upper() == "XTZ" and coin_name != netname.upper():
+            if type_coin.upper() == "NEAR" and coin_name != netname.upper():
+                user_id_erc20 = str(user_id) + "_" + type_coin.upper() + "_TOKEN"
+                type_coin_user = "NEAR-TOKEN"
+            elif type_coin.upper() == "NEAR" and coin_name == netname.upper():
+                user_id_erc20 = str(user_id) + "_" + coin_name.upper()
+                type_coin_user = coin_name
+            elif type_coin.upper() == "XTZ" and coin_name != netname.upper():
                 user_id_erc20 = str(user_id) + "_" + type_coin.upper() + "_FA"
                 type_coin_user = "XTZ-FA"
             elif type_coin.upper() == "XTZ" and coin_name == netname.upper():
@@ -494,6 +503,23 @@ class WalletAPI(commands.Cog):
                 words = str(mnemo.generate(strength=128))
                 key = XtzKey.from_mnemonic(mnemonic=words, passphrase="", email="")
                 balance_address = {'address': key.public_key_hash(), 'seed': words, 'key': key.secret_key()}
+            elif type_coin.upper() == "NEAR":
+                mnemo = Mnemonic("english")
+                words = str(mnemo.generate(strength=128))
+                seed = [words]
+
+                seed_bytes = Bip39SeedGenerator(words).Generate("")
+                bip44_mst_ctx = Bip44.FromSeed(seed_bytes, Bip44Coins.NEAR_PROTOCOL)
+                key_byte = bip44_mst_ctx.PrivateKey().Raw().ToHex()
+                address = bip44_mst_ctx.PublicKey().ToAddress()
+
+                sender_key_pair = near_api.signer.KeyPair(bytes.fromhex(key_byte))
+                sender_signer = near_api.signer.Signer(address, sender_key_pair)
+                new_addr = sender_signer.public_key.hex()
+                if new_addr == address:
+                    balance_address = {'address': address, 'seed': words, 'key': key_byte}
+                else:
+                    return None
             elif type_coin.upper() in ["TRC-20", "TRC-10"]:
                 # passed test TRX, USDT
                 w = await self.create_address_trx()
@@ -612,6 +638,16 @@ class WalletAPI(commands.Cog):
                             chat_id, is_discord_guild))
                             await conn.commit()
                             return {'balance_wallet_address': balance_address['address']}
+                        elif type_coin == "NEAR":
+                            sql = """ INSERT INTO `near_user` (`user_id`, `user_id_near`, `coin_name`, `type`, `balance_wallet_address`, `address_ts`, 
+                                      `privateKey`, `seed`, `called_Update`, `user_server`, `chat_id`, `is_discord_guild`) 
+                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                            await cur.execute(sql, (
+                            str(user_id), user_id_erc20, coin_name, type_coin_user, balance_address['address'], int(time.time()), 
+                            encrypt_string(balance_address['key']), encrypt_string(balance_address['seed']), int(time.time()), user_server,
+                            chat_id, is_discord_guild))
+                            await conn.commit()
+                            return {'balance_wallet_address': balance_address['address']}
                         elif netname and netname in ["TRX"]:
                             sql = """ INSERT INTO `trc20_user` (`user_id`, `user_id_trc20`, `type`, `balance_wallet_address`, `hex_address`, `address_ts`, 
                                       `private_key`, `public_key`, `called_Update`, `user_server`, `chat_id`, `is_discord_guild`) 
@@ -713,6 +749,12 @@ class WalletAPI(commands.Cog):
         # netname null or None, xDai, MATIC, TRX, BSC
         user_server = user_server.upper()
         coin_name = coin.upper()
+        if type_coin.upper() == "NEAR" and coin_name != netname.upper():
+            user_id_erc20 = str(user_id) + "_" + type_coin.upper() + "_TOKEN"
+            type_coin_user = "NEAR-TOKEN"
+        elif type_coin.upper() == "NEAR" and coin_name == netname.upper():
+            user_id_erc20 = str(user_id) + "_" + coin_name.upper()
+            type_coin_user = coin_name
         if type_coin.upper() == "XTZ" and coin_name != netname.upper():
             user_id_erc20 = str(user_id) + "_" + type_coin.upper() + "_FA"
             type_coin_user = "XTZ-FA"
@@ -748,6 +790,12 @@ class WalletAPI(commands.Cog):
                         sql = """ SELECT * FROM `tezos_user` WHERE `user_id`=%s 
                                   AND `user_id_fa20`=%s AND `user_server`=%s LIMIT 1 """
                         await cur.execute(sql, (str(user_id), user_id_erc20, user_server))
+                        result = await cur.fetchone()
+                        if result: return result
+                    elif type_coin.upper() == "NEAR":
+                        sql = """ SELECT * FROM `near_user` WHERE `user_id`=%s 
+                                  AND `user_id_near`=%s AND `coin_name`=%s AND `user_server`=%s LIMIT 1 """
+                        await cur.execute(sql, (str(user_id), user_id_erc20, coin_name, user_server))
                         result = await cur.fetchone()
                         if result: return result
                     elif type_coin.upper() in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -2095,6 +2143,137 @@ class WalletAPI(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return False
 
+    def near_move_balance(self, url: str, key: str, by_address: str, to_address: str, atomic_amount: int):
+        try:
+            near_provider = near_api.providers.JsonProvider(url)
+            sender_key_pair = near_api.signer.KeyPair(bytes.fromhex(key))
+            sender_signer = near_api.signer.Signer(by_address, sender_key_pair)
+            sender_account = near_api.account.Account(near_provider, sender_signer, by_address)
+            out = sender_account.send_money(to_address, atomic_amount)
+            return out
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
+    def near_move_balance_token(self, url: str, contract_id: str, key: str, by_address: str, to_address: str, atomic_amount: int):
+        try:
+            near_provider = near_api.providers.JsonProvider(url)
+            sender_key_pair = near_api.signer.KeyPair(bytes.fromhex(key))
+            sender_signer = near_api.signer.Signer(by_address, sender_key_pair)
+            sender_account = near_api.account.Account(near_provider, sender_signer, by_address)
+            args = {"receiver_id": to_address, "amount": str(atomic_amount)}
+            out = sender_account.function_call(contract_id=contract_id, method_name="ft_transfer", args=args, amount=1)
+            return out
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
+    async def near_get_user_by_address(self, address: str):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * 
+                              FROM `near_user` 
+                              WHERE `balance_wallet_address`=%s LIMIT 1 """
+                    await cur.execute(sql, address)
+                    result = await cur.fetchone()
+                    if result:
+                        return result
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
+    async def near_insert_mv_balance(self, token_name: str, contract: str, user_id: str, balance_wallet_address: str, to_main_address: str, real_amount: float, real_deposit_fee: float, token_decimal: int, txn: str, content: str, time_insert: int, user_server: str, network: str):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ INSERT IGNORE INTO `near_move_deposit` (`token_name`, `contract`, `user_id`, `balance_wallet_address`, 
+                              `to_main_address`, `amount`, `real_deposit_fee`, `token_decimal`, `txn`, `content`, `time_insert`, 
+                              `user_server`, `network`) 
+                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                    await cur.execute(sql, (token_name, contract, user_id, balance_wallet_address, to_main_address, real_amount, real_deposit_fee, token_decimal, txn, content, time_insert, user_server, network))
+                    await conn.commit()
+                    return True
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
+    async def send_external_near(self, url: str, contract_id: str, key: str, user_from: str, by_address: str, amount: float, to_address: str, coin: str, coin_decimal: int, withdraw_fee: float, user_server: str = 'DISCORD'):
+        try:
+            if contract_id is None:
+                transaction = functools.partial(self.near_move_balance, url, key, by_address, to_address, int(amount*10**coin_decimal))
+            else:
+                transaction = functools.partial(self.near_move_balance_token, url, contract_id, key, by_address, to_address, int(amount*10**coin_decimal))
+            send_tx = await self.bot.loop.run_in_executor(None, transaction)
+            if send_tx:
+                tx_json = None
+                try:
+                    tx_json = json.dumps(send_tx)
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+                await self.openConnection()
+                async with self.pool.acquire() as conn:
+                    async with conn.cursor() as cur:
+                        sql = """ INSERT INTO `near_external_tx` (`token_name`, `contract`, `user_id`, `real_amount`, `real_external_fee`, `token_decimal`, `to_address`, `date`, `tx_hash`, `tx_json`, `user_server`) 
+                                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                        await cur.execute(sql, (
+                        coin.upper(), None, user_from, amount, withdraw_fee, coin_decimal, to_address,
+                        int(time.time()), send_tx['transaction_outcome']['id'], tx_json, user_server))
+                        await conn.commit()
+                        return send_tx['transaction_outcome']['id']
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
+    async def near_get_mv_deposit_list(self, status: str="PENDING"):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * 
+                              FROM `near_move_deposit` 
+                              WHERE `status`=%s """
+                    await cur.execute(sql, status)
+                    result = await cur.fetchall()
+                    if result:
+                        return result
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return []
+
+    async def near_update_mv_deposit_pending(self, txn: str, blockNumber: int, confirmed_depth: int):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ UPDATE `near_move_deposit` 
+                              SET `blockNumber`=%s, `status`=%s, `confirmations`=%s 
+                              WHERE `status`=%s AND `txn`=%s LIMIT 1 """
+                    await cur.execute(sql, (blockNumber, "CONFIRMED", confirmed_depth, "PENDING", txn))
+                    await conn.commit()
+                    return True
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
+    async def near_update_mv_gas(self, address: str, ts: int):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ UPDATE `near_user` 
+                              SET `last_moved_gas`=%s 
+                              WHERE `balance_wallet_address`=%s LIMIT 1 """
+                    await cur.execute(sql, (ts, address))
+                    await conn.commit()
+                    return True
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
+
 class Wallet(commands.Cog):
     def __init__(self, bot):
         self.enable_logchan = True
@@ -2147,6 +2326,11 @@ class Wallet(commands.Cog):
         self.update_balance_tezos.start()
         self.check_confirming_tezos.start()
         self.notify_new_confirmed_tezos.start()
+
+        # NEAR
+        self.update_balance_near.start()
+        self.check_confirming_near.start()
+        self.notify_new_confirmed_near.start()
 
         # Swap
         self.swap_pair = {"WRKZ-BWRKZ": 1, "BWRKZ-WRKZ": 1, "WRKZ-XWRKZ": 1, "XWRKZ-WRKZ": 1, "DEGO-WDEGO": 0.001,
@@ -2464,6 +2648,34 @@ class Wallet(commands.Cog):
                                       WHERE `address`=%s 
                                       AND `coin_name`=%s AND `category` = %s AND `confirmations`<=%s AND `amount`>0 """
                             await cur.execute(sql, (address, token_name, 'received', nos_block))
+                        result = await cur.fetchone()
+                        if result and result['incoming_tx']:
+                            incoming_tx = result['incoming_tx']
+                        else:
+                            incoming_tx = 0
+                    elif coin_family == "NEAR":
+                        sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense 
+                                  FROM `near_external_tx` 
+                                  WHERE `user_id`=%s AND `token_name`=%s AND `user_server`=%s AND `crediting`=%s """
+                        await cur.execute(sql, (user_id, token_name, user_server, "YES"))
+                        result = await cur.fetchone()
+                        if result:
+                            tx_expense = result['tx_expense']
+                        else:
+                            tx_expense = 0
+
+                        if top_block is None:
+                            sql = """ SELECT SUM(amount-real_deposit_fee) AS incoming_tx 
+                                      FROM `near_move_deposit` 
+                                      WHERE `balance_wallet_address`=%s 
+                                      AND `user_id`=%s AND `token_name`=%s AND `time_insert`<=%s AND `amount`>0 """
+                            await cur.execute(sql, (address, user_id, token_name, int(time.time()) - nos_block))
+                        else:
+                            sql = """ SELECT SUM(amount-real_deposit_fee) AS incoming_tx 
+                                      FROM `near_move_deposit` 
+                                      WHERE `balance_wallet_address`=%s 
+                                      AND `user_id`=%s AND `token_name`=%s AND `confirmations`<=%s AND `amount`>0 """
+                            await cur.execute(sql, (address, user_id, token_name, nos_block))
                         result = await cur.fetchone()
                         if result and result['incoming_tx']:
                             incoming_tx = result['incoming_tx']
@@ -6060,6 +6272,293 @@ class Wallet(commands.Cog):
 
 
     @tasks.loop(seconds=60.0)
+    async def update_balance_near(self):
+        time_lap = 5  # seconds
+
+        async def near_get_status(url: str, timeout: int=16):
+            try:
+                data = {"jsonrpc": "2.0", "id": "1", "method": "status", "params": []}
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(url, json=data, headers={'Content-Type': 'application/json'}, timeout=timeout) as response:
+                        if response.status == 200:
+                            res_data = await response.read()
+                            res_data = res_data.decode('utf-8')
+                            await session.close()
+                            decoded_data = json.loads(res_data)
+                            if decoded_data is not None:
+                                return decoded_data
+            except asyncio.TimeoutError:
+                print('TIMEOUT: near_get_status {} for {}s'.format(url, timeout))
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            return None
+
+        async def near_check_balance(url: str, account_id: str, timeout: int=8):
+            try:
+                data = {
+                    "method": "query",
+                    "params": {"request_type": "view_account", "finality": "final", "account_id": account_id},
+                    "id":1,
+                    "jsonrpc":"2.0"
+                }
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(url, json=data, headers={'Content-Type': 'application/json'}, timeout=timeout) as response:
+                        if response.status == 200:
+                            res_data = await response.read()
+                            res_data = res_data.decode('utf-8')
+                            await session.close()
+                            decoded_data = json.loads(res_data)
+                            if decoded_data is not None and 'result' in decoded_data:
+                                return decoded_data['result']
+            except asyncio.TimeoutError:
+                print('TIMEOUT: near_check_balance {} for {}s'.format(url, timeout))
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            return None
+
+        async def near_check_balance_token(url: str, contract_id: str, account_id: str, timeout: int=8):
+            try:
+                decode_account = '{"account_id":"'+account_id+'"}'
+                data = '{"method":"query","params":{"request_type": "call_function", "account_id": "'+contract_id+'","method_name": "ft_balance_of", "args_base64": "'+str(base64.b64encode(bytes(decode_account, encoding='utf-8')).decode()).replace("\n", "")+'", "finality": "final"},"id":1,"jsonrpc":"2.0"}'
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(url, json=json.loads(data), headers={'Content-Type': 'application/json'}, timeout=timeout) as response:
+                        if response.status == 200:
+                            res_data = await response.read()
+                            res_data = res_data.decode('utf-8')
+                            await session.close()
+                            decoded_data = json.loads(res_data)
+                            if decoded_data is not None and 'result' in decoded_data:
+                                print(decoded_data['result']['result'])
+                                ascii_result = decoded_data['result']['result']
+                                if len(ascii_result) > 0:
+                                    result = "".join([chr(c) for c in ascii_result])
+                                    return int(result.replace('"', '')) # atomic
+            except asyncio.TimeoutError:
+                print('TIMEOUT: near_check_balance_token {} for {}s'.format(url, timeout))
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+            return None
+
+        await self.bot.wait_until_ready()
+        # Check if task recently run @bot_task_logs
+        task_name = "update_balance_near"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
+        await asyncio.sleep(time_lap)
+
+        try:
+            # Check main
+            near_contracts = await self.get_all_contracts("NEAR", False)
+            coin_name = "NEAR"
+            get_head = await near_get_status(self.bot.erc_node_list['NEAR'], 12)
+            try:
+                if get_head:
+                    height = get_head['result']['sync_info']['latest_block_height']
+                    redis_utils.redis_conn.set(f'{config.redis.prefix + config.redis.daemon_height}{coin_name}',
+                                               str(height))
+                    if len(near_contracts) > 0:
+                        for each_coin in near_contracts:
+                            name = each_coin['coin_name']
+                            try:
+                                redis_utils.redis_conn.set(f'{config.redis.prefix + config.redis.daemon_height}{name}',
+                                                           str(height))
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+
+            real_min_deposit = getattr(getattr(self.bot.coin_list, coin_name), "real_min_deposit")
+            real_deposit_fee = getattr(getattr(self.bot.coin_list, coin_name), "real_deposit_fee")
+            coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+            list_user_addresses = await store.sql_get_all_near_user(coin_name, 7200) # last 2hrs
+            list_recent_mv = await store.sql_recent_near_move_deposit(1200) # 20mn
+            main_address = getattr(getattr(self.bot.coin_list, "NEAR"), "MainAddress")
+            if len(list_user_addresses) > 0:
+                if getattr(getattr(self.bot.coin_list, coin_name), "enable_deposit") != 0:
+                    for each_address in list_user_addresses:
+                        if each_address['balance_wallet_address'] in list_recent_mv:
+                            await asyncio.sleep(5.0)
+                            continue
+                        # check balance, skip if below minimum
+                        get_balance = await near_check_balance(self.bot.erc_node_list['NEAR'], each_address['balance_wallet_address'], 8)
+                        if get_balance and (int(get_balance['amount']) - int(get_balance['locked']))/10**coin_decimal > real_min_deposit:
+                            balance = (int(get_balance['amount']) - int(get_balance['locked']))/10**coin_decimal
+                            atomic_amount = int(get_balance['amount']) - int(get_balance['locked']) - int(real_deposit_fee*10**coin_decimal)
+                            # move balance
+                            transaction = functools.partial(self.wallet_api.near_move_balance, self.bot.erc_node_list['NEAR'], 
+                                                            decrypt_string(each_address['privateKey']), each_address['balance_wallet_address'], main_address, atomic_amount)
+                            tx = await self.bot.loop.run_in_executor(None, transaction)
+                            if tx:
+                                content = None
+                                try:
+                                    content = json.dumps(tx)
+                                except Exception:
+                                    traceback.print_exc(file=sys.stdout)
+                                # 
+                                added = await self.wallet_api.near_insert_mv_balance(coin_name, None, each_address['user_id'], each_address['balance_wallet_address'], main_address, float(balance), real_deposit_fee, coin_decimal, tx['transaction_outcome']['id'], content, int(time.time()), SERVER_BOT, "NEAR")
+                                await asyncio.sleep(5.0)
+            # Check token
+            list_user_addresses = await store.sql_get_all_near_user("NEAR-TOKEN", 7200) # last 2hrs
+            for each_contract in near_contracts:
+                try:
+                    if len(list_user_addresses) > 0:
+                        token_contract = getattr(getattr(self.bot.coin_list, each_contract['coin_name']), "contract")
+                        coin_decimal = getattr(getattr(self.bot.coin_list, each_contract['coin_name']), "decimal")
+                        real_min_deposit = getattr(getattr(self.bot.coin_list, each_contract['coin_name']), "real_min_deposit")
+                        real_deposit_fee = getattr(getattr(self.bot.coin_list, each_contract['coin_name']), "real_deposit_fee")
+
+                        min_gas_tx = getattr(getattr(self.bot.coin_list, each_contract['coin_name']), "min_gas_tx")
+                        move_gas_amount = getattr(getattr(self.bot.coin_list, each_contract['coin_name']), "move_gas_amount")
+                        for each_addr in list_user_addresses:
+                            get_token_balance = await near_check_balance_token(self.bot.erc_node_list['NEAR'], token_contract, each_addr['balance_wallet_address'], 8)
+                            if get_token_balance and isinstance(get_token_balance, int) and (get_token_balance/10**coin_decimal) > real_min_deposit:
+                                # Check if has enough gas
+                                get_gas_balance = await near_check_balance(self.bot.erc_node_list['NEAR'], each_addr['balance_wallet_address'], 8)
+                                # fix coin_decimal 24 for gas
+                                if get_gas_balance and (int(get_gas_balance['amount']) - int(get_gas_balance['locked']))/10**24 >= min_gas_tx:
+                                    # Move token
+                                    transaction = functools.partial(self.wallet_api.near_move_balance_token, self.bot.erc_node_list['NEAR'], 
+                                                                    token_contract, decrypt_string(each_addr['privateKey']), each_addr['balance_wallet_address'], main_address, get_token_balance)
+                                    tx = await self.bot.loop.run_in_executor(None, transaction)
+                                    if tx:
+                                        content = None
+                                        try:
+                                            content = json.dumps(tx)
+                                        except Exception:
+                                            traceback.print_exc(file=sys.stdout)
+                                        await self.wallet_api.near_insert_mv_balance(each_contract['coin_name'], token_contract, each_addr['user_id'], each_addr['balance_wallet_address'], main_address, float(get_token_balance/10**coin_decimal), real_deposit_fee, coin_decimal, tx['transaction_outcome']['id'], content, int(time.time()), SERVER_BOT, "NEAR")
+                                        await asyncio.sleep(5.0)
+                                else:
+                                    # Less than 1hr, do not move
+                                    if each_addr['last_moved_gas'] and int(time.time()) - each_addr['last_moved_gas'] < 3600:
+                                        continue
+                                    # Move gas
+                                    key = decrypt_string(getattr(getattr(self.bot.coin_list, "NEAR"), "walletkey"))
+                                    gas_atomic_amount = int(move_gas_amount*10**24) # fix coin_decimal 24 for gas
+                                    transaction = functools.partial(self.wallet_api.near_move_balance, self.bot.erc_node_list['NEAR'], 
+                                                                    key, main_address, each_addr['balance_wallet_address'], gas_atomic_amount)
+                                    tx = await self.bot.loop.run_in_executor(None, transaction)
+                                    if tx:
+                                        await self.wallet_api.near_update_mv_gas(each_addr['balance_wallet_address'], int(time.time()))
+                                        await asyncio.sleep(5.0)
+                                        continue
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+                    
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
+        await asyncio.sleep(time_lap)
+
+    @tasks.loop(seconds=60.0)
+    async def check_confirming_near(self):
+        time_lap = 5  # seconds
+
+        async def near_get_tx(url: str, tx_hash: str, timeout: int=8):
+            headers = {
+                'Content-Type': 'application/json'
+            }
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url + "txn?hash=" + tx_hash, headers=headers, timeout=timeout) as response:
+                        json_resp = await response.json()
+                        if response.status == 200 or response.status == 201:
+                            if json_resp['txn'] is None:
+                                return None
+                            elif json_resp['txn']['status'] == "Succeeded":
+                                return json_resp['txn']
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+            return None
+
+        await self.bot.wait_until_ready()
+        # Check if task recently run @bot_task_logs
+        task_name = "check_confirming_near"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
+        await asyncio.sleep(time_lap)
+        coin_name = "NEAR"
+        rpchost = getattr(getattr(self.bot.coin_list, coin_name), "rpchost")
+        get_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+        net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+        type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+        try:
+            pending_list = await self.wallet_api.near_get_mv_deposit_list("PENDING")
+            if len(pending_list) > 0:
+                for each_tx in pending_list:
+                    try:
+                        check_tx = await near_get_tx(rpchost, each_tx['txn'], 8)
+                        if check_tx is not None:
+                            height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                            if height and height - check_tx['height'] > get_confirm_depth:
+                                number_conf = height - check_tx['height']
+                                await self.wallet_api.near_update_mv_deposit_pending(each_tx['txn'], check_tx['height'], number_conf)
+                    except Exception:
+                        traceback.print_exc(file=sys.stdout)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
+        await asyncio.sleep(time_lap)
+
+    @tasks.loop(seconds=60.0)
+    async def notify_new_confirmed_near(self):
+        time_lap = 20  # seconds
+        await self.bot.wait_until_ready()
+        # Check if task recently run @bot_task_logs
+        task_name = "notify_new_confirmed_near"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
+        await asyncio.sleep(time_lap)
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `near_move_deposit` 
+                              WHERE `notified_confirmation`=%s 
+                              AND `failed_notification`=%s AND `user_server`=%s AND `blockNumber` IS NOT NULL """
+                    await cur.execute(sql, ("NO", "NO", SERVER_BOT))
+                    result = await cur.fetchall()
+                    if result and len(result) > 0:
+                        for eachTx in result:
+                            if eachTx['user_id']:
+                                if not eachTx['user_id'].isdigit():
+                                    continue
+                                try:
+                                    key = "notify_new_tx_{}_{}_{}".format(eachTx['token_name'], eachTx['user_id'],
+                                                                          eachTx['txn'])
+                                    if self.ttlcache[key] == key:
+                                        continue
+                                    else:
+                                        self.ttlcache[key] = key
+                                except Exception:
+                                    pass
+                                member = self.bot.get_user(int(eachTx['user_id']))
+                                if member is not None:
+                                    coin_decimal = getattr(getattr(self.bot.coin_list, eachTx['token_name']), "decimal")
+                                    msg = "You got a new deposit (it could take a few minutes to credit): ```" + "Coin: {}\nAmount: {}".format(eachTx['token_name'], num_format_coin(eachTx['amount'], eachTx['token_name'], coin_decimal, False)) + "```"
+                                    try:
+                                        await member.send(msg)
+                                        sql = """ UPDATE `near_move_deposit` SET `notified_confirmation`=%s, `time_notified`=%s WHERE `txn`=%s LIMIT 1 """
+                                        await cur.execute(sql, ("YES", int(time.time()), eachTx['txn']))
+                                        await conn.commit()
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
+                                        sql = """ UPDATE `near_move_deposit` SET `notified_confirmation`=%s, `failed_notification`=%s WHERE `txn`=%s LIMIT 1 """
+                                        await cur.execute(sql, ("NO", "YES", eachTx['txn']))
+                                        await conn.commit()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
+        await asyncio.sleep(time_lap)
+
+
+    @tasks.loop(seconds=60.0)
     async def update_balance_tezos(self):
         time_lap = 5  # seconds
 
@@ -8040,6 +8539,36 @@ class Wallet(commands.Cog):
                             token_id = int(getattr(getattr(self.bot.coin_list, coin_name), "wallet_address"))
                             token_type = getattr(getattr(self.bot.coin_list, coin_name), "header")
                             send_tx = await self.wallet_api.send_external_xtz_asset(url, key, str(ctx.author.id), amount, address, coin_name, coin_decimal, NetFee, type_coin, contract, token_id, token_type, SERVER_BOT)
+                        if send_tx:
+                            fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                                num_format_coin(NetFee, coin_name, coin_decimal, False), coin_name)
+                            msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}'
+                            await ctx.edit_original_message(content=msg)
+                            await logchanbot(
+                                f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} successfully withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd}.')
+                        else:
+                            msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.'
+                            await ctx.edit_original_message(content=msg)
+                            await logchanbot(
+                                f'[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd}.')
+                    else:
+                        # reject and tell to wait
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
+                        await ctx.edit_original_message(content=msg)
+                    self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+                elif type_coin == "NEAR":
+                    if ctx.author.id not in self.bot.TX_IN_PROCESS:
+                        url = self.bot.erc_node_list['NEAR']
+                        key = decrypt_string(getattr(getattr(self.bot.coin_list, "NEAR"), "walletkey"))
+                        main_address = getattr(getattr(self.bot.coin_list, "NEAR"), "MainAddress")
+                        token_contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+                        if address == main_address:
+                            # can not send
+                            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address `{address}`.'
+                            await ctx.edit_original_message(content=msg)
+                            return
+                        self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                        send_tx = await self.wallet_api.send_external_near(url, token_contract, key, str(ctx.author.id), main_address, amount, address, coin_name, coin_decimal, NetFee, SERVER_BOT)
                         if send_tx:
                             fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
                                 num_format_coin(NetFee, coin_name, coin_decimal, False), coin_name)

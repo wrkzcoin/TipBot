@@ -10,6 +10,8 @@ import traceback
 from datetime import datetime
 from decimal import Decimal
 from io import BytesIO
+import os
+from bip_utils import Bip39SeedGenerator, Bip44Coins, Bip44
 
 import aiohttp
 import aiomysql
@@ -34,6 +36,9 @@ from tronpy.providers.async_http import AsyncHTTPProvider
 
 from mnemonic import Mnemonic
 from pytezos.crypto.key import Key as XtzKey
+
+import json
+import near_api
 
 from cogs.utils import MenuPage
 from cogs.utils import Utils
@@ -360,6 +365,34 @@ class Admin(commands.Cog):
                                       WHERE `address`=%s 
                                       AND `coin_name`=%s AND `category` = %s AND `confirmations`<=%s AND `amount`>0 """
                             await cur.execute(sql, (address, token_name, 'received', nos_block))
+                        result = await cur.fetchone()
+                        if result and result['incoming_tx']:
+                            incoming_tx = result['incoming_tx']
+                        else:
+                            incoming_tx = 0
+                    elif coin_family == "NEAR":
+                        sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense 
+                                  FROM `near_external_tx` 
+                                  WHERE `user_id`=%s AND `token_name`=%s AND `user_server`=%s AND `crediting`=%s """
+                        await cur.execute(sql, (user_id, token_name, user_server, "YES"))
+                        result = await cur.fetchone()
+                        if result:
+                            tx_expense = result['tx_expense']
+                        else:
+                            tx_expense = 0
+
+                        if top_block is None:
+                            sql = """ SELECT SUM(amount-real_deposit_fee) AS incoming_tx 
+                                      FROM `near_move_deposit` 
+                                      WHERE `balance_wallet_address`=%s 
+                                      AND `user_id`=%s AND `token_name`=%s AND `time_insert`<=%s AND `amount`>0 """
+                            await cur.execute(sql, (address, user_id, token_name, int(time.time()) - nos_block))
+                        else:
+                            sql = """ SELECT SUM(amount-real_deposit_fee) AS incoming_tx 
+                                      FROM `near_move_deposit` 
+                                      WHERE `balance_wallet_address`=%s 
+                                      AND `user_id`=%s AND `token_name`=%s AND `confirmations`<=%s AND `amount`>0 """
+                            await cur.execute(sql, (address, user_id, token_name, nos_block))
                         result = await cur.fetchone()
                         if result and result['incoming_tx']:
                             incoming_tx = result['incoming_tx']
@@ -1811,7 +1844,7 @@ class Admin(commands.Cog):
     @commands.is_owner()
     @admin.command(hidden=True, usage='create', description='Create an address')
     async def create(self, ctx, token: str):
-        if token.upper() not in ["ERC-20", "TRC-20", "XTZ"]:
+        if token.upper() not in ["ERC-20", "TRC-20", "XTZ", "NEAR"]:
             await ctx.reply(f'{ctx.author.mention}, only with ERC-20 and TRC-20.')
         elif token.upper() == "ERC-20":
             try:
@@ -1831,6 +1864,24 @@ class Admin(commands.Cog):
                 words = str(mnemo.generate(strength=128))
                 key = XtzKey.from_mnemonic(mnemonic=words, passphrase="", email="")
                 await ctx.reply(f'{ctx.author.mention}, ```Pub: {key.public_key_hash()}\nSeed: {words}\nKey: {key.secret_key()}```', view=RowButtonRowCloseAnyMessage())
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+        elif token.upper() == "NEAR":
+            try:
+                mnemo = Mnemonic("english")
+                words = str(mnemo.generate(strength=128))
+                seed = [words]
+
+                seed_bytes = Bip39SeedGenerator(words).Generate("")
+                bip44_mst_ctx = Bip44.FromSeed(seed_bytes, Bip44Coins.NEAR_PROTOCOL)
+                key_byte = bip44_mst_ctx.PrivateKey().Raw().ToHex()
+                address = bip44_mst_ctx.PublicKey().ToAddress()
+
+                sender_key_pair = near_api.signer.KeyPair(bytes.fromhex(key_byte))
+                sender_signer = near_api.signer.Signer(address, sender_key_pair)
+                new_addr = sender_signer.public_key.hex()
+                if new_addr == address:
+                    await ctx.reply(f'{ctx.author.mention}, {address}:```Seed:{words}\nKey: {key_byte}```', view=RowButtonRowCloseAnyMessage())
             except Exception:
                 traceback.print_exc(file=sys.stdout)
 

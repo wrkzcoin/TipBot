@@ -24,6 +24,23 @@ This TipBot's code is not ready to deploy. We keep it here for easily bug tracki
 
 [![Checking Balance](https://img.youtube.com/vi/tc1xxsggVMo/0.jpg)](https://www.youtube.com/watch?v=tc1xxsggVMo)
 
+### Integration
+
+| NAME                     	| Integration 	| Tokens 	|
+|--------------------------	|-------------	|--------	|
+| Cryptonote (XMR/BCN/etc) 	| ✅           	| -      	|
+| BTC / DOGE / LTC         	| ✅           	| -      	|
+| ERC-20 / TRC-20 (Token)  	| ✅           	| ✅      	|
+| Cardano asset token      	| ✅           	| ✅      	|
+| Tezos asset token        	| ✅           	| ✅      	|
+| Stellar asset token      	| ✅           	| ✅      	|
+| Neo3 asset token         	| ✅           	| ✅      	|
+| Near Protocol token      	| ✅           	| ✅      	|
+| Solana                   	| ✅           	| -      	|
+
+Refer to <https://coininfo.bot.tips> for all the list.
+
+
 ### Donation address list:
 
 * Refer to <https://github.com/wrkzcoin/TipBot/blob/multip-tipbot-new-api/DONATION.md>

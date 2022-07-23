@@ -6328,7 +6328,6 @@ class Wallet(commands.Cog):
                             await session.close()
                             decoded_data = json.loads(res_data)
                             if decoded_data is not None and 'result' in decoded_data:
-                                print(decoded_data['result']['result'])
                                 ascii_result = decoded_data['result']['result']
                                 if len(ascii_result) > 0:
                                     result = "".join([chr(c) for c in ascii_result])
@@ -6690,7 +6689,8 @@ class Wallet(commands.Cog):
                                 check_revealed = await tezos_check_reveal(rpchost, each_address['balance_wallet_address'], 32)
                                 if check_revealed is True:
                                     # Add to DB if not exist
-                                    await self.wallet_api.tezos_insert_reveal(each_address['balance_wallet_address'], None, int(time.time()))
+                                    if revealed_db is None:
+                                        await self.wallet_api.tezos_insert_reveal(each_address['balance_wallet_address'], None, int(time.time()))
                                     # Move balance:
                                     main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
                                     real_deposit_fee = getattr(getattr(self.bot.coin_list, coin_name), "real_deposit_fee")

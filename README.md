@@ -8,6 +8,23 @@ This TipBot's code is not ready to deploy. We keep it here for easily bug tracki
 
 * Bot invitation link: http://invite.discord.bot.tips
 
+### Integration
+
+| NAME                                                                               	| Integration 	| Tokens 	|
+|------------------------------------------------------------------------------------	|-------------	|--------	|
+| Cryptonote (XMR/BCN/etc)                                                           	| ✅           	| -      	|
+| BTC / DOGE / LTC                                                                   	| ✅           	| -      	|
+| ERC-20 / TRC-20 (Token)<br>(xDai, MATIC, BNB, FTM, TLOS, <br>AVAX, ETH, CELO, ONE) 	| ✅           	| ✅      	|
+| Cardano asset token                                                                	| ✅           	| ✅      	|
+| Tezos asset token                                                                  	| ✅           	| ✅      	|
+| Stellar asset token                                                                	| ✅           	| ✅      	|
+| Neo3 asset token                                                                   	| ✅           	| ✅      	|
+| Near Protocol token                                                                	| ✅           	| ✅      	|
+| Solana                                                                             	| ✅           	| -      	|
+
+Refer to <https://coininfo.bot.tips> for all the list.
+
+
 ### Help commands
 
 [![Help Command](https://img.youtube.com/vi/yeybe6fWQa8/0.jpg)](https://www.youtube.com/watch?v=yeybe6fWQa8)
@@ -23,23 +40,6 @@ This TipBot's code is not ready to deploy. We keep it here for easily bug tracki
 ### Balance check
 
 [![Checking Balance](https://img.youtube.com/vi/tc1xxsggVMo/0.jpg)](https://www.youtube.com/watch?v=tc1xxsggVMo)
-
-### Integration
-
-| NAME                     	| Integration 	| Tokens 	|
-|--------------------------	|-------------	|--------	|
-| Cryptonote (XMR/BCN/etc) 	| ✅           	| -      	|
-| BTC / DOGE / LTC         	| ✅           	| -      	|
-| ERC-20 / TRC-20 (Token)  	| ✅           	| ✅      	|
-| Cardano asset token      	| ✅           	| ✅      	|
-| Tezos asset token        	| ✅           	| ✅      	|
-| Stellar asset token      	| ✅           	| ✅      	|
-| Neo3 asset token         	| ✅           	| ✅      	|
-| Near Protocol token      	| ✅           	| ✅      	|
-| Solana                   	| ✅           	| -      	|
-
-Refer to <https://coininfo.bot.tips> for all the list.
-
 
 ### Donation address list:
 

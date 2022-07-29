@@ -776,6 +776,8 @@ class Events(commands.Cog):
 
                 if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                     wallet_address = get_deposit['paymentid']
+                elif type_coin in ["XRP"]:
+                    wallet_address = get_deposit['destination_tag']
                 else:
                     wallet_address = get_deposit['balance_wallet_address']
 

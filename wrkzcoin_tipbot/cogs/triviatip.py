@@ -191,6 +191,9 @@ class TriviaTips(commands.Cog):
             wallet_address = get_deposit['balance_wallet_address']
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                 wallet_address = get_deposit['paymentid']
+            elif type_coin in ["XRP"]:
+                wallet_address = get_deposit['destination_tag']
+
         except Exception:
             traceback.print_exc(file=sys.stdout)
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, some internal error. Please try again."

@@ -134,6 +134,8 @@ class FreeTip_Button(disnake.ui.View):
                 wallet_address = get_deposit['balance_wallet_address']
                 if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                     wallet_address = get_deposit['paymentid']
+                elif type_coin in ["XRP"]:
+                    wallet_address = get_deposit['destination_tag']
 
                 height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                 userdata_balance = await store.sql_user_balance_single(get_freetip['from_userid'], coin_name,
@@ -544,6 +546,8 @@ class Tips(commands.Cog):
         wallet_address = get_deposit['balance_wallet_address']
         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
             wallet_address = get_deposit['paymentid']
+        elif type_coin in ["XRP"]:
+            wallet_address = get_deposit['destination_tag']
 
         # Check if tx in progress
         if ctx.author.id in self.bot.TX_IN_PROCESS:
@@ -875,6 +879,8 @@ class Tips(commands.Cog):
         wallet_address = get_deposit['balance_wallet_address']
         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
             wallet_address = get_deposit['paymentid']
+        elif type_coin in ["XRP"]:
+            wallet_address = get_deposit['destination_tag']
 
         # Check if tx in progress
         if ctx.author.id in self.bot.TX_IN_PROCESS:
@@ -1122,6 +1128,8 @@ class Tips(commands.Cog):
         wallet_address = get_deposit['balance_wallet_address']
         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
             wallet_address = get_deposit['paymentid']
+        elif type_coin in ["XRP"]:
+            wallet_address = get_deposit['destination_tag']
 
         # Check if tx in progress
         if ctx.author.id in self.bot.TX_IN_PROCESS:
@@ -2031,6 +2039,8 @@ class Tips(commands.Cog):
                             wallet_address = get_deposit['balance_wallet_address']
                             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                                 wallet_address = get_deposit['paymentid']
+                            elif type_coin in ["XRP"]:
+                                wallet_address = get_deposit['destination_tag']
 
                             if not amount.isdigit() and amount.upper() == "ALL":
                                 userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), coin_name,
@@ -2091,6 +2101,8 @@ class Tips(commands.Cog):
                                     wallet_address = get_deposit['balance_wallet_address']
                                     if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                                         wallet_address = get_deposit['paymentid']
+                                    elif type_coin in ["XRP"]:
+                                        wallet_address = get_deposit['destination_tag']
                                     userdata_balance = await store.sql_user_balance_single(str(ctx.author.id),
                                                                                            coin_name, wallet_address,
                                                                                            type_coin, height,
@@ -2278,6 +2290,8 @@ class Tips(commands.Cog):
         wallet_address = get_deposit['balance_wallet_address']
         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
             wallet_address = get_deposit['paymentid']
+        elif type_coin in ["XRP"]:
+            wallet_address = get_deposit['destination_tag']
 
         height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
         userdata_balance = await store.sql_user_balance_single(id_tipper, coin_name, wallet_address, type_coin, height,
@@ -2497,6 +2511,8 @@ class Tips(commands.Cog):
         wallet_address = get_deposit['balance_wallet_address']
         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
             wallet_address = get_deposit['paymentid']
+        elif type_coin in ["XRP"]:
+            wallet_address = get_deposit['destination_tag']
 
         # Check if tx in progress
         if int(id_tipper) in self.bot.TX_IN_PROCESS:

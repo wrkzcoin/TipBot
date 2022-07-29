@@ -252,6 +252,8 @@ class TipOtherCoin(disnake.ui.Modal):
         wallet_address = get_deposit['balance_wallet_address']
         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
             wallet_address = get_deposit['paymentid']
+        elif type_coin in ["XRP"]:
+            wallet_address = get_deposit['destination_tag']
 
         # Check if tx in progress
         if interaction.author.id in self.bot.TX_IN_PROCESS:
@@ -396,6 +398,8 @@ class MemeTip_Button(disnake.ui.View):
             wallet_address = get_deposit['balance_wallet_address']
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                 wallet_address = get_deposit['paymentid']
+            elif type_coin in ["XRP"]:
+                wallet_address = get_deposit['destination_tag']
 
             # Check if tx in progress
             if interaction.author.id in self.bot.TX_IN_PROCESS:
@@ -522,6 +526,8 @@ class MemeTip_Button(disnake.ui.View):
             wallet_address = get_deposit['balance_wallet_address']
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                 wallet_address = get_deposit['paymentid']
+            elif type_coin in ["XRP"]:
+                wallet_address = get_deposit['destination_tag']
 
             # Check if tx in progress
             if interaction.author.id in self.bot.TX_IN_PROCESS:
@@ -648,6 +654,8 @@ class MemeTip_Button(disnake.ui.View):
             wallet_address = get_deposit['balance_wallet_address']
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                 wallet_address = get_deposit['paymentid']
+            elif type_coin in ["XRP"]:
+                wallet_address = get_deposit['destination_tag']
 
             # Check if tx in progress
             if interaction.author.id in self.bot.TX_IN_PROCESS:
@@ -774,6 +782,8 @@ class MemeTip_Button(disnake.ui.View):
             wallet_address = get_deposit['balance_wallet_address']
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                 wallet_address = get_deposit['paymentid']
+            elif type_coin in ["XRP"]:
+                wallet_address = get_deposit['destination_tag']
 
             # Check if tx in progress
             if interaction.author.id in self.bot.TX_IN_PROCESS:

@@ -200,7 +200,8 @@ class Voucher(commands.Cog):
         wallet_address = get_deposit['balance_wallet_address']
         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
             wallet_address = get_deposit['paymentid']
-
+        elif type_coin in ["XRP"]:
+            wallet_address = get_deposit['destination_tag']
         # Check if tx in progress
         if ctx.author.id in self.bot.TX_IN_PROCESS:
             msg = f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.'

@@ -1936,7 +1936,7 @@ class Tips(commands.Cog):
             msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing z tip command...'
             await ctx.response.send_message(msg)
             list_member_ids = []
-            if "@everyone" in amount_list_to.lower():
+            if "@everyone" in amount_list_to.lower() or "@here" in amount_list_to.lower():
                 list_member_ids = [str(member.id) for member in ctx.guild.members if member.id != ctx.author.id]
             else:
                 get_list_member_n_role = re.findall(r"([0-9]{15,20})", amount_list_to)
@@ -1962,7 +1962,14 @@ class Tips(commands.Cog):
                             except Exception:
                                 pass
                     list_member_ids = list(set(list_member_ids))
-            if str(ctx.author.id) in list_member_ids: list_member_ids.remove(str(ctx.author.id))
+
+            if len(list_member_ids) == 0 and amount_list_to.lower().endswith(('all online', 'online')):
+                list_member_ids = [str(member.id) for member in ctx.guild.members if member.id != ctx.author.id and member.status != disnake.Status.offline]
+            elif len(list_member_ids) == 0 and amount_list_to.lower().endswith(('all offline', 'offline')):
+                list_member_ids = [str(member.id) for member in ctx.guild.members if member.id != ctx.author.id and member.status == disnake.Status.offline]
+
+            if str(ctx.author.id) in list_member_ids:
+                list_member_ids.remove(str(ctx.author.id))
 
             if len(list_member_ids) == 0:
                 await ctx.edit_original_message(content=f"{ctx.author.mention}, there is no one to tip to.")

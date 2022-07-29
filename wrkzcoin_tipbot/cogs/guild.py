@@ -390,6 +390,35 @@ class Guild(commands.Cog):
                             incoming_tx = result['incoming_tx']
                         else:
                             incoming_tx = 0
+                    elif coin_family == "XRP":
+                        sql = """ SELECT SUM(amount+tx_fee) AS tx_expense 
+                                  FROM `xrp_external_tx` 
+                                  WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s AND `crediting`=%s """
+                        await cur.execute(sql, (user_id, token_name, user_server, "YES"))
+                        result = await cur.fetchone()
+                        if result:
+                            tx_expense = result['tx_expense']
+                        else:
+                            tx_expense = 0
+
+                        # address = destination_tag
+                        if top_block is None:
+                            sql = """ SELECT SUM(amount) AS incoming_tx 
+                                      FROM `xrp_get_transfers` 
+                                      WHERE `destination_tag`=%s AND `coin_name`=%s AND `amount`>0 AND `time_insert`< %s AND `user_server`=%s """
+                            await cur.execute(sql, (address, token_name, nos_block,
+                                                    user_server))  # TODO: split to address, memo
+                        else:
+                            sql = """ SELECT SUM(amount) AS incoming_tx 
+                                      FROM `xrp_get_transfers` 
+                                      WHERE `destination_tag`=%s AND `coin_name`=%s AND `amount`>0 AND `height`<%s AND `user_server`=%s """
+                            await cur.execute(sql, (address, token_name, nos_block,
+                                                    user_server))  # TODO: split to address, memo
+                        result = await cur.fetchone()
+                        if result and result['incoming_tx']:
+                            incoming_tx = result['incoming_tx']
+                        else:
+                            incoming_tx = 0
                     elif coin_family == "XLM":
                         sql = """ SELECT SUM(amount+withdraw_fee) AS tx_expense FROM `xlm_external_tx` WHERE `user_id`=%s AND `coin_name` = %s AND `user_server` = %s AND `crediting`=%s """
                         await cur.execute(sql, ( user_id, token_name, user_server, "YES" ))
@@ -573,6 +602,8 @@ class Guild(commands.Cog):
                             wallet_address = get_deposit['balance_wallet_address']
                             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                                 wallet_address = get_deposit['paymentid']
+                            elif type_coin in ["XRP"]:
+                                wallet_address = get_deposit['destination_tag']
 
                             height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                             userdata_balance = await self.user_balance(each_drop['serverid'], coin_name, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
@@ -1083,6 +1114,8 @@ class Guild(commands.Cog):
                             wallet_address = get_deposit['balance_wallet_address']
                             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                                 wallet_address = get_deposit['paymentid']
+                            elif type_coin in ["XRP"]:
+                                wallet_address = get_deposit['destination_tag']
 
                             height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                             userdata_balance = await self.user_balance(each_guild['serverid'], coin_name, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
@@ -1652,6 +1685,8 @@ class Guild(commands.Cog):
                 wallet_address = get_deposit['balance_wallet_address']
                 if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                     wallet_address = get_deposit['paymentid']
+                elif type_coin in ["XRP"]:
+                    wallet_address = get_deposit['destination_tag']
 
                 height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                 # height can be None
@@ -1782,6 +1817,8 @@ class Guild(commands.Cog):
         wallet_address = get_deposit['balance_wallet_address']
         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
             wallet_address = get_deposit['paymentid']
+        elif type_coin in ["XRP"]:
+            wallet_address = get_deposit['destination_tag']
 
         height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
         userdata_balance = await self.user_balance(str(ctx.guild.id), coin_name, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
@@ -1885,6 +1922,8 @@ class Guild(commands.Cog):
             wallet_address = get_deposit['balance_wallet_address']
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                 wallet_address = get_deposit['paymentid']
+            elif type_coin in ["XRP"]:
+                wallet_address = get_deposit['destination_tag']
 
             height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
             # check if amount is all
@@ -2235,6 +2274,8 @@ class Guild(commands.Cog):
         wallet_address = get_deposit['balance_wallet_address']
         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
             wallet_address = get_deposit['paymentid']
+        elif type_coin in ["XRP"]:
+            wallet_address = get_deposit['destination_tag']
 
         height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
         userdata_balance = await self.user_balance(str(ctx.guild.id), coin_name, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
@@ -2400,6 +2441,8 @@ class Guild(commands.Cog):
         wallet_address = get_deposit['balance_wallet_address']
         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
             wallet_address = get_deposit['paymentid']
+        elif type_coin in ["XRP"]:
+            wallet_address = get_deposit['destination_tag']
 
         height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
         userdata_balance = await self.user_balance(str(ctx.guild.id), coin_name, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
@@ -2615,6 +2658,8 @@ class Guild(commands.Cog):
                     wallet_address = get_deposit['balance_wallet_address']
                     if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                         wallet_address = get_deposit['paymentid']
+                    elif type_coin in ["XRP"]:
+                        wallet_address = get_deposit['destination_tag']
 
                     height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                     userdata_balance = await store.sql_user_balance_single(str(ctx.guild.id), coin_name, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)

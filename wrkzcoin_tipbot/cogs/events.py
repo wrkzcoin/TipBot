@@ -517,7 +517,7 @@ class Events(commands.Cog):
         print(self.bot.user.id)
         print('------')
         self.bot.start_time = datetime.datetime.now()
-        game = disnake.Game(name="prefix /")
+        game = disnake.Game(name="Starts with /")
         await self.bot.change_presence(status=disnake.Status.online, activity=game)
         botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
         await botLogChan.send(f'I am back :)')

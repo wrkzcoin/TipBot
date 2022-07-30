@@ -21,6 +21,7 @@ This TipBot's code is not ready to deploy. We keep it here for easily bug tracki
 | Neo3 asset token                                                                   	| ✅           	| ✅      	|
 | Near Protocol token                                                                	| ✅           	| ✅      	|
 | Solana                                                                             	| ✅           	| -      	|
+| XRP (ripple)                                                                       	| ✅           	| ✅      	|
 
 Refer to <https://coininfo.bot.tips> for all the list.
 

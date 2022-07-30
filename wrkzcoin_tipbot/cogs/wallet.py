@@ -8011,16 +8011,12 @@ class Wallet(commands.Cog):
             plain_msg = '{}#{} Your deposit address for **{}**: ```{}```'.format(ctx.author.name,
                                                                                  ctx.author.discriminator, coin_name,
                                                                                  wallet_address)
-            if coin_name == "HNT":
+            if coin_name in ["HNT", "XLM"]:
                 plain_msg = '{}#{} Your deposit address for **{}**: ```{}```'.format(ctx.author.name,
                                                                                      ctx.author.discriminator,
                                                                                      coin_name, wallet_address)
                 plain_msg += "MEMO must be included OR you will lose: `{}`".format(address_memo[2])
-            elif type_coin == "XLM":
-                plain_msg = '{}#{} Your deposit address for **{}**: ```{}```'.format(ctx.author.name,
-                                                                                     ctx.author.discriminator,
-                                                                                     coin_name, wallet_address)
-                plain_msg += "MEMO must be included OR you will lose: `{}`".format(address_memo[2])
+
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"] and getattr(
                     getattr(self.bot.coin_list, coin_name),
                     "split_main_paymentid") == 1:  # split main and integrated address
@@ -8028,7 +8024,10 @@ class Wallet(commands.Cog):
                 embed.add_field(name="PaymentID (Must include)", value="`{}`".format(get_deposit['paymentid']),
                                 inline=False)
             else:
-                embed.add_field(name="Your Deposit Address", value="`{}`".format(wallet_address), inline=False)
+                wallet_address_new = wallet_address
+                if " MEMO:" in wallet_address_new:
+                    wallet_address_new = wallet_address_new.replace(" MEMO:", "\nMEMO:")
+                embed.add_field(name="Your Deposit Address", value="`{}`".format(wallet_address_new), inline=False)
                 embed.set_thumbnail(url=config.storage.deposit_url + address_path + ".png")
 
             if getattr(getattr(self.bot.coin_list, coin_name), "related_coins"):

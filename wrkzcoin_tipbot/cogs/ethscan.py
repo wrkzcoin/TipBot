@@ -445,7 +445,7 @@ class EthScan(commands.Cog):
                     if result and len(result) > 0: return result
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("ethscan get_all_contracts " + str(traceback.format_exc()))
         return []
 
     async def get_all_net_names(self):
@@ -463,7 +463,7 @@ class EthScan(commands.Cog):
                         return net_names
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("ethscan get_all_net_names " + str(traceback.format_exc()))
         return {}
 
     async def update_scan_setting(self, net_name: str, contracts):
@@ -477,7 +477,7 @@ class EthScan(commands.Cog):
                     return True
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("ethscan update_scan_setting " + str(traceback.format_exc()))
         return None
 
     async def fetch_txes(self, url: str, net_name: str, contracts, scanned_from_height: int, timeout: int = 64):
@@ -506,7 +506,7 @@ class EthScan(commands.Cog):
                     return
             except Exception:
                 traceback.print_exc(file=sys.stdout)
-                await logchanbot(traceback.format_exc())
+                await logchanbot("ethscan fetch_txes " + str(traceback.format_exc()))
 
             # Check height in DB
             height = max([height, scanned_from_height])
@@ -664,7 +664,7 @@ class EthScan(commands.Cog):
                                            str(local_height))
             except Exception:
                 traceback.print_exc(file=sys.stdout)
-                await logchanbot(traceback.format_exc())
+                await logchanbot("ethscan fetch_txes_trc " + str(traceback.format_exc()))
             try:
                 url = "https://api.trongrid.io/v1/contracts/" + contract + "/events?event_name=Transfer&only_confirmed=true&order_by=block_timestamp,desc&limit=200"
                 if last_timestamp:

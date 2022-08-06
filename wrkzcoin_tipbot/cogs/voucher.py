@@ -59,7 +59,7 @@ class Voucher(commands.Cog):
                     result = await cur.fetchone()
                     return result
         except Exception:
-            await logchanbot(traceback.format_exc())
+            await logchanbot("voucher " +str(traceback.format_exc()))
         return None
 
     async def sql_send_to_voucher(self, user_id: str, user_name: str, amount: float, reserved_fee: float, comment: str,
@@ -114,7 +114,7 @@ class Voucher(commands.Cog):
                     return True
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("voucher " +str(traceback.format_exc()))
         return None
 
     async def sql_voucher_get_user(self, user_id: str, user_server: str = 'DISCORD', last: int = 10,
@@ -138,7 +138,7 @@ class Voucher(commands.Cog):
                         result = await cur.fetchall()
                         return result
         except Exception:
-            await logchanbot(traceback.format_exc())
+            await logchanbot("voucher " +str(traceback.format_exc()))
         return None
 
     async def bot_log(self):
@@ -373,7 +373,7 @@ class Voucher(commands.Cog):
                         region = region.resize((box[2] - box[0], box[3] - box[1]))
                         qr_img.paste(region, box)
                     except Exception:
-                        await logchanbot(traceback.format_exc())
+                        await logchanbot("voucher " +str(traceback.format_exc()))
                     # Image Frame on which we want to paste  
                     img_frame.paste(qr_img, (100, 150))
 
@@ -399,7 +399,7 @@ class Voucher(commands.Cog):
                         draw.text((561 - w / 2, 275 + 125 + h + 120), comment_txt, fill="black", font=myFont)
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
-                        await logchanbot(traceback.format_exc())
+                        await logchanbot("voucher " +str(traceback.format_exc()))
                     voucher_make = None
                     try:
                         img_frame.save(self.path_voucher_create + unique_filename + ".png")
@@ -416,7 +416,7 @@ class Voucher(commands.Cog):
                                                                               SERVER_BOT)
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
-                                await logchanbot(traceback.format_exc())
+                                await logchanbot("voucher " +str(traceback.format_exc()))
                             self.bot.TX_IN_PROCESS.remove(ctx.author.id)
                         else:
                             # reject and tell to wait
@@ -425,7 +425,7 @@ class Voucher(commands.Cog):
                             return
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
-                        await logchanbot(traceback.format_exc())
+                        await logchanbot("voucher " +str(traceback.format_exc()))
 
                     if voucher_make:
                         try:
@@ -441,7 +441,7 @@ class Voucher(commands.Cog):
                         await ctx.response.send_message(msg)
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
-                    await logchanbot(traceback.format_exc())
+                    await logchanbot("voucher " +str(traceback.format_exc()))
             if voucher_make is not None and hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
                 msg = f'{ctx.author.mention}, new vouchers sent to your DM.'
                 await ctx.response.send_message(msg)
@@ -476,7 +476,7 @@ class Voucher(commands.Cog):
                     qr_img.paste(region, box)
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
-                    await logchanbot(traceback.format_exc())
+                    await logchanbot("voucher " +str(traceback.format_exc()))
                 # Image Frame on which we want to paste 
                 img_frame.paste(qr_img, (100, 150))
 
@@ -504,7 +504,7 @@ class Voucher(commands.Cog):
                     draw.text((561 - w / 2, 275 + 125 + h + 120), comment_txt, fill="black", font=myFont)
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
-                    await logchanbot(traceback.format_exc())
+                    await logchanbot("voucher " +str(traceback.format_exc()))
                 # Saved in the same relative location 
                 voucher_make = None
                 try:
@@ -521,7 +521,7 @@ class Voucher(commands.Cog):
                                                                           per_unit_usd, SERVER_BOT)
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
-                            await logchanbot(traceback.format_exc())
+                            await logchanbot("voucher " +str(traceback.format_exc()))
                         self.bot.TX_IN_PROCESS.remove(ctx.author.id)
                     else:
                         # reject and tell to wait
@@ -530,7 +530,7 @@ class Voucher(commands.Cog):
                         return
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
-                    await logchanbot(traceback.format_exc())
+                    await logchanbot("voucher " +str(traceback.format_exc()))
 
                 if voucher_make:
                     try:
@@ -541,7 +541,7 @@ class Voucher(commands.Cog):
                                                     f'Voucher comment: {comment_str}```')
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
-                        await logchanbot(traceback.format_exc())
+                        await logchanbot("voucher " +str(traceback.format_exc()))
                 else:
                     msg = f'{EMOJI_ERROR} {ctx.author.mention}, error voucher creation!'
                     await ctx.response.send_message(msg)
@@ -554,7 +554,7 @@ class Voucher(commands.Cog):
                 await tmp_msg.delete()
             except Exception:
                 traceback.print_exc(file=sys.stdout)
-                await logchanbot(traceback.format_exc())
+                await logchanbot("voucher " +str(traceback.format_exc()))
 
     @voucher.sub_command(
         usage="voucher unclaim",
@@ -614,7 +614,7 @@ class Voucher(commands.Cog):
                 await ctx.response.send_message(file=data_file, ephemeral=True)
             except Exception:
                 traceback.print_exc(file=sys.stdout)
-                await logchanbot(traceback.format_exc())
+                await logchanbot("voucher " +str(traceback.format_exc()))
         else:
             await ctx.response.send_message(f'{ctx.author.mention}, you did not create any voucher yet.')
         return
@@ -678,7 +678,7 @@ class Voucher(commands.Cog):
                 await ctx.response.send_message(file=data_file, ephemeral=True)
             except Exception:
                 traceback.print_exc(file=sys.stdout)
-                await logchanbot(traceback.format_exc())
+                await logchanbot("voucher " +str(traceback.format_exc()))
         else:
             await ctx.response.send_message(f'{ctx.author.mention}, you did not create any voucher yet.')
         return

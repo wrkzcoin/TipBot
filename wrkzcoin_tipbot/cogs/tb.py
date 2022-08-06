@@ -203,7 +203,7 @@ class Tb(commands.Cog):
                                                  str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SKETCHME',
                                                  SERVER_BOT)
                     except Exception:
-                        await logchanbot(traceback.format_exc())
+                        await logchanbot("tb " +str(traceback.format_exc()))
                     return
 
                 img = np.array(Image.open(BytesIO(res_data)).convert("RGBA"))
@@ -231,7 +231,7 @@ class Tb(commands.Cog):
                                                  str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SKETCHME',
                                                  SERVER_BOT)
                     except Exception:
-                        await logchanbot(traceback.format_exc())
+                        await logchanbot("tb " +str(traceback.format_exc()))
                 except asyncio.TimeoutError:
                     return
         except Exception:
@@ -467,7 +467,7 @@ class Tb(commands.Cog):
                 await self.sql_add_tbfun(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
                                          str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, action, SERVER_BOT)
         except Exception:
-            await logchanbot(traceback.format_exc())
+            await logchanbot("tb " +str(traceback.format_exc()))
         return
 
     async def tb_getemoji(

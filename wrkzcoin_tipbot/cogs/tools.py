@@ -57,7 +57,7 @@ class Tool(commands.Cog):
                     await conn.commit()
                     return True
         except Exception:
-            await logchanbot(traceback.format_exc())
+            await logchanbot("tools " +str(traceback.format_exc()))
         return False
 
     async def sql_add_trans_tts(self, user_id: str, user_name: str, original: str, translated: str, to_lang: str, media_file: str, user_server: str='DISCORD'):
@@ -72,7 +72,7 @@ class Tool(commands.Cog):
                     await conn.commit()
                     return True
         except Exception:
-            await logchanbot(traceback.format_exc())
+            await logchanbot("tools " +str(traceback.format_exc()))
         return False
 
 
@@ -135,7 +135,7 @@ class Tool(commands.Cog):
                             input_text, 'en', voice_file, SERVER_BOT)
             except Exception:
                 traceback.print_exc(file=sys.stdout)
-                await logchanbot(traceback.format_exc())
+                await logchanbot("tools " +str(traceback.format_exc()))
         return
 
     @tool.sub_command(
@@ -323,7 +323,7 @@ class Tool(commands.Cog):
         try:
             msg = await ctx.response.send_message(f'Avatar image for {member.mention}:\n{str(member.display_avatar)}')
         except Exception:
-            await logchanbot(traceback.format_exc())
+            await logchanbot("tools " +str(traceback.format_exc()))
 
 
     @tool.sub_command(

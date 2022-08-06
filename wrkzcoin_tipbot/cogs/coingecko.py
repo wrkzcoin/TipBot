@@ -39,7 +39,7 @@ class CoinGecko(commands.Cog):
                         return [each['id'] for each in result]
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("coingecko " + str(traceback.format_exc()))
         return []
 
 

@@ -194,7 +194,7 @@ class Utils(commands.Cog):
                     return True
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("utils " +str(traceback.format_exc()))
         return None
 
     async def bot_task_logs_add(self, task_name: str, run_at: int):

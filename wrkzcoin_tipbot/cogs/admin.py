@@ -95,7 +95,7 @@ class Admin(commands.Cog):
                         self.local_db_extra = json.loads(decrypt_string(result['value']))
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("admin " +str(traceback.format_exc()))
         return None
 
     async def restore_msg(self, number_msg: int = 10000):
@@ -135,7 +135,7 @@ class Admin(commands.Cog):
                                             return deleted
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("admin " +str(traceback.format_exc()))
         return 0
 
     async def purge_msg(self, number_msg: int = 1000):
@@ -179,7 +179,7 @@ class Admin(commands.Cog):
                                                 return deleted
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("admin " +str(traceback.format_exc()))
         return 0
 
     async def get_coin_list_name(self, including_disable: bool = False):
@@ -199,7 +199,7 @@ class Admin(commands.Cog):
                         return coin_list_name
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("admin " +str(traceback.format_exc()))
         return None
 
 
@@ -680,7 +680,7 @@ class Admin(commands.Cog):
                 return balance
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("admin " +str(traceback.format_exc()))
 
     async def cog_check(self, ctx):
         return commands.is_owner()
@@ -700,7 +700,7 @@ class Admin(commands.Cog):
                         return AttrDict(coin_list)
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("admin " +str(traceback.format_exc()))
         return None
 
     async def sql_get_all_userid_by_coin(self, coin: str):
@@ -763,7 +763,7 @@ class Admin(commands.Cog):
                         if result: return result
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("admin " +str(traceback.format_exc()))
         return []
 
     async def enable_disable_coin(self, coin: str, what: str, toggle: int):
@@ -1433,7 +1433,7 @@ class Admin(commands.Cog):
                             f"[CREDITING] {ctx.author.name}#{ctx.author.discriminator} / str(ctx.author.id) credit to user {member_id} server {user_server} with amount : {num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}")
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
-                    await logchanbot(traceback.format_exc())
+                    await logchanbot("admin " +str(traceback.format_exc()))
         except Exception:
             traceback.print_exc(file=sys.stdout)
 

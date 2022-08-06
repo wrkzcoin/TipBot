@@ -90,7 +90,7 @@ class Guild(commands.Cog):
                     if result: return result
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("guild " +str(traceback.format_exc()))
         return None
 
 
@@ -517,7 +517,7 @@ class Guild(commands.Cog):
                 return balance
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("guild " +str(traceback.format_exc()))
 
     @tasks.loop(seconds=60.0)
     async def check_tiptalker_drop(self):
@@ -629,11 +629,11 @@ class Guild(commands.Cog):
                                                 list_receiver_names.append("{}#{}".format(member.name, member.discriminator))
                                             except Exception:
                                                 traceback.print_exc(file=sys.stdout)
-                                                await logchanbot(traceback.format_exc())
+                                                await logchanbot("guild " +str(traceback.format_exc()))
                                                 print('Failed creating wallet for activedrop for userid: {}'.format(member_id))
                                     except Exception:
                                         traceback.print_exc(file=sys.stdout)
-                                        await logchanbot(traceback.format_exc())
+                                        await logchanbot("guild " +str(traceback.format_exc()))
                                 if len(list_receivers) == 0:
                                     msg = f"There is 0 active talkers in the last {lap_str}."
                                     # add to DB
@@ -678,7 +678,7 @@ class Guild(commands.Cog):
                                             msg_no_embed = msg + " Each got {} {}. Next drop in {}. You can disable it by /tiptalker and set amount 0.".format(num_format_coin(each_drop['tiptalk_amount']/len(list_receivers) if len(list_receivers) > 0 else each_drop['tiptalk_amount'], coin_name, coin_decimal, False), coin_name, seconds_str(each_drop['tiptalk_duration']))
                                     except Exception:
                                         traceback.print_exc(file=sys.stdout)
-                                        await logchanbot(traceback.format_exc())
+                                        await logchanbot("guild " +str(traceback.format_exc()))
                         if len(msg) > 0:
                             embed = disnake.Embed(title = "ACTIVEDROP/TALKER {}".format( get_guild.name ), description="Keep on chatting in <#{}>".format(each_drop['tiptalk_channel']), timestamp=datetime.now())
                             embed.add_field(name="RECEIVER(s): {}".format(len(list_receivers)), value=msg, inline=False)
@@ -769,7 +769,7 @@ class Guild(commands.Cog):
                                                     await raffle_chan.send(", ".join(list_ping))
                                                 except Exception:
                                                     traceback.print_exc(file=sys.stdout)
-                                                    await logchanbot(traceback.format_exc()) 
+                                                    await logchanbot("guild " +str(traceback.format_exc())) 
                                         await logchanbot(msg_raffle)
                                         if each_raffle['id'] in self.raffle_opened_to_ongoing:
                                             continue
@@ -881,10 +881,10 @@ class Guild(commands.Cog):
                                                 await logchanbot('[Discord]/Raffle Can not find entry id: {}'.format(each_entry))
                                         except Exception:
                                             traceback.print_exc(file=sys.stdout)
-                                            await logchanbot(traceback.format_exc())
+                                            await logchanbot("guild " +str(traceback.format_exc()))
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
-                        await logchanbot(traceback.format_exc())
+                        await logchanbot("guild " +str(traceback.format_exc()))
         except Exception:
             traceback.print_exc(file=sys.stdout)
         # Update @bot_task_logs
@@ -955,7 +955,7 @@ class Guild(commands.Cog):
                             await conn.commit()
                             return True	
         except Exception:	
-            await logchanbot(traceback.format_exc())	
+            await logchanbot("guild " +str(traceback.format_exc()))	
         return False
 
     async def raffle_cancel_id(self, raffle_id: int):
@@ -971,7 +971,7 @@ class Guild(commands.Cog):
                     await conn.commit()	
                     return True	
         except Exception:	
-            await logchanbot(traceback.format_exc())	
+            await logchanbot("guild " +str(traceback.format_exc()))	
         return False
 
     async def raffle_get_all(self, user_server: str='DISCORD'):
@@ -988,7 +988,7 @@ class Guild(commands.Cog):
                     if result: return result
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())	
+            await logchanbot("guild " +str(traceback.format_exc()))	
         return None
 
     async def raffle_get_from_by_id(self, idx: str, user_server: str='DISCORD', user_check: str=None):
@@ -1022,7 +1022,7 @@ class Guild(commands.Cog):
                             result['user_joined'] = False
                     return result
         except Exception:	
-            await logchanbot(traceback.format_exc())	
+            await logchanbot("guild " +str(traceback.format_exc()))	
         return None
 
     async def raffle_get_from_guild(self, guild: str, last_play: bool=False, user_server: str='DISCORD'):
@@ -1038,7 +1038,7 @@ class Guild(commands.Cog):
                     result = await cur.fetchone()
                     if result: return result
         except Exception:	
-            await logchanbot(traceback.format_exc())	
+            await logchanbot("guild " +str(traceback.format_exc()))	
         return None
 
     async def raffle_insert_new_entry(self, raffle_id: int, guild_id: str, amount: float, decimal: int, coin: str, user_id: str, user_name: str, user_server: str='DISCORD'):
@@ -1056,7 +1056,7 @@ class Guild(commands.Cog):
                     await conn.commit()	
                     return True	
         except Exception:	
-            await logchanbot(traceback.format_exc())	
+            await logchanbot("guild " +str(traceback.format_exc()))	
         return False
 
     async def raffle_insert_new(self, guild_id: str, guild_name: str, amount: float, decimal: int, coin: str, created_userid: str, created_username: str, created_ts: int, ending_ts: str, user_server: str='DISCORD'):
@@ -1074,7 +1074,7 @@ class Guild(commands.Cog):
                     await conn.commit()	
                     return True	
         except Exception:	
-            await logchanbot(traceback.format_exc())	
+            await logchanbot("guild " +str(traceback.format_exc()))	
         return False
 
     # Check if guild has at least 10x amount of reward or disable
@@ -1267,7 +1267,7 @@ class Guild(commands.Cog):
                     await conn.commit()	
                     return True	
         except Exception:	
-            await logchanbot(traceback.format_exc())	
+            await logchanbot("guild " +str(traceback.format_exc()))	
         return False
 
     @commands.guild_only()
@@ -2718,7 +2718,7 @@ class Guild(commands.Cog):
                 await logchanbot(f'[Discord] [ERROR] User {ctx.author.name}#{ctx.author.discriminator} claimed guild /faucet in guild {ctx.guild.name}/{ctx.guild.id}.')
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("guild " +str(traceback.format_exc()))
             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, internal error.'
             await ctx.edit_original_message(content=msg)
     # Guild deposit
@@ -2951,7 +2951,7 @@ class Guild(commands.Cog):
                         await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} change bot channel {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.')
             except Exception:
                 traceback.print_exc(file=sys.stdout)
-                await logchanbot(traceback.format_exc())
+                await logchanbot("guild " +str(traceback.format_exc()))
         else:
             # change channel info
             changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'botchan', str(ctx.channel.id))
@@ -2991,7 +2991,7 @@ class Guild(commands.Cog):
                         await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} change economy game channel {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.')
             except Exception:
                 traceback.print_exc(file=sys.stdout)
-                await logchanbot(traceback.format_exc())
+                await logchanbot("guild " +str(traceback.format_exc()))
         else:
             # change channel info
             changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'economy_channel', str(ctx.channel.id))
@@ -3069,7 +3069,7 @@ class Guild(commands.Cog):
                             return
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
-                        await logchanbot(traceback.format_exc())
+                        await logchanbot("guild " +str(traceback.format_exc()))
                 else:
                     # change channel info
                     changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), index_game, str(ctx.channel.id))

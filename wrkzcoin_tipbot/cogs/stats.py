@@ -40,7 +40,7 @@ class Stats(commands.Cog):
                     result = await cur.fetchone()
                     if result: return result
         except Exception:
-            await logchanbot(traceback.format_exc())
+            await logchanbot("stats " +str(traceback.format_exc()))
         return None
 
     async def async_stats(self, ctx, coin: str = None):

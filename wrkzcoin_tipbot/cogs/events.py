@@ -65,7 +65,7 @@ class Events(commands.Cog):
                     await conn.commit()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("events " +str(traceback.format_exc()))
 
     async def get_tipping_count(self):
         try:
@@ -79,7 +79,7 @@ class Events(commands.Cog):
                     return result
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("events " +str(traceback.format_exc()))
         return None
 
     # End Update stats
@@ -99,7 +99,7 @@ class Events(commands.Cog):
                     return True
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("events " +str(traceback.format_exc()))
         return False
 
     async def check_if_mathtip_responder_in(self, message_id: str, from_userid: str, responder_id: str):
@@ -114,7 +114,7 @@ class Events(commands.Cog):
                     if result and len(result) > 0: return True
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("events " +str(traceback.format_exc()))
         return False
 
     async def get_discord_mathtip_by_msgid(self, msg_id: str):
@@ -128,7 +128,7 @@ class Events(commands.Cog):
                     if result: return result
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("events " +str(traceback.format_exc()))
         return None
 
     async def get_discord_triviatip_by_msgid(self, message_id: str):
@@ -143,7 +143,7 @@ class Events(commands.Cog):
                     if result: return result
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("events " +str(traceback.format_exc()))
         return None
 
     async def insert_trivia_responder(self, message_id: str, guild_id: str, question_id: str, from_userid: str,
@@ -160,7 +160,7 @@ class Events(commands.Cog):
                     return True
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("events " +str(traceback.format_exc()))
         return False
 
     async def check_if_trivia_responder_in(self, message_id: str, from_userid: str, responder_id: str):
@@ -175,7 +175,7 @@ class Events(commands.Cog):
                     if result and len(result) > 0: return True
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("events " +str(traceback.format_exc()))
         return False
 
     # End Trivia / Math
@@ -191,7 +191,7 @@ class Events(commands.Cog):
                     if result: return result
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("events " +str(traceback.format_exc()))
         return None
 
     async def delete_discord_bot_message(self, message_id: str, owner_id: str):
@@ -205,7 +205,7 @@ class Events(commands.Cog):
                     return True
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("events " +str(traceback.format_exc()))
         return None
 
     async def insert_discord_message(self, list_message):
@@ -338,7 +338,7 @@ class Events(commands.Cog):
                         return AttrDict(coin_list)
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("events " +str(traceback.format_exc()))
         return None
 
     async def get_coin_list_name(self):
@@ -356,7 +356,7 @@ class Events(commands.Cog):
                         return coin_list_name
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("events " +str(traceback.format_exc()))
         return None
 
     # This token hints is priority
@@ -379,7 +379,7 @@ class Events(commands.Cog):
                         return True
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("events " +str(traceback.format_exc()))
         return None
 
     async def get_coin_alias_name(self):
@@ -398,7 +398,7 @@ class Events(commands.Cog):
                         return True
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("events " +str(traceback.format_exc()))
         return None
 
     # coin_paprika_list
@@ -421,7 +421,7 @@ class Events(commands.Cog):
                         return True
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("events " +str(traceback.format_exc()))
         return None
 
     # get_coingecko_list
@@ -444,7 +444,7 @@ class Events(commands.Cog):
                         return True
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("events " +str(traceback.format_exc()))
         return None
 
     async def get_faucet_coin_list(self):
@@ -459,7 +459,7 @@ class Events(commands.Cog):
                         return [each['coin_name'] for each in result]
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("events " +str(traceback.format_exc()))
         return None
 
     @commands.Cog.listener()
@@ -795,7 +795,7 @@ class Events(commands.Cog):
                             inter.author.id) + '\nCoin: ' + coin_name + '\nBalance: ' + str(total_balance)
                         await logchanbot(msg_negative)
                 except Exception:
-                    await logchanbot(traceback.format_exc())
+                    await logchanbot("events " +str(traceback.format_exc()))
                 # End negative check
                 food_name = get_food_id['food_name']
                 if get_food_id['cost_expense_amount'] > total_balance:

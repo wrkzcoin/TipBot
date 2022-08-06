@@ -316,7 +316,7 @@ class Paprika(commands.Cog):
                 return
         except Exception:
             traceback.format_exc()
-            await logchanbot(traceback.format_exc())
+            await logchanbot("paprika " +str(traceback.format_exc()))
             msg = f"{ctx.author.mention}, internal error from cache."
             await ctx.edit_original_message(content=msg)
             return
@@ -377,7 +377,7 @@ class Paprika(commands.Cog):
                             redis_utils.redis_conn.set(key, response_text, ex=config.redis.default_time_paprika)
                         except Exception:
                             traceback.format_exc()
-                            await logchanbot(traceback.format_exc())
+                            await logchanbot("paprika " +str(traceback.format_exc()))
                         await ctx.edit_original_message(content=f"{ctx.author.mention}, {response_text}")
                         # fetch tradeview image
                         if self.tradeview is True:

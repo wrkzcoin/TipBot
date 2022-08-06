@@ -202,7 +202,7 @@ class FreeTip_Button(disnake.ui.View):
                             traceback.print_exc(file=sys.stdout)
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
-                        await logchanbot(traceback.format_exc())
+                        await logchanbot("tips " +str(traceback.format_exc()))
                     if tips:
                         link_to_msg = "https://discord.com/channels/{}/{}/{}".format(get_freetip['guild_id'],
                                                                                      get_freetip['channel_id'],
@@ -703,7 +703,7 @@ class Tips(commands.Cog):
                 return
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("tips " +str(traceback.format_exc()))
 
         notifyList = await store.sql_get_tipnotify()
         userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), coin_name, wallet_address, type_coin,
@@ -762,7 +762,7 @@ class Tips(commands.Cog):
                                                              coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
             except Exception:
                 traceback.print_exc(file=sys.stdout)
-                await logchanbot(traceback.format_exc())
+                await logchanbot("tips " +str(traceback.format_exc()))
         else:
             # remove queue from randtip
             if ctx.author.id in self.bot.TX_IN_PROCESS:
@@ -1293,7 +1293,7 @@ class Tips(commands.Cog):
                                                                 float(amount_in_usd), None)
             except Exception:
                 traceback.print_exc(file=sys.stdout)
-                await logchanbot(traceback.format_exc())
+                await logchanbot("tips " +str(traceback.format_exc()))
             self.bot.TX_IN_PROCESS.remove(ctx.author.id)
         else:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention} You have another tx in process. Please wait it to finish.'
@@ -1340,7 +1340,7 @@ class Tips(commands.Cog):
                                 send_tipped_ping += 1
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
-                            await logchanbot(traceback.format_exc())
+                            await logchanbot("tips " +str(traceback.format_exc()))
                         # reset
                         list_user_mention = []
                         list_user_mention_str = ""
@@ -1591,7 +1591,7 @@ class Tips(commands.Cog):
                                 int(num) * mult.get(val, 1) for num, val in re.findall('(\d+)(\w+)', time_string))
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
-                            await logchanbot(traceback.format_exc())
+                            await logchanbot("tips " +str(traceback.format_exc()))
                             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid time given. Please use this example: `tip 10 WRKZ last 12mn`'
                             await ctx.edit_original_message(content=msg)
                             return
@@ -1629,7 +1629,7 @@ class Tips(commands.Cog):
                         await ctx.edit_original_message(content=msg)
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
-                        await logchanbot(traceback.format_exc())
+                        await logchanbot("tips " +str(traceback.format_exc()))
                     return
             else:
                 msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you need at least one person to tip to.'
@@ -1852,7 +1852,7 @@ class Tips(commands.Cog):
                                 int(num) * mult.get(val, 1) for num, val in re.findall('(\d+)(\w+)', time_string))
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
-                            await logchanbot(traceback.format_exc())
+                            await logchanbot("tips " +str(traceback.format_exc()))
                             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid time given. Please use this example: `tip 10 WRKZ last 12mn`'
                             await ctx.edit_original_message(content=msg)
                             return
@@ -1888,7 +1888,7 @@ class Tips(commands.Cog):
                         await ctx.edit_original_message(content=msg)
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
-                        await logchanbot(traceback.format_exc())
+                        await logchanbot("tips " +str(traceback.format_exc()))
                     return
             else:
                 msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you need at least one person to tip to.'
@@ -2203,7 +2203,7 @@ class Tips(commands.Cog):
                             traceback.print_exc(file=sys.stdout)
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
-                    await logchanbot(traceback.format_exc())
+                    await logchanbot("tips " +str(traceback.format_exc()))
                 if int(ctx.author.id) in self.bot.TX_IN_PROCESS:
                     self.bot.TX_IN_PROCESS.remove(ctx.author.id)
                 if len(passed_tips) > 0:
@@ -2443,7 +2443,7 @@ class Tips(commands.Cog):
                                                                                    ctx.author.id) if if_guild else None)  # if_guild, put extra message as who execute command
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("tips " +str(traceback.format_exc()))
         if int(id_tipper) in self.bot.TX_IN_PROCESS:
             self.bot.TX_IN_PROCESS.remove(int(id_tipper))
         if tips:
@@ -2602,11 +2602,11 @@ class Tips(commands.Cog):
                         list_receivers.append(str(member_id))
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
-                        await logchanbot(traceback.format_exc())
+                        await logchanbot("tips " +str(traceback.format_exc()))
                         print('Failed creating wallet for tip talk for userid: {}'.format(member_id))
             except Exception:
                 traceback.print_exc(file=sys.stdout)
-                await logchanbot(traceback.format_exc())
+                await logchanbot("tips " +str(traceback.format_exc()))
 
         max_allowed = 400
         try:
@@ -2695,7 +2695,7 @@ class Tips(commands.Cog):
                                                                                       ctx.author.id) if if_guild else None)  # if_guild, put extra message as who execute command
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("tips " +str(traceback.format_exc()))
 
         # remove queue from tip
         if int(id_tipper) in self.bot.TX_IN_PROCESS:
@@ -2754,7 +2754,7 @@ class Tips(commands.Cog):
                                 send_tipped_ping += 1
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
-                            await logchanbot(traceback.format_exc())
+                            await logchanbot("tips " +str(traceback.format_exc()))
                         # reset
                         list_user_mention = []
                         list_user_mention_str = ""

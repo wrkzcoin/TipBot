@@ -116,8 +116,9 @@ def openRedis():
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
-
 async def logchanbot(content: str):
+    if "Requested object not found" in content:
+        return
     try:
         webhook = DiscordWebhook(url=config.discord.webhook_url,
                                  content=f'```{disnake.utils.escape_markdown(content)}```')

@@ -42,7 +42,7 @@ class Pools(commands.Cog):
                     await conn.commit()
                     return True
         except Exception:
-            await logchanbot(traceback.format_exc())
+            await logchanbot("pools " +str(traceback.format_exc()))
         return False
 
     def hhashes(self, num) -> str:
@@ -86,7 +86,7 @@ class Pools(commands.Cog):
             print('TIMEOUT: Fetching from miningpoolstats')
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("pools " +str(traceback.format_exc()))
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)

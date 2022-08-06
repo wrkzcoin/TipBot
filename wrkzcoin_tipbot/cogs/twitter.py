@@ -79,7 +79,7 @@ class Twitter(commands.Cog):
                     if result: return result
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("twitter " +str(traceback.format_exc()))
         return None
 
     async def update_reward(self, guild_id: str, amount: float, coin_name: str, coin_decimal: int, added_by_uid: str,
@@ -120,7 +120,7 @@ class Twitter(commands.Cog):
                     if result: return result
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("twitter " +str(traceback.format_exc()))
         return None
 
     async def get_twitter_auth(self):
@@ -135,7 +135,7 @@ class Twitter(commands.Cog):
                         self.twitter_auth = json.loads(decrypt_string(result['value']))
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("twitter " +str(traceback.format_exc()))
         return None
 
     async def add_fetch_user(self, name: str, requested_by_uid: str, requested_by_name: str, result: str):
@@ -150,7 +150,7 @@ class Twitter(commands.Cog):
                     return cur.rowcount
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("twitter " +str(traceback.format_exc()))
         return 0
 
     async def add_fetch_tw(self, id_str: str, user_screen_name: str, status_link: str, text: str, json_dump: str,
@@ -176,7 +176,7 @@ class Twitter(commands.Cog):
                     return cur.rowcount
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("twitter " +str(traceback.format_exc()))
         return 0
 
     async def add_fetch_timeline(self, subscribe_to: str, response_dump: str, latest_tweet_id_str: str,
@@ -194,7 +194,7 @@ class Twitter(commands.Cog):
                     return cur.rowcount
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("twitter " +str(traceback.format_exc()))
         return 0
 
     async def get_latest_in_timeline(self, subscribe_to: str):
@@ -225,7 +225,7 @@ class Twitter(commands.Cog):
                     return cur.rowcount
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("twitter " +str(traceback.format_exc()))
         return 0
 
     async def del_guild_sub(self, guild_id: str, subscribe_to: str, subscribe_to_user_id: str, added_by_uid: str,
@@ -244,7 +244,7 @@ class Twitter(commands.Cog):
                     return cur.rowcount
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("twitter " +str(traceback.format_exc()))
         return 0
 
     async def get_list_subscribe(self, guild_id: str):
@@ -329,7 +329,7 @@ class Twitter(commands.Cog):
                     return cur.rowcount
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("twitter " +str(traceback.format_exc()))
         return 0
 
     async def get_latest_in_dm(self):
@@ -357,7 +357,7 @@ class Twitter(commands.Cog):
                     return cur.rowcount
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("twitter " +str(traceback.format_exc()))
         return 0
 
     async def twitter_linkme_add_or_regen(self, discord_user_id: str, discord_user_name: str, secret_key: str,
@@ -380,7 +380,7 @@ class Twitter(commands.Cog):
                     return cur.rowcount
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("twitter " +str(traceback.format_exc()))
         return 0
 
     async def twitter_linkme_get_user(self, discord_user_id):
@@ -396,7 +396,7 @@ class Twitter(commands.Cog):
                     if result: return result
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("twitter " +str(traceback.format_exc()))
         return None
 
     async def twitter_linkme_update_verify(self, discord_user_id: str, id_str: str, twitter_screen_name: str,
@@ -416,7 +416,7 @@ class Twitter(commands.Cog):
                     return cur.rowcount
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("twitter " +str(traceback.format_exc()))
         return None
 
     async def twitter_unlink(self, discord_user_id: str, discord_user_name: str, twitter_screen_name: str,
@@ -437,7 +437,7 @@ class Twitter(commands.Cog):
                     return cur.rowcount
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
+            await logchanbot("twitter " +str(traceback.format_exc()))
         return None
 
     async def get_user(self, user_name: str, by_id: str, by_name: str):  # screen_name
@@ -1399,7 +1399,7 @@ class Twitter(commands.Cog):
                                                                      amount_in_usd, None)
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
-                        await logchanbot(traceback.format_exc())
+                        await logchanbot("twitter " +str(traceback.format_exc()))
                     # remove queue from randtip
                     if ctx.author.id in self.bot.TX_IN_PROCESS:
                         self.bot.TX_IN_PROCESS.remove(ctx.author.id)

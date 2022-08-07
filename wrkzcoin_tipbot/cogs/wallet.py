@@ -80,6 +80,227 @@ from cogs.utils import Utils
 Account.enable_unaudited_hdwallet_features()
 
 
+async def near_get_status(url: str, timeout: int=16):
+    try:
+        data = {"jsonrpc": "2.0", "id": "1", "method": "status", "params": []}
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=data, headers={'Content-Type': 'application/json'}, timeout=timeout) as response:
+                if response.status == 200:
+                    res_data = await response.read()
+                    res_data = res_data.decode('utf-8')
+                    await session.close()
+                    decoded_data = json.loads(res_data)
+                    if decoded_data is not None:
+                        return decoded_data
+    except asyncio.TimeoutError:
+        print('TIMEOUT: near_get_status {} for {}s'.format(url, timeout))
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+async def near_check_balance(url: str, account_id: str, timeout: int=8):
+    try:
+        data = {
+            "method": "query",
+            "params": {"request_type": "view_account", "finality": "final", "account_id": account_id},
+            "id":1,
+            "jsonrpc":"2.0"
+        }
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=data, headers={'Content-Type': 'application/json'}, timeout=timeout) as response:
+                if response.status == 200:
+                    res_data = await response.read()
+                    res_data = res_data.decode('utf-8')
+                    await session.close()
+                    decoded_data = json.loads(res_data)
+                    if decoded_data is not None and 'result' in decoded_data:
+                        return decoded_data['result']
+    except asyncio.TimeoutError:
+        print('TIMEOUT: near_check_balance {} for {}s'.format(url, timeout))
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+async def near_check_balance_token(url: str, contract_id: str, account_id: str, timeout: int=8):
+    try:
+        decode_account = '{"account_id":"'+account_id+'"}'
+        data = '{"method":"query","params":{"request_type": "call_function", "account_id": "'+contract_id+'","method_name": "ft_balance_of", "args_base64": "'+str(base64.b64encode(bytes(decode_account, encoding='utf-8')).decode()).replace("\n", "")+'", "finality": "final"},"id":1,"jsonrpc":"2.0"}'
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=json.loads(data), headers={'Content-Type': 'application/json'}, timeout=timeout) as response:
+                if response.status == 200:
+                    res_data = await response.read()
+                    res_data = res_data.decode('utf-8')
+                    await session.close()
+                    decoded_data = json.loads(res_data)
+                    if decoded_data is not None and 'result' in decoded_data:
+                        ascii_result = decoded_data['result']['result']
+                        if len(ascii_result) > 0:
+                            result = "".join([chr(c) for c in ascii_result])
+                            return int(result.replace('"', '')) # atomic
+    except asyncio.TimeoutError:
+        print('TIMEOUT: near_check_balance_token {} for {}s'.format(url, timeout))
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+def tezos_check_balance(url: str, key: str):
+    try:
+        user_address = pytezos.using(shell=url, key=key)
+        return user_address.balance() # Decimal / real
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return 0.0
+
+async def tezos_check_token_balances(url: str, address: str, timeout: int=16):
+    headers = {
+        'Content-Type': 'application/json'
+    }
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url + "tokens/balances?account=" + address, headers=headers, timeout=timeout) as response:
+                json_resp = await response.json()
+                if response.status == 200 or response.status == 201:
+                    return json_resp
+                else:
+                    print("tezos_check_token_balances: return {}".format(response.status))
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+def tezos_check_token_balance(url: str, token_contract: str, address, coin_decimal: int, token_id: int = 0):
+    try:
+        token = pytezos.using(shell=url).contract(token_contract)
+        addresses = []
+        for each_address in address:
+            addresses.append({'owner': each_address, 'token_id': token_id})
+        token_balance = token.balance_of(requests=addresses, callback=None).view()
+        if token_balance:
+            result_balance = {}
+            for each in token_balance:
+                result_balance[each['request']['owner']] = int(each['balance'])
+            return result_balance # dict of address => balance in float
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return {}
+
+async def tezos_check_reveal(url: str, address: str, timeout: int=32):
+    headers = {
+        'Content-Type': 'application/json'
+    }
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url + "accounts/" + address, headers=headers, timeout=timeout) as response:
+                json_resp = await response.json()
+                if response.status == 200 or response.status == 201:
+                    if json_resp['type'] == "user" and 'revealed' in json_resp and json_resp['revealed'] is True:
+                        return True
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return False
+
+def tezos_reveal_address(url: str, key: str):
+    try:
+        user_address = pytezos.using(shell=url, key=key)
+        tx = user_address.reveal().autofill().sign().inject()
+        return tx
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+async def tezos_get_head(url: str, timeout: int=32):
+    headers = {
+        'Content-Type': 'application/json'
+    }
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url + "head/", headers=headers, timeout=timeout) as response:
+                json_resp = await response.json()
+                if response.status == 200 or response.status == 201:
+                    if 'synced' in json_resp and json_resp['synced'] is True:
+                        return json_resp
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+async def tezos_get_tx(url: str, tx_hash: str, timeout: int=8):
+    headers = {
+        'Content-Type': 'application/json'
+    }
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url + "operations/transactions/" + tx_hash, headers=headers, timeout=timeout) as response:
+                json_resp = await response.json()
+                if response.status == 200 or response.status == 201:
+                    if len(json_resp) == 1 and "status" in json_resp[0] and "level" in json_resp[0]:
+                        return json_resp[0]
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+async def xrp_get_status(url: str, timeout: int=16):
+    try:
+        data = {"method":"ledger","params":[{"ledger_index":"validated","full": False,"accounts": False,"transactions": False,"expand": False,"owner_funds": False}]}
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=data, headers={'Content-Type': 'application/json'}, timeout=timeout) as response:
+                if response.status == 200:
+                    res_data = await response.read()
+                    res_data = res_data.decode('utf-8')
+                    await session.close()
+                    decoded_data = json.loads(res_data)
+                    if decoded_data is not None:
+                        return decoded_data
+    except asyncio.TimeoutError:
+        print('TIMEOUT: xrp_get_status {} for {}s'.format(url, timeout))
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+async def xrp_get_latest_transactions(url: str, address: str):
+    async_client = AsyncJsonRpcClient(url)
+    try:
+        list_tx = await get_account_payment_transactions(address, async_client)
+        return list_tx
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return []
+
+async def xrp_get_account_info(url: str, address: str, timeout=32):
+    try:
+        data = {"method": "account_info", "params": [{"account": address}]}
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=data, headers={'Content-Type': 'application/json'}, timeout=timeout) as response:
+                if response.status == 200:
+                    res_data = await response.read()
+                    res_data = res_data.decode('utf-8')
+                    await session.close()
+                    decoded_data = json.loads(res_data)
+                    if decoded_data is not None:
+                        return decoded_data['result']['account_data']['Balance']
+    except asyncio.TimeoutError:
+        print('TIMEOUT: xrp_get_account_info {} for {}s'.format(url, timeout))
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+async def xrp_get_account_lines(url: str, address: str, timeout=32):
+    try:
+        data = {"method": "account_lines", "params": [{"account": address}]}
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=data, headers={'Content-Type': 'application/json'}, timeout=timeout) as response:
+                if response.status == 200:
+                    res_data = await response.read()
+                    res_data = res_data.decode('utf-8')
+                    await session.close()
+                    decoded_data = json.loads(res_data)
+                    if decoded_data is not None:
+                        return decoded_data['result']['lines']
+    except asyncio.TimeoutError:
+        print('TIMEOUT: xrp_get_account_info {} for {}s'.format(url, timeout))
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+
 class RPCException(Exception):
     def __init__(self, message):
         super(RPCException, self).__init__(message)
@@ -346,29 +567,6 @@ class WalletAPI(commands.Cog):
             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
             key = decrypt_string(getattr(getattr(self.bot.coin_list, "XTZ"), "walletkey"))
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-            def tezos_check_balance(url: str, key: str):
-                try:
-                    user_address = pytezos.using(shell=url, key=key)
-                    return user_address.balance() # Decimal / real
-                except Exception:
-                    traceback.print_exc(file=sys.stdout)
-                return 0.0
-
-            def tezos_check_token_balance(url: str, token_contract: str, address, coin_decimal: int, token_id: int = 0):
-                try:
-                    token = pytezos.using(shell=url).contract(token_contract)
-                    addresses = []
-                    for each_address in address:
-                        addresses.append({'owner': each_address, 'token_id': token_id})
-                    token_balance = token.balance_of(requests=addresses, callback=None).view()
-                    if token_balance:
-                        result_balance = {}
-                        for each in token_balance:
-                            result_balance[each['request']['owner']] = int(each['balance'])
-                        return result_balance # dict of address => balance in decimal. 
-                except Exception:
-                    traceback.print_exc(file=sys.stdout)
-                return None
             if coin_name == "XTZ":
                 check_balance = functools.partial(tezos_check_balance, self.bot.erc_node_list['XTZ'], key)
                 balance = await self.bot.loop.run_in_executor(None, check_balance)
@@ -379,7 +577,7 @@ class WalletAPI(commands.Cog):
                 get_token_balances = functools.partial(tezos_check_token_balance, self.bot.erc_node_list['XTZ'], contract, [main_address], coin_decimal, int(token_id))
                 bot_run_get_token_balances = await self.bot.loop.run_in_executor(None, get_token_balances)
                 if bot_run_get_token_balances is not None:
-                    balance = bot_run_get_token_balances[main_address]
+                    balance = bot_run_get_token_balances[main_address] / 10 ** coin_decimal
         elif type_coin == "HNT":
             try:
                 main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
@@ -406,6 +604,29 @@ class WalletAPI(commands.Cog):
                                 balance = json_resp['result']['balance'] / 10 ** coin_decimal
             except Exception:
                 traceback.print_exc(file=sys.stdout)
+        elif type_coin == "NEAR":
+            main_address = getattr(getattr(self.bot.coin_list, "NEAR"), "MainAddress")
+            token_contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+            coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+            if coin_name == "NEAR":
+                get_balance = await near_check_balance(self.bot.erc_node_list['NEAR'], main_address, 8)
+                balance = int(get_balance['amount']) / 10 ** coin_decimal
+            else:
+                get_balance = await near_check_balance_token(self.bot.erc_node_list['NEAR'], token_contract, main_address, 8)
+                balance = get_balance / 10 ** coin_decimal
+        elif type_coin == "XRP":
+            main_address = getattr(getattr(self.bot.coin_list, "XRP"), "MainAddress")
+            coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+            if coin_name == "XRP":
+                balance = await xrp_get_account_info(self.bot.erc_node_list['XRP'], main_address)
+                balance = int(balance) / 10 ** coin_decimal
+            else:
+                balance = await xrp_get_account_lines(self.bot.erc_node_list['XRP'], main_address)
+                if len(balance) > 0:
+                    for each in balance:
+                        if each['currency'] + "XRP" == coin_name:
+                            balance = float(each['balance']) / 10 ** coin_decimal
+                            break
         return balance
 
     def get_block_height(self, type_coin: str, coin: str, net_name: str = None):
@@ -6487,33 +6708,6 @@ class Wallet(commands.Cog):
     async def update_balance_xrp(self):
         time_lap = 5  # seconds
 
-        async def xrp_get_status(url: str, timeout: int=16):
-            try:
-                data = {"method":"ledger","params":[{"ledger_index":"validated","full": False,"accounts": False,"transactions": False,"expand": False,"owner_funds": False}]}
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(url, json=data, headers={'Content-Type': 'application/json'}, timeout=timeout) as response:
-                        if response.status == 200:
-                            res_data = await response.read()
-                            res_data = res_data.decode('utf-8')
-                            await session.close()
-                            decoded_data = json.loads(res_data)
-                            if decoded_data is not None:
-                                return decoded_data
-            except asyncio.TimeoutError:
-                print('TIMEOUT: xrp_get_status {} for {}s'.format(url, timeout))
-            except Exception as e:
-                traceback.print_exc(file=sys.stdout)
-            return None
-
-        async def xrp_get_latest_transactions(url: str, address: str):
-            async_client = AsyncJsonRpcClient(url)
-            try:
-                list_tx = await get_account_payment_transactions(address, async_client)
-                return list_tx
-            except Exception as e:
-                traceback.print_exc(file=sys.stdout)
-            return []
-
         await self.bot.wait_until_ready()
         # Check if task recently run @bot_task_logs
         task_name = "update_balance_xrp"
@@ -6639,69 +6833,6 @@ class Wallet(commands.Cog):
     @tasks.loop(seconds=60.0)
     async def update_balance_near(self):
         time_lap = 5  # seconds
-
-        async def near_get_status(url: str, timeout: int=16):
-            try:
-                data = {"jsonrpc": "2.0", "id": "1", "method": "status", "params": []}
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(url, json=data, headers={'Content-Type': 'application/json'}, timeout=timeout) as response:
-                        if response.status == 200:
-                            res_data = await response.read()
-                            res_data = res_data.decode('utf-8')
-                            await session.close()
-                            decoded_data = json.loads(res_data)
-                            if decoded_data is not None:
-                                return decoded_data
-            except asyncio.TimeoutError:
-                print('TIMEOUT: near_get_status {} for {}s'.format(url, timeout))
-            except Exception as e:
-                traceback.print_exc(file=sys.stdout)
-            return None
-
-        async def near_check_balance(url: str, account_id: str, timeout: int=8):
-            try:
-                data = {
-                    "method": "query",
-                    "params": {"request_type": "view_account", "finality": "final", "account_id": account_id},
-                    "id":1,
-                    "jsonrpc":"2.0"
-                }
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(url, json=data, headers={'Content-Type': 'application/json'}, timeout=timeout) as response:
-                        if response.status == 200:
-                            res_data = await response.read()
-                            res_data = res_data.decode('utf-8')
-                            await session.close()
-                            decoded_data = json.loads(res_data)
-                            if decoded_data is not None and 'result' in decoded_data:
-                                return decoded_data['result']
-            except asyncio.TimeoutError:
-                print('TIMEOUT: near_check_balance {} for {}s'.format(url, timeout))
-            except Exception as e:
-                traceback.print_exc(file=sys.stdout)
-            return None
-
-        async def near_check_balance_token(url: str, contract_id: str, account_id: str, timeout: int=8):
-            try:
-                decode_account = '{"account_id":"'+account_id+'"}'
-                data = '{"method":"query","params":{"request_type": "call_function", "account_id": "'+contract_id+'","method_name": "ft_balance_of", "args_base64": "'+str(base64.b64encode(bytes(decode_account, encoding='utf-8')).decode()).replace("\n", "")+'", "finality": "final"},"id":1,"jsonrpc":"2.0"}'
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(url, json=json.loads(data), headers={'Content-Type': 'application/json'}, timeout=timeout) as response:
-                        if response.status == 200:
-                            res_data = await response.read()
-                            res_data = res_data.decode('utf-8')
-                            await session.close()
-                            decoded_data = json.loads(res_data)
-                            if decoded_data is not None and 'result' in decoded_data:
-                                ascii_result = decoded_data['result']['result']
-                                if len(ascii_result) > 0:
-                                    result = "".join([chr(c) for c in ascii_result])
-                                    return int(result.replace('"', '')) # atomic
-            except asyncio.TimeoutError:
-                print('TIMEOUT: near_check_balance_token {} for {}s'.format(url, timeout))
-            except Exception as e:
-                traceback.print_exc(file=sys.stdout)
-            return None
 
         await self.bot.wait_until_ready()
         # Check if task recently run @bot_task_logs
@@ -6925,85 +7056,6 @@ class Wallet(commands.Cog):
     @tasks.loop(seconds=60.0)
     async def update_balance_tezos(self):
         time_lap = 5  # seconds
-
-        def tezos_check_balance(url: str, key: str):
-            try:
-                user_address = pytezos.using(shell=url, key=key)
-                return user_address.balance() # Decimal / real
-            except Exception:
-                traceback.print_exc(file=sys.stdout)
-            return 0.0
-
-        async def tezos_check_token_balances(url: str, address: str, timeout: int=16):
-            headers = {
-                'Content-Type': 'application/json'
-            }
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(url + "tokens/balances?account=" + address, headers=headers, timeout=timeout) as response:
-                        json_resp = await response.json()
-                        if response.status == 200 or response.status == 201:
-                            return json_resp
-                        else:
-                            print("tezos_check_token_balances: return {}".format(response.status))
-            except Exception:
-                traceback.print_exc(file=sys.stdout)
-            return None
-
-        def tezos_check_token_balance(url: str, token_contract: str, address, coin_decimal: int, token_id: int = 0):
-            try:
-                token = pytezos.using(shell=url).contract(token_contract)
-                addresses = []
-                for each_address in address:
-                    addresses.append({'owner': each_address, 'token_id': token_id})
-                token_balance = token.balance_of(requests=addresses, callback=None).view()
-                if token_balance:
-                    result_balance = {}
-                    for each in token_balance:
-                        result_balance[each['request']['owner']] = int(each['balance'])
-                    return result_balance # dict of address => balance in float
-            except Exception:
-                traceback.print_exc(file=sys.stdout)
-            return {}
-
-        async def tezos_check_reveal(url: str, address: str, timeout: int=32):
-            headers = {
-                'Content-Type': 'application/json'
-            }
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(url + "accounts/" + address, headers=headers, timeout=timeout) as response:
-                        json_resp = await response.json()
-                        if response.status == 200 or response.status == 201:
-                            if json_resp['type'] == "user" and 'revealed' in json_resp and json_resp['revealed'] is True:
-                                return True
-            except Exception:
-                traceback.print_exc(file=sys.stdout)
-            return False
-
-        def tezos_reveal_address(url: str, key: str):
-            try:
-                user_address = pytezos.using(shell=url, key=key)
-                tx = user_address.reveal().autofill().sign().inject()
-                return tx
-            except Exception:
-                traceback.print_exc(file=sys.stdout)
-            return None
-
-        async def tezos_get_head(url: str, timeout: int=32):
-            headers = {
-                'Content-Type': 'application/json'
-            }
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(url + "head/", headers=headers, timeout=timeout) as response:
-                        json_resp = await response.json()
-                        if response.status == 200 or response.status == 201:
-                            if 'synced' in json_resp and json_resp['synced'] is True:
-                                return json_resp
-            except Exception:
-                traceback.print_exc(file=sys.stdout)
-            return None
 
         await self.bot.wait_until_ready()
         # Check if task recently run @bot_task_logs
@@ -7286,21 +7338,6 @@ class Wallet(commands.Cog):
     @tasks.loop(seconds=60.0)
     async def check_confirming_tezos(self):
         time_lap = 5  # seconds
-
-        async def tezos_get_tx(url: str, tx_hash: str, timeout: int=8):
-            headers = {
-                'Content-Type': 'application/json'
-            }
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(url + "operations/transactions/" + tx_hash, headers=headers, timeout=timeout) as response:
-                        json_resp = await response.json()
-                        if response.status == 200 or response.status == 201:
-                            if len(json_resp) == 1 and "status" in json_resp[0] and "level" in json_resp[0]:
-                                return json_resp[0]
-            except Exception:
-                traceback.print_exc(file=sys.stdout)
-            return None
 
         await self.bot.wait_until_ready()
         # Check if task recently run @bot_task_logs

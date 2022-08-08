@@ -67,6 +67,12 @@ from xrpl.asyncio.transaction import safe_sign_transaction, send_reliable_submis
 from xrpl.asyncio.ledger import get_latest_validated_ledger_sequence
 from xrpl.asyncio.account import get_next_valid_seq_number
 
+from pyzil.crypto import zilkey
+from pyzil.zilliqa import chain as zil_chain
+from pyzil.zilliqa.units import Zil, Qa
+from pyzil.account import Account as Zil_Account
+from pyzil.contract import Contract as zil_contract
+
 import cn_addressvalidation
 import redis_utils
 import store
@@ -297,6 +303,71 @@ async def xrp_get_account_lines(url: str, address: str, timeout=32):
     except asyncio.TimeoutError:
         print('TIMEOUT: xrp_get_account_info {} for {}s'.format(url, timeout))
     except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+async def zil_get_status(url: str, timeout=32):
+    try:
+        data = data = {"id": "1", "jsonrpc": "2.0", "method": "GetBlockchainInfo", "params": [""]}
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=data, headers={'Content-Type': 'application/json'}, timeout=timeout) as response:
+                if response.status == 200:
+                    res_data = await response.read()
+                    res_data = res_data.decode('utf-8')
+                    await session.close()
+                    decoded_data = json.loads(res_data)
+                    if decoded_data is not None:
+                        return decoded_data
+    except asyncio.TimeoutError:
+        print('TIMEOUT: zil_get_status {} for {}s'.format(url, timeout))
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+def zil_check_balance(key: str):
+    # No node needed
+    try:
+        zil_chain.set_active_chain(zil_chain.MainNet)
+        account = Zil_Account(private_key=key)
+        balance = account.get_balance() # real already
+        return balance
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return 0.0
+
+async def zil_check_token_balance(url: str, contract: str, address_0x: str, timeout: int=32):
+    try:
+        data = {"id": "1", "jsonrpc": "2.0", "method": "GetSmartContractSubState", "params": [contract,"balances", [address_0x]]}
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=data, headers={'Content-Type': 'application/json'}, timeout=timeout) as response:
+                if response.status == 200:
+                    res_data = await response.read()
+                    res_data = res_data.decode('utf-8')
+                    await session.close()
+                    decoded_data = json.loads(res_data)
+                    if (decoded_data is not None) and ('result' in decoded_data) \
+                        and (decoded_data['result'] is not None) and ('balances' in decoded_data['result']) \
+                        and (decoded_data['result']['balances'] is not None) \
+                        and (address_0x in decoded_data['result']['balances']):
+                        return decoded_data['result']['balances'][address_0x] # atomic
+    except asyncio.TimeoutError:
+        print('TIMEOUT: zil_check_token_balance {} for {}s'.format(url, timeout))
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return 0
+
+async def zil_get_tx(url: str, tx_hash: str, timeout: int=16):
+    headers = {
+        'Content-Type': 'application/json'
+    }
+    data = {"id": "1", "jsonrpc": "2.0", "method": "GetTransaction", "params": [tx_hash]}
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=data, headers=headers, timeout=timeout) as response:
+                json_resp = await response.json()
+                if json_resp['result']['receipt']['success'] == True:
+                    return json_resp
+    except Exception:
         traceback.print_exc(file=sys.stdout)
     return None
 
@@ -712,7 +783,13 @@ class WalletAPI(commands.Cog):
             balance_address = None
             main_address = None
 
-            if type_coin.upper() == "XRP" and coin_name != netname.upper():
+            if type_coin.upper() == "ZIL" and coin_name != netname.upper():
+                user_id_erc20 = str(user_id) + "_" + type_coin.upper() + "_TOKEN"
+                type_coin_user = "ZIL-TOKEN"
+            elif type_coin.upper() == "ZIL" and coin_name == netname.upper():
+                user_id_erc20 = str(user_id) + "_" + coin_name.upper()
+                type_coin_user = coin_name
+            elif type_coin.upper() == "XRP" and coin_name != netname.upper():
                 user_id_erc20 = str(user_id) + "_" + type_coin.upper() + "_TOKEN"
                 type_coin_user = "XRP-TOKEN"
             elif type_coin.upper() == "XRP" and coin_name == netname.upper():
@@ -744,7 +821,10 @@ class WalletAPI(commands.Cog):
                 user_id_erc20 = str(user_id) + "_" + coin_name
                 type_coin_user = "TRX"
 
-            if type_coin.upper() == "XRP":
+            if type_coin.upper() == "ZIL":
+                account = Zil_Account.generate()
+                balance_address = {'address': account.bech32_address, 'key': account.zil_key._bytes_private.hex()}
+            elif type_coin.upper() == "XRP":
                 get_id = await get_max_id_xrp()
                 id_num = 100000000
                 if get_id is not None:
@@ -886,6 +966,16 @@ class WalletAPI(commands.Cog):
                             chat_id, is_discord_guild))
                             await conn.commit()
                             return {'balance_wallet_address': w['address']}
+                        elif type_coin == "ZIL":
+                            sql = """ INSERT INTO `zil_user` (`user_id`, `user_id_asset`, `type`, `balance_wallet_address`, `address_ts`, 
+                                      `key`, `called_Update`, `user_server`, `chat_id`, `is_discord_guild`) 
+                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                            await cur.execute(sql, (
+                            str(user_id), user_id_erc20, type_coin_user, balance_address['address'], int(time.time()),
+                            encrypt_string(balance_address['key']), int(time.time()), user_server,
+                            chat_id, is_discord_guild))
+                            await conn.commit()
+                            return {'balance_wallet_address': balance_address['address']}
                         elif type_coin == "XTZ":
                             sql = """ INSERT INTO `tezos_user` (`user_id`, `user_id_fa20`, `type`, `balance_wallet_address`, `address_ts`, 
                                       `seed`, `key`, `called_Update`, `user_server`, `chat_id`, `is_discord_guild`) 
@@ -1014,7 +1104,13 @@ class WalletAPI(commands.Cog):
         # netname null or None, xDai, MATIC, TRX, BSC
         user_server = user_server.upper()
         coin_name = coin.upper()
-        if type_coin.upper() == "XRP" and coin_name != netname.upper():
+        if type_coin.upper() == "ZIL" and coin_name != netname.upper():
+            user_id_erc20 = str(user_id) + "_" + type_coin.upper() + "_TOKEN"
+            type_coin_user = "ZIL-TOKEN"
+        elif type_coin.upper() == "ZIL" and coin_name == netname.upper():
+            user_id_erc20 = str(user_id) + "_" + coin_name.upper()
+            type_coin_user = coin_name
+        elif type_coin.upper() == "XRP" and coin_name != netname.upper():
             user_id_erc20 = str(user_id) + "_" + type_coin.upper() + "_TOKEN"
             type_coin_user = "XRP-TOKEN"
         elif type_coin.upper() == "XRP" and coin_name == netname.upper():
@@ -1054,6 +1150,12 @@ class WalletAPI(commands.Cog):
                     elif netname and netname in ["TRX"]:
                         sql = """ SELECT * FROM `trc20_user` WHERE `user_id`=%s 
                                   AND `user_id_trc20`=%s AND `user_server`=%s LIMIT 1 """
+                        await cur.execute(sql, (str(user_id), user_id_erc20, user_server))
+                        result = await cur.fetchone()
+                        if result: return result
+                    elif type_coin.upper() == "ZIL":
+                        sql = """ SELECT * FROM `zil_user` WHERE `user_id`=%s 
+                                  AND `user_id_asset`=%s AND `user_server`=%s LIMIT 1 """
                         await cur.execute(sql, (str(user_id), user_id_erc20, user_server))
                         result = await cur.fetchone()
                         if result: return result
@@ -2671,6 +2773,164 @@ class WalletAPI(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+    def zil_transfer_native(self, to_address: str, from_key: str, amount: float, timeout: int=300):
+        try:
+            zil_chain.set_active_chain(zil_chain.MainNet)
+            account = Zil_Account(private_key=from_key)
+            balance = account.get_balance()
+            min_gas = Qa(zil_chain.active_chain.api.GetMinimumGasPrice())
+            txn_info = account.transfer(to_addr=to_address, zils=amount, gas_price=min_gas, gas_limit=50) # real amount in zils
+            txn_id = txn_info["TranID"]
+            txn_details = account.wait_txn_confirm(txn_id, timeout=timeout)
+            if txn_details and txn_details["receipt"]["success"]:
+                return txn_details
+            else:
+                print("Txn failed: {}".format(txn_id))
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
+    def zil_transfer_token(self, contract_addr: str, to_address: str, from_key: str, atomic_amount: int):
+        try:
+            zil_chain.set_active_chain(zil_chain.MainNet)
+            account = Zil_Account(private_key=from_key)
+            contract = zil_contract.load_from_address(contract_addr)
+            contract.account = account
+            to_account = Zil_Account(address=to_address)
+            resp = contract.call(method="Transfer", params=[zil_contract.value_dict("to", "ByStr20", to_account.address0x), zil_contract.value_dict("amount", "Uint128", str(atomic_amount))])
+            return resp
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
+    async def zil_insert_mv_balance(self, token_name: str, contract: str, user_id: str, balance_wallet_address: str, to_main_address: str, real_amount: float, real_deposit_fee: float, token_decimal: int, txn: str, content: str, time_insert: int, user_server: str, network: str):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ INSERT IGNORE INTO `zil_move_deposit` (`token_name`, `contract`, `user_id`, `balance_wallet_address`, 
+                              `to_main_address`, `real_amount`, `real_deposit_fee`, `token_decimal`, `txn`, `content`, `time_insert`, 
+                              `user_server`, `network`) 
+                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                    await cur.execute(sql, (token_name, contract, user_id, balance_wallet_address, to_main_address, real_amount, real_deposit_fee, token_decimal, txn, content, time_insert, user_server, network))
+                    await conn.commit()
+                    return True
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
+    async def zil_get_user_by_address(self, address: str):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * 
+                              FROM `zil_user` 
+                              WHERE `balance_wallet_address`=%s LIMIT 1 """
+                    await cur.execute(sql, address)
+                    result = await cur.fetchone()
+                    if result:
+                        return result
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
+    async def zil_update_mv_gas(self, address: str, ts: int):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ UPDATE `zil_user` 
+                              SET `last_moved_gas`=%s 
+                              WHERE `balance_wallet_address`=%s LIMIT 1 """
+                    await cur.execute(sql, (ts, address))
+                    await conn.commit()
+                    return True
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
+    async def zil_get_mv_deposit_list(self, status: str="PENDING"):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * 
+                              FROM `zil_move_deposit` 
+                              WHERE `status`=%s """
+                    await cur.execute(sql, status)
+                    result = await cur.fetchall()
+                    if result:
+                        return result
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return []
+
+    async def zil_update_mv_deposit_pending(self, txn: str, blockNumber: int, confirmed_depth: int):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ UPDATE `zil_move_deposit` 
+                              SET `blockNumber`=%s, `status`=%s, `confirmed_depth`=%s 
+                              WHERE `status`=%s AND `txn`=%s LIMIT 1 """
+                    await cur.execute(sql, (blockNumber, "CONFIRMED", confirmed_depth, "PENDING", txn))
+                    await conn.commit()
+                    return True
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
+    async def send_external_zil(self, key: str, user_from: str, amount: float, to_address: str, coin: str,
+                                coin_decimal: int, withdraw_fee: float, network: str, user_server: str = 'DISCORD'):
+        try:
+            transaction = functools.partial(self.zil_transfer_native, to_address, key, amount, 600)
+            send_tx = await self.bot.loop.run_in_executor(None, transaction)
+            if send_tx:
+                contents = None
+                try:
+                    contents = json.dumps(send_tx)
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+                await self.openConnection()
+                async with self.pool.acquire() as conn:
+                    async with conn.cursor() as cur:
+                        sql = """ INSERT INTO `zil_external_tx` (`token_name`, `contract`, `user_id`, `real_amount`, `real_external_fee`, `token_decimal`, `to_address`, `date`, `txn`, `contents`, `user_server`, `network`) 
+                                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                        await cur.execute(sql, (
+                        coin.upper(), None, user_from, amount, withdraw_fee, coin_decimal, to_address,
+                        int(time.time()), send_tx['ID'], contents, user_server, network))
+                        await conn.commit()
+                        return send_tx['ID']
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
+    async def send_external_zil_asset(self, contract: str, key: str, user_from: str, atomic_amount: int, to_address: str, coin: str,
+                                      coin_decimal: int, withdraw_fee: float, network: str, user_server: str = 'DISCORD'):
+        try:
+            transaction = functools.partial(self.zil_transfer_token, contract, to_address, key, atomic_amount)
+            send_tx = await self.bot.loop.run_in_executor(None, transaction)
+            if send_tx:
+                contents = None
+                try:
+                    contents = json.dumps(send_tx)
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+                await self.openConnection()
+                async with self.pool.acquire() as conn:
+                    async with conn.cursor() as cur:
+                        sql = """ INSERT INTO `zil_external_tx` (`token_name`, `contract`, `user_id`, `real_amount`, `real_external_fee`, `token_decimal`, `to_address`, `date`, `txn`, `contents`, `user_server`, `network`) 
+                                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                        await cur.execute(sql, (
+                        coin.upper(), contract, user_from, float(atomic_amount / 10 ** coin_decimal), withdraw_fee, coin_decimal, to_address,
+                        int(time.time()), send_tx['ID'], contents, user_server, network))
+                        await conn.commit()
+                        return send_tx['ID']
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
 class Wallet(commands.Cog):
     def __init__(self, bot):
         self.enable_logchan = True
@@ -2724,6 +2984,11 @@ class Wallet(commands.Cog):
         self.check_confirming_tezos.start()
         self.notify_new_confirmed_tezos.start()
 
+        # ZIL
+        self.update_balance_zil.start()
+        self.check_confirming_zil.start()
+        self.notify_new_confirmed_zil.start()
+
         # NEAR
         self.update_balance_near.start()
         self.check_confirming_near.start()
@@ -2758,7 +3023,6 @@ class Wallet(commands.Cog):
         self.pool = None
         self.ttlcache = TTLCache(maxsize=1024, ttl=60.0)
         self.mv_xtz_cache = TTLCache(maxsize=1024, ttl=30.0)
-
 
     async def openConnection(self):
         try:
@@ -2880,6 +3144,18 @@ class Wallet(commands.Cog):
                         result = await cur.fetchone()
                     elif coin_family == "TRC-20":
                         sql = """ SELECT * FROM `trc20_user` WHERE `balance_wallet_address`=%s LIMIT 1 """
+                        await cur.execute(sql, (address))
+                        result = await cur.fetchone()
+                    elif coin_family == "XTZ":
+                        sql = """ SELECT * FROM `tezos_user` WHERE `balance_wallet_address`=%s LIMIT 1 """
+                        await cur.execute(sql, (address))
+                        result = await cur.fetchone()
+                    elif coin_family == "ZIL":
+                        sql = """ SELECT * FROM `zil_user` WHERE `balance_wallet_address`=%s LIMIT 1 """
+                        await cur.execute(sql, (address))
+                        result = await cur.fetchone()
+                    elif coin_family == "NEAR":
+                        sql = """ SELECT * FROM `near_user` WHERE `balance_wallet_address`=%s LIMIT 1 """
                         await cur.execute(sql, (address))
                         result = await cur.fetchone()
                     return result
@@ -3164,6 +3440,28 @@ class Wallet(commands.Cog):
                         # in case deposit fee -real_deposit_fee
                         sql = """ SELECT SUM(real_amount-real_deposit_fee) AS incoming_tx 
                                   FROM `tezos_move_deposit` 
+                                  WHERE `user_id`=%s AND `token_name`=%s AND `confirmed_depth`> %s AND `user_server`=%s AND `status`=%s """
+                        await cur.execute(sql, (user_id, token_name, 0, user_server, "CONFIRMED")) # confirmed_depth > 0
+                        result = await cur.fetchone()
+                        if result:
+                            incoming_tx = result['incoming_tx']
+                        else:
+                            incoming_tx = 0
+                    elif coin_family == "ZIL":
+                        # When sending tx out, (negative)
+                        sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense 
+                                  FROM `zil_external_tx` 
+                                  WHERE `user_id`=%s AND `token_name`=%s AND `user_server`=%s AND `crediting`=%s """
+                        await cur.execute(sql, (user_id, token_name, user_server, "YES"))
+                        result = await cur.fetchone()
+                        if result:
+                            tx_expense = result['tx_expense']
+                        else:
+                            tx_expense = 0
+
+                        # in case deposit fee -real_deposit_fee
+                        sql = """ SELECT SUM(real_amount-real_deposit_fee) AS incoming_tx 
+                                  FROM `zil_move_deposit` 
                                   WHERE `user_id`=%s AND `token_name`=%s AND `confirmed_depth`> %s AND `user_server`=%s AND `status`=%s """
                         await cur.execute(sql, (user_id, token_name, 0, user_server, "CONFIRMED")) # confirmed_depth > 0
                         result = await cur.fetchone()
@@ -7054,6 +7352,212 @@ class Wallet(commands.Cog):
 
 
     @tasks.loop(seconds=60.0)
+    async def notify_new_confirmed_zil(self):
+        time_lap = 20  # seconds
+        await self.bot.wait_until_ready()
+        # Check if task recently run @bot_task_logs
+        task_name = "notify_new_confirmed_zil"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
+        await asyncio.sleep(time_lap)
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `zil_move_deposit` 
+                              WHERE `notified_confirmation`=%s 
+                              AND `failed_notification`=%s AND `user_server`=%s AND `blockNumber` IS NOT NULL """
+                    await cur.execute(sql, ("NO", "NO", SERVER_BOT))
+                    result = await cur.fetchall()
+                    if result and len(result) > 0:
+                        for eachTx in result:
+                            if eachTx['user_id']:
+                                if not eachTx['user_id'].isdigit():
+                                    continue
+                                try:
+                                    key = "notify_new_tx_{}_{}_{}".format(eachTx['token_name'], eachTx['user_id'],
+                                                                          eachTx['txn'])
+                                    if self.ttlcache[key] == key:
+                                        continue
+                                    else:
+                                        self.ttlcache[key] = key
+                                except Exception:
+                                    pass
+                                member = self.bot.get_user(int(eachTx['user_id']))
+                                if member is not None:
+                                    coin_decimal = getattr(getattr(self.bot.coin_list, eachTx['token_name']), "decimal")
+                                    msg = "You got a new deposit (it could take a few minutes to credit): ```" + "Coin: {}\nAmount: {}".format(eachTx['token_name'], num_format_coin(eachTx['real_amount'], eachTx['token_name'], coin_decimal, False)) + "```"
+                                    try:
+                                        await member.send(msg)
+                                        sql = """ UPDATE `zil_move_deposit` SET `notified_confirmation`=%s, `time_notified`=%s WHERE `txn`=%s LIMIT 1 """
+                                        await cur.execute(sql, ("YES", int(time.time()), eachTx['txn']))
+                                        await conn.commit()
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
+                                        sql = """ UPDATE `zil_move_deposit` SET `notified_confirmation`=%s, `failed_notification`=%s WHERE `txn`=%s LIMIT 1 """
+                                        await cur.execute(sql, ("NO", "YES", eachTx['txn']))
+                                        await conn.commit()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
+        await asyncio.sleep(time_lap)
+
+    @tasks.loop(seconds=60.0)
+    async def check_confirming_zil(self):
+        time_lap = 5  # seconds
+
+        await self.bot.wait_until_ready()
+        # Check if task recently run @bot_task_logs
+        task_name = "check_confirming_zil"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
+        await asyncio.sleep(time_lap)
+        coin_name = "ZIL"
+        get_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+        net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+        type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+        try:
+            pending_list = await self.wallet_api.zil_get_mv_deposit_list("PENDING")
+            if len(pending_list) > 0:
+                for each_tx in pending_list:
+                    try:
+                        check_tx = await zil_get_tx(self.bot.erc_node_list['ZIL'], each_tx['txn'], 12)
+                        if check_tx is not None:
+                            height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                            if height and height - int(check_tx['result']['receipt']['epoch_num']) > get_confirm_depth:
+                                number_conf = height - int(check_tx['result']['receipt']['epoch_num'])
+                                await self.wallet_api.zil_update_mv_deposit_pending(each_tx['txn'], int(check_tx['result']['receipt']['epoch_num']), number_conf)
+                    except Exception:
+                        traceback.print_exc(file=sys.stdout)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
+        await asyncio.sleep(time_lap)
+
+
+    @tasks.loop(seconds=60.0)
+    async def update_balance_zil(self):
+        time_lap = 5  # seconds
+
+        await self.bot.wait_until_ready()
+        # Check if task recently run @bot_task_logs
+        task_name = "update_balance_zil"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
+        await asyncio.sleep(time_lap)
+        try:
+            zil_contracts = await self.get_all_contracts("ZIL", False)
+            # Check native
+            coin_name = "ZIL"
+            get_status = await zil_get_status(self.bot.erc_node_list['ZIL'], 16)
+            if get_status:
+                height = int(get_status['result']['NumTxBlocks'])
+                redis_utils.redis_conn.set(f'{config.redis.prefix + config.redis.daemon_height}{coin_name}',
+                                           str(height))
+                if len(zil_contracts) > 0:
+                    for each_coin in zil_contracts:
+                        name = each_coin['coin_name']
+                        try:
+                            redis_utils.redis_conn.set(f'{config.redis.prefix + config.redis.daemon_height}{name}',
+                                                       str(height))
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+            real_min_deposit = getattr(getattr(self.bot.coin_list, coin_name), "real_min_deposit")
+            real_deposit_fee = getattr(getattr(self.bot.coin_list, coin_name), "real_deposit_fee")
+            list_user_addresses = await store.sql_get_all_zil_user(coin_name, 7200) # last 2hrs
+            list_recent_mv = await store.sql_recent_zil_move_deposit(1200) # 20mn
+            main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
+            coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+            if len(list_user_addresses) > 0:
+                if getattr(getattr(self.bot.coin_list, coin_name), "enable_deposit") != 0:
+                    for each_address in list_user_addresses:
+                        if each_address['balance_wallet_address'] in list_recent_mv:
+                            await asyncio.sleep(5.0)
+                            continue
+                        # check balance, skip if below minimum
+                        check_balance = functools.partial(zil_check_balance, decrypt_string(each_address['key']))
+                        balance = await self.bot.loop.run_in_executor(None, check_balance)
+                        if balance >= real_min_deposit:
+                            amount = float(balance) - real_deposit_fee
+                            transaction = functools.partial(self.wallet_api.zil_transfer_native, main_address, decrypt_string(each_address['key']),  amount, 600)
+                            tx = await self.bot.loop.run_in_executor(None, transaction)
+                            if tx:
+                                contents = None
+                                try:
+                                    contents = json.dumps(tx)
+                                except Exception:
+                                    traceback.print_exc(file=sys.stdout)
+                                added = await self.wallet_api.zil_insert_mv_balance(coin_name, None, each_address['user_id'], each_address['balance_wallet_address'], main_address, float(balance), real_deposit_fee, coin_decimal, tx['ID'], contents, int(time.time()), SERVER_BOT, "ZIL")
+                                await asyncio.sleep(5.0)
+            # Check token
+            list_user_addresses = await store.sql_get_all_zil_user("ZIL-TOKEN", 7200) # last 2hrs
+            if len(zil_contracts) > 0 and len(list_user_addresses) > 0:
+                main_address = getattr(getattr(self.bot.coin_list, "ZIL"), "MainAddress")
+                for each_contract in zil_contracts:
+                    try:
+                        token_addresses = []
+                        for each_user in list_user_addresses:
+                            if each_user['type'] == "ZIL":
+                                continue
+                            else:
+                                token_addresses.append(each_user['balance_wallet_address'])
+                        if len(token_addresses) > 0:
+                            token_contract = getattr(getattr(self.bot.coin_list, each_contract['coin_name']), "contract")
+                            coin_decimal = getattr(getattr(self.bot.coin_list, each_contract['coin_name']), "decimal")
+                            real_min_deposit = getattr(getattr(self.bot.coin_list, each_contract['coin_name']), "real_min_deposit")
+                            real_deposit_fee = getattr(getattr(self.bot.coin_list, each_contract['coin_name']), "real_deposit_fee")
+                            min_gas_tx = getattr(getattr(self.bot.coin_list, each_contract['coin_name']), "min_gas_tx")
+                            move_gas_amount = getattr(getattr(self.bot.coin_list, each_contract['coin_name']), "move_gas_amount")
+                            for each_addr in token_addresses:
+                                account = Zil_Account(address=each_addr)
+                                get_token_balance = await zil_check_token_balance(self.bot.erc_node_list['ZIL'], token_contract, account.address0x, 32) # atomic
+                                get_zil_user = await self.wallet_api.zil_get_user_by_address(each_addr)
+                                if get_zil_user is None:
+                                    continue
+                                if get_token_balance and int(get_token_balance) / 10 ** coin_decimal >= real_min_deposit:
+                                    # Check gas
+                                    check_gas = functools.partial(zil_check_balance, decrypt_string(get_zil_user['key']))
+                                    gas_balance = await self.bot.loop.run_in_executor(None, check_gas)
+                                    if gas_balance >= min_gas_tx:
+                                        # Move token
+                                        amount = int(get_token_balance) # atomic
+                                        ## def zil_transfer_token(self, contract_addr: str, to_address: str, from_key: str, atomic_amount: int):
+                                        transaction = functools.partial(self.wallet_api.zil_transfer_token, token_contract, main_address, decrypt_string(get_zil_user['key']), amount)
+                                        tx = await self.bot.loop.run_in_executor(None, transaction)
+                                        if tx:
+                                            contents = None
+                                            try:
+                                                contents = json.dumps(tx)
+                                            except Exception:
+                                                traceback.print_exc(file=sys.stdout)
+                                            added = await self.wallet_api.zil_insert_mv_balance(each_contract['coin_name'], token_contract, get_zil_user['user_id'], get_zil_user['balance_wallet_address'], main_address, float(int(amount) / 10 ** coin_decimal), real_deposit_fee, coin_decimal, tx['ID'], contents, int(time.time()), SERVER_BOT, "ZIL")
+                                            await asyncio.sleep(5.0)
+                                    else:
+                                        if get_zil_user and get_zil_user['last_moved_gas'] and int(time.time()) - get_zil_user['last_moved_gas'] < 3600:
+                                            continue
+                                        # Move gas
+                                        key = decrypt_string(getattr(getattr(self.bot.coin_list, "ZIL"), "walletkey"))
+                                        transaction = functools.partial(self.wallet_api.zil_transfer_native, each_addr, key, move_gas_amount, 600)
+                                        tx = await self.bot.loop.run_in_executor(None, transaction)
+                                        if tx:
+                                            await self.wallet_api.zil_update_mv_gas(each_addr, int(time.time()))
+                                            await asyncio.sleep(1.0)
+                                            continue
+                    except Exception:
+                        traceback.print_exc(file=sys.stdout)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
+        await asyncio.sleep(time_lap)
+
+
+    @tasks.loop(seconds=60.0)
     async def update_balance_tezos(self):
         time_lap = 5  # seconds
 
@@ -8947,6 +9451,39 @@ class Wallet(commands.Cog):
                             token_id = int(getattr(getattr(self.bot.coin_list, coin_name), "wallet_address"))
                             token_type = getattr(getattr(self.bot.coin_list, coin_name), "header")
                             send_tx = await self.wallet_api.send_external_xtz_asset(url, key, str(ctx.author.id), amount, address, coin_name, coin_decimal, NetFee, type_coin, contract, token_id, token_type, SERVER_BOT)
+                        if send_tx:
+                            fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                                num_format_coin(NetFee, coin_name, coin_decimal, False), coin_name)
+                            msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}'
+                            await ctx.edit_original_message(content=msg)
+                            await logchanbot(
+                                f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} successfully withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd}.')
+                        else:
+                            msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.'
+                            await ctx.edit_original_message(content=msg)
+                            await logchanbot(
+                                f'[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd}.')
+                    else:
+                        # reject and tell to wait
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
+                        await ctx.edit_original_message(content=msg)
+                    self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+                elif type_coin == "ZIL":
+                    if ctx.author.id not in self.bot.TX_IN_PROCESS:
+                        key = decrypt_string(getattr(getattr(self.bot.coin_list, "ZIL"), "walletkey"))
+                        main_address = getattr(getattr(self.bot.coin_list, "ZIL"), "MainAddress")
+                        if address == main_address:
+                            # can not send
+                            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address `{address}`.'
+                            await ctx.edit_original_message(content=msg)
+                            return
+                        self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                        send_tx = None
+                        if coin_name == "ZIL":
+                            send_tx = await self.wallet_api.send_external_zil(key, str(ctx.author.id), amount, address, coin_name, coin_decimal, NetFee, type_coin, SERVER_BOT)
+                        else:
+                            contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+                            send_tx = await self.wallet_api.send_external_zil_asset(contract, key, str(ctx.author.id), int(amount * 10 ** coin_decimal), address, coin_name, coin_decimal, NetFee, type_coin, SERVER_BOT)
                         if send_tx:
                             fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
                                 num_format_coin(NetFee, coin_name, coin_decimal, False), coin_name)

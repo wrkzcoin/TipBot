@@ -22,6 +22,7 @@ This TipBot's code is not ready to deploy. We keep it here for easily bug tracki
 | Near Protocol token                                                                	| ✅           	| ✅      	|
 | Solana                                                                             	| ✅           	| -      	|
 | XRP (ripple)                                                                       	| ✅           	| ✅      	|
+| Zilliqa                                                                            	| ✅           	| ✅      	|
 
 Refer to <https://coininfo.bot.tips> for all the list.
 

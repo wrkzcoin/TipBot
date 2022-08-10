@@ -796,6 +796,22 @@ class WalletAPI(commands.Cog):
                         if each['currency'] + "XRP" == coin_name:
                             balance = float(each['balance']) / 10 ** coin_decimal
                             break
+        elif type_coin == "VET":
+            main_address = getattr(getattr(self.bot.coin_list, "XRP"), "MainAddress")
+            coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+            contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+            if coin_name == "VET":
+                check_balance = functools.partial(vet_get_balance, self.bot.erc_node_list['VET'], main_address)
+                balance = await self.bot.loop.run_in_executor(None, check_balance)
+                return balance['VET'] / 10 ** coin_decimal
+            elif coin_name == "VTHO":
+                check_balance = functools.partial(vet_get_balance, self.bot.erc_node_list['VET'], main_address)
+                balance = await self.bot.loop.run_in_executor(None, check_balance)
+                return balance['VTHO'] / 10 ** coin_decimal
+            else:
+                get_token_balance = functools.partial(vet_get_token_balance, self.bot.erc_node_list['VET'], contract, main_address)
+                balance = await self.bot.loop.run_in_executor(None, get_token_balance)
+                return balance / 10 ** coin_decimal
         return balance
 
     def get_block_height(self, type_coin: str, coin: str, net_name: str = None):
@@ -7714,6 +7730,34 @@ class Wallet(commands.Cog):
                     if tx:
                         added = await self.wallet_api.vet_insert_mv_balance(coin_name, contract, each_address['user_id'], each_address['balance_wallet_address'], main_address, float(balance[coin_name]/10**coin_decimal), real_deposit_fee, coin_decimal, tx, None, int(time.time()), SERVER_BOT, "VET")
                         await asyncio.sleep(5.0)
+            # Tokens
+            vet_contracts = await self.get_all_contracts("VET", False)
+            if len(vet_contracts) > 0 and len(list_user_addresses) > 0:
+                for each_contract in vet_contracts:
+                    if each_contract['coin_name'] in ["VET", "VTHO"]:
+                        continue
+                    token_contract = getattr(getattr(self.bot.coin_list, each_contract['coin_name']), "contract")
+                    coin_decimal = getattr(getattr(self.bot.coin_list, each_contract['coin_name']), "decimal")
+                    real_min_deposit = getattr(getattr(self.bot.coin_list, each_contract['coin_name']), "real_min_deposit")
+                    real_deposit_fee = getattr(getattr(self.bot.coin_list, each_contract['coin_name']), "real_deposit_fee")
+                    if token_contract is None:
+                        continue
+                    try:
+                        for each_address in list_user_addresses:
+                            try:
+                                get_token_balance = functools.partial(vet_get_token_balance, self.bot.erc_node_list['VET'], token_contract, each_address['balance_wallet_address'])
+                                balance = await self.bot.loop.run_in_executor(None, get_token_balance)
+                                if balance and balance / 10 ** coin_decimal >= real_min_deposit:
+                                    # move token
+                                    transaction = functools.partial(vet_move_token, self.bot.erc_node_list['VET'], each_contract['coin_name'], token_contract, main_address, decrypt_string(each_address['key']), main_address_key, balance)
+                                    tx = await self.bot.loop.run_in_executor(None, transaction)
+                                    if tx:
+                                        added = await self.wallet_api.vet_insert_mv_balance(each_contract['coin_name'], token_contract, each_address['user_id'], each_address['balance_wallet_address'], main_address, float(balance / 10**coin_decimal), real_deposit_fee, coin_decimal, tx, None, int(time.time()), SERVER_BOT, "VET")
+                                        await asyncio.sleep(5.0)
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
+                    except Exception:
+                        traceback.print_exc(file=sys.stdout)
         except Exception:
             traceback.print_exc(file=sys.stdout)
         # Update @bot_task_logs

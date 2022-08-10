@@ -1607,7 +1607,6 @@ class Guild(commands.Cog):
                 # If not in, add to DB
                 # If current is not opened
                 try:
-                    print(get_raffle)
                     if get_raffle['status'] != "OPENED":
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, there is no **OPENED** game raffle on this guild {ctx.guild.name}!"
                         await ctx.edit_original_message(content=msg)

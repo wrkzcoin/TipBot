@@ -23,6 +23,7 @@ This TipBot's code is not ready to deploy. We keep it here for easily bug tracki
 | Solana                                                                             	| ✅           	| -      	|
 | XRP (ripple)                                                                       	| ✅           	| ✅      	|
 | Zilliqa                                                                            	| ✅           	| ✅      	|
+| VeChain                                                                            	| ✅           	| ✅      	|
 
 Refer to <https://coininfo.bot.tips> for all the list.
 

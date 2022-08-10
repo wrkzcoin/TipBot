@@ -53,6 +53,8 @@ class EthScan(commands.Cog):
         self.fetch_xrp_node.start()
         # ZIL best node
         self.fetch_zil_node.start()
+        # VET best node
+        self.fetch_vet_node.start()
 
         self.pull_trc20_scanning.start()
         self.pull_erc20_scanning.start()
@@ -376,6 +378,30 @@ class EthScan(commands.Cog):
                     self.bot.erc_node_list['ZIL'] = res_data.replace('"', '')
                 else:
                     await logchanbot(f"Can not fetch best node for ZIL.")
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
+        await asyncio.sleep(10.0)
+
+    @tasks.loop(seconds=10.0)
+    async def fetch_vet_node(self):
+        # Check if task recently run @bot_task_logs
+        task_name = "ethscan_fetch_vet_node"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
+        bot_settings = await self.utils.get_bot_settings()
+        if bot_settings is None:
+            return
+        async with aiohttp.ClientSession() as session:
+            async with session.get(bot_settings['api_best_node_vet'], headers={'Content-Type': 'application/json'},
+                                   timeout=5.0) as response:
+                if response.status == 200:
+                    res_data = await response.read()
+                    res_data = res_data.decode('utf-8')
+                    # VET needs to fetch best node from their public
+                    self.bot.erc_node_list['VET'] = res_data.replace('"', '')
+                else:
+                    await logchanbot(f"Can not fetch best node for VET.")
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(10.0)

@@ -189,6 +189,8 @@ class Utils(commands.Cog):
                         sql = """ UPDATE `near_user` SET `called_Update`=%s WHERE `user_id`=%s """
                     elif type_coin.upper() == "ZIL":
                         sql = """ UPDATE `zil_user` SET `called_Update`=%s WHERE `user_id`=%s """
+                    elif type_coin.upper() == "VET":
+                        sql = """ UPDATE `vet_user` SET `called_Update`=%s WHERE `user_id`=%s """
                     else:
                         return
                     await cur.execute(sql, (int(time.time()), user_id))

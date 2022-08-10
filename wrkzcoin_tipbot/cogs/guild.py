@@ -368,6 +368,28 @@ class Guild(commands.Cog):
                             incoming_tx = result['incoming_tx']
                         else:
                             incoming_tx = 0
+                    elif coin_family == "VET":
+                        # When sending tx out, (negative)
+                        sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense 
+                                  FROM `vet_external_tx` 
+                                  WHERE `user_id`=%s AND `token_name`=%s AND `user_server`=%s AND `crediting`=%s """
+                        await cur.execute(sql, (user_id, token_name, user_server, "YES"))
+                        result = await cur.fetchone()
+                        if result:
+                            tx_expense = result['tx_expense']
+                        else:
+                            tx_expense = 0
+
+                        # in case deposit fee -real_deposit_fee
+                        sql = """ SELECT SUM(real_amount-real_deposit_fee) AS incoming_tx 
+                                  FROM `vet_move_deposit` 
+                                  WHERE `user_id`=%s AND `token_name`=%s AND `confirmed_depth`> %s AND `user_server`=%s AND `status`=%s """
+                        await cur.execute(sql, (user_id, token_name, 0, user_server, "CONFIRMED")) # confirmed_depth > 0
+                        result = await cur.fetchone()
+                        if result:
+                            incoming_tx = result['incoming_tx']
+                        else:
+                            incoming_tx = 0
                     elif coin_family == "TRC-20":
                         # When sending tx out, (negative)
                         sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense FROM `trc20_external_tx` 

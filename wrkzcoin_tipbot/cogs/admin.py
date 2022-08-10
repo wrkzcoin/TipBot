@@ -37,6 +37,8 @@ from tronpy.providers.async_http import AsyncHTTPProvider
 from mnemonic import Mnemonic
 from pytezos.crypto.key import Key as XtzKey
 
+from thor_requests.wallet import Wallet as thor_wallet
+
 import json
 import near_api
 
@@ -502,6 +504,28 @@ class Admin(commands.Cog):
                         # in case deposit fee -real_deposit_fee
                         sql = """ SELECT SUM(real_amount-real_deposit_fee) AS incoming_tx 
                                   FROM `zil_move_deposit` 
+                                  WHERE `user_id`=%s AND `token_name`=%s AND `confirmed_depth`> %s AND `user_server`=%s AND `status`=%s """
+                        await cur.execute(sql, (user_id, token_name, 0, user_server, "CONFIRMED")) # confirmed_depth > 0
+                        result = await cur.fetchone()
+                        if result:
+                            incoming_tx = result['incoming_tx']
+                        else:
+                            incoming_tx = 0
+                    elif coin_family == "VET":
+                        # When sending tx out, (negative)
+                        sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense 
+                                  FROM `vet_external_tx` 
+                                  WHERE `user_id`=%s AND `token_name`=%s AND `user_server`=%s AND `crediting`=%s """
+                        await cur.execute(sql, (user_id, token_name, user_server, "YES"))
+                        result = await cur.fetchone()
+                        if result:
+                            tx_expense = result['tx_expense']
+                        else:
+                            tx_expense = 0
+
+                        # in case deposit fee -real_deposit_fee
+                        sql = """ SELECT SUM(real_amount-real_deposit_fee) AS incoming_tx 
+                                  FROM `vet_move_deposit` 
                                   WHERE `user_id`=%s AND `token_name`=%s AND `confirmed_depth`> %s AND `user_server`=%s AND `status`=%s """
                         await cur.execute(sql, (user_id, token_name, 0, user_server, "CONFIRMED")) # confirmed_depth > 0
                         result = await cur.fetchone()
@@ -1901,7 +1925,7 @@ class Admin(commands.Cog):
     @commands.is_owner()
     @admin.command(hidden=True, usage='create', description='Create an address')
     async def create(self, ctx, token: str):
-        if token.upper() not in ["ERC-20", "TRC-20", "XTZ", "NEAR"]:
+        if token.upper() not in ["ERC-20", "TRC-20", "XTZ", "NEAR", "VET"]:
             await ctx.reply(f'{ctx.author.mention}, only with ERC-20 and TRC-20.')
         elif token.upper() == "ERC-20":
             try:
@@ -1941,6 +1965,9 @@ class Admin(commands.Cog):
                     await ctx.reply(f'{ctx.author.mention}, {address}:```Seed:{words}\nKey: {key_byte}```', view=RowButtonRowCloseAnyMessage())
             except Exception:
                 traceback.print_exc(file=sys.stdout)
+        elif token.upper() == "VET":
+            wallet = thor_wallet.newWallet()
+            await ctx.reply(f'{ctx.author.mention}, {wallet.address}:```key:{wallet.priv.hex()}```', view=RowButtonRowCloseAnyMessage())
 
 
     @commands.is_owner()

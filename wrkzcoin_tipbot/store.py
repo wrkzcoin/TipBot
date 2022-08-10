@@ -539,6 +539,28 @@ async def sql_user_balance_single(user_id: str, coin: str, address: str, coin_fa
                         incoming_tx = result['incoming_tx']
                     else:
                         incoming_tx = 0
+                elif coin_family == "VET":
+                    # When sending tx out, (negative)
+                    sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense 
+                              FROM `vet_external_tx` 
+                              WHERE `user_id`=%s AND `token_name`=%s AND `user_server`=%s AND `crediting`=%s """
+                    await cur.execute(sql, (user_id, token_name, user_server, "YES"))
+                    result = await cur.fetchone()
+                    if result:
+                        tx_expense = result['tx_expense']
+                    else:
+                        tx_expense = 0
+
+                    # in case deposit fee -real_deposit_fee
+                    sql = """ SELECT SUM(real_amount-real_deposit_fee) AS incoming_tx 
+                              FROM `vet_move_deposit` 
+                              WHERE `user_id`=%s AND `token_name`=%s AND `confirmed_depth`> %s AND `user_server`=%s AND `status`=%s """
+                    await cur.execute(sql, (user_id, token_name, 0, user_server, "CONFIRMED")) # confirmed_depth > 0
+                    result = await cur.fetchone()
+                    if result:
+                        incoming_tx = result['incoming_tx']
+                    else:
+                        incoming_tx = 0
                 elif coin_family == "TRC-20":
                     # When sending tx out, (negative)
                     sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense 
@@ -1192,6 +1214,49 @@ async def sql_recent_zil_move_deposit(called_Update: int = 300):
                 sql = """ SELECT * FROM `zil_move_deposit` 
                           WHERE `time_insert`>%s """
                 await cur.execute(sql, lap)
+                result = await cur.fetchall()
+                if result:
+                    return [each['balance_wallet_address'] for each in result]
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot("store " +str(traceback.format_exc()))
+    return []
+
+async def sql_get_all_vet_user(called_Update: int = 0):
+    # Check update only who has recently called for balance
+    # If called_Update = 3600, meaning who called balance for last 1 hr
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                if called_Update == 0:
+                    sql = """ SELECT `user_id`, `balance_wallet_address`, `key`, `user_server` FROM `vet_user` """
+                    await cur.execute(sql,)
+                    result = await cur.fetchall()
+                    if result: return result
+                elif called_Update > 0:
+                    lap = int(time.time()) - called_Update
+                    sql = """ SELECT `user_id`, `balance_wallet_address`, `key`, `user_server` FROM vet_user 
+                              WHERE (`called_Update`>%s OR `is_discord_guild`=1) """
+                    await cur.execute(sql, (lap,))
+                    result = await cur.fetchall()
+                    if result: return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot("store " +str(traceback.format_exc()))
+    return []
+
+async def sql_recent_vet_move_deposit(coin_name: str, called_Update: int = 300):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                lap = int(time.time()) - called_Update
+                sql = """ SELECT * FROM `vet_move_deposit` 
+                          WHERE `time_insert`>%s AND `token_name`=%s """
+                await cur.execute(sql, (lap, coin_name))
                 result = await cur.fetchall()
                 if result:
                     return [each['balance_wallet_address'] for each in result]

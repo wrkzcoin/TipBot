@@ -73,6 +73,10 @@ from pyzil.zilliqa.units import Zil, Qa
 from pyzil.account import Account as Zil_Account
 from pyzil.contract import Contract as zil_contract
 
+from thor_requests.connect import Connect as thor_connect
+from thor_requests.wallet import Wallet as thor_wallet
+from thor_requests.contract import Contract as thor_contract
+
 import cn_addressvalidation
 import redis_utils
 import store
@@ -308,7 +312,7 @@ async def xrp_get_account_lines(url: str, address: str, timeout=32):
 
 async def zil_get_status(url: str, timeout=32):
     try:
-        data = data = {"id": "1", "jsonrpc": "2.0", "method": "GetBlockchainInfo", "params": [""]}
+        data = {"id": "1", "jsonrpc": "2.0", "method": "GetBlockchainInfo", "params": [""]}
         async with aiohttp.ClientSession() as session:
             async with session.post(url, json=data, headers={'Content-Type': 'application/json'}, timeout=timeout) as response:
                 if response.status == 200:
@@ -366,6 +370,100 @@ async def zil_get_tx(url: str, tx_hash: str, timeout: int=16):
             async with session.post(url, json=data, headers=headers, timeout=timeout) as response:
                 json_resp = await response.json()
                 if json_resp['result']['receipt']['success'] == True:
+                    return json_resp
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+def vet_get_balance(url: str, address: str):
+    try:
+        connector = thor_connect(url)
+        # Account
+        balance = connector.get_account(address)
+        if 'balance' in balance and 'energy' in balance:
+            return {'VET': int(balance['balance'], 16), 'VTHO': int(balance['energy'], 16)} # return atomic
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+def vet_get_token_balance(url: str, contract_addr: str, address: str):
+    try:
+        _contract = thor_contract.fromFile("./VTHO.json")
+        connector = thor_connect(url)
+        # Emulate the "balanceOf()" function
+        res = connector.call(
+            caller=address, # fill in your caller address or all zero address
+            contract=_contract,
+            func_name="balanceOf",
+            func_params=[address],
+            to=contract_addr,
+        )
+        if res is not None and 'data' in res:
+            return int(res['data'], 16) # atomic
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+def vet_move_token(url: str, token_name: str, contract: str, to_address: str, from_key: str, gas_payer_key: str, atomic_amount: int):
+    try:
+        connector = thor_connect(url)
+        _sender = thor_wallet.fromPrivateKey(bytes.fromhex(from_key))
+        _gas_payer = thor_wallet.fromPrivateKey(bytes.fromhex(gas_payer_key))
+        transaction = None
+        if token_name == "VET":
+            transaction = connector.transfer_vet(
+                _sender,
+                to=to_address,
+                value=atomic_amount,
+                gas_payer=_gas_payer
+            )
+        elif token_name == "VTHO":
+            transaction = connector.transfer_vtho(
+                _sender, 
+                to=to_address,
+                vtho_in_wei=atomic_amount,
+                gas_payer=_gas_payer
+            )
+        else:
+            transaction = connector.transfer_token(
+                _sender, 
+                to=to_address,
+                token_contract_addr=contract, # smart contract
+                amount_in_wei=atomic_amount,
+                gas_payer=_gas_payer
+            )
+        if transaction is not None and 'id' in transaction:
+            return transaction['id'] # transaction ID or hash
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+async def vet_get_status(url: str, timeout=32):
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url + "blocks/best", headers={'Content-Type': 'application/json'}, timeout=timeout) as response:
+                if response.status == 200:
+                    res_data = await response.read()
+                    res_data = res_data.decode('utf-8')
+                    await session.close()
+                    decoded_data = json.loads(res_data)
+                    if decoded_data is not None:
+                        return decoded_data
+    except asyncio.TimeoutError:
+        print('TIMEOUT: vet_get_status {} for {}s'.format(url, timeout))
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+async def vet_get_tx(url: str, tx_hash: str, timeout: int=16):
+    headers = {
+        'Content-Type': 'application/json'
+    }
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url + "transactions/" + tx_hash + "/receipt", headers=headers, timeout=timeout) as response:
+                json_resp = await response.json()
+                if json_resp and 'reverted' in json_resp:
                     return json_resp
     except Exception:
         traceback.print_exc(file=sys.stdout)
@@ -949,6 +1047,9 @@ class WalletAPI(commands.Cog):
                 public_key = str(kp.public_key)
                 balance_address['balance_wallet_address'] = public_key
                 balance_address['secret_key_hex'] = kp.secret_key.hex()
+            elif type_coin.upper() == "VET":
+                wallet = thor_wallet.newWallet()
+                balance_address = {'balance_wallet_address': wallet.address, 'key': wallet.priv.hex(), 'json_dump': str(vars(wallet))}
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
@@ -1093,6 +1194,12 @@ class WalletAPI(commands.Cog):
                             is_discord_guild))
                             await conn.commit()
                             return {'balance_wallet_address': balance_address['balance_wallet_address']}
+                        elif type_coin.upper() == "VET":
+                            sql = """ INSERT INTO `vet_user` (`user_id`, `balance_wallet_address`, `address_ts`, `key`, `json_dump`, `called_Update`, `user_server`, `chat_id`, `is_discord_guild`) 
+                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                            await cur.execute(sql, (str(user_id), balance_address['balance_wallet_address'], int(time.time()), encrypt_string(balance_address['key']), encrypt_string(balance_address['json_dump']), int(time.time()), user_server, chat_id, is_discord_guild))
+                            await conn.commit()
+                            return {'balance_wallet_address': balance_address['balance_wallet_address']}
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
         except Exception:
@@ -1226,6 +1333,11 @@ class WalletAPI(commands.Cog):
                         if result: return result
                     elif type_coin.upper() == "SOL":
                         sql = """ SELECT * FROM `sol_user` WHERE `user_id`=%s AND `user_server`=%s LIMIT 1 """
+                        await cur.execute(sql, (str(user_id), user_server))
+                        result = await cur.fetchone()
+                        if result: return result
+                    elif type_coin.upper() == "VET":
+                        sql = """ SELECT * FROM `vet_user` WHERE `user_id`=%s AND `user_server`=%s LIMIT 1 """
                         await cur.execute(sql, (str(user_id), user_server))
                         result = await cur.fetchone()
                         if result: return result
@@ -2931,6 +3043,71 @@ class WalletAPI(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return None
 
+    async def vet_insert_mv_balance(self, token_name: str, contract: str, user_id: str, balance_wallet_address: str, to_main_address: str, real_amount: float, real_deposit_fee: float, token_decimal: int, txn: str, content: str, time_insert: int, user_server: str, network: str):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ INSERT IGNORE INTO `vet_move_deposit` (`token_name`, `contract`, `user_id`, `balance_wallet_address`, 
+                              `to_main_address`, `real_amount`, `real_deposit_fee`, `token_decimal`, `txn`, `content`, `time_insert`, 
+                              `user_server`, `network`) 
+                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                    await cur.execute(sql, (token_name, contract, user_id, balance_wallet_address, to_main_address, real_amount, real_deposit_fee, token_decimal, txn, content, time_insert, user_server, network))
+                    await conn.commit()
+                    return True
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
+    async def vet_get_mv_deposit_list(self, status: str="PENDING"):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * 
+                              FROM `vet_move_deposit` 
+                              WHERE `status`=%s """
+                    await cur.execute(sql, status)
+                    result = await cur.fetchall()
+                    if result:
+                        return result
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return []
+
+    async def vet_update_mv_deposit_pending(self, txn: str, blockNumber: int, content: str, confirmed_depth: int):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ UPDATE `vet_move_deposit` 
+                              SET `blockNumber`=%s, `status`=%s, `confirmed_depth`=%s, `content`=%s 
+                              WHERE `status`=%s AND `txn`=%s LIMIT 1 """
+                    await cur.execute(sql, (blockNumber, "CONFIRMED", confirmed_depth, content, "PENDING", txn))
+                    await conn.commit()
+                    return True
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
+    async def insert_external_vet(self, user_from: str, amount: float, to_address: str, coin: str, contract: str, 
+                                  coin_decimal: int, withdraw_fee: float, tx_hash: str, network: str, user_server: str = 'DISCORD'):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ INSERT INTO `vet_external_tx` (`token_name`, `contract`, `user_id`, `real_amount`, `real_external_fee`, `token_decimal`, `to_address`, `date`, `txn`, `contents`, `user_server`, `network`) 
+                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                    await cur.execute(sql, (
+                    coin.upper(), contract, user_from, amount, withdraw_fee, coin_decimal, to_address,
+                    int(time.time()), tx_hash, None, user_server, network))
+                    await conn.commit()
+                    return True
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
+
 class Wallet(commands.Cog):
     def __init__(self, bot):
         self.enable_logchan = True
@@ -2988,6 +3165,11 @@ class Wallet(commands.Cog):
         self.update_balance_zil.start()
         self.check_confirming_zil.start()
         self.notify_new_confirmed_zil.start()
+
+        # VET
+        self.update_balance_vet.start()
+        self.check_confirming_vet.start()
+        self.notify_new_confirmed_vet.start()
 
         # NEAR
         self.update_balance_near.start()
@@ -3462,6 +3644,28 @@ class Wallet(commands.Cog):
                         # in case deposit fee -real_deposit_fee
                         sql = """ SELECT SUM(real_amount-real_deposit_fee) AS incoming_tx 
                                   FROM `zil_move_deposit` 
+                                  WHERE `user_id`=%s AND `token_name`=%s AND `confirmed_depth`> %s AND `user_server`=%s AND `status`=%s """
+                        await cur.execute(sql, (user_id, token_name, 0, user_server, "CONFIRMED")) # confirmed_depth > 0
+                        result = await cur.fetchone()
+                        if result:
+                            incoming_tx = result['incoming_tx']
+                        else:
+                            incoming_tx = 0
+                    elif coin_family == "VET":
+                        # When sending tx out, (negative)
+                        sql = """ SELECT SUM(real_amount+real_external_fee) AS tx_expense 
+                                  FROM `vet_external_tx` 
+                                  WHERE `user_id`=%s AND `token_name`=%s AND `user_server`=%s AND `crediting`=%s """
+                        await cur.execute(sql, (user_id, token_name, user_server, "YES"))
+                        result = await cur.fetchone()
+                        if result:
+                            tx_expense = result['tx_expense']
+                        else:
+                            tx_expense = 0
+
+                        # in case deposit fee -real_deposit_fee
+                        sql = """ SELECT SUM(real_amount-real_deposit_fee) AS incoming_tx 
+                                  FROM `vet_move_deposit` 
                                   WHERE `user_id`=%s AND `token_name`=%s AND `confirmed_depth`> %s AND `user_server`=%s AND `status`=%s """
                         await cur.execute(sql, (user_id, token_name, 0, user_server, "CONFIRMED")) # confirmed_depth > 0
                         result = await cur.fetchone()
@@ -7350,6 +7554,172 @@ class Wallet(commands.Cog):
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
 
+    @tasks.loop(seconds=60.0)
+    async def notify_new_confirmed_vet(self):
+        time_lap = 20  # seconds
+        await self.bot.wait_until_ready()
+        # Check if task recently run @bot_task_logs
+        task_name = "notify_new_confirmed_vet"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
+        await asyncio.sleep(time_lap)
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `vet_move_deposit` 
+                              WHERE `notified_confirmation`=%s 
+                              AND `failed_notification`=%s AND `user_server`=%s AND `blockNumber` IS NOT NULL """
+                    await cur.execute(sql, ("NO", "NO", SERVER_BOT))
+                    result = await cur.fetchall()
+                    if result and len(result) > 0:
+                        for eachTx in result:
+                            if eachTx['user_id']:
+                                if not eachTx['user_id'].isdigit():
+                                    continue
+                                try:
+                                    key = "notify_new_tx_{}_{}_{}".format(eachTx['token_name'], eachTx['user_id'],
+                                                                          eachTx['txn'])
+                                    if self.ttlcache[key] == key:
+                                        continue
+                                    else:
+                                        self.ttlcache[key] = key
+                                except Exception:
+                                    pass
+                                member = self.bot.get_user(int(eachTx['user_id']))
+                                if member is not None:
+                                    coin_decimal = getattr(getattr(self.bot.coin_list, eachTx['token_name']), "decimal")
+                                    msg = "You got a new deposit (it could take a few minutes to credit): ```" + "Coin: {}\nAmount: {}".format(eachTx['token_name'], num_format_coin(eachTx['real_amount'], eachTx['token_name'], coin_decimal, False)) + "```"
+                                    try:
+                                        await member.send(msg)
+                                        sql = """ UPDATE `vet_move_deposit` SET `notified_confirmation`=%s, `time_notified`=%s WHERE `txn`=%s LIMIT 1 """
+                                        await cur.execute(sql, ("YES", int(time.time()), eachTx['txn']))
+                                        await conn.commit()
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
+                                        sql = """ UPDATE `vet_move_deposit` SET `notified_confirmation`=%s, `failed_notification`=%s WHERE `txn`=%s LIMIT 1 """
+                                        await cur.execute(sql, ("NO", "YES", eachTx['txn']))
+                                        await conn.commit()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
+        await asyncio.sleep(time_lap)
+
+    @tasks.loop(seconds=60.0)
+    async def check_confirming_vet(self):
+        time_lap = 5  # seconds
+
+        await self.bot.wait_until_ready()
+        # Check if task recently run @bot_task_logs
+        task_name = "check_confirming_vet"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
+        await asyncio.sleep(time_lap)
+        coin_name = "VET"
+        get_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+        net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+        type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+        try:
+            pending_list = await self.wallet_api.vet_get_mv_deposit_list("PENDING")
+            if len(pending_list) > 0:
+                for each_tx in pending_list:
+                    try:
+                        # vet_get_tx(url: str, tx_hash: str, timeout: int=16)
+                        check_tx = await vet_get_tx(self.bot.erc_node_list['VET'], each_tx['txn'], 12)
+                        if check_tx is not None:
+                            height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                            if height and height - int(check_tx['meta']['blockNumber']) > get_confirm_depth:
+                                number_conf = height - int(check_tx['meta']['blockNumber'])
+                                await self.wallet_api.vet_update_mv_deposit_pending(each_tx['txn'], int(check_tx['meta']['blockNumber']), json.dumps(check_tx), number_conf)
+                    except Exception:
+                        traceback.print_exc(file=sys.stdout)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
+        await asyncio.sleep(time_lap)
+
+    @tasks.loop(seconds=60.0)
+    async def update_balance_vet(self):
+        time_lap = 5  # seconds
+
+        await self.bot.wait_until_ready()
+        # Check if task recently run @bot_task_logs
+        task_name = "update_balance_vet"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
+        await asyncio.sleep(time_lap)
+        try:
+            vet_contracts = await self.get_all_contracts("VET", False)
+            # Check native
+            coin_name = "VET"
+            get_status = await vet_get_status(self.bot.erc_node_list['VET'], 16)
+            if get_status:
+                height = int(get_status['number'])
+                redis_utils.redis_conn.set(f'{config.redis.prefix + config.redis.daemon_height}{coin_name}',
+                                           str(height))
+                if len(vet_contracts) > 0:
+                    for each_coin in vet_contracts:
+                        name = each_coin['coin_name']
+                        try:
+                            redis_utils.redis_conn.set(f'{config.redis.prefix + config.redis.daemon_height}{name}',
+                                                       str(height))
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+            ## Check VET and VTHO
+            list_user_addresses = await store.sql_get_all_vet_user(7200) # last 2hrs
+
+            coin_name = "VET"
+            get_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+            net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+            coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+            real_min_deposit = getattr(getattr(self.bot.coin_list, coin_name), "real_min_deposit")
+            real_deposit_fee = getattr(getattr(self.bot.coin_list, coin_name), "real_deposit_fee")
+
+            main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
+            main_address_key = decrypt_string(getattr(getattr(self.bot.coin_list, coin_name), "walletkey"))
+
+            list_recent_mv_vet = await store.sql_recent_vet_move_deposit("VET", 300) # 5mn
+            list_recent_mv_vtho = await store.sql_recent_vet_move_deposit("VTHO", 300) # 5mn
+            for each_address in list_user_addresses:
+                if each_address['balance_wallet_address'] in list_recent_mv_vet or \
+                    each_address['balance_wallet_address'] in list_recent_mv_vtho:
+                    await asyncio.sleep(5.0)
+                    continue
+                # Check VET and VTHO balance
+                check_balance = functools.partial(vet_get_balance, self.bot.erc_node_list['VET'], each_address['balance_wallet_address'])
+                balance = await self.bot.loop.run_in_executor(None, check_balance)
+                # VET
+                if balance['VET']/10**coin_decimal >= real_min_deposit:
+                    transaction = functools.partial(vet_move_token, self.bot.erc_node_list['VET'], coin_name, None, main_address, decrypt_string(each_address['key']), main_address_key, balance[coin_name])
+                    tx = await self.bot.loop.run_in_executor(None, transaction)
+                    if tx:
+                        added = await self.wallet_api.vet_insert_mv_balance(coin_name, None, each_address['user_id'], each_address['balance_wallet_address'], main_address, float(balance[coin_name]/10**coin_decimal), real_deposit_fee, coin_decimal, tx, None, int(time.time()), SERVER_BOT, "VET")
+                        await asyncio.sleep(5.0)
+                # VTHO
+                coin_name = "VTHO"
+                get_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+                net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+                coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+                real_min_deposit = getattr(getattr(self.bot.coin_list, coin_name), "real_min_deposit")
+                real_deposit_fee = getattr(getattr(self.bot.coin_list, coin_name), "real_deposit_fee")
+                contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+                if balance['VTHO']/10**coin_decimal >= real_min_deposit:
+                    transaction = functools.partial(vet_move_token, self.bot.erc_node_list['VET'], coin_name, None, main_address, decrypt_string(each_address['key']), main_address_key, balance[coin_name])
+                    tx = await self.bot.loop.run_in_executor(None, transaction)
+                    if tx:
+                        added = await self.wallet_api.vet_insert_mv_balance(coin_name, contract, each_address['user_id'], each_address['balance_wallet_address'], main_address, float(balance[coin_name]/10**coin_decimal), real_deposit_fee, coin_decimal, tx, None, int(time.time()), SERVER_BOT, "VET")
+                        await asyncio.sleep(5.0)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
+        await asyncio.sleep(time_lap)
+
 
     @tasks.loop(seconds=60.0)
     async def notify_new_confirmed_zil(self):
@@ -9501,6 +9871,37 @@ class Wallet(commands.Cog):
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
                         await ctx.edit_original_message(content=msg)
                     self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+                elif type_coin == "VET":
+                    if ctx.author.id not in self.bot.TX_IN_PROCESS:
+                        key = decrypt_string(getattr(getattr(self.bot.coin_list, "VET"), "walletkey"))
+                        main_address = getattr(getattr(self.bot.coin_list, "VET"), "MainAddress")
+                        contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+                        if address == main_address:
+                            # can not send
+                            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address `{address}`.'
+                            await ctx.edit_original_message(content=msg)
+                            return
+                        self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                        transaction = functools.partial(vet_move_token, self.bot.erc_node_list['VET'], coin_name, contract, address, key, key, int(amount*10**coin_decimal))
+                        send_tx = await self.bot.loop.run_in_executor(None, transaction)
+                        if send_tx:
+                            await self.wallet_api.insert_external_vet(str(ctx.author.id), amount, address, coin_name, contract, coin_decimal, NetFee, send_tx, type_coin, SERVER_BOT)
+                            fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                                num_format_coin(NetFee, coin_name, coin_decimal, False), coin_name)
+                            msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}'
+                            await ctx.edit_original_message(content=msg)
+                            await logchanbot(
+                                f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} successfully withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd}.')
+                        else:
+                            msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.'
+                            await ctx.edit_original_message(content=msg)
+                            await logchanbot(
+                                f'[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd}.')
+                    else:
+                        # reject and tell to wait
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
+                        await ctx.edit_original_message(content=msg)
+                    self.bot.TX_IN_PROCESS.remove(ctx.author.id)
                 elif type_coin == "XRP":
                     if ctx.author.id not in self.bot.TX_IN_PROCESS:
                         url = self.bot.erc_node_list['XRP']
@@ -9799,7 +10200,7 @@ class Wallet(commands.Cog):
         else:
             coin_name = token.upper()
             if coin_name not in list_coin_names:
-                msg = f'{ctx.author.mention}, `{coin_name}` is invalid or does not existed in faucet list!'
+                msg = f'{ctx.author.mention}, `{coin_name}` is invalid or does not exist in faucet list!'
                 await ctx.response.send_message(msg)
                 return
             else:

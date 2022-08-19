@@ -574,8 +574,7 @@ class WalletAPI(commands.Cog):
         contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
         net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
         if type_coin == "ERC-20":
-            main_balance = await store.http_wallet_getbalance(self.bot.erc_node_list[net_name], config.eth.MainAddress,
-                                                              coin_name, contract)
+            main_balance = await store.http_wallet_getbalance(self.bot.erc_node_list[net_name], config.eth.MainAddress, contract, 16)
             balance = float(main_balance / 10 ** coin_decimal)
         elif type_coin in ["TRC-20", "TRC-10"]:
             main_balance = await store.trx_wallet_getbalance(config.trc.MainAddress, coin_name, coin_decimal, type_coin,
@@ -3147,6 +3146,7 @@ class Wallet(commands.Cog):
         self.update_balance_xmr.start()
         # BTC
         self.update_balance_btc.start()
+
         # NEO
         self.update_balance_neo.start()
         self.notify_new_confirmed_neo.start()
@@ -5156,6 +5156,8 @@ class Wallet(commands.Cog):
                 for eachTx in pending_tx:
                     try:
                         coin_name = eachTx['coin_name']
+                        if not hasattr(self.bot.coin_list, coin_name):
+                            continue
                         coin_family = getattr(getattr(self.bot.coin_list, coin_name), "type")
                         coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
                         if coin_family in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR", "BTC", "CHIA", "NANO"]:
@@ -7179,9 +7181,9 @@ class Wallet(commands.Cog):
         await asyncio.sleep(time_lap)
 
 
-    @tasks.loop(seconds=60.0)
+    @tasks.loop(seconds=10.0)
     async def update_balance_erc20(self):
-        time_lap = 5  # seconds
+        time_lap = 2  # seconds
         await self.bot.wait_until_ready()
         # Check if task recently run @bot_task_logs
         task_name = "update_balance_erc20"
@@ -7200,7 +7202,7 @@ class Wallet(commands.Cog):
                                                                     each_c['min_move_deposit'], each_c['min_gas_tx'],
                                                                     each_c['gas_ticker'], each_c['move_gas_amount'],
                                                                     each_c['chain_id'], each_c['real_deposit_fee'],
-                                                                    7200)
+                                                                    each_c['erc20_approve_spend'], 7200)
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
             main_tokens = await self.get_all_contracts("ERC-20", True)
@@ -7212,7 +7214,7 @@ class Wallet(commands.Cog):
                                                                     each_c['decimal'], each_c['min_move_deposit'],
                                                                     each_c['min_gas_tx'], each_c['gas_ticker'],
                                                                     each_c['move_gas_amount'], each_c['chain_id'],
-                                                                    each_c['real_deposit_fee'], 7200)
+                                                                    each_c['real_deposit_fee'], 0, 7200)
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
         except Exception:
@@ -7710,7 +7712,7 @@ class Wallet(commands.Cog):
                 check_balance = functools.partial(vet_get_balance, self.bot.erc_node_list['VET'], each_address['balance_wallet_address'])
                 balance = await self.bot.loop.run_in_executor(None, check_balance)
                 # VET
-                if balance['VET']/10**coin_decimal >= real_min_deposit:
+                if balance and balance['VET']/10**coin_decimal >= real_min_deposit:
                     transaction = functools.partial(vet_move_token, self.bot.erc_node_list['VET'], coin_name, None, main_address, decrypt_string(each_address['key']), main_address_key, balance[coin_name])
                     tx = await self.bot.loop.run_in_executor(None, transaction)
                     if tx:
@@ -7724,7 +7726,7 @@ class Wallet(commands.Cog):
                 real_min_deposit = getattr(getattr(self.bot.coin_list, coin_name), "real_min_deposit")
                 real_deposit_fee = getattr(getattr(self.bot.coin_list, coin_name), "real_deposit_fee")
                 contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-                if balance['VTHO']/10**coin_decimal >= real_min_deposit:
+                if balance and balance['VTHO']/10**coin_decimal >= real_min_deposit:
                     transaction = functools.partial(vet_move_token, self.bot.erc_node_list['VET'], coin_name, None, main_address, decrypt_string(each_address['key']), main_address_key, balance[coin_name])
                     tx = await self.bot.loop.run_in_executor(None, transaction)
                     if tx:

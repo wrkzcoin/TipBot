@@ -6,13 +6,11 @@ from datetime import datetime
 from decimal import Decimal
 from io import BytesIO
 
-import aiomysql
 import disnake
 import qrcode
 import store
 from Bot import logchanbot, EMOJI_ERROR, EMOJI_RED_NO, SERVER_BOT, num_format_coin, text_to_num, is_ascii
 from PIL import Image, ImageDraw, ImageFont
-from aiomysql.cursors import DictCursor
 from cogs.wallet import WalletAPI
 from config import config
 from disnake.app_commands import Option
@@ -36,23 +34,12 @@ class Voucher(commands.Cog):
         self.path_voucher_defaultimg = "./images/voucher_frame1.png"
         self.max_comment = 32
         self.pathfont = "./fonts/digital-7_(mono).ttf"
-        # DB
-        self.pool = None
-
-    async def openConnection(self):
-        try:
-            if self.pool is None:
-                self.pool = await aiomysql.create_pool(host=config.mysql.host, port=3306, minsize=2, maxsize=4,
-                                                       user=config.mysql.user, password=config.mysql.password,
-                                                       db=config.mysql.db, cursorclass=DictCursor, autocommit=True)
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
 
     async def sql_voucher_get_setting(self, coin: str):
         coin_name = coin.upper()
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM cn_voucher_settings WHERE `coin_name`=%s LIMIT 1 """
                     await cur.execute(sql, (coin_name,))
@@ -71,8 +58,8 @@ class Voucher(commands.Cog):
         guild = "VOUCHER"
         channel = "VOUCHER"
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ INSERT INTO cn_voucher (`coin_name`, `user_id`, `user_name`, `amount`, 
                               `decimal`, `reserved_fee`, `date_create`, `comment`, `secret_string`, `voucher_image_name`, `user_server`) 
@@ -122,8 +109,8 @@ class Voucher(commands.Cog):
         user_server = user_server.upper()
         already_claimed = already_claimed.upper()
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     if already_claimed == 'YESNO':
                         sql = """ SELECT * FROM cn_voucher WHERE `user_id`=%s AND `user_server`=%s 

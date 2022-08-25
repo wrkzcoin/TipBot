@@ -58,17 +58,6 @@ class Admin(commands.Cog):
         self.old_message_data_age = 30 * 24 * 3600  # max. 1 month
         self.auto_purge_old_message.start()
 
-        # DB
-        self.pool = None
-
-    async def openConnection(self):
-        try:
-            if self.pool is None:
-                self.pool = await aiomysql.create_pool(host=config.mysql.host, port=3306, minsize=2, maxsize=4,
-                                                       user=config.mysql.user, password=config.mysql.password,
-                                                       db=config.mysql.db, cursorclass=DictCursor, autocommit=True)
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
 
     async def openConnection_extra(self):
         if self.local_db_extra is None:
@@ -77,7 +66,7 @@ class Admin(commands.Cog):
             try:
                 if self.pool_local_db_extra is None:
                     self.pool_local_db_extra = await aiomysql.create_pool(host=self.local_db_extra['dbhost'], port=3306,
-                                                                          minsize=2, maxsize=4,
+                                                                          minsize=1, maxsize=2,
                                                                           user=self.local_db_extra['dbuser'],
                                                                           password=self.local_db_extra['dbpass'],
                                                                           db=self.local_db_extra['dbname'],
@@ -87,8 +76,8 @@ class Admin(commands.Cog):
 
     async def get_local_db_extra_auth(self):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM `bot_settings` WHERE `name`=%s LIMIT 1 """
                     await cur.execute(sql, ('local_db_extra'))
@@ -217,8 +206,8 @@ class Admin(commands.Cog):
             nos_block = top_block - confirmed_depth
         confirmed_inserted = 30  # 30s for nano
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     # moving tip + / -
                     sql = """

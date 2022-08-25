@@ -1,4 +1,3 @@
-import aiomysql
 import asyncio
 import json
 import sys
@@ -7,7 +6,7 @@ import traceback
 from decimal import Decimal
 
 from Bot import logchanbot, truncate
-from aiomysql.cursors import DictCursor
+import store
 from config import config
 from disnake.ext import tasks, commands
 from web3 import Web3
@@ -21,54 +20,11 @@ class DexScan(commands.Cog):
         self.bot = bot
         self.utils = Utils(self.bot)
         self.dex_price_loop.start()
-        self.pool = None
-        self.pool_netmon = None
-
-
-    async def openConnection(self):
-        try:
-            if self.pool is None:
-                self.pool = await aiomysql.create_pool(host=config.mysql.host, port=3306, minsize=2, maxsize=4, 
-                                                       user=config.mysql.user, password=config.mysql.password,
-                                                       db=config.mysql.db, cursorclass=DictCursor, autocommit=True)
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
-
-    async def openConnection_node_monitor(self):
-        try:
-            if self.pool_netmon is None:
-                self.pool_netmon = await aiomysql.create_pool(host=config.mysql_node_monitor.host, port=3306, minsize=2, maxsize=4, 
-                                                        user=config.mysql_node_monitor.user, password=config.mysql_node_monitor.password,
-                                                        db=config.mysql_node_monitor.db, cursorclass=DictCursor)
-        except:
-            print("ERROR: Unexpected error: Could not connect to MySql instance.")
-            traceback.print_exc(file=sys.stdout)
-
-    async def handle_best_node(self):
-        try:
-            await self.openConnection_node_monitor()
-            async with self.pool_netmon.acquire() as conn:
-                async with conn.cursor() as cur:
-                    sql = """ SELECT id, url, name, duration, MAX(height) as height
-                              FROM `chain_bsc`
-                              GROUP BY url ORDER BY height DESC LIMIT 10 """
-                    await cur.execute(sql,)
-                    nodes = await cur.fetchall()
-                    if nodes and len(nodes) > 1:
-                        # Check which one has low fetch time
-                        url = nodes[0]['url']
-                        fetch_time = nodes[0]['duration']
-                        for each_node in nodes:
-                            if fetch_time > each_node['duration']:
-                                url = each_node['url']
-                        return url
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
 
     async def dex_get_list(self):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM `dex_track_price_info` WHERE `enabled`=%s """
                     await cur.execute(sql, (1))
@@ -110,8 +66,8 @@ class DexScan(commands.Cog):
 
     async def dex_insert_price(self, token_name: str, chain_id: str, net_name: str, contract: str, source_from: str, price):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ INSERT INTO dex_track_price_info_data (`token_name`, `chain_id`, `net_name`, `contract`, `price`, `source_from`, `inserted_time`) 
                               VALUES (%s, %s, %s, %s, %s, %s, %s) """
@@ -132,13 +88,12 @@ class DexScan(commands.Cog):
         check_last_running = await self.utils.bot_task_logs_check(task_name)
         if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
             return
-        bsc_node = await self.handle_best_node()
         try:
             get_list = await self.dex_get_list()
             if get_list and len(get_list) > 0:
                 for each_token in get_list:
                     coin_name = each_token['token_name']
-                    get_price = await self.getPrice_generic(bsc_node, each_token['contract'], each_token['wrapped_main_token'], each_token['usdt_contract'], each_token['lp_usdt_with_main_token'], each_token['lp_token_main_token'])
+                    get_price = await self.getPrice_generic(self.bot.erc_node_list["BSC"], each_token['contract'], each_token['wrapped_main_token'], each_token['usdt_contract'], each_token['lp_usdt_with_main_token'], each_token['lp_token_main_token'])
                     if get_price and Decimal(get_price) > 0:
                         get_price = Decimal(get_price)*Decimal(10**each_token['decimal'])/Decimal(10**18)
                         insert = await self.dex_insert_price(each_token['token_name'], each_token['chain_id'], each_token['net_name'], each_token['contract'], each_token['source_from'], Decimal(get_price))

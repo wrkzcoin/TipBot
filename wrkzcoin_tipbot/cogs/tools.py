@@ -15,12 +15,10 @@ from gtts import gTTS
 # pip3 install -U deep-translator
 from deep_translator import GoogleTranslator
 
-import aiomysql
-from aiomysql.cursors import DictCursor
-
 import functools
 
 from Bot import logchanbot, EMOJI_ERROR, EMOJI_CHECKMARK, SERVER_BOT, EMOJI_INFORMATION
+import store
 from config import config
 
 
@@ -30,26 +28,14 @@ class Tool(commands.Cog):
         self.bot = bot
         self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
 
-        # DB
-        self.pool = None
-
         # TTS path
         self.tts_path = "./tts/"
-
-    async def openConnection(self):
-        try:
-            if self.pool is None:
-                self.pool = await aiomysql.create_pool(host=config.mysql.host, port=3306, minsize=2, maxsize=4, 
-                                                       user=config.mysql.user, password=config.mysql.password,
-                                                       db=config.mysql.db, cursorclass=DictCursor, autocommit=True)
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
 
     async def sql_add_tts(self, user_id: str, user_name: str, msg_content: str, lang: str, tts_mp3: str, user_server: str='DISCORD'):
         user_server = user_server.upper()
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ INSERT INTO `discord_tts` (`user_id`, `user_name`, `msg_content`, `lang`, `time`, `tts_mp3`, `user_server`)
                               VALUES (%s, %s, %s, %s, %s, %s, %s) """
@@ -63,8 +49,8 @@ class Tool(commands.Cog):
     async def sql_add_trans_tts(self, user_id: str, user_name: str, original: str, translated: str, to_lang: str, media_file: str, user_server: str='DISCORD'):
         user_server = user_server.upper()
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ INSERT INTO `discord_trans_tts` (`user_id`, `user_name`, `original`, `translated`, `to_lang`, `time`, `media_file`, `user_server`)
                               VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """

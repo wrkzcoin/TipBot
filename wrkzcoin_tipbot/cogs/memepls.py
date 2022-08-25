@@ -19,8 +19,6 @@ from disnake.enums import OptionType
 from disnake.app_commands import Option, OptionChoice
 from disnake import ActionRow, Button, ButtonStyle
 import json
-import aiomysql
-from aiomysql.cursors import DictCursor
 import store
 
 from Bot import logchanbot, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_INFORMATION, num_format_coin, seconds_str, \
@@ -974,24 +972,13 @@ class MemePls(commands.Cog):
         self.meme_web_path = "https://tipbot-static.wrkz.work/discordtip_v2_meme/"
         self.meme_channel_upload = 965814338294267925
         self.meme_reviewer = [386761001808166912]
-        # DB
-        self.pool = None
-
-    async def openConnection(self):
-        try:
-            if self.pool is None:
-                self.pool = await aiomysql.create_pool(host=config.mysql.host, port=3306, minsize=2, maxsize=4,
-                                                       user=config.mysql.user, password=config.mysql.password,
-                                                       db=config.mysql.db, cursorclass=DictCursor, autocommit=True)
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
 
     async def save_uploaded(self, key: str, owner_userid: str, owner_name: str, guild_id: str, channel_id: str,
                             caption: str, original_name: str, saved_name: str, file_type: str, sha256: str,
                             uploaded_date: int):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ INSERT INTO meme_uploaded (`key`, `owner_userid`, `owner_name`, `guild_id`, `channel_id`, `caption`, `original_name`, `saved_name`, `file_type`, `sha256`, `uploaded_date`) 
                               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
@@ -1007,8 +994,8 @@ class MemePls(commands.Cog):
 
     async def get_random_meme(self, checker_id: str):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM `meme_uploaded` WHERE `owner_userid`<>%s AND `enable`=%s ORDER BY RAND() LIMIT 1 """
                     await cur.execute(sql, (checker_id, 1))
@@ -1020,8 +1007,8 @@ class MemePls(commands.Cog):
 
     async def get_id_meme(self, meme_id: str):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM `meme_uploaded` WHERE `key`=%s LIMIT 1 """
                     await cur.execute(sql, (meme_id))
@@ -1033,8 +1020,8 @@ class MemePls(commands.Cog):
 
     async def get_random_pending_meme(self):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM `meme_uploaded` WHERE `enable`=%s ORDER BY `uploaded_date` ASC LIMIT 1 """
                     await cur.execute(sql, (0))
@@ -1046,8 +1033,8 @@ class MemePls(commands.Cog):
 
     async def get_random_approved_meme(self):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM `meme_uploaded` WHERE `enable`=%s ORDER BY RAND() LIMIT 1 """
                     await cur.execute(sql, (1))
@@ -1059,8 +1046,8 @@ class MemePls(commands.Cog):
 
     async def get_random_approved_meme_user(self, user_id):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM `meme_uploaded` WHERE `enable`=%s AND `owner_userid`=%s ORDER BY RAND() LIMIT 1 """
                     await cur.execute(sql, (1, user_id))
@@ -1072,8 +1059,8 @@ class MemePls(commands.Cog):
 
     async def get_random_approved_meme_guild(self, guild_id):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM `meme_uploaded` WHERE `enable`=%s AND `guild_id`=%s ORDER BY RAND() LIMIT 1 """
                     await cur.execute(sql, (1, guild_id))
@@ -1085,8 +1072,8 @@ class MemePls(commands.Cog):
 
     async def meme_toggle_status(self, meme_id: str, status: int, reviewed_by: str, reviewed_date: int):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ UPDATE `meme_uploaded` SET `enable`=%s, `reviewed_by`=%s, `reviewed_date`=%s WHERE `key`=%s LIMIT 1 """
                     await cur.execute(sql, (status, reviewed_by, reviewed_date, meme_id))
@@ -1099,8 +1086,8 @@ class MemePls(commands.Cog):
     async def meme_update_view(self, meme_id: str, owner_userid: str, called_by: str, guild_id: str, channel_id: str,
                                inc: int = 1):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ UPDATE `meme_uploaded` SET `number_view`=number_view+%s WHERE `key`=%s LIMIT 1;
                               INSERT INTO meme_viewed (`meme_id`, `owner_userid`, `called_by`, `guild_id`, `channel_id`, `date`) 

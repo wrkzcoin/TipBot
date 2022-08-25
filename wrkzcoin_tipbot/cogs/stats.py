@@ -2,43 +2,31 @@ import sys
 import traceback
 from datetime import datetime
 
-import aiomysql
 import disnake
 from Bot import EMOJI_INFORMATION, logchanbot
-from aiomysql.cursors import DictCursor
 from cogs.wallet import WalletAPI
 from config import config
 from disnake.app_commands import Option
 from disnake.enums import OptionType
 from disnake.ext import commands
-
+import store
 
 class Stats(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.wallet_api = WalletAPI(self.bot)
-        # DB
-        self.pool = None
-
-    async def openConnection(self):
-        try:
-            if self.pool is None:
-                self.pool = await aiomysql.create_pool(host=config.mysql.host, port=3306, minsize=2, maxsize=4,
-                                                       user=config.mysql.user, password=config.mysql.password,
-                                                       db=config.mysql.db, cursorclass=DictCursor, autocommit=True)
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
 
     async def get_coin_tipping_stats(self, coin: str):
         coin_name = coin.upper()
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT COUNT(*) AS numb_tip, SUM(real_amount) AS amount_tip FROM `user_balance_mv` WHERE token_name=%s """
                     await cur.execute(sql, (coin_name))
                     result = await cur.fetchone()
-                    if result: return result
+                    if result:
+                        return result
         except Exception:
             await logchanbot("stats " +str(traceback.format_exc()))
         return None

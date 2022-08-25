@@ -62,7 +62,7 @@ async def openConnection():
     global pool
     try:
         if pool is None:
-            pool = await aiomysql.create_pool(host=config.mysql.host, port=3306, minsize=8, maxsize=16,
+            pool = await aiomysql.create_pool(host=config.mysql.host, port=3306, minsize=4, maxsize=8,
                                               user=config.mysql.user, password=config.mysql.password,
                                               db=config.mysql.db, cursorclass=DictCursor, autocommit=True)
     except:
@@ -74,8 +74,8 @@ async def openConnection_node_monitor():
     global pool_netmon
     try:
         if pool_netmon is None:
-            pool_netmon = await aiomysql.create_pool(host=config.mysql_node_monitor.host, port=3306, minsize=2,
-                                                     maxsize=4,
+            pool_netmon = await aiomysql.create_pool(host=config.mysql_node_monitor.host, port=3306, minsize=1,
+                                                     maxsize=2,
                                                      user=config.mysql_node_monitor.user,
                                                      password=config.mysql_node_monitor.password,
                                                      db=config.mysql_node_monitor.db, cursorclass=DictCursor)

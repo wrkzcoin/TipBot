@@ -21,6 +21,8 @@ from disnake import ActionRow, Button, ButtonStyle
 import json
 import store
 
+from cogs.utils import MenuPage
+
 from Bot import logchanbot, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_INFORMATION, num_format_coin, seconds_str, \
     RowButtonRowCloseAnyMessage, SERVER_BOT, EMOJI_HOURGLASS_NOT_DONE, DEFAULT_TICKER, text_to_num
 from cogs.wallet import WalletAPI
@@ -898,6 +900,8 @@ class MemeReview_Button(disnake.ui.View):
         self.ctx = ctx
         self.meme_id = meme_id
         self.owner_userid = owner_userid
+        self.meme_channel_upload = 965814338294267925
+
 
     async def on_timeout(self):
         original_message = await self.ctx.original_message()
@@ -925,6 +929,9 @@ class MemeReview_Button(disnake.ui.View):
                         await get_meme_owner.send(f"Your meme ID: `{self.meme_id}` is approved. Cheers!")
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
+                # Post in meme_channel_upload
+                channel = self.bot.get_channel(self.meme_channel_upload)
+                await channel.send(content=f"`{self.meme_id}` by <@{str(owner_userid)}> is approved by {interaction.author.name}#{interaction.author.discriminator} / {interaction.author.id}.")
             else:
                 await interaction.response.send_message(
                     content=f"{interaction.author.mention}, failed to approve `{self.meme_id}` or it is already approved.")
@@ -997,7 +1004,9 @@ class MemePls(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `meme_uploaded` WHERE `owner_userid`<>%s AND `enable`=%s ORDER BY RAND() LIMIT 1 """
+                    sql = """ SELECT * FROM `meme_uploaded` 
+                    WHERE `owner_userid`<>%s AND `enable`=%s 
+                    ORDER BY RAND() LIMIT 1 """
                     await cur.execute(sql, (checker_id, 1))
                     result = await cur.fetchone()
                     if result: return result
@@ -1005,28 +1014,34 @@ class MemePls(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return None
 
-    async def get_id_meme(self, meme_id: str):
+    async def get_id_meme(self, meme_id: str, guild: str):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `meme_uploaded` WHERE `key`=%s LIMIT 1 """
-                    await cur.execute(sql, (meme_id))
+                    sql = """ SELECT * FROM `meme_uploaded` 
+                    WHERE `key`=%s AND `guild_id`=%s 
+                    LIMIT 1 """
+                    await cur.execute(sql, (meme_id, guild_id))
                     result = await cur.fetchone()
-                    if result: return result
+                    if result:
+                        return result
         except Exception:
             traceback.print_exc(file=sys.stdout)
         return None
 
-    async def get_random_pending_meme(self):
+    async def get_random_pending_meme(self, guild: str):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `meme_uploaded` WHERE `enable`=%s ORDER BY `uploaded_date` ASC LIMIT 1 """
-                    await cur.execute(sql, (0))
+                    sql = """ SELECT * FROM `meme_uploaded` 
+                    WHERE `enable`=%s AND `guild_id`=%s 
+                    ORDER BY `uploaded_date` ASC LIMIT 1 """
+                    await cur.execute(sql, (0, guild))
                     result = await cur.fetchone()
-                    if result: return result
+                    if result:
+                        return result
         except Exception:
             traceback.print_exc(file=sys.stdout)
         return None
@@ -1036,23 +1051,30 @@ class MemePls(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `meme_uploaded` WHERE `enable`=%s ORDER BY RAND() LIMIT 1 """
-                    await cur.execute(sql, (1))
+                    sql = """ SELECT * FROM `meme_uploaded` 
+                    WHERE `enable`=%s 
+                    ORDER BY RAND() LIMIT 1 """
+                    await cur.execute(sql, 1)
                     result = await cur.fetchone()
-                    if result: return result
+                    if result:
+                        return result
         except Exception:
             traceback.print_exc(file=sys.stdout)
         return None
 
-    async def get_random_approved_meme_user(self, user_id):
+    async def get_random_approved_meme_user(self, user_id, guild_id):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `meme_uploaded` WHERE `enable`=%s AND `owner_userid`=%s ORDER BY RAND() LIMIT 1 """
-                    await cur.execute(sql, (1, user_id))
+                    sql = """ SELECT * FROM `meme_uploaded` 
+                    WHERE `enable`=%s AND `owner_userid`=%s 
+                    AND `guild_id`=%s 
+                    ORDER BY RAND() LIMIT 1 """
+                    await cur.execute(sql, (1, user_id, guild_id))
                     result = await cur.fetchone()
-                    if result: return result
+                    if result:
+                        return result
         except Exception:
             traceback.print_exc(file=sys.stdout)
         return None
@@ -1062,20 +1084,41 @@ class MemePls(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `meme_uploaded` WHERE `enable`=%s AND `guild_id`=%s ORDER BY RAND() LIMIT 1 """
+                    sql = """ SELECT * FROM `meme_uploaded` 
+                    WHERE `enable`=%s AND `guild_id`=%s 
+                    ORDER BY RAND() LIMIT 1 """
                     await cur.execute(sql, (1, guild_id))
                     result = await cur.fetchone()
-                    if result: return result
+                    if result:
+                        return result
         except Exception:
             traceback.print_exc(file=sys.stdout)
         return None
+
+    async def get_user_meme_list(self, user_id: str):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `meme_uploaded` 
+                    WHERE `owner_userid`=%s  
+                    ORDER BY `uploaded_date` DESC """
+                    await cur.execute(sql, user_id)
+                    result = await cur.fetchall()
+                    if result:
+                        return result
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return []
 
     async def meme_toggle_status(self, meme_id: str, status: int, reviewed_by: str, reviewed_date: int):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ UPDATE `meme_uploaded` SET `enable`=%s, `reviewed_by`=%s, `reviewed_date`=%s WHERE `key`=%s LIMIT 1 """
+                    sql = """ UPDATE `meme_uploaded` 
+                    SET `enable`=%s, `reviewed_by`=%s, `reviewed_date`=%s 
+                    WHERE `key`=%s LIMIT 1 """
                     await cur.execute(sql, (status, reviewed_by, reviewed_date, meme_id))
                     await conn.commit()
                     return cur.rowcount
@@ -1134,7 +1177,7 @@ class MemePls(commands.Cog):
         get_meme = await self.get_random_approved_meme_guild(guild_id)
         if get_meme is None:
             await ctx.edit_original_message(
-                content=f"{ctx.author.mention}, cound not get one random meme here yet. No one uploaded? Try again later!")
+                content=f"{ctx.author.mention}, could not get one random meme here yet. No one uploaded? Try again later!")
             return
         else:
             embed = disnake.Embed(title="MEME uploaded by {}".format(get_meme['owner_name']),
@@ -1177,7 +1220,7 @@ class MemePls(commands.Cog):
         get_meme = await self.get_random_approved_meme()
         if get_meme is None:
             await ctx.edit_original_message(
-                content=f"{ctx.author.mention}, cound not get one random meme yet. Try again later!")
+                content=f"{ctx.author.mention}, could not get one random meme yet. Try again later!")
             return
         else:
             embed = disnake.Embed(title="MEME uploaded by {}".format(get_meme['owner_name']),
@@ -1203,13 +1246,7 @@ class MemePls(commands.Cog):
 
     async def meme_user(self, ctx, member):
         await self.bot_log()
-        try:
-            await ctx.response.send_message(f"{ctx.author.mention}, checking user's random meme...")
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(f"{ctx.author.mention}, error during checking user's meme...",
-                                            ephemeral=True)
-            return
+        await ctx.response.send_message(f"{ctx.author.mention}, checking user's random meme...")
         if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
             try:
                 serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
@@ -1223,10 +1260,13 @@ class MemePls(commands.Cog):
             except Exception:
                 traceback.print_exc(file=sys.stdout)
 
-        get_meme = await self.get_random_approved_meme_user(str(member.id))
+        guild_id = "DM"
+        if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
+            guild_id = str(ctx.guild.id)
+        get_meme = await self.get_random_approved_meme_user(str(member.id), guild_id)
         if get_meme is None:
             await ctx.edit_original_message(
-                content=f"{ctx.author.mention}, cound not get his/her random meme yet. Try again later or ask them to upload more?!")
+                content=f"{ctx.author.mention}, could not get `{member.name}#{member.discriminator}` random meme yet. Try again later or ask them to upload more?!")
             return
         else:
             embed = disnake.Embed(title="MEME uploaded by {}".format(get_meme['owner_name']),
@@ -1251,23 +1291,19 @@ class MemePls(commands.Cog):
                 traceback.print_exc(file=sys.stdout)
 
     async def meme_review(self, ctx, meme_id):
-        if ctx.author.id not in self.meme_reviewer:
+        if ctx.author.id not in self.meme_reviewer and \
+            hasattr(ctx, "guild") and hasattr(ctx.guild, "id") \
+            and not ctx.author.guild_permissions.manage_channels:
             await ctx.response.send_message(f"{ctx.author.mention}, permission denied...")
             return
-        try:
-            try:
-                await ctx.response.send_message(f"{ctx.author.mention}, checking meme ID...")
-            except Exception:
-                traceback.print_exc(file=sys.stdout)
-                await ctx.response.send_message(f"{ctx.author.mention}, error during checking meme ID...",
-                                                ephemeral=True)
-                return
-
+        elif hasattr(ctx, "guild") and hasattr(ctx.guild, "id") and \
+            ctx.author.guild_permissions.manage_channels:
+            # has permission and public
+            await ctx.response.send_message(f"{ctx.author.mention}, checking meme in guild `{ctx.guild.name}`...")
             if meme_id is None:
-                # Check random meme which pending
-                get_meme = await self.get_random_pending_meme()
+                get_meme = await self.get_random_pending_meme(str(ctx.guild.id))
                 if get_meme is None:
-                    msg = f"{ctx.author.mention}, no pending left."
+                    msg = f"{ctx.author.mention}, no pending left this guild."
                     await ctx.edit_original_message(content=msg)
                     return
                 else:
@@ -1294,9 +1330,9 @@ class MemePls(commands.Cog):
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
             else:
-                get_meme = await self.get_id_meme(meme_id)
+                get_meme = await self.get_id_meme(meme_id, str(ctx.guild.id))
                 if get_meme is None:
-                    msg = f"{ctx.author.mention}, `meme_id` not found."
+                    msg = f"{ctx.author.mention}, `meme_id` not found in this guild."
                     await ctx.edit_original_message(content=msg)
                     return
                 else:
@@ -1322,22 +1358,107 @@ class MemePls(commands.Cog):
                         await ctx.edit_original_message(content=None, embed=embed, view=view)
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
+        elif ctx.author.id in self.meme_reviewer and not hasattr(ctx.guild, "id"):
+            # Check meme uploaded in DM
+            await ctx.response.send_message(f"{ctx.author.mention}, checking meme ID...")
+            if meme_id is None:
+                # Check random meme which pending
+                get_meme = await self.get_random_pending_meme("DM")
+                if get_meme is None:
+                    msg = f"{ctx.author.mention}, no pending left from DM."
+                    await ctx.edit_original_message(content=msg)
+                    return
+                else:
+                    status = "PENDING"
+                    if get_meme['enable'] == 1:
+                        status = "APPROVED"
+                    embed = disnake.Embed(
+                        title="MEME uploaded by {} / {} in {}".format(get_meme['owner_name'], get_meme['owner_userid'],
+                                                                      get_meme['guild_id']),
+                        description=f"Status `{status}`", timestamp=datetime.now())
+                    embed.add_field(name="Original File", value=get_meme['original_name'], inline=False)
+                    embed.add_field(name="Stored File", value=get_meme['saved_name'], inline=False)
+                    embed.add_field(name="New URL link", value=self.meme_web_path + get_meme['saved_name'],
+                                    inline=False)
+                    embed.add_field(name="View Count", value=get_meme['number_view'], inline=False)
+                    embed.add_field(name="Tip Count", value=get_meme['number_tipped'], inline=False)
+                    embed.set_thumbnail(url=self.meme_web_path + get_meme['saved_name'])
+                    embed.set_footer(text="Reviewing {} by: {}#{}".format(get_meme['key'], ctx.author.name,
+                                                                          ctx.author.discriminator))
+                    try:
+                        view = MemeReview_Button(ctx, self.bot, 30, get_meme['key'], get_meme['owner_userid'])
+                        view.message = await ctx.original_message()
+                        await ctx.edit_original_message(content=None, embed=embed, view=view)
+                    except Exception:
+                        traceback.print_exc(file=sys.stdout)
+            else:
+                get_meme = await self.get_id_meme(meme_id, "DM")
+                if get_meme is None:
+                    msg = f"{ctx.author.mention}, `meme_id` not found from DM."
+                    await ctx.edit_original_message(content=msg)
+                    return
+                else:
+                    status = "PENDING"
+                    if get_meme['enable'] == 1:
+                        status = "APPROVED"
+                    embed = disnake.Embed(
+                        title="MEME uploaded by {} / {} in {}".format(get_meme['owner_name'], get_meme['owner_userid'],
+                                                                      get_meme['guild_id']),
+                        description=f"Status `{status}`", timestamp=datetime.now())
+                    embed.add_field(name="Original File", value=get_meme['original_name'], inline=False)
+                    embed.add_field(name="Stored File", value=get_meme['saved_name'], inline=False)
+                    embed.add_field(name="New URL link", value=self.meme_web_path + get_meme['saved_name'],
+                                    inline=False)
+                    embed.add_field(name="View Count", value=get_meme['number_view'], inline=False)
+                    embed.add_field(name="Tip Count", value=get_meme['number_tipped'], inline=False)
+                    embed.set_thumbnail(url=self.meme_web_path + get_meme['saved_name'])
+                    embed.set_footer(text="Reviewing {} by: {}#{}".format(get_meme['key'], ctx.author.name,
+                                                                          ctx.author.discriminator))
+                    try:
+                        view = MemeReview_Button(ctx, self.bot, 30, get_meme['key'], get_meme['owner_userid'])
+                        view.message = await ctx.original_message()
+                        await ctx.edit_original_message(content=None, embed=embed, view=view)
+                    except Exception:
+                        traceback.print_exc(file=sys.stdout)
+        elif ctx.author.id not in self.meme_reviewer:
+            await ctx.response.send_message(f"{ctx.author.mention}, permission denied...")
+            return
+        else:
+            await ctx.response.send_message(f"{ctx.author.mention}, error.")
+            return
+
+    async def meme_list(self, ctx):
+        await self.bot_log()
+        await ctx.response.send_message(f"{ctx.author.mention}, in progress...", ephemeral=True)
+        try:
+            get_user_memes = await self.get_user_meme_list(str(ctx.author.id))
+            if len(get_user_memes) == 0:
+                await ctx.edit_original_message(content=f"{ctx.author.mention}, you don't have any uploaded MEME.")
+            else:
+                all_pages = []
+                for each in get_user_memes:
+                    ts = datetime.fromtimestamp(each['uploaded_date'])
+                    embed = disnake.Embed(
+                        title="{}#{} Your MEME `{}`".format(ctx.author.name,
+                                                            ctx.author.discriminator,
+                                                            each['key']), 
+                        description=f"Caption: {each['caption']}\nViewed: {each['number_view']}x\nTipped: {each['number_tipped']}x",
+                        timestamp=ts)
+                    embed.add_field(name="Guild ID", value=each['guild_id'], inline=True)
+                    embed.add_field(name="Status", value="APPROVED" if each['enable'] == 1 else "PENDING", inline=True)
+                    embed.add_field(name="Original File", value=each['original_name'], inline=False)
+                    embed.set_image(url=self.meme_web_path + each['saved_name'])
+                    embed.set_footer(text="Your navigation button!")
+                    all_pages.append(embed)
+                view = MenuPage(ctx, all_pages, timeout=60)
+                view.message = await ctx.edit_original_message(content=None, embed=all_pages[0], view=view)
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
-    async def meme_list(self, ctx, author):
-        try:
-            await ctx.response.send_message(f"{ctx.author.mention}, in progress...")
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
 
     async def meme_upload(self, ctx, caption, attachment):
         await self.bot_log()
-        try:
-            await ctx.response.send_message(f"{ctx.author.mention}, loading meme...")
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(f"{ctx.author.mention}, failed to load meme...", ephemeral=True)
+        await ctx.response.send_message(f"{ctx.author.mention}, loading meme upload...")
         if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
             try:
                 serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
@@ -1430,20 +1551,20 @@ class MemePls(commands.Cog):
 
     @memepls.sub_command(
         usage="memepls view",
-        description="View Meme randomly."
+        description="View MEME randomly."
     )
     async def view(
             self,
             ctx
     ):
-        await self.meme_view(ctx)
+        await self.meme_view_here(ctx)
 
     @memepls.sub_command(
         usage="memepls user <@member>",
         options=[
             Option('user', 'user', OptionType.user, required=False)
         ],
-        description="View other user's meme randomly."
+        description="View other user's MEME randomly."
     )
     async def user(
             self,
@@ -1455,30 +1576,14 @@ class MemePls(commands.Cog):
         await self.meme_user(ctx, user)
 
     @memepls.sub_command(
-        usage="memepls here",
-        description="View Meme randomly uploaded in the guild."
-    )
-    async def here(
-            self,
-            ctx
-    ):
-        await self.meme_view_here(ctx)
-
-    @memepls.sub_command(
         usage="memepls list",
-        options=[
-            Option('author', 'author', OptionType.user, required=False)
-        ],
-        description="View your uploaded meme or other's."
+        description="View your uploaded MEME"
     )
     async def list(
             self,
-            ctx,
-            author: disnake.Member = None
+            ctx
     ):
-        if author is None:
-            author = ctx.author
-        await self.meme_list(ctx, author)
+        await self.meme_list(ctx)
 
     @memepls.sub_command(
         usage="memepls upload <caption> <attachment>",
@@ -1486,7 +1591,7 @@ class MemePls(commands.Cog):
             Option('caption', 'caption', OptionType.string, required=True),
             Option('image', 'image', OptionType.attachment, required=True)
         ],
-        description="View your uploaded Meme."
+        description="Upload your MEME."
     )
     async def upload(
             self,
@@ -1501,7 +1606,7 @@ class MemePls(commands.Cog):
         options=[
             Option('meme_id', 'meme_id', OptionType.string, required=False)
         ],
-        description="Review meme ID (reviewer)."
+        description="Review MEME ID (reviewer)."
     )
     async def review(
             self,
@@ -1512,7 +1617,7 @@ class MemePls(commands.Cog):
 
     @memepls.sub_command(
         usage="memepls disclaimer",
-        description="View some term & condition of meme upload."
+        description="View term & condition of your upload MEME."
     )
     async def disclaimer(
             self,

@@ -25,7 +25,7 @@ import os
 from disnake.enums import OptionType
 from disnake.app_commands import Option, OptionChoice
 
-from Bot import EMOJI_CHART_DOWN, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_FLOPPY, logchanbot, EMOJI_HOURGLASS_NOT_DONE
+from Bot import EMOJI_CHART_DOWN, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_FLOPPY, logchanbot, EMOJI_HOURGLASS_NOT_DONE, SERVER_BOT
 import redis_utils
 import store
 from config import config
@@ -246,12 +246,14 @@ class Paprika(commands.Cog):
             coin: str,
             option: str
     ):
+        await ctx.response.send_message(f"{EMOJI_HOURGLASS_NOT_DONE} {ctx.author.mention}, checking coinpaprika..")
 
         try:
-            await ctx.response.send_message(f"{EMOJI_HOURGLASS_NOT_DONE} {ctx.author.mention}, checking coinpaprika..")
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, f"/paprika {coin}", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            return
 
         coin_name = coin.upper()
         key = config.redis.prefix_paprika + coin.upper()

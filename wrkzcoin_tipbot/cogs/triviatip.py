@@ -16,6 +16,7 @@ from disnake.app_commands import Option
 from disnake.enums import ButtonStyle
 from disnake.enums import OptionType
 from disnake.ext import commands
+from cogs.utils import Utils
 
 
 class MyTriviaBtn(disnake.ui.Button):
@@ -136,6 +137,7 @@ class TriviaTips(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.wallet_api = WalletAPI(self.bot)
+        self.utils = Utils(self.bot)
 
         self.trivia_duration_min = 5
         self.trivia_duration_max = 45
@@ -151,13 +153,14 @@ class TriviaTips(commands.Cog):
             return
         # End token name check
 
+        await ctx.response.send_message(f"{ctx.author.mention}, /triviatip preparation... ")
+
         try:
-            await ctx.response.send_message(f"{ctx.author.mention}, Trivia Tip preparation... ")
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/triviatip", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(
-                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute a trivia message...", ephemeral=True)
-            return
 
         # Check if there is many airdrop/mathtip/triviatip
         try:

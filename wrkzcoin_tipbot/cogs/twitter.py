@@ -688,6 +688,14 @@ class Twitter(commands.Cog):
         try:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking twitter..."
             await ctx.response.send_message(msg)
+
+            try:
+                self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                             str(ctx.author.id), SERVER_BOT, "/twitter subscribe", int(time.time())))
+                await self.utils.add_command_calls()
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+
             try:
                 embed = disnake.Embed(title="[TWITTER] Subscription")
                 embed.add_field(name="Link", value=f"<{twitter_link}>")
@@ -781,14 +789,15 @@ class Twitter(commands.Cog):
         if twitter_link.endswith("/"): twitter_link = twitter_link[0:-1]
         user = twitter_link.split("/")[-1]
 
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking twitter..."
+        await ctx.response.send_message(msg)
+
         try:
-            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking twitter..."
-            await ctx.response.send_message(msg)
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/twitter unsubscribe", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(
-                content=f"{EMOJI_INFORMATION} {ctx.author.mention}, error to message you...")
-            return
 
         if not user.isalnum():
             await ctx.edit_original_message(
@@ -843,14 +852,15 @@ class Twitter(commands.Cog):
             add_server_info = await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
             serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
 
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking twitter..."
+        await ctx.response.send_message(msg)
+
         try:
-            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking twitter..."
-            await ctx.response.send_message(msg)
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/twitter listsub", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(
-                content=f"{EMOJI_INFORMATION} {ctx.author.mention}, error to message you...")
-            return
 
         check_sub_link = await self.get_list_subscribe(str(ctx.guild.id))
         if len(check_sub_link) == 0:
@@ -894,13 +904,16 @@ class Twitter(commands.Cog):
             twitter_link: str
     ):
         await self.bot_log()
+
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking twitter..."
+        await ctx.response.send_message(msg)
+
         try:
-            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking twitter..."
-            await ctx.response.send_message(msg)
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/twitter rt_reward", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(content=f"{EMOJI_INFORMATION} {ctx.author.mention}, error to message...")
-            return
 
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo is None:
@@ -1055,14 +1068,16 @@ class Twitter(commands.Cog):
     ):
         await self.bot_log()
         twitter_name = twitter_name.replace("@", "")
+
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your twitter..."
+        await ctx.response.send_message(msg, ephemeral=True)
+
         try:
-            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your twitter..."
-            await ctx.response.send_message(msg, ephemeral=True)
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/twitter linkme", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(content=f"{EMOJI_INFORMATION} {ctx.author.mention}, error to message...",
-                                            ephemeral=True)
-            return
 
         if "https://" in twitter_name and status_link is None:
             # sometimes people fill name and link in the same field.
@@ -1174,14 +1189,16 @@ class Twitter(commands.Cog):
             ctx
     ):
         await self.bot_log()
+
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your twitter..."
+        await ctx.response.send_message(msg, ephemeral=True)
+
         try:
-            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your twitter..."
-            await ctx.response.send_message(msg, ephemeral=True)
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/twitter unlinkme", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(content=f"{EMOJI_INFORMATION} {ctx.author.mention}, error to message...",
-                                            ephemeral=True)
-            return
 
         # Check if exist in DB..
         get_linkme = await self.twitter_linkme_get_user(str(ctx.author.id))
@@ -1224,13 +1241,16 @@ class Twitter(commands.Cog):
         old_twitter = twitter
         has_link = False
         await self.bot_log()
+
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking twitter..."
+        await ctx.response.send_message(msg)
+
         try:
-            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking twitter..."
-            await ctx.response.send_message(msg)
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/twitter tip", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(content=f"{EMOJI_INFORMATION} {ctx.author.mention}, error to message...")
-            return
 
         coin_name = coin.upper()
         if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
@@ -1438,14 +1458,16 @@ class Twitter(commands.Cog):
             plain: str = 'embed'
     ):
         await self.bot_log()
+
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking twitter..."
+        await ctx.response.send_message(msg, ephemeral=True)
+
         try:
-            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking twitter..."
-            await ctx.response.send_message(msg, ephemeral=True)
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/twitter deposit", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(content=f"{EMOJI_INFORMATION} {ctx.author.mention}, error to message...",
-                                            ephemeral=True)
-            return
 
         if token is None:
             await ctx.edit_original_message(content=f'{ctx.author.mention}, token name is missing.')
@@ -1560,14 +1582,15 @@ class Twitter(commands.Cog):
             ctx
     ):
         await self.bot_log()
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking twitter..."
+        await ctx.response.send_message(msg, ephemeral=True)
+
         try:
-            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking twitter..."
-            await ctx.response.send_message(msg, ephemeral=True)
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/twitter balances", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(content=f"{EMOJI_INFORMATION} {ctx.author.mention}, error to message...",
-                                            ephemeral=True)
-            return
 
         # Check if exist in DB..
         get_linkme = await self.twitter_linkme_get_user(str(ctx.author.id))

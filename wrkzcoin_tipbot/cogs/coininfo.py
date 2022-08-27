@@ -1,15 +1,15 @@
 import sys
 import traceback
 from datetime import datetime
+import time
 
 import disnake
-from Bot import num_format_coin
+from Bot import num_format_coin, SERVER_BOT
 from cogs.utils import Utils
 from cogs.wallet import WalletAPI
 from disnake.app_commands import Option
 from disnake.enums import OptionType
 from disnake.ext import commands
-
 
 class Coininfo(commands.Cog):
 
@@ -23,12 +23,20 @@ class Coininfo(commands.Cog):
         ctx, 
         coin: str,
     ):
+        await ctx.response.send_message(f"{ctx.author.mention} getting coin info...")
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                        str(ctx.author.id), SERVER_BOT, "/coininfo", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         coin_name = coin.upper()
         if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
             coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
             msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
-            await ctx.response.send_message(msg)
+            await ctx.response.edit_original_message(content=msg)
             return
 
         confim_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
@@ -92,7 +100,7 @@ class Coininfo(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
         response_text += "```"
-        await ctx.response.send_message(content=response_text)
+        await ctx.edit_original_message(content=response_text)
 
 
     @commands.slash_command(usage="coininfo <coin>",
@@ -109,6 +117,14 @@ class Coininfo(commands.Cog):
 
 
     async def async_coinlist(self, ctx):
+        await ctx.response.send_message(f"{ctx.author.mention} getting coin list...")
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                        str(ctx.author.id), SERVER_BOT, "/coinlist", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         if self.bot.coin_name_list and len(self.bot.coin_name_list) > 0:
             network = {}
             network['Others'] = []
@@ -145,9 +161,9 @@ class Coininfo(commands.Cog):
                 traceback.print_exc(file=sys.stdout)
             embed.set_author(name=self.bot.user.name, icon_url=self.bot.user.display_avatar)
             embed.set_footer(text=f"Requested by {ctx.author.name}#{ctx.author.discriminator} | Total: {str(len(self.bot.coin_name_list))} ")
-            await ctx.response.send_message(embed=embed)
+            await ctx.edit_original_message(content=None, embed=embed)
         else:
-            await ctx.response.send_message(f'{ctx.author.mention}, loading, check back later.')
+            await ctx.edit_original_message(content=f'{ctx.author.mention}, error loading. check back later.')
 
 
     @commands.slash_command(usage="coinlist",

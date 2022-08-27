@@ -1,15 +1,24 @@
 import numexpr
-from Bot import EMOJI_INFORMATION, EMOJI_ERROR
+import time
+from Bot import EMOJI_INFORMATION, EMOJI_ERROR, SERVER_BOT
 from disnake.app_commands import Option
 from disnake.enums import OptionType
 from disnake.ext import commands
+from cogs.utils import Utils
 
 
 class Calculator(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.utils = Utils(self.bot)
 
     async def async_calc(self, ctx, eval_string: str = None):
+        try:
+            self.bot.commandings.append((str(ctx.author.id), SERVER_BOT, "/cal", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         if eval_string is None:
             msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, Example: `cal 2+3+4/2`'
             await ctx.response.send_message(msg)

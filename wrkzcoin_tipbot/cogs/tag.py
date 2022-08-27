@@ -9,7 +9,8 @@ from disnake import TextInputStyle
 from disnake.app_commands import Option
 from disnake.enums import OptionType
 from disnake.ext import commands
-
+from cogs.utils import Utils
+from Bot import SERVER_BOT
 
 # TODO: add back itag for media
 
@@ -145,6 +146,7 @@ class Tag(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        self.utils = Utils(self.bot)
 
     @commands.guild_only()
     @commands.slash_command(description="Manage or display tag(s).")
@@ -190,6 +192,18 @@ class Tag(commands.Cog):
                 await ctx.response.send_message(f"{ctx.author.mention}, failed to delete tag `{tag_name}`.")
         else:
             await ctx.response.send_message(f"{ctx.author.mention}, tag `{tag_name}` is not valid.")
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, f"/tag delete", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, f"/tag add", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
 
     @commands.guild_only()
     @tag.sub_command(
@@ -222,6 +236,12 @@ class Tag(commands.Cog):
                     traceback.print_exc(file=sys.stdout)
             else:
                 await ctx.response.send_message(f"{ctx.author.mention}, there is no tag `{tag_name}` in this server.")
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, f"/tag show", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
 
 
 def setup(bot):

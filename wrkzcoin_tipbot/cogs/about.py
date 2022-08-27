@@ -2,10 +2,11 @@ import sys
 import traceback
 import psutil
 from datetime import datetime
+import time
 
 import disnake
 import store
-from Bot import RowButtonRowCloseAnyMessage, logchanbot
+from Bot import RowButtonRowCloseAnyMessage, logchanbot, SERVER_BOT
 from cogs.utils import Utils
 from config import config
 from disnake.ext import commands
@@ -33,8 +34,15 @@ class About(commands.Cog):
         return None
 
     async def async_about(self, ctx):
+        await ctx.response.send_message(f"{ctx.author.mention} loading about...")
         try:
-            await ctx.response.send_message(embed=await self.about_embed(), view=RowButtonRowCloseAnyMessage())
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM", 
+                                         str(ctx.author.id), SERVER_BOT, "/about", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        try:
+            await ctx.edit_original_message(content=None, embed=await self.about_embed(), view=RowButtonRowCloseAnyMessage())
         except Exception:
             traceback.print_exc(file=sys.stdout)
 

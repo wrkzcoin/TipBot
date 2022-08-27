@@ -22,7 +22,7 @@ from disnake.app_commands import Option, OptionChoice
 from discord_webhook import DiscordWebhook
 
 import store
-from Bot import get_token_list, num_format_coin, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, \
+from Bot import get_token_list, num_format_coin, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EMOJI_INFORMATION, \
     EMOJI_RED_NO, EMOJI_ARROW_RIGHTHOOK, SERVER_BOT, RowButtonCloseMessage, \
     RowButtonRowCloseAnyMessage, human_format, text_to_num, truncate, \
     NOTIFICATION_OFF_CMD, DEFAULT_TICKER, seconds_str
@@ -888,6 +888,17 @@ class Guild(commands.Cog):
         coin: str, 
         duration: str
     ):
+
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, loading..."
+        await ctx.response.send_message(msg)
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/guild createraffle", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         await self.bot_log()
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo is None:
@@ -898,24 +909,17 @@ class Guild(commands.Cog):
         if serverinfo['raffle_channel']:
             raffle_chan = self.bot.get_channel(int(serverinfo['raffle_channel']))
             if not raffle_chan:
-                await ctx.response.send_message(f"{EMOJI_RED_NO} {ctx.author.mention}, can not find raffle channel or invalid.")
+                await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, can not find raffle channel or invalid.")
                 return
         else:
-            await ctx.response.send_message(f"{EMOJI_RED_NO} {ctx.author.mention}, there is no raffle channel yet.")
+            await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, there is no raffle channel yet.")
             return
 
         try:
             amount = Decimal(amount)
         except ValueError:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, invalid amount {amount}!"
-            ctx.response.send_message(msg)
-            return
-
-        try:
-            await ctx.response.send_message(f"{ctx.author.mention}, execute raffle command... ")
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute raffle command message...", ephemeral=True)
+            ctx.edit_original_message(content=msg)
             return
 
         coin_name = coin.upper()
@@ -1022,6 +1026,17 @@ class Guild(commands.Cog):
         ctx, 
         subc: str=None
     ):
+
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, loading..."
+        await ctx.response.send_message(msg)
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/guild raffle", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         await self.bot_log()
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo is None:
@@ -1032,22 +1047,15 @@ class Guild(commands.Cog):
         if serverinfo['raffle_channel']:
             raffle_chan = self.bot.get_channel(int(serverinfo['raffle_channel']))
             if not raffle_chan:
-                await ctx.response.send_message(f"{EMOJI_RED_NO} {ctx.author.mention}, can not find raffle channel or invalid.")
+                await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, can not find raffle channel or invalid.")
                 return
         else:
-            await ctx.response.send_message(f"{EMOJI_RED_NO} {ctx.author.mention}, there is no raffle channel yet.")
+            await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, there is no raffle channel yet.")
             return
 
         if subc is None:
             subc = "INFO"
         subc = subc.upper()
-
-        try:
-            await ctx.response.send_message(f"{ctx.author.mention}, execute raffle command... ")
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute raffle command message...", ephemeral=True)
-            return
 
         get_raffle = await self.raffle_get_from_guild(str(ctx.guild.id), False, SERVER_BOT)
         list_raffle_id = None
@@ -1241,10 +1249,20 @@ class Guild(commands.Cog):
         self,
         ctx
     ):
+
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, loading..."
+        await ctx.response.send_message(msg)
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/guild balance", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         has_none_balance = True
         total_all_balance_usd = 0.0
         mytokens = await store.get_coin_settings(coin_type=None)
-        await ctx.response.send_message(f"{ctx.author.mention} guild balance loading...", ephemeral=False)
 
         coin_balance_list = {}
         coin_balance = {}
@@ -1374,11 +1392,22 @@ class Guild(commands.Cog):
         coin: str,
         channel: disnake.TextChannel
     ):
+
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, loading..."
+        await ctx.response.send_message(msg)
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/guild votereward", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         coin_name = coin.upper()
         if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
             coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
-            await ctx.response.send_message(f'{ctx.author.mention}, **{coin_name}** does not exist with us.')
+            await ctx.edit_original_message(content=f'{ctx.author.mention}, **{coin_name}** does not exist with us.')
             return
 
         net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
@@ -1411,22 +1440,22 @@ class Guild(commands.Cog):
         amount = text_to_num(amount)
         if amount is None:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid given amount.'
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
         # We assume max reward by MaxTip / 10
         elif amount < MinTip or amount > MaxTip / 10:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, reward cannot be smaller than {num_format_coin(MinTip, coin_name, coin_decimal, False)} {token_display} or bigger than {num_format_coin(MaxTip / 10, coin_name, coin_decimal, False)} {token_display}.'
-            await ctx.response.send_message(msg, ephemeral=True)
+            await ctx.edit_original_message(content=msg)
             return
         # We assume at least guild need to have 100x of reward or depends on guild's population
         elif amount*100 > actual_balance:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, your guild needs to have at least 100x reward balance. 100x rewards = {num_format_coin(amount*100, coin_name, coin_decimal, False)} {token_display}. Check with `/guild balance`.'
-            await ctx.response.send_message(msg, ephemeral=True)
+            await ctx.edit_original_message(content=msg)
             return
         elif amount*len(ctx.guild.members) > actual_balance:
             population = len(ctx.guild.members)
             msg = f'{EMOJI_RED_NO} {ctx.author.mention} you need to have at least {str(population)}x reward balance. {str(population)}x rewards = {num_format_coin(amount*population, coin_name, coin_decimal, False)} {token_display}.'
-            await ctx.response.send_message(msg, ephemeral=True)
+            await ctx.edit_original_message(content=msg)
             return
         else:
             # Check channel
@@ -1438,7 +1467,7 @@ class Guild(commands.Cog):
                 await get_channel.send(msg)
             except Exception:
                 msg = f'{ctx.author.mention}, failed to message channel {channel.mention}. Set reward denied!'
-                await ctx.response.send_message(msg, ephemeral=True)
+                await ctx.edit_original_message(content=msg)
                 traceback.print_exc(file=sys.stdout)
                 return
             
@@ -1450,20 +1479,19 @@ class Guild(commands.Cog):
                     add_server_info = await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
             except Exception:
                 msg = f'{ctx.author.mention}, internal error. Please report.'
-                await ctx.response.send_message(msg, ephemeral=True)
+                await ctx.edit_original_message(content=msg)
                 traceback.print_exc(file=sys.stdout)
             update_reward = await self.update_reward(str(ctx.guild.id), float(amount), coin_name, False, channel_str)
             if update_reward > 0:
                 msg = f'{ctx.author.mention} Successfully set reward for voting in guild {ctx.guild.name} to {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}.'
-                await ctx.response.send_message(msg, ephemeral=True)
+                await ctx.edit_original_message(content=msg)
                 try:
                     await self.vote_logchan(f'[{SERVER_BOT}] A user {ctx.author.name}#{ctx.author.discriminator} set a vote reward in guild {ctx.guild.name} / {ctx.guild.id} to {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}.')
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
             else:
                 msg = f'{ctx.author.mention}, internal error or nothing updated.'
-                await ctx.response.send_message(msg, ephemeral=True)
-            return
+                await ctx.edit_original_message(content=msg)
 
 
     @guild.sub_command(
@@ -1480,11 +1508,22 @@ class Guild(commands.Cog):
         amount: str, 
         coin: str
     ):
+
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, loading..."
+        await ctx.response.send_message(msg)
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/guild deposit", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         coin_name = coin.upper()
         if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
             coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
-            await ctx.response.send_message(f'{ctx.author.mention}, **{coin_name}** does not exist with us.')
+            await ctx.edit_original_message(content=f'{ctx.author.mention}, **{coin_name}** does not exist with us.')
             return
         # Do the job
         try:
@@ -1523,7 +1562,7 @@ class Guild(commands.Cog):
                 amount = amount.replace(",", "").replace("$", "")
                 if usd_equivalent_enable == 0:
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{coin_name}`."
-                    await ctx.response.send_message(msg)
+                    await ctx.edit_original_message(content=msg)
                     return
                 else:
                     native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
@@ -1540,13 +1579,13 @@ class Guild(commands.Cog):
                         amount = float(Decimal(amount) / Decimal(per_unit))
                     else:
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention}, I cannot fetch equivalent price. Try with different method.'
-                        await ctx.response.send_message(msg)
+                        await ctx.edit_original_message(content=msg)
                         return
             else:
                 amount = amount.replace(",", "")
                 amount = text_to_num(amount)
                 if amount is None:
-                    await ctx.response.send_message(f'{EMOJI_RED_NO} {ctx.author.mention}, invalid given amount.')
+                    await ctx.edit_original_message(content=f'{EMOJI_RED_NO} {ctx.author.mention}, invalid given amount.')
                     return
             # end of check if amount is all
             userdata_balance = await self.wallet_api.user_balance(str(ctx.author.id), coin_name, 
@@ -1556,17 +1595,17 @@ class Guild(commands.Cog):
             amount = Decimal(amount)
             if amount <= 0:
                 msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please topup more {coin_name}'
-                await ctx.response.send_message(msg)
+                await ctx.edit_original_message(content=msg)
                 return
                 
             if amount > actual_balance:
                 msg = f'{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to deposit {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}.'
-                await ctx.response.send_message(msg, ephemeral=True)
+                await ctx.edit_original_message(content=msg)
                 return
 
             elif amount < MinTip or amount > MaxTip:
                 msg = f'{EMOJI_RED_NO} {ctx.author.mention}, transaction cannot be smaller than {num_format_coin(MinTip, coin_name, coin_decimal, False)} {token_display} or bigger than {num_format_coin(MaxTip, coin_name, coin_decimal, False)} {token_display}.'
-                await ctx.response.send_message(msg, ephemeral=True)
+                await ctx.edit_original_message(content=msg)
                 return
 
             equivalent_usd = ""
@@ -1589,7 +1628,7 @@ class Guild(commands.Cog):
 
             # OK, move fund
             if ctx.author.id in self.bot.TX_IN_PROCESS:
-                await ctx.response.send_message(f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.')
+                await ctx.edit_original_message(content=f'{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress.')
                 return
             else:
                 self.bot.TX_IN_PROCESS.append(ctx.author.id)
@@ -1598,7 +1637,7 @@ class Guild(commands.Cog):
                     if tip:
                         try:
                             msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention} **{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}**{equivalent_usd} was transferred to {ctx.guild.name}.'
-                            await ctx.response.send_message(msg)
+                            await ctx.edit_original_message(content=msg)
                         except (disnake.Forbidden, disnake.errors.Forbidden, disnake.errors.HTTPException) as e:
                             pass
                         guild_found = self.bot.get_guild(ctx.guild.id)
@@ -1634,6 +1673,17 @@ class Guild(commands.Cog):
         ctx,
         resetkey: str=None
     ):
+
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, loading..."
+        await ctx.response.send_message(msg, ephemeral=True)
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/guild topgg", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         secret = "topgg_vote_secret"
         if resetkey is None: resetkey = "NO"
         get_guild_by_key = await self.guild_find_by_key(str(ctx.guild.id), secret)
@@ -1643,18 +1693,18 @@ class Guild(commands.Cog):
             insert_key = await self.guild_insert_key(str(ctx.guild.id), random_string, secret, False)
             if insert_key:
                 try:
-                    await ctx.response.send_message(f'Your guild {ctx.guild.name}\'s topgg key: `{random_string}`\nWebook URL: `{config.topgg.guild_vote_url}`', ephemeral=True)
+                    await ctx.edit_original_message(content=f'Your guild {ctx.guild.name}\'s topgg key: `{random_string}`\nWebook URL: `{config.topgg.guild_vote_url}`')
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
             else:
                 try:
-                    await ctx.response.send_message(f'Internal error! Please report!', ephemeral=True)
+                    await ctx.edit_original_message(content=f'Internal error! Please report!')
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
         elif get_guild_by_key and resetkey == "NO":
             # Just display
             try:
-                await ctx.response.send_message(f'Your guild {ctx.guild.name}\'s topgg key: `{get_guild_by_key}`\nWebook URL: `{config.topgg.guild_vote_url}`', ephemeral=True)
+                await ctx.edit_original_message(content=f'Your guild {ctx.guild.name}\'s topgg key: `{get_guild_by_key}`\nWebook URL: `{config.topgg.guild_vote_url}`')
             except Exception:
                 traceback.print_exc(file=sys.stdout)
         elif get_guild_by_key and resetkey == "YES":
@@ -1663,12 +1713,12 @@ class Guild(commands.Cog):
             insert_key = await self.guild_insert_key(str(ctx.guild.id), random_string, secret, True)
             if insert_key:
                 try:
-                    await ctx.response.send_message(f'Your guild {ctx.guild.name}\'s topgg updated key: `{random_string}`\nWebook URL: `{config.topgg.guild_vote_url}`', ephemeral=True)
+                    await ctx.edit_original_message(content=f'Your guild {ctx.guild.name}\'s topgg updated key: `{random_string}`\nWebook URL: `{config.topgg.guild_vote_url}`')
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
             else:
                 try:
-                    await ctx.response.send_message(f'Internal error! Please report!', ephemeral=True)
+                    await ctx.edit_original_message(content=f'Internal error! Please report!')
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
 
@@ -1689,6 +1739,16 @@ class Guild(commands.Cog):
         ctx,
         resetkey: str=None
     ):
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, loading..."
+        await ctx.response.send_message(msg, ephemeral=True)
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/guild discordlist", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         secret = "discordlist_vote_secret"
         if resetkey is None: resetkey = "NO"
         get_guild_by_key = await self.guild_find_by_key(str(ctx.guild.id), secret)
@@ -1698,18 +1758,18 @@ class Guild(commands.Cog):
             insert_key = await self.guild_insert_key(str(ctx.guild.id), random_string, secret, False)
             if insert_key:
                 try:
-                    await ctx.response.send_message(f'Your guild {ctx.guild.name}\'s discordlist key: `{random_string}`\nWebook URL: `{config.discordlist.guild_vote_url}`', ephemeral=True)
+                    await ctx.edit_original_message(content=f'Your guild {ctx.guild.name}\'s discordlist key: `{random_string}`\nWebook URL: `{config.discordlist.guild_vote_url}`')
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
             else:
                 try:
-                    await ctx.response.send_message(f'Internal error! Please report!', ephemeral=True)
+                    await ctx.edit_original_message(content=f'Internal error! Please report!')
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
         elif get_guild_by_key and resetkey == "NO":
             # Just display
             try:
-                await ctx.response.send_message(f'Your guild {ctx.guild.name}\'s discordlist key: `{get_guild_by_key}`\nWebook URL: `{config.discordlist.guild_vote_url}`', ephemeral=True)
+                await ctx.edit_original_message(content=f'Your guild {ctx.guild.name}\'s discordlist key: `{get_guild_by_key}`\nWebook URL: `{config.discordlist.guild_vote_url}`')
             except Exception:
                 traceback.print_exc(file=sys.stdout)
         elif get_guild_by_key and resetkey == "YES":
@@ -1718,32 +1778,42 @@ class Guild(commands.Cog):
             insert_key = await self.guild_insert_key(str(ctx.guild.id), random_string, secret, True)
             if insert_key:
                 try:
-                    await ctx.response.send_message(f'Your guild {ctx.guild.name}\'s discordlist updated key: `{random_string}`\nWebook URL: `{config.discordlist.guild_vote_url}`', ephemeral=True)
+                    await ctx.edit_original_message(content=f'Your guild {ctx.guild.name}\'s discordlist updated key: `{random_string}`\nWebook URL: `{config.discordlist.guild_vote_url}`')
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
             else:
                 try:
-                    await ctx.response.send_message(f'Internal error! Please report!', ephemeral=True)
+                    await ctx.edit_original_message(content=f'Internal error! Please report!')
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
 
 
     # Guild deposit
     async def async_mdeposit(self, ctx, token: str=None, plain: str=None):
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, loading..."
+        await ctx.response.send_message(msg)
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/mdeposit", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         coin_name = None
         if token is None:
-            await ctx.response.send_message(f'{ctx.author.mention}, token name is missing.')
+            await ctx.edit_original_message(content=f'{ctx.author.mention}, token name is missing.')
             return
         else:
             coin_name = token.upper()
             if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
                 coin_name = self.bot.coin_alias_names[coin_name]
             if not hasattr(self.bot.coin_list, coin_name):
-                await ctx.response.send_message(f'{ctx.author.mention}, **{coin_name}** does not exist with us.')
+                await ctx.edit_original_message(content=f'{ctx.author.mention}, **{coin_name}** does not exist with us.')
                 return
             else:
                 if getattr(getattr(self.bot.coin_list, coin_name), "enable_deposit") == 0:
-                    await ctx.response.send_message(f'{ctx.author.mention}, **{coin_name}** deposit disable.')
+                    await ctx.edit_original_message(content=f'{ctx.author.mention}, **{coin_name}** deposit disable.')
                     return
                     
         # Do the job
@@ -1777,9 +1847,9 @@ class Guild(commands.Cog):
             embed.set_footer(text="Use: deposit plain (for plain text)")
             try:
                 if plain and plain.lower() == 'plain' or plain.lower() == 'text':
-                    await ctx.response.send_message(plain_msg, view=RowButtonRowCloseAnyMessage())
+                    await ctx.edit_original_message(content=plain_msg, view=RowButtonRowCloseAnyMessage())
                 else:
-                    await ctx.response.send_message(embed=embed, view=RowButtonRowCloseAnyMessage())
+                    await ctx.edit_original_message(content=None, embed=embed, view=RowButtonRowCloseAnyMessage())
             except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                 traceback.print_exc(file=sys.stdout)
         except Exception:
@@ -1823,17 +1893,28 @@ class Guild(commands.Cog):
         duration: str,
         channel: disnake.TextChannel
     ):
+
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, loading..."
+        await ctx.response.send_message(msg)
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/guild faucetclaim", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         coin_name = coin.upper()
         if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
             coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
-            await ctx.response.send_message(f'{ctx.author.mention}, **{coin_name}** does not exist with us.')
+            await ctx.edit_original_message(content=f'{ctx.author.mention}, **{coin_name}** does not exist with us.')
             return
 
         duration_s = 12*3600
         duration = duration.upper()
         if duration not in ["4H", "8H", "12H", "24H"]:
-            await ctx.response.send_message(f'{ctx.author.mention}, accepted duration 4H, 8H, 12H, 24H.')
+            await ctx.edit_original_message(content=f'{ctx.author.mention}, accepted duration 4H, 8H, 12H, 24H.')
             return
         elif duration == "4H":
             duration_s = 4*3600
@@ -1874,22 +1955,22 @@ class Guild(commands.Cog):
         amount = text_to_num(amount)
         if amount is None:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid given amount.'
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
         # We assume max reward by MaxTip / 10
         elif amount < MinTip or amount > MaxTip / 10:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, faucet cannot be smaller than {num_format_coin(MinTip, coin_name, coin_decimal, False)} {token_display} or bigger than {num_format_coin(MaxTip / 10, coin_name, coin_decimal, False)} {token_display}.'
-            await ctx.response.send_message(msg, ephemeral=True)
+            await ctx.edit_original_message(content=msg)
             return
         # We assume at least guild need to have 100x of reward or depends on guild's population
         elif amount*100 > actual_balance:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, your guild needs to have at least 100x reward balance. 100x rewards = {num_format_coin(amount*100, coin_name, coin_decimal, False)} {token_display}. Check with `/guild balance`.'
-            await ctx.response.send_message(msg, ephemeral=True)
+            await ctx.edit_original_message(content=msg)
             return
         elif amount*len(ctx.guild.members) > actual_balance:
             population = len(ctx.guild.members)
             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you need to have at least {str(population)}x reward balance. {str(population)}x rewards = {num_format_coin(amount*population, coin_name, coin_decimal, False)} {token_display}.'
-            await ctx.response.send_message(msg, ephemeral=True)
+            await ctx.edit_original_message(content=msg)
             return
         else:
             # Check channel
@@ -1901,7 +1982,7 @@ class Guild(commands.Cog):
                 await get_channel.send(msg)
             except Exception:
                 msg = f'{ctx.author.mention}, failed to message channel {channel.mention}. Set faucet denied!'
-                await ctx.response.send_message(msg, ephemeral=True)
+                await ctx.edit_original_message(content=msg)
                 traceback.print_exc(file=sys.stdout)
                 return
             
@@ -1914,19 +1995,19 @@ class Guild(commands.Cog):
             except Exception:
                 traceback.print_exc(file=sys.stdout)
                 msg = f'{ctx.author.mention}, internal error. Please report.'
-                await ctx.response.send_message(msg, ephemeral=True)
+                await ctx.edit_original_message(content=msg)
 
             update_faucet = await self.update_faucet(str(ctx.guild.id), float(amount), coin_name, duration_s, False, channel_str)
             if update_faucet > 0:
                 msg = f'{ctx.author.mention} Successfully faucet in guild {ctx.guild.name} to {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} for every {duration}.'
-                await ctx.response.send_message(msg)
+                await ctx.edit_original_message(content=msg)
                 try:
                     await logchanbot(f'[{SERVER_BOT}] A user {ctx.author.name}#{ctx.author.discriminator} set /faucet in guild {ctx.guild.name} / {ctx.guild.id} to {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} for every {duration}.')
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
             else:
                 msg = f'{ctx.author.mention} internal error or nothing updated.'
-                await ctx.response.send_message(msg, ephemeral=True)
+                await ctx.edit_original_message(content=msg)
             return
 
     @commands.has_permissions(administrator=True)
@@ -1997,21 +2078,31 @@ class Guild(commands.Cog):
     ):
         await self.async_activedrop( ctx, amount, coin, duration, channel, role )
 
-    async def async_activedrop(self, ctx, amount: str, coin: str, duration: str, channel: disnake.TextChannel, role: disnake.Role=None ):
+    async def async_activedrop(self, ctx, amount: str, coin: str, duration: str, channel: disnake.TextChannel, role: disnake.Role=None):
+
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, loading..."
+        await ctx.response.send_message(msg)
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/guild activedrop", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         original_duration = duration
         coin_name = coin.upper()
         if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
             coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
-            await ctx.response.send_message(f'{ctx.author.mention}, **{coin_name}** does not exist with us.')
+            await ctx.edit_original_message(content=f'{ctx.author.mention}, **{coin_name}** does not exist with us.')
             return
 
         duration = duration.upper()
         if duration not in ["0.5H", "1H", "2H", "3H", "4H", "5H", "6H", "12H", "24H"]:
-            await ctx.response.send_message(f'{ctx.author.mention}, accepted duration 0.5H to 6H.')
+            await ctx.edit_original_message(content=f'{ctx.author.mention}, accepted duration 0.5H to 6H.')
             return
         duration_s = int(float(duration.upper().replace("H", ""))*3600)
-        await ctx.response.send_message(f'{ctx.author.mention}, setting activedrop...')
 
         net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
         type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
@@ -2119,6 +2210,16 @@ class Guild(commands.Cog):
                 await ctx.edit_original_message(content=msg)
 
     async def async_guild_info(self, ctx):
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, loading..."
+        await ctx.response.send_message(msg)
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/guild info", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo is None:
             # Let's add some info if server return None
@@ -2153,7 +2254,7 @@ class Guild(commands.Cog):
         if serverinfo['vote_reward_amount'] and serverinfo['vote_reward_coin'] and serverinfo['vote_reward_channel']:
             embed.add_field(name="Vote Reward {} {}".format(serverinfo['vote_reward_amount'], serverinfo['vote_reward_coin']), value="<#{}> | https://top.gg/servers/{}/vote".format(serverinfo['vote_reward_channel'], ctx.guild.id), inline=False)
         embed.set_footer(text=f"Requested by {ctx.author.name}#{ctx.author.discriminator}")
-        await ctx.response.send_message(embed=embed)
+        await ctx.edit_original_message(content=None, embed=embed)
 
     @commands.bot_has_permissions(send_messages=True)
     @commands.guild_only()

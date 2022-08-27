@@ -8,7 +8,7 @@ import time
 import traceback
 from io import BytesIO
 
-from Bot import EMOJI_RED_NO
+from Bot import EMOJI_RED_NO, SERVER_BOT
 from PIL import Image
 from config import config
 from disnake.ext import commands
@@ -19,6 +19,8 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
+
+from cogs.utils import Utils
 
 
 def get_coin360(display_id: str):
@@ -83,6 +85,7 @@ class CoinMap(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        self.utils = Utils(self.bot)
         self.display_list = [f":{str(i)}" for i in range(200, 300)]
 
     @commands.guild_only()
@@ -93,6 +96,12 @@ class CoinMap(commands.Cog):
     async def coinmap(self, ctx):
         try:
             await ctx.response.send_message(f'{ctx.author.mention}, loading...')
+            try:
+                self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                             str(ctx.author.id), SERVER_BOT, "/coinmap", int(time.time())))
+                await self.utils.add_command_calls()
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
             display_id = random.choice(self.display_list)
             self.display_list.remove(display_id)
             fetch_coin360 = functools.partial(get_coin360, display_id)

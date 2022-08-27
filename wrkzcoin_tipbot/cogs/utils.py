@@ -152,6 +152,8 @@ class MenuPage(disnake.ui.View):
 class Utils(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.commanding_save = 10
+        self.adding_commands = False
 
     async def get_bot_settings(self):
         try:
@@ -219,7 +221,6 @@ class Utils(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return None
 
-
     async def bot_task_logs_check(self, task_name: str):
         try:
             await store.openConnection()
@@ -236,6 +237,32 @@ class Utils(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return None
 
+    async def add_command_calls(self):
+        if len(self.bot.commandings) <= self.commanding_save:
+            return
+        if self.adding_commands is True:
+            return
+        else:
+            self.adding_commands = True
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ INSERT INTO `bot_commanded` (`guild_id`, `user_id`, `user_server`, `command`, `timestamp`)
+                              VALUES (%s, %s, %s, %s, %s)
+                              """
+                    await cur.executemany(sql, self.bot.commandings)
+                    await conn.commit()
+                    if cur.rowcount > 0:
+                        self.bot.commandings = []
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+            # could be some length issue
+            for each in self.bot.commandings:
+                if len(each) != 5:
+                    self.bot.commandings.remove(each)
+                    await logchanbot("[bot_commanded] removed: " +str(each))
+        self.adding_commands = False
 
 def setup(bot):
     bot.add_cog(Utils(bot))

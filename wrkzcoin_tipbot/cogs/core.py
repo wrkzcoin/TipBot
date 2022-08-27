@@ -3,12 +3,14 @@ from datetime import datetime, timedelta
 import asyncio
 import disnake
 from disnake.ext import commands
+import time
 
 from disnake.enums import OptionType
 from disnake.app_commands import Option
 
-from Bot import logchanbot
+from Bot import logchanbot, SERVER_BOT
 from cogs.utils import MenuPage
+from cogs.utils import Utils
 
 
 class Core(commands.Cog):
@@ -16,6 +18,8 @@ class Core(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        self.utils = Utils(self.bot)
+
 
     # Setting command
     @commands.has_permissions(manage_channels=True)
@@ -28,6 +32,12 @@ class Core(commands.Cog):
             if messages and len(messages) > 0:
                 await logchanbot(f"[CLEARBOTMSG] in guild {ctx.guild.name} / {ctx.guild.id} by {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.id} in channel #{ctx.channel.name}.")
                 await ctx.response.send_message("Loading messages...", ephemeral=True)
+                try:
+                    self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                                 str(ctx.author.id), SERVER_BOT, "/clearbotmessages", int(time.time())))
+                    await self.utils.add_command_calls()
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
                 for each in messages:
                     # Delete bot's own message
                     if each.author == self.bot.user:
@@ -44,16 +54,16 @@ class Core(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
-
-    @commands.user_command()
-    async def ping(self, ctx):
-        await ctx.response.send_message(f"Pong! ({self.bot.latency*1000}ms)", ephemeral=True)
-
-
     async def async_uptime(self, ctx):
         uptime_seconds = round((datetime.now() - self.bot.start_time).total_seconds())
         msg = f"Current Uptime: {'{:0>8}'.format(str(timedelta(seconds=uptime_seconds)))}"
         await ctx.response.send_message(content=msg)
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/uptime", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
 
 
     @commands.slash_command(
@@ -443,7 +453,13 @@ You can withdraw with command `/withdraw amount coin address`. We recommend you 
                     inline=False,
                 )
             await ctx.response.send_message(embed=embed)
-            
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/help", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
 
     @commands.slash_command(
         usage="help [command]",

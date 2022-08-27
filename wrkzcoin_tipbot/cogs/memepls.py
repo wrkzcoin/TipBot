@@ -22,6 +22,7 @@ import json
 import store
 
 from cogs.utils import MenuPage
+from cogs.utils import Utils
 
 from Bot import logchanbot, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_INFORMATION, num_format_coin, seconds_str, \
     RowButtonRowCloseAnyMessage, SERVER_BOT, EMOJI_HOURGLASS_NOT_DONE, DEFAULT_TICKER, text_to_num
@@ -931,7 +932,7 @@ class MemeReview_Button(disnake.ui.View):
                     traceback.print_exc(file=sys.stdout)
                 # Post in meme_channel_upload
                 channel = self.bot.get_channel(self.meme_channel_upload)
-                await channel.send(content=f"`{self.meme_id}` by <@{str(owner_userid)}> is approved by {interaction.author.name}#{interaction.author.discriminator} / {interaction.author.id}.")
+                await channel.send(content=f"`{self.meme_id}` by <@{str(self.owner_userid)}> is approved by {interaction.author.name}#{interaction.author.discriminator} / {interaction.author.id}.")
             else:
                 await interaction.response.send_message(
                     content=f"{interaction.author.mention}, failed to approve `{self.meme_id}` or it is already approved.")
@@ -971,6 +972,7 @@ class MemePls(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.wallet_api = WalletAPI(self.bot)
+        self.utils = Utils(self.bot)
 
         self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
         self.enable_logchan = True
@@ -1149,12 +1151,15 @@ class MemePls(commands.Cog):
 
     async def meme_view_here(self, ctx):
         await self.bot_log()
+        await ctx.response.send_message(f"{ctx.author.mention}, checking random meme...")
+
         try:
-            await ctx.response.send_message(f"{ctx.author.mention}, checking random meme...")
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/memepls view here", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(f"{ctx.author.mention}, error during checking meme...", ephemeral=True)
-            return
+
         if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
             try:
                 serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
@@ -1198,12 +1203,15 @@ class MemePls(commands.Cog):
 
     async def meme_view(self, ctx):
         await self.bot_log()
+        await ctx.response.send_message(f"{ctx.author.mention}, checking random meme...")
+
         try:
-            await ctx.response.send_message(f"{ctx.author.mention}, checking random meme...")
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/memepls view", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(f"{ctx.author.mention}, error during checking meme...", ephemeral=True)
-            return
+
         if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
             try:
                 serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
@@ -1247,6 +1255,14 @@ class MemePls(commands.Cog):
     async def meme_user(self, ctx, member):
         await self.bot_log()
         await ctx.response.send_message(f"{ctx.author.mention}, checking user's random meme...")
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/memepls user", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
             try:
                 serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
@@ -1291,6 +1307,13 @@ class MemePls(commands.Cog):
                 traceback.print_exc(file=sys.stdout)
 
     async def meme_review(self, ctx, meme_id):
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/memepls review", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         if ctx.author.id not in self.meme_reviewer and \
             hasattr(ctx, "guild") and hasattr(ctx.guild, "id") \
             and not ctx.author.guild_permissions.manage_channels:
@@ -1430,6 +1453,14 @@ class MemePls(commands.Cog):
     async def meme_list(self, ctx):
         await self.bot_log()
         await ctx.response.send_message(f"{ctx.author.mention}, in progress...", ephemeral=True)
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/memepls list", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         try:
             get_user_memes = await self.get_user_meme_list(str(ctx.author.id))
             if len(get_user_memes) == 0:
@@ -1459,6 +1490,14 @@ class MemePls(commands.Cog):
     async def meme_upload(self, ctx, caption, attachment):
         await self.bot_log()
         await ctx.response.send_message(f"{ctx.author.mention}, loading meme upload...")
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/memepls upload", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
             try:
                 serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
@@ -1537,12 +1576,13 @@ class MemePls(commands.Cog):
 
     async def meme_disclaimer(self, ctx):
         disclaimer = """1] You have permission to use the uploaded file\n2] We reserved right to reject it\n3] Comply to https://discord.com/terms\n4] No NSFW"""
+        await ctx.response.send_message(f"{ctx.author.mention}, ```{disclaimer}```")
         try:
-            await ctx.response.send_message(f"{ctx.author.mention}, ```{disclaimer}```")
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/memepls disclaimer", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(f"{ctx.author.mention}, error during checking meme...", ephemeral=True)
-            return
 
     @commands.slash_command(description="Meme commands (upload, view, list yours)")
     async def memepls(self, ctx):

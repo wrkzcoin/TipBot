@@ -2,6 +2,7 @@ import sys
 import traceback
 from datetime import datetime
 from decimal import Decimal
+import time
 
 import disnake
 import store
@@ -43,6 +44,12 @@ class BotBalance(commands.Cog):
 
         msg = f'{ctx.author.mention}, checking {member.mention}\'s balance.'
         await ctx.response.send_message(msg)
+
+        try:
+            self.bot.commandings.append((str(ctx.author.id), SERVER_BOT, "/botbalance", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
         # Do the job
         try:
             net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")

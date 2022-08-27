@@ -26,7 +26,7 @@ from Bot import num_format_coin, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EM
 from config import config
 
 from cogs.wallet import WalletAPI
-
+from cogs.utils import Utils
 
 class MyMathBtn(disnake.ui.Button):
     def __init__(self, label, _style, _custom_id):
@@ -137,6 +137,7 @@ class MathTips(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.wallet_api = WalletAPI(self.bot)
+        self.utils = Utils(self.bot)
 
         self.math_duration_min = 5
         self.math_duration_max = 45
@@ -152,13 +153,14 @@ class MathTips(commands.Cog):
             return
         # End token name check
 
+        await ctx.response.send_message(f"{ctx.author.mention}, /mathtip preparation... ")
+
         try:
-            await ctx.response.send_message(f"{ctx.author.mention}, Math Tip preparation... ")
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/mathtip", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(
-                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute a math tip message...", ephemeral=True)
-            return
 
         # Check if there is many airdrop/mathtip/triviatip
         try:

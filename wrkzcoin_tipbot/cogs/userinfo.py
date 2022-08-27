@@ -1,7 +1,7 @@
 import sys
 import traceback
 from datetime import datetime
-
+import time
 import disnake
 import timeago
 from disnake.app_commands import Option
@@ -10,11 +10,13 @@ from disnake.ext import commands
 
 import store
 from Bot import SERVER_BOT
+from cogs.utils import Utils
 
 
 class Userinfo(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.utils = Utils(self.bot)
 
     async def sql_user_get_tipstat(self, user_id: str, user_server: str = 'DISCORD'):
         user_server = user_server.upper()
@@ -124,6 +126,12 @@ class Userinfo(commands.Cog):
         embed.set_thumbnail(url=user.display_avatar)
         embed.set_footer(text="Requested by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
         await ctx.response.send_message(embed=embed)
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/userinfo", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
 
     @commands.guild_only()
     @commands.slash_command(usage="userinfo <member>",

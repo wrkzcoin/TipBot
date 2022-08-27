@@ -464,17 +464,23 @@ class Tips(commands.Cog):
                 await store.sql_toggle_tipnotify(str(ctx.author.id), "ON")
                 await ctx.response.send_message(msg)
             else:
-                msg = f'{ctx.author.mention} {EMOJI_BELL} You already have notification ON by default.'
+                msg = f'{ctx.author.mention} {EMOJI_BELL}, you already have notification ON by default.'
                 await ctx.response.send_message(msg)
         elif onoff == "OFF":
             if str(ctx.author.id) in notifyList:
-                msg = f'{ctx.author.mention} {EMOJI_BELL_SLASH} You already have notification OFF.'
+                msg = f'{ctx.author.mention} {EMOJI_BELL_SLASH}, you already have notification OFF.'
                 await ctx.response.send_message(msg)
             else:
                 await store.sql_toggle_tipnotify(str(ctx.author.id), "OFF")
                 msg = f'{ctx.author.mention} {EMOJI_BELL_SLASH} OK, you will not get any notification when anyone tips.'
                 await ctx.response.send_message(msg)
-        return
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/notifytip", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
 
     @commands.bot_has_permissions(send_messages=True)
     @commands.slash_command(
@@ -495,18 +501,28 @@ class Tips(commands.Cog):
 
     # RandomTip
     async def async_randtip(self, ctx, amount: str, token: str, rand_option: str = None):
+        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing random tip...'
+        await ctx.response.send_message(msg)
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/randtip", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         coin_name = token.upper()
         # Token name check
         if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
             coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
             msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
         else:
             if getattr(getattr(self.bot.coin_list, coin_name), "enable_tip") != 1:
                 msg = f'{ctx.author.mention}, **{coin_name}** tipping is disable.'
-                await ctx.response.send_message(msg)
+                await ctx.edit_original_message(content=msg)
                 return
         # End token name check
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
@@ -514,16 +530,7 @@ class Tips(commands.Cog):
             'tiponly'].split(","):
             allowed_coins = serverinfo['tiponly']
             msg = f'{ctx.author.mention}, **{coin_name}** is not allowed here. Currently, allowed `{allowed_coins}`. You can ask guild owner to allow. `/SETTING TIPONLY coin1,coin2,...`'
-            await ctx.response.send_message(msg)
-            return
-
-        try:
-            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing random tip...'
-            await ctx.response.send_message(msg)
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(
-                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute random tip message...", ephemeral=True)
+            await ctx.edit_original_message(content=msg)
             return
 
         net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
@@ -778,7 +785,7 @@ class Tips(commands.Cog):
             # tipper shall always get DM. Ignore notifyList
             try:
                 msg = f'{EMOJI_ARROW_RIGHTHOOK} {rand_user.name}#{rand_user.discriminator} got your random tip of **{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}** in server `{ctx.guild.name}`'
-                await ctx.followup.send(msg)
+                await ctx.edit_original_message(content=msg)
             except Exception:
                 traceback.print_exc(file=sys.stdout)
             if str(rand_user.id) not in notifyList:
@@ -817,18 +824,28 @@ class Tips(commands.Cog):
 
     # FreeTip
     async def async_freetip(self, ctx, amount: str, token: str, duration: str = None, comment: str = None):
+        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing /freetip...'
+        await ctx.response.send_message(msg)
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/freetip", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         coin_name = token.upper()
         if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
             coin_name = self.bot.coin_alias_names[coin_name]
         # Token name check
         if not hasattr(self.bot.coin_list, coin_name):
             msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
         else:
             if getattr(getattr(self.bot.coin_list, coin_name), "enable_tip") != 1:
                 msg = f'{ctx.author.mention}, **{coin_name}** tipping is disable.'
-                await ctx.response.send_message(msg)
+                await ctx.edit_original_message(content=msg)
                 return
         # End token name check
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
@@ -836,15 +853,7 @@ class Tips(commands.Cog):
             'tiponly'].split(","):
             allowed_coins = serverinfo['tiponly']
             msg = f'{ctx.author.mention}, **{coin_name}** is not allowed here. Currently, allowed `{allowed_coins}`. You can ask guild owner to allow. `/SETTING TIPONLY coin1,coin2,...`'
-            await ctx.response.send_message(msg)
-            return
-
-        try:
-            await ctx.response.send_message(f"{ctx.author.mention}, freetip preparation... ")
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(
-                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute free tip message...", ephemeral=True)
+            await ctx.edit_original_message(content=msg)
             return
 
         # Check if there is many airdrop/mathtip/triviatip
@@ -1077,18 +1086,28 @@ class Tips(commands.Cog):
 
     # TipAll
     async def async_tipall(self, ctx, amount: str, token: str, user: str):
+        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing /tipall...'
+        await ctx.response.send_message(msg)
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/tipall", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         coin_name = token.upper()
         # Token name check
         if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
             coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
             msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
         else:
             if getattr(getattr(self.bot.coin_list, coin_name), "enable_tip") != 1:
                 msg = f'{ctx.author.mention}, **{coin_name}** tipping is disable.'
-                await ctx.response.send_message(msg)
+                await ctx.edit_original_message(content=msg)
                 return
         # End token name check
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
@@ -1096,16 +1115,8 @@ class Tips(commands.Cog):
             'tiponly'].split(","):
             allowed_coins = serverinfo['tiponly']
             msg = f'{ctx.author.mention}, **{coin_name}** is not allowed here. Currently, allowed `{allowed_coins}`. You can ask guild owner to allow. `/SETTING TIPONLY coin1,coin2,...`'
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
-
-        try:
-            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tip all...'
-            await ctx.response.send_message(msg)
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(
-                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute tip all message...", ephemeral=True)
 
         net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
         type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
@@ -1401,18 +1412,28 @@ class Tips(commands.Cog):
 
     # Tip Normal
     async def async_tip(self, ctx, amount: str, token: str, args):
+        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tip command...'
+        await ctx.response.send_message(msg)
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/tip", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         coin_name = token.upper()
         # Token name check
         if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
             coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
             msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
         else:
             if getattr(getattr(self.bot.coin_list, coin_name), "enable_tip") != 1:
                 msg = f'{ctx.author.mention}, **{coin_name}** tipping is disable.'
-                await ctx.response.send_message(msg)
+                await ctx.edit_original_message(content=msg)
                 return
         # End token name check
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
@@ -1420,16 +1441,7 @@ class Tips(commands.Cog):
             'tiponly'].split(","):
             allowed_coins = serverinfo['tiponly']
             msg = f'{ctx.author.mention}, **{coin_name}** is not allowed here. Currently, allowed `{allowed_coins}`. You can ask guild owner to allow. `/SETTING TIPONLY coin1,coin2,...`'
-            await ctx.response.send_message(msg)
-            return
-
-        try:
-            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tip command...'
-            await ctx.response.send_message(msg)
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(
-                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute tip message...", ephemeral=True)
+            await ctx.edit_original_message(content=msg)
             return
 
         # print("async_tip args: "+ str(args))
@@ -1659,19 +1671,30 @@ class Tips(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+
     async def async_gtip(self, ctx, amount: str, token: str, args):
         coin_name = token.upper()
+        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing guild tip command...'
+        await ctx.response.send_message(msg)
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/guildtip", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         # Token name check
         if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
             coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
             msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
         else:
             if getattr(getattr(self.bot.coin_list, coin_name), "enable_tip") != 1:
                 msg = f'{ctx.author.mention}, **{coin_name}** tipping is disable.'
-                await ctx.response.send_message(msg)
+                await ctx.edit_original_message(content=msg)
                 return
         # End token name check
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
@@ -1679,16 +1702,7 @@ class Tips(commands.Cog):
             'tiponly'].split(","):
             allowed_coins = serverinfo['tiponly']
             msg = f'{ctx.author.mention}, **{coin_name}** is not allowed here. Currently, allowed `{allowed_coins}`. You can ask guild owner to allow. `/SETTING TIPONLY coin1,coin2,...`'
-            await ctx.response.send_message(msg)
-            return
-
-        try:
-            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing guild tip command...'
-            await ctx.response.send_message(msg)
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(
-                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute guild tip message...", ephemeral=True)
+            await ctx.edit_original_message(content=msg)
             return
 
         # print("async_tip args: "+ str(args))
@@ -1943,6 +1957,12 @@ class Tips(commands.Cog):
         try:
             msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing z tip command...'
             await ctx.response.send_message(msg)
+            try:
+                self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                             str(ctx.author.id), SERVER_BOT, "/z", int(time.time())))
+                await self.utils.add_command_calls()
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
             list_member_ids = []
             if "@everyone" in amount_list_to.lower() or "@here" in amount_list_to.lower():
                 list_member_ids = [str(member.id) for member in ctx.guild.members if member.id != ctx.author.id]

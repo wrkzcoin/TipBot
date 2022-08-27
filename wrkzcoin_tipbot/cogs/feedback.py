@@ -4,11 +4,13 @@ import uuid
 
 import disnake
 import store
-from Bot import logchanbot
+from Bot import logchanbot, SERVER_BOT
 from disnake import TextInputStyle
 from disnake.app_commands import Option, OptionChoice
 from disnake.enums import OptionType
 from disnake.ext import commands
+
+from cogs.utils import Utils
 
 
 class FeedbackAdd(disnake.ui.Modal):
@@ -16,6 +18,7 @@ class FeedbackAdd(disnake.ui.Modal):
 
     def __init__(self, inquiry_type: str) -> None:
         self.inquiry_type = inquiry_type
+        self.utils = Utils(self.bot)
         components = [
             disnake.ui.TextInput(
                 label="Topic",
@@ -87,7 +90,13 @@ class FeedbackAdd(disnake.ui.Modal):
                 await logchanbot(traceback.format_exc())
         else:
             await inter.response.send_message(f"{inter.author.mention}, internal error, please report!")
-        return
+
+        try:
+            self.bot.commandings.append((str(inter.guild.id) if hasattr(inter, "guild") and hasattr(inter.guild, "id") else "DM",
+                                         str(inter.author.id), SERVER_BOT, "/feedback", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
 
 
 class BotFeedback(commands.Cog):

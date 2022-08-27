@@ -11,7 +11,7 @@ import aiohttp
 import json
 
 from config import config
-from Bot import logchanbot, RowButtonRowCloseAnyMessage, SERVER_BOT
+from Bot import logchanbot, RowButtonRowCloseAnyMessage, SERVER_BOT, EMOJI_HOURGLASS_NOT_DONE
 import store
 import redis_utils
 from cogs.utils import MenuPage
@@ -134,10 +134,19 @@ class Pools(commands.Cog):
             coin: str
     ):
         coin_name = coin
+        await ctx.response.send_message(f"{EMOJI_HOURGLASS_NOT_DONE} {ctx.author.mention}, checking pools..")
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, f"/pools {coin}", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         try:
             requested_date = int(time.time())
             if config.miningpoolstat.enable != 1:
-                await ctx.response.send_message(f'{ctx.author.mention}, command temporarily disable.')
+                await ctx.edit_original_message(content=f'{ctx.author.mention}, command temporarily disable.')
                 return
             key = config.redis.prefix + ":MININGPOOL:" + coin_name
             key_hint = config.redis.prefix + ":MININGPOOL:SHORTNAME:" + coin_name
@@ -146,7 +155,7 @@ class Pools(commands.Cog):
                     coin_name = redis_utils.redis_conn.get(key_hint).decode().upper()
                     key = config.redis.prefix + ":MININGPOOL:" + coin_name
                 else:
-                    await ctx.response.send_message(f'{ctx.author.mention}, unknown coin **{coin_name}**.')
+                    await ctx.edit_original_message(content=f'{ctx.author.mention}, unknown coin **{coin_name}**.')
                     return
             if redis_utils.redis_conn.exists(key):
                 # check if already in redis
@@ -161,8 +170,8 @@ class Pools(commands.Cog):
                     if ctx.author.id not in self.bot.MINGPOOLSTAT_IN_PROCESS:
                         self.bot.MINGPOOLSTAT_IN_PROCESS.append(ctx.author.id)
                     else:
-                        await ctx.response.send_message(
-                            f'{ctx.author.mention} You have another check of pools stats in progress.')
+                        await ctx.edit_original_message(
+                            content=f'{ctx.author.mention} You have another check of pools stats in progress.')
                         return
                     try:
                         get_pool_data = await self.get_miningpoolstat_coin(coin_name)
@@ -172,8 +181,8 @@ class Pools(commands.Cog):
                 pool_nos_per_page = 8
                 if get_pool_data and 'data' in get_pool_data:
                     if len(get_pool_data['data']) == 0:
-                        await ctx.response.send_message(
-                            f"{ctx.author.name}#{ctx.author.discriminator}, Received 0 length of data for **{coin_name}**.")
+                        await ctx.edit_original_message(
+                            content=f"{ctx.author.name}#{ctx.author.discriminator}, Received 0 length of data for **{coin_name}**.")
                         return
                     elif len(get_pool_data['data']) <= pool_nos_per_page:
                         embed = disnake.Embed(title='Mining Pools for {}'.format(coin_name), description='',
@@ -225,7 +234,7 @@ class Pools(commands.Cog):
                                             config.discord.github_link), inline=False)
                         embed.set_footer(text="Data from https://miningpoolstats.stream")
                         try:
-                            await ctx.response.send_message(embed=embed, view=RowButtonRowCloseAnyMessage())
+                            await ctx.edit_original_message(content=None, embed=embed, view=RowButtonRowCloseAnyMessage())
                             respond_date = int(time.time())
                             await self.sql_miningpoolstat_fetch(coin_name, str(ctx.author.id),
                                                                 '{}#{}'.format(ctx.author.name,
@@ -336,7 +345,7 @@ class Pools(commands.Cog):
                                     break
                             try:
                                 view = MenuPage(ctx, all_pages, timeout=30)
-                                view.message = await ctx.response.send_message(embed=all_pages[0], view=view)
+                                view.message = await ctx.edit_original_message(content=None, embed=all_pages[0], view=view)
                                 await self.sql_miningpoolstat_fetch(coin_name, str(ctx.author.id),
                                                                     '{}#{}'.format(ctx.author.name,
                                                                                    ctx.author.discriminator),
@@ -429,7 +438,7 @@ class Pools(commands.Cog):
                                                     inline=False)
                                     embed.set_footer(text="Data from https://miningpoolstats.stream")
 
-                                    await ctx.response.send_message(embed=embed)
+                                    await ctx.edit_original_message(content=None, embed=embed)
                                     respond_date = int(time.time())
                                     await self.sql_miningpoolstat_fetch(coin_name, str(ctx.author.id),
                                                                         '{}#{}'.format(ctx.author.name,
@@ -457,8 +466,8 @@ class Pools(commands.Cog):
                                 retry += 1
                             if retry >= 5:
                                 redis_utils.redis_conn.lrem(key_queue, 0, coin_name)
-                                await ctx.response.send_message(
-                                    f'{ctx.author.mention} We can not fetch data for **{coin_name}**.')
+                                await ctx.edit_original_message(
+                                    content=f'{ctx.author.mention} We can not fetch data for **{coin_name}**.')
                                 break
                                 if ctx.author.id in self.bot.MINGPOOLSTAT_IN_PROCESS:
                                     self.bot.MINGPOOLSTAT_IN_PROCESS.remove(ctx.author.id)

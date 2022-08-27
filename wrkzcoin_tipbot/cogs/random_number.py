@@ -1,14 +1,16 @@
 import random as rand
-
-from Bot import EMOJI_RED_NO
+import time
+from Bot import EMOJI_RED_NO, SERVER_BOT
 from disnake.app_commands import Option
 from disnake.enums import OptionType
 from disnake.ext import commands
+from cogs.utils import Utils
 
 
 class RandomNumber(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.utils = Utils(self.bot)
 
     async def rand_number(
             self,
@@ -35,6 +37,13 @@ class RandomNumber(commands.Cog):
                 except ValueError:
                     pass
         await ctx.response.send_message(respond)
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, f"/rand", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
 
     @commands.slash_command(
         usage="rand [1-100]",

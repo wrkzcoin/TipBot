@@ -1,26 +1,36 @@
 import datetime
+import time
 import re
 import sys
 import traceback
 
 import disnake
-from Bot import EMOJI_RED_NO, RowButtonRowCloseAnyMessage, text_to_num
+from Bot import EMOJI_RED_NO, RowButtonRowCloseAnyMessage, text_to_num, EMOJI_HOURGLASS_NOT_DONE, SERVER_BOT
 from disnake.app_commands import Option
 from disnake.enums import OptionType
 from disnake.ext import commands
+from cogs.utils import Utils
 
 
 class Price(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.utils = Utils(self.bot)
 
     async def async_price(self, ctx, amount: str = None, token: str = None):
+
+        await ctx.response.send_message(f"{EMOJI_HOURGLASS_NOT_DONE} {ctx.author.mention}, checking price..")
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, f"/price", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         if self.bot.coin_paprika_symbol_list is None:
             msg = f"{ctx.author.mention}, data is not available yet. Please try again soon!"
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.edit_original_message(content=msg)
             return
 
         token_list = []
@@ -29,7 +39,7 @@ class Price(commands.Cog):
 
         if amount is None and token is None:
             msg = f"{ctx.author.mention}, invalid command usage!"
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
         if amount is not None and amount.upper().endswith(tuple(coin_paprika_symbol_list)) and token is None:
             # amount is something like 10,0.0BTC [Possible]
@@ -53,7 +63,7 @@ class Price(commands.Cog):
                             amount = amount_tmp[0]
                     else:
                         msg = f"I can not find price of `{token_tmp.upper()}`."
-                        await ctx.response.send_message(msg)
+                        await ctx.edit_original_message(content=msg)
                         return
                 else:
                     amount_old = amount
@@ -63,7 +73,7 @@ class Price(commands.Cog):
                     amount = text_to_num(amount)
                     if amount is None:
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid given amount.'
-                        await ctx.response.send_message(msg)
+                        await ctx.edit_original_message(content=msg)
                         return
             elif amount.upper() in self.bot.coin_price_dex or amount.upper() in coin_paprika_symbol_list:
                 # token only
@@ -73,7 +83,7 @@ class Price(commands.Cog):
                 amount = 1
             else:
                 msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid given coin name or amount.'
-                await ctx.response.send_message(msg)
+                await ctx.edit_original_message(content=msg)
                 return
 
         elif amount is not None and token is not None:
@@ -83,7 +93,7 @@ class Price(commands.Cog):
             amount = text_to_num(amount)
             if amount is None:
                 msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid given amount.'
-                await ctx.response.send_message(msg)
+                await ctx.edit_original_message(content=msg)
                 return
             coin_name = token.upper()
             token_list = [coin_name]
@@ -161,10 +171,7 @@ class Price(commands.Cog):
                     embed.set_footer(text=f"Credit: DEX from {self.bot.coin_price_dex_from[coin_name]}")
                 else:
                     embed.set_footer(text="Credit: https://api.coinpaprika.com/")
-                try:
-                    await ctx.response.send_message(embed=embed, view=RowButtonRowCloseAnyMessage())
-                except Exception:
-                    traceback.print_exc(file=sys.stdout)
+                await ctx.edit_original_message(content=None, embed=embed, view=RowButtonRowCloseAnyMessage())
             except Exception:
                 traceback.print_exc(file=sys.stdout)
         elif len(token_list) > 1:
@@ -197,19 +204,11 @@ class Price(commands.Cog):
                                 value="```{}```".format(", ".join(invalid_token_list).strip()), inline=False)
             embed.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
             embed.set_footer(text="Credit: https://api.coinpaprika.com/")
-            try:
-                if type(ctx) == disnake.ApplicationCommandInteraction:
-                    await ctx.response.send_message(embed=embed, view=RowButtonRowCloseAnyMessage())
-                else:
-                    await ctx.reply(embed=embed, view=RowButtonRowCloseAnyMessage())
-            except Exception:
-                traceback.print_exc(file=sys.stdout)
+            await ctx.edit_original_message(content=None, embed=embed, view=RowButtonRowCloseAnyMessage())
         else:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention} I could not find this information.'
-            if type(ctx) == disnake.ApplicationCommandInteraction:
-                await ctx.response.send_message(msg)
-            else:
-                await ctx.reply(msg)
+            await ctx.edit_original_message(content=msg)
+
 
     @commands.slash_command(
         usage="price <amount> <token>",

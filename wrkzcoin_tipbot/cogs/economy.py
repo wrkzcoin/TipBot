@@ -22,6 +22,7 @@ from Bot import logchanbot, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_INFORMATION, num_fo
 import store
 from cogs.wallet import WalletAPI
 import redis_utils
+from cogs.utils import Utils
 
 
 class MyEcoBtn(disnake.ui.Button):
@@ -1129,6 +1130,7 @@ class Economy(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.wallet_api = WalletAPI(self.bot)
+        self.utils = Utils(self.bot)
 
         redis_utils.openRedis()
         self.botLogChan = None
@@ -1177,12 +1179,15 @@ class Economy(commands.Cog):
             self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
 
     async def eco_buy(self, ctx, item_name):
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking buying items.."
+        await ctx.response.send_message(msg)
+
         try:
-            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking buying items.."
-            await ctx.response.send_message(msg)
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/eco buy", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            return
 
         # Getting list
         get_userinfo = await self.db.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
@@ -1350,6 +1355,13 @@ class Economy(commands.Cog):
     async def eco_sell(self, ctx, item_name):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your storage..."
         await ctx.response.send_message(msg)
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/eco sell", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
 
         # Getting list of work in the guild and re-act
         market_factored = 1.0
@@ -1605,12 +1617,15 @@ class Economy(commands.Cog):
             self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
 
     async def eco_info(self, ctx, member):
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking info..."
+        await ctx.response.send_message(content=msg)
+
         try:
-            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking info..."
-            await ctx.response.send_message(content=msg)
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/eco info", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            return
 
         # Get all available work in the guild
         get_worklist = await self.db.economy_get_guild_worklist(str(ctx.guild.id), True)
@@ -1679,12 +1694,15 @@ class Economy(commands.Cog):
             await ctx.edit_original_message(content=f'{EMOJI_RED_NO} {ctx.author.mention}, internal error.')
 
     async def eco_items(self, ctx):
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking backpack items.."
+        await ctx.response.send_message(msg)
+
         try:
-            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking backpack items.."
-            await ctx.response.send_message(msg)
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/eco items", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            return
 
         # Getting list of work in the guild and re-act
         get_userinfo = await self.db.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
@@ -1731,12 +1749,15 @@ class Economy(commands.Cog):
             await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, not have anything in your backpack.")
 
     async def eco_lumber(self, ctx, member):
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking lumber storage.."
+        await ctx.response.send_message(msg)
+
         try:
-            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking lumber storage.."
-            await ctx.response.send_message(msg)
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/eco lumber", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            return
 
         try:
             get_lumber_inventory = await self.db.economy_get_timber_user(str(member.id), sold_timber='NO', sold_leaf='NO')
@@ -1753,12 +1774,15 @@ class Economy(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
     async def eco_fish(self, ctx, member):
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking fish storage.."
+        await ctx.response.send_message(msg)
+
         try:
-            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking fish storage.."
-            await ctx.response.send_message(msg)
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/eco fish", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            return
 
         try:
             get_userinfo = await self.db.economy_get_user(str(member.id), '{}#{}'.format(member.name, member.discriminator))
@@ -1783,6 +1807,13 @@ class Economy(commands.Cog):
         # get farm plant list
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your farm and seeds..."
         await ctx.response.send_message(msg)
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, f"/eco plant {plant_name}", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
 
         plant_list_arr = await self.db.economy_farm_get_list_plants()
         plant_list_names = [name['plant_name'].lower() for name in plant_list_arr]
@@ -1878,12 +1909,15 @@ class Economy(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
     async def eco_collect(self, ctx, what):
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking what you are collecting..."
+        await ctx.response.send_message(msg)
+
         try:
-            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking what you are collecting..."
-            await ctx.response.send_message(msg)
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, f"/eco collect {what}", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            return
 
         get_userinfo = await self.db.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
         if what == "MILK" and get_userinfo and get_userinfo['numb_dairy_cattle'] == 0:
@@ -1995,12 +2029,15 @@ class Economy(commands.Cog):
             self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
 
     async def eco_dairy(self, ctx, member):
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your dairy cattle..."
+        await ctx.response.send_message(msg)
+
         try:
-            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your dairy cattle..."
-            await ctx.response.send_message(msg)
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/eco dairy", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            return
 
         # Getting list of work in the guild and re-act
         get_userinfo = await self.db.economy_get_user(str(member.id), '{}#{}'.format(member.name, member.discriminator))
@@ -2092,12 +2129,15 @@ class Economy(commands.Cog):
                 await logchanbot(traceback.format_exc())
 
     async def eco_chicken(self, ctx, member):
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your chicken farm..."
+        await ctx.response.send_message(msg)
+
         try:
-            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your chicken farm..."
-            await ctx.response.send_message(msg)
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/eco chicken", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            return
 
         # Getting list of work in the guild and re-act
         get_userinfo = await self.db.economy_get_user(str(member.id), '{}#{}'.format(member.name, member.discriminator))
@@ -2178,12 +2218,15 @@ class Economy(commands.Cog):
                 traceback.print_exc(file=sys.stdout)
 
     async def eco_farm(self, ctx, member):
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your farm..."
+        await ctx.response.send_message(msg)
+
         try:
-            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your farm..."
-            await ctx.response.send_message(msg)
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/eco farm", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            return
 
         # Getting list of work in the guild and re-act
         get_userinfo = await self.db.economy_get_user(str(member.id), '{}#{}'.format(member.name, member.discriminator))
@@ -2271,12 +2314,15 @@ class Economy(commands.Cog):
                 await logchanbot(traceback.format_exc())
 
     async def eco_saltfarm(self, ctx, member):
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your salt farm..."
+        await ctx.response.send_message(msg)
+
         try:
-            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your salt farm..."
-            await ctx.response.send_message(msg)
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/eco saltfarm", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            return
 
         # Getting list of work in the guild and re-act
         get_userinfo = await self.db.economy_get_user(str(member.id), '{}#{}'.format(member.name, member.discriminator))
@@ -2373,12 +2419,15 @@ class Economy(commands.Cog):
             await ctx.response.send_message(msg)
             return
 
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your farm..."
+        await ctx.response.send_message(msg)
+
         try:
-            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your farm..."
-            await ctx.response.send_message(msg)
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/eco harvest", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            return
 
         get_userinfo = await self.db.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
         if get_userinfo and get_userinfo['numb_farm'] == 0:
@@ -2421,12 +2470,15 @@ class Economy(commands.Cog):
 
 
     async def eco_fishing(self, ctx):
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your fishing tools..."
+        await ctx.response.send_message(msg)
+
         try:
-            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your fishing tools..."
-            await ctx.response.send_message(msg)
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/eco fishing", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            return
 
         # If user has so many items and not use:
         # Getting list of work in the guild and re-act
@@ -2554,12 +2606,15 @@ class Economy(commands.Cog):
             self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
 
     async def eco_woodcutting(self, ctx):
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your tool..."
+        await ctx.response.send_message(msg)
+
         try:
-            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your tool..."
-            await ctx.response.send_message(msg)
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/eco woodcutting", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            return
 
         get_userinfo = await self.db.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
         if get_userinfo and get_userinfo['tree_cut'] > 10:
@@ -2610,12 +2665,15 @@ class Economy(commands.Cog):
             self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
 
     async def eco_search(self, ctx):
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your search..."
+        await ctx.response.send_message(msg)
+
         try:
-            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your search..."
-            await ctx.response.send_message(msg)
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM", 
+                                         str(ctx.author.id), SERVER_BOT, "/eco search", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            return
 
         # If user has so many items and not use:
         # Getting list of work in the guild and re-act
@@ -2679,12 +2737,15 @@ class Economy(commands.Cog):
             await ctx.response.send_message(msg)
             return
 
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your meal orders..."
+        await ctx.response.send_message(msg)
+
         try:
-            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your meal orders..."
-            await ctx.response.send_message(msg)
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/eco eat", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            return
 
         # If a user ate a lot already for the last 12h
         user_eat_record = await self.db.economy_get_user_eating_list_record(str(ctx.author.id), 12*3600)
@@ -2747,6 +2808,14 @@ class Economy(commands.Cog):
 
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your work..."
         await ctx.response.send_message(msg)
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/eco work", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         # Get all available work in the guild
         get_worklist = await self.db.economy_get_guild_worklist(str(ctx.guild.id), True)
         # Getting list of work in the guild and re-act

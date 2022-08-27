@@ -5,20 +5,22 @@ import time
 import traceback
 from datetime import datetime
 from io import BytesIO
-
+import time
 import aiohttp
 import disnake
 import magic
 import store
-from Bot import logchanbot, EMOJI_INFORMATION
+from Bot import logchanbot, EMOJI_INFORMATION, SERVER_BOT
 from disnake.app_commands import Option, OptionChoice
 from disnake.enums import OptionType
 from disnake.ext import commands
+from cogs.utils import Utils
 
 
 class SomeRandomAPI(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.utils = Utils(self.bot)
         self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
         self.poweredby = "https://some-random-api.ml/"
         # animal
@@ -150,13 +152,15 @@ class SomeRandomAPI(commands.Cog):
             ctx,
             name: str
     ):
+        await ctx.response.send_message(f"{ctx.author.mention}, random preparation... ")
+
         try:
-            await ctx.response.send_message(f"{ctx.author.mention}, random preparation... ")
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, f"/random animal", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(
-                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to command random api...", ephemeral=True)
-            return
+
         try:
             url = "https://some-random-api.ml/animal/" + name
             fetch = await self.fetch_sra(url, 16)
@@ -214,13 +218,15 @@ class SomeRandomAPI(commands.Cog):
             ctx,
             name: str
     ):
+        await ctx.response.send_message(f"{ctx.author.mention}, random fact preparation... ")
+
         try:
-            await ctx.response.send_message(f"{ctx.author.mention}, random fact preparation... ")
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, f"/random fact", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(
-                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to command random fact api...", ephemeral=True)
-            return
+
         try:
             url = "https://some-random-api.ml/facts/" + name
             fetch = await self.fetch_sra(url, 16)
@@ -268,13 +274,14 @@ class SomeRandomAPI(commands.Cog):
             ctx,
             name: str
     ):
+        await ctx.response.send_message(f"{ctx.author.mention}, random image preparation... ")
         try:
-            await ctx.response.send_message(f"{ctx.author.mention}, random image preparation... ")
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, f"/random image", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(
-                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to command random image api...", ephemeral=True)
-            return
+
         try:
             url = "https://some-random-api.ml/img/" + name
             fetch = await self.fetch_sra(url, 16)
@@ -316,13 +323,14 @@ class SomeRandomAPI(commands.Cog):
             self,
             ctx
     ):
+        await ctx.response.send_message(f"{ctx.author.mention}, random joke preparation... ")
         try:
-            await ctx.response.send_message(f"{ctx.author.mention}, random joke preparation... ")
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, f"/random joke", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(
-                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to command random joke api...", ephemeral=True)
-            return
+
         try:
             url = "https://some-random-api.ml/joke"
             fetch = await self.fetch_sra(url, 16)

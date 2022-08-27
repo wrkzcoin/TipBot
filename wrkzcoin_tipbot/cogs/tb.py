@@ -12,6 +12,7 @@ import traceback
 import uuid
 from datetime import datetime
 from io import BytesIO
+import time
 
 import cv2
 import disnake
@@ -28,12 +29,13 @@ from disnake.ext import commands
 from linedraw.linedraw import *
 # tb
 from tb.tbfun import action as tb_action
-
+from cogs.utils import Utils
 
 class Tb(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        self.utils = Utils(self.bot)
 
     async def sql_add_tbfun(
             self,
@@ -243,14 +245,16 @@ class Tb(commands.Cog):
             user1: str,
             user2: str
     ):
+        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
+        await ctx.response.send_message(msg)
+
         try:
-            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
-            await ctx.response.send_message(msg)
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/tb punch", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(
-                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute tb command...", ephemeral=True)
-            return
+
         try:
             action = "PUNCH"
             random_gif_name = config.fun.fun_img_path + str(uuid.uuid4()) + ".gif"
@@ -272,14 +276,16 @@ class Tb(commands.Cog):
             user1: str,
             user2: str
     ):
+        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
+        await ctx.response.send_message(msg)
+
         try:
-            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
-            await ctx.response.send_message(msg)
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/tb spank", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(
-                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute tb command...", ephemeral=True)
-            return
+
         try:
             action = "SPANK"
             random_gif_name = config.fun.fun_img_path + str(uuid.uuid4()) + ".gif"
@@ -301,14 +307,16 @@ class Tb(commands.Cog):
             user1: str,
             user2: str
     ):
+        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
+        await ctx.response.send_message(msg)
+
         try:
-            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
-            await ctx.response.send_message(msg)
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/tb slap", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(
-                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute tb command...", ephemeral=True)
-            return
+
         try:
             action = "SLAP"
             random_gif_name = config.fun.fun_img_path + str(uuid.uuid4()) + ".gif"
@@ -330,14 +338,16 @@ class Tb(commands.Cog):
             user1: str,
             user2: str
     ):
+        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
+        await ctx.response.send_message(msg)
+
         try:
-            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
-            await ctx.response.send_message(msg)
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/tb praise", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(
-                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute tb command...", ephemeral=True)
-            return
+
         try:
             action = "PRAISE"
             random_gif_name = config.fun.fun_img_path + str(uuid.uuid4()) + ".gif"
@@ -359,14 +369,16 @@ class Tb(commands.Cog):
             user1: str,
             user2: str
     ):
+        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
+        await ctx.response.send_message(msg)
+
         try:
-            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
-            await ctx.response.send_message(msg)
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/tb shoot", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(
-                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute tb command...", ephemeral=True)
-            return
+
         try:
             action = "SHOOT"
             random_gif_name = config.fun.fun_img_path + str(uuid.uuid4()) + ".gif"
@@ -388,14 +400,16 @@ class Tb(commands.Cog):
             user1: str,
             user2: str
     ):
+        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
+        await ctx.response.send_message(msg)
+
         try:
-            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
-            await ctx.response.send_message(msg)
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/tb kick", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(
-                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute tb command...", ephemeral=True)
-            return
+
         try:
             action = "KICK"
             random_gif_name = config.fun.fun_img_path + str(uuid.uuid4()) + ".gif"
@@ -417,14 +431,16 @@ class Tb(commands.Cog):
             user1: str,
             user2: str
     ):
+        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
+        await ctx.response.send_message(msg)
+
         try:
-            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
-            await ctx.response.send_message(msg)
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/tb fistbump", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(
-                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute tb command...", ephemeral=True)
-            return
+
         try:
             action = "FISTBUMP"
             random_gif_name = config.fun.fun_img_path + str(uuid.uuid4()) + ".gif"
@@ -446,14 +462,16 @@ class Tb(commands.Cog):
             user1: str,
             user2: str  # Not used
     ):
+        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
+        await ctx.response.send_message(msg)
+
         try:
-            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
-            await ctx.response.send_message(msg)
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/tb dance", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(
-                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute tb command...", ephemeral=True)
-            return
+
         try:
             action = "DANCE"
             random_gif_name = config.fun.fun_img_path + str(uuid.uuid4()) + ".gif"
@@ -475,14 +493,16 @@ class Tb(commands.Cog):
             ctx,
             emoji: str
     ):
+        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
+        await ctx.response.send_message(msg)
+
         try:
-            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
-            await ctx.response.send_message(msg)
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, f"/tb getemoji", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(
-                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute tb command...", ephemeral=True)
-            return
+
         emoji_url = None
         timeout = 12
         try:

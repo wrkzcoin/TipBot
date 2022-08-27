@@ -17,6 +17,7 @@ from disnake.app_commands import Option
 from disnake.enums import OptionType
 from disnake.ext import commands
 from terminaltables import AsciiTable
+from cogs.utils import Utils
 
 
 class Voucher(commands.Cog):
@@ -24,6 +25,7 @@ class Voucher(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.wallet_api = WalletAPI(self.bot)
+        self.utils = Utils(self.bot)
         self.botLogChan = None
 
         # voucher
@@ -152,6 +154,17 @@ class Voucher(commands.Cog):
             coin: str,
             comment: str = None
     ):
+
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking voucher..."
+        await ctx.response.send_message(msg, ephemeral=True)
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/voucher make", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         await self.bot_log()
         coin_name = coin.upper()
         # Token name check
@@ -159,12 +172,12 @@ class Voucher(commands.Cog):
             coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
             msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
         else:
             if getattr(getattr(self.bot.coin_list, coin_name), "enable_voucher") != 1:
                 msg = f'{ctx.author.mention}, **{coin_name}** voucher is disable for this coin.'
-                await ctx.response.send_message(msg)
+                await ctx.edit_original_message(content=msg)
                 return
         # End token name check
 
@@ -192,7 +205,7 @@ class Voucher(commands.Cog):
         # Check if tx in progress
         if ctx.author.id in self.bot.TX_IN_PROCESS:
             msg = f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.'
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
 
         height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
@@ -213,11 +226,11 @@ class Voucher(commands.Cog):
                 voucher_each = float(voucher_each)
                 if voucher_numb > self.max_batch:
                     msg = f'{EMOJI_RED_NO} {ctx.author.mention}, too many. Maximum allowed: **{self.max_batch}**'
-                    await ctx.response.send_message(msg)
+                    await ctx.edit_original_message(content=msg)
                     return
             except ValueError:
                 msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid number or amount to create vouchers.'
-                await ctx.response.send_message(msg, ephemeral=False)
+                await ctx.edit_original_message(content=msg)
                 return
         else:
             # check if amount is all
@@ -234,7 +247,7 @@ class Voucher(commands.Cog):
                 amount = amount.replace(",", "").replace("$", "")
                 if usd_equivalent_enable == 0:
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{coin_name}`."
-                    await ctx.response.send_message(msg)
+                    await ctx.edit_original_message(content=msg)
                     return
                 else:
                     native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
@@ -251,14 +264,14 @@ class Voucher(commands.Cog):
                         amount = float(Decimal(amount) / Decimal(per_unit))
                     else:
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention}, I cannot fetch equivalent price. Try with different method.'
-                        await ctx.response.send_message(msg)
+                        await ctx.edit_original_message(content=msg)
                         return
             else:
                 amount = amount.replace(",", "")
                 amount = text_to_num(amount)
                 if amount is None:
                     msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid given amount.'
-                    await ctx.response.send_message(msg)
+                    await ctx.edit_original_message(content=msg)
                     return
                 voucher_each = float(amount)
             # end of check if amount is all
@@ -286,7 +299,7 @@ class Voucher(commands.Cog):
         actual_balance = userdata_balance['adjust']
         if actual_balance <= 0:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please check your **{token_display}** balance.'
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
 
         # If voucher in setting
@@ -300,12 +313,12 @@ class Voucher(commands.Cog):
 
         if voucher_each < min_voucher_amount or voucher_each > max_voucher_amount:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, transaction cannot be smaller than {num_format_coin(min_voucher_amount, coin_name, coin_decimal, False)} {token_display} or bigger than {num_format_coin(max_voucher_amount, coin_name, coin_decimal, False)} {token_display}.'
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
 
         if actual_balance < total_amount + total_fee_amount:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to create voucher.A voucher needed amount + fee: {num_format_coin(total_amount + total_fee_amount, coin_name)} {token_display}\nHaving: {num_format_coin(actual_balance, coin_name, coin_decimal, False)} {token_display}.'
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
 
         comment_str = ""
@@ -314,11 +327,11 @@ class Voucher(commands.Cog):
 
         if len(comment_str) > self.max_comment:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please limit your comment to max. **{self.max_comment}** chars.'
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
         elif not is_ascii(comment_str):
             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, unsupported char(s) detected in comment.'
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
 
         # Test if can DM. If failed, returrn
@@ -327,7 +340,7 @@ class Voucher(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, failed to direct message with you.'
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
 
         voucher_make = None
@@ -407,8 +420,8 @@ class Voucher(commands.Cog):
                             self.bot.TX_IN_PROCESS.remove(ctx.author.id)
                         else:
                             # reject and tell to wait
-                            msg = f'{EMOJI_RED_NO} {ctx.author.mention} You have another tx in process. Please wait it to finish.'
-                            await ctx.response.send_message(msg)
+                            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
+                            await ctx.edit_original_message(content=msg)
                             return
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
@@ -425,16 +438,16 @@ class Voucher(commands.Cog):
                             traceback.print_exc(file=sys.stdout)
                     else:
                         msg = f'{EMOJI_ERROR} {ctx.author.mention}, error voucher creation!'
-                        await ctx.response.send_message(msg)
+                        await ctx.edit_original_message(content=msg)
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot("voucher " +str(traceback.format_exc()))
             if voucher_make is not None and hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
                 msg = f'{ctx.author.mention}, new vouchers sent to your DM.'
-                await ctx.response.send_message(msg)
+                await ctx.edit_original_message(content=msg)
             elif voucher_make is not None:
                 msg = f'{ctx.author.mention}, thank you for using our TipBot!'
-                await ctx.response.send_message(msg)
+                await ctx.edit_original_message(content=msg)
             await tmp_msg.delete()
         elif voucher_numb == 1:
             try:
@@ -513,7 +526,7 @@ class Voucher(commands.Cog):
                     else:
                         # reject and tell to wait
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
-                        await ctx.response.send_message(msg)
+                        await ctxedit_original_message(content=msg)
                         return
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
@@ -531,13 +544,13 @@ class Voucher(commands.Cog):
                         await logchanbot("voucher " +str(traceback.format_exc()))
                 else:
                     msg = f'{EMOJI_ERROR} {ctx.author.mention}, error voucher creation!'
-                    await ctx.response.send_message(msg)
+                    await ctx.edit_original_message(content=msg)
                 if voucher_make is not None and hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
                     msg = f'{ctx.author.mention}, new vouchers sent to your DM.'
-                    await ctx.response.send_message(msg)
+                    await ctx.edit_original_message(content=msg)
                 elif voucher_make is not None:
                     msg = f'{ctx.author.mention}, thank you for using our TipBot!'
-                    await ctx.response.send_message(msg)
+                    await ctx.edit_original_message(content=msg)
                 await tmp_msg.delete()
             except Exception:
                 traceback.print_exc(file=sys.stdout)
@@ -551,14 +564,24 @@ class Voucher(commands.Cog):
             self,
             ctx
     ):
+
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking voucher..."
+        await ctx.response.send_message(msg, ephemeral=True)
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/voucher unclaim", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         await self.bot_log()
         get_vouchers = await self.sql_voucher_get_user(str(ctx.author.id), SERVER_BOT, 50, 'NO')
 
         if get_vouchers and len(get_vouchers) >= 25:
             # list them in text
             unclaim = ', '.join([each['secret_string'] for each in get_vouchers])
-            await ctx.response.send_message(f'{ctx.author.mention} You have many unclaimed vouchers: {unclaim}',
-                                            ephemeral=True)
+            await ctx.edit_original_message(content=f'{ctx.author.mention} You have many unclaimed vouchers: {unclaim}')
             return
         elif get_vouchers and len(get_vouchers) > 0:
             table_data = [
@@ -574,9 +597,9 @@ class Voucher(commands.Cog):
             table.padding_left = 1
             table.padding_right = 1
             msg = f'**[ YOUR VOUCHER LIST ]**\n```{table.table}```'
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
         else:
-            await ctx.response.send_message(f'{ctx.author.mention}, you did not create any voucher yet.')
+            await ctx.edit_original_message(content=f'{ctx.author.mention}, you did not create any voucher yet.')
         return
 
     @voucher.sub_command(
@@ -587,6 +610,17 @@ class Voucher(commands.Cog):
             self,
             ctx
     ):
+
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking voucher..."
+        await ctx.response.send_message(msg, ephemeral=True)
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/voucher getunclaim", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         await self.bot_log()
         get_vouchers = await self.sql_voucher_get_user(str(ctx.author.id), SERVER_BOT, 10000, 'NO')
         if get_vouchers and len(get_vouchers) > 0:
@@ -598,12 +632,12 @@ class Voucher(commands.Cog):
                 combined_vouchers = "Total unclaimed: " + str(len(voucher_url_list)) + "\n\n" + voucher_url_list_str
                 data_file = disnake.File(BytesIO(combined_vouchers.encode()),
                                          filename=f"unclaimed_voucher_{str(ctx.author.id)}_{str(int(time.time()))}.csv")
-                await ctx.response.send_message(file=data_file, ephemeral=True)
+                await ctx.edit_original_message(content=None, file=data_file)
             except Exception:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot("voucher " +str(traceback.format_exc()))
         else:
-            await ctx.response.send_message(f'{ctx.author.mention}, you did not create any voucher yet.')
+            await ctx.edit_original_message(content=f'{ctx.author.mention}, you did not create any voucher yet.')
         return
 
     @voucher.sub_command(
@@ -614,14 +648,24 @@ class Voucher(commands.Cog):
             self,
             ctx
     ):
+
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking voucher..."
+        await ctx.response.send_message(msg, ephemeral=True)
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/voucher claim", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         await self.bot_log()
         get_vouchers = await self.sql_voucher_get_user(str(ctx.author.id), SERVER_BOT, 50, 'YES')
 
         if get_vouchers and len(get_vouchers) >= 25:
             # list them in text
             claimed = ', '.join([each['secret_string'] for each in get_vouchers])
-            await ctx.response.send_message(f'{ctx.author.mention}, you have many claimed vouchers: {claimed}',
-                                            ephemeral=True)
+            await ctx.edit_original_message(content=f'{ctx.author.mention}, you have many claimed vouchers: {claimed}')
             return
         elif get_vouchers and len(get_vouchers) > 0:
             table_data = [
@@ -637,10 +681,10 @@ class Voucher(commands.Cog):
             table.padding_left = 1
             table.padding_right = 1
             msg = f'**[ YOUR VOUCHER LIST ]**\n```{table.table}```'
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
         else:
-            await ctx.response.send_message(f'{ctx.author.mention}, you did not create any voucher yet.')
+            await ctx.edit_original_message(content=f'{ctx.author.mention}, you did not create any voucher yet.')
         return
 
     @voucher.sub_command(
@@ -651,6 +695,16 @@ class Voucher(commands.Cog):
             self,
             ctx
     ):
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking voucher..."
+        await ctx.response.send_message(msg, ephemeral=True)
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/voucher getclaim", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         await self.bot_log()
         get_vouchers = await self.sql_voucher_get_user(str(ctx.author.id), SERVER_BOT, 10000, 'YES')
         if get_vouchers and len(get_vouchers) > 0:
@@ -662,12 +716,12 @@ class Voucher(commands.Cog):
                 combined_vouchers = "Total claimed: " + str(len(voucher_url_list)) + "\n\n" + voucher_url_list_str
                 data_file = disnake.File(BytesIO(combined_vouchers.encode()),
                                          filename=f"claimed_voucher_{str(ctx.author.id)}_{str(int(time.time()))}.csv")
-                await ctx.response.send_message(file=data_file, ephemeral=True)
+                await ctx.edit_original_message(content=None, file=data_file)
             except Exception:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot("voucher " +str(traceback.format_exc()))
         else:
-            await ctx.response.send_message(f'{ctx.author.mention}, you did not create any voucher yet.')
+            await ctx.edit_original_message(content=f'{ctx.author.mention}, you did not create any voucher yet.')
         return
 
     @voucher.sub_command(
@@ -678,6 +732,16 @@ class Voucher(commands.Cog):
             self,
             ctx
     ):
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking voucher..."
+        await ctx.response.send_message(msg, ephemeral=True)
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/voucher listcoins", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         await self.bot_log()
         if self.bot.coin_name_list and len(self.bot.coin_name_list) > 0:
             voucher_coins = []
@@ -686,12 +750,12 @@ class Voucher(commands.Cog):
                     voucher_coins.append(coin_name)
             coin_list_names = ", ".join(voucher_coins)
             if len(voucher_coins) > 0:
-                await ctx.response.send_message(
-                    f'{ctx.author.mention}, list of supported coins/tokens for /voucher:```{coin_list_names}```')
+                await ctx.edit_original_message(
+                    content=f'{ctx.author.mention}, list of supported coins/tokens for /voucher:```{coin_list_names}```')
             else:
-                await ctx.response.send_message(f'{ctx.author.mention}, please check again later. I got none now.')
+                await ctx.edit_original_message(content=f'{ctx.author.mention}, please check again later. I got none now.')
         else:
-            await ctx.response.send_message(f'{ctx.author.mention}, please check again later. I got none now.')
+            await ctx.edit_original_message(content=f'{ctx.author.mention}, please check again later. I got none now.')
 
 
 def setup(bot):

@@ -180,7 +180,7 @@ bot.erc_node_list = {
     "CELO": config.default_endpoints.celo,
     "ONE": config.default_endpoints.one
 }
-
+bot.commandings = []
 
 @bot.command(usage="load <cog>")
 @disnake.ext.commands.is_owner()

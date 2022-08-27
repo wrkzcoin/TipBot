@@ -8815,6 +8815,14 @@ class Wallet(commands.Cog):
         try:
             await ctx.response.send_message(f'{ctx.author.mention}, checking your {coin_name} address...',
                                             ephemeral=True)
+
+            try:
+                self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                             str(ctx.author.id), SERVER_BOT, "/deposit", int(time.time())))
+                await self.utils.add_command_calls()
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+
             net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
             type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
             get_deposit = await self.sql_get_userwallet(str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT,
@@ -8958,6 +8966,14 @@ class Wallet(commands.Cog):
         try:
             await ctx.response.send_message(f'{ctx.author.mention}, checking your {coin_name} balance...',
                                             ephemeral=True)
+
+            try:
+                self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                             str(ctx.author.id), SERVER_BOT, "/balance", int(time.time())))
+                await self.utils.add_command_calls()
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+
             net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
             type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
             deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
@@ -9077,6 +9093,14 @@ class Wallet(commands.Cog):
             num_coins = 0
             per_page = 8
             await ctx.response.send_message(f"{ctx.author.mention} balance loading...", ephemeral=True)
+
+            try:
+                self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                             str(ctx.author.id), SERVER_BOT, "/balances", int(time.time())))
+                await self.utils.add_command_calls()
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+
             bstart = time.time()
             for each_token in mytokens:
                 try:
@@ -9141,7 +9165,7 @@ class Wallet(commands.Cog):
                             elif total_in_usd >= 0.0001:
                                 equivalent_usd = " ~ {:,.4f}$".format(total_in_usd)
 
-                    page.add_field(name="{}{}".format(token_display, equivalent_usd), value="```{}```".format(
+                    page.add_field(name="{}{}".format(token_display, equivalent_usd), value="{}".format(
                         num_format_coin(total_balance, coin_name, coin_decimal, False)), inline=True)
                     num_coins += 1
                     if num_coins > 0 and num_coins % per_page == 0:
@@ -9259,13 +9283,15 @@ class Wallet(commands.Cog):
                 msg = f'{ctx.author.mention}, **{coin_name}** withdraw is currently disable.'
                 await ctx.response.send_message(msg)
                 return
-        # Do the job
+
+        await ctx.response.send_message(f"{EMOJI_HOURGLASS_NOT_DONE}, checking withdraw for {ctx.author.mention}..", ephemeral=True)
+
         try:
-            await ctx.response.send_message(f"{EMOJI_HOURGLASS_NOT_DONE}, checking withdraw for {ctx.author.mention}..",
-                                            ephemeral=True)
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/withdraw", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            return
 
         # remove space from address
         address = address.replace(" ", "")
@@ -10062,6 +10088,17 @@ class Wallet(commands.Cog):
 
     # Faucet
     async def async_claim(self, ctx: str, token: str = None):
+
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking claim..."
+        await ctx.response.send_message(msg)
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/claim", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         faucet = Faucet(self.bot)
         get_user_coin = await faucet.get_user_faucet_coin(str(ctx.author.id), SERVER_BOT)
         list_coins = await faucet.get_faucet_coin_list()
@@ -10105,7 +10142,7 @@ class Wallet(commands.Cog):
                                                                           get_user_coin['coin_name']))
             except Exception:
                 traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(embed=embed, view=RowButtonRowCloseAnyMessage())
+            await ctx.edit_original_message(content=None, embed=embed, view=RowButtonRowCloseAnyMessage())
             return
         elif token.upper() in ["LISTS", "LIST"]:
             get_claim_lists = await self.collect_claim_list(str(self.bot.user.id), "BOTVOTE")
@@ -10130,24 +10167,23 @@ class Wallet(commands.Cog):
                 embed.set_footer(
                     text="Requested by: {}#{} | Total votes: {:,.0f}".format(ctx.author.name, ctx.author.discriminator,
                                                                              nos_vote))
-                await ctx.response.send_message(embed=embed, view=RowButtonRowCloseAnyMessage())
+                await ctx.edit_original_message(content=None, embed=embed, view=RowButtonRowCloseAnyMessage())
             return
         else:
             coin_name = token.upper()
             if coin_name not in list_coin_names:
                 msg = f'{ctx.author.mention}, `{coin_name}` is invalid or does not exist in faucet list!'
-                await ctx.response.send_message(msg)
+                await ctx.edit_original_message(content=msg)
                 return
             else:
                 # Update user setting faucet
                 update = await faucet.update_faucet_user(str(ctx.author.id), coin_name, SERVER_BOT)
                 if update:
                     msg = f'{ctx.author.mention}, you updated your preferred claimed reward to `{coin_name}`. This preference applies only for TipBot\'s voting reward.'
-                    await ctx.response.send_message(msg)
+                    await ctx.edit_original_message(content=msg)
                 else:
                     msg = f'{ctx.author.mention}, internal error!'
-                    await ctx.response.send_message(msg)
-                return
+                    await ctx.edit_original_message(content=msg)
 
     @commands.slash_command(
         usage='claim',
@@ -10222,6 +10258,17 @@ class Wallet(commands.Cog):
             info: str = None
     ):
         await self.bot_log()
+
+        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing /take ...'
+        await ctx.response.send_message(msg)
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/take", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         faucet_simu = False
         # bot check in the first place
         if ctx.author.bot is True:
@@ -10229,21 +10276,12 @@ class Wallet(commands.Cog):
                 await self.botLogChan.send(
                     f'{ctx.author.name} / {ctx.author.id} (Bot) using **take** {ctx.guild.name} / {ctx.guild.id}')
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, Bot is not allowed using this."
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
 
         if ctx.author.id in self.bot.TX_IN_PROCESS:
             msg = f'{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress.'
-            await ctx.response.send_message(msg)
-            return
-
-        try:
-            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing /take ...'
-            await ctx.response.send_message(msg)
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to message /take ...",
-                                            ephemeral=True)
+            await ctx.edit_original_message(content=msg)
             return
 
         if not hasattr(ctx.guild, "id"):
@@ -10544,14 +10582,15 @@ class Wallet(commands.Cog):
         MaxTip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
         usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
 
+        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing donation check...'
+        await ctx.response.send_message(msg)
+
         try:
-            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing donation check...'
-            await ctx.response.send_message(msg)
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/donate", int(time.time())))
+            await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(
-                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to send a donation message...", ephemeral=True)
-            return
 
         get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), coin_name, net_name, type_coin,
                                                                SERVER_BOT, 0)
@@ -10688,6 +10727,12 @@ class Wallet(commands.Cog):
         msg = f"""{EMOJI_INFORMATION} Disclaimer: No warranty or guarantee is provided, expressed, or implied \
 when using this bot and any funds lost, mis-used or stolen in using this bot. TipBot and its dev does not affiliate with the swapped tokens."""
         await ctx.response.send_message(msg)
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/swaptokens disclaimer", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
 
     @swaptokens.sub_command(
         usage="swaptokens lists",
@@ -10699,6 +10744,14 @@ when using this bot and any funds lost, mis-used or stolen in using this bot. Ti
     ):
         msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, checking /swaptokens lists...'
         await ctx.response.send_message(msg)
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/swaptokens lists", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         get_swap_list = await self.swaptoken_list()
         if len(get_swap_list) > 0:
             embed = disnake.Embed(title="/swaptokens lists", timestamp=datetime.now())
@@ -10731,6 +10784,14 @@ when using this bot and any funds lost, mis-used or stolen in using this bot. Ti
     ):
         msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, checking /swaptokens purchase...'
         await ctx.response.send_message(msg)
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/swaptokens purchase", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         FROM_COIN = from_token.upper()
         TO_COIN = to_token.upper()
         # Check if available
@@ -10916,6 +10977,13 @@ when using this bot and any funds lost, mis-used or stolen in using this bot. Ti
 
         msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, checking /swap ...'
         await ctx.response.send_message(msg)
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/swap", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
 
         if PAIR_NAME not in self.swap_pair:
             msg = f'{EMOJI_RED_NO}, {ctx.author.mention} `{PAIR_NAME}` is not available.'

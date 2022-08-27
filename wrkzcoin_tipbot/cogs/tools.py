@@ -19,6 +19,7 @@ import functools
 
 from Bot import logchanbot, EMOJI_ERROR, EMOJI_CHECKMARK, SERVER_BOT, EMOJI_INFORMATION
 import store
+from cogs.utils import Utils
 from config import config
 
 
@@ -27,6 +28,7 @@ class Tool(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
+        self.utils = Utils(self.bot)
 
         # TTS path
         self.tts_path = "./tts/"
@@ -97,6 +99,13 @@ class Tool(commands.Cog):
 
         msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, checking TTS...'
         await ctx.response.send_message(msg)
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/tool tts", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
 
         if not isEnglish(input_text):
             await ctx.edit_original_message(content=f'{ctx.author.mention}, TTS supports English only.')
@@ -289,6 +298,13 @@ class Tool(commands.Cog):
                 await ctx.edit_original_message(content=f'{ctx.author.mention}, internal error. The media file could be too big or text too long. Please reduce your text length.')
                 await logchanbot(f"[TRANSLATE] {ctx.author.name}#{ctx.author.discriminator} failed to get translation with {to_lang} ```{input_text}```")
 
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/tool translate", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
 
     # For each subcommand you can specify individual options and other parameters,
     # see the "Objects and methods" reference to learn more.
@@ -310,7 +326,12 @@ class Tool(commands.Cog):
             msg = await ctx.response.send_message(f'Avatar image for {member.mention}:\n{str(member.display_avatar)}')
         except Exception:
             await logchanbot("tools " +str(traceback.format_exc()))
-
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/tool avatar", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
 
     @tool.sub_command(
         usage="tool prime <number>", 
@@ -350,7 +371,12 @@ class Tool(commands.Cog):
                 await ctx.response.send_message(f'{ctx.author.mention} {EMOJI_ERROR} Given number is not a prime number: ```{str(number)}```')
         except ValueError:
             await ctx.response.send_message(f'{ctx.author.mention} {EMOJI_ERROR} Number error.')
-
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/tool prime", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
 
 
 def setup(bot):

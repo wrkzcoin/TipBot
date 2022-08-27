@@ -1,20 +1,23 @@
 import sys
 import traceback
 from datetime import datetime
+import time
 
 import disnake
-from Bot import EMOJI_INFORMATION, logchanbot
+from Bot import EMOJI_INFORMATION, logchanbot, SERVER_BOT
 from cogs.wallet import WalletAPI
 from config import config
 from disnake.app_commands import Option
 from disnake.enums import OptionType
 from disnake.ext import commands
 import store
+from cogs.utils import Utils
 
 class Stats(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.wallet_api = WalletAPI(self.bot)
+        self.utils = Utils(self.bot)
 
     async def get_coin_tipping_stats(self, coin: str):
         coin_name = coin.upper()
@@ -99,6 +102,12 @@ class Stats(commands.Cog):
             embed.set_author(name=self.bot.user.name, icon_url=self.bot.user.display_avatar)
             embed.set_thumbnail(url=self.bot.user.display_avatar)
         await ctx.edit_original_message(content=None, embed=embed)
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, f"/stats", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
 
     @commands.slash_command(
         usage='stats',

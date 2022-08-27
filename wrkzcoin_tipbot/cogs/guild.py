@@ -9,8 +9,6 @@ import json
 
 import uuid
 from decimal import Decimal
-import aiomysql
-from aiomysql.cursors import DictCursor
 import timeago
 import disnake
 from disnake.ext import tasks, commands
@@ -63,15 +61,6 @@ class Guild(commands.Cog):
         self.pool = None
         self.ttlcache = TTLCache(maxsize=4096, ttl=60.0)
 
-    async def openConnection(self):
-        try:
-            if self.pool is None:
-                self.pool = await aiomysql.create_pool(host=config.mysql.host, port=3306, minsize=8, maxsize=16, 
-                                                       user=config.mysql.user, password=config.mysql.password,
-                                                       db=config.mysql.db, cursorclass=DictCursor, autocommit=True)
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
-
     async def bot_log(self):
         if self.botLogChan is None:
             self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
@@ -79,8 +68,8 @@ class Guild(commands.Cog):
 
     async def get_faucet_claim_user_guild(self, userId: str, guild_id: str, user_server: str="DISCORD"):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM `user_balance_mv` 
                               WHERE `from_userid`=%s AND `to_userid`= %s AND `type`=%s AND `user_server`=%s 
@@ -474,8 +463,8 @@ class Guild(commands.Cog):
         user_server = SERVER_BOT
         currentTs = int(time.time())
         try:
-            await self.openConnection()	
-            async with self.pool.acquire() as conn:	
+            await store.openConnection()	
+            async with store.pool.acquire() as conn:	
                 async with conn.cursor() as cur:
                     if list_winner is None and list_amounts is None:
                         sql = """ UPDATE guild_raffle SET `status`=%s WHERE `id`=%s """	
@@ -536,8 +525,8 @@ class Guild(commands.Cog):
 
     async def raffle_cancel_id(self, raffle_id: int):
         try:	
-            await self.openConnection()	
-            async with self.pool.acquire() as conn:	
+            await store.openConnection()	
+            async with store.pool.acquire() as conn:	
                 async with conn.cursor() as cur:
                     sql = """ UPDATE guild_raffle SET `status`=%s WHERE `id`=%s AND `status` IN ('ONGOING', 'OPENED') LIMIT 1 """	
                     await cur.execute(sql, ('CANCELLED', raffle_id))
@@ -554,8 +543,8 @@ class Guild(commands.Cog):
         global pool
         user_server = user_server.upper()
         try:
-            await self.openConnection()	
-            async with self.pool.acquire() as conn:	
+            await store.openConnection()	
+            async with store.pool.acquire() as conn:	
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM guild_raffle 
                               WHERE `user_server`=%s AND `status` IN ('OPENED', 'ONGOING') """
@@ -570,8 +559,8 @@ class Guild(commands.Cog):
     async def raffle_get_from_by_id(self, idx: str, user_server: str='DISCORD', user_check: str=None):
         user_server = user_server.upper()
         try:	
-            await self.openConnection()	
-            async with self.pool.acquire() as conn:	
+            await store.openConnection()	
+            async with store.pool.acquire() as conn:	
                 async with conn.cursor() as cur:	
                     sql = """ SELECT * FROM guild_raffle 
                               WHERE `id`=%s AND `user_server`=%s LIMIT 1 """
@@ -604,8 +593,8 @@ class Guild(commands.Cog):
     async def raffle_get_from_guild(self, guild: str, last_play: bool=False, user_server: str='DISCORD'):
         user_server = user_server.upper()
         try:
-            await self.openConnection()	
-            async with self.pool.acquire() as conn:	
+            await store.openConnection()	
+            async with store.pool.acquire() as conn:	
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM guild_raffle 
                               WHERE `guild_id`=%s AND `user_server`=%s ORDER BY `id` DESC LIMIT 1 """
@@ -621,8 +610,8 @@ class Guild(commands.Cog):
         coin_name = coin.upper()
         user_server = user_server.upper()  
         try:	
-            await self.openConnection()	
-            async with self.pool.acquire() as conn:	
+            await store.openConnection()	
+            async with store.pool.acquire() as conn:	
                 async with conn.cursor() as cur:	
                     sql = """ INSERT INTO guild_raffle_entries (`raffle_id`, `guild_id`, `amount`, `decimal`, 
                               `coin_name`, `user_id`, `user_name`, `entry_ts`, `user_server`) 	
@@ -639,8 +628,8 @@ class Guild(commands.Cog):
         coin_name = coin.upper()
         user_server = user_server.upper()  
         try:	
-            await self.openConnection()	
-            async with self.pool.acquire() as conn:	
+            await store.openConnection()	
+            async with store.pool.acquire() as conn:	
                 async with conn.cursor() as cur:	
                     sql = """ INSERT INTO guild_raffle (`guild_id`, `guild_name`, `amount`, `decimal`, 
                               `coin_name`, `created_userid`, `created_username`, `created_ts`, `ending_ts`, `user_server`) 	
@@ -665,8 +654,8 @@ class Guild(commands.Cog):
             return
         await asyncio.sleep(time_lap)
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM `discord_server` WHERE `vote_reward_amount`>0 """
                     await cur.execute(sql, )
@@ -728,8 +717,8 @@ class Guild(commands.Cog):
 
     async def guild_find_by_key(self, guild_id: str, secret: str):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT `"""+secret+"""` FROM `discord_server` WHERE `serverid`=%s """
                     await cur.execute(sql, ( guild_id ))
@@ -741,8 +730,8 @@ class Guild(commands.Cog):
 
     async def guild_insert_key(self, guild_id: str, key: str, secret: str, update: bool=False):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ UPDATE discord_server SET `"""+secret+"""`=%s WHERE `serverid`=%s LIMIT 1 """
                     await cur.execute(sql, (key, guild_id))
@@ -754,8 +743,8 @@ class Guild(commands.Cog):
 
     async def update_reward(self, guild_id: str, amount: float, coin_name: str, disable: bool=False, channel: str=None):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     if disable is True:
                         sql = """ UPDATE discord_server SET `vote_reward_amount`=%s, `vote_reward_coin`=%s, `vote_reward_channel`=%s WHERE `serverid`=%s LIMIT 1 """
@@ -773,8 +762,8 @@ class Guild(commands.Cog):
 
     async def update_faucet(self, guild_id: str, amount: float, coin_name: str, duration: int=43200, disable: bool=False, channel: str=None):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     if disable is True:
                         sql = """ UPDATE discord_server SET `faucet_amount`=%s, `faucet_coin`=%s, `faucet_channel`=%s, `faucet_duration`=%s WHERE `serverid`=%s LIMIT 1 """
@@ -792,8 +781,8 @@ class Guild(commands.Cog):
 
     async def update_activedrop(self, guild_id: str, amount: float=0, coin_name: str=None, duration: int=3600, channel: str=None, role_id: str=None):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ UPDATE discord_server SET `tiptalk_amount`=%s, `tiptallk_coin`=%s, `tiptalk_channel`=%s, `tiptalk_duration`=%s, `tiptalk_role_id`=%s 
                               WHERE `serverid`=%s LIMIT 1 """
@@ -806,8 +795,8 @@ class Guild(commands.Cog):
 
     async def get_activedrop(self):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM discord_server  
                               WHERE `tiptalk_amount`>0 """
@@ -820,8 +809,8 @@ class Guild(commands.Cog):
 
     async def get_last_activedrop_guild(self, guild_id):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM discord_tiptalker  
                               WHERE `guild_id`=%s ORDER BY `id` DESC LIMIT 1 """
@@ -834,8 +823,8 @@ class Guild(commands.Cog):
 
     async def insert_new_activedrop_guild(self, guild_id: str, guild_name: str, channel_id: str, token_name: str, token_decimal: int, total_amount: float, each_amount: float, numb_receivers: int, list_receivers_id: str, list_receivers_name: str, spread_time: int):
         try:	
-            await self.openConnection()	
-            async with self.pool.acquire() as conn:	
+            await store.openConnection()	
+            async with store.pool.acquire() as conn:	
                 async with conn.cursor() as cur:	
                     sql = """ INSERT INTO discord_tiptalker (`guild_id`, `guild_name`, `channel_id`, `token_name`, 
                               `token_decimal`, `total_amount`, `each_amount`, `numb_receivers`, `list_receivers_id`, `list_receivers_name`, spread_time) 	

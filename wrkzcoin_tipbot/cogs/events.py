@@ -4,12 +4,10 @@ import sys
 import time
 import traceback
 
-import aiomysql
 import disnake
 import store
 from Bot import SERVER_BOT, num_format_coin, EMOJI_INFORMATION, EMOJI_RED_NO, seconds_str
 from Bot import logchanbot
-from aiomysql.cursors import DictCursor
 from attrdict import AttrDict
 from cachetools import TTLCache
 from cogs.economy import database_economy
@@ -37,17 +35,6 @@ class Events(commands.Cog):
 
         self.botLogChan = None
         self.message_id_list = []
-        # DB
-        self.pool = None
-
-    async def openConnection(self):
-        try:
-            if self.pool is None:
-                self.pool = await aiomysql.create_pool(host=config.mysql.host, port=3306, minsize=4, maxsize=6,
-                                                       user=config.mysql.user, password=config.mysql.password,
-                                                       db=config.mysql.db, cursorclass=DictCursor, autocommit=True)
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
 
     async def bot_log(self):
         if self.botLogChan is None:
@@ -57,8 +44,8 @@ class Events(commands.Cog):
     async def insert_new_stats(self, num_server: int, num_online: int, num_users: int, num_bots: int, num_tips: int,
                                date: int):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ INSERT INTO discord_stats (`num_server`, `num_online`, `num_users`, `num_bots`, `num_tips`, `date`) VALUES (%s, %s, %s, %s, %s, %s) """
                     await cur.execute(sql, (num_server, num_online, num_users, num_bots, num_tips, date))
@@ -69,8 +56,8 @@ class Events(commands.Cog):
 
     async def get_tipping_count(self):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT (SELECT COUNT(*) FROM user_balance_mv) AS nos_tipping,
                               (SELECT COUNT(*) FROM user_balance_mv_data) AS nos_user """
@@ -88,8 +75,8 @@ class Events(commands.Cog):
     async def insert_mathtip_responder(self, message_id: str, guild_id: str, from_userid: str, responder_id: str,
                                        responder_name: str, result: str):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ INSERT IGNORE INTO discord_mathtip_responder (`message_id`, `guild_id`, `from_userid`, `responder_id`, `responder_name`, `from_and_responder_uniq`, `result`, `inserted_time`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
                     await cur.execute(sql, (message_id, guild_id, from_userid, responder_id, responder_name,
@@ -104,8 +91,8 @@ class Events(commands.Cog):
 
     async def check_if_mathtip_responder_in(self, message_id: str, from_userid: str, responder_id: str):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     swap_in = 0.0
                     sql = """ SELECT * FROM `discord_mathtip_responder` WHERE `message_id`=%s AND `from_userid`=%s AND `responder_id`=%s LIMIT 1 """
@@ -119,8 +106,8 @@ class Events(commands.Cog):
 
     async def get_discord_mathtip_by_msgid(self, msg_id: str):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM `discord_mathtip_tmp` WHERE `message_id`=%s """
                     await cur.execute(sql, (msg_id))
@@ -133,8 +120,8 @@ class Events(commands.Cog):
 
     async def get_discord_triviatip_by_msgid(self, message_id: str):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     swap_in = 0.0
                     sql = """ SELECT * FROM `discord_triviatip_tmp` WHERE `message_id`=%s LIMIT 1 """
@@ -149,8 +136,8 @@ class Events(commands.Cog):
     async def insert_trivia_responder(self, message_id: str, guild_id: str, question_id: str, from_userid: str,
                                       responder_id: str, responder_name: str, result: str):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ INSERT IGNORE INTO discord_triviatip_responder (`message_id`, `guild_id`, `question_id`, `from_userid`, `responder_id`, `responder_name`, `from_and_responder_uniq`, `result`, `inserted_time`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
                     await cur.execute(sql, (
@@ -165,8 +152,8 @@ class Events(commands.Cog):
 
     async def check_if_trivia_responder_in(self, message_id: str, from_userid: str, responder_id: str):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     swap_in = 0.0
                     sql = """ SELECT * FROM `discord_triviatip_responder` WHERE `message_id`=%s AND `from_userid`=%s AND `responder_id`=%s LIMIT 1 """
@@ -182,8 +169,8 @@ class Events(commands.Cog):
 
     async def get_discord_bot_message(self, message_id: str, is_deleted: str = "NO"):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM `discord_bot_message_owner` WHERE `message_id`=%s AND `is_deleted`=%s LIMIT 1 """
                     await cur.execute(sql, (message_id, is_deleted))
@@ -196,8 +183,8 @@ class Events(commands.Cog):
 
     async def delete_discord_bot_message(self, message_id: str, owner_id: str):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ UPDATE `discord_bot_message_owner` SET `is_deleted`=%s, `date_deleted`=%s WHERE `message_id`=%s AND `owner_id`=%s LIMIT 1 """
                     await cur.execute(sql, ("YES", int(time.time()), message_id, owner_id))
@@ -210,8 +197,8 @@ class Events(commands.Cog):
 
     async def insert_discord_message(self, list_message):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ INSERT INTO discord_messages (`serverid`, `server_name`, `channel_id`, `channel_name`, `user_id`, 
                                `message_author`, `message_id`, `message_time`) 
@@ -226,8 +213,8 @@ class Events(commands.Cog):
 
     async def delete_discord_message(self, message_id, user_id):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ DELETE FROM discord_messages WHERE `message_id`=%s AND `user_id`=%s LIMIT 1 """
                     await cur.execute(sql, (message_id, user_id))
@@ -323,8 +310,8 @@ class Events(commands.Cog):
 
     async def get_coin_setting(self):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     coin_list = {}
                     coin_list_name = []
@@ -343,8 +330,8 @@ class Events(commands.Cog):
 
     async def get_coin_list_name(self):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     coin_list_name = []
                     sql = """ SELECT `coin_name` FROM `coin_settings` WHERE `enable`=1 """
@@ -362,8 +349,8 @@ class Events(commands.Cog):
     # This token hints is priority
     async def get_token_hints(self):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM `coin_alias_price` """
                     await cur.execute(sql, ())
@@ -384,8 +371,8 @@ class Events(commands.Cog):
 
     async def get_coin_alias_name(self):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM `coin_alias_name` """
                     await cur.execute(sql, ())
@@ -404,8 +391,8 @@ class Events(commands.Cog):
     # coin_paprika_list
     async def get_coin_paprika_list(self):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM `coin_paprika_list` WHERE `enable`=1 """
                     await cur.execute(sql, ())
@@ -427,8 +414,8 @@ class Events(commands.Cog):
     # get_coingecko_list
     async def get_coingecko_list(self):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM `coin_coingecko_list` """
                     await cur.execute(sql, ())
@@ -449,8 +436,8 @@ class Events(commands.Cog):
 
     async def get_faucet_coin_list(self):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT `coin_name` FROM `coin_settings` WHERE `enable`=1 AND `enable_faucet`=%s """
                     await cur.execute(sql, (1))

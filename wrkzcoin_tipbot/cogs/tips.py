@@ -1458,7 +1458,8 @@ class Tips(commands.Cog):
             for each_m in get_list_member_n_role:
                 try:
                     m = self.bot.get_user(int(each_m))
-                    list_member_ids.append(m.id)
+                    if m:
+                        list_member_ids.append(m.id)
                 except Exception:
                     pass
             if len(get_list_member_n_role) > 0:
@@ -1719,7 +1720,8 @@ class Tips(commands.Cog):
             for each_m in get_list_member_n_role:
                 try:
                     m = self.bot.get_user(int(each_m))
-                    list_member_ids.append(m.id)
+                    if m:
+                        list_member_ids.append(m.id)
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
             if len(get_list_member_n_role) > 0:

@@ -13,8 +13,6 @@ from disnake.enums import OptionType
 from disnake.app_commands import Option, OptionChoice
 
 from datetime import datetime, timezone
-import aiomysql
-from aiomysql.cursors import DictCursor
 import base64
 
 from config import config
@@ -44,23 +42,12 @@ class Twitter(commands.Cog):
         # enable_twitter_tip
         self.enable_twitter_tip = 1
 
-        # DB
-        self.pool = None
-
     async def generate_qr_address(
             self,
             address: str
     ):
         return await self.wallet_api.generate_qr_address(address)
 
-    async def openConnection(self):
-        try:
-            if self.pool is None:
-                self.pool = await aiomysql.create_pool(host=config.mysql.host, port=3306, minsize=2, maxsize=4,
-                                                       user=config.mysql.user, password=config.mysql.password,
-                                                       db=config.mysql.db, cursorclass=DictCursor, autocommit=True)
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
 
     async def bot_log(self):
         if self.botLogChan is None:
@@ -70,8 +57,8 @@ class Twitter(commands.Cog):
 
     async def get_discord_by_twid(self, twid: str):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM `twitter_linkme` WHERE `twitter_screen_name`=%s AND `is_verified`=1 LIMIT 1 """
                     await cur.execute(sql, (twid))
@@ -86,8 +73,8 @@ class Twitter(commands.Cog):
                             added_by_name: str, disable: bool = False, channel: str = None, rt_link: str = None,
                             end_time: int = None):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     if disable is True:
                         sql = """ UPDATE `discord_server` SET `rt_reward_amount`=%s, `rt_reward_coin`=%s, `rt_reward_channel`=%s, `rt_link`=%s, `rt_end_timestamp`=%s WHERE `serverid`=%s LIMIT 1 """
@@ -111,8 +98,8 @@ class Twitter(commands.Cog):
 
     async def get_reward_guild_link(self, guild_id: str, rt_link: str):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM `twitter_rt_reward` WHERE `guild_id`=%s AND `tweet_link`=%s LIMIT 1 """
                     await cur.execute(sql, (guild_id, rt_link))
@@ -125,8 +112,8 @@ class Twitter(commands.Cog):
 
     async def get_twitter_auth(self):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM `bot_settings` WHERE `name`=%s LIMIT 1 """
                     await cur.execute(sql, ('twitter_auth'))
@@ -140,8 +127,8 @@ class Twitter(commands.Cog):
 
     async def add_fetch_user(self, name: str, requested_by_uid: str, requested_by_name: str, result: str):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ INSERT INTO `twitter_fetch_users` (`name`, `result`, `requested_by_uid`, `requested_by_name`, `requested_date`) 
                               VALUE (%s, %s, %s, %s, %s) """
@@ -157,8 +144,8 @@ class Twitter(commands.Cog):
                            created_at: int, created_at_str: str, is_retweeted: int, retweet_count: int, favorite_count,
                            refetched_at):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ INSERT INTO `twitter_fetch_status` (`id_str`, `user_screen_name`, `status_link`, `text`, `json_dump`, `created_at`, `created_at_str`, `retweet_count`, `is_retweeted`, `favorite_count`, `refetched_at`) 
                               VALUE (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) 
@@ -182,8 +169,8 @@ class Twitter(commands.Cog):
     async def add_fetch_timeline(self, subscribe_to: str, response_dump: str, latest_tweet_id_str: str,
                                  latest_created_at: str, latest_full_text: str):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ INSERT INTO `twitter_fetch_latest_user_timeline` (`subscribe_to`, `response_dump`, `latest_tweet_id_str`, `latest_created_at`, `latest_full_text`, `fetched_date`) 
                               VALUE (%s, %s, %s, %s, %s, %s) """
@@ -199,8 +186,8 @@ class Twitter(commands.Cog):
 
     async def get_latest_in_timeline(self, subscribe_to: str):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM `twitter_fetch_latest_user_timeline` WHERE `subscribe_to`=%s ORDER BY `fetched_date` DESC LIMIT 1 """
                     await cur.execute(sql, (subscribe_to))
@@ -213,8 +200,8 @@ class Twitter(commands.Cog):
     async def add_guild_sub(self, guild_id: str, subscribe_to: str, subscribe_to_user_id: str, push_to_channel_id: str,
                             added_by_uid: str, added_by_uname: str):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ INSERT INTO `twitter_guild_subscribe` (`guild_id`, `subscribe_to`, `subscribe_to_user_id`, `push_to_channel_id`, `added_by_uid`, `added_by_uname`, `added_time`) 
                               VALUE (%s, %s, %s, %s, %s, %s, %s) """
@@ -231,8 +218,8 @@ class Twitter(commands.Cog):
     async def del_guild_sub(self, guild_id: str, subscribe_to: str, subscribe_to_user_id: str, added_by_uid: str,
                             added_by_uname: str):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ DELETE FROM `twitter_guild_subscribe` WHERE `guild_id`=%s AND `subscribe_to`=%s LIMIT 1;
                               INSERT INTO `twitter_guild_unsubscribe` (`guild_id`, `subscribe_to`, `subscribe_to_user_id`, `deleted_by_uid`, `deleted_by_uname`, `date_deleted`) 
@@ -249,8 +236,8 @@ class Twitter(commands.Cog):
 
     async def get_list_subscribe(self, guild_id: str):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM `twitter_guild_subscribe` WHERE `guild_id`=%s """
                     await cur.execute(sql, (guild_id))
@@ -263,8 +250,8 @@ class Twitter(commands.Cog):
 
     async def get_list_subscribes(self):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT DISTINCT `subscribe_to_user_id` FROM `twitter_guild_subscribe` """
                     await cur.execute(sql, )
@@ -278,8 +265,8 @@ class Twitter(commands.Cog):
     async def get_list_fetched_tweets(self, lap: int):
         lap = int(time.time()) - lap  # last fetched 1hrs
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """   SELECT 
                                     timeline.fetched_date,
@@ -304,8 +291,8 @@ class Twitter(commands.Cog):
 
     async def check_tweet_id_posted(self, tweet_id: str, guild_id: str):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM `twitter_posted_guild` WHERE `tweet_id_str`=%s AND `guild_id`=%s LIMIT 1 """
                     await cur.execute(sql, (tweet_id, guild_id))
@@ -318,8 +305,8 @@ class Twitter(commands.Cog):
     async def add_posted(self, guild_id: str, subscribe_to: str, push_to_channel_id: str, tweet_id_str: str,
                          msg_id: str):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ INSERT INTO `twitter_posted_guild` (`guild_id`, `subscribe_to`, `push_to_channel_id`, `tweet_id_str`, `msg_id`, `posted_date`) 
                               VALUE (%s, %s, %s, %s, %s, %s) """
@@ -334,8 +321,8 @@ class Twitter(commands.Cog):
 
     async def get_latest_in_dm(self):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM `twitter_fetch_bot_messages` ORDER BY `created_timestamp` DESC LIMIT 1 """
                     await cur.execute(sql, )
@@ -347,8 +334,8 @@ class Twitter(commands.Cog):
 
     async def add_bot_dm_messages(self, data_rows):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ INSERT INTO `twitter_fetch_bot_messages` (`message_json_dump`, `message_data_dump`, `text`, `message_id`, `sender_id`, `recipient_id`, `created_timestamp`, `inserted_date`) 
                               VALUE (%s, %s, %s, %s, %s, %s, %s, %s) """
@@ -363,8 +350,8 @@ class Twitter(commands.Cog):
     async def twitter_linkme_add_or_regen(self, discord_user_id: str, discord_user_name: str, secret_key: str,
                                           generated_date: int, twitter_screen_name: str):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ INSERT INTO `twitter_linkme` (`discord_user_id`, `discord_user_name`, `secret_key`, `generated_date`, `twitter_screen_name`) 
                               VALUE (%s, %s, %s, %s, %s) 
@@ -385,8 +372,8 @@ class Twitter(commands.Cog):
 
     async def twitter_linkme_get_user(self, discord_user_id):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM `twitter_linkme` 
                               WHERE `discord_user_id`=%s LIMIT 1
@@ -402,8 +389,8 @@ class Twitter(commands.Cog):
     async def twitter_linkme_update_verify(self, discord_user_id: str, id_str: str, twitter_screen_name: str,
                                            status_link: str, text: str, json_dump: str, created_at: int):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ UPDATE `twitter_linkme` 
                               SET `id_str`=%s, `twitter_screen_name`=%s, `status_link`=%s, `text`=%s, `json_dump`=%s, `created_at`=%s, `is_verified`=%s, `verified_date`=%s 
@@ -422,8 +409,8 @@ class Twitter(commands.Cog):
     async def twitter_unlink(self, discord_user_id: str, discord_user_name: str, twitter_screen_name: str,
                              is_verified: int):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ INSERT INTO `twitter_unlinkme` (`discord_user_id`, `discord_user_name`, `twitter_screen_name`, `is_verified`, `unlink_date`)
                               VALUES (%s, %s, %s, %s, %s);

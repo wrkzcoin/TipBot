@@ -854,13 +854,23 @@ class WalletAPI(commands.Cog):
                             - (SELECT IFNULL((SELECT SUM(`amount`)  
                             FROM `guild_raffle_entries` 
                             WHERE `coin_name`=%s AND `user_id`=%s AND `user_server`=%s AND `status`=%s), 0))
+
+                            - (SELECT IFNULL((SELECT SUM(`init_amount`)  
+                            FROM `discord_partydrop_tmp` 
+                            WHERE `from_userid`=%s AND `token_name`=%s AND `status`=%s), 0))
+
+                            - (SELECT IFNULL((SELECT SUM(`joined_amount`)  
+                            FROM `discord_partydrop_join` 
+                            WHERE `attendant_id`=%s AND `token_name`=%s AND `status`=%s), 0))
                           """
                     query_param = [user_id, token_name, user_server,
                                    user_id, token_name, "ONGOING",
                                    user_id, token_name, "ONGOING",
                                    user_id, token_name, "ONGOING",
                                    token_name, user_id, "OPEN",
-                                   token_name, user_id, user_server, "REGISTERED"]
+                                   token_name, user_id, user_server, "REGISTERED",
+                                   user_id, token_name, "ONGOING",
+                                   user_id, token_name, "ONGOING"]
                     if coin_family in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                         sql += """
                             - (SELECT IFNULL((SELECT SUM(amount+withdraw_fee)  

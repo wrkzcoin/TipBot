@@ -593,6 +593,134 @@ class Events(commands.Cog):
                     await inter.message.delete()
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
+        elif inter.message.author == self.bot.user and inter.component.custom_id == "partydrop_tipbot":
+            try:
+                await inter.response.send_message(content=f"Party ID {str(inter.message.id)}: checking...", ephemeral=True)
+                msg_id = inter.message.id
+                get_message = await store.get_party_id(str(msg_id))
+                if get_message is None:
+                    await inter.edit_original_message(content=f"Party ID {str(inter.message.id)}: Failed to join party!")
+                    await logchanbot(
+                        f"[ERROR PARTY] Failed to join a party in guild {inter.guild.name} / {inter.guild.id} by {inter.author.name}#{inter.author.discriminator}!")
+                    return
+                else:
+                    # Check balance
+                    coin_name = get_message['token_name']
+                    type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+                    net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+                    coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+                    token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
+                    deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+
+                    get_deposit = await self.wallet_api.sql_get_userwallet(str(inter.author.id), coin_name, net_name, type_coin,
+                                                                           SERVER_BOT, 0)
+                    if get_deposit is None:
+                        get_deposit = await self.wallet_api.sql_register_user(str(inter.author.id), coin_name, net_name, type_coin,
+                                                                              SERVER_BOT, 0, 0)
+                    wallet_address = get_deposit['balance_wallet_address']
+                    if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                        wallet_address = get_deposit['paymentid']
+                    elif type_coin in ["XRP"]:
+                        wallet_address = get_deposit['destination_tag']
+
+                    height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                    userdata_balance = await store.sql_user_balance_single(str(inter.author.id), coin_name, wallet_address, type_coin,
+                                                                           height, deposit_confirm_depth, SERVER_BOT)
+                    actual_balance = float(userdata_balance['adjust'])
+                    if actual_balance < get_message['minimum_amount']:
+                        await inter.edit_original_message(content=f"Party ID {str(inter.message.id)}: not sufficient balance!")
+                        return
+
+                    owner_displayname = get_message['from_ownername']
+                    sponsor_amount = get_message['init_amount']
+                    equivalent_usd = get_message['real_init_amount_usd_text']
+                    # Get list attendant
+                            
+                    if get_message and int(get_message['from_userid']) == inter.author.id:
+                        # If he initiates, add to sponsor
+                        increase = await store.update_party_id_amount(str(inter.message.id), get_message['minimum_amount'])
+                        if increase is True:
+                            await inter.edit_original_message(content=f"Party ID {str(inter.message.id)}: Sucessfully increased amount!")
+                            # Update view
+                            embed = disnake.Embed(
+                                title=f"🎉 Party Drop 🎉",
+                                description="Each click will deduct from your TipBot's balance. Entrance cost: `{} {}`. Party Pot will be distributed equally to all attendees after completion.".format(num_format_coin(get_message['minimum_amount'], coin_name, coin_decimal, False), coin_name), timestamp=datetime.datetime.fromtimestamp(get_message['partydrop_time']))
+                            embed.set_footer(text=f"Initiated by {owner_displayname}")
+                            total_amount = get_message['init_amount']
+                            attend_list = await store.get_party_attendant(str(inter.message.id))
+                            if len(attend_list) > 0:
+                                name_list = []
+                                name_list.append("<@{}> : {} {}".format(get_message['from_userid'], num_format_coin(get_message['init_amount'], coin_name, coin_decimal, False), token_display))
+                                for each_att in attend_list:
+                                    name_list.append("<@{}> : {} {}".format(each_att['attendant_id'], num_format_coin(each_att['joined_amount'], coin_name, coin_decimal, False), token_display))
+                                    total_amount += each_att['joined_amount']
+                                    if len(name_list) > 0 and len(name_list) % 15 == 0:
+                                        embed.add_field(name='Attendant', value="\n".join(name_list), inline=False)
+                                        name_list = []
+                                if len(name_list) > 0:
+                                    embed.add_field(name='Attendant', value="\n".join(name_list), inline=False)
+                            indiv_amount = total_amount / (len(attend_list) + 1)
+                            indiv_amount_str = num_format_coin(indiv_amount, coin_name, coin_decimal, False)
+                            embed.add_field(name='Each Member Receives:',
+                                            value=f"{indiv_amount_str} {token_display}", inline=True)
+                            embed.add_field(name='Started amount', value=num_format_coin(get_message['init_amount'], coin_name, coin_decimal, False) + " " + coin_name, inline=True)
+                            embed.add_field(name='Party Pot', value=num_format_coin(total_amount, coin_name, coin_decimal, False) + " " + coin_name, inline=True)
+                            try:
+                                channel = self.bot.get_channel(int(get_message['channel_id']))
+                                _msg: disnake.Message = await channel.fetch_message(inter.message.id)
+                                await _msg.edit(content=None, embed=embed)
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
+                            return
+
+                    # If time already pass
+                    if int(time.time()) > get_message['partydrop_time']:
+                        await inter.edit_original_message(content=f"Party ID: {str(inter.message.id)} passed already!")
+                        # await inter.response.defer()
+                        return
+                    else:
+                        attend = await store.attend_party(str(inter.message.id), str(inter.author.id), 
+                                                          "{}#{}".format(inter.author.name, inter.author.discriminator),
+                                                          get_message['minimum_amount'], get_message['token_name'], get_message['token_decimal'])
+                        if attend is True:
+                            await inter.edit_original_message(content=f"Party ID: {str(inter.message.id)}, joined/added successfully!")
+                            # Update view
+                            embed = disnake.Embed(
+                                title=f"🎉 Party Drop 🎉",
+                                description="Each click will deduct from your TipBot's balance. Entrance cost: `{} {}`. Party Pot will be distributed equally to all attendees after completion.".format(num_format_coin(get_message['minimum_amount'], coin_name, coin_decimal, False), coin_name), timestamp=datetime.datetime.fromtimestamp(get_message['partydrop_time']))
+                            embed.set_footer(text=f"Initiated by {owner_displayname}")
+                            attend_list = await store.get_party_attendant(str(inter.message.id))
+                            if len(attend_list) > 0:
+                                name_list = []
+                                name_list.append("<@{}> : {} {}".format(get_message['from_userid'], num_format_coin(get_message['init_amount'], coin_name, coin_decimal, False), token_display))
+                                total_amount = get_message['init_amount']
+                                for each_att in attend_list:
+                                    name_list.append("<@{}> : {} {}".format(each_att['attendant_id'], num_format_coin(each_att['joined_amount'], coin_name, coin_decimal, False), token_display))
+                                    total_amount += each_att['joined_amount']
+                                    if len(name_list) > 0 and len(name_list) % 15 == 0:
+                                        embed.add_field(name='Attendant', value="\n".join(name_list), inline=False)
+                                        name_list = []
+                                if len(name_list) > 0:
+                                    embed.add_field(name='Attendant', value="\n".join(name_list), inline=False)
+                            indiv_amount = total_amount / (len(attend_list) + 1)
+                            indiv_amount_str = num_format_coin(indiv_amount, coin_name, coin_decimal, False)
+                            embed.add_field(name='Each Member Receives:',
+                                            value=f"{indiv_amount_str} {token_display}", inline=True)
+                            embed.add_field(name='Started amount',
+                                            value=num_format_coin(get_message['init_amount'], coin_name, coin_decimal, False) + " " + coin_name,
+                                            inline=True)
+                            embed.add_field(name='Party Pot',
+                                            value=num_format_coin(total_amount, coin_name, coin_decimal, False) + " " + coin_name,
+                                            inline=True)
+                            try:
+                                channel = self.bot.get_channel(int(get_message['channel_id']))
+                                _msg: disnake.Message = await channel.fetch_message(inter.message.id)
+                                await _msg.edit(content=None, embed=embed)
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
+                            return
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
         elif hasattr(inter,
                      "message") and inter.message.author == self.bot.user and inter.component.custom_id.startswith(
                 "trivia_answers_"):

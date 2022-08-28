@@ -279,13 +279,23 @@ async def sql_user_balance_single(user_id: str, coin: str, address: str, coin_fa
                         - (SELECT IFNULL((SELECT SUM(`amount`)  
                         FROM `guild_raffle_entries` 
                         WHERE `coin_name`=%s AND `user_id`=%s AND `user_server`=%s AND `status`=%s), 0))
+
+                        - (SELECT IFNULL((SELECT SUM(`init_amount`)  
+                        FROM `discord_partydrop_tmp` 
+                        WHERE `from_userid`=%s AND `token_name`=%s AND `status`=%s), 0))
+
+                        - (SELECT IFNULL((SELECT SUM(`joined_amount`)  
+                        FROM `discord_partydrop_join` 
+                        WHERE `attendant_id`=%s AND `token_name`=%s AND `status`=%s), 0))
                       """
                 query_param = [user_id, token_name, user_server,
                                user_id, token_name, "ONGOING",
                                user_id, token_name, "ONGOING",
                                user_id, token_name, "ONGOING",
                                token_name, user_id, "OPEN",
-                               token_name, user_id, user_server, "REGISTERED"]
+                               token_name, user_id, user_server, "REGISTERED",
+                               user_id, token_name, "ONGOING",
+                               user_id, token_name, "ONGOING"]
                 if coin_family in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                     sql += """
                         - (SELECT IFNULL((SELECT SUM(amount+withdraw_fee)  
@@ -2527,6 +2537,50 @@ async def sql_user_balance_mv_single(from_userid: str, to_userid: str, guild_id:
         await logchanbot("store " +str(traceback.format_exc()))
     return None
 
+async def sql_user_balance_mv_multple_amount(user_dict_tip, tiptype: str, user_server: str):
+    # user_dict_tip is array [{'from_user': xx, 'to_user': xx, 'guild_id': xx, 'channel_id': xx, 'amount': xx, 'coin': xx, 'decimal': xx, 'contract': xx or None, 'real_amount_usd': xx, 'extra_message': xxx or None}]
+    global pool
+    values_list = []
+    currentTs = int(time.time())
+    # type_list = []
+    for item in user_dict_tip:
+        values_list.append((item['coin'], item['contract'], item['from_user'], item['to_user'], 
+                            item['guild_id'], item['channel_id'], item['amount'], item['decimal'],
+                            tiptype.upper(), currentTs, user_server, item['real_amount_usd'], 
+                            item['extra_message'], item['from_user'], item['coin'], user_server, -item['amount'], 
+                            currentTs, item['to_user'], item['coin'], user_server,
+                            item['amount'], currentTs,))
+
+    if len(values_list) == 0:
+        print("sql_user_balance_mv_multiple: got 0 data inserting. return...")
+        return
+
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ INSERT INTO user_balance_mv (`token_name`, `contract`, `from_userid`, `to_userid`, `guild_id`, `channel_id`, `real_amount`, `token_decimal`, `type`, `date`, `user_server`, `real_amount_usd`, `extra_message`) 
+                          VALUES (%s, %s, %s, %s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s, %s, %s, %s, %s, %s);
+                        
+                          INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, `balance`, `update_date`) 
+                          VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
+                          UPDATE 
+                          `balance`=`balance`+VALUES(`balance`), 
+                          `update_date`=VALUES(`update_date`);
+
+                          INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, `balance`, `update_date`) 
+                          VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
+                          UPDATE 
+                          `balance`=`balance`+VALUES(`balance`), 
+                          `update_date`=VALUES(`update_date`);
+                """
+                await cur.executemany(sql, values_list)
+                await conn.commit()
+                return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot("store " +str(traceback.format_exc()))
+    return False
 
 async def sql_user_balance_mv_multiple(user_from: str, user_tos, guild_id: str, channel_id: str, amount_each: float,
                                        coin: str, tiptype: str, token_decimal: int, user_server: str, contract: str,
@@ -2841,12 +2895,14 @@ async def discord_freetip_ongoing(user_id: str, status: str = "ONGOING"):
             async with conn.cursor() as cur:
                 sql = """ SELECT (SELECT COUNT(*) FROM `discord_airdrop_tmp` WHERE `from_userid`=%s AND `status`=%s) as airdrop, 
                                  (SELECT COUNT(*) FROM `discord_mathtip_tmp` WHERE `from_userid`=%s AND `status`=%s) as mathtip,
-                                 (SELECT COUNT(*) FROM `discord_triviatip_tmp` WHERE `from_userid`=%s AND `status`=%s) as triviatip
+                                 (SELECT COUNT(*) FROM `discord_triviatip_tmp` WHERE `from_userid`=%s AND `status`=%s) as triviatip,
+                                 (SELECT COUNT(*) FROM `discord_partydrop_tmp` WHERE `from_userid`=%s AND `status`=%s) as partydrop
                       """
-                await cur.execute(sql, (user_id, status, user_id, status, user_id, status))
+                await cur.execute(sql, (user_id, status, user_id, status, 
+                                  user_id, status, user_id, status))
                 result = await cur.fetchone()
                 if result:
-                    return result['airdrop'] + result['mathtip'] + result['triviatip']
+                    return result['airdrop'] + result['mathtip'] + result['triviatip'] + result['partydrop']
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     return 0
@@ -3470,3 +3526,142 @@ async def sql_updateinfo_by_server(server_id: str, what: str, value: str):
                         return None
     except Exception as e:
         await logchanbot(str(traceback.format_exc()) + "\n\n" + f"({sql}, ({what}, {value}, {server_id},)")
+
+
+# Partydrop
+async def insert_partydrop_create(token_name: str, contract: str, from_userid: str, from_ownername: str,
+                                  message_id: str, guild_id: str, channel_id: str, minimum_amount: float, 
+                                  init_amount: float, real_init_amount_usd: float, real_init_amount_usd_text: str, 
+                                  unit_price_usd: float, token_decimal: int, partydrop_time: int, 
+                                  status: str = "ONGOING"):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ INSERT INTO `discord_partydrop_tmp` (`token_name`, `contract`, `from_userid`, `from_ownername`, `message_id`, `guild_id`, `channel_id`, `minimum_amount`, `init_amount`, `real_init_amount_usd`, `real_init_amount_usd_text`, `unit_price_usd`, `token_decimal`, `message_time`, `partydrop_time`, `status`) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                await cur.execute(sql, (token_name, contract, from_userid, from_ownername, 
+                                        message_id, guild_id, channel_id, minimum_amount, 
+                                        init_amount, real_init_amount_usd, real_init_amount_usd_text, 
+                                        unit_price_usd, token_decimal, int(time.time()), 
+                                        partydrop_time, status))
+                await conn.commit()
+                return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot("partydrop create " +str(traceback.format_exc()))
+    return False
+
+async def get_party_id(message_id: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM `discord_partydrop_tmp` 
+                WHERE `message_id`=%s LIMIT 1
+                """
+                await cur.execute(sql, message_id)
+                result = await cur.fetchone()
+                if result:
+                    return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+async def get_all_party(status: str="ONGOING"):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM `discord_partydrop_tmp` 
+                WHERE `status`=%s
+                """
+                await cur.execute(sql, status)
+                result = await cur.fetchall()
+                if result:
+                    return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return []
+
+async def get_party_attendant(message_id: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM `discord_partydrop_join` 
+                WHERE `message_id`=%s 
+                """
+                await cur.execute(sql, message_id)
+                result = await cur.fetchall()
+                if result:
+                    return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return []
+
+async def attend_party(message_id: str, attendant_id: str, attendant_name: str, 
+                      joined_amount: float, token_name: str, token_decimal: int):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ INSERT INTO `discord_partydrop_join` (`message_id`, `attendant_id`, `attendant_name`, 
+                `joined_amount`, `token_name`, `token_decimal`, `inserted_time`) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s)  ON DUPLICATE KEY 
+                UPDATE 
+                `added`=`added`+1,
+                `last_added`=VALUES(`inserted_time`),
+                `last_amount`=VALUES(`joined_amount`),
+                `joined_amount`=`joined_amount`+VALUES(`joined_amount`)
+                """
+                await cur.execute(sql, (message_id, attendant_id, attendant_name, 
+                                        joined_amount, token_name, token_decimal, 
+                                        int(time.time())))
+                await conn.commit()
+                return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return False
+
+async def update_party_id(message_id: str, to_status: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ UPDATE `discord_partydrop_tmp` 
+                SET `status`=%s WHERE `message_id`=%s;
+                UPDATE `discord_partydrop_join` 
+                SET `status`=%s WHERE `message_id`=%s;
+                """
+                await cur.execute(sql, (to_status, message_id, 
+                                        to_status, message_id))
+                await conn.commit()
+                return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return False
+
+async def update_party_id_amount(message_id: str, added_amount: float):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ UPDATE `discord_partydrop_tmp` 
+                SET `init_amount`=`init_amount`+%s WHERE `message_id`=%s
+                """
+                await cur.execute(sql, (added_amount, message_id))
+                await conn.commit()
+                return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return False
+
+# End Partydrop

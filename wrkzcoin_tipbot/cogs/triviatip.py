@@ -144,6 +144,10 @@ class TriviaTips(commands.Cog):
         self.trivia_duration_min = 5
         self.trivia_duration_max = 45
 
+        self.max_ongoing_by_user = 3
+        self.max_ongoing_by_guild = 5
+
+
     async def async_triviatip(self, ctx, amount: str, token: str, duration: str):
         coin_name = token.upper()
         # Token name check
@@ -167,8 +171,13 @@ class TriviaTips(commands.Cog):
         # Check if there is many airdrop/mathtip/triviatip
         try:
             count_ongoing = await store.discord_freetip_ongoing(str(ctx.author.id), "ONGOING")
-            if count_ongoing >= 3 and ctx.author.id != config.discord.ownerID:
+            if count_ongoing >= self.max_ongoing_by_user and ctx.author.id != config.discord.ownerID:
                 msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, you still have some ongoing tips. Please wait for them to complete first!'
+                await ctx.edit_original_message(content=msg)
+                return
+            count_ongoing = await store.discord_freetip_ongoing_guild(str(ctx.guild.id), "ONGOING")
+            if count_ongoing >= self.max_ongoing_by_guild and ctx.author.id != config.discord.ownerID:
+                msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, there are still some ongoing drops or tips in this guild. Please wait for them to complete first!'
                 await ctx.edit_original_message(content=msg)
                 return
         except Exception:

@@ -307,6 +307,9 @@ class Tips(commands.Cog):
         self.freetip_duration_min = 5
         self.freetip_duration_max = 600
 
+        self.max_ongoing_by_user = 3
+        self.max_ongoing_by_guild = 5
+
     @tasks.loop(seconds=30.0)
     async def freetip_check(self):
         get_active_freetip = await store.get_active_discord_freetip(lap=120)
@@ -859,8 +862,13 @@ class Tips(commands.Cog):
         # Check if there is many airdrop/mathtip/triviatip
         try:
             count_ongoing = await store.discord_freetip_ongoing(str(ctx.author.id), "ONGOING")
-            if count_ongoing >= 3:
+            if count_ongoing >= self.max_ongoing_by_user and ctx.author.id != config.discord.ownerID:
                 msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, you still have some ongoing tips. Please wait for them to complete first!'
+                await ctx.edit_original_message(content=msg)
+                return
+            count_ongoing = await store.discord_freetip_ongoing_guild(str(ctx.guild.id), "ONGOING")
+            if count_ongoing >= self.max_ongoing_by_guild and ctx.author.id != config.discord.ownerID:
+                msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, there are still some ongoing drops or tips in this guild. Please wait for them to complete first!'
                 await ctx.edit_original_message(content=msg)
                 return
         except Exception:

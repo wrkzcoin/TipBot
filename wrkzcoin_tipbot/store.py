@@ -2899,7 +2899,27 @@ async def discord_freetip_ongoing(user_id: str, status: str = "ONGOING"):
                                  (SELECT COUNT(*) FROM `discord_partydrop_tmp` WHERE `from_userid`=%s AND `status`=%s) as partydrop
                       """
                 await cur.execute(sql, (user_id, status, user_id, status, 
-                                  user_id, status, user_id, status))
+                                        user_id, status, user_id, status))
+                result = await cur.fetchone()
+                if result:
+                    return result['airdrop'] + result['mathtip'] + result['triviatip'] + result['partydrop']
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return 0
+
+async def discord_freetip_ongoing_guild(guild_id: str, status: str = "ONGOING"):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT (SELECT COUNT(*) FROM `discord_airdrop_tmp` WHERE `guild_id`=%s AND `status`=%s) as airdrop, 
+                                 (SELECT COUNT(*) FROM `discord_mathtip_tmp` WHERE `guild_id`=%s AND `status`=%s) as mathtip,
+                                 (SELECT COUNT(*) FROM `discord_triviatip_tmp` WHERE `guild_id`=%s AND `status`=%s) as triviatip,
+                                 (SELECT COUNT(*) FROM `discord_partydrop_tmp` WHERE `guild_id`=%s AND `status`=%s) as partydrop
+                      """
+                await cur.execute(sql, (guild_id, status, guild_id, status, 
+                                        guild_id, status, guild_id, status))
                 result = await cur.fetchone()
                 if result:
                     return result['airdrop'] + result['mathtip'] + result['triviatip'] + result['partydrop']

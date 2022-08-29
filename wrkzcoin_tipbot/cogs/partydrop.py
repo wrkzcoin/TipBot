@@ -12,7 +12,7 @@ from cachetools import TTLCache
 import disnake
 import store
 from Bot import num_format_coin, logchanbot, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_INFORMATION, SERVER_BOT, text_to_num, \
-    truncate
+    truncate, seconds_str_days
 from cogs.wallet import WalletAPI
 from disnake.app_commands import Option
 from disnake.enums import ButtonStyle
@@ -62,7 +62,8 @@ class PartyDrop(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        self.max_ongoing = 5
+        self.max_ongoing_by_user = 3
+        self.max_ongoing_by_guild = 5
         self.party_cache = TTLCache(maxsize=2000, ttl=60.0) # if previous value and new value the same, no need to edit
         self.wallet_api = WalletAPI(self.bot)
         self.utils = Utils(self.bot)
@@ -141,7 +142,7 @@ class PartyDrop(commands.Cog):
                                 if mv_partydrop is True:
                                     party = await store.sql_user_balance_mv_multiple(str(self.bot.user.id), all_name_list, get_message['guild_id'], get_message['channel_id'], indiv_amount, coin_name, "PARTYDROP", coin_decimal, SERVER_BOT, get_message['contract'], float(amount_in_usd), None)
                                     if party is True:
-                                        await store.update_party_id(each_party['message_id'], "COMPLETED")
+                                        await store.update_party_id(each_party['message_id'], "COMPLETED" if len(attend_list) > 0 else "NOCOLLECT")
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
                         else:
@@ -149,7 +150,10 @@ class PartyDrop(commands.Cog):
                                 title=f"🎉 Party Drop 🎉",
                                 description="Each click will deduct from your TipBot's balance. Entrance cost: `{} {}`. Party Pot will be distributed equally to all attendees after completion.".format(num_format_coin(get_message['minimum_amount'], coin_name, coin_decimal, False), coin_name),
                                 timestamp=datetime.fromtimestamp(get_message['partydrop_time']))
-                            embed.set_footer(text=f"Initiated by {owner_displayname}")
+
+                            time_left = seconds_str_days(get_message['partydrop_time'] - int(time.time())) if int(time.time()) < get_message['partydrop_time'] else "00:00:00"
+                            lap_div = int((get_message['partydrop_time'] - int(time.time()))/30)
+                            embed.set_footer(text=f"Initiated by {owner_displayname} | Time left: {time_left}")
                             name_list = []
                             user_tos = []
                             user_tos.append(get_message['from_userid'])
@@ -168,10 +172,10 @@ class PartyDrop(commands.Cog):
                             indiv_amount = total_amount / len(user_tos) # including initiator
                             try:
                                 key = each_party['message_id']
-                                if self.party_cache[key] == "{}_{}".format(len(user_tos), total_amount):
+                                if self.party_cache[key] == "{}_{}_{}".format(len(user_tos), total_amount, lap_div):
                                     continue # to next, no need to edit
                                 else:
-                                    self.party_cache[key] = "{}_{}".format(len(user_tos), total_amount)
+                                    self.party_cache[key] = "{}_{}_{}".format(len(user_tos), total_amount, lap_div)
                             except Exception:
                                 pass
                             amount_in_usd = indiv_amount * get_message['unit_price_usd'] if get_message['unit_price_usd'] and get_message['unit_price_usd'] > 0.0 else 0.0
@@ -208,15 +212,6 @@ class PartyDrop(commands.Cog):
 
     async def async_partydrop(self, ctx, min_amount: str, sponsor_amount: str, token: str, duration: str):
         coin_name = token.upper()
-        # Token name check
-        if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
-            coin_name = self.bot.coin_alias_names[coin_name]
-        if not hasattr(self.bot.coin_list, coin_name):
-            msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
-            await ctx.response.send_message(msg)
-            return
-        # End token name check
-
         await ctx.response.send_message(f"{ctx.author.mention}, /partydrop preparation... ")
 
         try:
@@ -226,11 +221,39 @@ class PartyDrop(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+        # Token name check
+        if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+            coin_name = self.bot.coin_alias_names[coin_name]
+        if not hasattr(self.bot.coin_list, coin_name):
+            msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
+            await ctx.edit_original_message(content=msg)
+            return
+        # End token name check
+
+        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        if serverinfo and serverinfo['tiponly'] and serverinfo['tiponly'] != "ALLCOIN" and coin_name not in serverinfo[
+            'tiponly'].split(","):
+            allowed_coins = serverinfo['tiponly']
+            msg = f'{ctx.author.mention}, **{coin_name}** is not allowed here. Currently, allowed `{allowed_coins}`. You can ask guild owner to allow. `/SETTING TIPONLY coin1,coin2,...`'
+            await ctx.edit_original_message(content=msg)
+            return
+
+        # if coin is allowed for partydrop
+        if getattr(getattr(self.bot.coin_list, coin_name), "enable_partydrop") != 1:
+            msg = f'{ctx.author.mention}, **{coin_name}** not enable with `/partydrop`'
+            await ctx.edit_original_message(content=msg)
+            return
+
         # Check if there is many airdrop/mathtip/triviatip/partydrop
         try:
             count_ongoing = await store.discord_freetip_ongoing(str(ctx.author.id), "ONGOING")
-            if count_ongoing >= self.max_ongoing and ctx.author.id != config.discord.ownerID:
+            if count_ongoing >= self.max_ongoing_by_user and ctx.author.id != config.discord.ownerID:
                 msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, you still have some ongoing tips. Please wait for them to complete first!'
+                await ctx.edit_original_message(content=msg)
+                return
+            count_ongoing = await store.discord_freetip_ongoing_guild(str(ctx.guild.id), "ONGOING")
+            if count_ongoing >= self.max_ongoing_by_guild and ctx.author.id != config.discord.ownerID:
+                msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, there are still some ongoing drops or tips in this guild. Please wait for them to complete first!'
                 await ctx.edit_original_message(content=msg)
                 return
         except Exception:
@@ -443,7 +466,8 @@ class PartyDrop(commands.Cog):
         embed.add_field(name='Party Pot',
                         value=num_format_coin(sponsor_amount, coin_name, coin_decimal, False) + " " + coin_name,
                         inline=True)
-        embed.set_footer(text=f"Initiated by {owner_displayname}")
+        time_left = seconds_str_days(duration_s)
+        embed.set_footer(text=f"Initiated by {owner_displayname} | Time left: {time_left}")
         try:
             view = PartyButton(ctx, duration_s, self.bot.coin_list, self.bot, ctx.channel.id) 
             msg = await ctx.channel.send(content=None, embed=embed, view=view)

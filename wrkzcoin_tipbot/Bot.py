@@ -319,6 +319,19 @@ def seconds_str(time: float):
     seconds = time
     return "{:02d}:{:02d}:{:02d}".format(hour, minutes, seconds)
 
+def seconds_str_days(time: float):
+    if time <= 86400:
+        return seconds_str(time)
+
+    day = time // (24 * 3600)
+    time = time % (24 * 3600)
+    hour = time // 3600
+    time %= 3600
+    minutes = time // 60
+    time %= 60
+    seconds = time
+    return "{:02d} day(s) {:02d}:{:02d}:{:02d}".format(day, hour, minutes, seconds)
+
 
 def num_format_coin(amount, coin: str, coin_decimal: int, atomic: bool = False):
     COIN_NAME = coin.upper()

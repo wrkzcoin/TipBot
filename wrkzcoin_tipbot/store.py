@@ -287,6 +287,10 @@ async def sql_user_balance_single(user_id: str, coin: str, address: str, coin_fa
                         - (SELECT IFNULL((SELECT SUM(`joined_amount`)  
                         FROM `discord_partydrop_join` 
                         WHERE `attendant_id`=%s AND `token_name`=%s AND `status`=%s), 0))
+
+                        - (SELECT IFNULL((SELECT SUM(`real_amount`)  
+                        FROM `discord_quickdrop` 
+                        WHERE `from_userid`=%s AND `token_name`=%s AND `status`=%s), 0))
                       """
                 query_param = [user_id, token_name, user_server,
                                user_id, token_name, "ONGOING",
@@ -294,6 +298,7 @@ async def sql_user_balance_single(user_id: str, coin: str, address: str, coin_fa
                                user_id, token_name, "ONGOING",
                                token_name, user_id, "OPEN",
                                token_name, user_id, user_server, "REGISTERED",
+                               user_id, token_name, "ONGOING",
                                user_id, token_name, "ONGOING",
                                user_id, token_name, "ONGOING"]
                 if coin_family in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -2896,13 +2901,15 @@ async def discord_freetip_ongoing(user_id: str, status: str = "ONGOING"):
                 sql = """ SELECT (SELECT COUNT(*) FROM `discord_airdrop_tmp` WHERE `from_userid`=%s AND `status`=%s) as airdrop, 
                                  (SELECT COUNT(*) FROM `discord_mathtip_tmp` WHERE `from_userid`=%s AND `status`=%s) as mathtip,
                                  (SELECT COUNT(*) FROM `discord_triviatip_tmp` WHERE `from_userid`=%s AND `status`=%s) as triviatip,
-                                 (SELECT COUNT(*) FROM `discord_partydrop_tmp` WHERE `from_userid`=%s AND `status`=%s) as partydrop
+                                 (SELECT COUNT(*) FROM `discord_partydrop_tmp` WHERE `from_userid`=%s AND `status`=%s) as partydrop,
+                                 (SELECT COUNT(*) FROM `discord_quickdrop` WHERE `from_userid`=%s AND `status`=%s) as quickdrop
                       """
                 await cur.execute(sql, (user_id, status, user_id, status, 
-                                        user_id, status, user_id, status))
+                                        user_id, status, user_id, status,
+                                        user_id, status))
                 result = await cur.fetchone()
                 if result:
-                    return result['airdrop'] + result['mathtip'] + result['triviatip'] + result['partydrop']
+                    return result['airdrop'] + result['mathtip'] + result['triviatip'] + result['partydrop'] + result['quickdrop']
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     return 0
@@ -2916,13 +2923,15 @@ async def discord_freetip_ongoing_guild(guild_id: str, status: str = "ONGOING"):
                 sql = """ SELECT (SELECT COUNT(*) FROM `discord_airdrop_tmp` WHERE `guild_id`=%s AND `status`=%s) as airdrop, 
                                  (SELECT COUNT(*) FROM `discord_mathtip_tmp` WHERE `guild_id`=%s AND `status`=%s) as mathtip,
                                  (SELECT COUNT(*) FROM `discord_triviatip_tmp` WHERE `guild_id`=%s AND `status`=%s) as triviatip,
-                                 (SELECT COUNT(*) FROM `discord_partydrop_tmp` WHERE `guild_id`=%s AND `status`=%s) as partydrop
+                                 (SELECT COUNT(*) FROM `discord_partydrop_tmp` WHERE `guild_id`=%s AND `status`=%s) as partydrop,
+                                 (SELECT COUNT(*) FROM `discord_quickdrop` WHERE `guild_id`=%s AND `status`=%s) as quickdrop
                       """
                 await cur.execute(sql, (guild_id, status, guild_id, status, 
-                                        guild_id, status, guild_id, status))
+                                        guild_id, status, guild_id, status,
+                                        guild_id, status))
                 result = await cur.fetchone()
                 if result:
-                    return result['airdrop'] + result['mathtip'] + result['triviatip'] + result['partydrop']
+                    return result['airdrop'] + result['mathtip'] + result['triviatip'] + result['partydrop'] + result['quickdrop']
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     return 0
@@ -3685,3 +3694,97 @@ async def update_party_id_amount(message_id: str, added_amount: float):
     return False
 
 # End Partydrop
+
+# quickdrop
+async def insert_quickdrop_create(token_name: str, contract: str, from_userid: str, from_ownername: str,
+                                  message_id: str, guild_id: str, channel_id: str, real_amount: float, 
+                                  real_amount_usd: float, real_amount_usd_text: float, 
+                                  unit_price_usd: float, token_decimal: int, quickdrop_time: int, 
+                                  status: str = "ONGOING"):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ INSERT INTO `discord_quickdrop` (`token_name`, `contract`, `from_userid`, `from_ownername`, `message_id`, `guild_id`, `channel_id`, `real_amount`, `real_amount_usd`, `real_amount_usd_text`, `unit_price_usd`, `token_decimal`, `message_time`, `expiring_time`, `status`) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                await cur.execute(sql, (token_name, contract, from_userid, from_ownername, 
+                                        message_id, guild_id, channel_id, real_amount, 
+                                        real_amount_usd, real_amount_usd_text, 
+                                        unit_price_usd, token_decimal, int(time.time()), 
+                                        quickdrop_time, status))
+                await conn.commit()
+                return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot("quickdrop create " +str(traceback.format_exc()))
+    return False
+
+async def get_all_quickdrop(status: str="ONGOING"):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM `discord_quickdrop` 
+                WHERE `status`=%s
+                """
+                await cur.execute(sql, status)
+                result = await cur.fetchall()
+                if result:
+                    return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return []
+
+async def update_quickdrop_id_status(message_id: str, status: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ UPDATE `discord_quickdrop` 
+                SET `status`=%s 
+                WHERE `message_id`=%s
+                """
+                await cur.execute(sql, (status, message_id))
+                await conn.commit()
+                return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return False
+
+async def get_quickdrop_id(message_id: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM `discord_quickdrop` 
+                WHERE `message_id`=%s LIMIT 1
+                """
+                await cur.execute(sql, message_id)
+                result = await cur.fetchone()
+                if result:
+                    return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+async def update_quickdrop_id(message_id: str, status: str, collected_id: str, collected_name: str, collected_date: int):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ UPDATE `discord_quickdrop` 
+                SET `status`=%s, `collected_by_userid`=%s, `collected_by_username`=%s, `collected_date`=%s 
+                WHERE `message_id`=%s LIMIT 1
+                """
+                await cur.execute(sql, (status, collected_id, collected_name, collected_date, message_id))
+                await conn.commit()
+                return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return False
+# End quickdrop

@@ -405,13 +405,6 @@ class PartyDrop(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        # Get random question
-        rand_q = await store.get_random_q_db("ANY")
-        if rand_q is None:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, internal error, please report.'
-            await ctx.edit_original_message(content=msg)
-            return
-
         userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), coin_name, wallet_address, type_coin,
                                                                height, deposit_confirm_depth, SERVER_BOT)
         actual_balance = float(userdata_balance['adjust'])

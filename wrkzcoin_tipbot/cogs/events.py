@@ -36,6 +36,8 @@ class Events(commands.Cog):
         self.botLogChan = None
         self.message_id_list = []
 
+        self.quickdrop_cache = TTLCache(maxsize=1000, ttl=10.0)
+
     async def bot_log(self):
         if self.botLogChan is None:
             self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
@@ -593,6 +595,85 @@ class Events(commands.Cog):
                     await inter.message.delete()
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
+        elif inter.message.author == self.bot.user and inter.component.custom_id == "quickdrop_tipbot":
+            try:
+                await inter.response.send_message(content=f"QuickDrop ID {str(inter.message.id)}: checking...", ephemeral=True)
+                msg_id = inter.message.id
+                get_message = await store.get_quickdrop_id(str(msg_id))
+
+                if get_message and int(get_message['from_userid']) == inter.author.id:
+                    await inter.edit_original_message(content=f"QuickDrop ID {str(inter.message.id)}: You are the owner of the drop!")
+                    await logchanbot(
+                        f"[QUICKDROP] owner want to collect quick drop in guild {inter.guild.name} / {inter.guild.id} by {inter.author.name}#{inter.author.discriminator}!")
+                    return
+
+                if get_message is None:
+                    await inter.edit_original_message(content=f"QuickDrop ID {str(inter.message.id)}: Failed to collect!")
+                    await logchanbot(
+                        f"[ERROR QUICKDROP] Failed to collect in guild {inter.guild.name} / {inter.guild.id} by {inter.author.name}#{inter.author.discriminator}!")
+                    return
+                elif get_message and get_message['collected_by_userid']:
+                    collected_by = get_message['collected_by_username']
+                    await inter.edit_original_message(content=f"QuickDrop ID {str(inter.message.id)}: Already collected by {collected_by}!")
+                    await logchanbot(
+                        f"[QUICKDROP] late collecting in guild {inter.guild.name} / {inter.guild.id} by {inter.author.name}#{inter.author.discriminator}!")
+                    return
+                elif get_message and get_message['collected_by_userid'] is None:
+                    # Cache it first
+                    try:
+                        if str(inter.message.id) not in self.quickdrop_cache:
+                            self.quickdrop_cache[str(inter.message.id)] = inter.author.id
+                        else:
+                            await inter.edit_original_message(content=f"QuickDrop ID {str(inter.message.id)}: is being processed by other!")
+                            return
+                    except Exception:
+                        pass
+                    # Update quickdrop table
+                    quick = await store.update_quickdrop_id(str(inter.message.id), "COMPLETED", 
+                                                            str(inter.author.id), "{}#{}".format(inter.author.name, inter.author.discriminator),
+                                                            int(time.time()))
+                    if quick:
+                        tip = await store.sql_user_balance_mv_single(get_message['from_userid'], str(inter.author.id), get_message['guild_id'],
+                                                                     get_message['channel_id'], get_message['real_amount'], 
+                                                                     get_message['token_name'], "QUICKDROP",
+                                                                     get_message['token_decimal'], SERVER_BOT, 
+                                                                     get_message['contract'], get_message['real_amount_usd'], None)
+                        if tip:
+                            notifyList = await store.sql_get_tipnotify()
+                            if inter.author.id not in notifyList:
+                                try:
+                                    # Send message to receiver
+                                    await inter.author.send("🎉🎉🎉 Congratulation! You collected {} {} in guild `{}`.".format(
+                                        num_format_coin(get_message['real_amount'], 
+                                        get_message['token_name'], get_message['token_decimal'], False), 
+                                        inter.guild.name))
+                                except Exception:
+                                    pass
+                            # Update embed
+                            try:
+                                owner_displayname = get_message['from_ownername']
+                                embed = disnake.Embed(
+                                    title=f"📦📦📦 Quick Drop Collected! 📦📦📦",
+                                    description="First come, first serve!",
+                                    timestamp=datetime.datetime.fromtimestamp(get_message['expiring_time']))
+                                embed.set_footer(text=f"Dropped by {owner_displayname} | Used with /quickdrop | Ended")
+                                embed.add_field(name='Owner', 
+                                                value=owner_displayname,
+                                                inline=False)
+                                embed.add_field(name='Collected by', 
+                                                value="{}#{}".format(inter.author.name, inter.author.discriminator),
+                                                inline=False)
+                                embed.add_field(name='Amount', 
+                                                value="🎉🎉 {} {} 🎉🎉".format(num_format_coin(get_message['real_amount'], get_message['token_name'], get_message['token_decimal'], False), get_message['token_name']),
+                                                inline=False)
+                                channel = self.bot.get_channel(int(get_message['channel_id']))
+                                _msg: disnake.Message = await channel.fetch_message(int(get_message['message_id']))
+                                await _msg.edit(content=None, embed=embed, view=None)
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
+                    # Move Tip
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
         elif inter.message.author == self.bot.user and inter.component.custom_id == "partydrop_tipbot":
             try:
                 await inter.response.send_message(content=f"Party ID {str(inter.message.id)}: checking...", ephemeral=True)

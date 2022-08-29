@@ -40,6 +40,18 @@ Refer to <https://coininfo.bot.tips> for all the list.
 
 [![Basic Crypto Tipping](https://img.youtube.com/vi/w2VWYJ2foTo/0.jpg)](https://www.youtube.com/watch?v=w2VWYJ2foTo)
 
+### Other YouTube guides
+
+* TipBot v2 Playlist: <https://www.youtube.com/playlist?list=PLdhRV9sbg4Cqwn8CuaZJ_hAjnnpscOLum>
+
+### Bot directory links (Discord)
+
+* topgg: <https://top.gg/bot/474841349968101386/>
+
+* discordbotlist: <https://discordbotlist.com/bots/tipbot/>
+
+* discords.com: <https://discords.com/bots/bot/474841349968101386>
+
 ### Balance check
 
 [![Checking Balance](https://img.youtube.com/vi/tc1xxsggVMo/0.jpg)](https://www.youtube.com/watch?v=tc1xxsggVMo)

@@ -915,7 +915,7 @@ class Trade(commands.Cog):
                     empty_page = True
                 page.add_field(name="{}: **# {}** (Ratio: {})".format(each_page['pair'], each_page['order_number'],
                                                                       each_page['rate']),
-                               value="```Selling {} for {}```".format(each_page['selling'], each_page['for']),
+                               value="Selling {} for {}".format(each_page['selling'], each_page['for']),
                                inline=False)
                 empty_page = False
                 item_nos += 1

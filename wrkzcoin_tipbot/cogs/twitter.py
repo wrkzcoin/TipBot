@@ -541,14 +541,19 @@ class Twitter(commands.Cog):
                                                                  icon_url=avatar_url)
                                         except Exception:
                                             traceback.print_exc(file=sys.stdout)
-                                        msg = await channel.send(embed=embed)
-                                        await logchanbot("[TWITTER] - Posted to guild {} / channel {}:```{}```".format(
-                                            each_tw['guild_id'], each_tw['push_to_channel_id'], each_t['full_text']))
-                                        if msg:
-                                            added = await self.add_posted(each_tw['guild_id'], each_tw['subscribe_to'],
-                                                                          each_tw['push_to_channel_id'],
-                                                                          each_t['id_str'], str(msg.id))
-                                            await asyncio.sleep(2.0)
+                                        try:
+                                            msg = await channel.send(embed=embed)
+                                            await logchanbot("[TWITTER] - Posted to guild {} / channel {}:```{}```".format(
+                                                each_tw['guild_id'], each_tw['push_to_channel_id'], each_t['full_text']))
+                                            if msg:
+                                                added = await self.add_posted(each_tw['guild_id'], each_tw['subscribe_to'],
+                                                                              each_tw['push_to_channel_id'],
+                                                                              each_t['id_str'], str(msg.id))
+                                                await asyncio.sleep(2.0)
+                                        except Exception:
+                                            traceback.print_exc(file=sys.stdout)
+                                            await logchanbot("[TWITTER] - Failed to post to guild {} / channel {}:```{}```".format(
+                                                each_tw['guild_id'], each_tw['push_to_channel_id'], each_t['full_text']))
                                     else:
                                         await logchanbot(
                                             "[TWITTER] - Failed to find channel {} in guild {} for posting.".format(
@@ -675,6 +680,12 @@ class Twitter(commands.Cog):
         try:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking twitter..."
             await ctx.response.send_message(msg)
+
+            # Check if channel is text channel
+            if type(channel) is not disnake.TextChannel:
+                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, that\'s not a text channel. Try a different channel!'
+                await ctx.edit_original_message(content=msg)
+                return
 
             try:
                 self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",

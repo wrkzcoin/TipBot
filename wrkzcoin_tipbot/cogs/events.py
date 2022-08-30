@@ -6,7 +6,7 @@ import traceback
 
 import disnake
 import store
-from Bot import SERVER_BOT, num_format_coin, EMOJI_INFORMATION, EMOJI_RED_NO, seconds_str
+from Bot import SERVER_BOT, num_format_coin, EMOJI_INFORMATION, EMOJI_RED_NO, seconds_str, seconds_str_days
 from Bot import logchanbot
 from attrdict import AttrDict
 from cachetools import TTLCache
@@ -37,6 +37,7 @@ class Events(commands.Cog):
         self.message_id_list = []
 
         self.quickdrop_cache = TTLCache(maxsize=1000, ttl=10.0)
+        self.talkdrop_cache = TTLCache(maxsize=1000, ttl=10.0)
 
     async def bot_log(self):
         if self.botLogChan is None:
@@ -236,12 +237,17 @@ class Events(commands.Cog):
         await asyncio.sleep(time_lap)
         if len(self.bot.message_list) > 0:
             # saving_message
+            if self.is_saving_message is True:
+                return
+            else:
+                self.is_saving_message = True
             try:
                 saving = await self.insert_discord_message(list(set(self.bot.message_list)))
                 if saving > 0:
                     self.bot.message_list = []
             except Exception:
                 traceback.print_exc(file=sys.stdout)
+            self.is_saving_message = False
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
@@ -533,12 +539,17 @@ class Events(commands.Cog):
                     pass
             if len(self.bot.message_list) >= self.max_saving_message:
                 # saving_message
+                if self.is_saving_message is True:
+                    return
+                else:
+                    self.is_saving_message = True
                 try:
                     saving = await self.insert_discord_message(list(set(self.bot.message_list)))
                     if saving > 0:
                         self.bot.message_list = []
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
+                self.is_saving_message = False
 
     @commands.Cog.listener()
     async def on_message_delete(self, message):
@@ -552,6 +563,7 @@ class Events(commands.Cog):
         if hasattr(message, "channel") and hasattr(message.channel,
                                                    "id") and message.author.bot == False and message.author != self.bot.user:
             if message.id in self.message_id_list:
+                self.is_saving_message = True
                 # saving_message
                 try:
                     saving = await self.insert_discord_message(list(set(self.bot.message_list)))
@@ -559,11 +571,15 @@ class Events(commands.Cog):
                         self.bot.message_list = []
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
+                self.is_saving_message = False
             # Try delete from database
+            self.is_saving_message = True
             try:
                 await self.delete_discord_message(str(message.id), str(message.author.id))
             except Exception:
                 traceback.print_exc(file=sys.stdout)
+            self.is_saving_message = False
+
 
     @commands.Cog.listener()
     async def on_button_click(self, inter):
@@ -674,6 +690,112 @@ class Events(commands.Cog):
                     # Move Tip
             except Exception:
                 traceback.print_exc(file=sys.stdout)
+        elif inter.message.author == self.bot.user and inter.component.custom_id == "talkdrop_tipbot":
+            try:
+                await inter.response.send_message(content=f"Talkdrop ID {str(inter.message.id)}: checking...", ephemeral=True)
+                msg_id = inter.message.id
+                get_message = await store.get_talkdrop_id(str(msg_id))
+                if get_message is None:
+                    await inter.edit_original_message(content=f"Talkdrop ID {str(inter.message.id)}: Failed to collect!")
+                    await logchanbot(
+                        f"[ERROR TALKDROP] Failed to collect in guild {inter.guild.name} / {inter.guild.id} by {inter.author.name}#{inter.author.discriminator}!")
+                    return
+                else:
+                    # Cache it first
+                    try:
+                        key = "{}_{}".format(inter.message.id, inter.author.id)
+                        if key not in self.talkdrop_cache:
+                            self.talkdrop_cache[key] = key
+                        else:
+                            await inter.edit_original_message(content=f"Talkdrop ID {str(inter.message.id)}: too fast or try again later!")
+                            return
+                    except Exception:
+                        pass
+                    # If time passed
+                    if get_message['talkdrop_time'] < int(time.time()):
+                        await inter.edit_original_message(content=f"Talkdrop ID {str(inter.message.id)}: time passed already, it's ending soon!")
+                        return
+                    channel_id = get_message['channel_id']
+                    if get_message and int(get_message['from_userid']) == inter.author.id:
+                        await inter.edit_original_message(content=f"Talkdrop ID {str(inter.message.id)}: You are the Owner of this talkdrop!")
+                        return
+                    # Check if he already in
+                    checkin = await store.checkin_talkdrop_collector(str(msg_id), str(inter.author.id))
+                    if checkin is True:
+                        await inter.edit_original_message(content=f"Talkdrop ID {str(inter.message.id)}: You are already in the list!")
+                        return
+                    # If user is not in talk list
+                    num_message = await store.talkdrop_check_user(get_message['guild_id'], get_message['talked_in_channel'], 
+                                                                  str(inter.author.id), get_message['talked_from_when'])
+                    if num_message < get_message['minimum_message']:
+                        required_msg = get_message['minimum_message']
+                        await inter.edit_original_message(content=f"Talkdrop ID {str(inter.message.id)}: You don't have enough message in channel <#{get_message['talked_in_channel']}>. Requires {str(required_msg)} and having {str(num_message)}.")
+                        await logchanbot(
+                            f"[TALKDROP] guild {inter.guild.name} / {inter.guild.id} by {inter.author.name}#{inter.author.discriminator} shortage of number of message. Requires {str(required_msg)} and having {str(num_message)}!")
+                        return
+                    else:
+                        # Add him to there
+                        added = await store.add_talkdrop(str(msg_id), get_message['from_userid'], 
+                                                         str(inter.author.id),
+                                                         "{}#{}".format(inter.author.name, inter.author.discriminator))
+                        if added is True:
+                            await inter.edit_original_message(content=f"Talkdrop ID {str(inter.message.id)}: Successfully joined!")
+                            # Update view
+                            coin_name = get_message['token_name']
+                            coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+                            token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
+                            time_passed = int(time.time()) - get_message['talked_from_when']
+                            owner_displayname = get_message['from_ownername']
+                            embed = disnake.Embed(
+                                title="✍️ Talk Drop ✍️",
+                                description="You can collect only if you have chatted in channel <#{}> from {} ago.".format(get_message['talked_in_channel'], seconds_str_days(time_passed)),
+                                timestamp=datetime.datetime.fromtimestamp(get_message['talkdrop_time']))
+
+                            time_left = seconds_str_days(get_message['talkdrop_time'] - int(time.time())) if int(time.time()) < get_message['talkdrop_time'] else "00:00:00"
+                            embed.set_footer(text=f"Contributed by {owner_displayname} | /talkdrop | Time left: {time_left}")
+                            name_list = []
+                            user_tos = []
+                            attend_list = await store.get_talkdrop_collectors(str(msg_id))
+                            if len(attend_list) > 0:
+                                for each_att in attend_list:
+                                    name_list.append("<@{}>".format(each_att['collector_id']))
+                                    user_tos.append(each_att['collector_id'])
+                                    if len(name_list) > 0 and len(name_list) % 40 == 0:
+                                        embed.add_field(name='Collectors', value=", ".join(name_list), inline=False)
+                                        name_list = []
+                                if len(name_list) > 0:
+                                    embed.add_field(name='Collectors', value=", ".join(name_list), inline=False)
+                                user_tos = list(set(user_tos))
+                            indiv_amount = get_message['real_amount'] / len(user_tos) if len(user_tos) > 0 else get_message['real_amount']
+                            indiv_amount_str = num_format_coin(indiv_amount, coin_name, coin_decimal, False)
+                            embed.add_field(name='Each Member Receives:',
+                                            value=f"{indiv_amount_str} {token_display}", inline=True)
+                            embed.add_field(name='Total Amount', 
+                                            value=num_format_coin(get_message['real_amount'], coin_name, coin_decimal, False) + " " + coin_name,
+                                            inline=True)
+                            embed.add_field(name='Minimum Messages',
+                                            value=get_message['minimum_message'],
+                                            inline=True)
+                            try:
+                                channel = self.bot.get_channel(int(get_message['channel_id']))
+                                if channel is None:
+                                    await logchanbot("talkdrop_check: can not find channel ID: {}".format(get_message['channel_id']))
+                                    await asyncio.sleep(5.0)
+                                _msg: disnake.Message = await channel.fetch_message(int(get_message['message_id']))
+                                if _msg is None:
+                                    await logchanbot("talkdrop_check: can not find message ID: {}".format(get_message['message_id']))
+                                    await asyncio.sleep(5.0)
+                                else:
+                                    await _msg.edit(content=None, embed=embed)
+                                await asyncio.sleep(5.0)
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
+                        else:
+                            await inter.edit_original_message(content=f"Talkdrop ID {str(inter.message.id)}: Internal error!")
+                            await logchanbot(
+                                f"[ERROR TALKDROP] Failed to add in guild {inter.guild.name} / {inter.guild.id} by {inter.author.name}#{inter.author.discriminator}!")
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
         elif inter.message.author == self.bot.user and inter.component.custom_id == "partydrop_tipbot":
             try:
                 await inter.response.send_message(content=f"Party ID {str(inter.message.id)}: checking...", ephemeral=True)
@@ -726,7 +848,8 @@ class Events(commands.Cog):
                             embed = disnake.Embed(
                                 title=f"🎉 Party Drop 🎉",
                                 description="Each click will deduct from your TipBot's balance. Entrance cost: `{} {}`. Party Pot will be distributed equally to all attendees after completion.".format(num_format_coin(get_message['minimum_amount'], coin_name, coin_decimal, False), coin_name), timestamp=datetime.datetime.fromtimestamp(get_message['partydrop_time']))
-                            embed.set_footer(text=f"Initiated by {owner_displayname}")
+                            time_left = seconds_str_days(get_message['partydrop_time'] - int(time.time())) if int(time.time()) < get_message['partydrop_time'] else "00:00:00"
+                            embed.set_footer(text=f"Initiated by {owner_displayname} | /partydrop | Time left: {time_left}")
                             total_amount = get_message['init_amount']
                             attend_list = await store.get_party_attendant(str(inter.message.id))
                             if len(attend_list) > 0:
@@ -769,7 +892,8 @@ class Events(commands.Cog):
                             embed = disnake.Embed(
                                 title=f"🎉 Party Drop 🎉",
                                 description="Each click will deduct from your TipBot's balance. Entrance cost: `{} {}`. Party Pot will be distributed equally to all attendees after completion.".format(num_format_coin(get_message['minimum_amount'], coin_name, coin_decimal, False), coin_name), timestamp=datetime.datetime.fromtimestamp(get_message['partydrop_time']))
-                            embed.set_footer(text=f"Initiated by {owner_displayname}")
+                            time_left = seconds_str_days(get_message['partydrop_time'] - int(time.time())) if int(time.time()) < get_message['partydrop_time'] else "00:00:00"
+                            embed.set_footer(text=f"Initiated by {owner_displayname} | /partydrop | Time left: {time_left}")
                             attend_list = await store.get_party_attendant(str(inter.message.id))
                             if len(attend_list) > 0:
                                 name_list = []

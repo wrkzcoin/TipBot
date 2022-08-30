@@ -55,7 +55,7 @@ class Admin(commands.Cog):
         self.utils = Utils(self.bot)
         self.local_db_extra = None
         self.pool_local_db_extra = None
-        self.old_message_data_age = 30 * 24 * 3600  # max. 1 month
+        self.old_message_data_age = 60 * 24 * 3600  # max. 2 month
         self.auto_purge_old_message.start()
 
 
@@ -247,6 +247,10 @@ class Admin(commands.Cog):
                             - (SELECT IFNULL((SELECT SUM(`real_amount`)  
                             FROM `discord_quickdrop` 
                             WHERE `from_userid`=%s AND `token_name`=%s AND `status`=%s), 0))
+
+                            - (SELECT IFNULL((SELECT SUM(`real_amount`)  
+                            FROM `discord_talkdrop_tmp` 
+                            WHERE `from_userid`=%s AND `token_name`=%s AND `status`=%s), 0))
                           """
                     query_param = [user_id, token_name, user_server,
                                    user_id, token_name, "ONGOING",
@@ -254,6 +258,7 @@ class Admin(commands.Cog):
                                    user_id, token_name, "ONGOING",
                                    token_name, user_id, "OPEN",
                                    token_name, user_id, user_server, "REGISTERED",
+                                   user_id, token_name, "ONGOING",
                                    user_id, token_name, "ONGOING",
                                    user_id, token_name, "ONGOING",
                                    user_id, token_name, "ONGOING"]

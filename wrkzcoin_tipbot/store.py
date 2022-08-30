@@ -291,6 +291,10 @@ async def sql_user_balance_single(user_id: str, coin: str, address: str, coin_fa
                         - (SELECT IFNULL((SELECT SUM(`real_amount`)  
                         FROM `discord_quickdrop` 
                         WHERE `from_userid`=%s AND `token_name`=%s AND `status`=%s), 0))
+
+                        - (SELECT IFNULL((SELECT SUM(`real_amount`)  
+                        FROM `discord_talkdrop_tmp` 
+                        WHERE `from_userid`=%s AND `token_name`=%s AND `status`=%s), 0))
                       """
                 query_param = [user_id, token_name, user_server,
                                user_id, token_name, "ONGOING",
@@ -298,6 +302,7 @@ async def sql_user_balance_single(user_id: str, coin: str, address: str, coin_fa
                                user_id, token_name, "ONGOING",
                                token_name, user_id, "OPEN",
                                token_name, user_id, user_server, "REGISTERED",
+                               user_id, token_name, "ONGOING",
                                user_id, token_name, "ONGOING",
                                user_id, token_name, "ONGOING",
                                user_id, token_name, "ONGOING"]
@@ -2902,14 +2907,16 @@ async def discord_freetip_ongoing(user_id: str, status: str = "ONGOING"):
                                  (SELECT COUNT(*) FROM `discord_mathtip_tmp` WHERE `from_userid`=%s AND `status`=%s) as mathtip,
                                  (SELECT COUNT(*) FROM `discord_triviatip_tmp` WHERE `from_userid`=%s AND `status`=%s) as triviatip,
                                  (SELECT COUNT(*) FROM `discord_partydrop_tmp` WHERE `from_userid`=%s AND `status`=%s) as partydrop,
-                                 (SELECT COUNT(*) FROM `discord_quickdrop` WHERE `from_userid`=%s AND `status`=%s) as quickdrop
+                                 (SELECT COUNT(*) FROM `discord_quickdrop` WHERE `from_userid`=%s AND `status`=%s) as quickdrop,
+                                 (SELECT COUNT(*) FROM `discord_talkdrop_tmp` WHERE `from_userid`=%s AND `status`=%s) as talkdrop
                       """
                 await cur.execute(sql, (user_id, status, user_id, status, 
                                         user_id, status, user_id, status,
-                                        user_id, status))
+                                        user_id, status, user_id, status))
                 result = await cur.fetchone()
                 if result:
-                    return result['airdrop'] + result['mathtip'] + result['triviatip'] + result['partydrop'] + result['quickdrop']
+                    return result['airdrop'] + result['mathtip'] + result['triviatip'] + \
+                    result['partydrop'] + result['quickdrop'] + result['talkdrop']
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     return 0
@@ -2924,14 +2931,16 @@ async def discord_freetip_ongoing_guild(guild_id: str, status: str = "ONGOING"):
                                  (SELECT COUNT(*) FROM `discord_mathtip_tmp` WHERE `guild_id`=%s AND `status`=%s) as mathtip,
                                  (SELECT COUNT(*) FROM `discord_triviatip_tmp` WHERE `guild_id`=%s AND `status`=%s) as triviatip,
                                  (SELECT COUNT(*) FROM `discord_partydrop_tmp` WHERE `guild_id`=%s AND `status`=%s) as partydrop,
-                                 (SELECT COUNT(*) FROM `discord_quickdrop` WHERE `guild_id`=%s AND `status`=%s) as quickdrop
+                                 (SELECT COUNT(*) FROM `discord_quickdrop` WHERE `guild_id`=%s AND `status`=%s) as quickdrop,
+                                 (SELECT COUNT(*) FROM `discord_talkdrop_tmp` WHERE `guild_id`=%s AND `status`=%s) as talkdrop
                       """
                 await cur.execute(sql, (guild_id, status, guild_id, status, 
                                         guild_id, status, guild_id, status,
-                                        guild_id, status))
+                                        guild_id, status, guild_id, status))
                 result = await cur.fetchone()
                 if result:
-                    return result['airdrop'] + result['mathtip'] + result['triviatip'] + result['partydrop'] + result['quickdrop']
+                    return result['airdrop'] + result['mathtip'] + result['triviatip'] + \
+                    result['partydrop'] + result['quickdrop'] + result['talkdrop']
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     return 0
@@ -3788,3 +3797,149 @@ async def update_quickdrop_id(message_id: str, status: str, collected_id: str, c
         traceback.print_exc(file=sys.stdout)
     return False
 # End quickdrop
+
+# Talkdrop
+async def insert_talkdrop_create(token_name: str, contract: str, from_userid: str, from_ownername: str,
+                                 message_id: str, guild_id: str, channel_id: str, talked_in_channel: str, 
+                                 talked_from_when: int, minimum_message: int, real_amount: float, real_amount_usd: float, 
+                                 real_amount_usd_text: str, unit_price_usd: float, token_decimal: int, 
+                                 talkdrop_time: int, status: str = "ONGOING"):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ INSERT INTO `discord_talkdrop_tmp` (`token_name`, `contract`, `from_userid`, `from_ownername`, `message_id`, `guild_id`, `channel_id`, `talked_in_channel`, `talked_from_when`, `minimum_message`, `real_amount`, `real_amount_usd`, `real_amount_usd_text`, `unit_price_usd`, `token_decimal`, `message_time`, `talkdrop_time`, `status`) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                await cur.execute(sql, (token_name, contract, from_userid, from_ownername, 
+                                        message_id, guild_id, channel_id, talked_in_channel, talked_from_when, 
+                                        minimum_message, real_amount, real_amount_usd, real_amount_usd_text, 
+                                        unit_price_usd, token_decimal, int(time.time()), 
+                                        talkdrop_time, status))
+                await conn.commit()
+                return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot("talkdrop create " +str(traceback.format_exc()))
+    return False
+
+async def get_all_talkdrop(status: str="ONGOING"):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM `discord_talkdrop_tmp` 
+                WHERE `status`=%s
+                """
+                await cur.execute(sql, status)
+                result = await cur.fetchall()
+                if result:
+                    return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return []
+
+async def get_talkdrop_collectors(message_id: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM `discord_talkdrop_collector` 
+                WHERE `message_id`=%s 
+                """
+                await cur.execute(sql, message_id)
+                result = await cur.fetchall()
+                if result:
+                    return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return []
+
+async def update_talkdrop_id(message_id: str, to_status: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ UPDATE `discord_talkdrop_tmp` 
+                SET `status`=%s WHERE `message_id`=%s
+                """
+                await cur.execute(sql, (to_status, message_id))
+                await conn.commit()
+                return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return False
+
+async def get_talkdrop_id(message_id: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM `discord_talkdrop_tmp` 
+                WHERE `message_id`=%s LIMIT 1
+                """
+                await cur.execute(sql, message_id)
+                result = await cur.fetchone()
+                if result:
+                    return result
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+async def talkdrop_check_user(guild_id: str, channel_id: str, user_id: str, from_when: int):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT COUNT(*) AS talks FROM `discord_messages` 
+                WHERE `serverid`=%s AND `channel_id`=%s AND `user_id`=%s AND `message_time`>%s
+                """
+                await cur.execute(sql, (guild_id, channel_id, user_id, from_when))
+                result = await cur.fetchone()
+                if result:
+                    return result['talks']
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return 0
+
+async def checkin_talkdrop_collector(message_id: str, user_id: str):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM `discord_talkdrop_collector` 
+                WHERE `message_id`=%s AND `collector_id`=%s LIMIT 1
+                """
+                await cur.execute(sql, (message_id, user_id))
+                result = await cur.fetchone()
+                if result:
+                    return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return False
+
+async def add_talkdrop(message_id: str, from_userid: str, 
+                       collector_id: str, collector_name: float):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ INSERT INTO `discord_talkdrop_collector` (`message_id`, `from_userid`, `collector_id`, 
+                `collector_name`, `inserted_time`) 
+                VALUES (%s, %s, %s, %s, %s)
+                """
+                await cur.execute(sql, (message_id, from_userid, collector_id, 
+                                        collector_name, int(time.time())))
+                await conn.commit()
+                return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return False
+# End Talkdrop

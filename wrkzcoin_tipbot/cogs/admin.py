@@ -1345,12 +1345,12 @@ class Admin(commands.Cog):
             type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-            MinTip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
-            MaxTip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
+            min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
+            max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
             token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
 
-            if amount > MaxTip or amount < MinTip:
-                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, credit cannot be bigger than **{num_format_coin(MaxTip, coin_name, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(MinTip, coin_name, coin_decimal, False)} {token_display}**.'
+            if amount > max_tip or amount < min_tip:
+                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, credit cannot be bigger than **{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**.'
                 await ctx.reply(msg)
                 return
 

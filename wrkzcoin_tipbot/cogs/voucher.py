@@ -188,8 +188,8 @@ class Voucher(commands.Cog):
         contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
         token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
 
-        MinTip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
-        MaxTip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
+        min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
+        max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
         usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
         get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), coin_name, net_name, type_coin,
                                                                SERVER_BOT, 0)

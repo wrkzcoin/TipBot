@@ -913,6 +913,12 @@ class Twitter(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+        # Check if channel is text channel
+        if type(channel) is not disnake.TextChannel:
+            msg = f'{ctx.author.mention}, that\'s not a text channel. Try a different channel!'
+            await ctx.edit_original_message(content=msg)
+            return
+
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo is None:
             # Let's add some info if server return None
@@ -974,8 +980,8 @@ class Twitter(commands.Cog):
         coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
         contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
         token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
-        MinTip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
-        MaxTip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
+        min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
+        max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
         usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
         get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.guild.id), coin_name, net_name, type_coin,
                                                                SERVER_BOT, 0)
@@ -1003,9 +1009,9 @@ class Twitter(commands.Cog):
             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid given amount.'
             await ctx.edit_original_message(content=msg)
             return
-        # We assume max reward by MaxTip / 10
-        elif amount < MinTip or amount > MaxTip / 10:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, reward cannot be smaller than {num_format_coin(MinTip, coin_name, coin_decimal, False)} {token_display} or bigger than {num_format_coin(MaxTip / 10, coin_name, coin_decimal, False)} {token_display}.'
+        # We assume max reward by max_tip / 10
+        elif amount < min_tip or amount > max_tip / 10:
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, reward cannot be smaller than {num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display} or bigger than {num_format_coin(max_tip / 10, coin_name, coin_decimal, False)} {token_display}.'
             await ctx.edit_original_message(content=msg)
             return
         # We assume at least guild need to have 100x of reward or depends on guild's population
@@ -1291,8 +1297,8 @@ class Twitter(commands.Cog):
                     type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
                     deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
                     coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-                    MinTip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
-                    MaxTip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
+                    min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
+                    max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
                     usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
 
                     # token_info = getattr(self.bot.coin_list, coin_name)
@@ -1364,8 +1370,8 @@ class Twitter(commands.Cog):
                                                                            deposit_confirm_depth, SERVER_BOT)
                     actual_balance = float(userdata_balance['adjust'])
 
-                    if amount > MaxTip or amount < MinTip:
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than **{num_format_coin(MaxTip, coin_name, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(MinTip, coin_name, coin_decimal, False)} {token_display}**.'
+                    if amount > max_tip or amount < min_tip:
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than **{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**.'
                         await ctx.edit_original_message(content=msg)
                         return
                     elif amount > actual_balance:

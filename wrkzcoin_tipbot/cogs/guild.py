@@ -920,8 +920,8 @@ class Guild(commands.Cog):
         coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
         contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
         token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
-        MinTip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
-        MaxTip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
+        min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
+        max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
         usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
 
         if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
@@ -951,8 +951,8 @@ class Guild(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
-        if amount < MinTip or amount > MaxTip:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention} amount has to be between `{num_format_coin(MinTip, coin_name, coin_decimal, False)} {token_display}` and `{num_format_coin(MaxTip, coin_name, coin_decimal, False)} {token_display}`.'
+        if amount < min_tip or amount > max_tip:
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention} amount has to be between `{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}` and `{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}`.'
             await ctx.edit_original_message(content=msg)
             return
 
@@ -1392,6 +1392,12 @@ class Guild(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+        # Check if channel is text channel
+        if type(channel) is not disnake.TextChannel:
+            msg = f'{ctx.author.mention}, that\'s not a text channel. Try a different channel!'
+            await ctx.edit_original_message(content=msg)
+            return
+
         coin_name = coin.upper()
         if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
             coin_name = self.bot.coin_alias_names[coin_name]
@@ -1405,8 +1411,8 @@ class Guild(commands.Cog):
         coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
         contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
         token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
-        MinTip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
-        MaxTip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
+        min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
+        max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
         usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
 
         get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0)
@@ -1431,9 +1437,9 @@ class Guild(commands.Cog):
             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid given amount.'
             await ctx.edit_original_message(content=msg)
             return
-        # We assume max reward by MaxTip / 10
-        elif amount < MinTip or amount > MaxTip / 10:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, reward cannot be smaller than {num_format_coin(MinTip, coin_name, coin_decimal, False)} {token_display} or bigger than {num_format_coin(MaxTip / 10, coin_name, coin_decimal, False)} {token_display}.'
+        # We assume max reward by max_tip / 10
+        elif amount < min_tip or amount > max_tip / 10:
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, reward cannot be smaller than {num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display} or bigger than {num_format_coin(max_tip / 10, coin_name, coin_decimal, False)} {token_display}.'
             await ctx.edit_original_message(content=msg)
             return
         # We assume at least guild need to have 100x of reward or depends on guild's population
@@ -1522,8 +1528,8 @@ class Guild(commands.Cog):
             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
             token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
-            MinTip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
-            MaxTip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
+            min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
+            max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
 
             get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0)
@@ -1592,8 +1598,8 @@ class Guild(commands.Cog):
                 await ctx.edit_original_message(content=msg)
                 return
 
-            elif amount < MinTip or amount > MaxTip:
-                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, transaction cannot be smaller than {num_format_coin(MinTip, coin_name, coin_decimal, False)} {token_display} or bigger than {num_format_coin(MaxTip, coin_name, coin_decimal, False)} {token_display}.'
+            elif amount < min_tip or amount > max_tip:
+                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, transaction cannot be smaller than {num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display} or bigger than {num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}.'
                 await ctx.edit_original_message(content=msg)
                 return
 
@@ -1893,6 +1899,12 @@ class Guild(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+        # Check if channel is text channel
+        if type(channel) is not disnake.TextChannel:
+            msg = f'{ctx.author.mention}, that\'s not a text channel. Try a different channel!'
+            await ctx.edit_original_message(content=msg)
+            return
+
         coin_name = coin.upper()
         if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
             coin_name = self.bot.coin_alias_names[coin_name]
@@ -1920,8 +1932,8 @@ class Guild(commands.Cog):
         coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
         contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
         token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
-        MinTip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
-        MaxTip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
+        min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
+        max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
         usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
 
         get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0)
@@ -1946,9 +1958,9 @@ class Guild(commands.Cog):
             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid given amount.'
             await ctx.edit_original_message(content=msg)
             return
-        # We assume max reward by MaxTip / 10
-        elif amount < MinTip or amount > MaxTip / 10:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, faucet cannot be smaller than {num_format_coin(MinTip, coin_name, coin_decimal, False)} {token_display} or bigger than {num_format_coin(MaxTip / 10, coin_name, coin_decimal, False)} {token_display}.'
+        # We assume max reward by max_tip / 10
+        elif amount < min_tip or amount > max_tip / 10:
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, faucet cannot be smaller than {num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display} or bigger than {num_format_coin(max_tip / 10, coin_name, coin_decimal, False)} {token_display}.'
             await ctx.edit_original_message(content=msg)
             return
         # We assume at least guild need to have 100x of reward or depends on guild's population
@@ -2079,6 +2091,12 @@ class Guild(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+        # Check if channel is text channel
+        if type(channel) is not disnake.TextChannel:
+            msg = f'{ctx.author.mention}, that\'s not a text channel. Try a different channel!'
+            await ctx.edit_original_message(content=msg)
+            return
+
         original_duration = duration
         coin_name = coin.upper()
         if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
@@ -2099,8 +2117,8 @@ class Guild(commands.Cog):
         coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
         contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
         token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
-        MinTip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
-        MaxTip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
+        min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
+        max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
         usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
 
         get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0)
@@ -2148,9 +2166,9 @@ class Guild(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
             
-        # We assume max reward by MaxTip / 10
-        elif amount < MinTip or amount > MaxTip / 10:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, activedrop/tiptalker amount cannot be smaller than {num_format_coin(MinTip, coin_name, coin_decimal, False)} {token_display} or bigger than {num_format_coin(MaxTip / 10, coin_name, coin_decimal, False)} {token_display}.'
+        # We assume max reward by max_tip / 10
+        elif amount < min_tip or amount > max_tip / 10:
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, activedrop/tiptalker amount cannot be smaller than {num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display} or bigger than {num_format_coin(max_tip / 10, coin_name, coin_decimal, False)} {token_display}.'
             await ctx.edit_original_message(content=msg)
             try:
                 await logchanbot(f'[{SERVER_BOT}] A user {ctx.author.name}#{ctx.author.discriminator} disable activedrop/tiptalker in guild {ctx.guild.name} / {ctx.guild.id}.')
@@ -2328,8 +2346,8 @@ class Guild(commands.Cog):
                     contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
                     token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
 
-                    MinTip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
-                    MaxTip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
+                    min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
+                    max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
                     usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
 
                     get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0)
@@ -2360,8 +2378,8 @@ class Guild(commands.Cog):
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention}, guild has insufficient balance for {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}.'
                         await ctx.edit_original_message(content=msg)
                         return
-                    elif amount < MinTip or amount > MaxTip:
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, transaction cannot be smaller than {num_format_coin(MinTip, coin_name, coin_decimal, False)} {token_display} or bigger than {num_format_coin(MaxTip, coin_name, coin_decimal, False)} {token_display}.'
+                    elif amount < min_tip or amount > max_tip:
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, transaction cannot be smaller than {num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display} or bigger than {num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}.'
                         await ctx.edit_original_message(content=msg)
                         return
 

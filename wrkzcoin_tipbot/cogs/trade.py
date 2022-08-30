@@ -216,11 +216,11 @@ class Trade(commands.Cog):
         type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
         deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
         coin_decimal_sell = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-        MinTx = getattr(getattr(self.bot.coin_list, coin_name), "real_min_buysell")
-        MaxTx = getattr(getattr(self.bot.coin_list, coin_name), "real_max_buysell")
+        min_tx = getattr(getattr(self.bot.coin_list, coin_name), "real_min_buysell")
+        max_tx = getattr(getattr(self.bot.coin_list, coin_name), "real_max_buysell")
         token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
-        if sell_amount < MinTx or sell_amount > MaxTx:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade for {coin_name} cannot be smaller than {num_format_coin(MinTx, coin_name, coin_decimal_sell, False)} {token_display} or bigger than {num_format_coin(MaxTx, coin_name, coin_decimal_sell, False)} {token_display}.'
+        if sell_amount < min_tx or sell_amount > max_tx:
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade for {coin_name} cannot be smaller than {num_format_coin(min_tx, coin_name, coin_decimal_sell, False)} {token_display} or bigger than {num_format_coin(max_tx, coin_name, coin_decimal_sell, False)} {token_display}.'
             await ctx.edit_original_message(content=msg)
             return
         # Get balance user
@@ -251,11 +251,11 @@ class Trade(commands.Cog):
         type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
         deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
         coin_decimal_buy = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-        MinTx = getattr(getattr(self.bot.coin_list, coin_name), "real_min_buysell")
-        MaxTx = getattr(getattr(self.bot.coin_list, coin_name), "real_max_buysell")
+        min_tx = getattr(getattr(self.bot.coin_list, coin_name), "real_min_buysell")
+        max_tx = getattr(getattr(self.bot.coin_list, coin_name), "real_max_buysell")
         token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
-        if buy_amount < MinTx or buy_amount > MaxTx:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade for {coin_name} cannot be smaller than {num_format_coin(MinTx, coin_name, coin_decimal_buy, False)} {token_display} or bigger than {num_format_coin(MaxTx, coin_name, coin_decimal_buy, False)} {token_display}.'
+        if buy_amount < min_tx or buy_amount > max_tx:
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade for {coin_name} cannot be smaller than {num_format_coin(min_tx, coin_name, coin_decimal_buy, False)} {token_display} or bigger than {num_format_coin(max_tx, coin_name, coin_decimal_buy, False)} {token_display}.'
             await ctx.edit_original_message(content=msg)
             return
 

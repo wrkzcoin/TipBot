@@ -241,8 +241,8 @@ class TipOtherCoin(disnake.ui.Modal):
         contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
         token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
 
-        MinTip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
-        MaxTip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
+        min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
+        max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
         usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
         get_deposit = await self.wallet_api.sql_get_userwallet(str(interaction.author.id), coin_name, net_name,
                                                                type_coin, SERVER_BOT, 0)
@@ -274,8 +274,8 @@ class TipOtherCoin(disnake.ui.Modal):
             msg = f'{EMOJI_RED_NO} {self.ctx.author.mention}, insufficient balance to give meme tip of **{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**.'
             await interaction.edit_original_message(content=msg)
             return
-        elif amount > MaxTip or amount < MinTip:
-            msg = f'{EMOJI_RED_NO} {self.ctx.author.mention}, tipping cannot be bigger than **{num_format_coin(MaxTip, coin_name, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(MinTip, coin_name, coin_decimal, False)} {token_display}**.'
+        elif amount > max_tip or amount < min_tip:
+            msg = f'{EMOJI_RED_NO} {self.ctx.author.mention}, tipping cannot be bigger than **{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**.'
             await interaction.edit_original_message(content=msg)
             return
         equivalent_usd = ""
@@ -387,8 +387,8 @@ class MemeTip_Button(disnake.ui.View):
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
             token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
 
-            MinTip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
-            MaxTip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
+            min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
+            max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
             get_deposit = await self.wallet_api.sql_get_userwallet(str(interaction.author.id), coin_name, net_name,
                                                                    type_coin, SERVER_BOT, 0)
@@ -421,8 +421,8 @@ class MemeTip_Button(disnake.ui.View):
                 msg = f'{EMOJI_RED_NO} {interaction.author.mention}, insufficient balance to give meme tip of **{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**.'
                 await interaction.edit_original_message(content=msg)
                 return
-            elif amount > MaxTip or amount < MinTip:
-                msg = f'{EMOJI_RED_NO} {interaction.author.mention}, tipping cannot be bigger than **{num_format_coin(MaxTip, coin_name, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(MinTip, coin_name, coin_decimal, False)} {token_display}**.'
+            elif amount > max_tip or amount < min_tip:
+                msg = f'{EMOJI_RED_NO} {interaction.author.mention}, tipping cannot be bigger than **{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**.'
                 await interaction.edit_original_message(content=msg)
                 return
             equivalent_usd = ""
@@ -515,8 +515,8 @@ class MemeTip_Button(disnake.ui.View):
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
             token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
 
-            MinTip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
-            MaxTip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
+            min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
+            max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
             get_deposit = await self.wallet_api.sql_get_userwallet(str(interaction.author.id), coin_name, net_name,
                                                                    type_coin, SERVER_BOT, 0)
@@ -549,8 +549,8 @@ class MemeTip_Button(disnake.ui.View):
                 msg = f'{EMOJI_RED_NO} {interaction.author.mention}, insufficient balance to give meme tip of **{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**.'
                 await interaction.edit_original_message(content=msg)
                 return
-            elif amount > MaxTip or amount < MinTip:
-                msg = f'{EMOJI_RED_NO} {interaction.author.mention}, tipping cannot be bigger than **{num_format_coin(MaxTip, coin_name, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(MinTip, coin_name, coin_decimal, False)} {token_display}**.'
+            elif amount > max_tip or amount < min_tip:
+                msg = f'{EMOJI_RED_NO} {interaction.author.mention}, tipping cannot be bigger than **{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**.'
                 await interaction.edit_original_message(content=msg)
                 return
             equivalent_usd = ""
@@ -643,8 +643,8 @@ class MemeTip_Button(disnake.ui.View):
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
             token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
 
-            MinTip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
-            MaxTip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
+            min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
+            max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
             get_deposit = await self.wallet_api.sql_get_userwallet(str(interaction.author.id), coin_name, net_name,
                                                                    type_coin, SERVER_BOT, 0)
@@ -677,8 +677,8 @@ class MemeTip_Button(disnake.ui.View):
                 msg = f'{EMOJI_RED_NO} {self.ctx.author.mention}, insufficient balance to give meme tip of **{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**.'
                 await interaction.edit_original_message(content=msg)
                 return
-            elif amount > MaxTip or amount < MinTip:
-                msg = f'{EMOJI_RED_NO} {self.ctx.author.mention}, tipping cannot be bigger than **{num_format_coin(MaxTip, coin_name, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(MinTip, coin_name, coin_decimal, False)} {token_display}**.'
+            elif amount > max_tip or amount < min_tip:
+                msg = f'{EMOJI_RED_NO} {self.ctx.author.mention}, tipping cannot be bigger than **{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**.'
                 await interaction.edit_original_message(content=msg)
                 return
             equivalent_usd = ""
@@ -771,8 +771,8 @@ class MemeTip_Button(disnake.ui.View):
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
             token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
 
-            MinTip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
-            MaxTip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
+            min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
+            max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
             get_deposit = await self.wallet_api.sql_get_userwallet(str(interaction.author.id), coin_name, net_name,
                                                                    type_coin, SERVER_BOT, 0)
@@ -805,8 +805,8 @@ class MemeTip_Button(disnake.ui.View):
                 msg = f'{EMOJI_RED_NO} {interaction.author.mention}, insufficient balance to give meme tip of **{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**.'
                 await interaction.edit_original_message(content=msg)
                 return
-            elif amount > MaxTip or amount < MinTip:
-                msg = f'{EMOJI_RED_NO} {interaction.author.mention}, tipping cannot be bigger than **{num_format_coin(MaxTip, coin_name, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(MinTip, coin_name, coin_decimal, False)} {token_display}**.'
+            elif amount > max_tip or amount < min_tip:
+                msg = f'{EMOJI_RED_NO} {interaction.author.mention}, tipping cannot be bigger than **{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**.'
                 await interaction.edit_original_message(content=msg)
                 return
             equivalent_usd = ""

@@ -543,8 +543,8 @@ class Tips(commands.Cog):
         contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
         token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
 
-        MinTip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
-        MaxTip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
+        min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
+        max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
         usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
 
         get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), coin_name, net_name, type_coin,
@@ -720,8 +720,8 @@ class Tips(commands.Cog):
                                                                height, deposit_confirm_depth, SERVER_BOT)
         actual_balance = float(userdata_balance['adjust'])
 
-        if amount > MaxTip or amount < MinTip:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than **{num_format_coin(MaxTip, coin_name, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(MinTip, coin_name, coin_decimal, False)} {token_display}**.'
+        if amount > max_tip or amount < min_tip:
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than **{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**.'
             await ctx.edit_original_message(content=msg)
             return
         elif amount > actual_balance:
@@ -879,8 +879,8 @@ class Tips(commands.Cog):
         type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
         deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
         coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-        MinTip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
-        MaxTip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
+        min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
+        max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
         usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
 
         # token_info = getattr(self.bot.coin_list, coin_name)
@@ -1000,8 +1000,8 @@ class Tips(commands.Cog):
                                                                height, deposit_confirm_depth, SERVER_BOT)
         actual_balance = float(userdata_balance['adjust'])
 
-        if amount > MaxTip or amount < MinTip:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than **{num_format_coin(MaxTip, coin_name, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(MinTip, coin_name, coin_decimal, False)} {token_display}**.'
+        if amount > max_tip or amount < min_tip:
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than **{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**.'
             await ctx.edit_original_message(content=msg)
             return
         elif amount > actual_balance:
@@ -1130,8 +1130,8 @@ class Tips(commands.Cog):
         type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
         deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
         coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-        MinTip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
-        MaxTip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
+        min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
+        max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
         usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
 
         # token_info = getattr(self.bot.coin_list, coin_name)
@@ -1215,8 +1215,8 @@ class Tips(commands.Cog):
                                                                height, deposit_confirm_depth, SERVER_BOT)
         actual_balance = float(userdata_balance['adjust'])
 
-        if amount > MaxTip or amount < MinTip:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than **{num_format_coin(MaxTip, coin_name, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(MinTip, coin_name, coin_decimal, False)} {token_display}**.'
+        if amount > max_tip or amount < min_tip:
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than **{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**.'
             await ctx.edit_original_message(content=msg)
             return
         elif amount > actual_balance:
@@ -1298,8 +1298,8 @@ class Tips(commands.Cog):
                 if total_amount_in_usd > 0.0001:
                     total_equivalent_usd = " ~ {:,.4f} USD".format(total_amount_in_usd)
 
-        if amount / len(memids) < MinTip:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than **{num_format_coin(MinTip, coin_name, coin_decimal, False)} {token_display}** for each member. You need at least **{num_format_coin(len(memids) * MinTip, coin_name, coin_decimal, False)} {token_display}**.'
+        if amount / len(memids) < min_tip:
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}** for each member. You need at least **{num_format_coin(len(memids) * min_tip, coin_name, coin_decimal, False)} {token_display}**.'
             await ctx.edit_original_message(content=msg)
             return
 
@@ -2048,8 +2048,8 @@ class Tips(commands.Cog):
                             deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name),
                                                             "deposit_confirm_depth")
                             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-                            MinTip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
-                            MaxTip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
+                            min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
+                            max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
                             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name),
                                                             "usd_equivalent_enable")
 
@@ -2145,8 +2145,8 @@ class Tips(commands.Cog):
                                         has_amount_error = True
                                         break
 
-                                    if amount < MinTip or amount > MaxTip:
-                                        error_msg = f'tipping for {coin_name} cannot be smaller than **{num_format_coin(MinTip, coin_name, coin_decimal, False)} {token_display}** or bigger than **{num_format_coin(MaxTip, coin_name, coin_decimal, False)} {token_display}**.'
+                                    if amount < min_tip or amount > max_tip:
+                                        error_msg = f'tipping for {coin_name} cannot be smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}** or bigger than **{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}**.'
                                         has_amount_error = True
                                         break
                                     elif amount * len(list_member_ids) > actual_balance:
@@ -2307,8 +2307,8 @@ class Tips(commands.Cog):
         contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
         token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
 
-        MinTip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
-        MaxTip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
+        min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
+        max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
         usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
 
         get_deposit = await self.wallet_api.sql_get_userwallet(str(id_tipper), coin_name, net_name, type_coin,
@@ -2379,8 +2379,8 @@ class Tips(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        if amount < MinTip or amount > MaxTip:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than **{num_format_coin(MinTip, coin_name, coin_decimal, False)} {token_display}** or bigger than **{num_format_coin(MaxTip, coin_name, coin_decimal, False)} {token_display}**.'
+        if amount < min_tip or amount > max_tip:
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}** or bigger than **{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}**.'
             await ctx.edit_original_message(content=msg)
             return
         elif amount > actual_balance:
@@ -2407,8 +2407,8 @@ class Tips(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        if TotalAmount > MaxTip:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, total transaction cannot be bigger than **{num_format_coin(MaxTip, coin_name, coin_decimal, False)} {token_display}**.'
+        if TotalAmount > max_tip:
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, total transaction cannot be bigger than **{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}**.'
             await ctx.edit_original_message(content=msg)
             return
         elif actual_balance < TotalAmount:
@@ -2530,8 +2530,8 @@ class Tips(commands.Cog):
         token_display = coin_dict['display_name']
         usd_equivalent_enable = coin_dict['usd_equivalent_enable']
 
-        MinTip = float(coin_dict['real_min_tip'])
-        MaxTip = float(coin_dict['real_max_tip'])
+        min_tip = float(coin_dict['real_min_tip'])
+        max_tip = float(coin_dict['real_max_tip'])
 
         get_deposit = await self.wallet_api.sql_get_userwallet(id_tipper, coin_name, net_name, type_coin, SERVER_BOT, 0)
         if get_deposit is None:
@@ -2609,8 +2609,8 @@ class Tips(commands.Cog):
                                                                deposit_confirm_depth, SERVER_BOT)
         actual_balance = float(userdata_balance['adjust'])
 
-        if amount > MaxTip or amount < MinTip:
-            nsg = f'{EMOJI_RED_NO} {ctx.author.mention}, transaction cannot be bigger than **{num_format_coin(MaxTip, coin_name, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(MinTip, coin_name, coin_decimal, False)} {token_display}**.'
+        if amount > max_tip or amount < min_tip:
+            nsg = f'{EMOJI_RED_NO} {ctx.author.mention}, transaction cannot be bigger than **{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**.'
             await ctx.edit_original_message(content=msg)
             return
         elif amount > actual_balance:
@@ -2662,12 +2662,12 @@ class Tips(commands.Cog):
 
         TotalAmount = amount * len(list_receivers)
 
-        if TotalAmount > MaxTip:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, total transaction cannot be bigger than **{num_format_coin(MaxTip, coin_name, coin_decimal, False)} {token_display}**.'
+        if TotalAmount > max_tip:
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, total transaction cannot be bigger than **{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}**.'
             await ctx.edit_original_message(content=msg)
             return
-        elif amount < MinTip:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, total transaction cannot be smaller than **{num_format_coin(MinTip, coin_name, coin_decimal, False)} {token_display}**.'
+        elif amount < min_tip:
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, total transaction cannot be smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**.'
             await ctx.edit_original_message(content=msg)
             return
         elif TotalAmount > actual_balance:

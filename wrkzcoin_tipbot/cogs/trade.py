@@ -144,15 +144,6 @@ class Trade(commands.Cog):
             buy_ticker: str
     ):
         await self.bot_log()
-        try:
-            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking trading..."
-            await ctx.response.send_message(msg)
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
-            await ctx.response.send_message(
-                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute a trade message...", ephemeral=True)
-            return
-
         sell_ticker = sell_ticker.upper()
         buy_ticker = buy_ticker.upper()
         sell_amount = str(sell_amount).replace(",", "")

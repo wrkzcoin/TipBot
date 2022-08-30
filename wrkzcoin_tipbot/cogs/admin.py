@@ -710,7 +710,7 @@ class Admin(commands.Cog):
     async def enable_disable_coin(self, coin: str, what: str, toggle: int):
         coin_name = coin.upper()
         what = what.lower()
-        if what not in ["withdraw", "deposit", "tip", "enable"]:
+        if what not in ["withdraw", "deposit", "tip", "partydrop", "quickdrop", "talkdrop", "enable"]:
             return 0
         if what == "withdraw":
             what = "enable_withdraw"
@@ -718,6 +718,12 @@ class Admin(commands.Cog):
             what = "enable_deposit"
         elif what == "tip":
             what = "enable_tip"
+        elif what == "partydrop":
+            what = "enable_partydrop"
+        elif what == "quickdrop":
+            what = "enable_quickdrop"
+        elif what == "talkdrop":
+            what = "enable_talkdrop"
         elif what == "enable":
             what = "enable"
         try:
@@ -1667,6 +1673,102 @@ class Admin(commands.Cog):
                 await ctx.reply(msg)
             else:
                 msg = f"{ctx.author.mention}, **{coin_name}** `{command}` is `{new_text}` failed to update."
+                await ctx.reply(msg)
+            coin_list = await self.get_coin_setting()
+            if coin_list:
+                self.bot.coin_list = coin_list
+            coin_list_name = await self.get_coin_list_name()
+            if coin_list_name:
+                self.bot.coin_name_list = coin_list_name
+
+    @commands.is_owner()
+    @admin.command(hidden=True, usage='partydrop <coin>', description='Enable/Disable /partydrop for a coin')
+    async def partydrop(self, ctx, coin: str):
+        coin_name = coin.upper()
+        command = "partydrop"
+        if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+            coin_name = self.bot.coin_alias_names[coin_name]
+        if not hasattr(self.bot.coin_list, coin_name):
+            msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
+            await ctx.reply(msg)
+            return
+        else:
+            enable_partydrop = getattr(getattr(self.bot.coin_list, coin_name), "enable_partydrop")
+            new_value = 1
+            new_text = "enable"
+            if enable_partydrop == 1:
+                new_value = 0
+                new_text = "disable"
+            toggle = await self.enable_disable_coin(coin_name, command, new_value)
+            if toggle > 0:
+                msg = f"{ctx.author.mention}, **{coin_name}** `/{command}` is `{new_text}` now."
+                await ctx.reply(msg)
+            else:
+                msg = f"{ctx.author.mention}, **{coin_name}** `/{command}` is `{new_text}` failed to update."
+                await ctx.reply(msg)
+            coin_list = await self.get_coin_setting()
+            if coin_list:
+                self.bot.coin_list = coin_list
+            coin_list_name = await self.get_coin_list_name()
+            if coin_list_name:
+                self.bot.coin_name_list = coin_list_name
+
+    @commands.is_owner()
+    @admin.command(hidden=True, usage='quickdrop <coin>', description='Enable/Disable /quickdrop for a coin')
+    async def quickdrop(self, ctx, coin: str):
+        coin_name = coin.upper()
+        command = "quickdrop"
+        if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+            coin_name = self.bot.coin_alias_names[coin_name]
+        if not hasattr(self.bot.coin_list, coin_name):
+            msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
+            await ctx.reply(msg)
+            return
+        else:
+            enable_quickdrop = getattr(getattr(self.bot.coin_list, coin_name), "enable_quickdrop")
+            new_value = 1
+            new_text = "enable"
+            if enable_quickdrop == 1:
+                new_value = 0
+                new_text = "disable"
+            toggle = await self.enable_disable_coin(coin_name, command, new_value)
+            if toggle > 0:
+                msg = f"{ctx.author.mention}, **{coin_name}** `/{command}` is `{new_text}` now."
+                await ctx.reply(msg)
+            else:
+                msg = f"{ctx.author.mention}, **{coin_name}** `/{command}` is `{new_text}` failed to update."
+                await ctx.reply(msg)
+            coin_list = await self.get_coin_setting()
+            if coin_list:
+                self.bot.coin_list = coin_list
+            coin_list_name = await self.get_coin_list_name()
+            if coin_list_name:
+                self.bot.coin_name_list = coin_list_name
+
+    @commands.is_owner()
+    @admin.command(hidden=True, usage='talkdrop <coin>', description='Enable/Disable /talkdrop for a coin')
+    async def talkdrop(self, ctx, coin: str):
+        coin_name = coin.upper()
+        command = "talkdrop"
+        if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+            coin_name = self.bot.coin_alias_names[coin_name]
+        if not hasattr(self.bot.coin_list, coin_name):
+            msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
+            await ctx.reply(msg)
+            return
+        else:
+            enable_talkdrop = getattr(getattr(self.bot.coin_list, coin_name), "enable_talkdrop")
+            new_value = 1
+            new_text = "enable"
+            if enable_talkdrop == 1:
+                new_value = 0
+                new_text = "disable"
+            toggle = await self.enable_disable_coin(coin_name, command, new_value)
+            if toggle > 0:
+                msg = f"{ctx.author.mention}, **{coin_name}** `/{command}` is `{new_text}` now."
+                await ctx.reply(msg)
+            else:
+                msg = f"{ctx.author.mention}, **{coin_name}** `/{command}` is `{new_text}` failed to update."
                 await ctx.reply(msg)
             coin_list = await self.get_coin_setting()
             if coin_list:

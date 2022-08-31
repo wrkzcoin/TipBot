@@ -159,6 +159,14 @@ class MathTips(commands.Cog):
 
         await ctx.response.send_message(f"{ctx.author.mention}, /mathtip preparation... ")
 
+        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        if serverinfo and serverinfo['tiponly'] and serverinfo['tiponly'] != "ALLCOIN" and coin_name not in serverinfo[
+            'tiponly'].split(","):
+            allowed_coins = serverinfo['tiponly']
+            msg = f'{ctx.author.mention}, **{coin_name}** is not allowed here. Currently, allowed `{allowed_coins}`. You can ask guild owner to allow. `/SETTING TIPONLY coin1,coin2,...`'
+            await ctx.edit_original_message(content=msg)
+            return
+
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
                                          str(ctx.author.id), SERVER_BOT, "/mathtip", int(time.time())))
@@ -174,9 +182,15 @@ class MathTips(commands.Cog):
                 await ctx.edit_original_message(content=msg)
                 return
             count_ongoing = await store.discord_freetip_ongoing_guild(str(ctx.guild.id), "ONGOING")
-            if count_ongoing >= self.max_ongoing_by_guild and ctx.author.id != config.discord.ownerID:
+            # Check max if set in guild
+            if serverinfo and count_ongoing >= serverinfo['max_ongoing_drop'] and ctx.author.id != config.discord.ownerID:
                 msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, there are still some ongoing drops or tips in this guild. Please wait for them to complete first!'
                 await ctx.edit_original_message(content=msg)
+                return
+            elif serverinfo is None and count_ongoing >= self.max_ongoing_by_guild and ctx.author.id != config.discord.ownerID:
+                msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, there are still some ongoing drops or tips in this guild. Please wait for them to complete first!'
+                await ctx.edit_original_message(content=msg)
+                await logchanbot(f"[MATHTIP] server {str(ctx.guild.id)} has no data in discord_server.")
                 return
         except Exception:
             traceback.print_exc(file=sys.stdout)

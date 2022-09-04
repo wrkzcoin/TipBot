@@ -451,18 +451,18 @@ class GShop(commands.Cog):
                 height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                 member = ctx.guild.get_member(int(ctx.author.id))
                 try:
-                    role = disnake.utils.get(ctx.guild.roles, name=role_name)
+                    role = disnake.utils.get(ctx.guild.roles, id=int(item_info['role_id']))
                     if role is None:
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention}, I can not find role `{role_name}`, please try again later or report to Guild owner!'
                         await ctx.edit_original_message(content=msg)
                         await logchanbot(f"[GSHOP] server {str(ctx.guild.id)}, can not find role `{role_name}`.")
                         return
                     elif role and not role.is_assignable():
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, role `{role_name}` is no assignable by TipBot or TipBot has no permission to do! Please report to Guild owner!'
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, role `{role.name}` is no assignable by TipBot or TipBot has no permission to do! Please report to Guild owner!'
                         await ctx.edit_original_message(content=msg)
                         return
                     elif role and role in member.roles:
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have role `{role_name}` already. Purchase item_id `{item_id}` denied!'
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have role `{role.name}` already. Purchase item_id `{item_id}` denied!'
                         await ctx.edit_original_message(content=msg)
                         await logchanbot(f"[GSHOP] denied purchasing `{role.name}` in Guild `{str(ctx.guild.id)} / {ctx.guild.name}` by user `{str(ctx.author.id)}` (He/she has it already).")
                         return
@@ -496,7 +496,7 @@ class GShop(commands.Cog):
                                                                            height, deposit_confirm_depth, SERVER_BOT)
                     actual_balance = float(userdata_balance['adjust'])
                 if amount > actual_balance:
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to do purchase `{role_name}` which cost **{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**.'
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to do purchase `{role.name}` which cost **{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**.'
                     await ctx.edit_original_message(content=msg)
                 else:
                     # purchase and add to database

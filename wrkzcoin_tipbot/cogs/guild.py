@@ -38,6 +38,9 @@ class Guild(commands.Cog):
         self.utils = Utils(self.bot)
         self.botLogChan = None
         self.enable_logchan = True
+        
+        # /featurerole
+        self.max_featurerole = 6
 
         # Tasks
         self.monitor_guild_reward_amount.start()
@@ -697,6 +700,38 @@ class Guild(commands.Cog):
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
 
+    async def guild_exist_featurerole(self, guild_id: str, role_id: str):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `discord_feature_roles` 
+                    WHERE `guild_id`=%s AND `role_id`=%s 
+                    LIMIT 1
+                    """
+                    await cur.execute(sql, (guild_id, role_id))
+                    result = await cur.fetchone()
+                    if result:
+                        return True
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
+    async def guild_delete_featurerole(self, guild_id: str, role_id: str):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ DELETE FROM `discord_feature_roles` 
+                    WHERE `guild_id`=%s AND `role_id`=%s 
+                    LIMIT 1
+                    """
+                    await cur.execute(sql, (guild_id, role_id))
+                    await conn.commit()	
+                    return True
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return False
 
     async def guild_update_featurerole(self, guild_id: str, role_id: str, faucet_multipled_by: float,
                                        guild_vote_multiplied_by: float, faucet_cut_time_percent: float,
@@ -2276,6 +2311,17 @@ class Guild(commands.Cog):
             embed.add_field(name="Economy Channel", value="<#{}>".format(serverinfo['economy_channel']), inline=True)
         if serverinfo['vote_reward_amount'] and serverinfo['vote_reward_coin'] and serverinfo['vote_reward_channel']:
             embed.add_field(name="Vote Reward {} {}".format(serverinfo['vote_reward_amount'], serverinfo['vote_reward_coin']), value="<#{}> | https://top.gg/servers/{}/vote".format(serverinfo['vote_reward_channel'], ctx.guild.id), inline=False)
+        try:
+            if len(serverinfo['feature_roles'].keys()) > 0:
+                list_featureroles = []
+                for k, v in serverinfo['feature_roles'].items():
+                    faucet_str = '{:,.2f}'.format(v['faucet_multipled_by'])
+                    vote_str = '{:,.2f}'.format(v['guild_vote_multiplied_by'])
+                    cut_str = '{:,.0f}{}'.format(v['faucet_cut_time_percent']*100, "%")
+                    list_featureroles.append("<@&{}>:\nFaucet (x): {}\nFaucet Reduced Time: {}\nVote Reward (x): {}".format(k, faucet_str, cut_str, vote_str))
+                embed.add_field(name="Featured Role(s)", value="\n\n".join(list_featureroles), inline=False)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
         embed.set_footer(text=f"Requested by {ctx.author.name}#{ctx.author.discriminator}")
         await ctx.edit_original_message(content=None, embed=embed)
 
@@ -2297,34 +2343,93 @@ class Guild(commands.Cog):
         await self.async_guild_info(ctx)
 
 
-    @commands.has_permissions(administrator=True)
     @commands.bot_has_permissions(send_messages=True)
     @commands.guild_only()
     @commands.slash_command(
+        name="featurerole",
         usage="featurerole",
+        description="Adjust faucet, vote, claim duration cut by a role.")
+    async def featurerole(
+        self, 
+        ctx
+    ):
+        pass
+
+    @commands.bot_has_permissions(send_messages=True)
+    @commands.guild_only()
+    @featurerole.sub_command(
+        name="list",
+        usage="featurerole list", 
+        description="Show active list of feature roles in the Guild."
+    )
+    async def slash_featurerole_list(
+        self, 
+        ctx
+    ):
+        await self.bot_log()
+        msg = f'{ctx.author.mention}, checking your guild\'s info...'
+        await ctx.response.send_message(msg)
+        try:
+            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            if serverinfo and serverinfo['enable_featurerole'] != 1:
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, **featurerole** is not enabled in this Guild."
+                await ctx.edit_original_message(content=msg)
+                return
+            elif serverinfo and serverinfo['feature_roles'] is not None and len(serverinfo['feature_roles'].keys()) > 0:
+                embed = disnake.Embed(
+                    title = "Guild {} / {}".format(ctx.guild.name, ctx.guild.id),
+                    description = "* List a role for selling in your Guild's shop with `/gshop`\n"\
+                                  "* Use `/featurerole add` to a specific role for specail features."\
+                                  "* Use `/featurerole delete <role>` to delist the featurerole. (Not deleting role).",
+                    timestamp=datetime.now()
+                )
+                embed.set_footer(text=f"Requested by {ctx.author.name}#{ctx.author.discriminator}")
+                if ctx.guild.icon:
+                    embed.set_thumbnail(url=str(ctx.guild.icon))
+                list_featureroles = []
+                for k, v in serverinfo['feature_roles'].items():
+                    faucet_str = '{:,.2f}'.format(v['faucet_multipled_by'])
+                    vote_str = '{:,.2f}'.format(v['guild_vote_multiplied_by'])
+                    cut_str = '{:,.0f}{}'.format(v['faucet_cut_time_percent']*100, "%")
+                    list_featureroles.append("<@&{}>:\nFaucet (x): {}\nFaucet Reduced Time: {}\nVote Reward (x): {}".format(k, faucet_str, cut_str, vote_str))
+                embed.add_field(name="Featured Role(s)", value="\n\n".join(list_featureroles), inline=False)
+                await ctx.edit_original_message(content=None, embed=embed)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+    @commands.has_permissions(administrator=True)
+    @commands.bot_has_permissions(send_messages=True)
+    @commands.guild_only()
+    @featurerole.sub_command(
+        name="add",
+        usage="featurerole add <role> ....", 
         options=[
             Option('role', 'role', OptionType.role, required=True),
             Option('faucet_multiplied', 'Multiplied reward for /faucet', OptionType.string, required=True, choices=[
+                OptionChoice("1.0x", "1.0"),
                 OptionChoice("2.5x", "2.5"),
                 OptionChoice("5.0x", "5.0"),
                 OptionChoice("7.5x", "7.5"),
                 OptionChoice("10x", "10.0")
             ]),
             Option('guild_vote_multiplied', 'Multiplied reward for each guild vote', OptionType.string, required=True, choices=[
+                OptionChoice("1.0x", "1.0"),
                 OptionChoice("2.5x", "2.5"),
                 OptionChoice("5.0x", "5.0"),
                 OptionChoice("7.5x", "7.5"),
                 OptionChoice("10x", "10.0")
             ]),
             Option('faucet_cut_time_percent', '/faucet cutting time in percentage', OptionType.string, required=True, choices=[
+                OptionChoice("0%", "0"),
                 OptionChoice("10%", "0.1"),
                 OptionChoice("25%", "0.25"),
                 OptionChoice("50%", "0.5"),
                 OptionChoice("75%", "0.75")
             ]),
         ],
-        description="Adjust faucet, vote, claim duration cut by a role.")
-    async def featurerole(
+        description="Adjust faucet, vote, claim duration cut by a role."
+    )
+    async def slash_featurerole_add(
         self, 
         ctx,
         role: disnake.Role,
@@ -2346,6 +2451,17 @@ class Guild(commands.Cog):
                 prev_faucet = '{:,.2f}'.format(serverinfo['feature_roles'][str(role.id)]['faucet_multipled_by'])
                 prev_vote = '{:,.2f}'.format(serverinfo['feature_roles'][str(role.id)]['guild_vote_multiplied_by'])
                 prev_cut = '{:,.2f}{}'.format(serverinfo['feature_roles'][str(role.id)]['faucet_cut_time_percent']*100, "%")
+            if serverinfo and serverinfo['enable_featurerole'] != 1:
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, this command is not available in this Guild."
+                await ctx.edit_original_message(content=msg)
+                await logchanbot(f"/featurerole User `{str(ctx.author.id)}` commanded by Guild `{str(ctx.guild.id)}` is not enable.")	
+                return
+            # Check if reach max
+            if serverinfo and len(serverinfo['feature_roles'].keys()) >= self.max_featurerole:
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, reach maximum /featurerole"
+                await ctx.edit_original_message(content=msg)
+                await logchanbot(f"/featurerole User `{str(ctx.author.id)}` commanded by Guild `{str(ctx.guild.id)}` but reached `max_featurerole`.")
+                return
 
             new_faucet = float(faucet_multiplied)
             new_vote = float(guild_vote_multiplied)
@@ -2368,7 +2484,7 @@ class Guild(commands.Cog):
                 await ctx.edit_original_message(content=msg)
                 return
 
-            if faucet_cut_time_percent < 0 or faucet_cut_time_percent > 10:
+            if faucet_cut_time_percent < 0 or faucet_cut_time_percent > 1:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, invalid value `faucet_cut_time_percent`."
                 await ctx.edit_original_message(content=msg)
                 return
@@ -2393,6 +2509,40 @@ class Guild(commands.Cog):
                     await logchanbot(f"[FEATUREROLE] Failed to adjust by User `{str(ctx.author.id)}` in Guild {ctx.guild.name} / `{str(ctx.guild.id)}`.")
             except Exception:
                 traceback.print_exc(file=sys.stdout)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+
+    @commands.has_permissions(administrator=True)
+    @commands.bot_has_permissions(send_messages=True)
+    @commands.guild_only()
+    @featurerole.sub_command(
+        name="delete",
+        usage="featurerole delete <role>", 
+        options=[
+            Option('role', 'role', OptionType.role, required=True)
+        ],
+        description="Delete a feature role.. (Not deleting role)"
+    )
+    async def slash_featurerole_delete(
+        self, 
+        ctx, 
+        role: disnake.Role
+    ):
+        await self.bot_log()
+        msg = f'{ctx.author.mention}, checking your guild\'s info...'
+        await ctx.response.send_message(msg)
+        try:
+            check_exist = await self.guild_exist_featurerole(str(ctx.guild.id), str(role.id))
+            if check_exist is True:
+                delete_feature = await self.guild_delete_featurerole(str(ctx.guild.id), str(role.id))
+                if delete_feature is True:
+                    msg = f'{ctx.author.mention}, successfully deleted feature role for `{role.name}`. You can add again later!'
+                    await ctx.edit_original_message(content=msg)
+                    await logchanbot(f"[FEATUREROLE] User `{str(ctx.author.id)}` in Guild {ctx.guild.name} / `{str(ctx.guild.id)}` deleted feature role `{role.name}`.")
+            else:
+                msg = f'{ctx.author.mention}, there\'s no featurerole set for role `{role.name}`.'
+                await ctx.edit_original_message(content=msg)
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -2555,7 +2705,7 @@ class Guild(commands.Cog):
                                 extra_msg = ""
                                 if extra_amount > 0:
                                     extra_msg = " You have a guild's role that give you additional bonus **" + num_format_coin(extra_amount, coin_name, coin_decimal, False) + " " + coin_name + "**."
-                                msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention} got a faucet of **{num_format_coin(amount + extra_amount, coin_name, coin_decimal, False)} {coin_name}**{equivalent_usd} from `{ctx.guild.name}`. Other reward command `/take` and `/claim`. Invite me to your guild? Click on my name and "Add to Server".{extra_msg}'
+                                msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention} got a faucet of **{num_format_coin(amount + extra_amount, coin_name, coin_decimal, False)} {coin_name}**{equivalent_usd} from `{ctx.guild.name}`.{extra_msg} Other reward command `/take` and `/claim`. Invite me to your guild? Click on my name and "Add to Server".'
                                 await ctx.edit_original_message(content=msg)
                                 await logchanbot(f'[Discord] User {ctx.author.name}#{ctx.author.discriminator} claimed guild /faucet {num_format_coin(amount + extra_amount, coin_name, coin_decimal, False)} {coin_name} in guild {ctx.guild.name}/{ctx.guild.id}.')
                         except Exception:

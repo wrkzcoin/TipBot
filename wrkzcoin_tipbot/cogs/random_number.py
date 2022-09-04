@@ -1,5 +1,6 @@
 import random as rand
 import time
+import traceback, sys
 from Bot import EMOJI_RED_NO, SERVER_BOT
 from disnake.app_commands import Option
 from disnake.enums import OptionType
@@ -13,9 +14,9 @@ class RandomNumber(commands.Cog):
         self.utils = Utils(self.bot)
 
     async def rand_number(
-            self,
-            ctx,
-            number_string: str = None
+        self,
+        ctx,
+        number_string: str = None
     ):
         rand_numb = None
         respond = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid range given. Example, use: `rand 1-50`'
@@ -53,9 +54,9 @@ class RandomNumber(commands.Cog):
         description="Generate a random number with TipBot."
     )
     async def rand(
-            self,
-            ctx,
-            range_number: str = None
+        self,
+        ctx,
+        range_number: str = None
     ):
         await self.rand_number(ctx, range_number)
 

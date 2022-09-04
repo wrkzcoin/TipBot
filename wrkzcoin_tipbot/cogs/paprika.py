@@ -241,10 +241,10 @@ class Paprika(commands.Cog):
 
 
     async def paprika_coin(
-            self,
-            ctx,
-            coin: str,
-            option: str
+        self,
+        ctx,
+        coin: str,
+        option: str
     ):
         await ctx.response.send_message(f"{EMOJI_HOURGLASS_NOT_DONE} {ctx.author.mention}, checking coinpaprika..")
 
@@ -441,24 +441,26 @@ class Paprika(commands.Cog):
             traceback.format_exc()
         await ctx.edit_original_message(content=f"{ctx.author.mention}, no paprika only salt.")
 
-    @commands.slash_command(usage="paprika [coin]",
-                            options=[
-                                Option("coin", "Enter coin ticker/name", OptionType.string, required=True),
-                                Option('range_choice', 'range duration', OptionType.string, required=False, choices=[
-                                    OptionChoice("1d", "1d"),
-                                    OptionChoice("7d", "7d"),
-                                    OptionChoice("1m", "1m"),
-                                    OptionChoice("1q", "1q"),
-                                    OptionChoice("1y", "1y"),
-                                    OptionChoice("5y", "5y")
-                                ])
-                            ],
-                            description="Check coin at Paprika.")
+    @commands.slash_command(
+        usage="paprika [coin]",
+        options=[
+            Option("coin", "Enter coin ticker/name", OptionType.string, required=True),
+            Option('range_choice', 'range duration', OptionType.string, required=False, choices=[
+                OptionChoice("1d", "1d"),
+                OptionChoice("7d", "7d"),
+                OptionChoice("1m", "1m"),
+                OptionChoice("1q", "1q"),
+                OptionChoice("1y", "1y"),
+                OptionChoice("5y", "5y")
+            ])
+        ],
+        description="Check coin at Paprika."
+    )
     async def paprika(
-            self,
-            ctx,
-            coin: str,
-            range_choice: str = None
+        self,
+        ctx,
+        coin: str,
+        range_choice: str = None
     ):
         get_pap = await self.paprika_coin(ctx, coin, range_choice)
 

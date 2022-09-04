@@ -9,7 +9,7 @@ from io import BytesIO
 import disnake
 import qrcode
 import store
-from Bot import logchanbot, EMOJI_ERROR, EMOJI_RED_NO, SERVER_BOT, num_format_coin, text_to_num, is_ascii
+from Bot import logchanbot, EMOJI_ERROR, EMOJI_RED_NO, SERVER_BOT, EMOJI_INFORMATION, num_format_coin, text_to_num, is_ascii
 from PIL import Image, ImageDraw, ImageFont
 from cogs.wallet import WalletAPI
 from config import config
@@ -148,11 +148,11 @@ class Voucher(commands.Cog):
         description="Make a voucher and share to other friends."
     )
     async def make(
-            self,
-            ctx,
-            amount: str,
-            coin: str,
-            comment: str = None
+        self,
+        ctx,
+        amount: str,
+        coin: str,
+        comment: str = None
     ):
 
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking voucher..."
@@ -526,7 +526,7 @@ class Voucher(commands.Cog):
                     else:
                         # reject and tell to wait
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
-                        await ctxedit_original_message(content=msg)
+                        await ctx.edit_original_message(content=msg)
                         return
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
@@ -561,8 +561,8 @@ class Voucher(commands.Cog):
         description="View list of unclaimed vouchers."
     )
     async def unclaim(
-            self,
-            ctx
+        self,
+        ctx
     ):
 
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking voucher..."
@@ -607,8 +607,8 @@ class Voucher(commands.Cog):
         description="Get a list of unclaimed vouchers as a file."
     )
     async def getunclaim(
-            self,
-            ctx
+        self,
+        ctx
     ):
 
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking voucher..."
@@ -645,8 +645,8 @@ class Voucher(commands.Cog):
         description="View list of claimed vouchers."
     )
     async def claim(
-            self,
-            ctx
+        self,
+        ctx
     ):
 
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking voucher..."
@@ -692,8 +692,8 @@ class Voucher(commands.Cog):
         description="Get a list of claimed vouchers as a file."
     )
     async def getclaim(
-            self,
-            ctx
+        self,
+        ctx
     ):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking voucher..."
         await ctx.response.send_message(msg, ephemeral=True)
@@ -729,8 +729,8 @@ class Voucher(commands.Cog):
         description="List coins/tokens supported /voucher"
     )
     async def listcoins(
-            self,
-            ctx
+        self,
+        ctx
     ):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking voucher..."
         await ctx.response.send_message(msg, ephemeral=True)

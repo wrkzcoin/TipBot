@@ -657,10 +657,10 @@ class Twitter(commands.Cog):
         description="Subscribe to a twitter account link and push new tweet to a channel."
     )
     async def subscribe(
-            self,
-            ctx,
-            channel: disnake.TextChannel,
-            twitter_link: str
+        self,
+        ctx,
+        channel: disnake.TextChannel,
+        twitter_link: str
     ):
         if not ctx.author.guild_permissions.manage_channels:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you do not have a permission to `/twitter subscribe` here."
@@ -768,9 +768,9 @@ class Twitter(commands.Cog):
         description="Unsubscribe to a twitter account link"
     )
     async def unsubscribe(
-            self,
-            ctx,
-            twitter_link: str
+        self,
+        ctx,
+        twitter_link: str
     ):
         if not ctx.author.guild_permissions.manage_channels:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you do not have a permission to `/twitter unsubscribe` here."
@@ -835,8 +835,8 @@ class Twitter(commands.Cog):
         description="List of subscribed twitter link."
     )
     async def listsub(
-            self,
-            ctx,
+        self,
+        ctx,
     ):
         if not ctx.author.guild_permissions.manage_channels:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you do not have a permission to `/twitter listsub` here."
@@ -893,13 +893,13 @@ class Twitter(commands.Cog):
         description="Give reward to twitter user who RT your Tweet."
     )
     async def rt_reward(
-            self,
-            ctx,
-            amount: str,
-            coin: str,
-            duration: str,
-            channel: disnake.TextChannel,
-            twitter_link: str
+        self,
+        ctx,
+        amount: str,
+        coin: str,
+        duration: str,
+        channel: disnake.TextChannel,
+        twitter_link: str
     ):
         await self.bot_log()
 
@@ -1065,10 +1065,10 @@ class Twitter(commands.Cog):
         description="Associate your Discord to a twitter."
     )
     async def linkme(
-            self,
-            ctx,
-            twitter_name: str,
-            status_link: str = None
+        self,
+        ctx,
+        twitter_name: str,
+        status_link: str = None
     ):
         await self.bot_log()
         twitter_name = twitter_name.replace("@", "")
@@ -1189,8 +1189,8 @@ class Twitter(commands.Cog):
         description="Unlink your Discord from a twitter."
     )
     async def unlinkme(
-            self,
-            ctx
+        self,
+        ctx
     ):
         await self.bot_log()
 
@@ -1236,11 +1236,11 @@ class Twitter(commands.Cog):
         description="Tip to Twitter user by name or link who verified with Discord TipBot."
     )
     async def tip(
-            self,
-            ctx,
-            amount: str,
-            coin: str,
-            twitter: str
+        self,
+        ctx,
+        amount: str,
+        coin: str,
+        twitter: str
     ):
         old_twitter = twitter
         has_link = False
@@ -1456,10 +1456,10 @@ class Twitter(commands.Cog):
         description="Get your linked twitter's wallet deposit address."
     )
     async def deposit(
-            self,
-            ctx,
-            token: str,
-            plain: str = 'embed'
+        self,
+        ctx,
+        token: str,
+        plain: str = 'embed'
     ):
         await self.bot_log()
 
@@ -1582,8 +1582,8 @@ class Twitter(commands.Cog):
         description="Show all your linked twitter's balances."
     )
     async def balances(
-            self,
-            ctx
+        self,
+        ctx
     ):
         await self.bot_log()
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking twitter..."

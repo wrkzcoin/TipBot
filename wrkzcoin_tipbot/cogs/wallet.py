@@ -8955,10 +8955,10 @@ class Wallet(commands.Cog):
         description="Get your wallet deposit address."
     )
     async def deposit(
-            self,
-            ctx,
-            token: str,
-            plain: str = 'embed'
+        self,
+        ctx,
+        token: str,
+        plain: str = 'embed'
     ):
         await self.async_deposit(ctx, token, plain)
 
@@ -9267,9 +9267,9 @@ class Wallet(commands.Cog):
         description="Get your token's balance."
     )
     async def balance(
-            self,
-            ctx,
-            token: str
+        self,
+        ctx,
+        token: str
     ):
         if token.upper() == "ALL":
             await self.async_balances(ctx, None)
@@ -9284,9 +9284,9 @@ class Wallet(commands.Cog):
         description="Get all your token's balance."
     )
     async def balances(
-            self,
-            ctx,
-            tokens: str = None
+        self,
+        ctx,
+        tokens: str = None
     ):
         if tokens and hasattr(self.bot.coin_list, tokens.upper()):
             await self.async_balance(ctx, tokens)
@@ -10071,11 +10071,11 @@ class Wallet(commands.Cog):
         description="withdraw to your external address."
     )
     async def withdraw(
-            self,
-            ctx,
-            amount: str,
-            token: str,
-            address: str
+        self,
+        ctx,
+        amount: str,
+        token: str,
+        address: str
     ):
         await self.async_withdraw(ctx, amount, token, address)
 
@@ -10089,11 +10089,11 @@ class Wallet(commands.Cog):
         description="withdraw to your external address."
     )
     async def transfer(
-            self,
-            ctx,
-            amount: str,
-            token: str,
-            address: str
+        self,
+        ctx,
+        amount: str,
+        token: str,
+        address: str
     ):
         await self.async_withdraw(ctx, amount, token, address)
 
@@ -10107,11 +10107,11 @@ class Wallet(commands.Cog):
         description="withdraw to your external address."
     )
     async def send(
-            self,
-            ctx,
-            amount: str,
-            token: str,
-            address: str
+        self,
+        ctx,
+        amount: str,
+        token: str,
+        address: str
     ):
         await self.async_withdraw(ctx, amount, token, address)
 
@@ -10224,16 +10224,16 @@ class Wallet(commands.Cog):
         description="Faucet claim."
     )
     async def claim(
-            self,
-            ctx,
-            token: str = None
+        self,
+        ctx,
+        token: str = None
     ):
         await self.async_claim(ctx, token)
 
     async def bot_faucet(
-            self,
-            ctx,
-            faucet_coins
+        self,
+        ctx,
+        faucet_coins
     ):
         game_coins = await store.sql_list_game_coins()
         get_game_stat = await store.sql_game_stat(game_coins)
@@ -10284,9 +10284,9 @@ class Wallet(commands.Cog):
         return table.table
 
     async def take_action(
-            self,
-            ctx,
-            info: str = None
+        self,
+        ctx,
+        info: str = None
     ):
         await self.bot_log()
 
@@ -10564,9 +10564,9 @@ class Wallet(commands.Cog):
                             ],
                             description="Claim a random coin faucet.")
     async def take(
-            self,
-            ctx,
-            info: str = None
+        self,
+        ctx,
+        info: str = None
     ):
         await self.take_action(ctx, info)
 
@@ -10582,10 +10582,10 @@ class Wallet(commands.Cog):
         description="Donate to TipBot's dev team"
     )
     async def donate(
-            self,
-            ctx,
-            amount: str,
-            token: str
+        self,
+        ctx,
+        amount: str,
+        token: str
 
     ):
         coin_name = token.upper()
@@ -10752,8 +10752,8 @@ class Wallet(commands.Cog):
         description="Show /swaptokens's disclaimer."
     )
     async def disclaimer(
-            self,
-            ctx
+        self,
+        ctx
     ):
         msg = f"""{EMOJI_INFORMATION} Disclaimer: No warranty or guarantee is provided, expressed, or implied \
 when using this bot and any funds lost, mis-used or stolen in using this bot. TipBot and its dev does not affiliate with the swapped tokens."""
@@ -10770,8 +10770,8 @@ when using this bot and any funds lost, mis-used or stolen in using this bot. Ti
         description="Show /swaptokens's supported list."
     )
     async def lists(
-            self,
-            ctx
+        self,
+        ctx
     ):
         msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, checking /swaptokens lists...'
         await ctx.response.send_message(msg)
@@ -10807,11 +10807,11 @@ when using this bot and any funds lost, mis-used or stolen in using this bot. Ti
         description="Swap tokens / purchase"
     )
     async def purchase(
-            self,
-            ctx,
-            from_amount: str,
-            from_token: str,
-            to_token: str
+        self,
+        ctx,
+        from_amount: str,
+        from_token: str,
+        to_token: str
     ):
         msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, checking /swaptokens purchase...'
         await ctx.response.send_message(msg)
@@ -10995,11 +10995,11 @@ when using this bot and any funds lost, mis-used or stolen in using this bot. Ti
         description="Swap between supported token/coin (wrap/unwrap)."
     )
     async def swap(
-            self,
-            ctx,
-            from_amount: str,
-            from_token: str,
-            to_token: str
+        self,
+        ctx,
+        from_amount: str,
+        from_token: str,
+        to_token: str
 
     ):
         FROM_COIN = from_token.upper()

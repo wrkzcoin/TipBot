@@ -50,10 +50,10 @@ class QuickDropButton(disnake.ui.View):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
-
     @disnake.ui.button(label="🎉 Collect", style=ButtonStyle.green, custom_id="quickdrop_tipbot")
     async def quick_collect(
-            self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
+        self, button: disnake.ui.Button,
+        interaction: disnake.MessageInteraction
     ):
         pass
 
@@ -353,10 +353,10 @@ class QuickDrop(commands.Cog):
         description="Quick drop and first people to collect when tap."
     )
     async def quickdrop(
-            self,
-            ctx,
-            amount: str,
-            token: str
+        self,
+        ctx,
+        amount: str,
+        token: str
     ):
         await self.async_quickdrop(ctx, amount, token)
 

@@ -466,12 +466,12 @@ class MathTips(commands.Cog):
         description="Spread math tip by user's answer"
     )
     async def mathtip(
-            self,
-            ctx,
-            amount: str,
-            token: str,
-            duration: str,
-            math_exp: str
+        self,
+        ctx,
+        amount: str,
+        token: str,
+        duration: str,
+        math_exp: str
     ):
         await self.async_mathtip(ctx, amount, token, duration, math_exp)
 

@@ -117,17 +117,18 @@ class BotBalance(commands.Cog):
 
     @commands.bot_has_permissions(send_messages=True)
     @commands.guild_only()
-    @commands.slash_command(usage="botbalance <bot> <coin>",
-                            options=[
-                                Option("botname", "Enter a bot", OptionType.user, required=True),
-                                Option("coin", "Enter coin ticker/name", OptionType.string, required=True),
-                            ],
-                            description="Get Bot's balance by mention it.")
+    @commands.slash_command(
+        usage="botbalance <bot> <coin>",
+        options=[
+            Option("botname", "Enter a bot", OptionType.user, required=True),
+            Option("coin", "Enter coin ticker/name", OptionType.string, required=True),
+        ],
+        description="Get Bot's balance by mention it.")
     async def botbalance(
-            self,
-            ctx,
-            botname: disnake.Member,
-            coin: str
+        self,
+        ctx,
+        botname: disnake.Member,
+        coin: str
     ):
         await self.bot_bal(ctx, botname, coin)
 

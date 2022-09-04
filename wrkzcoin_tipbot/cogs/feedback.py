@@ -1,5 +1,5 @@
 import time
-import traceback
+import traceback, sys
 import uuid
 
 import disnake

@@ -148,9 +148,9 @@ class SomeRandomAPI(commands.Cog):
         description="Get random animal from some-random-api"
     )
     async def animal(
-            self,
-            ctx,
-            name: str
+        self,
+        ctx,
+        name: str
     ):
         await ctx.response.send_message(f"{ctx.author.mention}, random preparation... ")
 
@@ -214,9 +214,9 @@ class SomeRandomAPI(commands.Cog):
         description="Get random fact from some-random-api"
     )
     async def fact(
-            self,
-            ctx,
-            name: str
+        self,
+        ctx,
+        name: str
     ):
         await ctx.response.send_message(f"{ctx.author.mention}, random fact preparation... ")
 
@@ -270,9 +270,9 @@ class SomeRandomAPI(commands.Cog):
         description="Get random image from some-random-api"
     )
     async def image(
-            self,
-            ctx,
-            name: str
+        self,
+        ctx,
+        name: str
     ):
         await ctx.response.send_message(f"{ctx.author.mention}, random image preparation... ")
         try:
@@ -320,8 +320,8 @@ class SomeRandomAPI(commands.Cog):
         description="Get random joke from some-random-api"
     )
     async def joke(
-            self,
-            ctx
+        self,
+        ctx
     ):
         await ctx.response.send_message(f"{ctx.author.mention}, random joke preparation... ")
         try:

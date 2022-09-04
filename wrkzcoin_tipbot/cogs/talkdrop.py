@@ -461,14 +461,14 @@ class TalkDrop(commands.Cog):
         description="Create tip talk drop for who actively chat in a channel to collect."
     )
     async def talkdrop(
-            self,
-            ctx,
-            amount: str,
-            token: str,
-            channel: disnake.TextChannel,
-            from_when: str,
-            end: str,
-            minimum_message: int
+        self,
+        ctx,
+        amount: str,
+        token: str,
+        channel: disnake.TextChannel,
+        from_when: str,
+        end: str,
+        minimum_message: int
     ):
         await self.async_talkdrop(ctx, amount, token, channel, from_when, end, minimum_message)
 

@@ -770,9 +770,9 @@ class Admin(commands.Cog):
         description="Let bot say something in text channel (Owner only)"
     )
     async def say(
-            self,
-            ctx,
-            text: str
+        self,
+        ctx,
+        text: str
     ):
         # let bot post some message (testing) etc.
         await logchanbot(f"[TIPBOT SAY] {ctx.author.id} / {ctx.author.name}#{ctx.author.discriminator} asked to say ```{text}```")
@@ -1914,10 +1914,10 @@ class Admin(commands.Cog):
         description="Do some eval."
     )
     async def eval(
-            self,
-            ctx,
-            *,
-            code
+        self,
+        ctx,
+        *,
+        code
     ):
         if config.discord.enable_eval != 1:
             return
@@ -1984,10 +1984,10 @@ class Admin(commands.Cog):
         description="Encrypt text."
     )
     async def encrypt(
-            self,
-            ctx,
-            *,
-            text
+        self,
+        ctx,
+        *,
+        text
     ):
         encrypt = encrypt_string(text)
         if encrypt: return await ctx.reply(f"```{encrypt}```", view=RowButtonRowCloseAnyMessage())
@@ -1998,10 +1998,10 @@ class Admin(commands.Cog):
         description="Decrypt text."
     )
     async def decrypt(
-            self,
-            ctx,
-            *,
-            text
+        self,
+        ctx,
+        *,
+        text
     ):
         decrypt = decrypt_string(text)
         if decrypt: return await ctx.reply(f"```{decrypt}```", view=RowButtonRowCloseAnyMessage())

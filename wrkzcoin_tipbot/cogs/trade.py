@@ -301,12 +301,12 @@ class Trade(commands.Cog):
                         ],
                         description="Make an opened sell of a coin for another coin.")
     async def sell(
-            self,
-            ctx,
-            sell_amount: str,
-            sell_ticker: str,
-            buy_amount: str,
-            buy_ticker: str
+        self,
+        ctx,
+        sell_amount: str,
+        sell_ticker: str,
+        buy_amount: str,
+        buy_ticker: str
     ):
 
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, market loading..."
@@ -342,9 +342,9 @@ class Trade(commands.Cog):
                         ],
                         description="Check your opened orders.")
     async def myorder(
-            self,
-            ctx,
-            ticker: str = None
+        self,
+        ctx,
+        ticker: str = None
     ):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, market loading..."
         await ctx.response.send_message(msg)
@@ -500,9 +500,9 @@ class Trade(commands.Cog):
                         ],
                         description="Cancel your opened order or all.")
     async def cancel(
-            self,
-            ctx,
-            order_num: str = 'ALL'
+        self,
+        ctx,
+        order_num: str = 'ALL'
     ):
 
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, market loading..."
@@ -600,9 +600,9 @@ class Trade(commands.Cog):
                         description="Trade from a referenced number."
                         )
     async def buy(
-            self,
-            ctx,
-            ref_number: str
+        self,
+        ctx,
+        ref_number: str
     ):
 
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, market loading..."
@@ -808,10 +808,10 @@ class Trade(commands.Cog):
                         ],
                         description="Make an opened sell of a coin for another coin.")
     async def list(
-            self,
-            ctx,
-            coin: str,
-            option_order: str = 'desc'
+        self,
+        ctx,
+        coin: str,
+        option_order: str = 'desc'
     ):
 
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, market loading..."
@@ -932,8 +932,8 @@ class Trade(commands.Cog):
         description="List coins/tokens supported /market"
     )
     async def listcoins(
-            self,
-            ctx
+        self,
+        ctx
     ):
 
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, market loading..."
@@ -966,8 +966,8 @@ class Trade(commands.Cog):
         description="List opened or traded pairs"
     )
     async def listpairs(
-            self,
-            ctx
+        self,
+        ctx
     ):
 
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, market loading..."

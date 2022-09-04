@@ -2379,7 +2379,7 @@ class Guild(commands.Cog):
                 embed = disnake.Embed(
                     title = "Guild {} / {}".format(ctx.guild.name, ctx.guild.id),
                     description = "* List a role for selling in your Guild's shop with `/gshop`\n"\
-                                  "* Use `/featurerole add` to a specific role for specail features."\
+                                  "* Use `/featurerole add` to a specific role for specail features.\n"\
                                   "* Use `/featurerole delete <role>` to delist the featurerole. (Not deleting role).",
                     timestamp=datetime.now()
                 )

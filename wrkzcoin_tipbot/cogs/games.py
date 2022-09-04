@@ -2026,8 +2026,8 @@ class Games(commands.Cog):
         return serverinfo
 
     async def game_blackjack(
-            self,
-            ctx
+        self,
+        ctx
     ):
         await self.bot_log()
 
@@ -2110,8 +2110,8 @@ class Games(commands.Cog):
             pass
 
     async def game_slot(
-            self,
-            ctx
+        self,
+        ctx
     ):
         await self.bot_log()
 
@@ -2250,8 +2250,8 @@ class Games(commands.Cog):
             self.bot.GAME_SLOT_IN_PROGRESS.remove(ctx.author.id)
 
     async def game_maze(
-            self,
-            ctx
+        self,
+        ctx
     ):
         await self.bot_log()
 
@@ -2329,8 +2329,8 @@ class Games(commands.Cog):
             pass
 
     async def game_dice(
-            self,
-            ctx
+        self,
+        ctx
     ):
         await self.bot_log()
 
@@ -2520,9 +2520,9 @@ class Games(commands.Cog):
             self.bot.GAME_DICE_IN_PROGRESS.remove(ctx.author.id)
 
     async def game_snail(
-            self,
-            ctx,
-            bet_numb
+        self,
+        ctx,
+        bet_numb
     ):
         await self.bot_log()
 
@@ -2776,8 +2776,8 @@ class Games(commands.Cog):
             return
 
     async def game_2048(
-            self,
-            ctx
+        self,
+        ctx
     ):
         await self.bot_log()
 
@@ -2984,8 +2984,8 @@ class Games(commands.Cog):
         description="Blackjack, original code by Al Sweigart al@inventwithpython.com."
     )
     async def blackjack(
-            self,
-            ctx
+        self,
+        ctx
     ):
         await self.bot_log()
         game_blackjack = await self.game_blackjack(ctx)
@@ -2998,8 +2998,8 @@ class Games(commands.Cog):
         description="Play a slot game."
     )
     async def slot(
-            self,
-            ctx
+        self,
+        ctx
     ):
         await self.bot_log()
         try:
@@ -3013,8 +3013,8 @@ class Games(commands.Cog):
         description="Interactive 2D ascii maze game."
     )
     async def maze(
-            self,
-            ctx
+        self,
+        ctx
     ):
         await self.bot_log()
         try:
@@ -3028,8 +3028,8 @@ class Games(commands.Cog):
         description="Simple dice game."
     )
     async def dice(
-            self,
-            ctx
+        self,
+        ctx
     ):
         await self.bot_log()
         try:
@@ -3046,9 +3046,9 @@ class Games(commands.Cog):
         description="Snail racing game. You bet which one."
     )
     async def snail(
-            self,
-            ctx,
-            bet_numb: int,
+        self,
+        ctx,
+        bet_numb: int,
     ):
         await self.bot_log()
         try:
@@ -3062,8 +3062,8 @@ class Games(commands.Cog):
         description="Classic 2048 game. Slide all the tiles on the board in one of four directions."
     )
     async def g2048(
-            self,
-            ctx
+        self,
+        ctx
     ):
         await self.bot_log()
         try:
@@ -3077,8 +3077,8 @@ class Games(commands.Cog):
         description="Sokoban interactive game."
     )
     async def sokoban(
-            self,
-            ctx
+        self,
+        ctx
     ):
         await self.bot_log()
         try:

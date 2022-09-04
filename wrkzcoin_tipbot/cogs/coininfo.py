@@ -103,11 +103,13 @@ class Coininfo(commands.Cog):
         await ctx.edit_original_message(content=response_text)
 
 
-    @commands.slash_command(usage="coininfo <coin>",
-                            options=[
-                                Option("coin", "Enter a coin/ticker name", OptionType.string, required=True)
-                            ],
-                            description="Get coin's information in TipBot.")
+    @commands.slash_command(
+        usage="coininfo <coin>",
+        options=[
+            Option("coin", "Enter a coin/ticker name", OptionType.string, required=True)
+        ],
+        description="Get coin's information in TipBot."
+    )
     async def coininfo(
         self, 
         ctx, 
@@ -166,8 +168,10 @@ class Coininfo(commands.Cog):
             await ctx.edit_original_message(content=f'{ctx.author.mention}, error loading. check back later.')
 
 
-    @commands.slash_command(usage="coinlist",
-                            description="List of all coins supported by TipBot.")
+    @commands.slash_command(
+        usage="coinlist",
+        description="List of all coins supported by TipBot."
+    )
     async def coinlist(
         self, 
         ctx

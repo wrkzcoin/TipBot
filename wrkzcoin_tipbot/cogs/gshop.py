@@ -384,7 +384,8 @@ class GShop(commands.Cog):
     @gshop.sub_command(
         name="buyrole",
         usage="gshop buyrole <item id>",
-        description="Buy a role using your wallet balance.")
+        description="Buy a role using your wallet balance."
+    )
     async def slash_buyrole(
         self,
         ctx,
@@ -569,7 +570,8 @@ class GShop(commands.Cog):
                 OptionChoice("30d", "30d")
             ]),
         ],
-        description="Add a role to Guild Shop for anyone to purchase.")
+        description="Add a role to Guild Shop for anyone to purchase."
+    )
     async def slash_addrole(
         self,
         ctx,
@@ -743,7 +745,8 @@ class GShop(commands.Cog):
     @gshop.sub_command(
         name="rolelist",
         usage="gshop rolelist",
-        description="List all available roles on Guild's store.")
+        description="List all available roles on Guild's store."
+    )
     async def slash_rolelist(
         self,
         ctx

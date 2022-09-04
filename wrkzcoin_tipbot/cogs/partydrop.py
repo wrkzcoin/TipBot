@@ -53,7 +53,8 @@ class PartyButton(disnake.ui.View):
 
     @disnake.ui.button(label="🎉 Join", style=ButtonStyle.green, custom_id="partydrop_tipbot")
     async def join_party(
-            self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
+        self, button: disnake.ui.Button,
+        interaction: disnake.MessageInteraction
     ):
         pass
 
@@ -508,12 +509,12 @@ class PartyDrop(commands.Cog):
         description="Create party drop and other people join."
     )
     async def partydrop(
-            self,
-            ctx,
-            min_amount: str,
-            sponsor_amount: str,
-            token: str,
-            duration: str
+        self,
+        ctx,
+        min_amount: str,
+        sponsor_amount: str,
+        token: str,
+        duration: str
     ):
         await self.async_partydrop(ctx, min_amount, sponsor_amount, token, duration)
 

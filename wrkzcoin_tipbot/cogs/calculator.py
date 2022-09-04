@@ -51,9 +51,9 @@ class Calculator(commands.Cog):
         description="Do some math."
     )
     async def cal(
-            self,
-            ctx,
-            eval_string: str = None
+        self,
+        ctx,
+        eval_string: str = None
     ):
         await self.async_calc(ctx, eval_string)
 

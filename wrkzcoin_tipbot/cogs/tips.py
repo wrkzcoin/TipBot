@@ -494,9 +494,9 @@ class Tips(commands.Cog):
         description="Toggle notify tip notification from bot ON|OFF"
     )
     async def notifytip(
-            self,
-            ctx,
-            onoff: str
+        self,
+        ctx,
+        onoff: str
     ):
         await self.async_notifytip(ctx, onoff)
 
@@ -812,11 +812,11 @@ class Tips(commands.Cog):
         description="Tip to random user in the guild"
     )
     async def randtip(
-            self,
-            ctx,
-            amount: str,
-            token: str,
-            rand_option: str = None
+        self,
+        ctx,
+        amount: str,
+        token: str,
+        rand_option: str = None
     ):
         try:
             await self.async_randtip(ctx, amount, token, rand_option)
@@ -1084,12 +1084,12 @@ class Tips(commands.Cog):
         description="Spread free tip by user reacting with emoji"
     )
     async def freetip(
-            self,
-            ctx,
-            amount: str,
-            token: str,
-            duration: str,
-            comment: str = None
+        self,
+        ctx,
+        amount: str,
+        token: str,
+        duration: str,
+        comment: str = None
     ):
         try:
             await self.async_freetip(ctx, amount, token, duration, comment)
@@ -1411,11 +1411,11 @@ class Tips(commands.Cog):
         description="Tip all online user"
     )
     async def tipall(
-            self,
-            ctx,
-            amount: str,
-            token: str,
-            user: str = "ONLINE"
+        self,
+        ctx,
+        amount: str,
+        token: str,
+        user: str = "ONLINE"
     ):
         try:
             await self.async_tipall(ctx, amount, token, user)
@@ -1675,11 +1675,11 @@ class Tips(commands.Cog):
         description="Tip other people"
     )
     async def tip(
-            self,
-            ctx,
-            amount: str,
-            token: str,
-            args: str
+        self,
+        ctx,
+        amount: str,
+        token: str,
+        args: str
     ):
         try:
             await self.async_tip(ctx, amount, token, args)
@@ -1937,11 +1937,11 @@ class Tips(commands.Cog):
         description="Tip other people using your guild's balance."
     )
     async def guildtip(
-            self,
-            ctx,
-            amount: str,
-            token: str,
-            args: str
+        self,
+        ctx,
+        amount: str,
+        token: str,
+        args: str
     ):
         try:
             await self.async_gtip(ctx, amount, token.strip(), args.strip())
@@ -1958,9 +1958,9 @@ class Tips(commands.Cog):
         description="Tip various amount and coins to users"
     )
     async def z(
-            self,
-            ctx,
-            amount_coin_list_to: str
+        self,
+        ctx,
+        amount_coin_list_to: str
     ):
         try:
             await self.async_ztip(ctx, amount_coin_list_to)

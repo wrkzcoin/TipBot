@@ -219,10 +219,10 @@ class Price(commands.Cog):
         description="Display Token price list."
     )
     async def price(
-            self,
-            ctx,
-            amount: str,
-            token: str = None
+        self,
+        ctx,
+        amount: str,
+        token: str = None
     ):
         return await self.async_price(ctx, amount, token)
 

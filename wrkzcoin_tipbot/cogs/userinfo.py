@@ -140,9 +140,9 @@ class Userinfo(commands.Cog):
                             ],
                             description="Get user information.")
     async def userinfo(
-            self,
-            ctx,
-            user: disnake.Member = None
+        self,
+        ctx,
+        user: disnake.Member = None
     ):
         if user is None: user = ctx.author
         await self.get_userinfo(ctx, user)

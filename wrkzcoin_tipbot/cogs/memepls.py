@@ -1016,7 +1016,7 @@ class MemePls(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return None
 
-    async def get_id_meme(self, meme_id: str, guild: str):
+    async def get_id_meme(self, meme_id: str, guild_id: str):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
@@ -1594,8 +1594,8 @@ class MemePls(commands.Cog):
         description="View MEME randomly."
     )
     async def view(
-            self,
-            ctx
+        self,
+        ctx
     ):
         await self.meme_view_here(ctx)
 
@@ -1607,9 +1607,9 @@ class MemePls(commands.Cog):
         description="View other user's MEME randomly."
     )
     async def user(
-            self,
-            ctx,
-            user: disnake.Member = None
+        self,
+        ctx,
+        user: disnake.Member = None
     ):
         if user is None:
             user = ctx.author
@@ -1620,8 +1620,8 @@ class MemePls(commands.Cog):
         description="View your uploaded MEME"
     )
     async def list(
-            self,
-            ctx
+        self,
+        ctx
     ):
         await self.meme_list(ctx)
 
@@ -1634,10 +1634,10 @@ class MemePls(commands.Cog):
         description="Upload your MEME."
     )
     async def upload(
-            self,
-            ctx,
-            caption: str,
-            image: disnake.Attachment
+        self,
+        ctx,
+        caption: str,
+        image: disnake.Attachment
     ):
         await self.meme_upload(ctx, caption, image)
 
@@ -1649,9 +1649,9 @@ class MemePls(commands.Cog):
         description="Review MEME ID (reviewer)."
     )
     async def review(
-            self,
-            ctx,
-            meme_id: str = None,
+        self,
+        ctx,
+        meme_id: str = None,
     ):
         await self.meme_review(ctx, meme_id)
 

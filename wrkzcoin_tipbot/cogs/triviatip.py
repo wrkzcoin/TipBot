@@ -438,11 +438,11 @@ class TriviaTips(commands.Cog):
         description="Spread trivia tip"
     )
     async def triviatip(
-            self,
-            ctx,
-            amount: str,
-            token: str,
-            duration: str
+        self,
+        ctx,
+        amount: str,
+        token: str,
+        duration: str
     ):
         await self.async_triviatip(ctx, amount, token, duration)
 

@@ -38,14 +38,14 @@ class Tb(commands.Cog):
         self.utils = Utils(self.bot)
 
     async def sql_add_tbfun(
-            self,
-            user_id: str,
-            user_name: str,
-            channel_id: str,
-            guild_id: str,
-            guild_name: str,
-            funcmd: str,
-            user_server: str = 'DISCORD'
+        self,
+        user_id: str,
+        user_name: str,
+        channel_id: str,
+        guild_id: str,
+        guild_name: str,
+        funcmd: str,
+        user_server: str = 'DISCORD'
     ):
         try:
             await store.openConnection()
@@ -63,9 +63,9 @@ class Tb(commands.Cog):
         return False
 
     async def tb_draw(
-            self,
-            ctx,
-            user_avatar: str
+        self,
+        ctx,
+        user_avatar: str
     ):
         try:
             msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
@@ -148,9 +148,9 @@ class Tb(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
     async def tb_sketchme(
-            self,
-            ctx,
-            user_avatar: str
+        self,
+        ctx,
+        user_avatar: str
     ):
         try:
             msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
@@ -240,10 +240,10 @@ class Tb(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
     async def tb_punch(
-            self,
-            ctx,
-            user1: str,
-            user2: str
+        self,
+        ctx,
+        user1: str,
+        user2: str
     ):
         msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
         await ctx.response.send_message(msg)
@@ -271,10 +271,10 @@ class Tb(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
     async def tb_spank(
-            self,
-            ctx,
-            user1: str,
-            user2: str
+        self,
+        ctx,
+        user1: str,
+        user2: str
     ):
         msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
         await ctx.response.send_message(msg)
@@ -302,10 +302,10 @@ class Tb(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
     async def tb_slap(
-            self,
-            ctx,
-            user1: str,
-            user2: str
+        self,
+        ctx,
+        user1: str,
+        user2: str
     ):
         msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
         await ctx.response.send_message(msg)
@@ -333,10 +333,10 @@ class Tb(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
     async def tb_praise(
-            self,
-            ctx,
-            user1: str,
-            user2: str
+        self,
+        ctx,
+        user1: str,
+        user2: str
     ):
         msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
         await ctx.response.send_message(msg)
@@ -364,10 +364,10 @@ class Tb(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
     async def tb_shoot(
-            self,
-            ctx,
-            user1: str,
-            user2: str
+        self,
+        ctx,
+        user1: str,
+        user2: str
     ):
         msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
         await ctx.response.send_message(msg)
@@ -395,10 +395,10 @@ class Tb(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
     async def tb_kick(
-            self,
-            ctx,
-            user1: str,
-            user2: str
+        self,
+        ctx,
+        user1: str,
+        user2: str
     ):
         msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
         await ctx.response.send_message(msg)
@@ -426,10 +426,10 @@ class Tb(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
     async def tb_fistbump(
-            self,
-            ctx,
-            user1: str,
-            user2: str
+        self,
+        ctx,
+        user1: str,
+        user2: str
     ):
         msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
         await ctx.response.send_message(msg)
@@ -457,10 +457,10 @@ class Tb(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
     async def tb_dance(
-            self,
-            ctx,
-            user1: str,
-            user2: str  # Not used
+        self,
+        ctx,
+        user1: str,
+        user2: str  # Not used
     ):
         msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
         await ctx.response.send_message(msg)
@@ -489,9 +489,9 @@ class Tb(commands.Cog):
         return
 
     async def tb_getemoji(
-            self,
-            ctx,
-            emoji: str
+        self,
+        ctx,
+        emoji: str
     ):
         msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
         await ctx.response.send_message(msg)
@@ -557,9 +557,9 @@ class Tb(commands.Cog):
         description="Use TipBot to draw someone's avatar."
     )
     async def draw(
-            self,
-            ctx,
-            member: disnake.Member = None
+        self,
+        ctx,
+        member: disnake.Member = None
     ):
         user_avatar = str(ctx.author.display_avatar)
         if member:
@@ -574,9 +574,9 @@ class Tb(commands.Cog):
         description="Use TipBot to sketch someone's avatar."
     )
     async def sketchme(
-            self,
-            ctx,
-            member: disnake.Member = None
+        self,
+        ctx,
+        member: disnake.Member = None
     ):
         user_avatar = str(ctx.author.display_avatar)
         if member:
@@ -591,9 +591,9 @@ class Tb(commands.Cog):
         description="Use TipBot to spank someone."
     )
     async def spank(
-            self,
-            ctx,
-            member: disnake.Member = None
+        self,
+        ctx,
+        member: disnake.Member = None
     ):
         if member is None:
             user1 = str(self.bot.user.display_avatar)
@@ -612,9 +612,9 @@ class Tb(commands.Cog):
         description="Use TipBot to punch someone."
     )
     async def punch(
-            self,
-            ctx,
-            member: disnake.Member = None
+        self,
+        ctx,
+        member: disnake.Member = None
     ):
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo and 'enable_nsfw' in serverinfo and serverinfo['enable_nsfw'] == "NO":
@@ -638,9 +638,9 @@ class Tb(commands.Cog):
         description="Use TipBot to slap someone."
     )
     async def slap(
-            self,
-            ctx,
-            member: disnake.Member = None
+        self,
+        ctx,
+        member: disnake.Member = None
     ):
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo and 'enable_nsfw' in serverinfo and serverinfo['enable_nsfw'] == "NO":
@@ -664,9 +664,9 @@ class Tb(commands.Cog):
         description="Use TipBot to praise someone."
     )
     async def praise(
-            self,
-            ctx,
-            member: disnake.Member = None
+        self,
+        ctx,
+        member: disnake.Member = None
     ):
         if member is None:
             user1 = str(self.bot.user.display_avatar)
@@ -685,9 +685,9 @@ class Tb(commands.Cog):
         description="Use TipBot to shoot someone."
     )
     async def shoot(
-            self,
-            ctx,
-            member: disnake.Member = None
+        self,
+        ctx,
+        member: disnake.Member = None
     ):
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo and 'enable_nsfw' in serverinfo and serverinfo['enable_nsfw'] == "NO":
@@ -711,9 +711,9 @@ class Tb(commands.Cog):
         description="Use TipBot to fun kick someone."
     )
     async def kick(
-            self,
-            ctx,
-            member: disnake.Member = None
+        self,
+        ctx,
+        member: disnake.Member = None
     ):
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo and 'enable_nsfw' in serverinfo and serverinfo['enable_nsfw'] == "NO":
@@ -737,9 +737,9 @@ class Tb(commands.Cog):
         description="Use TipBot to fistbump someone."
     )
     async def fistbump(
-            self,
-            ctx,
-            member: disnake.Member = None
+        self,
+        ctx,
+        member: disnake.Member = None
     ):
         if member is None:
             user1 = str(self.bot.user.display_avatar)
@@ -755,8 +755,8 @@ class Tb(commands.Cog):
         description="Bean dance's style."
     )
     async def dance(
-            self,
-            ctx
+        self,
+        ctx
     ):
         user1 = str(ctx.author.display_avatar)
         user2 = str(self.bot.user.display_avatar)
@@ -770,9 +770,9 @@ class Tb(commands.Cog):
         description="Get emoji's url."
     )
     async def getemoji(
-            self,
-            ctx,
-            emoji: str
+        self,
+        ctx,
+        emoji: str
     ):
         await self.tb_getemoji(ctx, emoji)
 

@@ -1,4 +1,5 @@
 import time
+import traceback, sys
 from disnake.ext import commands
 from config import config
 from cogs.utils import Utils

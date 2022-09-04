@@ -106,7 +106,11 @@ class CoinSetting(commands.Cog):
             await logchanbot(traceback.format_exc())
         return None
 
-    @commands.command(hidden=True, usage="config", description="Reload coin setting")
+    @commands.command(
+        hidden=True,
+        usage="config",
+        description="Reload coin setting"
+    )
     async def config(self, ctx, cmd: str = None):
         if config.discord.owner != ctx.author.id:
             await ctx.reply(f"{ctx.author.mention}, permission denied...")

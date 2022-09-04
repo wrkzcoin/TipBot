@@ -93,8 +93,8 @@ class Pools(commands.Cog):
 
 
     async def get_miningpoolstat_coin(
-            self,
-            coin: str
+        self,
+        coin: str
     ):
         coin_name = coin.upper()
         key = config.redis.prefix + ":MININGPOOLDATA:" + coin_name
@@ -129,9 +129,9 @@ class Pools(commands.Cog):
             return None
 
     async def get_pools(
-            self,
-            ctx,
-            coin: str
+        self,
+        ctx,
+        coin: str
     ):
         coin_name = coin
         await ctx.response.send_message(f"{EMOJI_HOURGLASS_NOT_DONE} {ctx.author.mention}, checking pools..")
@@ -483,15 +483,16 @@ class Pools(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
-    @commands.slash_command(usage="pools <coin>",
-                            options=[
-                                Option("coin", "Enter a coin/ticker name", OptionType.string, required=True)
-                            ],
-                            description="Check hashrate of a coin.")
+    @commands.slash_command(
+        usage="pools <coin>",
+        options=[
+            Option("coin", "Enter a coin/ticker name", OptionType.string, required=True)
+        ],
+        description="Check hashrate of a coin.")
     async def pools(
-            self,
-            ctx,
-            coin: str
+        self,
+        ctx,
+        coin: str
     ):
         coin_name = coin.upper()
         await self.get_pools(ctx, coin_name)

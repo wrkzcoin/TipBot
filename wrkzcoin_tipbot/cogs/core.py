@@ -367,6 +367,36 @@ class Core(commands.Cog):
                 "desc": "Let TipBot do airdrop every <duration> (from your guild's balance). Set amount to 0 to disable it.", 
                 "related": ["guild", "guild balance", "guild deposit"],
                 "subcmd": []
+            },
+            "partydrop": {
+                "usage": "/partydrop <amount> <sponsor_amount> <coin/token> <duration>",
+                "desc": "Let TipBot do partydrop and everyone pay pay entry to join and collect when party ends.", 
+                "related": ["quickdrop", "freetip", "talkdrop"],
+                "subcmd": []
+            },
+            "quickdrop": {
+                "usage": "/quickdrop <amount> <coin/token>",
+                "desc": "Drop and amount of a coin/token and the first person taps will collect.", 
+                "related": ["partydrop", "freetip", "talkdrop"],
+                "subcmd": []
+            },
+            "talkdrop": {
+                "usage": "/talkdrop <amount> <coin/token> <channel> <from_when> <end> <minimum messages>",
+                "desc": "Drop an amount of a coin/token and who active in <channel> for <minimum messages> can collect.", 
+                "related": ["partydrop", "freetip", "quickdrop"],
+                "subcmd": []
+            },
+            "featurerole": {
+                "usage": "/featurerole <sub command>",
+                "desc": "Create featured roles for special feature for each of them. You should create some roles and sell them with /gshop command. User can purchase and credit to your guild's balance.", 
+                "related": ["gshop"],
+                "subcmd": ["add", "delete", "list"]
+            },
+            "gshop": {
+                "usage": "/gshop <sub command>",
+                "desc": "Manage your guild's shop (Example: selling role with crypto. User can purchase role for a duration and credit to your guild's balance.", 
+                "related": ["featurerole"],
+                "subcmd": ["addrole", "buyrole", "rolelist", "delete"]
             }
         }
         basic_help_deposit = """

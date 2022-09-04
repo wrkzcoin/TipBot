@@ -161,8 +161,8 @@ class Tag(commands.Cog):
         description="Add a tag to the guild."
     )
     async def add(
-            self,
-            ctx
+        self,
+        ctx
     ):
         await ctx.response.send_modal(modal=ModTagGuildAdd())
 
@@ -176,9 +176,9 @@ class Tag(commands.Cog):
         description="Remove a tag from the guild."
     )
     async def delete(
-            self,
-            ctx,
-            tag_name: str
+        self,
+        ctx,
+        tag_name: str
     ):
         if re.match('^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*$', tag_name):
             tag = tag_name.upper()
@@ -214,9 +214,9 @@ class Tag(commands.Cog):
         description="Show a saved tag."
     )
     async def show(
-            self,
-            ctx,
-            tag_name: str = None
+        self,
+        ctx,
+        tag_name: str = None
     ):
         tagging = database_tag()
         if tag_name is None:

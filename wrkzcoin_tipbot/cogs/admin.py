@@ -1476,7 +1476,18 @@ class Admin(commands.Cog):
             page.set_footer(text="Use the reactions to flip pages.")
             all_pages.append(page)
             num_coins = 0
-            per_page = 8
+            per_page = 20
+            # check mutual guild for is_on_mobile
+            try:
+                if isinstance(ctx.channel, disnake.DMChannel):
+                    one_guild = [each for each in ctx.author.mutual_guilds][0]
+                else:
+                    one_guild = ctx.guild
+                member = one_guild.get_member(ctx.author.id)
+                if member.is_on_mobile() is True:
+                    per_page = 10
+            except Exception:
+                pass
             tmp_msg = await ctx.reply(f"{ctx.author.mention} balance loading...")
             for each_token in mytokens:
                 coin_name = each_token['coin_name']

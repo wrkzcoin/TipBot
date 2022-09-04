@@ -23,7 +23,7 @@ import store
 from Bot import get_token_list, num_format_coin, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EMOJI_INFORMATION, \
     EMOJI_RED_NO, EMOJI_ARROW_RIGHTHOOK, SERVER_BOT, RowButtonCloseMessage, \
     RowButtonRowCloseAnyMessage, human_format, text_to_num, truncate, \
-    NOTIFICATION_OFF_CMD, DEFAULT_TICKER, seconds_str
+    NOTIFICATION_OFF_CMD, DEFAULT_TICKER, seconds_str, seconds_str_days
 
 from config import config
 from cogs.wallet import WalletAPI
@@ -84,16 +84,6 @@ class Guild(commands.Cog):
 
     @tasks.loop(seconds=60.0)
     async def check_tiptalker_drop(self):
-        def seconds_str_days(time: float):
-            day = time // (24 * 3600)
-            time = time % (24 * 3600)
-            hour = time // 3600
-            time %= 3600
-            minutes = time // 60
-            time %= 60
-            seconds = time
-            return "{:02d} day(s) {:02d}:{:02d}:{:02d}".format(day, hour, minutes, seconds)
-
         time_lap = 10 # seconds
         await self.bot.wait_until_ready()
         # Check if task recently run @bot_task_logs
@@ -133,7 +123,7 @@ class Guild(commands.Cog):
                     try:
                         get_bot = get_guild.get_member( self.bot.user.id )
                         if not get_bot.guild_permissions.send_messages:
-                            await logchanbot(f"[ACTIVEDROP] in guild {get_guild.name} / {get_guild.id} I have no permission to send message. Skipped.")
+                            await logchanbot(f"[ACTIVEDROP] in guild {get_guild.name} / {str(get_guild.id)} I have no permission to send message. Skipped.")
                             continue
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
@@ -708,6 +698,35 @@ class Guild(commands.Cog):
         await asyncio.sleep(time_lap)
 
 
+    async def guild_update_featurerole(self, guild_id: str, role_id: str, faucet_multipled_by: float,
+                                       guild_vote_multiplied_by: float, faucet_cut_time_percent: float,
+                                       updated_by_uid: str, updated_by_uname: str):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ INSERT INTO `discord_feature_roles` (`guild_id`, `role_id`, 
+                    `faucet_multipled_by`, `guild_vote_multiplied_by`, `faucet_cut_time_percent`, 
+                    `updated_by_uid`, `updated_by_uname`, `date`) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s) 
+                    ON DUPLICATE KEY 
+                    UPDATE 
+                    `faucet_multipled_by`=VALUES(`faucet_multipled_by`),
+                    `guild_vote_multiplied_by`=VALUES(`guild_vote_multiplied_by`),
+                    `faucet_cut_time_percent`=VALUES(`faucet_cut_time_percent`),
+                    `updated_by_uid`=VALUES(`updated_by_uid`),
+                    `updated_by_uname`=VALUES(`updated_by_uname`),
+                    `date`=VALUES(`date`)
+                    """
+                    await cur.execute(sql, (guild_id, role_id, faucet_multipled_by, 
+                                            guild_vote_multiplied_by, faucet_cut_time_percent,
+                                            updated_by_uid, updated_by_uname, int(time.time())))
+                    await conn.commit()	
+                    return True
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
     async def vote_logchan(self, content: str):
         try:
             webhook = DiscordWebhook(url=config.topgg.topgg_votehook, content=content)
@@ -1090,15 +1109,6 @@ class Guild(commands.Cog):
                     if int(get_raffle['ending_ts'])-int(time.time()) < 0:
                         embed.add_field(name="WHEN", value="(ON QUEUE UPDATING)", inline=False)
                     else:
-                        def seconds_str_days(time: float):
-                            day = time // (24 * 3600)
-                            time = time % (24 * 3600)
-                            hour = time // 3600
-                            time %= 3600
-                            minutes = time // 60
-                            time %= 60
-                            seconds = time
-                            return "{:02d} day(s) {:02d}:{:02d}:{:02d}".format(day, hour, minutes, seconds)
                         embed.add_field(name="WHEN", value=seconds_str_days(int(get_raffle['ending_ts'])-int(time.time())), inline=False)
                 embed.set_footer(text="Raffle for {} by {}".format(ctx.guild.name, get_raffle['created_username']))
                 await ctx.edit_original_message(content=None, embed=embed)
@@ -1316,8 +1326,14 @@ class Guild(commands.Cog):
             ## add page
             all_pages = []
             num_coins = 0
-            per_page = 8
-            
+            per_page = 20
+            # check mutual guild for is_on_mobile
+            try:
+                member = ctx.guild.get_member(ctx.author.id)
+                if member.is_on_mobile() is True:
+                    per_page = 10
+            except Exception:
+                pass
             if total_all_balance_usd >= 0.01:
                 total_all_balance_usd = "Having ~ {:,.2f}$".format(total_all_balance_usd)
             elif total_all_balance_usd >= 0.0001:
@@ -2281,6 +2297,106 @@ class Guild(commands.Cog):
         await self.async_guild_info(ctx)
 
 
+    @commands.has_permissions(administrator=True)
+    @commands.bot_has_permissions(send_messages=True)
+    @commands.guild_only()
+    @commands.slash_command(
+        usage="featurerole",
+        options=[
+            Option('role', 'role', OptionType.role, required=True),
+            Option('faucet_multiplied', 'Multiplied reward for /faucet', OptionType.string, required=True, choices=[
+                OptionChoice("2.5x", "2.5"),
+                OptionChoice("5.0x", "5.0"),
+                OptionChoice("7.5x", "7.5"),
+                OptionChoice("10x", "10.0")
+            ]),
+            Option('guild_vote_multiplied', 'Multiplied reward for each guild vote', OptionType.string, required=True, choices=[
+                OptionChoice("2.5x", "2.5"),
+                OptionChoice("5.0x", "5.0"),
+                OptionChoice("7.5x", "7.5"),
+                OptionChoice("10x", "10.0")
+            ]),
+            Option('faucet_cut_time_percent', '/faucet cutting time in percentage', OptionType.string, required=True, choices=[
+                OptionChoice("10%", "0.1"),
+                OptionChoice("25%", "0.25"),
+                OptionChoice("50%", "0.5"),
+                OptionChoice("75%", "0.75")
+            ]),
+        ],
+        description="Adjust faucet, vote, claim duration cut by a role.")
+    async def featurerole(
+        self, 
+        ctx,
+        role: disnake.Role,
+        faucet_multiplied: str,
+        guild_vote_multiplied: str,
+        faucet_cut_time_percent: str
+    ):
+        await self.bot_log()
+        msg = f'{ctx.author.mention}, checking your guild\'s info...'
+        await ctx.response.send_message(msg)
+
+        try:
+            prev_faucet = "1.0"
+            prev_vote = "1.0"
+            prev_cut = "0%"
+
+            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            if serverinfo and serverinfo['feature_roles'] is not None and str(role.id) in serverinfo['feature_roles']:
+                prev_faucet = '{:,.2f}'.format(serverinfo['feature_roles'][str(role.id)]['faucet_multipled_by'])
+                prev_vote = '{:,.2f}'.format(serverinfo['feature_roles'][str(role.id)]['guild_vote_multiplied_by'])
+                prev_cut = '{:,.2f}{}'.format(serverinfo['feature_roles'][str(role.id)]['faucet_cut_time_percent']*100, "%")
+
+            new_faucet = float(faucet_multiplied)
+            new_vote = float(guild_vote_multiplied)
+            new_cut = float(faucet_cut_time_percent)
+
+            new_faucet_str = '{:,.2f}'.format(new_faucet)
+            new_vote_str = '{:,.2f}'.format(new_vote)
+            new_cut_str = '{:,.0f}{}'.format(new_cut*100, "%")
+
+            faucet_multiplied = float(faucet_multiplied)
+            guild_vote_multiplied = float(guild_vote_multiplied)
+            faucet_cut_time_percent = float(faucet_cut_time_percent)
+            if faucet_multiplied < 0 or faucet_multiplied > 10:
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, invalid value `faucet_multiplied`."
+                await ctx.edit_original_message(content=msg)
+                return
+
+            if guild_vote_multiplied < 0 or guild_vote_multiplied > 10:
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, invalid value `guild_vote_multiplied`."
+                await ctx.edit_original_message(content=msg)
+                return
+
+            if faucet_cut_time_percent < 0 or faucet_cut_time_percent > 10:
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, invalid value `faucet_cut_time_percent`."
+                await ctx.edit_original_message(content=msg)
+                return
+
+            try:
+                adjust_feature_role = await self.guild_update_featurerole(str(ctx.guild.id), str(role.id),
+                                                                          faucet_multiplied, guild_vote_multiplied,
+                                                                          faucet_cut_time_percent, str(ctx.author.id),
+                                                                          "{}#{}".format(ctx.author.name, ctx.author.discriminator))
+                if adjust_feature_role is True:
+                    msg = f"{ctx.author.mention}, featurerole `{role.name}` updated.\n"\
+                    f"**Previous values**:\nFaucet (x): {prev_faucet}\nFaucet cutting time: {prev_cut}\nGuild Vote (x): {prev_vote}\n\n"\
+                    f"**New values**:\nFaucet (x): {new_faucet_str}\nFaucet cutting time: {new_cut_str}\nGuild Vote (x): {new_vote_str}"
+                    await ctx.edit_original_message(content=msg)
+                    await logchanbot(f"[FEATUREROLE] User `{str(ctx.author.id)}` "
+                                     f"adjusted role in Guild {ctx.guild.name} / `{str(ctx.guild.id)}`.\n"
+                                     f"**Previous values**:\nFaucet (x): {prev_faucet}\nFaucet cutting time: {prev_cut}\nGuild Vote (x): {prev_vote}\n\n"
+                                     f"**New values**:\nFaucet (x): {new_faucet_str}\nFaucet cutting time: {new_cut_str}\nGuild Vote (x): {new_vote_str}")
+                else:
+                    msg = f'{ctx.author.mention}, internal error. Please report.'
+                    await ctx.edit_original_message(content=msg)
+                    await logchanbot(f"[FEATUREROLE] Failed to adjust by User `{str(ctx.author.id)}` in Guild {ctx.guild.name} / `{str(ctx.guild.id)}`.")
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+
     @commands.bot_has_permissions(send_messages=True)
     @commands.guild_only()
     @commands.slash_command(usage="/faucet",
@@ -2323,6 +2439,35 @@ class Guild(commands.Cog):
                 coin_name = serverinfo['faucet_coin']
                 amount = serverinfo['faucet_amount']
                 duration = serverinfo['faucet_duration']
+                extra_amount = 0.0
+                previous_amount = 0.0
+                if serverinfo['feature_roles'] is not None:
+                    try:
+                        member = ctx.guild.get_member(ctx.author.id)
+                        if member.roles and len(member.roles) > 0:
+                            for r in member.roles:
+                                if str(r.id) in serverinfo['feature_roles']:
+                                    extra_amount = amount * serverinfo['feature_roles'][str(r.id)]['faucet_multipled_by'] - amount
+                                    if extra_amount > previous_amount:
+                                        previous_amount = extra_amount
+                            extra_amount = previous_amount
+                    except Exception:
+                        traceback.print_exc(file=sys.stdout)
+
+                cutting_duration = 0
+                previous_duration = 0
+                if serverinfo['feature_roles'] is not None:
+                    try:
+                        member = ctx.guild.get_member(ctx.author.id)
+                        if member.roles and len(member.roles) > 0:
+                            for r in member.roles:
+                                if str(r.id) in serverinfo['feature_roles']:
+                                    cutting_duration = int(duration * serverinfo['feature_roles'][str(r.id)]['faucet_cut_time_percent'])
+                                    if cutting_duration > previous_duration:
+                                        previous_duration = cutting_duration
+                            cutting_duration = previous_duration
+                    except Exception:
+                        traceback.print_exc(file=sys.stdout)
                 if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
                     coin_name = self.bot.coin_alias_names[coin_name]
                 if not hasattr(self.bot.coin_list, coin_name):
@@ -2330,11 +2475,14 @@ class Guild(commands.Cog):
                     await ctx.edit_original_message(content=msg)
                     return
 
-                get_last_claim = await self.get_faucet_claim_user_guild( str(ctx.author.id), str(ctx.guild.id), SERVER_BOT )
-                if get_last_claim is not None and int(time.time()) - get_last_claim['date'] < duration:
-                    last_duration = seconds_str( int(time.time()) - get_last_claim['date'] )
-                    waiting_time = seconds_str( duration - int(time.time()) + get_last_claim['date'] )
-                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you just claimed in this guild `{ctx.guild.name}` last {last_duration} ago. Waiting time {waiting_time}."
+                get_last_claim = await self.get_faucet_claim_user_guild(str(ctx.author.id), str(ctx.guild.id), SERVER_BOT)
+                extra_msg = ""
+                if cutting_duration > 0:
+                    extra_msg = " You have active guild's role(s) that cut /faucet's waiting time by: **{}**.".format(seconds_str_days(cutting_duration))
+                if get_last_claim is not None and int(time.time()) - get_last_claim['date'] < duration - cutting_duration:
+                    last_duration = seconds_str(int(time.time()) - get_last_claim['date'])
+                    waiting_time = seconds_str(duration - cutting_duration - int(time.time()) + get_last_claim['date'])
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you just claimed in this guild `{ctx.guild.name}` last {last_duration} ago. Waiting time {waiting_time}.{extra_msg}"
                     await ctx.edit_original_message(content=msg)
                     return
                 else:
@@ -2369,16 +2517,16 @@ class Guild(commands.Cog):
                         await ctx.edit_original_message(content=msg)
                         return
 
-                    if amount <= 0:
+                    if amount + extra_amount <= 0:
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please topup guild with more **{coin_name}**. `/guild deposit`'
                         await ctx.edit_original_message(content=msg)
                         return
 
-                    if amount > actual_balance:
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, guild has insufficient balance for {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}.'
+                    if amount + extra_amount > actual_balance:
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, guild has insufficient balance for {num_format_coin(amount + extra_amount, coin_name, coin_decimal, False)} {token_display}.'
                         await ctx.edit_original_message(content=msg)
                         return
-                    elif amount < min_tip or amount > max_tip:
+                    elif amount + extra_amount < min_tip or amount + extra_amount > max_tip:
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention}, transaction cannot be smaller than {num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display} or bigger than {num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}.'
                         await ctx.edit_original_message(content=msg)
                         return
@@ -2396,17 +2544,20 @@ class Guild(commands.Cog):
                         else:
                             per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
                         if per_unit and per_unit > 0:
-                            amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
+                            amount_in_usd = float(Decimal(per_unit) * Decimal(amount + extra_amount))
                             if amount_in_usd > 0.0001:
                                 equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
                     if ctx.guild.id not in self.bot.TX_IN_PROCESS:
                         self.bot.TX_IN_PROCESS.append(ctx.guild.id)
                         try:
-                            tip = await store.sql_user_balance_mv_single(str(ctx.guild.id), str(ctx.author.id), str(ctx.guild.id), str(ctx.channel.id), amount, coin_name, 'GUILDFAUCET', coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
+                            tip = await store.sql_user_balance_mv_single(str(ctx.guild.id), str(ctx.author.id), str(ctx.guild.id), str(ctx.channel.id), amount + extra_amount, coin_name, 'GUILDFAUCET', coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
                             if tip:
-                                msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention} got a faucet of **{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}**{equivalent_usd} from `{ctx.guild.name}`. Other reward command `/take` and `/claim`. Invite me to your guild? Click on my name and "Add to Server".'
+                                extra_msg = ""
+                                if extra_amount > 0:
+                                    extra_msg = " You have a guild's role that give you additional bonus **" + num_format_coin(extra_amount, coin_name, coin_decimal, False) + " " + coin_name + "**."
+                                msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention} got a faucet of **{num_format_coin(amount + extra_amount, coin_name, coin_decimal, False)} {coin_name}**{equivalent_usd} from `{ctx.guild.name}`. Other reward command `/take` and `/claim`. Invite me to your guild? Click on my name and "Add to Server".{extra_msg}'
                                 await ctx.edit_original_message(content=msg)
-                                await logchanbot(f'[Discord] User {ctx.author.name}#{ctx.author.discriminator} claimed guild /faucet {num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name} in guild {ctx.guild.name}/{ctx.guild.id}.')
+                                await logchanbot(f'[Discord] User {ctx.author.name}#{ctx.author.discriminator} claimed guild /faucet {num_format_coin(amount + extra_amount, coin_name, coin_decimal, False)} {coin_name} in guild {ctx.guild.name}/{ctx.guild.id}.')
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
                         if ctx.guild.id in self.bot.TX_IN_PROCESS:
@@ -2804,6 +2955,23 @@ class Guild(commands.Cog):
         await self.async_set_gamechan(ctx, game)
 
     # End of setting
+
+    @commands.guild_only()
+    @commands.bot_has_permissions(send_messages=True)
+    @commands.slash_command(description="Get role counts in the Guild.")
+    async def rolecount(self, ctx):
+        color = disnake.Color.gold()
+        embed = disnake.Embed(color=color, timestamp=datetime.now())
+        embed.set_footer(text=f"Requested by {ctx.author.name}#{ctx.author.discriminator} | /rolecount")
+        total_role = 0
+        for r in ctx.guild.roles:
+            nmembers = len(r.members)
+            if len(r.members) > 1:
+                total_role += 1
+                embed.add_field(name=f"{r.name}", value=f"{nmembers:,}")
+        embed.add_field(name="Total Roles", value=str(total_role), inline=False)
+        await ctx.response.send_message(embed=embed)
+
 
 def setup(bot):
     bot.add_cog(Guild(bot))

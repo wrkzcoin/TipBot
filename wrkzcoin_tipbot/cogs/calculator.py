@@ -14,7 +14,8 @@ class Calculator(commands.Cog):
 
     async def async_calc(self, ctx, eval_string: str = None):
         try:
-            self.bot.commandings.append((str(ctx.author.id), SERVER_BOT, "/cal", int(time.time())))
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/cal", int(time.time())))
             await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -25,7 +26,7 @@ class Calculator(commands.Cog):
         else:
             eval_string_original = eval_string
             eval_string = eval_string.replace(",", "")
-            supported_function = ['+', '-', '*', '/', '(', ')', '.', ',']
+            supported_function = ['+', '-', '*', '/', '(', ')', '.', ',', '^', '%']
             additional_support = ['exp', 'sqrt', 'abs', 'log10', 'log', 'sinh', 'cosh', 'tanh', 'sin', 'cos', 'tan']
             test_string = eval_string
             for each in additional_support:

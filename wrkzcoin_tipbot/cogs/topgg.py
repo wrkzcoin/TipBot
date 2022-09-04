@@ -47,7 +47,17 @@ class TopGGVote(commands.Cog):
                     sql = """ SELECT * FROM `discord_server` WHERE `serverid`=%s """
                     await cur.execute(sql, (guild_id))
                     result = await cur.fetchone()
-                    if result: return result
+                    if result:
+                        sql = """ SELECT * FROM `discord_feature_roles` WHERE `guild_id`=%s """
+                        await cur.execute(sql, guild_id)
+                        feature_roles = await cur.fetchall()
+                        list_roles_feature = None
+                        if feature_roles and len(feature_roles) > 0:
+                            list_roles_feature = {}
+                            for each in feature_roles:
+                                list_roles_feature[each['role_id']] = {'faucet_multipled_by': each['faucet_multipled_by'], 'guild_vote_multiplied_by': each['guild_vote_multiplied_by'], 'faucet_cut_time_percent': each['faucet_cut_time_percent']}
+                        result['feature_roles'] = list_roles_feature
+                        return result
         except Exception:
             traceback.print_exc(file=sys.stdout)
         return None
@@ -157,6 +167,21 @@ class TopGGVote(commands.Cog):
                                 guild = self.bot.get_guild(int(guild_id))
                                 get_guild = await self.guild_find_by_id(guild_id)
                                 if get_guild['vote_reward_amount'] and get_guild['vote_reward_amount'] > 0:
+                                    amount = get_guild['vote_reward_amount']
+                                    extra_amount = 0.0
+                                    previous_amount = 0.0
+                                    if get_guild['feature_roles'] is not None:
+                                        try:
+                                            member = guild.get_member(int(user_vote))
+                                            if member.roles and len(member.roles) > 0:
+                                                for r in member.roles:
+                                                    if str(r.id) in get_guild['feature_roles']:
+                                                        extra_amount = amount * get_guild['feature_roles'][str(r.id)]['guild_vote_multiplied_by'] - amount
+                                                        if extra_amount > previous_amount:
+                                                            previous_amount = extra_amount
+                                                extra_amount = previous_amount
+                                        except Exception:
+                                            traceback.print_exc(file=sys.stdout)
                                     # Tip
                                     coin_name = get_guild['vote_reward_coin']
                                     # Check balance of guild
@@ -178,7 +203,7 @@ class TopGGVote(commands.Cog):
                                     if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                                         wallet_address = user_from['paymentid']
                                     elif type_coin in ["XRP"]:
-                                        wallet_address = get_deposit['destination_tag']
+                                        wallet_address = user_from['destination_tag']
 
                                     height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                                     # height can be None
@@ -188,8 +213,7 @@ class TopGGVote(commands.Cog):
                                                                                            deposit_confirm_depth,
                                                                                            SERVER_BOT)
                                     total_balance = userdata_balance['adjust']
-                                    amount = get_guild['vote_reward_amount']
-                                    if total_balance < amount:
+                                    if total_balance < amount + extra_amount:
                                         # Alert guild owner
                                         guild_owner = self.bot.get_user(guild.owner.id)
                                         await guild_owner.send(
@@ -216,20 +240,23 @@ class TopGGVote(commands.Cog):
                                                     per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price][
                                                         'price_usd']
                                                 if per_unit and per_unit > 0:
-                                                    amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
+                                                    amount_in_usd = float(Decimal(per_unit) * Decimal(amount + extra_amount))
                                             tip = await store.sql_user_balance_mv_single(guild_id, user_vote, "TOPGG",
-                                                                                         "VOTE", amount, coin_name,
+                                                                                         "VOTE", amount + extra_amount, coin_name,
                                                                                          "GUILDVOTE", coin_decimal,
                                                                                          SERVER_BOT, contract,
                                                                                          amount_in_usd, None)
                                             if member is not None:
-                                                msg = f"Thank you for voting for guild `{guild.name}` at top.gg. You got a reward {num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}."
+                                                extra_msg = ""
+                                                if extra_amount > 0:
+                                                    extra_msg = " You have a guild's role that give you additional bonus **" + num_format_coin(extra_amount, coin_name, coin_decimal, False) + " " + coin_name + "**."
+                                                msg = f"Thank you for voting for guild `{guild.name}` at top.gg. You got a reward {num_format_coin(amount + extra_amount, coin_name, coin_decimal, False)} {coin_name}.{extra_msg}"
                                                 try:
                                                     await member.send(msg)
                                                     guild_owner = self.bot.get_user(guild.owner.id)
                                                     try:
                                                         await guild_owner.send(
-                                                            f'User `{user_vote}` voted for your guild {guild.name} at top.gg. They got a reward {num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}.')
+                                                            f'User `{user_vote}` voted for your guild {guild.name} at top.gg. They got a reward {num_format_coin(amount + extra_amount, coin_name, coin_decimal, False)} {coin_name}.')
                                                     except Exception:
                                                         pass
                                                     # Log channel if there is
@@ -246,6 +273,10 @@ class TopGGVote(commands.Cog):
                                                             embed.add_field(name="Reward", value="{} {}".format(
                                                                 num_format_coin(amount, coin_name, coin_decimal, False),
                                                                 coin_name), inline=True)
+                                                            if extra_amount > 0:
+                                                                embed.add_field(name="Extra Reward", value="{} {}".format(
+                                                                    num_format_coin(extra_amount, coin_name, coin_decimal, False),
+                                                                    coin_name), inline=True)
                                                             embed.add_field(name="Link",
                                                                             value="https://top.gg/servers/{}".format(
                                                                                 guild_id), inline=False)
@@ -350,7 +381,7 @@ class TopGGVote(commands.Cog):
                                                     if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                                                         wallet_address = user_from['paymentid']
                                                     elif type_coin in ["XRP"]:
-                                                        wallet_address = get_deposit['destination_tag']
+                                                        wallet_address = user_from['destination_tag']
 
                                                     height = self.wallet_api.get_block_height(type_coin, coin_name,
                                                                                               net_name)

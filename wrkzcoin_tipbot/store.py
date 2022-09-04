@@ -126,9 +126,19 @@ async def sql_info_by_server(server_id: str):
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 sql = """ SELECT * FROM `discord_server` WHERE `serverid`=%s LIMIT 1 """
-                await cur.execute(sql, (server_id))
+                await cur.execute(sql, server_id)
                 result = await cur.fetchone()
-                return result
+                if result:
+                    sql = """ SELECT * FROM `discord_feature_roles` WHERE `guild_id`=%s """
+                    await cur.execute(sql, server_id)
+                    feature_roles = await cur.fetchall()
+                    list_roles_feature = None
+                    if feature_roles and len(feature_roles) > 0:
+                        list_roles_feature = {}
+                        for each in feature_roles:
+                            list_roles_feature[each['role_id']] = {'faucet_multipled_by': each['faucet_multipled_by'], 'guild_vote_multiplied_by': each['guild_vote_multiplied_by'], 'faucet_cut_time_percent': each['faucet_cut_time_percent']}
+                    result['feature_roles'] = list_roles_feature
+                    return result
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     return None

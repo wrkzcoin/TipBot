@@ -482,8 +482,15 @@ class GShop(commands.Cog):
                 # Check if user's having that item and still not expired yet.
                 check_item = await self.check_exist_role_ordered(item_id, str(ctx.guild.id), str(ctx.author.id), 0)
                 if check_item is True:
-                    msg = f'{ctx.author.mention}, you still have item_id `{item_id}` and not expired yet!'
-                    await ctx.edit_original_message(content=msg)
+                    # check if user role removed for some reason.
+                    if role in member.roles:
+                        msg = f'{ctx.author.mention}, you still have item_id `{item_id}` and not expired yet!'
+                        await ctx.edit_original_message(content=msg)
+                    else:
+                        await member.add_roles(role)
+                        msg = f'{ctx.author.mention}, you still have item_id `{item_id}` and not expired yet but role is not with you. We added `{role.name}` back to you.'
+                        await ctx.edit_original_message(content=msg)
+                        await logchanbot(f"[GSHOP] added role `{role.name}` back to User `{str(ctx.author.id)}` Guild `{str(ctx.guild.id)} / {ctx.guild.name}`. Item `{item_id}` not expired yet.")
                     return
 
                 # Check if stocks already
@@ -535,10 +542,11 @@ class GShop(commands.Cog):
                             # Assign role
                             await member.add_roles(role)
                             duration = seconds_str_days(item_info['duration'])
-                            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, successfully purchase item `{item_id}` with role `{role.name}` for period {duration}!'
+                            cost = "{} {}".format(num_format_coin(amount, coin_name, coin_decimal, False), coin_name)
+                            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, successfully purchased item `{item_id}` for `{cost}` with role `{role.name}` for period {duration}!'
                             await ctx.edit_original_message(content=msg)
                             # Try DM guild owner
-                            await logchanbot(f"[GSHOP] user `{str(ctx.author.id)}` has successfully purchased `{item_id}` in Guild `{str(ctx.guild.id)} / {ctx.guild.name}`.")
+                            await logchanbot(f"[GSHOP] user `{str(ctx.author.id)}` has successfully purchased `{item_id}` in Guild `{str(ctx.guild.id)} / {ctx.guild.name}`. Guild's credit added: `{cost}`.")
                             try:
                                 await ctx.guild.owner.send(f"User `{str(ctx.author.id)}` just purchased role item `{item_id}` in Guild `{str(ctx.guild.id)} / {ctx.guild.name}` with amount `{amount} {coin_name}` credit to Guild's wallet.")
                             except Exception:

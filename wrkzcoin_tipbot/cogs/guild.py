@@ -2312,7 +2312,7 @@ class Guild(commands.Cog):
         if serverinfo['vote_reward_amount'] and serverinfo['vote_reward_coin'] and serverinfo['vote_reward_channel']:
             embed.add_field(name="Vote Reward {} {}".format(serverinfo['vote_reward_amount'], serverinfo['vote_reward_coin']), value="<#{}> | https://top.gg/servers/{}/vote".format(serverinfo['vote_reward_channel'], ctx.guild.id), inline=False)
         try:
-            if len(serverinfo['feature_roles'].keys()) > 0:
+            if serverinfo['feature_roles'] and len(serverinfo['feature_roles'].keys()) > 0:
                 list_featureroles = []
                 for k, v in serverinfo['feature_roles'].items():
                     faucet_str = '{:,.2f}'.format(v['faucet_multipled_by'])
@@ -2369,10 +2369,22 @@ class Guild(commands.Cog):
         await self.bot_log()
         msg = f'{ctx.author.mention}, checking your guild\'s info...'
         await ctx.response.send_message(msg)
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/featurerole list", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         try:
             serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
             if serverinfo and serverinfo['enable_featurerole'] != 1:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, **featurerole** is not enabled in this Guild."
+                await ctx.edit_original_message(content=msg)
+                return
+            elif serverinfo and serverinfo['feature_roles'] is None:
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, there is no role listed in **featurerole**."
                 await ctx.edit_original_message(content=msg)
                 return
             elif serverinfo and serverinfo['feature_roles'] is not None and len(serverinfo['feature_roles'].keys()) > 0:
@@ -2442,10 +2454,22 @@ class Guild(commands.Cog):
         await ctx.response.send_message(msg)
 
         try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/featurerole add", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+        try:
             prev_faucet = "1.0"
             prev_vote = "1.0"
             prev_cut = "0%"
 
+            if role.name == "@everyone" or role.name == "@here":
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, can't use this role."
+                await ctx.edit_original_message(content=msg)
+                await logchanbot(f"/featurerole User `{str(ctx.author.id)}` commanded by Guild `{str(ctx.guild.id)}` tried with role {role.name}.")
+                return
             serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
             if serverinfo and serverinfo['feature_roles'] is not None and str(role.id) in serverinfo['feature_roles']:
                 prev_faucet = '{:,.2f}'.format(serverinfo['feature_roles'][str(role.id)]['faucet_multipled_by'])
@@ -2532,6 +2556,14 @@ class Guild(commands.Cog):
         await self.bot_log()
         msg = f'{ctx.author.mention}, checking your guild\'s info...'
         await ctx.response.send_message(msg)
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/featurerole delete", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         try:
             check_exist = await self.guild_exist_featurerole(str(ctx.guild.id), str(role.id))
             if check_exist is True:

@@ -65,8 +65,12 @@ class CoinGecko(commands.Cog):
                         existing_coinlist = await self.get_coingecko_list_db()
                         insert_list = []
                         for each_item in decoded_data:
-                            if len(each_item['id']) > 0 and len(each_item['symbol']) > 0 and len(each_item['name']) > 0 and each_item['id'] not in existing_coinlist:
-                                insert_list.append((each_item['id'], each_item['symbol'], each_item['name']))
+                            try:
+                                if len(each_item['id']) > 0 and len(each_item['symbol']) > 0 and len(each_item['name']) > 0 and each_item['id'] not in existing_coinlist:
+                                    insert_list.append((each_item['id'], each_item['symbol'], each_item['name']))
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
+                                print("coingecko error id: {}".format(str(each_item)))
                         if len(insert_list) > 0:
                             try:
                                 await store.openConnection()

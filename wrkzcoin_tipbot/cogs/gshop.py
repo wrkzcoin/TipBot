@@ -70,6 +70,7 @@ class GShop(commands.Cog):
             get_active_orders = await self.get_guild_role_ordered_list(0)
             if len(get_active_orders) > 0:
                 for each_order in get_active_orders:
+                    await self.bot.wait_until_ready() # add one more check..
                     try:
                         guild = self.bot.get_guild(int(each_order['guild_id']))
                         if guild is None:
@@ -77,6 +78,10 @@ class GShop(commands.Cog):
                             continue
                         # re-check if TipBot has manage_roles permission
                         bot_user = guild.get_member(int(self.bot.user.id))
+                        if bot_user is None:
+                            await logchanbot(f"[GSHOP] can not fetch TipBot's user in Guild {str(each_order['guild_id'])}.")
+                            await asyncio.sleep(1.0)
+                            continue
                         bot_role_dict = dict(bot_user.guild_permissions)
                         if bot_role_dict['manage_roles'] is False:
                             await logchanbot(f"[GSHOP] TipBot doesn\'t has permission `manage_roles` in Guild `{str(each_order['guild_id'])}`.")

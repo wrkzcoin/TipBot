@@ -152,10 +152,10 @@ class Coininfo(commands.Cog):
             for k, v in network.items():
                 list_coins = ", ".join(v)
                 if k != "Others":
-                    embed.add_field(name=f"Network: {k}", value=f"```{list_coins}```", inline=False)
+                    embed.add_field(name=f"Network: {k}", value=f"{list_coins}", inline=False)
             # Add Other last
             list_coins = ", ".join(network['Others'])
-            embed.add_field(name="Other", value=f"```{list_coins}```", inline=False)
+            embed.add_field(name="Other", value=f"{list_coins}", inline=False)
             try:
                 bot_settings = await self.utils.get_bot_settings()
                 embed.add_field(name='Add Coin/Token', value=bot_settings['link_listing_form'], inline=False)

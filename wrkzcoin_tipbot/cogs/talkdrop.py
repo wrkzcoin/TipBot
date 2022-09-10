@@ -83,6 +83,7 @@ class TalkDrop(commands.Cog):
             get_list_talkdrop = await store.get_all_talkdrop("ONGOING")
             if len(get_list_talkdrop) > 0:
                 for each_talkdrop in get_list_talkdrop:
+                    await self.bot.wait_until_ready()
                     # print("Checkping talkdrop: {}".format(each_talkdrop['message_id']))
                     try:
                         attend_list = await store.get_talkdrop_collectors(each_talkdrop['message_id'])
@@ -128,12 +129,20 @@ class TalkDrop(commands.Cog):
                                             inline=True)
                             try:
                                 channel = self.bot.get_channel(int(each_talkdrop['channel_id']))
-                                _msg: disnake.Message = await channel.fetch_message(int(each_talkdrop['message_id']))
-                                await _msg.edit(content=None, embed=embed, view=None)
-                                # Update balance
-                                if len(all_name_list) > 0:
-                                    talkdrop = await store.sql_user_balance_mv_multiple(each_talkdrop['from_userid'], all_name_list, each_talkdrop['guild_id'], each_talkdrop['channel_id'], indiv_amount, coin_name, "TALKDROP", coin_decimal, SERVER_BOT, each_talkdrop['contract'], float(amount_in_usd), None)
-                                await store.update_talkdrop_id(each_talkdrop['message_id'], "COMPLETED" if len(all_name_list) > 0 else "NOCOLLECT")
+                                if channel:
+                                    try:
+                                        _msg: disnake.Message = await channel.fetch_message(int(each_talkdrop['message_id']))
+                                        await _msg.edit(content=None, embed=embed, view=None)
+                                        # Update balance
+                                        if len(all_name_list) > 0:
+                                            talkdrop = await store.sql_user_balance_mv_multiple(each_talkdrop['from_userid'], all_name_list, each_talkdrop['guild_id'], each_talkdrop['channel_id'], indiv_amount, coin_name, "TALKDROP", coin_decimal, SERVER_BOT, each_talkdrop['contract'], float(amount_in_usd), None)
+                                        await store.update_talkdrop_id(each_talkdrop['message_id'], "COMPLETED" if len(all_name_list) > 0 else "NOCOLLECT")
+                                    except disnake.errors.NotFound:
+                                        await logchanbot("talkdrop_check: can not find message ID: {} in channel {}.".format(each_talkdrop['message_id'], each_talkdrop['channel_id']))
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
+                                else:
+                                    await logchanbot("talkdrop_check: can not find channel {} for message ID: {}".format(each_talkdrop['channel_id'], each_talkdrop['message_id']))
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
                         else:
@@ -179,14 +188,21 @@ class TalkDrop(commands.Cog):
                                 channel = self.bot.get_channel(int(each_talkdrop['channel_id']))
                                 if channel is None:
                                     await logchanbot("talkdrop_check: can not find channel ID: {}".format(each_talkdrop['channel_id']))
-                                    await asyncio.sleep(5.0)
-                                _msg: disnake.Message = await channel.fetch_message(int(each_talkdrop['message_id']))
-                                if _msg is None:
-                                    await logchanbot("talkdrop_check: can not find message ID: {}".format(each_talkdrop['message_id']))
-                                    await asyncio.sleep(5.0)
+                                    await asyncio.sleep(2.0)
                                 else:
-                                    await _msg.edit(content=None, embed=embed)
-                                await asyncio.sleep(5.0)
+                                    try:
+                                        _msg: disnake.Message = await channel.fetch_message(int(each_talkdrop['message_id']))
+                                        await _msg.edit(content=None, embed=embed)
+                                    except disnake.errors.NotFound:
+                                        # add fail check
+                                        turn_off = False
+                                        if each_talkdrop['failed_check'] > 3:
+                                            turn_off = True
+                                        await store.update_talkdrop_failed(each_talkdrop['message_id'], turn_off)
+                                        await logchanbot("talkdrop_check: can not find message ID: {} in channel: {}".format(each_talkdrop['message_id'], each_talkdrop['channel_id']))
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
+                                await asyncio.sleep(2.0)
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
                     except Exception as e:

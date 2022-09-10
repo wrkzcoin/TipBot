@@ -82,6 +82,7 @@ class PartyDrop(commands.Cog):
             get_list_parties = await store.get_all_party("ONGOING")
             if len(get_list_parties) > 0:
                 for each_party in get_list_parties:
+                    await self.bot.wait_until_ready()
                     # print("Checkping party: {}".format(each_party['message_id']))
                     try:
                         get_message = await store.get_party_id(each_party['message_id'])
@@ -193,14 +194,20 @@ class PartyDrop(commands.Cog):
                                 channel = self.bot.get_channel(int(get_message['channel_id']))
                                 if channel is None:
                                     await logchanbot("party_check: can not find channel ID: {}".format(each_party['channel_id']))
-                                    await asyncio.sleep(5.0)
-                                _msg: disnake.Message = await channel.fetch_message(int(each_party['message_id']))
-                                if _msg is None:
-                                    await logchanbot("party_check: can not find message ID: {}".format(each_party['message_id']))
-                                    await asyncio.sleep(5.0)
-                                else:
+                                    await asyncio.sleep(2.0)
+                                try:
+                                    _msg: disnake.Message = await channel.fetch_message(int(each_party['message_id']))
                                     await _msg.edit(content=None, embed=embed)
-                                await asyncio.sleep(5.0)
+                                except disnake.errors.NotFound:
+                                    # add fail check
+                                    turn_off = False
+                                    if each_party['failed_check'] > 3:
+                                        turn_off = True
+                                    await store.update_party_failed(each_party['message_id'], turn_off)
+                                    await logchanbot("party_check: can not find message ID: {} in channel: {}".format(each_party['message_id'], each_party['channel_id']))
+                                except Exception:
+                                    traceback.print_exc(file=sys.stdout)
+                                await asyncio.sleep(2.0)
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
                     except Exception as e:

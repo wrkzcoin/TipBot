@@ -3712,6 +3712,34 @@ async def update_party_id_amount(message_id: str, added_amount: float):
         traceback.print_exc(file=sys.stdout)
     return False
 
+async def update_party_failed(message_id: str, turn_off: bool=False):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                if turn_off is False:
+                    sql = """ UPDATE `discord_partydrop_tmp` 
+                    SET `failed_check`=`failed_check`+1 
+                    WHERE `message_id`=%s 
+                    LIMIT 1
+                    """
+                    await cur.execute(sql, message_id)
+                    await conn.commit()
+                    return True
+                else:
+                    # Change status
+                    sql = """ UPDATE `discord_partydrop_tmp` 
+                    SET `status`=%s 
+                    WHERE `message_id`=%s 
+                    LIMIT 1
+                    """
+                    await cur.execute(sql, ("NOCOLLECT", message_id))
+                    await conn.commit()
+                    return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return False
 # End Partydrop
 
 # quickdrop
@@ -3949,6 +3977,33 @@ async def add_talkdrop(message_id: str, from_userid: str,
                                         collector_name, int(time.time())))
                 await conn.commit()
                 return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return False
+
+async def update_talkdrop_failed(message_id: str, turn_off: bool=False):
+    global pool
+    try:
+        await openConnection()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                if turn_off is False:
+                    sql = """ UPDATE `discord_talkdrop_tmp` 
+                    SET `failed_check`=`failed_check`+1 WHERE `message_id`=%s 
+                    LIMIT 1
+                    """
+                    await cur.execute(sql, message_id)
+                    await conn.commit()
+                    return True
+                else:
+                    # Change status
+                    sql = """ UPDATE `discord_talkdrop_tmp` 
+                    SET `status`=%s WHERE `message_id`=%s 
+                    LIMIT 1
+                    """
+                    await cur.execute(sql, ("NOCOLLECT", message_id))
+                    await conn.commit()
+                    return True
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     return False

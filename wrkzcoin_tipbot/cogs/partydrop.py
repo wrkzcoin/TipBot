@@ -51,8 +51,22 @@ class PartyButton(disnake.ui.View):
             traceback.print_exc(file=sys.stdout)
 
 
-    @disnake.ui.button(label="🎉 Join", style=ButtonStyle.green, custom_id="partydrop_tipbot")
+    @disnake.ui.button(label="Join (x1)", style=ButtonStyle.primary, custom_id="partydrop_tipbot")
     async def join_party(
+        self, button: disnake.ui.Button,
+        interaction: disnake.MessageInteraction
+    ):
+        pass
+
+    @disnake.ui.button(label="🎉 Join (x10)", style=ButtonStyle.green, custom_id="partydrop_tipbot_10x")
+    async def join_party_10x(
+        self, button: disnake.ui.Button,
+        interaction: disnake.MessageInteraction
+    ):
+        pass
+
+    @disnake.ui.button(label="🎉🎉 Join (x40) 🎉🎉", style=ButtonStyle.danger, custom_id="partydrop_tipbot_40x")
+    async def join_party_40x(
         self, button: disnake.ui.Button,
         interaction: disnake.MessageInteraction
     ):
@@ -102,7 +116,7 @@ class PartyDrop(commands.Cog):
                         if each_party['partydrop_time'] < int(time.time()):
                             embed = disnake.Embed(
                                 title=f"🎉 Party Drop Ends! 🎉",
-                                description="Each click will deduct from your TipBot's balance. Entrance cost: `{} {}`. Party Pot will be distributed equally to all attendees after completion.".format(num_format_coin(get_message['minimum_amount'], coin_name, coin_decimal, False), coin_name),
+                                description="Each click will deduct from your TipBot's balance. Minimum entrance cost: `{} {}`. Party Pot will be distributed equally to all attendees after completion.".format(num_format_coin(get_message['minimum_amount'], coin_name, coin_decimal, False), coin_name),
                                 timestamp=datetime.fromtimestamp(get_message['partydrop_time']))
                             embed.set_footer(text=f"Initiated by {owner_displayname} | /partydrop | Ended")
                             user_tos = []
@@ -150,7 +164,7 @@ class PartyDrop(commands.Cog):
                         else:
                             embed = disnake.Embed(
                                 title=f"🎉 Party Drop 🎉",
-                                description="Each click will deduct from your TipBot's balance. Entrance cost: `{} {}`. Party Pot will be distributed equally to all attendees after completion.".format(num_format_coin(get_message['minimum_amount'], coin_name, coin_decimal, False), coin_name),
+                                description="Each click will deduct from your TipBot's balance. Minimum entrance cost: `{} {}`. Party Pot will be distributed equally to all attendees after completion.".format(num_format_coin(get_message['minimum_amount'], coin_name, coin_decimal, False), coin_name),
                                 timestamp=datetime.fromtimestamp(get_message['partydrop_time']))
 
                             time_left = seconds_str_days(get_message['partydrop_time'] - int(time.time())) if int(time.time()) < get_message['partydrop_time'] else "00:00:00"
@@ -465,7 +479,7 @@ class PartyDrop(commands.Cog):
         owner_displayname = "{}#{}".format(ctx.author.name, ctx.author.discriminator)
         embed = disnake.Embed(
             title=f"🎉 Party Drop 🎉",
-            description="Each click will deduct from your TipBot's balance. Entrance cost: `{} {}`. Party Pot will be distributed equally to all attendees after completion.".format(num_format_coin(min_amount, coin_name, coin_decimal, False), coin_name),
+            description="Each click will deduct from your TipBot's balance. Minimum entrance cost: `{} {}`. Party Pot will be distributed equally to all attendees after completion.".format(num_format_coin(min_amount, coin_name, coin_decimal, False), coin_name),
             timestamp=datetime.fromtimestamp(party_end))
         embed.add_field(name='Started amount',
                         value=num_format_coin(sponsor_amount, coin_name, coin_decimal, False) + " " + coin_name,

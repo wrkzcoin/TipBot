@@ -796,7 +796,7 @@ class Events(commands.Cog):
                                 f"[ERROR TALKDROP] Failed to add in guild {inter.guild.name} / {inter.guild.id} by {inter.author.name}#{inter.author.discriminator}!")
             except Exception:
                 traceback.print_exc(file=sys.stdout)
-        elif inter.message.author == self.bot.user and inter.component.custom_id == "partydrop_tipbot":
+        elif inter.message.author == self.bot.user and inter.component.custom_id.startswith("partydrop_tipbot"):
             try:
                 await inter.response.send_message(content=f"Party ID {str(inter.message.id)}: checking...", ephemeral=True)
                 msg_id = inter.message.id
@@ -807,8 +807,20 @@ class Events(commands.Cog):
                         f"[ERROR PARTY] Failed to join a party in guild {inter.guild.name} / {inter.guild.id} by {inter.author.name}#{inter.author.discriminator}!")
                     return
                 else:
+                    if inter.author.id in self.bot.TX_IN_PROCESS:
+                        await inter.edit_original_message(content=f"Party ID {str(inter.message.id)}: you still have a tx in progress!")
+                        return
                     # Check balance
                     coin_name = get_message['token_name']
+                    amount = get_message['minimum_amount']
+                    new_amount = amount
+                    if inter.component.custom_id == "partydrop_tipbot_10x":
+                        new_amount = 10 * amount
+                    elif inter.component.custom_id == "partydrop_tipbot_40x":
+                        new_amount = 40 * amount
+                    elif inter.component.custom_id == "partydrop_tipbot_50x":
+                        new_amount = 50 * amount
+                        
                     type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
                     net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
                     coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
@@ -830,7 +842,7 @@ class Events(commands.Cog):
                     userdata_balance = await store.sql_user_balance_single(str(inter.author.id), coin_name, wallet_address, type_coin,
                                                                            height, deposit_confirm_depth, SERVER_BOT)
                     actual_balance = float(userdata_balance['adjust'])
-                    if actual_balance < get_message['minimum_amount']:
+                    if actual_balance < new_amount:
                         await inter.edit_original_message(content=f"Party ID {str(inter.message.id)}: not sufficient balance!")
                         return
 
@@ -841,13 +853,20 @@ class Events(commands.Cog):
                             
                     if get_message and int(get_message['from_userid']) == inter.author.id:
                         # If he initiates, add to sponsor
-                        increase = await store.update_party_id_amount(str(inter.message.id), get_message['minimum_amount'])
+                        if inter.author.id in self.bot.TX_IN_PROCESS:
+                            await inter.edit_original_message(content=f"Party ID {str(inter.message.id)}: you still have a tx in progress!")
+                            return
+                        else:
+                            self.bot.TX_IN_PROCESS.append(inter.author.id)
+                        increase = await store.update_party_id_amount(str(inter.message.id), new_amount)
+                        if inter.author.id in self.bot.TX_IN_PROCESS:
+                            self.bot.TX_IN_PROCESS.remove(inter.author.id)
                         if increase is True:
                             await inter.edit_original_message(content=f"Party ID {str(inter.message.id)}: Sucessfully increased amount!")
                             # Update view
                             embed = disnake.Embed(
                                 title=f"🎉 Party Drop 🎉",
-                                description="Each click will deduct from your TipBot's balance. Entrance cost: `{} {}`. Party Pot will be distributed equally to all attendees after completion.".format(num_format_coin(get_message['minimum_amount'], coin_name, coin_decimal, False), coin_name), timestamp=datetime.datetime.fromtimestamp(get_message['partydrop_time']))
+                                description="Each click will deduct from your TipBot's balance. Minimum entrance cost: `{} {}`. Party Pot will be distributed equally to all attendees after completion.".format(num_format_coin(amount, coin_name, coin_decimal, False), coin_name), timestamp=datetime.datetime.fromtimestamp(get_message['partydrop_time']))
                             time_left = seconds_str_days(get_message['partydrop_time'] - int(time.time())) if int(time.time()) < get_message['partydrop_time'] else "00:00:00"
                             embed.set_footer(text=f"Initiated by {owner_displayname} | /partydrop | Time left: {time_left}")
                             total_amount = get_message['init_amount']
@@ -883,15 +902,22 @@ class Events(commands.Cog):
                         # await inter.response.defer()
                         return
                     else:
+                        if inter.author.id in self.bot.TX_IN_PROCESS:
+                            await inter.edit_original_message(content=f"Party ID {str(inter.message.id)}: you still have a tx in progress!")
+                            return
+                        else:
+                            self.bot.TX_IN_PROCESS.append(inter.author.id)
                         attend = await store.attend_party(str(inter.message.id), str(inter.author.id), 
                                                           "{}#{}".format(inter.author.name, inter.author.discriminator),
-                                                          get_message['minimum_amount'], get_message['token_name'], get_message['token_decimal'])
+                                                          new_amount, get_message['token_name'], get_message['token_decimal'])
+                        if inter.author.id in self.bot.TX_IN_PROCESS:
+                            self.bot.TX_IN_PROCESS.remove(inter.author.id)
                         if attend is True:
                             await inter.edit_original_message(content=f"Party ID: {str(inter.message.id)}, joined/added successfully!")
                             # Update view
                             embed = disnake.Embed(
                                 title=f"🎉 Party Drop 🎉",
-                                description="Each click will deduct from your TipBot's balance. Entrance cost: `{} {}`. Party Pot will be distributed equally to all attendees after completion.".format(num_format_coin(get_message['minimum_amount'], coin_name, coin_decimal, False), coin_name), timestamp=datetime.datetime.fromtimestamp(get_message['partydrop_time']))
+                                description="Each click will deduct from your TipBot's balance. Minimum entrance cost: `{} {}`. Party Pot will be distributed equally to all attendees after completion.".format(num_format_coin(amount, coin_name, coin_decimal, False), coin_name), timestamp=datetime.datetime.fromtimestamp(get_message['partydrop_time']))
                             time_left = seconds_str_days(get_message['partydrop_time'] - int(time.time())) if int(time.time()) < get_message['partydrop_time'] else "00:00:00"
                             embed.set_footer(text=f"Initiated by {owner_displayname} | /partydrop | Time left: {time_left}")
                             attend_list = await store.get_party_attendant(str(inter.message.id))

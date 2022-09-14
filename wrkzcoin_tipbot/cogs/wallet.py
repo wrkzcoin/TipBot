@@ -469,6 +469,74 @@ async def vet_get_tx(url: str, tx_hash: str, timeout: int=16):
         traceback.print_exc(file=sys.stdout)
     return None
 
+async def vite_get_height(url: str):
+    try:
+        data = {"jsonrpc": "2.0", "id": 1, "method": "ledger_getSnapshotChainHeight", "params": []}
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=data, timeout=32) as response:
+                if response.status == 200:
+                    res_data = await response.read()
+                    res_data = res_data.decode('utf-8')
+                    decoded_data = json.loads(res_data)
+                    json_resp = decoded_data
+                    return int(json_resp['result'])
+                    # > {'jsonrpc': '2.0', 'id': 1, 'result': '22959761'}
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+async def vite_ledger_getAccountBlocksByAddress(url: str, address: str, last: int=50):
+    try:
+        data = {"jsonrpc": "2.0", "id": 1, "method": "ledger_getAccountBlocksByAddress", "params": [address, 0, last]}
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=data, timeout=32) as response:
+                res_data = await response.read()
+                res_data = res_data.decode('utf-8')
+                json_resp = json.loads(res_data)
+                return json_resp['result']
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return []
+
+async def vite_ledger_getAccountBlockByHash(url: str, tx_hash: str):
+    try:
+        data = {"jsonrpc": "2.0", "id": 1, "method": "ledger_getAccountBlockByHash", "params": [tx_hash]}
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=data, timeout=32) as response:
+                res_data = await response.read()
+                res_data = res_data.decode('utf-8')
+                json_resp = json.loads(res_data)
+                return json_resp['result']
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+async def vite_send_tx(url: str, from_address: str, to_address: str, amount: str, data, tokenId: str, priv):
+    try:
+        payload = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tx_sendTxWithPrivateKey",
+            "params": [{
+                "selfAddr": from_address,
+                "toAddr": to_address,
+                "tokenTypeId": tokenId,
+                "privateKey": priv,
+                "amount": amount,
+                "data": data,
+                "blockType": 2
+            }]
+        }
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=payload, timeout=32) as response:
+                res_data = await response.read()
+                res_data = res_data.decode('utf-8')
+                json_resp = json.loads(res_data)
+                return json_resp['result']
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
 
 class RPCException(Exception):
     def __init__(self, message):
@@ -1082,6 +1150,33 @@ class WalletAPI(commands.Cog):
                         AND `confirmed_depth`> %s AND `user_server`=%s AND `status`=%s), 0))
                         """
                         query_param += [user_id, token_name, 0, user_server, "CONFIRMED"]
+                    elif coin_family == "VITE":
+                        sql += """
+                        - (SELECT IFNULL((SELECT SUM(amount+withdraw_fee)  
+                        FROM `vite_external_tx` 
+                        WHERE `user_id`=%s AND `coin_name`=%s 
+                        AND `user_server`=%s AND `crediting`=%s), 0))
+                        """
+                        query_param += [user_id, token_name, user_server, "YES"]
+                        
+                        address_memo = address.split()
+                        if top_block is None:
+                            sql += """
+                            + (SELECT IFNULL((SELECT SUM(amount)  
+                                      FROM `vite_get_transfers` 
+                                      WHERE `address`=%s AND `memo`=%s 
+                                      AND `coin_name`=%s AND `amount`>0 
+                                      AND `time_insert`< %s AND `user_server`=%s), 0))
+                            """
+                            query_param += [address_memo[0], address_memo[2], token_name, nos_block, user_server]
+                        else:
+                            sql += """
+                            + (SELECT IFNULL((SELECT SUM(amount)  
+                            FROM `vite_get_transfers` 
+                            WHERE `address`=%s AND `memo`=%s AND `coin_name`=%s 
+                            AND `amount`>0 AND `height`<%s AND `user_server`=%s), 0))
+                            """
+                            query_param += [address_memo[0], address_memo[2], token_name, nos_block, user_server]
                     elif coin_family == "TRC-20":
                         sql += """
                         - (SELECT IFNULL((SELECT SUM(real_amount+real_external_fee)  
@@ -1251,7 +1346,7 @@ class WalletAPI(commands.Cog):
             if type_coin in ["ERC-20", "TRC-20"]:
                 height = int(redis_utils.redis_conn.get(
                     f'{config.redis.prefix + config.redis.daemon_height}{net_name}').decode())
-            elif type_coin in ["XLM", "NEO"]:
+            elif type_coin in ["XLM", "NEO", "VITE"]:
                 height = int(redis_utils.redis_conn.get(
                     f'{config.redis.prefix + config.redis.daemon_height}{type_coin}').decode())
             else:
@@ -1319,7 +1414,7 @@ class WalletAPI(commands.Cog):
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
                     return None
-            
+
         try:
             coin_name = coin.upper()
             user_server = user_server.upper()
@@ -1495,6 +1590,16 @@ class WalletAPI(commands.Cog):
             elif type_coin.upper() == "VET":
                 wallet = thor_wallet.newWallet()
                 balance_address = {'balance_wallet_address': wallet.address, 'key': wallet.priv.hex(), 'json_dump': str(vars(wallet))}
+            elif type_coin.upper() == "VITE":
+                # generate random memo
+                from string import ascii_uppercase
+                main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
+                memo = ''.join(random.choice(ascii_uppercase) for i in range(10))
+                balance_address = {}
+                balance_address['balance_wallet_address'] = "{} MEMO: {}".format(main_address, memo)
+                balance_address['address'] = main_address
+                balance_address['memo'] = memo
+                
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
@@ -1645,6 +1750,14 @@ class WalletAPI(commands.Cog):
                             await cur.execute(sql, (str(user_id), balance_address['balance_wallet_address'], int(time.time()), encrypt_string(balance_address['key']), encrypt_string(balance_address['json_dump']), int(time.time()), user_server, chat_id, is_discord_guild))
                             await conn.commit()
                             return {'balance_wallet_address': balance_address['balance_wallet_address']}
+                        elif type_coin.upper() == "VITE":
+                            sql = """ INSERT INTO `vite_user` (`coin_name`, `user_id`, `main_address`, `balance_wallet_address`, `memo`, `address_ts`, `user_server`, `chat_id`, `is_discord_guild`) 
+                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                            await cur.execute(sql, (
+                            coin_name, str(user_id), main_address, balance_address['balance_wallet_address'], memo,
+                            int(time.time()), user_server, chat_id, is_discord_guild))
+                            await conn.commit()
+                            return balance_address
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
         except Exception:
@@ -1767,6 +1880,12 @@ class WalletAPI(commands.Cog):
                         if result: return result
                     elif type_coin.upper() == "XLM":
                         sql = """ SELECT * FROM `xlm_user` WHERE `user_id`=%s 
+                                  AND `user_server`=%s LIMIT 1 """
+                        await cur.execute(sql, (str(user_id), user_server))
+                        result = await cur.fetchone()
+                        if result: return result
+                    elif type_coin.upper() == "VITE":
+                        sql = """ SELECT * FROM `vite_user` WHERE `user_id`=%s 
                                   AND `user_server`=%s LIMIT 1 """
                         await cur.execute(sql, (str(user_id), user_server))
                         result = await cur.fetchone()
@@ -3552,6 +3671,22 @@ class WalletAPI(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return None
 
+    async def insert_external_vite(self, user_from: str, amount: float, to_address: str, coin: str, contract: str, 
+                                   coin_decimal: int, withdraw_fee: float, tx_hash: str, contents: str, user_server: str = 'DISCORD'):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ INSERT INTO `vite_external_tx` (`coin_name`, `contract`, `user_id`, `amount`, `withdraw_fee`, `decimal`, `to_address`, `date`, `tx_hash`, `contents`, `user_server`) 
+                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                    await cur.execute(sql, (
+                    coin.upper(), contract, user_from, amount, withdraw_fee, coin_decimal, to_address,
+                    int(time.time()), tx_hash, contents, user_server))
+                    await conn.commit()
+                    return True
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return None
 
 class Wallet(commands.Cog):
     def __init__(self, bot):
@@ -3601,7 +3736,11 @@ class Wallet(commands.Cog):
         # XLM
         self.update_balance_xlm.start()
         self.notify_new_confirmed_xlm.start()
-        
+
+        # VITE
+        self.update_balance_vite.start()
+        self.notify_new_confirmed_vite.start()
+
         # XTZ
         self.update_balance_tezos.start()
         self.check_confirming_tezos.start()
@@ -5501,6 +5640,156 @@ class Wallet(commands.Cog):
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
 
+
+    @tasks.loop(seconds=60.0)
+    async def notify_new_confirmed_vite(self):
+        time_lap = 20  # seconds
+        await self.bot.wait_until_ready()
+        # Check if task recently run @bot_task_logs
+        task_name = "notify_new_confirmed_vite"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
+        await asyncio.sleep(time_lap)
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `vite_get_transfers` 
+                    WHERE `notified_confirmation`=%s AND `failed_notification`=%s AND `user_server`=%s
+                    """
+                    await cur.execute(sql, ("NO", "NO", SERVER_BOT))
+                    result = await cur.fetchall()
+                    if result and len(result) > 0:
+                        for eachTx in result:
+                            if eachTx['user_id']:
+                                if not eachTx['user_id'].isdigit():
+                                    continue
+                                try:
+                                    key = "notify_new_tx_{}_{}_{}".format(eachTx['coin_name'], eachTx['user_id'],
+                                                                          eachTx['txid'])
+                                    if self.ttlcache[key] == key:
+                                        continue
+                                    else:
+                                        self.ttlcache[key] = key
+                                except Exception:
+                                    pass
+                                member = self.bot.get_user(int(eachTx['user_id']))
+                                if member is not None:
+                                    coin_decimal = getattr(getattr(self.bot.coin_list, eachTx['coin_name']), "decimal")
+                                    msg = "You got a new deposit (it could take a few minutes to credit): ```" + "Coin: {}\nTx: {}\nAmount: {}".format(
+                                        eachTx['coin_name'], eachTx['txid'],
+                                        num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal,
+                                                        False)) + "```"
+                                    try:
+                                        await member.send(msg)
+                                        sql = """ UPDATE `vite_get_transfers` SET `notified_confirmation`=%s, `time_notified`=%s WHERE `txid`=%s LIMIT 1 """
+                                        await cur.execute(sql, ("YES", int(time.time()), eachTx['txid']))
+                                        await conn.commit()
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
+                                        sql = """ UPDATE `vite_get_transfers` SET `notified_confirmation`=%s, `failed_notification`=%s WHERE `txid`=%s LIMIT 1 """
+                                        await cur.execute(sql, ("NO", "YES", eachTx['txid']))
+                                        await conn.commit()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
+        await asyncio.sleep(time_lap)
+
+
+    @tasks.loop(seconds=120.0)
+    async def update_balance_vite(self):
+        async def get_tx_incoming_vite():
+            try:
+                await self.openConnection()
+                async with self.pool.acquire() as conn:
+                    async with conn.cursor() as cur:
+                        sql = """ SELECT * FROM `vite_get_transfers` """
+                        await cur.execute(sql,)
+                        result = await cur.fetchall()
+                        if result: return result
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+            return []
+
+        time_lap = 20  # seconds
+        await self.bot.wait_until_ready()
+        # Check if task recently run @bot_task_logs
+        task_name = "update_balance_vite"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
+        await asyncio.sleep(time_lap)
+        timeout = 30
+        # Get status
+        try:
+            coin_name = "VITE"
+            url = getattr(getattr(self.bot.coin_list, coin_name), "rpchost")
+            main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
+            height = await vite_get_height(url)
+            coin_family = getattr(getattr(self.bot.coin_list, coin_name), "type")
+            if height and height > 0:
+                try:
+                    redis_utils.redis_conn.set(
+                        f'{config.redis.prefix + config.redis.daemon_height}{coin_name}',
+                        str(height))
+                    # if there are other asset, set them all here
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+                vite_contract_list = await self.get_all_contracts("VITE", False)
+                vite_contracts = [each['contract'] for each in vite_contract_list]
+                # get txes
+                list_txes = await vite_ledger_getAccountBlocksByAddress(url, main_address, 50)
+                if list_txes and len(list_txes) > 0:
+                    get_incoming_tx = await get_tx_incoming_vite()
+                    list_existing_tx = []
+                    if len(get_incoming_tx) > 0:
+                        list_existing_tx = [each['txid'] for each in get_incoming_tx]
+                    for each_tx in list_txes:
+                        try:
+                            get_tx = await vite_ledger_getAccountBlockByHash(url, each_tx['fromBlockHash'])
+                            if get_tx is None:
+                                continue
+                            user_memo = None
+                            user_id = None
+                            if get_tx['toAddress'] == main_address and len(get_tx['data']) > 0 and int(get_tx['confirmations']) > 0 and get_tx['tokenInfo']['tokenId'] in vite_contracts and int(get_tx['amount']) > 0:
+                                contract = get_tx['tokenId']
+                                tx_hash = get_tx['hash']
+                                if tx_hash in list_existing_tx:
+                                    # Skip
+                                    continue
+                                height = get_tx['firstSnapshotHeight']
+                                for each_coin in self.bot.coin_name_list:
+                                    if contract == getattr(getattr(self.bot.coin_list, each_coin), "contract"):
+                                        coin_name = getattr(getattr(self.bot.coin_list, each_coin), "coin_name")
+                                        break
+                                coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+                                amount = int(get_tx['amount']) / 10**coin_decimal
+                                fee = int(get_tx['fee']) / 10**coin_decimal
+                                memo = base64.b64decode(get_tx['data']).decode()
+                                user_memo = await store.sql_get_userwallet_by_paymentid(
+                                    "{} MEMO: {}".format(main_address, memo.strip()),
+                                    coin_name, coin_family)
+                                if user_memo is not None and user_memo['user_id'] is not None:
+                                    user_id = user_memo['user_id']
+                                    if amount > 0:
+                                        await self.openConnection()
+                                        async with self.pool.acquire() as conn:
+                                            async with conn.cursor() as cur:
+                                                sql = """ INSERT INTO `vite_get_transfers` (`coin_name`, `user_id`, `txid`, `contents`,`height`, `amount`, `fee`, `decimal`, `address`, `memo`, `time_insert`, `user_server`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                                await cur.execute(sql, (
+                                                coin_name, user_id, tx_hash, json.dumps(get_tx), height, amount, fee,
+                                                coin_decimal, main_address, memo, int(time.time()),
+                                                user_memo['user_server'] if user_memo else None))
+                                                await conn.commit()
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
+        await asyncio.sleep(time_lap)
 
     @tasks.loop(seconds=60.0)
     async def notify_new_confirmed_xlm(self):
@@ -8877,7 +9166,7 @@ class Wallet(commands.Cog):
             if coin_name == "HNT":
                 address_memo = wallet_address.split()
                 qr_address = '{"type":"payment","address":"' + address_memo[0] + '","memo":"' + address_memo[2] + '"}'
-            elif type_coin == "XLM":
+            elif type_coin in ["XLM", "VITE"]:
                 address_memo = wallet_address.split()
                 qr_address = address_memo[0]
             try:
@@ -8891,7 +9180,7 @@ class Wallet(commands.Cog):
             plain_msg = '{}#{} Your deposit address for **{}**: ```{}```'.format(ctx.author.name,
                                                                                  ctx.author.discriminator, coin_name,
                                                                                  wallet_address)
-            if coin_name in ["HNT", "XLM"]:
+            if coin_name in ["HNT", "XLM", "VITE"]:
                 plain_msg = '{}#{} Your deposit address for **{}**: ```{}```'.format(ctx.author.name,
                                                                                      ctx.author.discriminator,
                                                                                      coin_name, wallet_address)
@@ -8929,7 +9218,7 @@ class Wallet(commands.Cog):
                                                                                                 'ascii')), inline=False)
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
-            elif type_coin == "XLM":
+            elif type_coin in ["XLM", "VITE"]:
                 try:
                     address_memo = wallet_address.split()
                     embed.add_field(name="MEMO", value="```{}```".format(address_memo[2]), inline=False)
@@ -9630,6 +9919,41 @@ class Wallet(commands.Cog):
                             await logchanbot(
                                 f'[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd}.')
                         self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+                    else:
+                        # reject and tell to wait
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
+                        await ctx.edit_original_message(content=msg)
+                        return
+                elif type_coin == "VITE":
+                    url = getattr(getattr(self.bot.coin_list, coin_name), "rpchost")
+                    main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
+                    coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+                    contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+                    key = decrypt_string(getattr(getattr(self.bot.coin_list, coin_name), "walletkey"))
+                    priv = base64.b64decode(key).hex()
+                    atomic_amount = str(int(amount*10**coin_decimal))
+                    if address == main_address:
+                        # can not send
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address `{address}`.'
+                        await ctx.edit_original_message(content=msg)
+                        return
+                    if ctx.author.id not in self.bot.TX_IN_PROCESS:
+                        self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                        send_tx = await vite_send_tx(url, main_address, address, atomic_amount, "", contract, priv)
+                        if send_tx:
+                            tx_hash = send_tx['hash']
+                            await self.wallet_api.insert_external_vite(str(ctx.author.id), amount, address, coin_name, contract, coin_decimal, NetFee, send_tx['hash'], json.dumps(send_tx), SERVER_BOT)
+                            fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                                num_format_coin(NetFee, coin_name, coin_decimal, False), coin_name)
+                            await logchanbot(
+                                f'A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} successfully withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd}.')
+                            msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{tx_hash}`{fee_txt}'
+                            await ctx.edit_original_message(content=msg)
+                        else:
+                            msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.'
+                            await ctx.edit_original_message(content=msg)
+                            await logchanbot(
+                                f'[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd}.')
                     else:
                         # reject and tell to wait
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'

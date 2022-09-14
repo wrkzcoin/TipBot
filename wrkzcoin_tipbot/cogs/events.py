@@ -869,7 +869,7 @@ class Events(commands.Cog):
                                 description="Each click will deduct from your TipBot's balance. Minimum entrance cost: `{} {}`. Party Pot will be distributed equally to all attendees after completion.".format(num_format_coin(amount, coin_name, coin_decimal, False), coin_name), timestamp=datetime.datetime.fromtimestamp(get_message['partydrop_time']))
                             time_left = seconds_str_days(get_message['partydrop_time'] - int(time.time())) if int(time.time()) < get_message['partydrop_time'] else "00:00:00"
                             embed.set_footer(text=f"Initiated by {owner_displayname} | /partydrop | Time left: {time_left}")
-                            total_amount = get_message['init_amount']
+                            total_amount = get_message['init_amount'] + new_amount
                             attend_list = await store.get_party_attendant(str(inter.message.id))
                             if len(attend_list) > 0:
                                 name_list = []

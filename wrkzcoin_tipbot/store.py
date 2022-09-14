@@ -517,6 +517,33 @@ async def sql_user_balance_single(user_id: str, coin: str, address: str, coin_fa
                     AND `confirmed_depth`> %s AND `user_server`=%s AND `status`=%s), 0))
                     """
                     query_param += [user_id, token_name, 0, user_server, "CONFIRMED"]
+                elif coin_family == "VITE":
+                    sql += """
+                    - (SELECT IFNULL((SELECT SUM(amount+withdraw_fee)  
+                    FROM `vite_external_tx` 
+                    WHERE `user_id`=%s AND `coin_name`=%s 
+                    AND `user_server`=%s AND `crediting`=%s), 0))
+                    """
+                    query_param += [user_id, token_name, user_server, "YES"]
+                    
+                    address_memo = address.split()
+                    if top_block is None:
+                        sql += """
+                        + (SELECT IFNULL((SELECT SUM(amount)  
+                                  FROM `vite_get_transfers` 
+                                  WHERE `address`=%s AND `memo`=%s 
+                                  AND `coin_name`=%s AND `amount`>0 
+                                  AND `time_insert`< %s AND `user_server`=%s), 0))
+                        """
+                        query_param += [address_memo[0], address_memo[2], token_name, nos_block, user_server]
+                    else:
+                        sql += """
+                        + (SELECT IFNULL((SELECT SUM(amount)  
+                        FROM `vite_get_transfers` 
+                        WHERE `address`=%s AND `memo`=%s AND `coin_name`=%s 
+                        AND `amount`>0 AND `height`<%s AND `user_server`=%s), 0))
+                        """
+                        query_param += [address_memo[0], address_memo[2], token_name, nos_block, user_server]
                 elif coin_family == "TRC-20":
                     sql += """
                     - (SELECT IFNULL((SELECT SUM(real_amount+real_external_fee)  
@@ -833,6 +860,12 @@ async def sql_get_userwallet_by_paymentid(paymentid: str, coin: str, coin_family
                 elif coin_family == "XLM":
                     # if doge family, address is paymentid
                     sql = """ SELECT * FROM `xlm_user` WHERE `main_address`=%s AND `memo`=%s LIMIT 1 """
+                    address_memo = paymentid.split()
+                    await cur.execute(sql, (address_memo[0], address_memo[2]))
+                    result = await cur.fetchone()
+                elif coin_family == "VITE":
+                    # if doge family, address is paymentid
+                    sql = """ SELECT * FROM `vite_user` WHERE `main_address`=%s AND `memo`=%s LIMIT 1 """
                     address_memo = paymentid.split()
                     await cur.execute(sql, (address_memo[0], address_memo[2]))
                     result = await cur.fetchone()

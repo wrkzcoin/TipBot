@@ -54,8 +54,14 @@ class GShop(commands.Cog):
         self.role_ordered_check.start()
 
     async def autocomplete_item_idx(ctx, string: str) -> List[str]:
-        get_guild_items = await external_get_guild_role_shop_items(str(ctx.guild.id))
-        return [each['item_id'] for each in get_guild_items if string.lower() in each['item_id'].lower()]
+        if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
+            get_guild_items = await external_get_guild_role_shop_items(str(ctx.guild.id))
+            if len(get_guild_items) > 0:
+                return [each['item_id'] for each in get_guild_items if string.lower() in each['item_id'].lower()]
+            else:
+                return ["There's no items..."]
+        return ["N/A in Direct Message!"]
+
 
     @tasks.loop(seconds=30.0)
     async def role_ordered_check(self):

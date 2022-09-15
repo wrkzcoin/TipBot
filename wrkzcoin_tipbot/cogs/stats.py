@@ -25,8 +25,13 @@ class Stats(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT COUNT(*) AS numb_tip, SUM(real_amount) AS amount_tip FROM `user_balance_mv` WHERE token_name=%s """
-                    await cur.execute(sql, (coin_name))
+                    sql = """ SELECT COUNT(*) AS numb_tip, 
+                    SUM(real_amount) AS amount_tip, 
+                    (SELECT `date` FROM `user_balance_mv` WHERE `token_name`=%s ORDER BY `id` DESC LIMIT 1) AS last_tip 
+                    FROM `user_balance_mv` 
+                    WHERE token_name=%s
+                    """
+                    await cur.execute(sql, (coin_name, coin_name))
                     result = await cur.fetchone()
                     if result:
                         return result
@@ -70,12 +75,17 @@ class Stats(commands.Cog):
                 explorer_link = getattr(getattr(self.bot.coin_list, coin_name), "explorer_link")
                 display_name = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
                 embed.add_field(name="WALLET **{}**".format(display_name),
-                                value="`{} {}`".format(simple_number(balance), coin_name), inline=False)
+                                value="`{} {}`".format(simple_number(balance), coin_name),
+                                inline=True)
                 try:
                     get_tip_stats = await self.get_coin_tipping_stats(coin_name)
                     if get_tip_stats:
                         embed.add_field(name="Tip/DB Records: {:,.0f}".format(get_tip_stats['numb_tip']),
-                                        value="`{}`".format(simple_number(get_tip_stats['amount_tip'])), inline=False)
+                                        value="`{}`".format(simple_number(get_tip_stats['amount_tip'])),
+                                        inline=True)
+                        embed.add_field(name="Last Tip",
+                                        value=disnake.utils.format_dt(get_tip_stats['last_tip'], style='R'),
+                                        inline=True)
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                 try:

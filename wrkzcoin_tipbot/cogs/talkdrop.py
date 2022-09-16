@@ -467,6 +467,8 @@ class TalkDrop(commands.Cog):
                 OptionChoice("last 30d", "2592000")
             ]),
             Option('end', 'end', OptionType.string, required=True, choices=[
+                OptionChoice("in 1h", "3600"),
+                OptionChoice("in 2h", "7200"),
                 OptionChoice("in 4h", "14400"),
                 OptionChoice("in 8h", "28800"),
                 OptionChoice("in 24h", "86400"),

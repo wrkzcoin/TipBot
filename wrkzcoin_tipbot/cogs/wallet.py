@@ -108,7 +108,7 @@ async def near_get_status(url: str, timeout: int=16):
         traceback.print_exc(file=sys.stdout)
     return None
 
-async def near_check_balance(url: str, account_id: str, timeout: int=8):
+async def near_check_balance(url: str, account_id: str, timeout: int=32):
     try:
         data = {
             "method": "query",
@@ -131,7 +131,7 @@ async def near_check_balance(url: str, account_id: str, timeout: int=8):
         traceback.print_exc(file=sys.stdout)
     return None
 
-async def near_check_balance_token(url: str, contract_id: str, account_id: str, timeout: int=8):
+async def near_check_balance_token(url: str, contract_id: str, account_id: str, timeout: int=32):
     try:
         decode_account = '{"account_id":"'+account_id+'"}'
         data = '{"method":"query","params":{"request_type": "call_function", "account_id": "'+contract_id+'","method_name": "ft_balance_of", "args_base64": "'+str(base64.b64encode(bytes(decode_account, encoding='utf-8')).decode()).replace("\n", "")+'", "finality": "final"},"id":1,"jsonrpc":"2.0"}'
@@ -845,10 +845,10 @@ class WalletAPI(commands.Cog):
             token_contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
             if coin_name == "NEAR":
-                get_balance = await near_check_balance(self.bot.erc_node_list['NEAR'], main_address, 8)
+                get_balance = await near_check_balance(self.bot.erc_node_list['NEAR'], main_address, 32)
                 balance = int(get_balance['amount']) / 10 ** coin_decimal
             else:
-                get_balance = await near_check_balance_token(self.bot.erc_node_list['NEAR'], token_contract, main_address, 8)
+                get_balance = await near_check_balance_token(self.bot.erc_node_list['NEAR'], token_contract, main_address, 32)
                 balance = get_balance / 10 ** coin_decimal
         elif type_coin == "XRP":
             main_address = getattr(getattr(self.bot.coin_list, "XRP"), "MainAddress")
@@ -2779,7 +2779,7 @@ class WalletAPI(commands.Cog):
                             return None
 
                         fetch_wallet = await fetch_wallet_status(
-                            result['wallet_rpc'] + "v2/wallets/" + result['wallet_id'], 8)
+                            result['wallet_rpc'] + "v2/wallets/" + result['wallet_id'], 32)
                         if fetch_wallet and fetch_wallet['state']['status'] == "ready":
                             # wallet is ready, "syncing" if it is syncing
                             async def send_tx(url: str, to_address: str, amount_atomic: int, timeout: int = 90):
@@ -2861,7 +2861,7 @@ class WalletAPI(commands.Cog):
                             return None
 
                         fetch_wallet = await fetch_wallet_status(
-                            result['wallet_rpc'] + "v2/wallets/" + result['wallet_id'], 8)
+                            result['wallet_rpc'] + "v2/wallets/" + result['wallet_id'], 32)
                         if fetch_wallet and fetch_wallet['state']['status'] == "ready":
                             # wallet is ready, "syncing" if it is syncing
                             async def estimate_fee_with_asset(url: str, to_address: str, asset_name: str,
@@ -5753,7 +5753,7 @@ class Wallet(commands.Cog):
                                 continue
                             user_memo = None
                             user_id = None
-                            if get_tx['toAddress'] == main_address and len(get_tx['data']) > 0 and int(get_tx['confirmations']) > 0 and get_tx['tokenInfo']['tokenId'] in vite_contracts and int(get_tx['amount']) > 0:
+                            if get_tx['toAddress'] == main_address and get_tx['data'] and len(get_tx['data']) > 0 and int(get_tx['confirmations']) > 0 and get_tx['tokenInfo']['tokenId'] in vite_contracts and int(get_tx['amount']) > 0:
                                 contract = get_tx['tokenId']
                                 tx_hash = get_tx['hash']
                                 if tx_hash in list_existing_tx:
@@ -6108,7 +6108,7 @@ class Wallet(commands.Cog):
         await asyncio.sleep(time_lap)
         # update Height
         try:
-            getEpochInfo = await fetch_getEpochInfo(self.bot.erc_node_list['SOL'], 8)
+            getEpochInfo = await fetch_getEpochInfo(self.bot.erc_node_list['SOL'], 32)
             if getEpochInfo:
                 height = getEpochInfo['absoluteSlot']
                 try:
@@ -7049,7 +7049,7 @@ class Wallet(commands.Cog):
                     for each_address in list_user_addresses:
                         try:
                             get_transfers = await self.wallet_api.call_neo('getnep17transfers', payload=[each_address['balance_wallet_address'], 0])
-                            if 'result' in get_transfers and 'received' in get_transfers['result'] and len(get_transfers['result']['received']) > 0:
+                            if 'result' in get_transfers and get_transfers['result'] and 'received' in get_transfers['result'] and get_transfers['result']['received'] and len(get_transfers['result']['received']) > 0:
                                 for each_received in get_transfers['result']['received']:
                                     if each_received['txhash'] not in list_received_in_db and \
                                         each_received['assethash'] in all_neo_asset_hash:
@@ -7592,7 +7592,7 @@ class Wallet(commands.Cog):
                             await asyncio.sleep(5.0)
                             continue
                         # check balance, skip if below minimum
-                        get_balance = await near_check_balance(self.bot.erc_node_list['NEAR'], each_address['balance_wallet_address'], 8)
+                        get_balance = await near_check_balance(self.bot.erc_node_list['NEAR'], each_address['balance_wallet_address'], 32)
                         if get_balance and (int(get_balance['amount']) - int(get_balance['locked']))/10**coin_decimal > real_min_deposit:
                             balance = (int(get_balance['amount']) - int(get_balance['locked']))/10**coin_decimal
                             atomic_amount = int(get_balance['amount']) - int(get_balance['locked']) - int(real_deposit_fee*10**coin_decimal)
@@ -7622,10 +7622,10 @@ class Wallet(commands.Cog):
                         min_gas_tx = getattr(getattr(self.bot.coin_list, each_contract['coin_name']), "min_gas_tx")
                         move_gas_amount = getattr(getattr(self.bot.coin_list, each_contract['coin_name']), "move_gas_amount")
                         for each_addr in list_user_addresses:
-                            get_token_balance = await near_check_balance_token(self.bot.erc_node_list['NEAR'], token_contract, each_addr['balance_wallet_address'], 8)
+                            get_token_balance = await near_check_balance_token(self.bot.erc_node_list['NEAR'], token_contract, each_addr['balance_wallet_address'], 32)
                             if get_token_balance and isinstance(get_token_balance, int) and (get_token_balance/10**coin_decimal) > real_min_deposit:
                                 # Check if has enough gas
-                                get_gas_balance = await near_check_balance(self.bot.erc_node_list['NEAR'], each_addr['balance_wallet_address'], 8)
+                                get_gas_balance = await near_check_balance(self.bot.erc_node_list['NEAR'], each_addr['balance_wallet_address'], 32)
                                 # fix coin_decimal 24 for gas
                                 if get_gas_balance and (int(get_gas_balance['amount']) - int(get_gas_balance['locked']))/10**24 >= min_gas_tx:
                                     # Move token
@@ -7667,7 +7667,7 @@ class Wallet(commands.Cog):
     async def check_confirming_near(self):
         time_lap = 5  # seconds
 
-        async def near_get_tx(url: str, tx_hash: str, timeout: int=8):
+        async def near_get_tx(url: str, tx_hash: str, timeout: int=32):
             headers = {
                 'Content-Type': 'application/json'
             }
@@ -7701,7 +7701,7 @@ class Wallet(commands.Cog):
             if len(pending_list) > 0:
                 for each_tx in pending_list:
                     try:
-                        check_tx = await near_get_tx(rpchost, each_tx['txn'], 8)
+                        check_tx = await near_get_tx(rpchost, each_tx['txn'], 32)
                         if check_tx is not None:
                             height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                             if height and height - check_tx['height'] > get_confirm_depth:
@@ -8472,7 +8472,7 @@ class Wallet(commands.Cog):
             if len(pending_list) > 0:
                 for each_tx in pending_list:
                     try:
-                        check_tx = await tezos_get_tx(rpchost, each_tx['txn'], 8)
+                        check_tx = await tezos_get_tx(rpchost, each_tx['txn'], 32)
                         if check_tx is not None:
                             height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                             if height and height - check_tx['level'] > get_confirm_depth:

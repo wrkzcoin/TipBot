@@ -2,6 +2,7 @@ import sys
 import traceback
 from typing import List
 import time
+from cachetools import TTLCache
 
 import disnake
 from disnake.ext import commands
@@ -9,6 +10,26 @@ from disnake.ext import commands
 import store
 from Bot import RowButtonRowCloseAnyMessage, logchanbot
 
+async def get_all_coin_names(
+    what: str,
+    value: int
+):
+    try:
+        await store.openConnection()
+        async with store.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT `coin_name` FROM `coin_settings` 
+                      WHERE `"""+what+"""`=%s
+                      LIMIT 25
+                      """
+                await cur.execute(sql, value)
+                result = await cur.fetchall()
+                if result:
+                    coin_list = [each["coin_name"] for each in result]
+                    return coin_list
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return ["N/A"]
 
 # Defines a simple paginator of buttons for the embed.
 class MenuPage(disnake.ui.View):
@@ -263,6 +284,7 @@ class Utils(commands.Cog):
                     self.bot.commandings.remove(each)
                     await logchanbot("[bot_commanded] removed: " +str(each))
         self.adding_commands = False
+
 
 def setup(bot):
     bot.add_cog(Utils(bot))

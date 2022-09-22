@@ -11433,6 +11433,287 @@ when using this bot and any funds lost, mis-used or stolen in using this bot. Ti
                     return
     # End of Swap
 
+    @commands.slash_command(
+        description="Recent tip or withdraw"
+    )
+    async def recent(self, ctx):
+        pass
+
+
+    @recent.sub_command(
+        name="withdraw",
+        usage="recent withdraw <token/coin>", 
+        description="Get list recent withdraws"
+    )
+    async def recent_withdraw(
+        self, 
+        ctx,
+        token: str
+    ):
+        coin_name = token.upper()
+        if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+            coin_name = self.bot.coin_alias_names[coin_name]
+
+        if not hasattr(self.bot.coin_list, coin_name):
+            msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
+            await ctx.response.send_message(msg)
+            return
+
+        await ctx.response.send_message(f"{EMOJI_HOURGLASS_NOT_DONE}, checking recent withdraw..", ephemeral=True)
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/recent withdraw", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        coin_family = getattr(getattr(self.bot.coin_list, coin_name), "type")
+        coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+        try:
+            get_recent = await store.recent_tips(str(ctx.author.id), SERVER_BOT, coin_name, coin_family, "withdraw", 10)
+            if len(get_recent) == 0:
+                await ctx.edit_original_message(content=f"{ctx.author.mention}, you do not have recent withdraw of {coin_name}.")
+            else:
+                explorer_tx_prefix = getattr(getattr(self.bot.coin_list, coin_name), "explorer_tx_prefix")
+                list_tx = []
+                for each in get_recent:
+                    if coin_family in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                        tx = each['tx_hash']
+                        amount = each['amount']
+                    elif coin_family == "BTC":
+                        tx = each['tx_hash']
+                        amount = each['amount']
+                    elif coin_family == "NEO":
+                        tx = each['tx_hash']
+                        amount = each['real_amount']
+                    elif coin_family == "NEAR":
+                        tx = each['tx_hash']
+                        amount = each['real_amount']
+                    elif coin_family == "NANO":
+                        tx = each['tx_hash']
+                        amount = each['amount']
+                    elif coin_family == "CHIA":
+                        tx = each['tx_hash']
+                        amount = each['amount']
+                    elif coin_family == "ERC-20":
+                        tx = each['txn']
+                        amount = each['real_amount']
+                    elif coin_family == "XTZ":
+                        tx = each['txn']
+                        amount = each['real_amount']
+                    elif coin_family == "ZIL":
+                        tx = each['txn']
+                        amount = each['real_amount']
+                    elif coin_family == "VET":
+                        tx = each['txn']
+                        amount = each['real_amount']
+                    elif coin_family == "VITE":
+                        tx = each['tx_hash']
+                        amount = each['amount']
+                    elif coin_family == "TRC-20":
+                        tx = each['txn']
+                        amount = each['real_amount']
+                    elif coin_family == "HNT":
+                        tx = each['tx_hash']
+                        amount = each['amount']
+                    elif coin_family == "XRP":
+                        tx = each['txid']
+                        amount = each['amount']
+                    elif coin_family == "XLM":
+                        tx = each['tx_hash']
+                        amount = each['amount']
+                    elif coin_family == "ADA":
+                        tx = each['hash_id']
+                        amount = each['real_amount']
+                    elif coin_family == "SOL" or coin_family == "SPL":
+                        tx = each['txn']
+                        amount = each['real_amount']
+                    if explorer_tx_prefix:
+                        tx = "[{}](<{}>)".format(tx[0:12]+"...", explorer_tx_prefix.replace("{tx_hash_here}", tx))
+                    list_tx.append("{} {} {}\n{}\n".format(num_format_coin(amount, coin_name, coin_decimal, False), coin_name, disnake.utils.format_dt(each['date'], style='R'), tx))
+                list_tx_str = "\n".join(list_tx)
+                await ctx.edit_original_message(content=f"{ctx.author.mention}, last withdraw of {coin_name}:\n{list_tx_str}")
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+
+    @recent.sub_command(
+        name="deposit",
+        usage="recent deposit <token/coin>", 
+        description="Get list recent withdraws"
+    )
+    async def recent_deposit(
+        self, 
+        ctx,
+        token: str
+    ):
+        coin_name = token.upper()
+        if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+            coin_name = self.bot.coin_alias_names[coin_name]
+
+        if not hasattr(self.bot.coin_list, coin_name):
+            msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
+            await ctx.response.send_message(msg)
+            return
+
+        await ctx.response.send_message(f"{EMOJI_HOURGLASS_NOT_DONE}, checking recent deposit..", ephemeral=True)
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/recent deposit", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        coin_family = getattr(getattr(self.bot.coin_list, coin_name), "type")
+        coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+        try:
+            get_recent = await store.recent_tips(str(ctx.author.id), SERVER_BOT, coin_name, coin_family, "deposit", 10)
+            if len(get_recent) == 0:
+                await ctx.edit_original_message(content=f"{ctx.author.mention}, you do not have recent deposit of {coin_name}.")
+            else:
+                explorer_tx_prefix = getattr(getattr(self.bot.coin_list, coin_name), "explorer_tx_prefix")
+                list_tx = []
+                for each in get_recent:
+                    time_insert = each['time_insert']
+                    if coin_family in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                        amount = each['amount']
+                        tx = each['txid']
+                    elif coin_family == "BTC":
+                        tx = each['txid']
+                        amount = each['amount']
+                    elif coin_family == "NEO":
+                        tx = each['txhash']
+                        amount = each['amount']
+                    elif coin_family == "NEAR":
+                        tx = each['txn']
+                        amount = each['amount'] - each['real_deposit_fee']
+                    elif coin_family == "NANO":
+                        tx = each['block']
+                        amount = each['amount']
+                    elif coin_family == "CHIA":
+                        tx = each['txid']
+                        amount = each['amount']
+                    elif coin_family == "ERC-20":
+                        tx = each['txn']
+                        amount = each['real_amount'] - each['real_deposit_fee']
+                    elif coin_family == "XTZ":
+                        tx = each['txn']
+                        amount = each['real_amount'] - each['real_deposit_fee']
+                    elif coin_family == "ZIL":
+                        tx = each['txn']
+                        amount = each['real_amount'] - each['real_deposit_fee']
+                    elif coin_family == "VET":
+                        tx = each['txn']
+                        amount = each['real_amount'] - each['real_deposit_fee']
+                    elif coin_family == "VITE":
+                        tx = each['txid']
+                        amount = each['amount']
+                    elif coin_family == "TRC-20":
+                        tx = each['txn']
+                        amount = each['real_amount'] - each['real_deposit_fee']
+                    elif coin_family == "HNT":
+                        tx = each['txid']
+                        amount = each['amount']
+                    elif coin_family == "XRP":
+                        tx = each['txid']
+                        amount = each['amount']
+                    elif coin_family == "XLM":
+                        tx = each['txid']
+                        amount = each['amount']
+                    elif coin_family == "ADA":
+                        tx = each['hash_id']
+                        amount = each['amount']
+                    elif coin_family == "SOL" or coin_family == "SPL":
+                        tx = each['txn']
+                        amount = each['real_amount'] - each['real_deposit_fee']
+
+                    if explorer_tx_prefix:
+                        tx = "[{}](<{}>)".format(tx[0:12]+"...", explorer_tx_prefix.replace("{tx_hash_here}", tx))
+                    list_tx.append("{} {} {}\n{}\n".format(num_format_coin(amount, coin_name, coin_decimal, False), coin_name, disnake.utils.format_dt(time_insert, style='R'), tx))
+                list_tx_str = "\n".join(list_tx)
+                await ctx.edit_original_message(content=f"{ctx.author.mention}, last deposit of {coin_name}:\n{list_tx_str}")
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+
+    @recent.sub_command(
+        name="receive",
+        usage="recent receive <token/coin>", 
+        description="Get list recent withdraws"
+    )
+    async def recent_receive(
+        self, 
+        ctx,
+        token: str
+    ):
+        coin_name = token.upper()
+        if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+            coin_name = self.bot.coin_alias_names[coin_name]
+
+        if not hasattr(self.bot.coin_list, coin_name):
+            msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
+            await ctx.response.send_message(msg)
+            return
+
+        await ctx.response.send_message(f"{EMOJI_HOURGLASS_NOT_DONE}, checking recent receive..", ephemeral=True)
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/recent receive", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        coin_family = getattr(getattr(self.bot.coin_list, coin_name), "type")
+        try:
+            get_recent = await store.recent_tips(str(ctx.author.id), SERVER_BOT, coin_name, coin_family, "receive", 20)
+            if len(get_recent) == 0:
+                await ctx.edit_original_message(content=f"{ctx.author.mention}, you do not received any {coin_name}.")
+            else:
+                list_tx = []
+                for each in get_recent:
+                    list_tx.append("From `{}` {}, amount {} {} - {}".format(each['from_userid'], disnake.utils.format_dt(each['date'], style='R'), num_format_coin(each['real_amount'], each['token_name'], each['token_decimal'], False), each['token_name'], each['type']))
+                list_tx_str = "\n\n".join(list_tx)
+                await ctx.edit_original_message(content=f"{ctx.author.mention}, last receive of {coin_name}:\n{list_tx_str}")
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+    @recent.sub_command(
+        name="expense",
+        usage="recent expense <token/coin>", 
+        description="Get list recent withdraws"
+    )
+    async def recent_expense(
+        self, 
+        ctx,
+        token: str
+    ):
+        coin_name = token.upper()
+        if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+            coin_name = self.bot.coin_alias_names[coin_name]
+
+        if not hasattr(self.bot.coin_list, coin_name):
+            msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
+            await ctx.response.send_message(msg)
+            return
+
+        await ctx.response.send_message(f"{EMOJI_HOURGLASS_NOT_DONE}, checking recent expense..", ephemeral=True)
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/recent expense", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        coin_family = getattr(getattr(self.bot.coin_list, coin_name), "type")
+        try:
+            get_recent = await store.recent_tips(str(ctx.author.id), SERVER_BOT, coin_name, coin_family, "expense", 20)
+            if len(get_recent) == 0:
+                await ctx.edit_original_message(content=f"{ctx.author.mention}, you do not received any {coin_name}.")
+            else:
+                list_tx = []
+                for each in get_recent:
+                    list_tx.append("To `{}` {}, amount {} {} - {}".format(each['to_userid'], disnake.utils.format_dt(each['date'], style='R'), num_format_coin(each['real_amount'], each['token_name'], each['token_decimal'], False), each['token_name'], each['type']))
+                list_tx_str = "\n\n".join(list_tx)
+                await ctx.edit_original_message(content=f"{ctx.author.mention}, last expense of {coin_name}:\n{list_tx_str}")
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
 
 def setup(bot):
     bot.add_cog(Wallet(bot))

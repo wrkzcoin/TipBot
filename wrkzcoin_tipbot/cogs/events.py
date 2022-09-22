@@ -593,7 +593,12 @@ class Events(commands.Cog):
             try:
                 await inter.message.delete()
             except Exception:
-                traceback.print_exc(file=sys.stdout)
+                # traceback.print_exc(file=sys.stdout)
+                try:
+                    _msg: disnake.Message = await inter.channel.fetch_message(inter.message.id)
+                    await _msg.delete()
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
         elif inter.message.author == self.bot.user and inter.component.custom_id == "close_message":
             get_message = await self.get_discord_bot_message(str(inter.message.id), "NO")
             if get_message and get_message['owner_id'] == str(inter.author.id):

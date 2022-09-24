@@ -22,7 +22,6 @@ class Pools(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         redis_utils.openRedis()
-        self.get_miningpool_coinlist.start()
         self.utils = Utils(self.bot)
 
     async def sql_miningpoolstat_fetch(self, coin_name: str, user_id: str, user_name: str, requested_date: int, \
@@ -497,6 +496,16 @@ class Pools(commands.Cog):
         coin_name = coin.upper()
         await self.get_pools(ctx, coin_name)
 
+
+    async def cog_load(self):
+        await self.bot.wait_until_ready()
+        self.get_miningpool_coinlist.start()
+
+
+    def cog_unload(self):
+        # Ensure the task is stopped when the cog is unloaded.
+        self.get_miningpool_coinlist.stop()
+        
 
 def setup(bot):
     bot.add_cog(Pools(bot))

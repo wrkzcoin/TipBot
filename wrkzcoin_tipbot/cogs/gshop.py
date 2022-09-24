@@ -51,7 +51,7 @@ class GShop(commands.Cog):
         self.max_ordered_min = 1
         self.max_ordered_max = 1000
         self.botLogChan = None
-        self.role_ordered_check.start()
+
 
     async def autocomplete_item_idx(ctx, string: str) -> List[str]:
         if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
@@ -805,6 +805,16 @@ class GShop(commands.Cog):
                 embed.add_field(name="{}".format(each['item_id']),
                                 value="Role: {}\nCost: {} {}\nAvailable/Total: {}/{}".format(each['role_name'], num_format_coin(each['real_amount'], each['token_name'], each['token_decimal'], False), each['token_name'], each['max_slot'] - each['already_ordered'], each['max_slot']), inline=False)
             await ctx.edit_original_message(content=None, embed=embed)
+
+
+    async def cog_load(self):
+        await self.bot.wait_until_ready()
+        self.role_ordered_check.start()
+
+
+    def cog_unload(self):
+        # Ensure the task is stopped when the cog is unloaded.
+        self.role_ordered_check.stop()
 
 
 def setup(bot):

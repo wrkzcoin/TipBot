@@ -126,7 +126,6 @@ class Paprika(commands.Cog):
         self.bot = bot
         self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
         redis_utils.openRedis()
-        self.fetch_paprika_pricelist.start()
         self.utils = Utils(self.bot)
 
         # enable trade-view
@@ -463,6 +462,16 @@ class Paprika(commands.Cog):
         range_choice: str = None
     ):
         get_pap = await self.paprika_coin(ctx, coin, range_choice)
+
+
+    async def cog_load(self):
+        await self.bot.wait_until_ready()
+        self.fetch_paprika_pricelist.start()
+
+
+    def cog_unload(self):
+        # Ensure the task is stopped when the cog is unloaded.
+        self.fetch_paprika_pricelist.stop()
 
 
 def setup(bot):

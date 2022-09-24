@@ -38,12 +38,9 @@ class Guild(commands.Cog):
         self.utils = Utils(self.bot)
         self.botLogChan = None
         self.enable_logchan = True
-        
+
         # /featurerole
         self.max_featurerole = 6
-
-        # Tasks
-        self.monitor_guild_reward_amount.start()
         
         # Raffle
         self.raffle_min_useronline = 5
@@ -52,13 +49,9 @@ class Guild(commands.Cog):
         self.raffle_3rd_winner = 0.19
         self.raffle_pot_fee = 0.01 # Total 100%
         
-        self.check_raffle_status.start()
         self.raffle_ongoing = []
         self.raffle_to_win = []
         self.raffle_opened_to_ongoing = []
-        
-        # activedrop/tiptalker task
-        self.check_tiptalker_drop.start()
 
         # DB
         self.pool = None
@@ -2481,7 +2474,7 @@ class Guild(commands.Cog):
                 await logchanbot(f"/featurerole User `{str(ctx.author.id)}` commanded by Guild `{str(ctx.guild.id)}` is not enable.")	
                 return
             # Check if reach max
-            if serverinfo and len(serverinfo['feature_roles'].keys()) >= self.max_featurerole:
+            if serverinfo and serverinfo['feature_roles'] and len(serverinfo['feature_roles'].keys()) >= self.max_featurerole:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, reach maximum /featurerole"
                 await ctx.edit_original_message(content=msg)
                 await logchanbot(f"/featurerole User `{str(ctx.author.id)}` commanded by Guild `{str(ctx.guild.id)}` but reached `max_featurerole`.")
@@ -3153,6 +3146,20 @@ class Guild(commands.Cog):
                 embed.add_field(name=f"{r.name}", value=f"{nmembers:,}")
         embed.add_field(name="Total Roles", value=str(total_role), inline=False)
         await ctx.response.send_message(embed=embed)
+
+
+    async def cog_load(self):
+        await self.bot.wait_until_ready()
+        self.monitor_guild_reward_amount.start()
+        self.check_raffle_status.start()
+        self.check_tiptalker_drop.start()
+
+
+    def cog_unload(self):
+        # Ensure the task is stopped when the cog is unloaded.
+        self.monitor_guild_reward_amount.stop()
+        self.check_raffle_status.stop()
+        self.check_tiptalker_drop.stop()
 
 
 def setup(bot):

@@ -24,14 +24,8 @@ class Events(commands.Cog):
         self.utils = Utils(self.bot)
 
         self.ttlcache = TTLCache(maxsize=500, ttl=60.0)
-        self.process_saving_message.start()
         self.max_saving_message = 100
         self.is_saving_message = False
-
-        self.reload_coin_paprika.start()
-        self.reload_coingecko.start()
-
-        self.update_discord_stats.start()
 
         self.botLogChan = None
         self.message_id_list = []
@@ -1411,6 +1405,22 @@ class Events(commands.Cog):
         add_server_info = await store.sql_updateinfo_by_server(str(guild.id), "status", "REMOVED")
         await self.botLogChan.send(
             f'Bot was removed from guild {guild.name} / {guild.id}. Total guilds: {len(self.bot.guilds)}')
+
+
+    async def cog_load(self):
+        await self.bot.wait_until_ready()
+        self.process_saving_message.start()
+        self.reload_coin_paprika.start()
+        self.reload_coingecko.start()
+        self.update_discord_stats.start()
+
+
+    def cog_unload(self):
+        # Ensure the task is stopped when the cog is unloaded.
+        self.process_saving_message.stop()
+        self.reload_coin_paprika.stop()
+        self.reload_coingecko.stop()
+        self.update_discord_stats.stop()
 
 
 def setup(bot):

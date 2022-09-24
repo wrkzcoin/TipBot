@@ -22,45 +22,8 @@ class EthScan(commands.Cog):
         self.bot = bot
         redis_utils.openRedis()
         self.utils = Utils(self.bot)
-
         self.blockTime = {}
-
         self.allow_start_ethscan = False
-
-        # BSC best node
-        self.fetch_bsc_node.start()
-        # SOL best node
-        self.fetch_sol_node.start()
-        # TRX best node
-        self.fetch_trx_node.start()
-        # MATIC best node
-        self.fetch_matic_node.start()
-        # CELO best node
-        self.fetch_celo_node.start()
-        # FTM best node
-        self.fetch_ftm_node.start()
-        # AVAX best node
-        self.fetch_avax_node.start()
-        # XDAI best node
-        self.fetch_xdai_node.start()
-        # ONE best node
-        self.fetch_one_node.start()
-        # XTZ best node
-        self.fetch_tezos_node.start()
-        # NEAR best node
-        self.fetch_near_node.start()
-        # XRP best node
-        self.fetch_xrp_node.start()
-        # ZIL best node
-        self.fetch_zil_node.start()
-        # VET best node
-        self.fetch_vet_node.start()
-        # NOVA best node
-        self.fetch_nova_node.start()
-
-        self.pull_trc20_scanning.start()
-        self.pull_erc20_scanning.start()
-        self.remove_all_tx_ethscan.start()
 
     @tasks.loop(seconds=10.0)
     async def fetch_trx_node(self):
@@ -861,6 +824,82 @@ class EthScan(commands.Cog):
                 traceback.print_exc(file=sys.stdout)
         except Exception:
             traceback.print_exc(file=sys.stdout)
+
+
+    async def cog_load(self):
+        await self.bot.wait_until_ready()
+        # BSC best node
+        self.fetch_bsc_node.start()
+        # SOL best node
+        self.fetch_sol_node.start()
+        # TRX best node
+        self.fetch_trx_node.start()
+        # MATIC best node
+        self.fetch_matic_node.start()
+        # CELO best node
+        self.fetch_celo_node.start()
+        # FTM best node
+        self.fetch_ftm_node.start()
+        # AVAX best node
+        self.fetch_avax_node.start()
+        # XDAI best node
+        self.fetch_xdai_node.start()
+        # ONE best node
+        self.fetch_one_node.start()
+        # XTZ best node
+        self.fetch_tezos_node.start()
+        # NEAR best node
+        self.fetch_near_node.start()
+        # XRP best node
+        self.fetch_xrp_node.start()
+        # ZIL best node
+        self.fetch_zil_node.start()
+        # VET best node
+        self.fetch_vet_node.start()
+        # NOVA best node
+        self.fetch_nova_node.start()
+
+        self.pull_trc20_scanning.start()
+        self.pull_erc20_scanning.start()
+        self.remove_all_tx_ethscan.start()
+
+
+    def cog_unload(self):
+        # Ensure the task is stopped when the cog is unloaded.
+        # BSC best node
+        self.fetch_bsc_node.stop()
+        # SOL best node
+        self.fetch_sol_node.stop()
+        # TRX best node
+        self.fetch_trx_node.stop()
+        # MATIC best node
+        self.fetch_matic_node.stop()
+        # CELO best node
+        self.fetch_celo_node.stop()
+        # FTM best node
+        self.fetch_ftm_node.stop()
+        # AVAX best node
+        self.fetch_avax_node.stop()
+        # XDAI best node
+        self.fetch_xdai_node.stop()
+        # ONE best node
+        self.fetch_one_node.stop()
+        # XTZ best node
+        self.fetch_tezos_node.stop()
+        # NEAR best node
+        self.fetch_near_node.stop()
+        # XRP best node
+        self.fetch_xrp_node.stop()
+        # ZIL best node
+        self.fetch_zil_node.stop()
+        # VET best node
+        self.fetch_vet_node.stop()
+        # NOVA best node
+        self.fetch_nova_node.stop()
+
+        self.pull_trc20_scanning.stop()
+        self.pull_erc20_scanning.stop()
+        self.remove_all_tx_ethscan.stop()
 
 
 def setup(bot):

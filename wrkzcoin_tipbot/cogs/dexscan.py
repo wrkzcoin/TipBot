@@ -19,7 +19,7 @@ class DexScan(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.utils = Utils(self.bot)
-        self.dex_price_loop.start()
+
 
     async def dex_get_list(self):
         try:
@@ -126,6 +126,16 @@ class DexScan(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
+
+
+    async def cog_load(self):
+        await self.bot.wait_until_ready()
+        self.dex_price_loop.start()
+
+
+    def cog_unload(self):
+        # Ensure the task is stopped when the cog is unloaded.
+        self.dex_price_loop.stop()
 
 
 def setup(bot):

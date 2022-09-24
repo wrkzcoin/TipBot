@@ -56,7 +56,6 @@ class Admin(commands.Cog):
         self.local_db_extra = None
         self.pool_local_db_extra = None
         self.old_message_data_age = 60 * 24 * 3600  # max. 2 month
-        self.auto_purge_old_message.start()
 
 
     async def openConnection_extra(self):
@@ -2032,6 +2031,15 @@ class Admin(commands.Cog):
     ):
         decrypt = decrypt_string(text)
         if decrypt: return await ctx.reply(f"```{decrypt}```", view=RowButtonRowCloseAnyMessage())
+
+
+    async def cog_load(self):
+        await self.bot.wait_until_ready()
+        self.auto_purge_old_message.start()
+
+    def cog_unload(self):
+        # Ensure the task is stopped when the cog is unloaded.
+        self.auto_purge_old_message.stop()
 
 
 def setup(bot):

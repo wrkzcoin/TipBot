@@ -34,10 +34,6 @@ class Twitter(commands.Cog):
 
         # twitter_auth
         self.twitter_auth = None
-        # twitter fetch latest tweet
-        self.fetch_latest_tweets.start()
-        # post to channel
-        self.post_tweets.start()
 
         # enable_twitter_tip
         self.enable_twitter_tip = 1
@@ -1750,6 +1746,21 @@ class Twitter(commands.Cog):
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(f"[ERROR] /twitter balances with {ctx.author.name}#{ctx.author.discriminator}")
 
+
+    async def cog_load(self):
+        await self.bot.wait_until_ready()
+        # twitter fetch latest tweet
+        self.fetch_latest_tweets.start()
+        # post to channel
+        self.post_tweets.start()
+
+
+    def cog_unload(self):
+        # Ensure the task is stopped when the cog is unloaded.
+        # twitter fetch latest tweet
+        self.fetch_latest_tweets.stop()
+        # post to channel
+        self.post_tweets.stop()
 
 def setup(bot):
     bot.add_cog(Twitter(bot))

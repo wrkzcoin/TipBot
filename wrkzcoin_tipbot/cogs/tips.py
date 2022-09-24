@@ -303,7 +303,6 @@ class Tips(commands.Cog):
         self.bot = bot
         self.wallet_api = WalletAPI(self.bot)
         self.utils = Utils(self.bot)
-        self.freetip_check.start()
         self.freetip_duration_min = 5
         self.freetip_duration_max = 600
 
@@ -2812,6 +2811,16 @@ class Tips(commands.Cog):
                     traceback.print_exc(file=sys.stdout)
 
     # End of Tip Normal
+
+
+    async def cog_load(self):
+        await self.bot.wait_until_ready()
+        self.freetip_check.start()
+
+
+    def cog_unload(self):
+        # Ensure the task is stopped when the cog is unloaded.
+        self.freetip_check.stop()
 
 
 def setup(bot):

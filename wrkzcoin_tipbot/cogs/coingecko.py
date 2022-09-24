@@ -20,9 +20,6 @@ class CoinGecko(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
-
-        self.fetch_gecko_coinlist.start()
-        self.fetch_gecko_pricelist.start()
         self.utils = Utils(self.bot)
 
 
@@ -158,6 +155,19 @@ class CoinGecko(commands.Cog):
     async def bot_log(self):
         if self.botLogChan is None:
             self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
+
+
+    async def cog_load(self):
+        await self.bot.wait_until_ready()
+        self.fetch_gecko_coinlist.start()
+        self.fetch_gecko_pricelist.start()
+
+
+    def cog_unload(self):
+        # Ensure the task is stopped when the cog is unloaded.
+        self.fetch_gecko_coinlist.stop()
+        self.fetch_gecko_pricelist.stop()
+
 
 def setup(bot):
     bot.add_cog(CoinGecko(bot))

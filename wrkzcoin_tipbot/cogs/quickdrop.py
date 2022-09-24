@@ -66,7 +66,6 @@ class QuickDrop(commands.Cog):
         self.max_ongoing_by_guild = 5
         self.wallet_api = WalletAPI(self.bot)
         self.utils = Utils(self.bot)
-        self.quickdrop_check.start()
 
 
     @tasks.loop(seconds=10.0)
@@ -359,6 +358,16 @@ class QuickDrop(commands.Cog):
         token: str
     ):
         await self.async_quickdrop(ctx, amount, token)
+
+
+    async def cog_load(self):
+        await self.bot.wait_until_ready()
+        self.quickdrop_check.start()
+
+
+    def cog_unload(self):
+        # Ensure the task is stopped when the cog is unloaded.
+        self.quickdrop_check.stop()
 
 
 def setup(bot):

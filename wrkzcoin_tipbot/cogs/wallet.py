@@ -3698,93 +3698,12 @@ class Wallet(commands.Cog):
         self.botLogChan = None
 
         redis_utils.openRedis()
-        self.notify_new_tx_user_noconfirmation.start()
-        self.notify_new_tx_user.start()
-
-        # nano, banano
-        self.update_balance_nano.start()
-        # TRTL-API
-        self.update_balance_trtl_api.start()
-        # TRTL-SERVICE
-        self.update_balance_trtl_service.start()
-        # XMR
-        self.update_balance_xmr.start()
-        # BTC
-        self.update_balance_btc.start()
-
-        # NEO
-        self.update_balance_neo.start()
-        self.notify_new_confirmed_neo.start()
-
-        # CHIA
-        self.update_balance_chia.start()
-        # ERC-20
-        self.update_balance_erc20.start()
-        self.unlocked_move_pending_erc20.start()
-        self.update_balance_address_history_erc20.start()
-        self.notify_new_confirmed_spendable_erc20.start()
-
-        # TRC-20
-        self.update_balance_trc20.start()
-        self.unlocked_move_pending_trc20.start()
-        self.notify_new_confirmed_spendable_trc20.start()
-
-        # HNT
-        self.update_balance_hnt.start()
-        self.notify_new_confirmed_hnt.start()
-
-        # XLM
-        self.update_balance_xlm.start()
-        self.notify_new_confirmed_xlm.start()
-
-        # VITE
-        self.update_balance_vite.start()
-        self.notify_new_confirmed_vite.start()
-
-        # XTZ
-        self.update_balance_tezos.start()
-        self.check_confirming_tezos.start()
-        self.notify_new_confirmed_tezos.start()
-
-        # ZIL
-        self.update_balance_zil.start()
-        self.check_confirming_zil.start()
-        self.notify_new_confirmed_zil.start()
-
-        # VET
-        self.update_balance_vet.start()
-        self.check_confirming_vet.start()
-        self.notify_new_confirmed_vet.start()
-
-        # NEAR
-        self.update_balance_near.start()
-        self.check_confirming_near.start()
-        self.notify_new_confirmed_near.start()
-
-        # XRP
-        self.update_balance_xrp.start()
-        self.notify_new_confirmed_xrp.start()
 
         # Swap
         self.swap_pair = {"WRKZ-BWRKZ": 1, "BWRKZ-WRKZ": 1, "WRKZ-XWRKZ": 1, "XWRKZ-WRKZ": 1, "DEGO-WDEGO": 0.001,
                           "WDEGO-DEGO": 1000, "PGO-WPGO": 1, "WPGO-PGO": 1, "CDS-PCDS": 1, "PCDS-CDS": 1}
         # Donate
         self.donate_to = 386761001808166912  # pluton#8888
-
-        # update ada wallet sync status
-        self.update_ada_wallets_sync.start()
-        self.notify_new_confirmed_ada.start()
-
-        # update sol wallet sync status
-        self.update_sol_wallets_sync.start()
-        self.unlocked_move_pending_sol.start()
-
-        # monitoring reward for RT
-        self.monitoring_rt_rewards.start()
-
-        # Monitoring Tweet command
-        self.monitoring_tweet_command.start()
-        self.monitoring_tweet_mentioned_command.start()
 
         # DB
         self.pool = None
@@ -5590,48 +5509,53 @@ class Wallet(commands.Cog):
                     if len(get_incoming_tx) > 0:
                         list_existing_tx = [each['txid'] for each in get_incoming_tx]
                     for each_tx in incoming:
-                        tx_hash = each_tx['hash']
-                        if tx_hash in list_existing_tx:
-                            # Go to next
-                            continue
-                        amount = 0.0
-                        url_tx = getattr(getattr(self.bot.coin_list, coin_name), "rpchost") + "transactions/" + tx_hash
-                        fetch_tx = await fetch_api(url_tx, timeout)
-                        if 'data' in fetch_tx:
-                            height = fetch_tx['data']['height']
-                            blockTime = fetch_tx['data']['time']
-                            fee = fetch_tx['data']['fee'] / 10 ** coin_decimal
-                            payer = fetch_tx['data']['payer']
-                            if 'payer' in fetch_tx['data'] and fetch_tx['data'] == main_address:
+                        try:
+                            tx_hash = each_tx['hash']
+                            if tx_hash in list_existing_tx:
+                                # Go to next
                                 continue
-                            if 'payments' in fetch_tx['data'] and len(fetch_tx['data']['payments']) > 0:
-                                for each_payment in fetch_tx['data']['payments']:
-                                    if each_payment['payee'] == main_address:
-                                        amount = each_payment['amount'] / 10 ** coin_decimal
-                                        memo = base64.b64decode(each_payment['memo']).decode()
-                                        try:
-                                            coin_family = "HNT"
-                                            user_memo = None
-                                            user_id = None
-                                            if len(memo) == 8:
-                                                user_memo = await store.sql_get_userwallet_by_paymentid(
-                                                    "{} MEMO: {}".format(main_address, memo), coin_name, coin_family)
-                                                if user_memo is not None and user_memo['user_id']:
-                                                    user_id = user_memo['user_id']
-                                            await self.openConnection()
-                                            async with self.pool.acquire() as conn:
-                                                async with conn.cursor() as cur:
-                                                    sql = """ INSERT INTO `hnt_get_transfers` (`coin_name`, `user_id`, `txid`, `height`, `timestamp`, 
-                                                              `amount`, `fee`, `decimal`, `address`, `memo`, 
-                                                              `payer`, `time_insert`, `user_server`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                                                    await cur.execute(sql, (
-                                                    coin_name, user_id, tx_hash, height, blockTime, amount, fee,
-                                                    coin_decimal, each_payment['payee'], memo, payer, int(time.time()),
-                                                    user_memo['user_server'] if user_memo else None))
-                                                    await conn.commit()
-                                        except Exception:
-                                            traceback.print_exc(file=sys.stdout)
-                                            await logchanbot("wallet update_balance_hnt " + str(traceback.format_exc()))
+                            amount = 0.0
+                            url_tx = getattr(getattr(self.bot.coin_list, coin_name), "rpchost") + "transactions/" + tx_hash
+                            fetch_tx = await fetch_api(url_tx, timeout)
+                            if fetch_tx and 'data' in fetch_tx:
+                                height = fetch_tx['data']['height']
+                                blockTime = fetch_tx['data']['time']
+                                fee = fetch_tx['data']['fee'] / 10 ** coin_decimal if 'fee' in fetch_tx['data'] else None
+                                if fee is None:
+                                    continue
+                                payer = fetch_tx['data']['payer']
+                                if 'payer' in fetch_tx['data'] and fetch_tx['data'] == main_address:
+                                    continue
+                                if 'payments' in fetch_tx['data'] and len(fetch_tx['data']['payments']) > 0:
+                                    for each_payment in fetch_tx['data']['payments']:
+                                        if each_payment['payee'] == main_address:
+                                            amount = each_payment['amount'] / 10 ** coin_decimal
+                                            memo = base64.b64decode(each_payment['memo']).decode()
+                                            try:
+                                                coin_family = "HNT"
+                                                user_memo = None
+                                                user_id = None
+                                                if len(memo) == 8:
+                                                    user_memo = await store.sql_get_userwallet_by_paymentid(
+                                                        "{} MEMO: {}".format(main_address, memo), coin_name, coin_family)
+                                                    if user_memo is not None and user_memo['user_id']:
+                                                        user_id = user_memo['user_id']
+                                                await self.openConnection()
+                                                async with self.pool.acquire() as conn:
+                                                    async with conn.cursor() as cur:
+                                                        sql = """ INSERT INTO `hnt_get_transfers` (`coin_name`, `user_id`, `txid`, `height`, `timestamp`, 
+                                                                  `amount`, `fee`, `decimal`, `address`, `memo`, 
+                                                                  `payer`, `time_insert`, `user_server`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                                        await cur.execute(sql, (
+                                                        coin_name, user_id, tx_hash, height, blockTime, amount, fee,
+                                                        coin_decimal, each_payment['payee'], memo, payer, int(time.time()),
+                                                        user_memo['user_server'] if user_memo else None))
+                                                        await conn.commit()
+                                            except Exception:
+                                                traceback.print_exc(file=sys.stdout)
+                                                await logchanbot("wallet update_balance_hnt " + str(traceback.format_exc()))
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
             except asyncio.TimeoutError:
                 print('TIMEOUT: COIN: {} - timeout {}'.format(coin_name, timeout))
             except Exception:
@@ -11713,6 +11637,174 @@ when using this bot and any funds lost, mis-used or stolen in using this bot. Ti
                 await ctx.edit_original_message(content=f"{ctx.author.mention}, last expense of {coin_name}:\n{list_tx_str}")
         except Exception:
             traceback.print_exc(file=sys.stdout)
+
+
+    async def cog_load(self):
+        await self.bot.wait_until_ready()
+
+        self.notify_new_tx_user_noconfirmation.start()
+        self.notify_new_tx_user.start()
+
+        # nano, banano
+        self.update_balance_nano.start()
+        # TRTL-API
+        self.update_balance_trtl_api.start()
+        # TRTL-SERVICE
+        self.update_balance_trtl_service.start()
+        # XMR
+        self.update_balance_xmr.start()
+        # BTC
+        self.update_balance_btc.start()
+
+        # NEO
+        self.update_balance_neo.start()
+        self.notify_new_confirmed_neo.start()
+
+        # CHIA
+        self.update_balance_chia.start()
+        # ERC-20
+        self.update_balance_erc20.start()
+        self.unlocked_move_pending_erc20.start()
+        self.update_balance_address_history_erc20.start()
+        self.notify_new_confirmed_spendable_erc20.start()
+
+        # TRC-20
+        self.update_balance_trc20.start()
+        self.unlocked_move_pending_trc20.start()
+        self.notify_new_confirmed_spendable_trc20.start()
+
+        # HNT
+        self.update_balance_hnt.start()
+        self.notify_new_confirmed_hnt.start()
+
+        # XLM
+        self.update_balance_xlm.start()
+        self.notify_new_confirmed_xlm.start()
+
+        # VITE
+        self.update_balance_vite.start()
+        self.notify_new_confirmed_vite.start()
+
+        # XTZ
+        self.update_balance_tezos.start()
+        self.check_confirming_tezos.start()
+        self.notify_new_confirmed_tezos.start()
+
+        # ZIL
+        self.update_balance_zil.start()
+        self.check_confirming_zil.start()
+        self.notify_new_confirmed_zil.start()
+
+        # VET
+        self.update_balance_vet.start()
+        self.check_confirming_vet.start()
+        self.notify_new_confirmed_vet.start()
+
+        # NEAR
+        self.update_balance_near.start()
+        self.check_confirming_near.start()
+        self.notify_new_confirmed_near.start()
+
+        # XRP
+        self.update_balance_xrp.start()
+        self.notify_new_confirmed_xrp.start()
+
+        # update ada wallet sync status
+        self.update_ada_wallets_sync.start()
+        self.notify_new_confirmed_ada.start()
+
+        # update sol wallet sync status
+        self.update_sol_wallets_sync.start()
+        self.unlocked_move_pending_sol.start()
+
+        # monitoring reward for RT
+        self.monitoring_rt_rewards.start()
+
+        # Monitoring Tweet command
+        self.monitoring_tweet_command.start()
+        self.monitoring_tweet_mentioned_command.start()
+
+
+    def cog_unload(self):
+        # Ensure the task is stopped when the cog is unloaded.
+        # nano, banano
+        self.update_balance_nano.stop()
+        # TRTL-API
+        self.update_balance_trtl_api.stop()
+        # TRTL-SERVICE
+        self.update_balance_trtl_service.stop()
+        # XMR
+        self.update_balance_xmr.stop()
+        # BTC
+        self.update_balance_btc.stop()
+
+        # NEO
+        self.update_balance_neo.stop()
+        self.notify_new_confirmed_neo.stop()
+
+        # CHIA
+        self.update_balance_chia.stop()
+        # ERC-20
+        self.update_balance_erc20.stop()
+        self.unlocked_move_pending_erc20.stop()
+        self.update_balance_address_history_erc20.stop()
+        self.notify_new_confirmed_spendable_erc20.stop()
+
+        # TRC-20
+        self.update_balance_trc20.stop()
+        self.unlocked_move_pending_trc20.stop()
+        self.notify_new_confirmed_spendable_trc20.stop()
+
+        # HNT
+        self.update_balance_hnt.stop()
+        self.notify_new_confirmed_hnt.stop()
+
+        # XLM
+        self.update_balance_xlm.stop()
+        self.notify_new_confirmed_xlm.stop()
+
+        # VITE
+        self.update_balance_vite.stop()
+        self.notify_new_confirmed_vite.stop()
+
+        # XTZ
+        self.update_balance_tezos.stop()
+        self.check_confirming_tezos.stop()
+        self.notify_new_confirmed_tezos.stop()
+
+        # ZIL
+        self.update_balance_zil.stop()
+        self.check_confirming_zil.stop()
+        self.notify_new_confirmed_zil.stop()
+
+        # VET
+        self.update_balance_vet.stop()
+        self.check_confirming_vet.stop()
+        self.notify_new_confirmed_vet.stop()
+
+        # NEAR
+        self.update_balance_near.stop()
+        self.check_confirming_near.stop()
+        self.notify_new_confirmed_near.stop()
+
+        # XRP
+        self.update_balance_xrp.stop()
+        self.notify_new_confirmed_xrp.stop()
+
+        # update ada wallet sync status
+        self.update_ada_wallets_sync.stop()
+        self.notify_new_confirmed_ada.stop()
+
+        # update sol wallet sync status
+        self.update_sol_wallets_sync.stop()
+        self.unlocked_move_pending_sol.stop()
+
+        # monitoring reward for RT
+        self.monitoring_rt_rewards.stop()
+
+        # Monitoring Tweet command
+        self.monitoring_tweet_command.stop()
+        self.monitoring_tweet_mentioned_command.stop()
 
 
 def setup(bot):

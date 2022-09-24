@@ -82,7 +82,7 @@ class PartyDrop(commands.Cog):
         self.party_cache = TTLCache(maxsize=2000, ttl=60.0) # if previous value and new value the same, no need to edit
         self.wallet_api = WalletAPI(self.bot)
         self.utils = Utils(self.bot)
-        self.party_check.start()
+
 
     @tasks.loop(seconds=30.0)
     async def party_check(self):
@@ -538,6 +538,16 @@ class PartyDrop(commands.Cog):
         duration: str
     ):
         await self.async_partydrop(ctx, min_amount, sponsor_amount, token, duration)
+
+
+    async def cog_load(self):
+        await self.bot.wait_until_ready()
+        self.party_check.start()
+
+
+    def cog_unload(self):
+        # Ensure the task is stopped when the cog is unloaded.
+        self.party_check.stop()
 
 
 def setup(bot):

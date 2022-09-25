@@ -1481,7 +1481,7 @@ class MemePls(commands.Cog):
                     embed.set_image(url=self.meme_web_path + each['saved_name'])
                     embed.set_footer(text="Your navigation button!")
                     all_pages.append(embed)
-                view = MenuPage(ctx, all_pages, timeout=60)
+                view = MenuPage(ctx, all_pages, timeout=60, disable_remove=True)
                 view.message = await ctx.edit_original_message(content=None, embed=all_pages[0], view=view)
         except Exception:
             traceback.print_exc(file=sys.stdout)

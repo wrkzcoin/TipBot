@@ -26,6 +26,9 @@ from disnake.enums import ButtonStyle
 from disnake.ext import commands
 from disnake.ext.commands import AutoShardedBot, when_mentioned
 
+# cache
+from cachetools import TTLCache
+
 import store
 from config import config
 # linedraw
@@ -181,6 +184,8 @@ bot.erc_node_list = {
     "ONE": config.default_endpoints.one
 }
 bot.commandings = []
+bot.user_balance_cache = TTLCache(maxsize=20480, ttl=120.0) # userid_coin
+
 
 @bot.command(usage="load <cog>")
 @disnake.ext.commands.is_owner()

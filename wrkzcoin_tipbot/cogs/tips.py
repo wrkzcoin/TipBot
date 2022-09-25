@@ -170,6 +170,17 @@ class FreeTip_Button(disnake.ui.View):
                                 actual_spending_usd = " ~ {:,.4f} USD".format(amount_in_usd * len(attend_list_id))
 
                     try:
+                        try:
+                            key_coin = get_freetip['from_userid'] + "_" + coin_name + "_" + SERVER_BOT
+                            if key_coin in self.bot.user_balance_cache:
+                                del self.bot.user_balance_cache[key_coin]
+
+                            for each in attend_list_id:
+                                key_coin = each + "_" + coin_name + "_" + SERVER_BOT
+                                if key_coin in self.bot.user_balance_cache:
+                                    del self.bot.user_balance_cache[key_coin]
+                        except Exception:
+                            pass
                         tips = await store.sql_user_balance_mv_multiple(get_freetip['from_userid'], attend_list_id,
                                                                         get_freetip['guild_id'],
                                                                         get_freetip['channel_id'], float(amountDiv),
@@ -766,6 +777,16 @@ class Tips(commands.Cog):
                                                                   SERVER_BOT, 0)
 
             try:
+                try:
+                    key_coin = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
+                    if key_coin in self.bot.user_balance_cache:
+                        del self.bot.user_balance_cache[key_coin]
+
+                    key_coin = str(rand_user.id) + "_" + coin_name + "_" + SERVER_BOT
+                    if key_coin in self.bot.user_balance_cache:
+                        del self.bot.user_balance_cache[key_coin]
+                except Exception:
+                    pass
                 tip = await store.sql_user_balance_mv_single(str(ctx.author.id), str(rand_user.id), str(ctx.guild.id),
                                                              str(ctx.channel.id), amount, coin_name, "RANDTIP",
                                                              coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
@@ -1311,6 +1332,17 @@ class Tips(commands.Cog):
         if ctx.author.id not in self.bot.TX_IN_PROCESS:
             self.bot.TX_IN_PROCESS.append(ctx.author.id)
             try:
+                try:
+                    key_coin = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
+                    if key_coin in self.bot.user_balance_cache:
+                        del self.bot.user_balance_cache[key_coin]
+
+                    for each in memids:
+                        key_coin = each + "_" + coin_name + "_" + SERVER_BOT
+                        if key_coin in self.bot.user_balance_cache:
+                            del self.bot.user_balance_cache[key_coin]
+                except Exception:
+                    pass
                 tips = await store.sql_user_balance_mv_multiple(str(ctx.author.id), memids, str(ctx.guild.id),
                                                                 str(ctx.channel.id), float(amountDiv), coin_name,
                                                                 "TIPALL", coin_decimal, SERVER_BOT, contract,
@@ -2226,6 +2258,17 @@ class Tips(commands.Cog):
                         self.bot.TX_IN_PROCESS.append(ctx.author.id)
                     for k, v in list_amount_and_tokens.items():
                         try:
+                            try:
+                                key_coin = str(ctx.author.id) + "_" + k + "_" + SERVER_BOT
+                                if key_coin in self.bot.user_balance_cache:
+                                    del self.bot.user_balance_cache[key_coin]
+
+                                for each in list_member_ids:
+                                    key_coin = each + "_" + k + "_" + SERVER_BOT
+                                    if key_coin in self.bot.user_balance_cache:
+                                        del self.bot.user_balance_cache[key_coin]
+                            except Exception:
+                                pass
                             tips = await store.sql_user_balance_mv_multiple(str(ctx.author.id), list_member_ids,
                                                                             str(ctx.guild.id), str(ctx.channel.id), v,
                                                                             k, tip_type, list_coin_decimal[k],
@@ -2470,6 +2513,18 @@ class Tips(commands.Cog):
                 tip_type = "TIPS"
             if int(id_tipper) not in self.bot.TX_IN_PROCESS:
                 self.bot.TX_IN_PROCESS.append(int(id_tipper))
+
+            try:
+                key_coin = id_tipper + "_" + coin_name + "_" + SERVER_BOT
+                if key_coin in self.bot.user_balance_cache:
+                    del self.bot.user_balance_cache[key_coin]
+
+                for each in memids:
+                    key_coin = each + "_" + coin_name + "_" + SERVER_BOT
+                    if key_coin in self.bot.user_balance_cache:
+                        del self.bot.user_balance_cache[key_coin]
+            except Exception:
+                pass
             tips = await store.sql_user_balance_mv_multiple(id_tipper, memids, str(ctx.guild.id), str(ctx.channel.id),
                                                             amount, coin_name, tip_type, coin_decimal, SERVER_BOT,
                                                             contract, float(amount_in_usd),
@@ -2722,6 +2777,17 @@ class Tips(commands.Cog):
         try:
             if int(id_tipper) not in self.bot.TX_IN_PROCESS:
                 self.bot.TX_IN_PROCESS.append(int(id_tipper))
+            try:
+                key_coin = id_tipper + "_" + coin_name + "_" + SERVER_BOT
+                if key_coin in self.bot.user_balance_cache:
+                    del self.bot.user_balance_cache[key_coin]
+
+                for each in list_receivers:
+                    key_coin = each + "_" + coin_name + "_" + SERVER_BOT
+                    if key_coin in self.bot.user_balance_cache:
+                        del self.bot.user_balance_cache[key_coin]
+            except Exception:
+                pass
             tiptalk = await store.sql_user_balance_mv_multiple(id_tipper, list_receivers, str(ctx.guild.id),
                                                                str(ctx.channel.id), amount, coin_name, "TIPTALK",
                                                                coin_decimal, SERVER_BOT, contract, float(amount_in_usd),

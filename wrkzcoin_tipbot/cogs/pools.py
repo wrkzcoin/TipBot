@@ -103,7 +103,7 @@ class Pools(commands.Cog):
             try:
                 redis_utils.openRedis()
                 try:
-                    link = config.miningpoolstat.coinapi.replace("coin_name", coin.lower())
+                    link = config.miningpoolstat.coinapi.replace("COIN_NAME", coin.lower())
                     print(f"Fetching {link}")
                     async with aiohttp.ClientSession() as cs:
                         async with cs.get(link, timeout=config.miningpoolstat.timeout) as r:
@@ -170,7 +170,7 @@ class Pools(commands.Cog):
                         self.bot.MINGPOOLSTAT_IN_PROCESS.append(ctx.author.id)
                     else:
                         await ctx.edit_original_message(
-                            content=f'{ctx.author.mention} You have another check of pools stats in progress.')
+                            content=f'{ctx.author.mention}, you have another check of pools stats in progress.')
                         return
                     try:
                         get_pool_data = await self.get_miningpoolstat_coin(coin_name)
@@ -262,7 +262,7 @@ class Pools(commands.Cog):
                                 if num_pool == 0 or num_pool % pool_nos_per_page == 0:
                                     pool_links = ''
                                     page = disnake.Embed(title='Mining Pools for {}'.format(coin_name), description='',
-                                                         timestamp=datetime.now(), colour=7047495)
+                                                         timestamp=datetime.now())
                                     if 'symbol' in get_pool_data:
                                         page.add_field(name="Ticker", value=get_pool_data['symbol'], inline=True)
                                     if 'algo' in get_pool_data:
@@ -308,7 +308,7 @@ class Pools(commands.Cog):
                                     if num_pool < len(pool_list):
                                         pool_links = ''
                                         page = disnake.Embed(title='Mining Pools for {}'.format(coin_name),
-                                                             description='', timestamp=datetime.now(), colour=7047495)
+                                                             description='', timestamp=datetime.now())
                                         if 'symbol' in get_pool_data:
                                             page.add_field(name="Ticker", value=get_pool_data['symbol'], inline=True)
                                         if 'algo' in get_pool_data:
@@ -318,18 +318,6 @@ class Pools(commands.Cog):
                                                            value=self.hhashes(get_pool_data['hashrate']), inline=True)
                                         page.set_footer(
                                             text=f"Data from https://miningpoolstats.stream | Requested by: {ctx.author.name}#{ctx.author.discriminator}")
-                                    else:
-                                        page.add_field(name="Pool List", value=pool_links)
-                                        page.add_field(name="OTHER LINKS",
-                                                       value="{} / [Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(
-                                                           "[More pools](https://miningpoolstats.stream/{})".format(
-                                                               coin_name.lower()), config.discord.invite_link,
-                                                           config.discord.support_server_link,
-                                                           config.discord.github_link), inline=False)
-                                        page.set_footer(
-                                            text=f"Data from https://miningpoolstats.stream | Requested by: {ctx.author.name}#{ctx.author.discriminator}")
-                                        all_pages.append(page)
-                                        break
                                 elif num_pool == len(pool_list):
                                     page.add_field(name="Pool List", value=pool_links)
                                     page.add_field(name="OTHER LINKS",
@@ -343,7 +331,7 @@ class Pools(commands.Cog):
                                     all_pages.append(page)
                                     break
                             try:
-                                view = MenuPage(ctx, all_pages, timeout=30)
+                                view = MenuPage(ctx, all_pages, timeout=30, disable_remove=True)
                                 view.message = await ctx.edit_original_message(content=None, embed=all_pages[0], view=view)
                                 await self.sql_miningpoolstat_fetch(coin_name, str(ctx.author.id),
                                                                     '{}#{}'.format(ctx.author.name,

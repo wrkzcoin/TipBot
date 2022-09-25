@@ -217,6 +217,19 @@ class Guild(commands.Cog):
                                             continue
                                         # add to DB
                                         await self.insert_new_activedrop_guild( each_drop['serverid'], get_guild.name, each_drop['tiptalk_channel'], coin_name, coin_decimal, each_drop['tiptalk_amount'], each_drop['tiptalk_amount']/len(list_receivers), len(list_receivers), json.dumps(list_receivers), json.dumps(list_receiver_names), int(time.time()) )
+
+                                        try:
+                                            key_coin = each_drop['serverid'] + "_" + coin_name + "_" + SERVER_BOT
+                                            if key_coin in self.bot.user_balance_cache:
+                                                del self.bot.user_balance_cache[key_coin]
+
+                                            for each in list_receivers:
+                                                key_coin = each + "_" + coin_name + "_" + SERVER_BOT
+                                                if key_coin in self.bot.user_balance_cache:
+                                                    del self.bot.user_balance_cache[key_coin]
+                                        except Exception:
+                                            pass
+
                                         tiptalk = await store.sql_user_balance_mv_multiple( each_drop['serverid'], list_receivers, each_drop['serverid'], each_drop['tiptalk_channel'], each_drop['tiptalk_amount']/len(list_receivers), coin_name, "TIPTALK", coin_decimal, SERVER_BOT, contract, float(amount_in_usd), None )
                                         list_mentioned = [f"<@{each}>" for each in list_receivers]
                                         msg = ", ".join(list_mentioned) + f" active talker(s) in the last {lap_str}."
@@ -1399,7 +1412,7 @@ class Guild(commands.Cog):
             else:
                 view = None
                 try:
-                    view = MenuPage(ctx, all_pages, timeout=30)
+                    view = MenuPage(ctx, all_pages, timeout=30, disable_remove=False)
                     view.message = await ctx.edit_original_message(content=None, embed=all_pages[0], view=view)
                 except Exception:
                     msg = f'{ctx.author.mention}, internal error when checking /guild balance. Try again later. If problem still persists, contact TipBot dev.'
@@ -1672,6 +1685,16 @@ class Guild(commands.Cog):
             else:
                 self.bot.TX_IN_PROCESS.append(ctx.author.id)
                 try:
+                    try:
+                        key_coin = str(ctx.guild.id) + "_" + coin_name + "_" + SERVER_BOT
+                        if key_coin in self.bot.user_balance_cache:
+                            del self.bot.user_balance_cache[key_coin]
+
+                        key_coin = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
+                        if key_coin in self.bot.user_balance_cache:
+                            del self.bot.user_balance_cache[key_coin]
+                    except Exception:
+                        pass
                     tip = await store.sql_user_balance_mv_single(str(ctx.author.id), str(ctx.guild.id), str(ctx.guild.id), str(ctx.channel.id), amount, coin_name, 'GUILDDEPOSIT', coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
                     if tip:
                         try:
@@ -2725,6 +2748,16 @@ class Guild(commands.Cog):
                     if ctx.guild.id not in self.bot.TX_IN_PROCESS:
                         self.bot.TX_IN_PROCESS.append(ctx.guild.id)
                         try:
+                            try:
+                                key_coin = str(ctx.guild.id) + "_" + coin_name + "_" + SERVER_BOT
+                                if key_coin in self.bot.user_balance_cache:
+                                    del self.bot.user_balance_cache[key_coin]
+
+                                key_coin = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
+                                if key_coin in self.bot.user_balance_cache:
+                                    del self.bot.user_balance_cache[key_coin]
+                            except Exception:
+                                pass
                             tip = await store.sql_user_balance_mv_single(str(ctx.guild.id), str(ctx.author.id), str(ctx.guild.id), str(ctx.channel.id), amount + extra_amount, coin_name, 'GUILDFAUCET', coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
                             if tip:
                                 extra_msg = ""

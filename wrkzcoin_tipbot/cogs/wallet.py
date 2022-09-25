@@ -886,6 +886,13 @@ class WalletAPI(commands.Cog):
         # address: TRTL/BCN/XMR = paymentId
         token_name = coin.upper()
         user_server = user_server.upper()
+
+        key = user_id + "_" + coin + "_" + user_server
+        try:
+            if key in self.bot.user_balance_cache:
+                return self.bot.user_balance_cache[key]
+        except Exception:
+            pass
         if top_block is None:
             # If we can not get top block, confirm after 20mn. This is second not number of block
             nos_block = 20 * 60
@@ -1332,6 +1339,10 @@ class WalletAPI(commands.Cog):
                         await logchanbot(msg_negative)
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
+                try:
+                    self.bot.user_balance_cache[key] = balance
+                except Exception:
+                    pass
                 return balance
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -4045,6 +4056,12 @@ class Wallet(commands.Cog):
                                             list_receivers = json.loads(each_resp['user_mentions_list'])
                                             list_users = []
                                             for each_u in list_receivers:
+                                                try:
+                                                    key_coin = each_u['id_str'] + "_" + coin_name + "_" + "TWITTER"
+                                                    if key_coin in self.bot.user_balance_cache:
+                                                        del self.bot.user_balance_cache[key_coin]
+                                                except Exception:
+                                                    pass
                                                 if each_u['id_str'] not in ["1343104498722467845", str(
                                                         each_resp['twitter_user_id'])]:  # BotTipsTweet, twitter user
                                                     list_users.append(each_u['id_str'])
@@ -4954,6 +4971,18 @@ class Wallet(commands.Cog):
                                                 except Exception:
                                                     traceback.print_exc(file=sys.stdout)
                                                     continue
+
+                                                try:
+                                                    key_coin = each_reward['guild_id'] + "_" + coin_name + "_" + "TWITTER"
+                                                    if key_coin in self.bot.user_balance_cache:
+                                                        del self.bot.user_balance_cache[key_coin]
+
+                                                    key_coin = each_discord_user + "_" + coin_name + "_" + "TWITTER"
+                                                    if key_coin in self.bot.user_balance_cache:
+                                                        del self.bot.user_balance_cache[key_coin]
+                                                except Exception:
+                                                    pass
+
                                                 tip = await store.sql_user_balance_mv_single(each_reward['guild_id'],
                                                                                              each_discord_user,
                                                                                              "TWITTER", "TWITTER",
@@ -9273,6 +9302,14 @@ class Wallet(commands.Cog):
 
     # Balances
     async def async_balances(self, ctx, tokens: str = None):
+        await ctx.response.send_message(f"{ctx.author.mention} balance loading...", ephemeral=True)
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/balances", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         coin_name = None
         mytokens = []
         zero_tokens = []
@@ -9303,7 +9340,7 @@ class Wallet(commands.Cog):
 
         if len(mytokens) == 0:
             msg = f'{ctx.author.mention}, no token or not exist.'
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
         else:
             total_all_balance_usd = 0.0
@@ -9336,14 +9373,6 @@ class Wallet(commands.Cog):
                     per_page = 10
             except Exception:
                 pass
-            await ctx.response.send_message(f"{ctx.author.mention} balance loading...", ephemeral=True)
-
-            try:
-                self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
-                                             str(ctx.author.id), SERVER_BOT, "/balances", int(time.time())))
-                await self.utils.add_command_calls()
-            except Exception:
-                traceback.print_exc(file=sys.stdout)
 
             bstart = time.time()
             for each_token in mytokens:
@@ -9461,7 +9490,7 @@ class Wallet(commands.Cog):
                 page.set_footer(text="Use the reactions to flip pages.")
                 all_pages[0] = page
                 try:
-                    view = MenuPage(ctx, all_pages, timeout=30)
+                    view = MenuPage(ctx, all_pages, timeout=30, disable_remove=True)
                     view.message = await ctx.edit_original_message(content=None, embed=all_pages[0], view=view)
                     if int(time.time()) - start_time > 5:
                         await logchanbot(f"[LAG] /balances lagging very long with {ctx.author.name}#{ctx.author.discriminator}. Time taken {str(int(time.time()) - start_time)}s.")
@@ -10778,6 +10807,18 @@ class Wallet(commands.Cog):
                         per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
                     if per_unit and per_unit > 0:
                         amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
+
+                try:
+                    key_coin = str(self.bot.user.id) + "_" + coin_name + "_" + SERVER_BOT
+                    if key_coin in self.bot.user_balance_cache:
+                        del self.bot.user_balance_cache[key_coin]
+
+                    key_coin = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
+                    if key_coin in self.bot.user_balance_cache:
+                        del self.bot.user_balance_cache[key_coin]
+                except Exception:
+                    pass
+
                 tip = await store.sql_user_balance_mv_single(str(self.bot.user.id), str(ctx.author.id),
                                                              str(ctx.guild.id), str(ctx.channel.id), amount, coin_name,
                                                              "FAUCET", coin_decimal, SERVER_BOT, contract,
@@ -10972,6 +11013,17 @@ class Wallet(commands.Cog):
         if ctx.author.id not in self.bot.TX_IN_PROCESS:
             self.bot.TX_IN_PROCESS.append(ctx.author.id)
             try:
+                try:
+                    key_coin = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
+                    if key_coin in self.bot.user_balance_cache:
+                        del self.bot.user_balance_cache[key_coin]
+
+                    key_coin = str(self.donate_to) + "_" + coin_name + "_" + SERVER_BOT
+                    if key_coin in self.bot.user_balance_cache:
+                        del self.bot.user_balance_cache[key_coin]
+                except Exception:
+                    pass
+
                 donate = await store.sql_user_balance_mv_single(str(ctx.author.id), str(self.donate_to), "DONATE",
                                                                 "DONATE", amount, coin_name, "DONATE", coin_decimal,
                                                                 SERVER_BOT, contract, amount_in_usd, None)

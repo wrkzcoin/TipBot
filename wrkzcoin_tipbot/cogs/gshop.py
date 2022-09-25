@@ -18,7 +18,6 @@ from Bot import get_token_list, num_format_coin, logchanbot, EMOJI_ZIPPED_MOUTH,
     EMOJI_ARROW_RIGHTHOOK, SERVER_BOT, RowButtonCloseMessage, RowButtonRowCloseAnyMessage, human_format, \
     text_to_num, truncate, seconds_str, EMOJI_HOURGLASS_NOT_DONE, EMOJI_INFORMATION, seconds_str_days
 
-from cogs.utils import MenuPage
 from cogs.wallet import WalletAPI
 from cogs.utils import Utils
 
@@ -546,6 +545,17 @@ class GShop(commands.Cog):
                                     real_amount_usd = float(Decimal(amount) / Decimal(per_unit))
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
+
+                        try:
+                            key_coin = str(ctx.guild.id) + "_" + coin_name + "_" + SERVER_BOT
+                            if key_coin in self.bot.user_balance_cache:
+                                del self.bot.user_balance_cache[key_coin]
+
+                            key_coin = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
+                            if key_coin in self.bot.user_balance_cache:
+                                del self.bot.user_balance_cache[key_coin]
+                        except Exception:
+                            pass
                         move_balance = await store.sql_user_balance_mv_single(str(ctx.author.id), str(ctx.guild.id), str(ctx.guild.id),
                                                                               str(ctx.channel.id), amount, coin_name, "GSHOP",
                                                                               coin_decimal, SERVER_BOT, contract, real_amount_usd, None)

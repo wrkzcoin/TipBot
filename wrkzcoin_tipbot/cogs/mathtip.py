@@ -118,6 +118,17 @@ class MathButton(disnake.ui.View):
             embed.set_footer(text=f"Trivia tip by {owner_displayname}")
 
             if len(answered_msg_id['right_ids']) > 0:
+                try:
+                    key_coin = get_mathtip['from_userid'] + "_" + coin_name + "_" + SERVER_BOT
+                    if key_coin in self.bot.user_balance_cache:
+                        del self.bot.user_balance_cache[key_coin]
+
+                    for each in answered_msg_id['right_ids']:
+                        key_coin = each + "_" + coin_name + "_" + SERVER_BOT
+                        if key_coin in self.bot.user_balance_cache:
+                            del self.bot.user_balance_cache[key_coin]
+                except Exception:
+                    pass
                 trivia_tipping = await store.sql_user_balance_mv_multiple(get_mathtip['from_userid'],
                                                                           answered_msg_id['right_ids'],
                                                                           get_mathtip['guild_id'],

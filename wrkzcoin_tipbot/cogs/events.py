@@ -648,6 +648,16 @@ class Events(commands.Cog):
                                                             str(inter.author.id), "{}#{}".format(inter.author.name, inter.author.discriminator),
                                                             int(time.time()))
                     if quick:
+                        try:
+                            key_coin = get_message['from_userid'] + "_" + get_message['token_name'] + "_" + SERVER_BOT
+                            if key_coin in self.bot.user_balance_cache:
+                                del self.bot.user_balance_cache[key_coin]
+
+                            key_coin = str(inter.author.id) + "_" + get_message['token_name'] + "_" + SERVER_BOT
+                            if key_coin in self.bot.user_balance_cache:
+                                del self.bot.user_balance_cache[key_coin]
+                        except Exception:
+                            pass
                         tip = await store.sql_user_balance_mv_single(get_message['from_userid'], str(inter.author.id), get_message['guild_id'],
                                                                      get_message['channel_id'], get_message['real_amount'], 
                                                                      get_message['token_name'], "QUICKDROP",

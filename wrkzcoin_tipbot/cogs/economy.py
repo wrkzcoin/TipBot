@@ -2928,7 +2928,16 @@ class Economy(commands.Cog):
                                             per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
                                         if per_unit and per_unit > 0:
                                             amount_in_usd = float(Decimal(per_unit) * Decimal(get_last_act['reward_amount']))
+                                    try:
+                                        key_coin = get_last_act['guild_id'] + "_" + coin_name + "_" + SERVER_BOT
+                                        if key_coin in self.bot.user_balance_cache:
+                                            del self.bot.user_balance_cache[key_coin]
 
+                                        key_coin = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
+                                        if key_coin in self.bot.user_balance_cache:
+                                            del self.bot.user_balance_cache[key_coin]
+                                    except Exception:
+                                        pass
                                     reward = await store.sql_user_balance_mv_single(get_last_act['guild_id'], str(ctx.author.id), str(ctx.guild.id), str(ctx.channel.id), get_last_act['reward_amount'], coin_name, 'ECONOMY', coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
                                     await ctx.edit_original_message(content=f'{EMOJI_INFORMATION} {ctx.author.mention} ```{completed_task}```')
                                 else:

@@ -9,7 +9,6 @@ from disnake.enums import OptionType
 from disnake.app_commands import Option
 
 from Bot import logchanbot, SERVER_BOT
-from cogs.utils import MenuPage
 from cogs.utils import Utils
 
 

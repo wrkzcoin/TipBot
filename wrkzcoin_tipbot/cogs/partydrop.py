@@ -156,6 +156,17 @@ class PartyDrop(commands.Cog):
                                 # Update balance
                                 mv_partydrop = await store.sql_user_balance_mv_multple_amount(user_tos, "PARTYDROP", SERVER_BOT)
                                 if mv_partydrop is True:
+                                    try:
+                                        key_coin = str(self.bot.user.id) + "_" + coin_name + "_" + SERVER_BOT
+                                        if key_coin in self.bot.user_balance_cache:
+                                            del self.bot.user_balance_cache[key_coin]
+
+                                        for each in all_name_list:
+                                            key_coin = each + "_" + coin_name + "_" + SERVER_BOT
+                                            if key_coin in self.bot.user_balance_cache:
+                                                del self.bot.user_balance_cache[key_coin]
+                                    except Exception:
+                                        pass
                                     party = await store.sql_user_balance_mv_multiple(str(self.bot.user.id), all_name_list, get_message['guild_id'], get_message['channel_id'], indiv_amount, coin_name, "PARTYDROP", coin_decimal, SERVER_BOT, get_message['contract'], float(amount_in_usd), None)
                                     if party is True:
                                         await store.update_party_id(each_party['message_id'], "COMPLETED" if len(attend_list) > 0 else "NOCOLLECT")

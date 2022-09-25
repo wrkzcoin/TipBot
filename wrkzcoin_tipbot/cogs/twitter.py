@@ -539,7 +539,7 @@ class Twitter(commands.Cog):
                                             traceback.print_exc(file=sys.stdout)
                                         try:
                                             msg = await channel.send(embed=embed)
-                                            await logchanbot("[TWITTER] - Posted to guild {} / channel {}:```{}```".format(
+                                            await logchanbot("[TWITTER] - Posted to guild {} / channel {}:{}".format(
                                                 each_tw['guild_id'], each_tw['push_to_channel_id'], each_t['full_text']))
                                             if msg:
                                                 added = await self.add_posted(each_tw['guild_id'], each_tw['subscribe_to'],
@@ -548,7 +548,7 @@ class Twitter(commands.Cog):
                                                 await asyncio.sleep(2.0)
                                         except Exception:
                                             traceback.print_exc(file=sys.stdout)
-                                            await logchanbot("[TWITTER] - Failed to post to guild {} / channel {}:```{}```".format(
+                                            await logchanbot("[TWITTER] - Failed to post to guild {} / channel {}:{}".format(
                                                 each_tw['guild_id'], each_tw['push_to_channel_id'], each_t['full_text']))
                                     else:
                                         await logchanbot(
@@ -1413,6 +1413,17 @@ class Twitter(commands.Cog):
                         if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
                             guild_id = str(ctx.guild.id)
                             channel_id = str(ctx.channel.id)
+
+                        try:
+                            key_coin = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
+                            if key_coin in self.bot.user_balance_cache:
+                                del self.bot.user_balance_cache[key_coin]
+
+                            key_coin = get_user['discord_user_id'] + "_" + coin_name + "_" + SERVER_BOT
+                            if key_coin in self.bot.user_balance_cache:
+                                del self.bot.user_balance_cache[key_coin]
+                        except Exception:
+                            pass
                         tip = await store.sql_user_balance_mv_single(str(ctx.author.id), get_user['discord_user_id'],
                                                                      guild_id, channel_id, amount, coin_name,
                                                                      "TWITTERTIP", coin_decimal, SERVER_BOT, contract,
@@ -1616,7 +1627,7 @@ class Twitter(commands.Cog):
                                  color=disnake.Color.blue(),
                                  timestamp=datetime.fromtimestamp(int(time.time())), )
             page.add_field(name="Coin/Tokens: [{}]".format(len(all_names)),
-                           value="```" + ", ".join(all_names) + "```", inline=False)
+                           value=", ".join(all_names), inline=False)
             page.set_thumbnail(url=ctx.author.display_avatar)
             page.set_footer(text="Use the reactions to flip pages.")
             all_pages.append(page)
@@ -1687,8 +1698,9 @@ class Twitter(commands.Cog):
                             elif total_in_usd >= 0.0001:
                                 equivalent_usd = " ~ {:,.4f}$".format(total_in_usd)
 
-                    page.add_field(name="{}{}".format(token_display, equivalent_usd), value="```{}```".format(
-                        num_format_coin(total_balance, coin_name, coin_decimal, False)), inline=True)
+                    page.add_field(name="{}{}".format(token_display, equivalent_usd),
+                                   value=num_format_coin(total_balance, coin_name, coin_decimal, False),
+                                   inline=True)
                     num_coins += 1
                     if num_coins > 0 and num_coins % per_page == 0:
                         all_pages.append(page)
@@ -1729,16 +1741,16 @@ class Twitter(commands.Cog):
             else:
                 all_names = [each for each in all_names if each not in zero_tokens]
                 page.add_field(name="Coin/Tokens: [{}]".format(len(all_names)),
-                               value="```" + ", ".join(all_names) + "```", inline=False)
+                               value=", ".join(all_names), inline=False)
                 if len(zero_tokens) > 0:
                     zero_tokens = list(set(zero_tokens))
                     page.add_field(name="Zero Balances: [{}]".format(len(zero_tokens)),
-                                   value="```" + ", ".join(zero_tokens) + "```", inline=False)
+                                   value=", ".join(zero_tokens), inline=False)
                 page.set_thumbnail(url=ctx.author.display_avatar)
                 page.set_footer(text="Use the reactions to flip pages.")
                 all_pages[0] = page
                 try:
-                    view = MenuPage(ctx, all_pages, timeout=30)
+                    view = MenuPage(ctx, all_pages, timeout=30, disable_remove=True)
                     view.message = await ctx.edit_original_message(content=None, embed=all_pages[0], view=view)
                 except Exception:
                     msg = f'{ctx.author.mention}, internal error when checking /twitter balances. Try again later. If problem still persists, contact TipBot dev.'

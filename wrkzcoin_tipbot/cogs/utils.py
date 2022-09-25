@@ -35,7 +35,7 @@ async def get_all_coin_names(
 class MenuPage(disnake.ui.View):
     message: disnake.Message
 
-    def __init__(self, inter, embeds: List[disnake.Embed], timeout: float = 60):
+    def __init__(self, inter, embeds: List[disnake.Embed], timeout: float = 60, disable_remove: bool=False):
         super().__init__(timeout=timeout)
         self.inter = inter
 
@@ -50,7 +50,7 @@ class MenuPage(disnake.ui.View):
 
         self.first_page.disabled = True
 
-        if isinstance(self.inter.channel, disnake.DMChannel):
+        if disable_remove is True:
             self.remove.disabled = True
 
         # Sets the footer of the embeds with their respective page numbers.

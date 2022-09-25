@@ -241,6 +241,17 @@ class TopGGVote(commands.Cog):
                                                         'price_usd']
                                                 if per_unit and per_unit > 0:
                                                     amount_in_usd = float(Decimal(per_unit) * Decimal(amount + extra_amount))
+
+                                            try:
+                                                key_coin = guild_id + "_" + coin_name + "_" + SERVER_BOT
+                                                if key_coin in self.bot.user_balance_cache:
+                                                    del self.bot.user_balance_cache[key_coin]
+
+                                                key_coin = user_vote + "_" + coin_name + "_" + SERVER_BOT
+                                                if key_coin in self.bot.user_balance_cache:
+                                                    del self.bot.user_balance_cache[key_coin]
+                                            except Exception:
+                                                pass
                                             tip = await store.sql_user_balance_mv_single(guild_id, user_vote, "TOPGG",
                                                                                          "VOTE", amount + extra_amount, coin_name,
                                                                                          "GUILDVOTE", coin_decimal,
@@ -424,6 +435,17 @@ class TopGGVote(commands.Cog):
                                                                 if per_unit and per_unit > 0:
                                                                     amount_in_usd = float(
                                                                         Decimal(per_unit) * Decimal(amount))
+
+                                                            try:
+                                                                key_coin = config.discord.bot_id + "_" + coin_name + "_" + SERVER_BOT
+                                                                if key_coin in self.bot.user_balance_cache:
+                                                                    del self.bot.user_balance_cache[key_coin]
+
+                                                                key_coin = user_vote + "_" + coin_name + "_" + SERVER_BOT
+                                                                if key_coin in self.bot.user_balance_cache:
+                                                                    del self.bot.user_balance_cache[key_coin]
+                                                            except Exception:
+                                                                pass
                                                             tip = await store.sql_user_balance_mv_single(
                                                                 config.discord.bot_id, user_vote, "TOPGG", "VOTE",
                                                                 amount, coin_name, "BOTVOTE", coin_decimal, SERVER_BOT,

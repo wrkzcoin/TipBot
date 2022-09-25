@@ -359,6 +359,16 @@ class BlackJackButtons(disnake.ui.View):
                         if per_unit and per_unit > 0:
                             amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                     try:
+                        try:
+                            key_coin = str(self.bot.user.id) + "_" + coin_name + "_" + SERVER_BOT
+                            if key_coin in self.bot.user_balance_cache:
+                                del self.bot.user_balance_cache[key_coin]
+
+                            key_coin = str(interaction.user.id) + "_" + coin_name + "_" + SERVER_BOT
+                            if key_coin in self.bot.user_balance_cache:
+                                del self.bot.user_balance_cache[key_coin]
+                        except Exception:
+                            pass
                         tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(interaction.user.id),
                                                                      str(interaction.guild.id),
                                                                      str(interaction.channel.id), amount, coin_name,
@@ -502,6 +512,16 @@ class BlackJackButtons(disnake.ui.View):
                         if per_unit and per_unit > 0:
                             amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                     try:
+                        try:
+                            key_coin = str(self.bot.user.id) + "_" + coin_name + "_" + SERVER_BOT
+                            if key_coin in self.bot.user_balance_cache:
+                                del self.bot.user_balance_cache[key_coin]
+
+                            key_coin = str(interaction.user.id) + "_" + coin_name + "_" + SERVER_BOT
+                            if key_coin in self.bot.user_balance_cache:
+                                del self.bot.user_balance_cache[key_coin]
+                        except Exception:
+                            pass
                         tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(interaction.user.id),
                                                                      str(interaction.guild.id),
                                                                      str(interaction.channel.id), amount, coin_name,
@@ -641,6 +661,16 @@ class Maze_Buttons(disnake.ui.View):
                         if per_unit and per_unit > 0:
                             amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                     try:
+                        try:
+                            key_coin = str(self.bot.user.id) + "_" + coin_name + "_" + SERVER_BOT
+                            if key_coin in self.bot.user_balance_cache:
+                                del self.bot.user_balance_cache[key_coin]
+
+                            key_coin = str(interaction.user.id) + "_" + coin_name + "_" + SERVER_BOT
+                            if key_coin in self.bot.user_balance_cache:
+                                del self.bot.user_balance_cache[key_coin]
+                        except Exception:
+                            pass
                         tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(interaction.user.id),
                                                                      str(interaction.guild.id),
                                                                      str(interaction.channel.id), amount, coin_name,
@@ -738,6 +768,16 @@ class Maze_Buttons(disnake.ui.View):
                         if per_unit and per_unit > 0:
                             amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                     try:
+                        try:
+                            key_coin = str(self.bot.user.id) + "_" + coin_name + "_" + SERVER_BOT
+                            if key_coin in self.bot.user_balance_cache:
+                                del self.bot.user_balance_cache[key_coin]
+
+                            key_coin = str(interaction.user.id) + "_" + coin_name + "_" + SERVER_BOT
+                            if key_coin in self.bot.user_balance_cache:
+                                del self.bot.user_balance_cache[key_coin]
+                        except Exception:
+                            pass
                         tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(interaction.user.id),
                                                                      str(interaction.guild.id),
                                                                      str(interaction.channel.id), amount, coin_name,
@@ -835,6 +875,16 @@ class Maze_Buttons(disnake.ui.View):
                         if per_unit and per_unit > 0:
                             amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                     try:
+                        try:
+                            key_coin = str(self.bot.user.id) + "_" + coin_name + "_" + SERVER_BOT
+                            if key_coin in self.bot.user_balance_cache:
+                                del self.bot.user_balance_cache[key_coin]
+
+                            key_coin = str(interaction.user.id) + "_" + coin_name + "_" + SERVER_BOT
+                            if key_coin in self.bot.user_balance_cache:
+                                del self.bot.user_balance_cache[key_coin]
+                        except Exception:
+                            pass
                         tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(interaction.user.id),
                                                                      str(interaction.guild.id),
                                                                      str(interaction.channel.id), amount, coin_name,
@@ -932,6 +982,16 @@ class Maze_Buttons(disnake.ui.View):
                         if per_unit and per_unit > 0:
                             amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                     try:
+                        try:
+                            key_coin = str(self.bot.user.id) + "_" + coin_name + "_" + SERVER_BOT
+                            if key_coin in self.bot.user_balance_cache:
+                                del self.bot.user_balance_cache[key_coin]
+
+                            key_coin = str(interaction.user.id) + "_" + coin_name + "_" + SERVER_BOT
+                            if key_coin in self.bot.user_balance_cache:
+                                del self.bot.user_balance_cache[key_coin]
+                        except Exception:
+                            pass
                         tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(interaction.user.id),
                                                                      str(interaction.guild.id),
                                                                      str(interaction.channel.id), amount, coin_name,
@@ -1059,6 +1119,16 @@ class g2048_Buttons(disnake.ui.View):
                     if per_unit and per_unit > 0:
                         amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                 try:
+                    try:
+                        key_coin = str(self.bot.user.id) + "_" + coin_name + "_" + SERVER_BOT
+                        if key_coin in self.bot.user_balance_cache:
+                            del self.bot.user_balance_cache[key_coin]
+
+                        key_coin = str(interaction.user.id) + "_" + coin_name + "_" + SERVER_BOT
+                        if key_coin in self.bot.user_balance_cache:
+                            del self.bot.user_balance_cache[key_coin]
+                    except Exception:
+                        pass
                     tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(interaction.user.id),
                                                                  str(interaction.guild.id), str(interaction.channel.id),
                                                                  amount, coin_name, "GAME", coin_decimal, SERVER_BOT,
@@ -1147,6 +1217,16 @@ class g2048_Buttons(disnake.ui.View):
                     if per_unit and per_unit > 0:
                         amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                 try:
+                    try:
+                        key_coin = str(self.bot.user.id) + "_" + coin_name + "_" + SERVER_BOT
+                        if key_coin in self.bot.user_balance_cache:
+                            del self.bot.user_balance_cache[key_coin]
+
+                        key_coin = str(interaction.user.id) + "_" + coin_name + "_" + SERVER_BOT
+                        if key_coin in self.bot.user_balance_cache:
+                            del self.bot.user_balance_cache[key_coin]
+                    except Exception:
+                        pass
                     tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(interaction.user.id),
                                                                  str(interaction.guild.id), str(interaction.channel.id),
                                                                  amount, coin_name, "GAME", coin_decimal, SERVER_BOT,
@@ -1236,6 +1316,16 @@ class g2048_Buttons(disnake.ui.View):
                     if per_unit and per_unit > 0:
                         amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                 try:
+                    try:
+                        key_coin = str(self.bot.user.id) + "_" + coin_name + "_" + SERVER_BOT
+                        if key_coin in self.bot.user_balance_cache:
+                            del self.bot.user_balance_cache[key_coin]
+
+                        key_coin = str(interaction.user.id) + "_" + coin_name + "_" + SERVER_BOT
+                        if key_coin in self.bot.user_balance_cache:
+                            del self.bot.user_balance_cache[key_coin]
+                    except Exception:
+                        pass
                     tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(interaction.user.id),
                                                                  str(interaction.guild.id), str(interaction.channel.id),
                                                                  amount, coin_name, "GAME", coin_decimal, SERVER_BOT,
@@ -1323,6 +1413,16 @@ class g2048_Buttons(disnake.ui.View):
                     if per_unit and per_unit > 0:
                         amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                 try:
+                    try:
+                        key_coin = str(self.bot.user.id) + "_" + coin_name + "_" + SERVER_BOT
+                        if key_coin in self.bot.user_balance_cache:
+                            del self.bot.user_balance_cache[key_coin]
+
+                        key_coin = str(interaction.user.id) + "_" + coin_name + "_" + SERVER_BOT
+                        if key_coin in self.bot.user_balance_cache:
+                            del self.bot.user_balance_cache[key_coin]
+                    except Exception:
+                        pass
                     tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(interaction.user.id),
                                                                  str(interaction.guild.id), str(interaction.channel.id),
                                                                  amount, coin_name, "GAME", coin_decimal, SERVER_BOT,
@@ -2490,6 +2590,16 @@ class Games(commands.Cog):
                         if per_unit and per_unit > 0:
                             amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                     try:
+                        try:
+                            key_coin = str(self.bot.user.id) + "_" + coin_name + "_" + SERVER_BOT
+                            if key_coin in self.bot.user_balance_cache:
+                                del self.bot.user_balance_cache[key_coin]
+
+                            key_coin = str(ctx.user.id) + "_" + coin_name + "_" + SERVER_BOT
+                            if key_coin in self.bot.user_balance_cache:
+                                del self.bot.user_balance_cache[key_coin]
+                        except Exception:
+                            pass
                         tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(ctx.user.id),
                                                                      str(ctx.guild.id), str(ctx.channel.id), amount,
                                                                      coin_name, "GAME", coin_decimal, SERVER_BOT,
@@ -2717,6 +2827,16 @@ class Games(commands.Cog):
                                         if per_unit and per_unit > 0:
                                             amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                                     try:
+                                        try:
+                                            key_coin = str(self.bot.user.id) + "_" + coin_name + "_" + SERVER_BOT
+                                            if key_coin in self.bot.user_balance_cache:
+                                                del self.bot.user_balance_cache[key_coin]
+
+                                            key_coin = str(ctx.user.id) + "_" + coin_name + "_" + SERVER_BOT
+                                            if key_coin in self.bot.user_balance_cache:
+                                                del self.bot.user_balance_cache[key_coin]
+                                        except Exception:
+                                            pass
                                         tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(ctx.user.id),
                                                                                      str(ctx.guild.id),
                                                                                      str(ctx.channel.id), amount,

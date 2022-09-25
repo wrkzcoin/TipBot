@@ -736,6 +736,24 @@ class Trade(commands.Cog):
                         await ctx.edit_original_message(content=msg)
                         return
                     else:
+                        try:
+                            key_coin = str(ctx.author.id) + "_" + get_order_num['coin_get'] + "_" + SERVER_BOT
+                            if key_coin in self.bot.user_balance_cache:
+                                del self.bot.user_balance_cache[key_coin]
+
+                            key_coin = get_order_num['userid_sell'] + "_" + get_order_num['coin_get'] + "_" + SERVER_BOT
+                            if key_coin in self.bot.user_balance_cache:
+                                del self.bot.user_balance_cache[key_coin]
+
+                            key_coin = str(ctx.author.id) + "_" + get_order_num['coin_sell'] + "_" + SERVER_BOT
+                            if key_coin in self.bot.user_balance_cache:
+                                del self.bot.user_balance_cache[key_coin]
+
+                            key_coin = get_order_num['userid_sell'] + "_" + get_order_num['coin_sell'] + "_" + SERVER_BOT
+                            if key_coin in self.bot.user_balance_cache:
+                                del self.bot.user_balance_cache[key_coin]
+                        except Exception:
+                            pass
                         # let's make order update
                         match_order = await store.sql_match_order_by_sellerid(str(ctx.author.id), ref_number,
                                                                               SERVER_BOT,
@@ -918,7 +936,7 @@ class Trade(commands.Cog):
                                                 view=RowButtonRowCloseAnyMessage())
             elif len(all_pages) > 1:
                 await ctx.edit_original_message(content=None, embed=all_pages[0],
-                                                view=MenuPage(ctx, all_pages, timeout=30))
+                                                view=MenuPage(ctx, all_pages, timeout=30, disable_remove=False))
         else:
             no_open = ""
             if coin_pair and len(coin_pair) == 2:

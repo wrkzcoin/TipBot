@@ -1,6 +1,6 @@
 ### TipBot (Work still in progress)
 
-This TipBot's code is not ready to deploy. We keep it here for easily bug tracking.
+This TipBot's code is not ready for deployment. We keep it here for easier bug tracking.
 
 ### Discord
 
@@ -26,7 +26,7 @@ This TipBot's code is not ready to deploy. We keep it here for easily bug tracki
 | VeChain                                                                            	| ✅           	| ✅      	|
 | Vite Protocol                                                                      	| ✅           	| ✅      	|
 
-Refer to <https://coininfo.bot.tips> for all the list.
+Refer to <https://coininfo.bot.tips> for the entire list.
 
 
 ### Help commands
@@ -78,4 +78,4 @@ Refer to <https://coininfo.bot.tips> for all the list.
 * https://bootsnipp.com/snippets/92xNm for template of deposit.bot.tips
 * https://bootsnipp.com/snippets/84kpo for footer of both redeem.bot.tips and deposit.bot.tips
 * https://github.com/jamescoxon/xrb_reddit_tipbot for our starting code for reddit TipBot
-* Coin creators, testers, donors in discord servers.
+* Coin creators, testers, donors on discord servers.

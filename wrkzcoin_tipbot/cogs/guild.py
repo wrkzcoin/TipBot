@@ -1368,13 +1368,6 @@ class Guild(commands.Cog):
             all_pages = []
             num_coins = 0
             per_page = 20
-            # check mutual guild for is_on_mobile
-            try:
-                member = ctx.guild.get_member(ctx.author.id)
-                if member.is_on_mobile() is True:
-                    per_page = 10
-            except Exception:
-                pass
             if total_all_balance_usd >= 0.01:
                 total_all_balance_usd = "Having ~ {:,.2f}$".format(total_all_balance_usd)
             elif total_all_balance_usd >= 0.0001:
@@ -1388,9 +1381,11 @@ class Guild(commands.Cog):
                                          description=f"`{total_all_balance_usd}`",
                                          color=disnake.Color.red(),
                                          timestamp=datetime.fromtimestamp(int(time.time())), )
-                    page.set_thumbnail(url=ctx.author.display_avatar)
+
+                    if ctx.guild.icon:
+                        page.set_thumbnail(url=str(ctx.guild.icon))
                     page.set_footer(text="Use the reactions to flip pages.")
-                page.add_field(name="{}{}".format(k, coin_balance_equivalent_usd[k]), value="```{}```".format(v), inline=True)
+                page.add_field(name="{}{}".format(k, coin_balance_equivalent_usd[k]), value="{}".format(v), inline=True)
                 num_coins += 1
                 if num_coins > 0 and num_coins % per_page == 0:
                     all_pages.append(page)
@@ -1399,7 +1394,8 @@ class Guild(commands.Cog):
                                              description=f"`{total_all_balance_usd}`",
                                              color=disnake.Color.red(),
                                              timestamp=datetime.fromtimestamp(int(time.time())), )
-                        page.set_thumbnail(url=ctx.author.display_avatar)
+                        if ctx.guild.icon:
+                            page.set_thumbnail(url=str(ctx.guild.icon))
                         page.set_footer(text="Use the reactions to flip pages.")
                     else:
                         break
@@ -1412,7 +1408,7 @@ class Guild(commands.Cog):
             else:
                 view = None
                 try:
-                    view = MenuPage(ctx, all_pages, timeout=30, disable_remove=False)
+                    view = MenuPage(ctx, all_pages, timeout=30, disable_remove=True)
                     view.message = await ctx.edit_original_message(content=None, embed=all_pages[0], view=view)
                 except Exception:
                     msg = f'{ctx.author.mention}, internal error when checking /guild balance. Try again later. If problem still persists, contact TipBot dev.'

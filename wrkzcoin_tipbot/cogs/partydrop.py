@@ -151,6 +151,9 @@ class PartyDrop(commands.Cog):
                                             inline=True)
                             try:
                                 channel = self.bot.get_channel(int(get_message['channel_id']))
+                                if channel is None:
+                                    await logchanbot("party_check: can not find channel ID: {}".format(each_party['channel_id']))
+                                    await asyncio.sleep(2.0)
                                 _msg: disnake.Message = await channel.fetch_message(int(each_party['message_id']))
                                 await _msg.edit(content=None, embed=embed, view=None)
                                 # Update balance
@@ -220,18 +223,19 @@ class PartyDrop(commands.Cog):
                                 if channel is None:
                                     await logchanbot("party_check: can not find channel ID: {}".format(each_party['channel_id']))
                                     await asyncio.sleep(2.0)
-                                try:
-                                    _msg: disnake.Message = await channel.fetch_message(int(each_party['message_id']))
-                                    await _msg.edit(content=None, embed=embed)
-                                except disnake.errors.NotFound:
-                                    # add fail check
-                                    turn_off = False
-                                    if each_party['failed_check'] > 3:
-                                        turn_off = True
-                                    await store.update_party_failed(each_party['message_id'], turn_off)
-                                    await logchanbot("party_check: can not find message ID: {} in channel: {}".format(each_party['message_id'], each_party['channel_id']))
-                                except Exception:
-                                    traceback.print_exc(file=sys.stdout)
+                                else:
+                                    try:
+                                        _msg: disnake.Message = await channel.fetch_message(int(each_party['message_id']))
+                                        await _msg.edit(content=None, embed=embed)
+                                    except disnake.errors.NotFound:
+                                        # add fail check
+                                        turn_off = False
+                                        if each_party['failed_check'] > 3:
+                                            turn_off = True
+                                        await store.update_party_failed(each_party['message_id'], turn_off)
+                                        await logchanbot("party_check: can not find message ID: {} in channel: {}".format(each_party['message_id'], each_party['channel_id']))
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
                                 await asyncio.sleep(2.0)
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)

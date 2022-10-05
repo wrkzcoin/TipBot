@@ -3080,7 +3080,9 @@ class WalletAPI(commands.Cog):
             acc = pytezos.using(shell=url, key=key)
             tx_token = token.transfer([dict(from_ = acc.key.public_key_hash(), txs = [ dict(to_ = to_address, amount = atomic_amount, token_id = int(token_id))])]).send()
             return tx_token
+            # adjust gas can be call with: contract.call(...).as_transaction().autofill(fee=123, gas_limit=123, storage_limit=123).sign().inject()
         except Exception:
+            print("[XTZ 2.0] failed to move url: {}, contract {} moving {} to {}".format(url, contract, acc.key.public_key_hash(), to_address))
             traceback.print_exc(file=sys.stdout)
         return None
 
@@ -3091,6 +3093,7 @@ class WalletAPI(commands.Cog):
             tx_token = token.transfer(**{'from': acc.key.public_key_hash(), 'to': to_address, 'value': atomic_amount}).inject()
             return tx_token
         except Exception:
+            print("[XTZ 1.2] failed to move url: {}, contract {} moving {} to {}".format(url, contract, acc.key.public_key_hash(), to_address))
             traceback.print_exc(file=sys.stdout)
         return None
 
@@ -3720,6 +3723,10 @@ class Wallet(commands.Cog):
         self.pool = None
         self.ttlcache = TTLCache(maxsize=1024, ttl=60.0)
         self.mv_xtz_cache = TTLCache(maxsize=1024, ttl=30.0)
+        
+        # cache withdraw of a coin to avoid fast withdraw
+        self.withdraw_tx = TTLCache(maxsize=2048, ttl=60.0) # key = user_id + coin => time
+
 
     async def openConnection(self):
         try:
@@ -7002,7 +7009,7 @@ class Wallet(commands.Cog):
                     for each_address in list_user_addresses:
                         try:
                             get_transfers = await self.wallet_api.call_neo('getnep17transfers', payload=[each_address['balance_wallet_address'], 0])
-                            if 'result' in get_transfers and get_transfers['result'] and 'received' in get_transfers['result'] and get_transfers['result']['received'] and len(get_transfers['result']['received']) > 0:
+                            if get_transfers and 'result' in get_transfers and get_transfers['result'] and 'received' in get_transfers['result'] and get_transfers['result']['received'] and len(get_transfers['result']['received']) > 0:
                                 for each_received in get_transfers['result']['received']:
                                     if each_received['txhash'] not in list_received_in_db and \
                                         each_received['assethash'] in all_neo_asset_hash:
@@ -9534,7 +9541,6 @@ class Wallet(commands.Cog):
             await self.async_balance(ctx, tokens)
         else:
             await self.async_balances(ctx, tokens)
-
     # End of Balance
 
     # Withdraw
@@ -9566,6 +9572,11 @@ class Wallet(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+        if str(ctx.author.id) in self.bot.TX_IN_PROCESS:
+            msg = f'{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress.'
+            await ctx.edit_original_message(content=msg)
+            return
+            
         # remove space from address
         address = address.replace(" ", "")
         try:
@@ -9686,6 +9697,16 @@ class Wallet(commands.Cog):
                     await ctx.edit_original_message(content=msg)
                     return
 
+                try:
+                    key_withdraw = str(ctx.author.id) + "_" + coin_name
+                    if key_withdraw in self.withdraw_tx:
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you recently executed a withdraw of this coin/token **{coin_name}**. Waiting a few seconds more and re-try.'
+                        await ctx.edit_original_message(content=msg)
+                        return
+                    else:
+                        self.withdraw_tx[key_withdraw] = int(time.time())
+                except Exception:
+                    pass
                 equivalent_usd = ""
                 total_in_usd = 0.0
                 per_unit = None
@@ -9703,6 +9724,11 @@ class Wallet(commands.Cog):
                         total_in_usd = float(Decimal(amount) * Decimal(per_unit))
                         if total_in_usd >= 0.0001:
                             equivalent_usd = " ~ {:,.4f} USD".format(total_in_usd)
+
+                if str(ctx.author.id) in self.bot.TX_IN_PROCESS:
+                    msg = f'{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress.'
+                    await ctx.edit_original_message(content=msg)
+                    return
 
                 if type_coin in ["ERC-20"]:
                     # Check address
@@ -9754,7 +9780,6 @@ class Wallet(commands.Cog):
                         await logchanbot(
                             f'[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd}.')
                 elif type_coin in ["TRC-20", "TRC-10"]:
-                    # TODO: validate address
                     send_tx = None
                     if ctx.author.id not in self.bot.TX_IN_PROCESS:
                         self.bot.TX_IN_PROCESS.append(ctx.author.id)
@@ -10565,10 +10590,9 @@ class Wallet(commands.Cog):
         ctx,
         info: str = None
     ):
-        await self.bot_log()
-
         msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing /take ...'
         await ctx.response.send_message(msg)
+        await self.bot_log()
 
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",

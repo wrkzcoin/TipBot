@@ -582,7 +582,14 @@ class Events(commands.Cog):
             try:
                 await inter.message.delete()
             except Exception:
-                traceback.print_exc(file=sys.stdout)
+                # traceback.print_exc(file=sys.stdout)
+                try:
+                    _msg: disnake.Message = await inter.channel.fetch_message(inter.message.id)
+                    await _msg.delete()
+                except (disnake.errors.NotFound, disnake.errors.Forbidden):
+                    return
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
         elif inter.message.author == self.bot.user and inter.component.custom_id == "close_any_message":
             try:
                 await inter.message.delete()
@@ -591,6 +598,8 @@ class Events(commands.Cog):
                 try:
                     _msg: disnake.Message = await inter.channel.fetch_message(inter.message.id)
                     await _msg.delete()
+                except (disnake.errors.NotFound, disnake.errors.Forbidden):
+                    return
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
         elif inter.message.author == self.bot.user and inter.component.custom_id == "close_message":

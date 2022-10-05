@@ -2129,10 +2129,9 @@ class Games(commands.Cog):
         self,
         ctx
     ):
-        await self.bot_log()
-
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, game loading..."
         await ctx.response.send_message(msg)
+        await self.bot_log()
 
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
@@ -2213,10 +2212,9 @@ class Games(commands.Cog):
         self,
         ctx
     ):
-        await self.bot_log()
-
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, game loading..."
         await ctx.response.send_message(msg)
+        await self.bot_log()
 
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
@@ -2353,10 +2351,9 @@ class Games(commands.Cog):
         self,
         ctx
     ):
-        await self.bot_log()
-
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, game loading..."
         await ctx.response.send_message(msg)
+        await self.bot_log()
 
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
@@ -2432,10 +2429,9 @@ class Games(commands.Cog):
         self,
         ctx
     ):
-        await self.bot_log()
-
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, game loading..."
         await ctx.response.send_message(msg)
+        await self.bot_log()
 
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
@@ -2634,10 +2630,9 @@ class Games(commands.Cog):
         ctx,
         bet_numb
     ):
-        await self.bot_log()
-
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, game loading..."
         await ctx.response.send_message(msg)
+        await self.bot_log()
 
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
@@ -2899,10 +2894,9 @@ class Games(commands.Cog):
         self,
         ctx
     ):
-        await self.bot_log()
-
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, game loading..."
         await ctx.response.send_message(msg)
+        await self.bot_log()
 
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
@@ -2979,10 +2973,9 @@ class Games(commands.Cog):
             ctx,
             is_test: bool = False
     ):
-        await self.bot_log()
-
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, game loading..."
         await ctx.response.send_message(msg)
+        await self.bot_log()
 
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
